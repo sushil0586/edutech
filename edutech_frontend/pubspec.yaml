@@ -1,0 +1,30 @@
+name: education_frontend
+description: "EduTech Flutter client foundation."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  dio: ^5.9.0
+  flutter_secure_storage: ^9.2.4
+  flutter_riverpod: ^3.0.3
+  flutter_markdown: ^0.7.7+1
+  flutter_math_fork: ^0.7.4
+  file_picker: ^10.2.0
+  go_router: ^16.0.0
+  google_fonts: ^6.3.2
+  url_launcher: ^6.3.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

@@ -1,0 +1,34 @@
+from django.urls import path
+from rest_framework_simplejwt.views import TokenRefreshView
+
+from apps.accounts.views import (
+    LoginView,
+    MeView,
+    StudentAttemptListView,
+    StudentAvailableExamView,
+    StudentExamDetailView,
+    StudentInsightSummaryView,
+    StudentResultListView,
+    TeacherExamListView,
+    TeacherInsightSummaryView,
+    TeacherQuestionListView,
+    TeacherQuestionPerformanceView,
+    TeacherResultSummaryView,
+)
+
+app_name = "accounts"
+urlpatterns = [
+    path("auth/login/", LoginView.as_view(), name="login"),
+    path("auth/refresh/", TokenRefreshView.as_view(), name="refresh"),
+    path("auth/me/", MeView.as_view(), name="me"),
+    path("student/exams/available/", StudentAvailableExamView.as_view(), name="student-available-exams"),
+    path("student/exams/<uuid:exam_id>/detail/", StudentExamDetailView.as_view(), name="student-exam-detail"),
+    path("student/results/", StudentResultListView.as_view(), name="student-results"),
+    path("student/insights/summary/", StudentInsightSummaryView.as_view(), name="student-insights-summary"),
+    path("student/attempts/", StudentAttemptListView.as_view(), name="student-attempts"),
+    path("teacher/exams/", TeacherExamListView.as_view(), name="teacher-exams"),
+    path("teacher/questions/", TeacherQuestionListView.as_view(), name="teacher-questions"),
+    path("teacher/questions/performance/", TeacherQuestionPerformanceView.as_view(), name="teacher-question-performance"),
+    path("teacher/results/summary/", TeacherResultSummaryView.as_view(), name="teacher-results-summary"),
+    path("teacher/insights/summary/", TeacherInsightSummaryView.as_view(), name="teacher-insights-summary"),
+]

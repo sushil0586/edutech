@@ -1,0 +1,36 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+!.env.production.example
+
+# Django
+staticfiles/
+media/
+db.sqlite3
+
+# Flutter / Dart
+.dart_tool/
+.packages
+.pub/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.flutter-versions
+.pub-cache/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log

@@ -1,0 +1,24 @@
+from rest_framework.throttling import SimpleRateThrottle
+
+
+class _UserOrIpThrottle(SimpleRateThrottle):
+    def get_cache_key(self, request, view):
+        ident = self.get_ident(request)
+        if request.user and request.user.is_authenticated:
+            ident = f"user:{request.user.pk}"
+        return self.cache_format % {
+            "scope": self.scope,
+            "ident": ident,
+        }
+
+
+class LoginRateThrottle(_UserOrIpThrottle):
+    scope = "login"
+
+
+class AttemptSaveAnswerRateThrottle(_UserOrIpThrottle):
+    scope = "attempt_save_answer"
+
+
+class BulkImportRateThrottle(_UserOrIpThrottle):
+    scope = "bulk_import"
