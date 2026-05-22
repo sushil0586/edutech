@@ -1,0 +1,111 @@
+subject,topic,question_type,difficulty_level,question_text,option_1,option_2,option_3,option_4,correct_answer,default_marks,negative_marks,explanation,tags
+Mental Ability,Number Series,mcq_single,beginner,What comes next in the series 2 4 6 8 ?,9,10,11,12,2,1.00,0.00,The pattern adds 2 each time so the next number is 10.,mental-ability|number-series
+Mental Ability,Number Series,mcq_single,beginner,What comes next in the series 5 10 15 20 ?,22,24,25,30,3,1.00,0.00,The pattern adds 5 each time so the next number is 25.,mental-ability|number-series
+Mental Ability,Number Series,mcq_single,beginner,What comes next in the series 1 3 5 7 ?,8,9,10,11,2,1.00,0.00,The pattern adds 2 each time so the next number is 9.,mental-ability|number-series
+Mental Ability,Number Series,mcq_single,beginner,What comes next in the series 10 20 30 40 ?,45,50,55,60,2,1.00,0.00,The pattern adds 10 each time so the next number is 50.,mental-ability|number-series
+Mental Ability,Number Series,mcq_single,beginner,What comes next in the series 3 6 9 12 ?,13,14,15,16,3,1.00,0.00,The pattern adds 3 each time so the next number is 15.,mental-ability|number-series
+Mental Ability,Number Series,mcq_single,beginner,What comes next in the series 12 11 10 9 ?,8,7,6,5,1,1.00,0.00,The pattern subtracts 1 each time so the next number is 8.,mental-ability|number-series
+Mental Ability,Number Series,mcq_single,beginner,What comes next in the series 20 18 16 14 ?,13,12,11,10,2,1.00,0.00,The pattern subtracts 2 each time so the next number is 12.,mental-ability|number-series
+Mental Ability,Number Series,mcq_single,beginner,What comes next in the series 30 27 24 21 ?,20,19,18,17,3,1.00,0.00,The pattern subtracts 3 each time so the next number is 18.,mental-ability|number-series
+Mental Ability,Number Series,mcq_single,beginner,What comes next in the series 100 90 80 70 ?,50,55,60,65,3,1.00,0.00,The pattern subtracts 10 each time so the next number is 60.,mental-ability|number-series
+Mental Ability,Number Series,mcq_single,beginner,What comes next in the series 7 14 21 28 ?,32,35,36,40,2,1.00,0.00,The pattern adds 7 each time so the next number is 35.,mental-ability|number-series
+Mental Ability,Odd One Out,mcq_single,beginner,Which is the odd one out?,2,4,6,7,4,1.00,0.00,7 is odd while the others are even numbers.,mental-ability|odd-one-out
+Mental Ability,Odd One Out,mcq_single,beginner,Which is the odd one out?,Cat,Dog,Cow,Car,4,1.00,0.00,Car is not an animal while the others are animals.,mental-ability|odd-one-out
+Mental Ability,Odd One Out,mcq_single,beginner,Which is the odd one out?,Red,Blue,Table,Green,3,1.00,0.00,Table is not a color while the others are colors.,mental-ability|odd-one-out
+Mental Ability,Odd One Out,mcq_single,beginner,Which is the odd one out?,Mango,Apple,Banana,Potato,4,1.00,0.00,Potato is not a fruit while the others are fruits.,mental-ability|odd-one-out
+Mental Ability,Odd One Out,mcq_single,beginner,Which is the odd one out?,Circle,Square,Triangle,Banana,4,1.00,0.00,Banana is not a shape while the others are shapes.,mental-ability|odd-one-out
+Mental Ability,Odd One Out,mcq_single,beginner,Which is the odd one out?,Pen,Pencil,Eraser,Elephant,4,1.00,0.00,Elephant is not a stationery item.,mental-ability|odd-one-out
+Mental Ability,Odd One Out,mcq_single,beginner,Which is the odd one out?,January,March,April,Monday,4,1.00,0.00,Monday is a day while the others are months.,mental-ability|odd-one-out
+Mental Ability,Odd One Out,mcq_single,beginner,Which is the odd one out?,Sun,Moon,Star,Book,4,1.00,0.00,Book is not a celestial object.,mental-ability|odd-one-out
+Mental Ability,Odd One Out,mcq_single,beginner,Which is the odd one out?,Rose,Lotus,Lily,Stone,4,1.00,0.00,Stone is not a flower.,mental-ability|odd-one-out
+Mental Ability,Odd One Out,mcq_single,beginner,Which is the odd one out?,Bus,Train,Car,Tree,4,1.00,0.00,Tree is not a vehicle.,mental-ability|odd-one-out
+Mental Ability,Analogy,mcq_single,beginner,Dog is to Puppy as Cat is to ?,Kitten,Calf,Foal,Cub,1,1.00,0.00,A kitten is the young one of a cat.,mental-ability|analogy
+Mental Ability,Analogy,mcq_single,beginner,Bird is to Fly as Fish is to ?,Jump,Swim,Crawl,Run,2,1.00,0.00,Fish move by swimming just as birds move by flying.,mental-ability|analogy
+Mental Ability,Analogy,mcq_single,beginner,Hand is to Glove as Foot is to ?,Sock,Shoe,Cap,Belt,2,1.00,0.00,A shoe is worn on the foot just as a glove is worn on the hand.,mental-ability|analogy
+Mental Ability,Analogy,mcq_single,beginner,Pen is to Write as Knife is to ?,Read,Cut,Speak,Draw,2,1.00,0.00,A knife is used to cut just as a pen is used to write.,mental-ability|analogy
+Mental Ability,Analogy,mcq_single,beginner,Day is to Sun as Night is to ?,Cloud,Moon,Rain,Wind,2,1.00,0.00,The moon is commonly associated with the night.,mental-ability|analogy
+Mental Ability,Analogy,mcq_single,beginner,Teacher is to School as Doctor is to ?,Hospital,Library,Market,Garden,1,1.00,0.00,A doctor works in a hospital just as a teacher works in a school.,mental-ability|analogy
+Mental Ability,Analogy,mcq_single,beginner,Book is to Read as Food is to ?,Cook,Eat,Buy,Wash,2,1.00,0.00,Food is meant to be eaten just as a book is meant to be read.,mental-ability|analogy
+Mental Ability,Analogy,mcq_single,beginner,Cow is to Milk as Hen is to ?,Grass,Egg,Feather,Nest,2,1.00,0.00,A hen gives eggs just as a cow gives milk.,mental-ability|analogy
+Mental Ability,Analogy,mcq_single,beginner,Winter is to Cold as Summer is to ?,Snow,Hot,Rain,Fog,2,1.00,0.00,Summer is commonly associated with hot weather.,mental-ability|analogy
+Mental Ability,Analogy,mcq_single,beginner,Eye is to See as Ear is to ?,Smell,Hear,Taste,Touch,2,1.00,0.00,The ear is used to hear just as the eye is used to see.,mental-ability|analogy
+Mental Ability,Coding-Decoding,mcq_single,beginner,If CAT is coded as DBU then BAT is coded as ?,CBU,CBT,DBT,BBU,2,1.00,0.00,Each letter is moved one step forward so B becomes C A becomes B and T becomes U.,mental-ability|coding-decoding
+Mental Ability,Coding-Decoding,mcq_single,beginner,If DOG is coded as EPH then GOD is coded as ?,HPF,HPE,EPH,FOE,1,1.00,0.00,Each letter moves one step forward so G becomes H O becomes P and D becomes E.,mental-ability|coding-decoding
+Mental Ability,Coding-Decoding,mcq_single,beginner,If SUN is coded as TVO then RUN is coded as ?,SVO,SUN,RVO,RVP,1,1.00,0.00,Each letter is increased by one place so R becomes S U becomes V and N becomes O.,mental-ability|coding-decoding
+Mental Ability,Coding-Decoding,mcq_single,beginner,If PEN is coded as QFO then MEN is coded as ?,NFO,NEO,NFN,QEN,1,1.00,0.00,Each letter moves one step forward so M becomes N E becomes F and N becomes O.,mental-ability|coding-decoding
+Mental Ability,Coding-Decoding,mcq_single,beginner,If BOX is coded as CPY then FOX is coded as ?,GPY,GPZ,FPY,GOY,1,1.00,0.00,Each letter moves one step forward so F becomes G O becomes P and X becomes Y.,mental-ability|coding-decoding
+Mental Ability,Direction Sense,mcq_single,beginner,Riya is facing north. She turns right. Which direction is she facing now?,North,South,East,West,3,1.00,0.00,When facing north a right turn points to the east.,mental-ability|direction
+Mental Ability,Direction Sense,mcq_single,beginner,Aman is facing east. He turns left. Which direction is he facing now?,North,South,East,West,1,1.00,0.00,When facing east a left turn points to the north.,mental-ability|direction
+Mental Ability,Direction Sense,mcq_single,beginner,Neha is facing south. She turns right. Which direction is she facing now?,East,West,North,South,2,1.00,0.00,When facing south a right turn points to the west.,mental-ability|direction
+Mental Ability,Direction Sense,mcq_single,beginner,Raj is facing west. He turns left. Which direction is he facing now?,North,South,East,West,2,1.00,0.00,When facing west a left turn points to the south.,mental-ability|direction
+Mental Ability,Direction Sense,mcq_single,beginner,If you face north and turn around completely which direction will you face?,East,West,South,North,3,1.00,0.00,A complete turn from north points to the south.,mental-ability|direction
+Mental Ability,Ranking,mcq_single,beginner,In a line Rahul is first and Aman is second. Who is behind Rahul?,Aman,Rahul,No one,Everyone,1,1.00,0.00,Aman stands immediately behind Rahul in the line.,mental-ability|ranking
+Mental Ability,Ranking,mcq_single,beginner,In a race Sita finished before Gita. Who came later?,Sita,Gita,Both,Neither,2,1.00,0.00,Gita came later because Sita finished before her.,mental-ability|ranking
+Mental Ability,Ranking,mcq_single,beginner,If Ravi is taller than Mohan who is shorter?,Ravi,Mohan,Both,Cannot say,2,1.00,0.00,Mohan is shorter because Ravi is taller than Mohan.,mental-ability|comparison
+Mental Ability,Ranking,mcq_single,beginner,If A is before B in a line then who is behind?,A,B,Both,Neither,2,1.00,0.00,B is behind because A is before B.,mental-ability|ranking
+Mental Ability,Ranking,mcq_single,beginner,In a queue Meena is last. Who is behind Meena?,One person,Two persons,No one,Everyone,3,1.00,0.00,No one is behind the last person in a queue.,mental-ability|ranking
+Mental Ability,Pattern,mcq_single,beginner,Which shape comes next Circle Square Circle Square ?,Circle,Triangle,Rectangle,Oval,1,1.00,0.00,The pattern repeats Circle then Square so the next shape is Circle.,mental-ability|pattern
+Mental Ability,Pattern,mcq_single,beginner,Which letter comes next A C E G ?,H,I,J,K,2,1.00,0.00,The letters skip one each time so the next letter is I.,mental-ability|pattern
+Mental Ability,Pattern,mcq_single,beginner,Which shape is different from the others?,Triangle,Square,Circle,Rectangle,3,1.00,0.00,Circle is different because it has no sides while the others have straight sides.,mental-ability|pattern
+Mental Ability,Pattern,mcq_single,beginner,Which comes next Red Blue Red Blue ?,Green,Blue,Red,Yellow,3,1.00,0.00,The colors repeat Red then Blue so the next is Red.,mental-ability|pattern
+Mental Ability,Pattern,mcq_single,beginner,Which comes next 1 2 1 2 1 ?,1,2,3,4,2,1.00,0.00,The numbers repeat 1 then 2 so the next is 2.,mental-ability|pattern
+Mental Ability,Alphabet Series,mcq_single,beginner,What comes next A B C D ?,E,F,G,H,1,1.00,0.00,E comes after D in the alphabet.,mental-ability|alphabet-series
+Mental Ability,Alphabet Series,mcq_single,beginner,What comes next M N O P ?,Q,R,S,T,1,1.00,0.00,Q comes after P in the alphabet.,mental-ability|alphabet-series
+Mental Ability,Alphabet Series,mcq_single,beginner,What comes before H ?,F,G,I,J,2,1.00,0.00,G comes immediately before H.,mental-ability|alphabet-series
+Mental Ability,Alphabet Series,mcq_single,beginner,What comes after X ?,Y,Z,W,V,1,1.00,0.00,Y comes immediately after X.,mental-ability|alphabet-series
+Mental Ability,Alphabet Series,mcq_single,beginner,Which letter is between C and E ?,A,B,D,F,3,1.00,0.00,D is between C and E in the alphabet.,mental-ability|alphabet-series
+Mental Ability,Blood Relation,mcq_single,beginner,Your mother's mother is your ?,Aunt,Grandmother,Sister,Cousin,2,1.00,0.00,Your mother's mother is your grandmother.,mental-ability|blood-relation
+Mental Ability,Blood Relation,mcq_single,beginner,Your father's brother is your ?,Uncle,Cousin,Nephew,Grandfather,1,1.00,0.00,Your father's brother is your uncle.,mental-ability|blood-relation
+Mental Ability,Blood Relation,mcq_single,beginner,Your sister's son is your ?,Brother,Nephew,Uncle,Grandson,2,1.00,0.00,Your sister's son is your nephew.,mental-ability|blood-relation
+Mental Ability,Blood Relation,mcq_single,beginner,Your mother's daughter who is not you is your ?,Aunt,Sister,Cousin,Niece,2,1.00,0.00,Your mother's other daughter is your sister.,mental-ability|blood-relation
+Mental Ability,Blood Relation,mcq_single,beginner,Your father's father is your ?,Grandfather,Uncle,Brother,Cousin,1,1.00,0.00,Your father's father is your grandfather.,mental-ability|blood-relation
+Mental Ability,Mirror Image,mcq_single,beginner,Which letter looks the same in a vertical mirror?,A,B,C,D,1,1.00,0.00,Capital A is symmetrical in a vertical mirror.,mental-ability|mirror-image
+Mental Ability,Mirror Image,mcq_single,beginner,Which number looks the same in a vertical mirror?,2,3,8,7,3,1.00,0.00,8 has vertical symmetry in common block style.,mental-ability|mirror-image
+Mental Ability,Mirror Image,mcq_single,beginner,Which shape has mirror symmetry?,Triangle with unequal sides,Scalene shape,Square,Random curve,3,1.00,0.00,A square has mirror symmetry on multiple lines.,mental-ability|mirror-image
+Mental Ability,Mirror Image,mcq_single,beginner,Which letter does not usually change in a vertical mirror?,H,G,J,L,1,1.00,0.00,H is vertically symmetrical.,mental-ability|mirror-image
+Mental Ability,Mirror Image,mcq_single,beginner,Which shape is the easiest example of mirror symmetry?,Square,Irregular polygon,Zigzag line,Open curve,1,1.00,0.00,A square clearly shows mirror symmetry.,mental-ability|mirror-image
+Mental Ability,Classification,mcq_single,beginner,Which group contains only animals?,Rose Mango Car,Dog Cat Cow,Pen Book Desk,Train Bus Tree,2,1.00,0.00,Dog Cat and Cow are all animals.,mental-ability|classification
+Mental Ability,Classification,mcq_single,beginner,Which group contains only fruits?,Apple Mango Banana,Car Bus Train,Lion Tiger Bear,Pen Pencil Eraser,1,1.00,0.00,Apple Mango and Banana are all fruits.,mental-ability|classification
+Mental Ability,Classification,mcq_single,beginner,Which group contains only colors?,Red Blue Green,Chair Table Desk,Dog Cat Hen,Sun Moon Star,1,1.00,0.00,Red Blue and Green are all colors.,mental-ability|classification
+Mental Ability,Classification,mcq_single,beginner,Which group contains only shapes?,Circle Square Triangle,Pen Paper Ink,Mango Apple Orange,Bus Train Car,1,1.00,0.00,Circle Square and Triangle are all shapes.,mental-ability|classification
+Mental Ability,Classification,mcq_single,beginner,Which group contains only school items?,Book Pencil Eraser,Dog Cow Goat,Train Bus Truck,Rice Wheat Mango,1,1.00,0.00,Book Pencil and Eraser are school items.,mental-ability|classification
+Mental Ability,Logical Reasoning,mcq_single,beginner,If all cats are animals then a cat is a ?,Plant,Animal,Bird,Fish,2,1.00,0.00,If all cats are animals then any cat is an animal.,mental-ability|logic
+Mental Ability,Logical Reasoning,mcq_single,beginner,If all roses are flowers then a rose is a ?,Leaf,Tree,Flower,Seed,3,1.00,0.00,A rose belongs to the group of flowers.,mental-ability|logic
+Mental Ability,Logical Reasoning,mcq_single,beginner,If all squares have four sides then a square has ?,Three sides,Four sides,Five sides,No sides,2,1.00,0.00,A square always has four sides.,mental-ability|logic
+Mental Ability,Logical Reasoning,mcq_single,beginner,If today is Monday then tomorrow is ?,Sunday,Tuesday,Wednesday,Friday,2,1.00,0.00,The day after Monday is Tuesday.,mental-ability|logic
+Mental Ability,Logical Reasoning,mcq_single,beginner,If 8 is greater than 5 then 5 is ?,Greater than 8,Equal to 8,Less than 8,Double 8,3,1.00,0.00,If 8 is greater than 5 then 5 is less than 8.,mental-ability|logic
+Mental Ability,Math Reasoning,mcq_single,beginner,Which number is smallest?,14,9,11,20,2,1.00,0.00,9 is the smallest among the given numbers.,mental-ability|comparison
+Mental Ability,Math Reasoning,mcq_single,beginner,Which number is largest?,33,27,41,39,3,1.00,0.00,41 is the largest among the given numbers.,mental-ability|comparison
+Mental Ability,Math Reasoning,mcq_single,beginner,Which number comes between 16 and 18?,15,16,17,19,3,1.00,0.00,17 comes between 16 and 18.,mental-ability|comparison
+Mental Ability,Math Reasoning,mcq_single,beginner,How many numbers are there between 4 and 7?,1,2,3,4,2,1.00,0.00,The numbers 5 and 6 are between 4 and 7 so there are 2.,mental-ability|comparison
+Mental Ability,Math Reasoning,mcq_single,beginner,Which number is an odd number?,12,18,21,24,3,1.00,0.00,21 is odd because it is not divisible by 2.,mental-ability|numbers
+Mental Ability,Picture Logic,mcq_single,beginner,Which item is used to write on a blackboard?,Chalk,Spoon,Plate,Pillow,1,1.00,0.00,Chalk is used to write on a blackboard.,mental-ability|everyday-logic
+Mental Ability,Picture Logic,mcq_single,beginner,Which item is used to tell time?,Clock,Chair,Bottle,Shoe,1,1.00,0.00,A clock is used to tell time.,mental-ability|everyday-logic
+Mental Ability,Picture Logic,mcq_single,beginner,Which item is used for cutting paper?,Scissors,Ball,Cap,Cup,1,1.00,0.00,Scissors are used to cut paper.,mental-ability|everyday-logic
+Mental Ability,Picture Logic,mcq_single,beginner,Which item is used to unlock a door?,Key,Book,Leaf,Rope,1,1.00,0.00,A key is used to unlock a door.,mental-ability|everyday-logic
+Mental Ability,Picture Logic,mcq_single,beginner,Which item is used to erase pencil marks?,Eraser,Drum,Candle,Brush,1,1.00,0.00,An eraser removes pencil marks.,mental-ability|everyday-logic
+Mental Ability,Time Sequence,mcq_single,beginner,What comes after morning?,Night,Evening,Afternoon,Yesterday,3,1.00,0.00,Afternoon comes after morning in a normal day sequence.,mental-ability|sequence
+Mental Ability,Time Sequence,mcq_single,beginner,What comes before Friday?,Thursday,Wednesday,Saturday,Monday,1,1.00,0.00,Thursday comes before Friday.,mental-ability|sequence
+Mental Ability,Time Sequence,mcq_single,beginner,What comes after December?,January,November,October,February,1,1.00,0.00,January comes after December in the yearly cycle.,mental-ability|sequence
+Mental Ability,Time Sequence,mcq_single,beginner,What comes before evening?,Night,Afternoon,Morning,Sunday,2,1.00,0.00,Afternoon comes before evening.,mental-ability|sequence
+Mental Ability,Time Sequence,mcq_single,beginner,What comes after Saturday?,Friday,Sunday,Monday,Thursday,2,1.00,0.00,Sunday comes after Saturday.,mental-ability|sequence
+Mental Ability,Letter Coding,mcq_single,beginner,If A is 1 B is 2 and C is 3 then D is ?,2,3,4,5,3,1.00,0.00,D is the fourth letter of the alphabet so it is 4.,mental-ability|letter-coding
+Mental Ability,Letter Coding,mcq_single,beginner,If A is 1 then Z is ?,24,25,26,27,3,1.00,0.00,Z is the 26th letter of the alphabet.,mental-ability|letter-coding
+Mental Ability,Letter Coding,mcq_single,beginner,If C is 3 then F is ?,4,5,6,7,3,1.00,0.00,F is the 6th letter of the alphabet.,mental-ability|letter-coding
+Mental Ability,Letter Coding,mcq_single,beginner,If M is 13 then P is ?,14,15,16,17,3,1.00,0.00,P is the 16th letter of the alphabet.,mental-ability|letter-coding
+Mental Ability,Letter Coding,mcq_single,beginner,If H is 8 then J is ?,9,10,11,12,2,1.00,0.00,J is the 10th letter of the alphabet.,mental-ability|letter-coding
+Mental Ability,Word Formation,mcq_single,beginner,Which word can be formed from the letters of NOTE?,TONE,STONE,TONES,NEAT,1,1.00,0.00,TONE uses exactly the same letters as NOTE.,mental-ability|word-formation
+Mental Ability,Word Formation,mcq_single,beginner,Which word can be formed from the letters of SILENT?,LISTEN,SILENCE,TILES,LINT,1,1.00,0.00,LISTEN uses the same letters as SILENT.,mental-ability|word-formation
+Mental Ability,Word Formation,mcq_single,beginner,Which word can be formed from the letters of ACT?,CAT,TACK,COAT,CAST,1,1.00,0.00,CAT uses exactly the same letters as ACT.,mental-ability|word-formation
+Mental Ability,Word Formation,mcq_single,beginner,Which word can be formed from the letters of EARTH?,HEART,HATER,HEAT,THEN,1,1.00,0.00,HEART uses the same letters as EARTH.,mental-ability|word-formation
+Mental Ability,Word Formation,mcq_single,beginner,Which word can be formed from the letters of SPOT?,POST,STOPS,POTSY,SHOP,1,1.00,0.00,POST uses exactly the same letters as SPOT.,mental-ability|word-formation
+Mental Ability,Counting,mcq_single,beginner,How many wheels does a bicycle have?,1,2,3,4,2,1.00,0.00,A bicycle has 2 wheels.,mental-ability|counting
+Mental Ability,Counting,mcq_single,beginner,How many days are there in two weeks?,7,10,12,14,4,1.00,0.00,Two weeks contain 14 days.,mental-ability|counting
+Mental Ability,Counting,mcq_single,beginner,How many corners does a rectangle have?,2,3,4,5,3,1.00,0.00,A rectangle has 4 corners.,mental-ability|counting
+Mental Ability,Counting,mcq_single,beginner,How many letters are there in the word BOOK?,2,3,4,5,3,1.00,0.00,The word BOOK has 4 letters.,mental-ability|counting
+Mental Ability,Counting,mcq_single,beginner,How many sides does a pentagon have?,4,5,6,7,2,1.00,0.00,A pentagon has 5 sides.,mental-ability|counting
+Mental Ability,Simple Logic,mcq_single,beginner,Which is heavier than a feather?,Stone,Leaf,Paper,Bubble,1,1.00,0.00,A stone is heavier than a feather.,mental-ability|simple-logic
+Mental Ability,Simple Logic,mcq_single,beginner,Which melts when heated?,Ice,Wood,Iron key,Book,1,1.00,0.00,Ice melts when heated.,mental-ability|simple-logic
+Mental Ability,Simple Logic,mcq_single,beginner,Which can fly naturally?,Fish,Horse,Sparrow,Cow,3,1.00,0.00,A sparrow can fly naturally.,mental-ability|simple-logic
+Mental Ability,Simple Logic,mcq_single,beginner,Which lives in water?,Tiger,Camel,Shark,Pigeon,3,1.00,0.00,A shark lives in water.,mental-ability|simple-logic
+Mental Ability,Simple Logic,mcq_single,beginner,Which is used for drinking water?,Cup,Comb,Socks,Pencil,1,1.00,0.00,A cup is used for drinking water.,mental-ability|simple-logic

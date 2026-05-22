@@ -6,6 +6,7 @@ from apps.accounts.capabilities import (
     can_manage_question_bank,
     can_manage_students,
     can_publish_results,
+    can_view_academics,
     can_view_analytics,
 )
 
@@ -81,6 +82,11 @@ class IsTeacherOrInstituteAdmin(BasePermission):
 class CanManageAcademics(BasePermission):
     def has_permission(self, request, view):
         return can_manage_academics(request.user)
+
+
+class CanViewAcademics(BasePermission):
+    def has_permission(self, request, view):
+        return can_view_academics(request.user)
 
 
 class CanManageStudents(BasePermission):

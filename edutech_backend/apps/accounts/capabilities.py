@@ -20,6 +20,17 @@ def can_manage_academics(user):
     )
 
 
+def can_view_academics(user):
+    return _has_active_role(
+        user,
+        {
+            AccountRole.PLATFORM_ADMIN,
+            AccountRole.INSTITUTE_ADMIN,
+            AccountRole.TEACHER,
+        },
+    )
+
+
 def can_manage_students(user):
     return _has_active_role(
         user,

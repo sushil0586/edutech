@@ -2,6 +2,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.viewsets import ModelViewSet
 
 from apps.accounts.permissions import CanManageAcademics
+from apps.accounts.permissions import CanViewAcademics
 from apps.accounts.scopes import scope_teacher_queryset
 from apps.academics.models import AcademicYear, Cohort, Program, Subject, Topic
 from apps.academics.serializers import (
@@ -22,6 +23,11 @@ class AcademicYearViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
     ordering_fields = ["name", "start_date", "end_date", "created_at"]
     ordering = ["-start_date"]
 
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [IsAuthenticated(), CanViewAcademics()]
+        return [IsAuthenticated(), CanManageAcademics()]
+
     def get_queryset(self):
         queryset = AcademicYear.objects.select_related("institute").all()
         return scope_teacher_queryset(queryset, self.request.user)
@@ -34,6 +40,11 @@ class ProgramViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
     search_fields = ["name", "code", "category", "institute__name"]
     ordering_fields = ["name", "code", "sort_order", "created_at"]
     ordering = ["sort_order", "name"]
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [IsAuthenticated(), CanViewAcademics()]
+        return [IsAuthenticated(), CanManageAcademics()]
 
     def get_queryset(self):
         queryset = Program.objects.select_related("institute").all()
@@ -48,6 +59,11 @@ class CohortViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
     ordering_fields = ["name", "code", "capacity", "created_at"]
     ordering = ["program__sort_order", "name"]
 
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [IsAuthenticated(), CanViewAcademics()]
+        return [IsAuthenticated(), CanManageAcademics()]
+
     def get_queryset(self):
         queryset = Cohort.objects.select_related("institute", "program", "academic_year").all()
         return scope_teacher_queryset(queryset, self.request.user)
@@ -61,6 +77,11 @@ class SubjectViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
     ordering_fields = ["name", "code", "sort_order", "created_at"]
     ordering = ["sort_order", "name"]
 
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [IsAuthenticated(), CanViewAcademics()]
+        return [IsAuthenticated(), CanManageAcademics()]
+
     def get_queryset(self):
         queryset = Subject.objects.select_related("institute", "program").all()
         return scope_teacher_queryset(queryset, self.request.user)
@@ -73,6 +94,11 @@ class TopicViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
     search_fields = ["name", "code", "subject__name", "parent_topic__name", "institute__name"]
     ordering_fields = ["name", "code", "sort_order", "created_at"]
     ordering = ["sort_order", "name"]
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [IsAuthenticated(), CanViewAcademics()]
+        return [IsAuthenticated(), CanManageAcademics()]
 
     def get_queryset(self):
         queryset = Topic.objects.select_related("institute", "subject", "parent_topic").all()

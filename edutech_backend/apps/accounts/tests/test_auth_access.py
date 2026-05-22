@@ -258,6 +258,34 @@ class AuthenticationAccessControlTestCase(TestCase):
         self.assertEqual(len(summary_response.data), 1)
         self.assertEqual(str(summary_response.data[0]["exam"]), str(self.exam.id))
 
+    def test_teacher_has_read_only_access_to_academic_setup_lookups(self):
+        self._authenticate_with_token("teacher-auth", "Teacher@123")
+
+        subjects_response = self.client.get("/api/v1/academics/subjects/")
+        self.assertEqual(subjects_response.status_code, 200)
+        self.assertEqual(subjects_response.data["count"], 1)
+        self.assertEqual(str(subjects_response.data["results"][0]["id"]), str(self.context["subject"].id))
+
+        topics_response = self.client.get("/api/v1/academics/topics/")
+        self.assertEqual(topics_response.status_code, 200)
+        self.assertEqual(topics_response.data["count"], 1)
+        self.assertEqual(str(topics_response.data["results"][0]["id"]), str(self.context["topic"].id))
+
+        create_response = self.client.post(
+            "/api/v1/academics/subjects/",
+            {
+                "institute": str(self.context["institute"].id),
+                "program": str(self.context["program"].id),
+                "name": "Teacher Cannot Create",
+                "code": "TCC01",
+                "description": "",
+                "sort_order": 99,
+                "is_active": True,
+            },
+            format="json",
+        )
+        self.assertEqual(create_response.status_code, 403)
+
         attempts_response = self.client.get(f"/api/v1/results/exam/{self.exam.id}/attempts/")
         self.assertEqual(attempts_response.status_code, 200)
         self.assertEqual(len(attempts_response.data), 2)
