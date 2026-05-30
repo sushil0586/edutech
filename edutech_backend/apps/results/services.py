@@ -5,6 +5,115 @@ from django.db import transaction
 from django.db.models import Avg, Count, Max, Min, Q, Sum
 from django.utils import timezone
 
+from apps.exams.services import (
+    choose_attempt_for_result_policy,
+    is_result_visible_for_attempt,
+    resolve_result_publish_mode,
+)
+
+
+def attempt_monitor_alerts(attempt, *, at_time=None):
+    now = at_time or timezone.now()
+    alerts = []
+
+    if attempt.status == "auto_submitted":
+        alerts.append(
+            {
+                "code": "auto_submitted",
+                "label": "Auto-submitted",
+                "severity": "medium",
+                "message": "The attempt was auto-submitted by the system.",
+            }
+        )
+
+    if attempt.status == "in_progress" and attempt.started_at:
+        elapsed_minutes = max(int((now - attempt.started_at).total_seconds() // 60), 0)
+        if elapsed_minutes >= 20:
+            alerts.append(
+                {
+                    "code": "stalled_activity",
+                    "label": "Stalled activity",
+                    "severity": "high",
+                    "message": "This attempt has remained in progress for at least 20 minutes.",
+                }
+            )
+        if elapsed_minutes >= 10 and attempt.attempted_questions == 0:
+            alerts.append(
+                {
+                    "code": "no_progress",
+                    "label": "No progress yet",
+                    "severity": "medium",
+                    "message": "The attempt is active but still has no answered questions.",
+                }
+            )
+        if attempt.total_questions > 0:
+            unanswered_ratio = 1 - (attempt.attempted_questions / attempt.total_questions)
+            if elapsed_minutes >= 20 and unanswered_ratio >= 0.75:
+                alerts.append(
+                    {
+                        "code": "low_progress",
+                        "label": "Low progress",
+                        "severity": "medium",
+                        "message": "Most questions are still unanswered for this stage of the exam.",
+                    }
+                )
+
+    return alerts
+
+
+def _ensure_exam_status_allows_result_generation(exam):
+    if exam.status in {"draft", "cancelled"}:
+        raise ValidationError(
+            {"exam": "Results cannot be generated while the exam is draft or cancelled."}
+        )
+
+
+def _ensure_exam_status_allows_result_publishing(exam):
+    if exam.status in {"draft", "cancelled"}:
+        raise ValidationError(
+            {"exam": "Results cannot be published while the exam is draft or cancelled."}
+        )
+    if exam.status != "completed":
+        raise ValidationError(
+            {"exam": "Complete the exam before publishing results."}
+        )
+    if exam.attempts.filter(status="in_progress", is_active=True).exists():
+        raise ValidationError(
+            {"exam": "Results cannot be published while active attempts are still in progress."}
+        )
+
+
+def force_submit_eligibility(attempt):
+    if attempt.status != "in_progress":
+        return {
+            "allowed": False,
+            "reason": "Only in-progress attempts can be force-submitted.",
+        }
+
+    if attempt.exam.status == "draft":
+        return {
+            "allowed": False,
+            "reason": "Draft exams should not have operational attempt controls yet.",
+        }
+
+    if attempt.exam.status == "cancelled":
+        return {
+            "allowed": False,
+            "reason": "Cancelled exams should not accept new operational attempt actions.",
+        }
+
+    return {
+        "allowed": True,
+        "reason": None,
+    }
+
+
+def ensure_attempt_can_be_force_submitted(attempt):
+    eligibility = force_submit_eligibility(attempt)
+    if not eligibility["allowed"]:
+        raise ValidationError({"attempt": eligibility["reason"]})
+    return eligibility
+
 
 def _result_status_for_attempt(attempt):
     if attempt.status not in {"submitted", "auto_submitted"}:
@@ -51,27 +160,48 @@ def generate_result_from_attempt(attempt):
         result.incorrect_answers = attempt.incorrect_answers
         result.skipped_questions = attempt.skipped_questions
         result.time_taken_seconds = attempt.time_taken_seconds
-        result.save()
+    result.is_active = True
+    if resolve_result_publish_mode(attempt.exam) == "immediate":
+        result.is_published = True
+        result.published_at = timezone.now()
+    else:
+        result.is_published = False
+        result.published_at = None
+    result.save()
 
     return result
 
 
 @transaction.atomic
 def generate_results_for_exam(exam):
+    from apps.results.models import ExamResult
+
+    _ensure_exam_status_allows_result_generation(exam)
+
     attempts = list(
         exam.attempts.select_related("student")
         .filter(status__in=["submitted", "auto_submitted"], is_active=True)
-        .order_by("student_id", "-attempt_no")
+        .order_by("student_id", "-attempt_no", "-created_at")
     )
 
-    latest_attempt_by_student = {}
+    attempts_by_student = {}
     for attempt in attempts:
-        latest_attempt_by_student.setdefault(attempt.student_id, attempt)
+        attempts_by_student.setdefault(attempt.student_id, []).append(attempt)
 
     results = []
-    for attempt in latest_attempt_by_student.values():
+    selected_attempt_ids = set()
+    for student_attempts in attempts_by_student.values():
+        attempt = choose_attempt_for_result_policy(exam, student_attempts)
+        if attempt is None:
+            continue
+        selected_attempt_ids.add(attempt.id)
         results.append(generate_result_from_attempt(attempt))
         calculate_student_topic_performance(attempt.exam, attempt.student, attempt)
+
+    if selected_attempt_ids:
+        ExamResult.objects.filter(exam=exam).exclude(
+            attempt_id__in=selected_attempt_ids
+        ).update(is_active=False)
 
     calculate_exam_performance_summary(exam)
     return results
@@ -81,10 +211,14 @@ def generate_results_for_exam(exam):
 def calculate_exam_ranks(exam):
     from apps.results.models import ExamResult
 
+    _ensure_exam_status_allows_result_generation(exam)
+
     results = list(
         ExamResult.objects.filter(exam=exam, is_active=True)
         .order_by("-final_score", "time_taken_seconds", "created_at")
     )
+    if not results:
+        raise ValidationError({"exam": "No generated results found for this exam."})
 
     current_rank = 0
     previous_score = None
@@ -105,6 +239,8 @@ def calculate_exam_ranks(exam):
 def publish_exam_results(exam):
     from apps.results.models import ExamResult
     from apps.reports.services import notify_results_published
+
+    _ensure_exam_status_allows_result_publishing(exam)
 
     results = list(ExamResult.objects.filter(exam=exam, is_active=True))
     if not results:

@@ -2,7 +2,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.attempts.services import save_answer, start_attempt, submit_attempt
-from apps.exams.services import publish_exam, sync_total_marks_from_questions
+from apps.exams.services import mark_exam_completed, publish_exam, sync_total_marks_from_questions
 from apps.reports.models import AuditLog, InAppNotification, NotificationType
 from apps.results.services import generate_result_from_attempt, publish_exam_results
 from common.tests.builders import AcademicAssessmentBuilder
@@ -131,6 +131,7 @@ class NotificationApiTestCase(APITestCase):
         )
         attempt = submit_attempt(attempt)
         generate_result_from_attempt(attempt)
+        mark_exam_completed(self.exam, changed_by=self.context["teacher"])
         publish_exam_results(self.exam)
 
         self.assertTrue(

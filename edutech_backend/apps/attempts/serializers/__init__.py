@@ -1,15 +1,29 @@
 from rest_framework import serializers
 
 from apps.attempts.models import StudentAnswer, StudentExamAttempt
+from apps.attempts.services import (
+    ensure_delivery_snapshot,
+    ordered_exam_questions_for_attempt,
+    ordered_options_for_attempt,
+    question_order_map_for_attempt,
+    refresh_attempt_runtime_state,
+)
 from apps.exams.serializers import StudentExamQuestionDetailSerializer
 from apps.exams.models import Exam
+from apps.exams.services import (
+    is_result_visible_for_attempt,
+    review_visibility_for_attempt,
+)
 from apps.question_bank.models import Question, QuestionOption
 from apps.students.models import StudentProfile
 
 
 class StudentAnswerSerializer(serializers.ModelSerializer):
+    question = serializers.UUIDField(source="question_id", read_only=True)
     question_text_summary = serializers.SerializerMethodField()
     selected_option_text = serializers.CharField(source="selected_option.option_text", read_only=True)
+    selected_option_ids = serializers.SerializerMethodField()
+    selected_option_texts = serializers.SerializerMethodField()
 
     class Meta:
         model = StudentAnswer
@@ -20,6 +34,8 @@ class StudentAnswerSerializer(serializers.ModelSerializer):
             "question_text_summary",
             "selected_option",
             "selected_option_text",
+            "selected_option_ids",
+            "selected_option_texts",
             "answer_text",
             "is_correct",
             "marks_awarded",
@@ -36,13 +52,29 @@ class StudentAnswerSerializer(serializers.ModelSerializer):
         text = obj.question.question_text.strip()
         return text[:120] + ("..." if len(text) > 120 else "")
 
+    def get_selected_option_ids(self, obj):
+        values = getattr(obj, "selected_option_ids", []) or []
+        return [str(item) for item in values if str(item).strip()]
+
+    def get_selected_option_texts(self, obj):
+        selected_ids = self.get_selected_option_ids(obj)
+        if not selected_ids:
+            return []
+        options = obj.question.options.filter(id__in=selected_ids)
+        option_map = {str(option.id): option.option_text for option in options}
+        return [option_map[option_id] for option_id in selected_ids if option_id in option_map]
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
         exam = instance.attempt.exam
-        allow_review = exam.show_result_immediately or exam.allow_review_after_submit
-        result_published = getattr(getattr(instance.attempt, "result", None), "is_published", False)
+        result = getattr(instance.attempt, "result", None)
+        result_visible = is_result_visible_for_attempt(
+            exam,
+            instance.attempt,
+            result=result,
+        )
 
-        if instance.attempt.status == "in_progress" or not (allow_review or result_published):
+        if instance.attempt.status == "in_progress" or not result_visible:
             data.pop("is_correct", None)
             data.pop("marks_awarded", None)
             data.pop("negative_marks_applied", None)
@@ -55,6 +87,7 @@ class StudentExamAttemptSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source="student.full_name", read_only=True)
     answers = StudentAnswerSerializer(many=True, read_only=True)
     server_time = serializers.SerializerMethodField()
+    section_runtime = serializers.SerializerMethodField()
 
     class Meta:
         model = StudentExamAttempt
@@ -65,6 +98,12 @@ class StudentExamAttemptSerializer(serializers.ModelSerializer):
 
         return timezone.now()
 
+    def get_section_runtime(self, obj):
+        refresh_attempt_runtime_state(obj)
+        metadata = obj.metadata if isinstance(obj.metadata, dict) else {}
+        runtime = metadata.get("section_runtime", {})
+        return runtime if isinstance(runtime, dict) else {}
+
 
 class AttemptDetailSerializer(serializers.ModelSerializer):
     exam_title = serializers.CharField(source="exam.title", read_only=True)
@@ -73,6 +112,7 @@ class AttemptDetailSerializer(serializers.ModelSerializer):
     questions = serializers.SerializerMethodField()
     answers = StudentAnswerSerializer(many=True, read_only=True)
     server_time = serializers.SerializerMethodField()
+    section_runtime = serializers.SerializerMethodField()
 
     class Meta:
         model = StudentExamAttempt
@@ -90,6 +130,7 @@ class AttemptDetailSerializer(serializers.ModelSerializer):
             "submitted_at",
             "expires_at",
             "server_time",
+            "section_runtime",
             "total_questions",
             "attempted_questions",
             "correct_answers",
@@ -109,18 +150,36 @@ class AttemptDetailSerializer(serializers.ModelSerializer):
         )
 
     def get_questions(self, obj):
-        exam_questions = (
+        exam_questions = list(
             obj.exam.exam_questions.filter(is_active=True)
-            .select_related("question")
+            .select_related("question", "section")
             .prefetch_related("question__options", "question__attachments")
-            .order_by("question_order")
         )
-        return StudentExamQuestionDetailSerializer(exam_questions, many=True).data
+        ensure_delivery_snapshot(obj)
+        ordered_questions = ordered_exam_questions_for_attempt(obj, exam_questions)
+        return StudentExamQuestionDetailSerializer(
+            ordered_questions,
+            many=True,
+            context={
+                **self.context,
+                "attempt": obj,
+                "question_order_map": question_order_map_for_attempt(
+                    obj,
+                    exam_questions,
+                ),
+            },
+        ).data
 
     def get_server_time(self, obj):
         from django.utils import timezone
 
         return timezone.now()
+
+    def get_section_runtime(self, obj):
+        refresh_attempt_runtime_state(obj)
+        metadata = obj.metadata if isinstance(obj.metadata, dict) else {}
+        runtime = metadata.get("section_runtime", {})
+        return runtime if isinstance(runtime, dict) else {}
 
 
 class AttemptReviewSerializer(serializers.ModelSerializer):
@@ -129,6 +188,9 @@ class AttemptReviewSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source="student.full_name", read_only=True)
     server_time = serializers.SerializerMethodField()
     review_questions = serializers.SerializerMethodField()
+    review_mode = serializers.SerializerMethodField()
+    show_correct_answers = serializers.SerializerMethodField()
+    show_explanations = serializers.SerializerMethodField()
 
     class Meta:
         model = StudentExamAttempt
@@ -156,6 +218,9 @@ class AttemptReviewSerializer(serializers.ModelSerializer):
             "percentage",
             "time_taken_seconds",
             "is_auto_submitted",
+            "review_mode",
+            "show_correct_answers",
+            "show_explanations",
             "review_questions",
         )
 
@@ -164,35 +229,83 @@ class AttemptReviewSerializer(serializers.ModelSerializer):
 
         return timezone.now()
 
+    def _review_visibility(self, obj):
+        result = getattr(obj, "result", None)
+        return review_visibility_for_attempt(obj.exam, obj, result=result)
+
+    def get_review_mode(self, obj):
+        return self._review_visibility(obj)["review_mode"]
+
+    def get_show_correct_answers(self, obj):
+        return self._review_visibility(obj)["show_correct_answers"]
+
+    def get_show_explanations(self, obj):
+        return self._review_visibility(obj)["show_explanations"]
+
     def get_review_questions(self, obj):
-        exam_questions = (
+        exam_questions = list(
             obj.exam.exam_questions.filter(is_active=True)
-            .select_related("question", "question__topic", "question__subject")
+            .select_related("question", "question__topic", "question__subject", "section")
             .prefetch_related("question__options", "question__attachments")
-            .order_by("question_order")
         )
+        ensure_delivery_snapshot(obj)
+        ordered_questions = ordered_exam_questions_for_attempt(obj, exam_questions)
+        order_map = question_order_map_for_attempt(obj, exam_questions)
+        review_visibility = self._review_visibility(obj)
         answer_map = {
             answer.question_id: answer
             for answer in obj.answers.select_related("selected_option").all()
         }
         rows = []
-        for exam_question in exam_questions:
+        for exam_question in ordered_questions:
             question = exam_question.question
             answer = answer_map.get(question.id)
+            selected_option_ids = [
+                str(item)
+                for item in (getattr(answer, "selected_option_ids", []) or [])
+                if str(item).strip()
+            ]
+            if not review_visibility["include_all_questions"]:
+                has_attempt = bool(
+                    answer
+                    and (
+                        answer.selected_option_id
+                        or selected_option_ids
+                        or (answer.answer_text or "").strip()
+                        or answer.is_marked_for_review
+                    )
+                )
+                if not has_attempt:
+                    continue
             selected_option_id = answer.selected_option_id if answer else None
+            ordered_options = ordered_options_for_attempt(
+                obj,
+                question,
+                [item for item in question.options.all() if item.is_active],
+            )
             rows.append(
                 {
                     "exam_question_id": str(exam_question.id),
                     "question_id": str(question.id),
-                    "question_order": exam_question.question_order,
+                    "question_order": order_map.get(
+                        str(exam_question.id),
+                        exam_question.question_order,
+                    ),
+                    "section_id": str(exam_question.section_id) if exam_question.section_id else None,
                     "section_name": exam_question.section_name,
+                    "section_title": exam_question.section.name if exam_question.section_id else None,
+                    "section_order": exam_question.section.section_order if exam_question.section_id else None,
                     "question_text": question.question_text,
                     "content_format": question.content_format,
                     "question_type": question.question_type,
                     "difficulty_level": question.difficulty_level,
                     "subject_name": question.subject.name if question.subject_id else None,
                     "topic_name": question.topic.name if question.topic_id else None,
-                    "explanation": question.explanation,
+                    "explanation": (
+                        question.explanation
+                        if review_visibility["show_explanations"]
+                        else ""
+                    ),
                     "attachments": [
                         {
                             "id": str(attachment.id),
@@ -211,15 +324,18 @@ class AttemptReviewSerializer(serializers.ModelSerializer):
                         )
                     ],
                     "selected_option": str(selected_option_id) if selected_option_id else None,
+                    "selected_option_ids": selected_option_ids,
                     "answer_text": answer.answer_text if answer else "",
                     "is_marked_for_review": answer.is_marked_for_review if answer else False,
                     "marks_awarded": str(answer.marks_awarded) if answer else "0.00",
                     "negative_marks_applied": str(answer.negative_marks_applied) if answer else "0.00",
                     "result_status": (
                         "correct"
-                        if answer and answer.selected_option_id and answer.is_correct
+                        if answer
+                        and (answer.selected_option_id or selected_option_ids)
+                        and answer.is_correct
                         else "wrong"
-                        if answer and answer.selected_option_id
+                        if answer and (answer.selected_option_id or selected_option_ids)
                         else "skipped"
                     ),
                     "options": [
@@ -227,13 +343,19 @@ class AttemptReviewSerializer(serializers.ModelSerializer):
                             "id": str(option.id),
                             "content_format": option.content_format,
                             "option_text": option.option_text,
-                            "option_order": option.option_order,
-                            "is_selected": option.id == selected_option_id,
-                            "is_correct": option.is_correct,
+                            "option_order": index + 1,
+                            "is_selected": (
+                                option.id == selected_option_id
+                                or str(option.id) in selected_option_ids
+                            ),
+                            "is_correct": (
+                                option.is_correct
+                                if review_visibility["show_correct_answers"]
+                                else False
+                            ),
                         }
-                        for option in sorted(
-                            [item for item in question.options.all() if item.is_active],
-                            key=lambda item: item.option_order,
+                        for index, option in enumerate(
+                            ordered_options,
                         )
                     ],
                 }
@@ -264,6 +386,11 @@ class AttemptStartSerializer(serializers.Serializer):
 class SaveAnswerSerializer(serializers.Serializer):
     question = serializers.UUIDField()
     selected_option = serializers.UUIDField(required=False, allow_null=True)
+    selected_option_ids = serializers.ListField(
+        child=serializers.UUIDField(),
+        required=False,
+        allow_empty=True,
+    )
     answer_text = serializers.CharField(required=False, allow_blank=True, default="")
     time_spent_seconds = serializers.IntegerField(required=False, min_value=0, allow_null=True)
     is_marked_for_review = serializers.BooleanField(required=False, default=False)
@@ -277,6 +404,7 @@ class SaveAnswerSerializer(serializers.Serializer):
             raise serializers.ValidationError({"question": "Question not found."}) from exc
 
         selected_option_id = attrs.get("selected_option")
+        selected_option_ids = attrs.get("selected_option_ids", [])
         if selected_option_id:
             try:
                 attrs["selected_option_obj"] = QuestionOption.objects.get(pk=selected_option_id)
@@ -287,13 +415,48 @@ class SaveAnswerSerializer(serializers.Serializer):
         else:
             attrs["selected_option_obj"] = None
 
-        if attrs.get("clear_response") and attrs.get("selected_option"):
+        option_objects = []
+        if selected_option_ids:
+            if selected_option_id:
+                raise serializers.ValidationError(
+                    {
+                        "selected_option_ids": (
+                            "Use either selected_option or selected_option_ids, not both."
+                        )
+                    }
+                )
+            option_map = {
+                str(option.id): option
+                for option in QuestionOption.objects.filter(id__in=selected_option_ids)
+            }
+            missing = [
+                str(option_id)
+                for option_id in selected_option_ids
+                if str(option_id) not in option_map
+            ]
+            if missing:
+                raise serializers.ValidationError(
+                    {"selected_option_ids": "One or more selected options were not found."}
+                )
+            option_objects = [option_map[str(option_id)] for option_id in selected_option_ids]
+        attrs["selected_option_objs"] = option_objects
+
+        if attrs.get("clear_response") and (
+            attrs.get("selected_option") or attrs.get("selected_option_ids")
+        ):
             raise serializers.ValidationError(
-                {"clear_response": "Clear response cannot be combined with selected_option."}
+                {
+                    "clear_response": (
+                        "Clear response cannot be combined with selected_option or "
+                        "selected_option_ids."
+                    )
+                }
             )
-        if attrs.get("skip") and attrs.get("selected_option"):
+        if attrs.get("skip") and (
+            attrs.get("selected_option") or attrs.get("selected_option_ids")
+        ):
             raise serializers.ValidationError(
-                {"skip": "Skip cannot be combined with selected_option."}
+                {"skip": "Skip cannot be combined with selected_option or selected_option_ids."}
             )
 
         return attrs
@@ -303,10 +466,16 @@ class AttemptSubmitSerializer(serializers.Serializer):
     auto_submitted = serializers.BooleanField(required=False, default=False)
 
 
+class AttemptSwitchSectionSerializer(serializers.Serializer):
+    section = serializers.UUIDField()
+
+
 class AttemptSummarySerializer(serializers.ModelSerializer):
     exam_title = serializers.CharField(source="exam.title", read_only=True)
     student_name = serializers.CharField(source="student.full_name", read_only=True)
     server_time = serializers.SerializerMethodField()
+    result_visible = serializers.SerializerMethodField()
+    review_available = serializers.SerializerMethodField()
 
     class Meta:
         model = StudentExamAttempt
@@ -333,9 +502,36 @@ class AttemptSummarySerializer(serializers.ModelSerializer):
             "time_taken_seconds",
             "is_auto_submitted",
             "server_time",
+            "result_visible",
+            "review_available",
         )
 
     def get_server_time(self, obj):
         from django.utils import timezone
 
         return timezone.now()
+
+    def get_result_visible(self, obj):
+        result = getattr(obj, "result", None)
+        return is_result_visible_for_attempt(obj.exam, obj, result=result)
+
+    def get_review_available(self, obj):
+        result = getattr(obj, "result", None)
+        return review_visibility_for_attempt(obj.exam, obj, result=result)[
+            "review_available"
+        ]
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if not self.get_result_visible(instance):
+            for field in (
+                "correct_answers",
+                "incorrect_answers",
+                "skipped_questions",
+                "score",
+                "negative_score",
+                "final_score",
+                "percentage",
+            ):
+                data[field] = None
+        return data

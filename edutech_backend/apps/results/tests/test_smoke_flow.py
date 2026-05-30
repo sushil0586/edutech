@@ -1,13 +1,21 @@
+from datetime import timedelta
+
 from django.core.exceptions import ValidationError
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
 from decimal import Decimal
 
 from apps.attempts.models import StudentExamAttempt
 from apps.attempts.services import save_answer, start_attempt, submit_attempt
-from apps.exams.services import publish_exam
+from apps.exams.services import mark_exam_completed, mark_exam_live, publish_exam, refresh_exam_status
 from apps.results.models import ExamResult
-from apps.results.services import calculate_exam_ranks, generate_result_from_attempt
+from apps.results.services import (
+    calculate_exam_ranks,
+    generate_result_from_attempt,
+    generate_results_for_exam,
+    publish_exam_results,
+)
 from common.tests.builders import AcademicAssessmentBuilder
 
 
@@ -73,8 +81,8 @@ class AcademicAssessmentSmokeTestCase(TestCase):
             format="json",
         )
         self.assertEqual(submit_response.status_code, 200)
-        self.assertEqual(self._action_data(submit_response)["final_score"], "2.00")
-        self.assertEqual(self._action_data(submit_response)["percentage"], "100.00")
+        self.assertIsNone(self._action_data(submit_response)["final_score"])
+        self.assertIsNone(self._action_data(submit_response)["percentage"])
 
         generate_response = self.client.post(
             "/api/v1/results/generate-from-attempt/",
@@ -92,6 +100,13 @@ class AcademicAssessmentSmokeTestCase(TestCase):
         self.assertEqual(rank_response.status_code, 200)
         self.assertEqual(self._action_data(rank_response)[0]["rank"], 1)
 
+        complete_response = self.client.post(
+            f"/api/v1/exams/{exam.id}/mark-completed/",
+            {"changed_by": str(self.context["teacher"].id), "remarks": "Ready for result publish"},
+            format="json",
+        )
+        self.assertEqual(complete_response.status_code, 200)
+
         publish_results_response = self.client.post(
             "/api/v1/results/publish-exam-results/",
             {"exam": str(exam.id)},
@@ -105,6 +120,14 @@ class AcademicAssessmentSmokeTestCase(TestCase):
         self.assertEqual(len(leaderboard_response.data), 1)
         self.assertEqual(leaderboard_response.data[0]["rank"], 1)
         self.assertEqual(leaderboard_response.data[0]["final_score"], "2.00")
+
+        live_monitor_response = self.client.get(
+            f"/api/v1/results/exam/{exam.id}/live-monitor/"
+        )
+        self.assertEqual(live_monitor_response.status_code, 200)
+        self.assertEqual(live_monitor_response.data["total_students"], 1)
+        self.assertEqual(live_monitor_response.data["completed_students"], 1)
+        self.assertEqual(len(live_monitor_response.data["recent_attempts"]), 1)
 
         performance_response = self.client.get(
             f"/api/v1/results/student/{self.context['student'].id}/performance/"
@@ -162,3 +185,154 @@ class AcademicAssessmentSmokeTestCase(TestCase):
 
         self.assertEqual(first_result.id, second_result.id)
         self.assertEqual(ExamResult.objects.filter(attempt=flow["attempt"]).count(), 1)
+
+    def test_generate_results_for_exam_uses_best_attempt_policy(self):
+        exam = self.context["exam"]
+        exam.max_attempts = 2
+        exam.attempt_policy = "best"
+        exam.passing_marks = Decimal("1.00")
+        exam.save(update_fields=["max_attempts", "attempt_policy", "passing_marks", "updated_at"])
+        publish_exam(exam, changed_by=self.context["teacher"], remarks="Best attempt policy")
+
+        wrong_option = next(option for option in self.context["options"] if not option.is_correct)
+        correct_option = next(option for option in self.context["options"] if option.is_correct)
+
+        attempt_one = start_attempt(self.context["student"], exam)
+        save_answer(
+            attempt=attempt_one,
+            question=self.context["question"],
+            selected_option=wrong_option,
+            time_spent_seconds=12,
+        )
+        submit_attempt(attempt_one)
+
+        attempt_two = start_attempt(self.context["student"], exam)
+        save_answer(
+            attempt=attempt_two,
+            question=self.context["question"],
+            selected_option=correct_option,
+            time_spent_seconds=8,
+        )
+        submit_attempt(attempt_two)
+
+        results = generate_results_for_exam(exam)
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].attempt_id, attempt_two.id)
+        self.assertTrue(
+            ExamResult.objects.get(attempt=attempt_two).is_active,
+        )
+        self.assertFalse(
+            ExamResult.objects.filter(attempt=attempt_one, is_active=True).exists(),
+        )
+
+    def test_exam_status_transition_helpers_cover_live_and_completed(self):
+        exam = self.context["exam"]
+        exam.start_at = timezone.now() - timedelta(minutes=5)
+        exam.end_at = timezone.now() + timedelta(minutes=25)
+        exam.save(update_fields=["start_at", "end_at", "updated_at"])
+        publish_exam(exam, changed_by=self.context["teacher"], remarks="Scheduled")
+
+        refreshed = refresh_exam_status(exam)
+        self.assertEqual(refreshed.status, "live")
+
+        completed = mark_exam_completed(refreshed, changed_by=self.context["teacher"])
+        self.assertEqual(completed.status, "completed")
+
+    def test_mark_exam_live_promotes_scheduled_exam(self):
+        exam = self.context["exam"]
+        exam.start_at = timezone.now() + timedelta(minutes=30)
+        exam.end_at = timezone.now() + timedelta(hours=2)
+        exam.save(update_fields=["start_at", "end_at", "updated_at"])
+        publish_exam(exam, changed_by=self.context["teacher"], remarks="Scheduled")
+
+        promoted = mark_exam_live(exam, changed_by=self.context["teacher"])
+        self.assertEqual(promoted.status, "live")
+
+    def test_cannot_publish_results_until_exam_is_completed(self):
+        exam = self.context["exam"]
+        question = self.context["question"]
+        correct_option = next(option for option in self.context["options"] if option.is_correct)
+        exam = publish_exam(exam, changed_by=self.context["teacher"], remarks="Scheduled")
+
+        attempt = start_attempt(self.context["student"], exam)
+        save_answer(
+            attempt=attempt,
+            question=question,
+            selected_option=correct_option,
+            time_spent_seconds=10,
+        )
+        submit_attempt(attempt)
+        generate_results_for_exam(exam)
+
+        with self.assertRaises(ValidationError):
+            publish_exam_results(exam)
+
+    def test_teacher_can_force_submit_in_progress_attempt_from_monitor(self):
+        exam = publish_exam(
+            self.context["exam"],
+            changed_by=self.context["teacher"],
+            remarks="Force submit flow",
+        )
+
+        start_response = self.client.post(
+            "/api/v1/attempts/start/",
+            {"exam": str(exam.id), "student": str(self.context["student"].id)},
+            format="json",
+        )
+        self.assertEqual(start_response.status_code, 201)
+        attempt_id = self._action_data(start_response)["id"]
+
+        force_submit_response = self.client.post(
+            "/api/v1/results/force-submit-attempt/",
+            {"attempt": str(attempt_id)},
+            format="json",
+        )
+        self.assertEqual(force_submit_response.status_code, 200)
+        self.assertEqual(self._action_data(force_submit_response)["status"], "auto_submitted")
+        self.assertTrue(self._action_data(force_submit_response)["is_auto_submitted"])
+
+        attempt = StudentExamAttempt.objects.get(pk=attempt_id)
+        self.assertEqual(attempt.status, "auto_submitted")
+        self.assertTrue(attempt.is_auto_submitted)
+
+    def test_cannot_force_submit_attempt_for_cancelled_exam(self):
+        exam = publish_exam(
+            self.context["exam"],
+            changed_by=self.context["teacher"],
+            remarks="Cancelled force submit guard",
+        )
+        start_response = self.client.post(
+            "/api/v1/attempts/start/",
+            {"exam": str(exam.id), "student": str(self.context["student"].id)},
+            format="json",
+        )
+        self.assertEqual(start_response.status_code, 201)
+        attempt_id = self._action_data(start_response)["id"]
+
+        self.client.post(f"/api/v1/exams/{exam.id}/cancel/")
+
+        force_submit_response = self.client.post(
+            "/api/v1/results/force-submit-attempt/",
+            {"attempt": str(attempt_id)},
+            format="json",
+        )
+        self.assertEqual(force_submit_response.status_code, 400)
+        self.assertIn("attempt", force_submit_response.data)
+
+    def test_live_monitor_includes_alert_counts_and_alert_details(self):
+        exam = publish_exam(
+            self.context["exam"],
+            changed_by=self.context["teacher"],
+            remarks="Monitor alerts",
+        )
+        attempt = start_attempt(self.context["student"], exam)
+        attempt.started_at = timezone.now() - timedelta(minutes=25)
+        attempt.save(update_fields=["started_at", "updated_at"])
+
+        response = self.client.get(f"/api/v1/results/exam/{exam.id}/live-monitor/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["alerted_attempts"], 1)
+        self.assertEqual(response.data["high_alert_attempts"], 1)
+        self.assertEqual(response.data["medium_alert_attempts"], 0)
+        self.assertEqual(response.data["stalled_attempts"], 1)
+        self.assertEqual(response.data["recent_attempts"][0]["alerts"][0]["code"], "stalled_activity")

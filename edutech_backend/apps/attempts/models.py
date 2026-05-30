@@ -109,6 +109,7 @@ class StudentAnswer(BaseModel):
         blank=True,
         null=True,
     )
+    selected_option_ids = models.JSONField(default=list, blank=True)
     answer_text = models.TextField(blank=True)
     is_correct = models.BooleanField(default=False)
     marks_awarded = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"))
@@ -143,6 +144,30 @@ class StudentAnswer(BaseModel):
             raise ValidationError(
                 {"selected_option": "Selected option must belong to the same question."}
             )
+        if self.selected_option_ids:
+            if not isinstance(self.selected_option_ids, list):
+                raise ValidationError(
+                    {"selected_option_ids": "Selected option ids must be stored as a list."}
+                )
+            option_ids = [str(item) for item in self.selected_option_ids if str(item).strip()]
+            active_count = (
+                QuestionOption.objects.filter(
+                    question_id=self.question_id,
+                    id__in=option_ids,
+                    is_active=True,
+                )
+                .values("id")
+                .distinct()
+                .count()
+            )
+            if active_count != len(set(option_ids)):
+                raise ValidationError(
+                    {
+                        "selected_option_ids": (
+                            "All selected options must be active and belong to the same question."
+                        )
+                    }
+                )
 
     def save(self, *args, **kwargs):
         self.full_clean()

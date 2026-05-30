@@ -5,7 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
-from django.db.models import Count, Q
+from django.db.models import Count, Max, Q
 
 from apps.accounts.permissions import CanPublishResults
 from apps.accounts.permissions import CanViewAnalytics
@@ -19,13 +19,16 @@ from apps.accounts.scopes import (
     scope_teacher_queryset,
 )
 from apps.attempts.models import StudentAnswer, StudentExamAttempt
+from apps.attempts.services import submit_attempt
 from apps.exams.models import Exam
 from apps.results.models import ExamPerformanceSummary, ExamResult, StudentTopicPerformance
+from apps.students.models import StudentProfile
 from apps.results.serializers import (
     ExamLeaderboardSerializer,
     ExamPerformanceSummarySerializer,
     ExamResultSerializer,
     GenerateForExamSerializer,
+    LiveExamMonitorSerializer,
     GenerateFromAttemptSerializer,
     PublishExamResultsSerializer,
     StudentTopicPerformanceSerializer,
@@ -33,8 +36,10 @@ from apps.results.serializers import (
     TeacherQuestionAnalysisSerializer,
 )
 from apps.results.services import (
+    attempt_monitor_alerts,
     calculate_exam_performance_summary,
     calculate_exam_ranks,
+    ensure_attempt_can_be_force_submitted,
     calculate_student_topic_performance,
     generate_result_from_attempt,
     generate_results_for_exam,
@@ -58,6 +63,7 @@ class ExamResultViewSet(ModelViewSet):
             "generate_for_exam",
             "calculate_ranks",
             "publish_results",
+            "force_submit_attempt",
         }:
             return [IsAuthenticated(), CanPublishResults()]
         return [IsAuthenticated(), CanViewAnalytics()]
@@ -212,6 +218,181 @@ class ExamResultViewSet(ModelViewSet):
         ).filter(exam_id=exam_id, is_active=True)
         return Response(
             TeacherExamAttemptSerializer(queryset.order_by("-started_at"), many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=False, methods=["post"], url_path="force-submit-attempt")
+    def force_submit_attempt(self, request):
+        serializer = GenerateFromAttemptSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            attempt = get_scoped_object_or_403(
+                scope_teacher_queryset(
+                    StudentExamAttempt.objects.select_related("exam", "student", "institute"),
+                    request.user,
+                ),
+                user=request.user,
+                value=serializer.validated_data["attempt"],
+                not_found_message="Attempt not found in your scope.",
+            )
+        except PermissionDenied as exc:
+            return Response({"attempt": str(exc)}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            ensure_attempt_can_be_force_submitted(attempt)
+            attempt = submit_attempt(attempt, auto_submitted=True)
+        except DjangoValidationError as exc:
+            return Response(exc.message_dict, status=status.HTTP_400_BAD_REQUEST)
+
+        create_audit_log(
+            user=request.user,
+            institute=attempt.institute,
+            action="attempt_force_submit",
+            entity_type="attempt",
+            entity_id=attempt.id,
+            message="Teacher force-submitted an in-progress attempt.",
+            metadata={
+                "exam_id": str(attempt.exam_id),
+                "student_id": str(attempt.student_id),
+                "status": attempt.status,
+            },
+            request=request,
+        )
+        return action_response(
+            data=TeacherExamAttemptSerializer(attempt).data,
+            message="Attempt force-submitted successfully.",
+            status_code=status.HTTP_200_OK,
+        )
+
+    @action(detail=False, methods=["get"], url_path=r"exam/(?P<exam_id>[^/.]+)/live-monitor")
+    def live_monitor(self, request, exam_id=None):
+        try:
+            exam = get_scoped_object_or_403(
+                scope_exam_queryset(Exam.objects.all(), request.user),
+                user=request.user,
+                value=exam_id,
+                not_found_message="Exam not found in your scope.",
+            )
+        except PermissionDenied as exc:
+            return Response({"exam": str(exc)}, status=status.HTTP_403_FORBIDDEN)
+
+        student_queryset = StudentProfile.objects.filter(
+            institute_id=exam.institute_id,
+            academic_year_id=exam.academic_year_id,
+            program_id=exam.program_id,
+            is_active=True,
+        )
+        if exam.cohort_id:
+            student_queryset = student_queryset.filter(cohort_id=exam.cohort_id)
+
+        total_students = student_queryset.count()
+        attempt_queryset = scope_teacher_queryset(
+            StudentExamAttempt.objects.select_related("exam", "student", "institute"),
+            request.user,
+        ).filter(exam_id=exam.id, is_active=True)
+
+        student_rollup = attempt_queryset.aggregate(
+            started_students=Count("student_id", distinct=True),
+            in_progress_students=Count(
+                "student_id",
+                filter=Q(status="in_progress"),
+                distinct=True,
+            ),
+            submitted_students=Count(
+                "student_id",
+                filter=Q(status="submitted"),
+                distinct=True,
+            ),
+            auto_submitted_students=Count(
+                "student_id",
+                filter=Q(status="auto_submitted"),
+                distinct=True,
+            ),
+            completed_students=Count(
+                "student_id",
+                filter=Q(status__in=["submitted", "auto_submitted"]),
+                distinct=True,
+            ),
+            last_activity_at=Max("updated_at"),
+        )
+
+        started_students = student_rollup["started_students"] or 0
+        in_progress_students = student_rollup["in_progress_students"] or 0
+        submitted_students = student_rollup["submitted_students"] or 0
+        auto_submitted_students = student_rollup["auto_submitted_students"] or 0
+        completed_students = student_rollup["completed_students"] or 0
+        not_started_students = max(total_students - started_students, 0)
+
+        completion_percentage = (
+            round((completed_students / total_students) * 100, 2)
+            if total_students > 0
+            else 0.0
+        )
+        submission_percentage = (
+            round((started_students / total_students) * 100, 2)
+            if total_students > 0
+            else 0.0
+        )
+
+        attempt_rows = list(attempt_queryset)
+        alerted_attempts = 0
+        stalled_attempts = 0
+        high_alert_attempts = 0
+        medium_alert_attempts = 0
+        for attempt in attempt_rows:
+            alerts = attempt_monitor_alerts(attempt)
+            if alerts:
+                alerted_attempts += 1
+            if any(alert["code"] == "stalled_activity" for alert in alerts):
+                stalled_attempts += 1
+            if any(alert["severity"] == "high" for alert in alerts):
+                high_alert_attempts += 1
+            elif any(alert["severity"] == "medium" for alert in alerts):
+                medium_alert_attempts += 1
+
+        recent_attempts = list(
+            sorted(
+                attempt_rows,
+                key=lambda attempt: (
+                    max(
+                        (
+                            3 if alert["severity"] == "high"
+                            else 2 if alert["severity"] == "medium"
+                            else 1
+                            for alert in attempt_monitor_alerts(attempt)
+                        ),
+                        default=0,
+                    ),
+                    attempt.updated_at or attempt.started_at,
+                    attempt.started_at,
+                ),
+                reverse=True,
+            )[:8]
+        )
+        payload = {
+            "exam_id": exam.id,
+            "exam_title": exam.title,
+            "exam_code": exam.code,
+            "exam_status": exam.status,
+            "total_students": total_students,
+            "started_students": started_students,
+            "not_started_students": not_started_students,
+            "in_progress_students": in_progress_students,
+            "submitted_students": submitted_students,
+            "auto_submitted_students": auto_submitted_students,
+            "completed_students": completed_students,
+            "alerted_attempts": alerted_attempts,
+            "high_alert_attempts": high_alert_attempts,
+            "medium_alert_attempts": medium_alert_attempts,
+            "stalled_attempts": stalled_attempts,
+            "completion_percentage": completion_percentage,
+            "submission_percentage": submission_percentage,
+            "last_activity_at": student_rollup["last_activity_at"],
+            "recent_attempts": TeacherExamAttemptSerializer(recent_attempts, many=True).data,
+        }
+        return Response(
+            LiveExamMonitorSerializer(payload).data,
             status=status.HTTP_200_OK,
         )
 

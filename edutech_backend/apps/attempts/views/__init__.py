@@ -21,6 +21,7 @@ from apps.attempts.models import StudentAnswer, StudentExamAttempt
 from apps.attempts.serializers import (
     AttemptDetailSerializer,
     AttemptReviewSerializer,
+    AttemptSwitchSectionSerializer,
     AttemptStartSerializer,
     AttemptSubmitSerializer,
     AttemptSummarySerializer,
@@ -28,7 +29,15 @@ from apps.attempts.serializers import (
     StudentAnswerSerializer,
     StudentExamAttemptSerializer,
 )
-from apps.attempts.services import save_answer, start_attempt, submit_attempt
+from apps.exams.models import ExamSection
+from apps.exams.services import is_review_available_for_attempt
+from apps.attempts.services import (
+    refresh_attempt_runtime_state,
+    save_answer,
+    start_attempt,
+    submit_attempt,
+    switch_section,
+)
 from apps.reports.services import create_audit_log
 from common.throttles import AttemptSaveAnswerRateThrottle
 from common.responses import action_response
@@ -73,6 +82,7 @@ class StudentExamAttemptViewSet(ReadOnlyModelViewSet):
                 "answers__question",
                 "answers__selected_option",
                 "exam__exam_questions__question",
+                "exam__exam_questions__section",
                 "exam__exam_questions__question__options",
                 "exam__exam_questions__question__attachments",
             )
@@ -173,6 +183,10 @@ class StudentExamAttemptViewSet(ReadOnlyModelViewSet):
                 attempt=attempt,
                 question=serializer.validated_data["question_obj"],
                 selected_option=serializer.validated_data["selected_option_obj"],
+                selected_option_ids=[
+                    str(option.id)
+                    for option in serializer.validated_data.get("selected_option_objs", [])
+                ],
                 answer_text=serializer.validated_data.get("answer_text", ""),
                 time_spent_seconds=serializer.validated_data.get("time_spent_seconds"),
                 is_marked_for_review=serializer.validated_data.get("is_marked_for_review", False),
@@ -225,14 +239,41 @@ class StudentExamAttemptViewSet(ReadOnlyModelViewSet):
             status_code=status.HTTP_200_OK,
         )
 
+    @action(detail=True, methods=["post"], url_path="switch-section")
+    def switch_section_action(self, request, pk=None):
+        attempt = self.get_object()
+        serializer = AttemptSwitchSectionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            section = ExamSection.objects.get(pk=serializer.validated_data["section"])
+        except ExamSection.DoesNotExist:
+            return Response(
+                {"section": ["Section not found."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            attempt = switch_section(attempt, section)
+        except DjangoValidationError as exc:
+            return Response(_validation_error_data(exc), status=status.HTTP_400_BAD_REQUEST)
+
+        return action_response(
+            data=AttemptDetailSerializer(attempt).data,
+            message="Section switched successfully.",
+            status_code=status.HTTP_200_OK,
+        )
+
     @action(detail=True, methods=["get"], url_path="summary")
     def summary(self, request, pk=None):
         attempt = self.get_object()
+        refresh_attempt_runtime_state(attempt)
         return Response(AttemptSummarySerializer(attempt).data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["get"], url_path="detail")
     def detail_action(self, request, pk=None):
         attempt = self.get_object()
+        refresh_attempt_runtime_state(attempt)
         return Response(AttemptDetailSerializer(attempt).data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["get"], url_path="review")
@@ -240,13 +281,10 @@ class StudentExamAttemptViewSet(ReadOnlyModelViewSet):
         attempt = self.get_object()
         exam = attempt.exam
         result = getattr(attempt, "result", None)
-        review_allowed = (
-            attempt.status in {"submitted", "auto_submitted"}
-            and (
-                exam.allow_review_after_submit
-                or exam.show_result_immediately
-                or (result is not None and result.is_published)
-            )
+        review_allowed = is_review_available_for_attempt(
+            exam,
+            attempt,
+            result=result,
         )
         if not review_allowed:
             return Response(

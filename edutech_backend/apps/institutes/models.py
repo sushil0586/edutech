@@ -16,6 +16,7 @@ class Institute(BaseModel):
     logo = models.FileField(upload_to="institutes/logos/", blank=True, null=True)
     website = models.URLField(blank=True)
     description = models.TextField(blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
 
     class Meta:
         ordering = ["name"]

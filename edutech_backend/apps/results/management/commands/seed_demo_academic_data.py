@@ -7,7 +7,11 @@ from apps.academics.models import AcademicYear, Cohort, Program, Subject, Topic
 from apps.accounts.models import AccountProfile, AccountRole
 from apps.attempts.services import save_answer, start_attempt, submit_attempt
 from apps.exams.models import Exam
-from apps.exams.services import publish_exam, sync_total_marks_from_questions
+from apps.exams.services import (
+    mark_exam_completed,
+    publish_exam,
+    sync_total_marks_from_questions,
+)
 from apps.institutes.models import Institute
 from apps.question_bank.models import Question, QuestionOption
 from apps.results.services import (
@@ -104,6 +108,7 @@ class Command(BaseCommand):
         result = getattr(attempt, "result", None) or generate_result_from_attempt(attempt)
         calculate_student_topic_performance(exam, context["student"], attempt)
         calculate_exam_ranks(exam)
+        mark_exam_completed(exam, changed_by=context["teacher"])
         publish_exam_results(exam)
         calculate_exam_performance_summary(exam)
 

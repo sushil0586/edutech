@@ -1,4 +1,5 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -6,19 +7,40 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from apps.accounts.permissions import CanBuildExams
-from apps.accounts.scopes import get_scoped_object_or_403, scope_exam_queryset
-from apps.exams.models import Exam, ExamPublishLog, ExamQuestion, ExamSection
+from apps.accounts.scopes import (
+    get_account_profile,
+    get_scoped_object_or_403,
+    scope_exam_queryset,
+    scope_student_profile_queryset,
+)
+from apps.exams.models import (
+    Exam,
+    ExamPublishLog,
+    ExamQuestion,
+    ExamSection,
+    ExamStudentAssignment,
+)
 from apps.exams.serializers import (
     ExamActionSerializer,
     ExamPublishLogSerializer,
     ExamQuestionSerializer,
     ExamReadSerializer,
     ExamSectionSerializer,
+    ExamStudentAssignmentUpdateSerializer,
     ExamSyncMarksResponseSerializer,
+    TeacherExamPreviewSerializer,
     ExamWriteSerializer,
 )
-from apps.exams.services import cancel_exam, publish_exam, sync_total_marks_from_questions
+from apps.exams.services import (
+    cancel_exam,
+    mark_exam_completed,
+    mark_exam_live,
+    publish_exam,
+    refresh_exam_status,
+    sync_total_marks_from_questions,
+)
 from apps.teachers.models import TeacherProfile
+from apps.students.models import StudentProfile
 from apps.reports.services import create_audit_log
 from common.responses import action_response
 from common.viewsets import SoftDeleteModelViewSetMixin
@@ -52,7 +74,9 @@ class ExamViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
             )
             .prefetch_related(
                 "sections",
+                "student_assignments__student__cohort",
                 "exam_questions__question",
+                "exam_questions__section",
                 "publish_logs__changed_by",
             )
             .all()
@@ -132,6 +156,96 @@ class ExamViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
             status_code=status.HTTP_200_OK,
         )
 
+    @action(detail=True, methods=["post"], url_path="refresh-status")
+    def refresh_status(self, request, pk=None):
+        exam = self.get_object()
+        serializer = ExamActionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        changed_by = serializer.validated_data.get("changed_by")
+        try:
+            exam = refresh_exam_status(
+                exam,
+                changed_by=changed_by,
+                remarks=serializer.validated_data.get("remarks", ""),
+            )
+        except DjangoValidationError as exc:
+            return Response(exc.message_dict, status=status.HTTP_400_BAD_REQUEST)
+        create_audit_log(
+            user=request.user,
+            institute=exam.institute,
+            action="exam_refresh_status",
+            entity_type="exam",
+            entity_id=exam.id,
+            message="Exam status refreshed.",
+            metadata={"status": exam.status},
+            request=request,
+        )
+        return action_response(
+            data=ExamReadSerializer(exam).data,
+            message="Exam status refreshed successfully.",
+            status_code=status.HTTP_200_OK,
+        )
+
+    @action(detail=True, methods=["post"], url_path="mark-live")
+    def mark_live(self, request, pk=None):
+        exam = self.get_object()
+        serializer = ExamActionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        changed_by = serializer.validated_data.get("changed_by")
+        try:
+            exam = mark_exam_live(
+                exam,
+                changed_by=changed_by,
+                remarks=serializer.validated_data.get("remarks", ""),
+            )
+        except DjangoValidationError as exc:
+            return Response(exc.message_dict, status=status.HTTP_400_BAD_REQUEST)
+        create_audit_log(
+            user=request.user,
+            institute=exam.institute,
+            action="exam_mark_live",
+            entity_type="exam",
+            entity_id=exam.id,
+            message="Exam marked live.",
+            metadata={"status": exam.status},
+            request=request,
+        )
+        return action_response(
+            data=ExamReadSerializer(exam).data,
+            message="Exam marked live successfully.",
+            status_code=status.HTTP_200_OK,
+        )
+
+    @action(detail=True, methods=["post"], url_path="mark-completed")
+    def mark_completed(self, request, pk=None):
+        exam = self.get_object()
+        serializer = ExamActionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        changed_by = serializer.validated_data.get("changed_by")
+        try:
+            exam = mark_exam_completed(
+                exam,
+                changed_by=changed_by,
+                remarks=serializer.validated_data.get("remarks", ""),
+            )
+        except DjangoValidationError as exc:
+            return Response(exc.message_dict, status=status.HTTP_400_BAD_REQUEST)
+        create_audit_log(
+            user=request.user,
+            institute=exam.institute,
+            action="exam_mark_completed",
+            entity_type="exam",
+            entity_id=exam.id,
+            message="Exam marked completed.",
+            metadata={"status": exam.status},
+            request=request,
+        )
+        return action_response(
+            data=ExamReadSerializer(exam).data,
+            message="Exam marked completed successfully.",
+            status_code=status.HTTP_200_OK,
+        )
+
     @action(detail=True, methods=["post"], url_path="cancel")
     def cancel(self, request, pk=None):
         exam = self.get_object()
@@ -169,6 +283,86 @@ class ExamViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
             status_code=status.HTTP_200_OK,
         )
 
+    @action(detail=True, methods=["get"], url_path="preview")
+    def preview(self, request, pk=None):
+        exam = self.get_object()
+        return Response(
+            TeacherExamPreviewSerializer(exam, context={"request": request}).data,
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=True, methods=["post"], url_path="assign-students")
+    def assign_students(self, request, pk=None):
+        exam = self.get_object()
+        serializer = ExamStudentAssignmentUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        student_ids = serializer.validated_data.get("student_ids", [])
+        students = list(
+            scope_student_profile_queryset(
+                StudentProfile.objects.select_related(
+                    "cohort",
+                    "program",
+                    "academic_year",
+                ),
+                request.user,
+            ).filter(pk__in=student_ids, is_active=True)
+        )
+        if len(students) != len(set(student_ids)):
+            return Response(
+                {"student_ids": ["One or more students were not found in your scope."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        assignment_mode = serializer.validated_data["assignment_mode"]
+        exam.assignment_mode = assignment_mode
+        exam.save(update_fields=["assignment_mode", "updated_at"])
+
+        keep_student_ids = [student.id for student in students]
+        ExamStudentAssignment.objects.filter(exam=exam).exclude(
+            student_id__in=keep_student_ids
+        ).delete()
+
+        if assignment_mode == "selected_students":
+            profile = get_account_profile(request.user)
+            teacher_profile = getattr(profile, "teacher_profile", None)
+            existing_student_ids = set(
+                ExamStudentAssignment.objects.filter(exam=exam).values_list(
+                    "student_id",
+                    flat=True,
+                )
+            )
+            for student in students:
+                if student.id in existing_student_ids:
+                    continue
+                ExamStudentAssignment.objects.create(
+                    exam=exam,
+                    student=student,
+                    assigned_by=teacher_profile,
+                )
+        else:
+            ExamStudentAssignment.objects.filter(exam=exam).delete()
+
+        create_audit_log(
+            user=request.user,
+            institute=exam.institute,
+            action="exam_assign_students",
+            entity_type="exam",
+            entity_id=exam.id,
+            message="Exam assignment audience updated.",
+            metadata={
+                "assignment_mode": assignment_mode,
+                "student_count": len(students),
+            },
+            request=request,
+        )
+        exam.refresh_from_db()
+        return action_response(
+            data=ExamReadSerializer(exam).data,
+            message="Exam assignments updated successfully.",
+            status_code=status.HTTP_200_OK,
+        )
+
 
 class ExamSectionViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
     serializer_class = ExamSectionSerializer
@@ -182,6 +376,10 @@ class ExamSectionViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
         queryset = ExamSection.objects.select_related("exam", "exam__program", "exam__subject").all()
         return queryset.filter(exam__in=scope_exam_queryset(Exam.objects.all(), self.request.user))
 
+    def perform_destroy(self, instance):
+        instance.exam_questions.update(section=None, section_name="", updated_at=timezone.now())
+        super().perform_destroy(instance)
+
 
 class ExamQuestionViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
     serializer_class = ExamQuestionSerializer
@@ -194,6 +392,7 @@ class ExamQuestionViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
     def get_queryset(self):
         queryset = ExamQuestion.objects.select_related(
             "exam",
+            "section",
             "question",
             "question__subject",
             "question__topic",

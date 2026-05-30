@@ -45,6 +45,7 @@ from apps.exams.serializers import (
     StudentExamAvailabilitySerializer,
     StudentExamReadinessSerializer,
 )
+from apps.exams.services import is_exam_assigned_to_student
 from apps.question_bank.models import Question
 from apps.question_bank.serializers import QuestionSerializer
 from apps.reports.services import create_audit_log
@@ -296,13 +297,14 @@ class StudentAvailableExamView(APIView):
             Exam.objects.select_related("institute", "academic_year", "program", "cohort", "subject"),
             request.user,
         ).filter(is_active=True).prefetch_related(
+            "student_assignments",
             Prefetch(
                 "attempts",
                 queryset=StudentExamAttempt.objects.filter(student=student, is_active=True).select_related("result"),
                 to_attr="_prefetched_attempts_for_student",
             )
         )
-        exams = list(queryset)
+        exams = [exam for exam in queryset if is_exam_assigned_to_student(exam, student)]
         ensure_exam_window_notifications(student, exams)
         return Response(
             StudentExamAvailabilitySerializer(
@@ -321,6 +323,8 @@ class StudentExamDetailView(APIView):
         queryset = scope_exam_queryset(
             Exam.objects.select_related("institute", "academic_year", "program", "cohort", "subject").prefetch_related(
                 "sections",
+                "student_assignments",
+                "exam_questions__section",
                 "exam_questions__question",
                 "exam_questions__question__options",
                 Prefetch(
@@ -332,7 +336,7 @@ class StudentExamDetailView(APIView):
             request.user,
         ).filter(pk=exam_id, is_active=True)
         exam = queryset.first()
-        if exam is None:
+        if exam is None or not is_exam_assigned_to_student(exam, student):
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
         return Response(
             StudentExamReadinessSerializer(exam, context={"request": request}).data

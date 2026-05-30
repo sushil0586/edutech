@@ -8,7 +8,11 @@ from apps.academics.models import AcademicYear, Cohort, Program, Subject, Topic
 from apps.accounts.models import AccountProfile, AccountRole
 from apps.attempts.services import save_answer, start_attempt, submit_attempt
 from apps.exams.models import Exam, ExamQuestion
-from apps.exams.services import publish_exam, sync_total_marks_from_questions
+from apps.exams.services import (
+    mark_exam_completed,
+    publish_exam,
+    sync_total_marks_from_questions,
+)
 from apps.institutes.models import Institute
 from apps.question_bank.models import Question, QuestionOption, QuestionType
 from apps.results.services import calculate_exam_ranks, generate_result_from_attempt, publish_exam_results
@@ -293,7 +297,12 @@ class AcademicAssessmentBuilder:
             "is_active": True,
         }
         defaults.update(overrides)
-        return ExamQuestion.objects.create(**defaults)
+        exam_question = ExamQuestion.objects.create(**defaults)
+        sync_total_marks_from_questions(exam)
+        return exam_question
+
+    def create_exam_question(self, exam, question, **overrides):
+        return self.add_question_to_exam(exam, question, **overrides)
 
     def build_full_flow_entities(self):
         institute = self.create_institute()
@@ -342,6 +351,7 @@ class AcademicAssessmentBuilder:
         attempt = submit_attempt(attempt)
         result = generate_result_from_attempt(attempt)
         ranked_results = calculate_exam_ranks(exam)
+        exam = mark_exam_completed(exam, changed_by=context["teacher"])
         published_results = publish_exam_results(exam)
 
         return {

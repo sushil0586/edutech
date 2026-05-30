@@ -7,6 +7,7 @@ from apps.academics.models import AcademicYear, Cohort, Program, Subject
 from apps.exams.services import validate_exam_scope
 from apps.institutes.models import Institute
 from apps.question_bank.models import Question
+from apps.students.models import StudentProfile
 from apps.teachers.models import TeacherProfile
 from common.models import BaseModel
 
@@ -32,6 +33,52 @@ class ExamStatus(models.TextChoices):
     LIVE = "live", "Live"
     COMPLETED = "completed", "Completed"
     CANCELLED = "cancelled", "Cancelled"
+
+
+class TimerMode(models.TextChoices):
+    GLOBAL = "global", "Global Timer"
+    SECTION = "section", "Section Timer"
+    HYBRID = "hybrid", "Hybrid Timer"
+
+
+class NavigationMode(models.TextChoices):
+    FREE_EXAM = "free_exam", "Free Across Exam"
+    FREE_SECTION = "free_section", "Free Within Section"
+    SEQUENTIAL = "sequential", "Sequential Sections"
+    HYBRID = "hybrid", "Hybrid"
+
+
+class AttemptPolicy(models.TextChoices):
+    SINGLE = "single", "Single Attempt"
+    LATEST = "latest", "Latest Attempt Counted"
+    BEST = "best", "Best Attempt Counted"
+    UNLIMITED_PRACTICE = "unlimited_practice", "Unlimited Practice"
+
+
+class ResultPublishMode(models.TextChoices):
+    IMMEDIATE = "immediate", "Immediate"
+    SCHEDULED = "scheduled", "Scheduled"
+    AFTER_REVIEW = "after_review", "After Review"
+
+
+class ReviewMode(models.TextChoices):
+    NONE = "none", "No Review"
+    ATTEMPTED_ONLY = "attempted_only", "Attempted Only"
+    ALL_QUESTIONS = "all_questions", "All Questions"
+    SOLUTION_REVIEW = "solution_review", "Solution Review"
+
+
+class SecurityMode(models.TextChoices):
+    NORMAL = "normal", "Normal"
+    FOCUS = "focus", "Focus Mode"
+    FULLSCREEN = "fullscreen", "Fullscreen Required"
+    VIOLATION_LIMITED = "violation_limited", "Violation Limited"
+    PROCTORED = "proctored", "Proctored"
+
+
+class AssignmentMode(models.TextChoices):
+    SCOPE = "scope", "Program/Cohort Scope"
+    SELECTED_STUDENTS = "selected_students", "Selected Students"
 
 
 class Exam(BaseModel):
@@ -82,6 +129,47 @@ class Exam(BaseModel):
     show_result_immediately = models.BooleanField(default=False)
     allow_review_after_submit = models.BooleanField(default=True)
     max_attempts = models.PositiveIntegerField(default=1)
+    timer_mode = models.CharField(
+        max_length=20,
+        choices=TimerMode.choices,
+        default=TimerMode.GLOBAL,
+    )
+    navigation_mode = models.CharField(
+        max_length=20,
+        choices=NavigationMode.choices,
+        default=NavigationMode.FREE_EXAM,
+    )
+    attempt_policy = models.CharField(
+        max_length=30,
+        choices=AttemptPolicy.choices,
+        default=AttemptPolicy.SINGLE,
+    )
+    result_publish_mode = models.CharField(
+        max_length=20,
+        choices=ResultPublishMode.choices,
+        default=ResultPublishMode.AFTER_REVIEW,
+    )
+    review_mode = models.CharField(
+        max_length=20,
+        choices=ReviewMode.choices,
+        default=ReviewMode.ATTEMPTED_ONLY,
+    )
+    security_mode = models.CharField(
+        max_length=30,
+        choices=SecurityMode.choices,
+        default=SecurityMode.NORMAL,
+    )
+    assignment_mode = models.CharField(
+        max_length=30,
+        choices=AssignmentMode.choices,
+        default=AssignmentMode.SCOPE,
+    )
+    allow_resume = models.BooleanField(default=True)
+    allow_section_switching = models.BooleanField(default=True)
+    allow_return_to_previous_section = models.BooleanField(default=True)
+    result_publish_at = models.DateTimeField(blank=True, null=True)
+    review_available_from = models.DateTimeField(blank=True, null=True)
+    review_available_until = models.DateTimeField(blank=True, null=True)
     metadata = models.JSONField(default=dict, blank=True)
 
     class Meta:
@@ -114,6 +202,24 @@ class Exam(BaseModel):
             raise ValidationError({"max_attempts": "Max attempts must be at least 1."})
         if self.start_at and self.end_at and self.end_at <= self.start_at:
             raise ValidationError({"end_at": "End time must be after start time."})
+        if self.result_publish_at and self.end_at and self.result_publish_at < self.end_at:
+            raise ValidationError(
+                {"result_publish_at": "Scheduled result publish time should be after exam end time."}
+            )
+        if (
+            self.review_available_from
+            and self.review_available_until
+            and self.review_available_until <= self.review_available_from
+        ):
+            raise ValidationError(
+                {"review_available_until": "Review availability end must be after start."}
+            )
+        if self.attempt_policy == AttemptPolicy.UNLIMITED_PRACTICE and self.max_attempts != 1:
+            raise ValidationError(
+                {"max_attempts": "Unlimited practice uses policy instead of raising max attempts."}
+            )
+        if self.attempt_policy != AttemptPolicy.UNLIMITED_PRACTICE and self.max_attempts <= 0:
+            raise ValidationError({"max_attempts": "Max attempts must be at least 1."})
         if self.institute_id and self.academic_year_id and self.program_id:
             validate_exam_scope(self)
 
@@ -148,6 +254,10 @@ class ExamSection(BaseModel):
         blank=True,
         null=True,
     )
+    timer_enabled = models.BooleanField(default=False)
+    duration_minutes = models.PositiveIntegerField(blank=True, null=True)
+    allow_skip_section = models.BooleanField(default=True)
+    lock_after_submit = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["section_order", "name"]
@@ -175,6 +285,10 @@ class ExamSection(BaseModel):
             raise ValidationError(
                 {"negative_marks_per_question": "Negative marks per question cannot be negative."}
             )
+        if self.timer_enabled and not self.duration_minutes:
+            raise ValidationError(
+                {"duration_minutes": "Section duration is required when section timer is enabled."}
+            )
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -194,6 +308,13 @@ class ExamQuestion(BaseModel):
         Question,
         on_delete=models.CASCADE,
         related_name="exam_links",
+    )
+    section = models.ForeignKey(
+        ExamSection,
+        on_delete=models.SET_NULL,
+        related_name="exam_questions",
+        blank=True,
+        null=True,
     )
     section_name = models.CharField(max_length=150, blank=True)
     question_order = models.PositiveIntegerField(default=1)
@@ -223,6 +344,8 @@ class ExamQuestion(BaseModel):
         super().clean()
         if self.exam_id and self.question_id and self.question.institute_id != self.exam.institute_id:
             raise ValidationError({"question": "Question must belong to the same institute as exam."})
+        if self.section_id and self.section.exam_id != self.exam_id:
+            raise ValidationError({"section": "Section must belong to the same exam."})
         if self.marks is not None and self.marks < 0:
             raise ValidationError({"marks": "Marks cannot be negative."})
         if self.negative_marks is not None and self.negative_marks < 0:
@@ -233,6 +356,8 @@ class ExamQuestion(BaseModel):
             self.marks = self.question.default_marks
         if self.negative_marks is None and self.question_id:
             self.negative_marks = self.question.negative_marks
+        if self.section_id:
+            self.section_name = self.section.name
         self.full_clean()
         return super().save(*args, **kwargs)
 
@@ -267,3 +392,64 @@ class ExamPublishLog(models.Model):
 
     def __str__(self):
         return f"{self.exam.code}: {self.old_status} -> {self.new_status}"
+
+
+class ExamStudentAssignment(BaseModel):
+    exam = models.ForeignKey(
+        Exam,
+        on_delete=models.CASCADE,
+        related_name="student_assignments",
+    )
+    student = models.ForeignKey(
+        StudentProfile,
+        on_delete=models.CASCADE,
+        related_name="exam_assignments",
+    )
+    assigned_by = models.ForeignKey(
+        TeacherProfile,
+        on_delete=models.SET_NULL,
+        related_name="student_exam_assignments",
+        blank=True,
+        null=True,
+    )
+    notes = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ["student__first_name", "student__last_name", "student__admission_no"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["exam", "student"],
+                name="unique_exam_student_assignment",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["exam", "student"]),
+            models.Index(fields=["student", "is_active"]),
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.student_id and self.exam_id:
+            if self.student.institute_id != self.exam.institute_id:
+                raise ValidationError(
+                    {"student": "Assigned student must belong to the same institute."}
+                )
+            if self.student.program_id != self.exam.program_id:
+                raise ValidationError(
+                    {"student": "Assigned student must belong to the same program."}
+                )
+            if self.student.academic_year_id != self.exam.academic_year_id:
+                raise ValidationError(
+                    {"student": "Assigned student must belong to the same academic year."}
+                )
+            if self.exam.cohort_id and self.student.cohort_id != self.exam.cohort_id:
+                raise ValidationError(
+                    {"student": "Assigned student must belong to the exam cohort."}
+                )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.exam.code} -> {self.student.full_name}"

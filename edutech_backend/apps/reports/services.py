@@ -5,6 +5,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.accounts.models import AccountProfile, AccountRole
+from apps.exams.services import is_review_available_for_attempt
 from apps.reports.models import AuditLog, InAppNotification, NotificationType
 from apps.teachers.models import TeacherAssignment
 
@@ -262,11 +263,12 @@ def notify_results_published(exam, results):
         student_account = getattr(result.student, "account_profile", None)
         if student_account is None:
             continue
-        review_copy = (
-            " Review is now available."
-            if exam.allow_review_after_submit or exam.show_result_immediately
-            else ""
+        review_available = is_review_available_for_attempt(
+            exam,
+            result.attempt,
+            result=result,
         )
+        review_copy = " Review is now available." if review_available else ""
         _create_notification_if_missing(
             institute=exam.institute,
             recipient_user=student_account.user,
@@ -280,7 +282,7 @@ def notify_results_published(exam, results):
                 "attempt_id": str(result.attempt_id),
                 "result_id": str(result.id),
                 "route": "results",
-                "review_available": exam.allow_review_after_submit or exam.show_result_immediately,
+                "review_available": review_available,
             },
         )
 

@@ -8,6 +8,7 @@ from rest_framework.test import APIClient
 
 from apps.accounts.models import AccountProfile
 from apps.attempts.services import save_answer, start_attempt, submit_attempt
+from apps.exams.models import ExamSection
 from apps.exams.services import publish_exam, sync_total_marks_from_questions
 from apps.results.services import calculate_exam_performance_summary, generate_result_from_attempt
 from common.tests.builders import AcademicAssessmentBuilder
@@ -338,6 +339,21 @@ class AuthenticationAccessControlTestCase(TestCase):
         self.assertEqual(missing_response.status_code, 404)
 
     def test_student_availability_payload_includes_resume_metadata(self):
+        section = ExamSection.objects.create(
+            exam=self.exam,
+            name="Section A",
+            section_order=1,
+            total_questions=1,
+            timer_enabled=True,
+            duration_minutes=5,
+            is_active=True,
+        )
+        self.context["exam_question"].section = section
+        self.context["exam_question"].save(
+            update_fields=["section", "section_name", "updated_at"]
+        )
+        self.exam.timer_mode = "hybrid"
+        self.exam.save(update_fields=["timer_mode", "updated_at"])
         fresh_student = self.builder.create_student(
             self.context["institute"],
             self.context["academic_year"],
@@ -365,6 +381,67 @@ class AuthenticationAccessControlTestCase(TestCase):
         self.assertTrue(payload["can_resume"])
         self.assertFalse(payload["can_start"])
         self.assertEqual(str(payload["active_attempt"]["id"]), str(resume_attempt.id))
+        self.assertEqual(
+            payload["active_attempt"]["section_runtime"]["current_section_id"],
+            str(section.id),
+        )
+        self.assertEqual(
+            payload["active_attempt"]["section_runtime"]["current_section_name"],
+            "Section A",
+        )
+        self.assertIsNotNone(
+            payload["active_attempt"]["section_runtime"]["current_section_expires_at"]
+        )
+
+    def test_selected_student_assignment_limits_exam_visibility_and_start(self):
+        assigned_student = self.builder.create_student(
+            self.context["institute"],
+            self.context["academic_year"],
+            self.context["program"],
+            self.context["cohort"],
+            admission_no="STU004",
+            email="assigned@example.com",
+            first_name="Assigned",
+            last_name="Student",
+        )
+        self.builder.create_student_account(
+            institute=self.context["institute"],
+            student_profile=assigned_student,
+            username="assigned-student",
+            password="Student@123",
+            email="assigned-student@example.com",
+        )
+
+        self._authenticate_with_token("teacher-auth", "Teacher@123")
+        assign_response = self.client.post(
+            f"/api/v1/exams/{self.exam.id}/assign-students/",
+            {
+                "assignment_mode": "selected_students",
+                "student_ids": [str(assigned_student.id)],
+            },
+            format="json",
+        )
+        self.assertEqual(assign_response.status_code, 200)
+        self.assertEqual(assign_response.data["data"]["assignment_mode"], "selected_students")
+        self.assertEqual(assign_response.data["data"]["assigned_student_count"], 1)
+
+        self._authenticate_with_token("student-auth", "Student@123")
+        available_response = self.client.get("/api/v1/student/exams/available/")
+        self.assertEqual(available_response.status_code, 200)
+        self.assertEqual(available_response.data, [])
+
+        start_response = self.client.post(
+            "/api/v1/attempts/start/",
+            {"exam": str(self.exam.id), "student": str(self.context["student"].id)},
+            format="json",
+        )
+        self.assertEqual(start_response.status_code, 400)
+        self.assertIn("exam", start_response.data)
+
+        self._authenticate_with_token("assigned-student", "Student@123")
+        assigned_available_response = self.client.get("/api/v1/student/exams/available/")
+        self.assertEqual(assigned_available_response.status_code, 200)
+        self.assertEqual([str(item["id"]) for item in assigned_available_response.data], [str(self.exam.id)])
 
     def test_upcoming_and_expired_exams_cannot_be_started(self):
         self._authenticate_with_token("student-auth", "Student@123")
@@ -476,6 +553,17 @@ class AuthenticationAccessControlTestCase(TestCase):
         )
         self.assertEqual(foreign_exam_response.status_code, 404)
 
+        own_preview_response = self.client.get(
+            f"/api/v1/exams/{self.exam.id}/preview/"
+        )
+        self.assertEqual(own_preview_response.status_code, 200)
+        self.assertEqual(str(own_preview_response.data["id"]), str(self.exam.id))
+
+        foreign_preview_response = self.client.get(
+            f"/api/v1/exams/{self.other_context['exam'].id}/preview/"
+        )
+        self.assertEqual(foreign_preview_response.status_code, 404)
+
     def test_teacher_exam_patch_with_invalid_window_returns_400(self):
         self._authenticate_with_token("teacher-auth", "Teacher@123")
 
@@ -490,6 +578,86 @@ class AuthenticationAccessControlTestCase(TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertIn("end_at", response.data)
+
+    def test_teacher_exam_create_inherits_institute_exam_defaults(self):
+        self.context["institute"].metadata = {
+            "exam_defaults": {
+                "duration_minutes": 75,
+                "navigation_mode": "hybrid",
+                "timer_mode": "global",
+                "attempt_policy": "latest",
+                "review_mode": "attempted_only",
+                "security_mode": "focus",
+                "randomize_questions": True,
+                "randomize_options": True,
+                "allow_resume": True,
+            }
+        }
+        self.context["institute"].save(update_fields=["metadata", "updated_at"])
+        self._authenticate_with_token("teacher-auth", "Teacher@123")
+
+        response = self.client.post(
+            "/api/v1/exams/",
+            {
+                "institute": str(self.context["institute"].id),
+                "academic_year": str(self.context["academic_year"].id),
+                "program": str(self.context["program"].id),
+                "cohort": str(self.context["cohort"].id),
+                "subject": str(self.context["subject"].id),
+                "title": "Defaults Driven Exam",
+                "code": "DEFAULTS-01",
+                "exam_type": "test",
+                "delivery_mode": "online",
+                "status": "draft",
+                "total_marks": "0.00",
+                "passing_marks": "0.00",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["duration_minutes"], 75)
+        self.assertEqual(response.data["navigation_mode"], "hybrid")
+        self.assertEqual(response.data["attempt_policy"], "latest")
+        self.assertEqual(response.data["security_mode"], "focus")
+        self.assertTrue(response.data["randomize_questions"])
+        self.assertTrue(response.data["randomize_options"])
+
+    def test_institute_admin_can_update_institute_exam_defaults(self):
+        self._authenticate_with_token("institute-admin-auth", "Admin@123")
+
+        response = self.client.patch(
+            f"/api/v1/institutes/{self.context['institute'].id}/",
+            {
+                "exam_defaults": {
+                    "duration_minutes": 90,
+                    "timer_mode": "hybrid",
+                    "navigation_mode": "free_section",
+                    "attempt_policy": "best",
+                    "result_publish_mode": "scheduled",
+                    "review_mode": "solution_review",
+                    "security_mode": "fullscreen",
+                    "allow_resume": True,
+                    "allow_section_switching": False,
+                    "allow_return_to_previous_section": False,
+                    "randomize_questions": True,
+                }
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["exam_defaults"]["duration_minutes"], 90)
+        self.assertEqual(response.data["exam_defaults"]["attempt_policy"], "best")
+        self.assertEqual(response.data["exam_defaults"]["security_mode"], "fullscreen")
+        self.assertFalse(response.data["exam_defaults"]["allow_section_switching"])
+
+        self.context["institute"].refresh_from_db()
+        self.assertEqual(self.context["institute"].metadata["exam_defaults"]["timer_mode"], "hybrid")
+        self.assertEqual(
+            self.context["institute"].metadata["exam_defaults"]["review_mode"],
+            "solution_review",
+        )
 
 
 class CredentialManagementApiTestCase(TestCase):
