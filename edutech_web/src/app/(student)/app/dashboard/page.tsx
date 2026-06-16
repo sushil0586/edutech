@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import { StatusPill } from "@/components/ui/status-pill";
 import {
@@ -183,6 +183,7 @@ async function unlockDashboardContentAction(formData: FormData) {
       )}`,
     );
   } catch (error) {
+    unstable_rethrow(error);
     const message =
       error instanceof Error && error.message
         ? encodeURIComponent(error.message)

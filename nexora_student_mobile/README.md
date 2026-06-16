@@ -6,10 +6,44 @@ Role-scalable React Native mobile foundation for Nexora, with the first implemen
 
 1. Register
 2. Login
-3. Dashboard
-4. Exam Detail
-5. Live Attempt
-6. Analytics
+3. Secure session restore
+4. Role gate
+5. Dashboard
+6. Exam Detail
+7. Live Attempt
+8. Attempt Summary
+9. Attempt Review
+10. Analytics
+11. Profile
+12. Logout
+
+## Current Product Status
+
+The mobile app is now beyond scaffold stage.
+
+It already supports the core student journey end to end:
+
+1. register
+2. log in
+3. open dashboard
+4. open exam detail
+5. start or resume attempt
+6. answer and save questions
+7. submit attempt
+8. review summary
+9. inspect answer review
+10. open analytics
+
+## Student-Focused Enhancements Completed
+
+Recent enhancement work includes:
+
+- guided registration choices for class level, board, and exam interest
+- better login and registration validation
+- clearer auth and restore error messaging
+- safer attempt navigation with unsaved-draft protection
+- submit confirmation flow for live attempts
+- clearer post-exam summary, review, and analytics guidance
 
 ## Stack
 
@@ -61,4 +95,5 @@ npm run typecheck
 
 - Architecture is role-ready.
 - Only the student lane is implemented in first-release scope.
-- Screens currently use honest implementation placeholders rather than fake product data.
+- Core student flows are wired to live backend APIs.
+- This app should be treated as an active student beta surface, not just a mobile prototype.

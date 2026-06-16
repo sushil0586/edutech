@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import { StudentKpiGrid } from "@/components/ui/student-kpi-grid";
 import { StudentPageHeader } from "@/components/ui/student-page-header";
@@ -199,6 +200,10 @@ async function unlockPracticeAction(formData: FormData) {
       )}`,
     );
   } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
+
     const message =
       error instanceof Error && error.message
         ? encodeURIComponent(error.message)
@@ -218,6 +223,10 @@ async function startPracticeAction(formData: FormData) {
     const response = await startStudentAttempt(examId, summary.student_id);
     redirect(`/app/attempts/${response.data.id}`);
   } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
+
     const message =
       error instanceof Error && error.message
         ? encodeURIComponent(error.message)

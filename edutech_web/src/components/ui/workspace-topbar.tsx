@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import type { AccountProfile } from "@/lib/auth/session";
 import { StudentSourceSwitcher } from "@/components/ui/student-source-switcher";
 import { StudentSubjectSwitcher } from "@/components/ui/student-subject-switcher";
@@ -28,6 +31,8 @@ export function WorkspaceTopbar({
   profile,
   workspaceLabel,
   summaryText,
+  searchActionHref,
+  searchPlaceholder,
   hintLabel = "Pilot",
   actions = [],
   sourceOptions = [],
@@ -44,6 +49,8 @@ export function WorkspaceTopbar({
   profile: AccountProfile;
   workspaceLabel: string;
   summaryText: string;
+  searchActionHref: string;
+  searchPlaceholder?: string;
   hintLabel?: string;
   actions?: WorkspaceTopbarAction[];
   sourceOptions?: StudentSourceOption[];
@@ -61,6 +68,9 @@ export function WorkspaceTopbar({
     profileLabel ?? profile.display_name ?? profile.username;
   const initial = resolvedProfileLabel.charAt(0).toUpperCase();
   const hasFilters = sourceOptions.length > 0 || subjectOptions.length > 0;
+  const searchParams = useSearchParams();
+  const currentQuery = searchParams.get("q") ?? "";
+
   return (
     <div className="appTopbar">
       <div className="appTopbarIntro">
@@ -68,13 +78,27 @@ export function WorkspaceTopbar({
         <strong>{formatToday()}</strong>
       </div>
 
-      <div className="appSearch appSearchStatic" aria-label={workspaceLabel}>
+      <form
+        className="appSearch"
+        action={searchActionHref}
+        role="search"
+        aria-label={`${workspaceLabel} search`}
+      >
         <span className="appSearchIcon" aria-hidden="true">
           ⌕
         </span>
-        <span className="appSearchText">{summaryText}</span>
-        <span className="appSearchHint">{hintLabel}</span>
-      </div>
+        <input
+          key={`${searchActionHref}:${currentQuery}`}
+          name="q"
+          type="search"
+          defaultValue={currentQuery}
+          placeholder={searchPlaceholder ?? summaryText}
+          aria-label={`Search inside ${workspaceLabel.toLowerCase()}`}
+        />
+        <button className="appSearchHint appSearchSubmit" type="submit">
+          {hintLabel}
+        </button>
+      </form>
 
       <div className="appTopbarActions">
         {hasFilters ? (

@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import Link from "next/link";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { InstitutePageHeader } from "@/components/ui/institute-page-header";
@@ -119,6 +119,7 @@ async function applyQuestionBulkAction(formData: FormData) {
         )}`,
       );
     } catch (error) {
+    unstable_rethrow(error);
       const message =
         error instanceof Error && error.message
           ? error.message
@@ -131,6 +132,7 @@ async function applyQuestionBulkAction(formData: FormData) {
     await performTeacherQuestionBulkAction(payload);
     redirect(`/institute/question-bank?message=${encodeURIComponent(`Bulk action "${action}" completed.`)}`);
   } catch (error) {
+    unstable_rethrow(error);
     const message =
       error instanceof Error && error.message
         ? error.message

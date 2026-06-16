@@ -87,23 +87,17 @@ export function AttemptResiliencePanel({
   initialNotice?: string;
   initialError?: string;
 }) {
-  const pendingStatus = readPendingActionStatus();
-  const matchingPendingStatus =
-    pendingStatus && pendingStatus.attemptId === attemptId ? pendingStatus : null;
   const [isOnline, setIsOnline] = useState(() =>
     typeof window === "undefined" ? true : window.navigator.onLine,
   );
+  const [pendingActionDetail, setPendingActionDetail] = useState<string | null>(null);
   const [lastSavedAt] = useState(
-    matchingPendingStatus?.actionKind !== "submit"
-      ? initialConfirmedSavedAt ?? initialLastSavedAt
-      : initialConfirmedSavedAt ?? initialLastSavedAt,
+    initialConfirmedSavedAt ?? initialLastSavedAt,
   );
   const [lastConfirmedAt] = useState(
     initialNotice
       ? initialConfirmedAt ?? initialConfirmedSavedAt ?? initialLastSavedAt
-      : matchingPendingStatus && initialNotice
-        ? initialConfirmedAt ?? initialConfirmedSavedAt ?? initialLastSavedAt
-        : initialConfirmedAt ?? initialConfirmedSavedAt ?? initialLastSavedAt,
+      : initialConfirmedAt ?? initialConfirmedSavedAt ?? initialLastSavedAt,
   );
   const [lastConfirmedLabel] = useState<string | null>(
     initialNotice
@@ -114,30 +108,45 @@ export function AttemptResiliencePanel({
           : initialNotice
       : null,
   );
-  const [pendingActionDetail, setPendingActionDetail] = useState<string | null>(() => {
-    if (!matchingPendingStatus) {
-      return null;
-    }
-    return matchingPendingStatus.detail;
-  });
   const [syncState, setSyncState] = useState<SyncState>(() => {
     if (initialError) return "attention";
     if (initialNotice) return "saved";
+    return initialLastSavedAt ? "saved" : "idle";
+  });
+
+  useEffect(() => {
+    const pendingStatus = readPendingActionStatus();
+    const matchingPendingStatus =
+      pendingStatus && pendingStatus.attemptId === attemptId ? pendingStatus : null;
+
     if (!matchingPendingStatus) {
-      return initialLastSavedAt ? "saved" : "idle";
+      return;
     }
+
+    setPendingActionDetail(matchingPendingStatus.detail);
+
+    if (initialError || initialNotice) {
+      return;
+    }
+
     const ageMs = Date.now() - new Date(matchingPendingStatus.submittedAt).getTime();
     if (ageMs > 15000) {
-      return "attention";
+      setSyncState("attention");
+      return;
     }
+
     if (matchingPendingStatus.actionKind === "submit") {
-      return "submitting";
+      setSyncState("submitting");
+      return;
     }
+
     if (matchingPendingStatus.actionKind === "section-switch") {
-      return "switching";
+      setSyncState("switching");
+      return;
     }
-    return "saving";
-  });
+
+    setSyncState("saving");
+  }, [attemptId, initialError, initialLastSavedAt, initialNotice]);
 
   useEffect(() => {
     if (typeof window === "undefined") {

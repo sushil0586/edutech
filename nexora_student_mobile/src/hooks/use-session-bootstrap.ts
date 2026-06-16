@@ -1,7 +1,32 @@
 import { useEffect, useState } from "react";
 import { fetchCurrentProfile } from "@/lib/api/auth";
+import { MobileApiError } from "@/lib/api/client";
 import { clearPersistedSession, loadPersistedSession, persistSession } from "@/lib/secure-session";
 import { useSessionStore } from "@/store/session-store";
+
+function friendlyBootstrapError(error: unknown) {
+  if (error instanceof MobileApiError) {
+    if (error.status === 401 || error.status === 403) {
+      return "Your previous session is no longer valid. Please sign in again.";
+    }
+
+    if (error.message.toLowerCase().includes("not configured")) {
+      return "The mobile app is not connected to the backend yet. Set the API base URL and try again.";
+    }
+
+    return error.message || "We could not restore the previous mobile session.";
+  }
+
+  if (error instanceof Error) {
+    if (error.message.toLowerCase().includes("network request failed")) {
+      return "We could not reconnect to Nexora while restoring your session. Please check your internet and sign in again if needed.";
+    }
+
+    return error.message || "We could not restore the previous mobile session.";
+  }
+
+  return "We could not restore the previous mobile session.";
+}
 
 export function useSessionBootstrap() {
   const hydrated = useSessionStore((state) => state.hydrated);
@@ -46,7 +71,7 @@ export function useSessionBootstrap() {
         await clearPersistedSession();
         clearSession();
         if (active) {
-          setBootError(error instanceof Error ? error.message : "Unable to restore mobile session.");
+          setBootError(friendlyBootstrapError(error));
         }
       } finally {
         if (active) {

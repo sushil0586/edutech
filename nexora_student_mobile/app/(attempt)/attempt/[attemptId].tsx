@@ -66,6 +66,34 @@ function seedDraft(answer: StudentAttemptAnswer | undefined) {
   };
 }
 
+function normalizedSelection(values: string[]) {
+  return [...values].sort().join("|");
+}
+
+function hasDraftChanges(
+  answer: StudentAttemptAnswer | undefined,
+  draft: {
+    selectedOption: string | null;
+    selectedOptionIds: string[];
+    answerText: string;
+    markedForReview: boolean;
+  },
+) {
+  const saved = seedDraft(answer);
+
+  return (
+    saved.selectedOption !== draft.selectedOption ||
+    normalizedSelection(saved.selectedOptionIds) !== normalizedSelection(draft.selectedOptionIds) ||
+    saved.answerText.trim() !== draft.answerText.trim() ||
+    saved.markedForReview !== draft.markedForReview
+  );
+}
+
+type PendingNavigation =
+  | { type: "question"; question: StudentExamQuestionDetail }
+  | { type: "section"; sectionId: string; label: string }
+  | null;
+
 export default function AttemptScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -78,6 +106,8 @@ export default function AttemptScreen() {
   const [markedForReview, setMarkedForReview] = useState(false);
   const [pendingAction, setPendingAction] = useState<"save" | "section" | "submit" | null>(null);
   const [feedback, setFeedback] = useState("");
+  const [pendingNavigation, setPendingNavigation] = useState<PendingNavigation>(null);
+  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
 
   const query = useQuery({
     queryKey: ["student.attempt.detail", attemptId, accessToken],
@@ -131,12 +161,24 @@ export default function AttemptScreen() {
     return count + (hasSavedResponse(answerMap.get(question.question)) ? 1 : 0);
   }, 0) ?? 0;
   const unansweredCount = Math.max((detail?.total_questions ?? 0) - answeredCount, 0);
+  const reviewMarkedCount = detail?.answers.filter((answer) => answer.is_marked_for_review).length ?? 0;
   const remainingTime = detail
     ? secondsRemaining(
         detail.section_runtime.current_section_expires_at ?? detail.expires_at,
         detail.server_time,
       )
     : null;
+  const draftState = {
+    selectedOption,
+    selectedOptionIds,
+    answerText,
+    markedForReview,
+  };
+  const currentQuestionHasDraftChanges = currentQuestion
+    ? hasDraftChanges(currentAnswer, draftState)
+    : false;
+  const currentQuestionHasAnyDraft =
+    Boolean(selectedOption) || selectedOptionIds.length > 0 || Boolean(answerText.trim()) || markedForReview;
 
   useEffect(() => {
     if (!selectedQuestionId && visibleQuestions[0]?.question) {
@@ -154,6 +196,13 @@ export default function AttemptScreen() {
   }, [currentQuestion, answerMap]);
 
   function selectQuestion(question: StudentExamQuestionDetail) {
+    if (currentQuestionHasDraftChanges && currentQuestion?.question !== question.question) {
+      setPendingNavigation({ type: "question", question });
+      setFeedback("You have unsaved changes on the current question.");
+      return;
+    }
+
+    setPendingNavigation(null);
     setSelectedQuestionId(question.question);
     setFeedback("");
   }
@@ -173,39 +222,44 @@ export default function AttemptScreen() {
     setSelectedOption(optionId);
   }
 
-  async function handleSave(clearResponse = false) {
+  async function persistAnswer(clearResponse = false) {
     if (!currentQuestion || !accessToken || !attemptId) return;
 
+    await saveStudentAnswer(
+      attemptId,
+      {
+        question: currentQuestion.question,
+        selected_option: supportsMultiSelect(currentQuestion.question_type)
+          ? null
+          : selectedOption,
+        selected_option_ids: supportsMultiSelect(currentQuestion.question_type)
+          ? selectedOptionIds
+          : [],
+        answer_text: answerText,
+        is_marked_for_review: markedForReview,
+        clear_response: clearResponse,
+        skip: false,
+      },
+      accessToken,
+    );
+    if (clearResponse) {
+      setSelectedOption(null);
+      setSelectedOptionIds([]);
+      setAnswerText("");
+    }
+    await Promise.all([
+      query.refetch(),
+      queryClient.invalidateQueries({ queryKey: ["student.dashboard.bundle"] }),
+    ]);
+  }
+
+  async function handleSave(clearResponse = false) {
     try {
       setPendingAction("save");
       setFeedback("");
-      await saveStudentAnswer(
-        attemptId,
-        {
-          question: currentQuestion.question,
-          selected_option: supportsMultiSelect(currentQuestion.question_type)
-            ? null
-            : selectedOption,
-          selected_option_ids: supportsMultiSelect(currentQuestion.question_type)
-            ? selectedOptionIds
-            : [],
-          answer_text: answerText,
-          is_marked_for_review: markedForReview,
-          clear_response: clearResponse,
-          skip: false,
-        },
-        accessToken,
-      );
-      if (clearResponse) {
-        setSelectedOption(null);
-        setSelectedOptionIds([]);
-        setAnswerText("");
-      }
+      setPendingNavigation(null);
+      await persistAnswer(clearResponse);
       setFeedback(clearResponse ? "Saved with cleared response." : "Answer saved successfully.");
-      await Promise.all([
-        query.refetch(),
-        queryClient.invalidateQueries({ queryKey: ["student.dashboard.bundle"] }),
-      ]);
     } catch (error) {
       setFeedback(
         error instanceof MobileApiError ? error.message : "Unable to save this answer right now.",
@@ -215,12 +269,25 @@ export default function AttemptScreen() {
     }
   }
 
-  async function handleSectionSwitch(sectionId: string) {
+  async function handleSectionSwitch(sectionId: string, label: string) {
+    if (!accessToken || !attemptId || sectionId === currentSectionId) return;
+
+    if (currentQuestionHasDraftChanges) {
+      setPendingNavigation({ type: "section", sectionId, label });
+      setFeedback("You have unsaved changes on the current question.");
+      return;
+    }
+
+    await handleSectionSwitchConfirmed(sectionId);
+  }
+
+  async function handleSectionSwitchConfirmed(sectionId: string) {
     if (!accessToken || !attemptId || sectionId === currentSectionId) return;
 
     try {
       setPendingAction("section");
       setFeedback("");
+      setPendingNavigation(null);
       await switchStudentAttemptSection(attemptId, sectionId, accessToken);
       await query.refetch();
       setSelectedQuestionId(null);
@@ -234,21 +301,67 @@ export default function AttemptScreen() {
     }
   }
 
-  async function handleSubmit() {
+  async function confirmAndSubmit(saveDraftFirst: boolean) {
     if (!accessToken || !attemptId) return;
 
     try {
       setPendingAction("submit");
       setFeedback("");
+      if (saveDraftFirst && currentQuestionHasDraftChanges) {
+        await persistAnswer(false);
+      }
       await submitStudentAttempt(attemptId, accessToken);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["student.dashboard.bundle"] }),
         queryClient.invalidateQueries({ queryKey: ["student.attempt.detail", attemptId, accessToken] }),
       ]);
+      setShowSubmitConfirm(false);
       router.replace(`/(attempt)/summary/${attemptId}`);
     } catch (error) {
       setFeedback(
         error instanceof MobileApiError ? error.message : "Submit failed. Please retry from this screen.",
+      );
+    } finally {
+      setPendingAction(null);
+    }
+  }
+
+  function handleSubmitPress() {
+    setShowSubmitConfirm(true);
+    setPendingNavigation(null);
+    setFeedback("");
+  }
+
+  function discardDraftAndContinue() {
+    if (!pendingNavigation) return;
+
+    if (pendingNavigation.type === "question") {
+      setSelectedQuestionId(pendingNavigation.question.question);
+      setPendingNavigation(null);
+      setFeedback("Unsaved changes were discarded while moving to the next question.");
+      return;
+    }
+
+    void handleSectionSwitchConfirmed(pendingNavigation.sectionId);
+  }
+
+  async function saveDraftAndContinue() {
+    if (!pendingNavigation) return;
+
+    try {
+      setPendingAction("save");
+      setFeedback("");
+      await persistAnswer(false);
+      if (pendingNavigation.type === "question") {
+        setSelectedQuestionId(pendingNavigation.question.question);
+        setFeedback("Answer saved before moving to the next question.");
+      } else {
+        await handleSectionSwitchConfirmed(pendingNavigation.sectionId);
+      }
+      setPendingNavigation(null);
+    } catch (error) {
+      setFeedback(
+        error instanceof MobileApiError ? error.message : "We could not save your draft before navigating.",
       );
     } finally {
       setPendingAction(null);
@@ -282,7 +395,7 @@ export default function AttemptScreen() {
             <View style={appStyles.rowWrap}>
               <ActionButton
                 label={pendingAction === "submit" ? "Submitting..." : "Submit Attempt"}
-                onPress={() => void handleSubmit()}
+                onPress={handleSubmitPress}
                 disabled={pendingAction !== null}
               />
               <ActionButton
@@ -327,6 +440,20 @@ export default function AttemptScreen() {
             value={String(detail.integrity_summary.violation_count)}
             helper="Security threshold tracking"
           />
+          <MetricCard
+            label="Review Marked"
+            value={String(reviewMarkedCount)}
+            helper="Questions flagged for a revisit"
+            soft
+          />
+        </View>
+      ) : null}
+
+      {query.isRefetching && !query.isLoading ? (
+        <View style={appStyles.mutedPanel}>
+          <Text style={appStyles.helper}>
+            Refreshing attempt state from the server. Your saved responses remain protected while this sync runs.
+          </Text>
         </View>
       ) : null}
 
@@ -357,7 +484,7 @@ export default function AttemptScreen() {
                 key={section.id}
                 label={section.name || `Section ${section.order + 1}`}
                 tone={section.id === currentSectionId ? "primary" : "secondary"}
-                onPress={() => void handleSectionSwitch(section.id)}
+                onPress={() => void handleSectionSwitch(section.id, section.name || `Section ${section.order + 1}`)}
                 disabled={pendingAction !== null}
                 compact
               />
@@ -401,6 +528,44 @@ export default function AttemptScreen() {
         )}
       </SectionBlock>
 
+      {pendingNavigation ? (
+        <SectionBlock
+          title="Unsaved changes detected"
+          subtitle="Decide what to do before leaving this question"
+        >
+          <View style={appStyles.mutedPanel}>
+            <Text style={appStyles.body}>
+              You changed the current response but it is not saved to the backend yet. Save it before moving, or discard the draft and continue.
+            </Text>
+            <Text style={appStyles.helper}>
+              Next destination:{" "}
+              {pendingNavigation.type === "question"
+                ? `Question ${pendingNavigation.question.question_order}`
+                : pendingNavigation.label}
+            </Text>
+          </View>
+          <View style={appStyles.rowWrap}>
+            <ActionButton
+              label={pendingAction === "save" ? "Saving..." : "Save and Continue"}
+              onPress={() => void saveDraftAndContinue()}
+              disabled={pendingAction !== null}
+            />
+            <ActionButton
+              label="Discard Draft"
+              tone="secondary"
+              onPress={discardDraftAndContinue}
+              disabled={pendingAction !== null}
+            />
+            <ActionButton
+              label="Stay Here"
+              tone="secondary"
+              onPress={() => setPendingNavigation(null)}
+              disabled={pendingAction !== null}
+            />
+          </View>
+        </SectionBlock>
+      ) : null}
+
       <SectionBlock
         title="Current question"
         subtitle="Keep the action hierarchy simple: answer, save, review, then move on"
@@ -422,9 +587,40 @@ export default function AttemptScreen() {
                   {currentSelectionCount} option{currentSelectionCount === 1 ? "" : "s"} selected
                 </Text>
               </View>
-              <View style={appStyles.chip}>
-                <Text style={appStyles.chipText}>{currentAnswer ? "Saved on backend" : "Draft only"}</Text>
+              <View
+                style={[
+                  appStyles.chip,
+                  currentQuestionHasDraftChanges
+                    ? appStyles.chipWarm
+                    : currentAnswer
+                      ? appStyles.chipSuccess
+                      : null,
+                ]}
+              >
+                <Text
+                  style={[
+                    appStyles.chipText,
+                    currentQuestionHasDraftChanges
+                      ? appStyles.chipTextWarm
+                      : currentAnswer
+                        ? appStyles.chipTextSuccess
+                        : null,
+                  ]}
+                >
+                  {currentQuestionHasDraftChanges
+                    ? "Unsaved draft"
+                    : currentAnswer
+                      ? "Saved on backend"
+                      : currentQuestionHasAnyDraft
+                        ? "Draft in progress"
+                        : "No response yet"}
+                </Text>
               </View>
+              {markedForReview ? (
+                <View style={[appStyles.chip, appStyles.chipWarm]}>
+                  <Text style={[appStyles.chipText, appStyles.chipTextWarm]}>Marked for review</Text>
+                </View>
+              ) : null}
             </View>
             <View style={appStyles.emphasisPanel}>
               <Text style={appStyles.body}>
@@ -549,6 +745,46 @@ export default function AttemptScreen() {
           />
         )}
       </SectionBlock>
+
+      {showSubmitConfirm && detail ? (
+        <SectionBlock
+          title="Ready to submit?"
+          subtitle="Take one final look before closing the attempt"
+        >
+          <View style={unansweredCount > 0 || currentQuestionHasDraftChanges ? appStyles.mutedPanel : appStyles.successPanel}>
+            <Text style={appStyles.body}>
+              {unansweredCount > 0
+                ? `${unansweredCount} question${unansweredCount === 1 ? "" : "s"} still do not have saved answers.`
+                : "All currently visible work appears saved."}
+            </Text>
+            <Text style={appStyles.helper}>
+              Current question: {currentQuestionHasDraftChanges ? "unsaved draft present" : "no unsaved draft"} ·
+              Review-marked questions: {reviewMarkedCount}
+            </Text>
+          </View>
+          <View style={appStyles.rowWrap}>
+            {currentQuestionHasDraftChanges ? (
+              <ActionButton
+                label={pendingAction === "submit" ? "Submitting..." : "Save Draft and Submit"}
+                onPress={() => void confirmAndSubmit(true)}
+                disabled={pendingAction !== null}
+              />
+            ) : null}
+            <ActionButton
+              label={pendingAction === "submit" ? "Submitting..." : "Submit Now"}
+              tone={currentQuestionHasDraftChanges ? "secondary" : "primary"}
+              onPress={() => void confirmAndSubmit(false)}
+              disabled={pendingAction !== null}
+            />
+            <ActionButton
+              label="Continue Attempt"
+              tone="secondary"
+              onPress={() => setShowSubmitConfirm(false)}
+              disabled={pendingAction !== null}
+            />
+          </View>
+        </SectionBlock>
+      ) : null}
     </ScreenShell>
   );
 }

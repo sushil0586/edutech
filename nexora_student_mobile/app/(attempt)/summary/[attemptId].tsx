@@ -28,6 +28,27 @@ function outcomeCopy(summary: {
   return "Your attempt is safely submitted. Result and review will unlock when the backend policy allows them.";
 }
 
+function nextStepCopy(summary: {
+  review_available: boolean;
+  result_visible: boolean;
+  attempted_questions: number;
+  total_questions: number;
+}) {
+  if (summary.review_available) {
+    return "Best next step: open review while the attempt is still fresh, then move to analytics to spot repeat patterns.";
+  }
+
+  if (summary.result_visible) {
+    return "Best next step: open analytics to understand the broader pattern behind this result and decide what to practice next.";
+  }
+
+  if (summary.attempted_questions < summary.total_questions) {
+    return "Some questions were left unanswered. Return to the dashboard and plan a calmer follow-up attempt if policy allows.";
+  }
+
+  return "Your submission is complete. You can return to the dashboard now and check analytics again once result processing finishes.";
+}
+
 export default function AttemptSummaryScreen() {
   const router = useRouter();
   const { attemptId } = useLocalSearchParams<{ attemptId: string }>();
@@ -40,6 +61,9 @@ export default function AttemptSummaryScreen() {
   });
 
   const summary = query.data ?? null;
+  const attemptedRatio = summary
+    ? `${summary.attempted_questions}/${summary.total_questions}`
+    : "--";
 
   return (
     <ScreenShell>
@@ -99,8 +123,8 @@ export default function AttemptSummaryScreen() {
         <View style={appStyles.metricGrid}>
           <MetricCard
             label="Attempted"
-            value={String(summary.attempted_questions)}
-            helper="Questions captured in the submission"
+            value={attemptedRatio}
+            helper="Saved questions in this submission"
             soft
           />
           <MetricCard
@@ -148,10 +172,13 @@ export default function AttemptSummaryScreen() {
       >
         {summary ? (
           <View style={appStyles.column}>
+            <View style={appStyles.emphasisPanel}>
+              <Text style={appStyles.body}>{nextStepCopy(summary)}</Text>
+            </View>
             <Text style={appStyles.body}>
               {summary.review_available
-                ? "Review the attempt first if needed, then move into analytics to inspect broader progress and next-practice signals."
-                : "Move back to the dashboard or analytics while result publication catches up in the background."}
+                ? "Start with review if you want question-level learning while the memory of the attempt is still strong."
+                : "If detailed review is not open yet, analytics is the best place to understand performance direction."}
             </Text>
             <View style={appStyles.rowWrap}>
               <View style={[appStyles.chip, summary.review_available ? appStyles.chipSuccess : appStyles.chipWarm]}>
@@ -172,6 +199,11 @@ export default function AttemptSummaryScreen() {
                   ]}
                 >
                   {summary.result_visible ? "Result visible" : "Result pending"}
+                </Text>
+              </View>
+              <View style={appStyles.chip}>
+                <Text style={appStyles.chipText}>
+                  {summary.attempted_questions} attempted · {Math.max(summary.total_questions - summary.attempted_questions, 0)} unattempted
                 </Text>
               </View>
             </View>

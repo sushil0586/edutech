@@ -30,6 +30,8 @@ import {
   titleCaseState,
 } from "@/lib/student/formatters";
 
+const ATTEMPT_QUESTION_ANCHOR_ID = "attempt-current-question";
+
 function feedbackMessage(value: string | undefined) {
   if (!value) return "";
   return decodeURIComponent(value);
@@ -42,6 +44,7 @@ function encodeFeedbackValue(value: string) {
 function buildAttemptUrl(
   attemptId: string,
   params: Record<string, string | null | undefined>,
+  hash?: string,
 ) {
   const query = new URLSearchParams();
 
@@ -52,7 +55,9 @@ function buildAttemptUrl(
   });
 
   const queryString = query.toString();
-  return `/app/attempts/${attemptId}${queryString ? `?${queryString}` : ""}`;
+  return `/app/attempts/${attemptId}${queryString ? `?${queryString}` : ""}${
+    hash ? `#${hash}` : ""
+  }`;
 }
 
 function latestAnswerSyncAt(
@@ -373,7 +378,7 @@ export default async function AttemptDetailPage({
         confirmedAt: confirmedSavedAt ?? new Date().toISOString(),
         savedAt: confirmedSavedAt ?? "",
         question: nextQuestion,
-      }));
+      }, ATTEMPT_QUESTION_ANCHOR_ID));
     } catch (error) {
       unstable_rethrow(error);
       const message =
@@ -384,7 +389,7 @@ export default async function AttemptDetailPage({
         buildAttemptUrl(attemptId, {
           error: message,
           question: returnQuestion || null,
-        }),
+        }, ATTEMPT_QUESTION_ANCHOR_ID),
       );
     }
   }
@@ -428,14 +433,14 @@ export default async function AttemptDetailPage({
         action: "section-switch",
         confirmedAt: confirmedActionAt,
         savedAt: confirmedSavedAt ?? "",
-      }));
+      }, ATTEMPT_QUESTION_ANCHOR_ID));
     } catch (error) {
       unstable_rethrow(error);
       const message =
         error instanceof Error && error.message
           ? error.message
           : "Unable to switch sections right now.";
-      redirect(buildAttemptUrl(attemptId, { error: message }));
+      redirect(buildAttemptUrl(attemptId, { error: message }, ATTEMPT_QUESTION_ANCHOR_ID));
     }
   }
 
@@ -656,10 +661,18 @@ export default async function AttemptDetailPage({
               ? `Save answer and move to ${nextSectionForQuestion.name}`
               : `Save answer for question ${question.question_order} and review the test`;
           const previousHref = previousQuestion
-            ? `/app/attempts/${attemptId}?question=${previousQuestion.question}`
+            ? buildAttemptUrl(
+                attemptId,
+                { question: previousQuestion.question },
+                ATTEMPT_QUESTION_ANCHOR_ID,
+              )
             : undefined;
           const nextHref = nextQuestion
-            ? `/app/attempts/${attemptId}?question=${nextQuestion.question}`
+            ? buildAttemptUrl(
+                attemptId,
+                { question: nextQuestion.question },
+                ATTEMPT_QUESTION_ANCHOR_ID,
+              )
             : undefined;
           const reviewQuestion =
             visibleQuestions.find((candidate) => {
@@ -676,7 +689,7 @@ export default async function AttemptDetailPage({
           return (
             <article
               className="attemptQuestionCard"
-              id={`question-${question.id}`}
+              id={ATTEMPT_QUESTION_ANCHOR_ID}
               key={question.id}
               tabIndex={-1}
             >
@@ -684,7 +697,7 @@ export default async function AttemptDetailPage({
                 formId="attempt-question-form"
                 nextHref={nextHref}
                 previousHref={previousHref}
-                questionCardId={`question-${question.id}`}
+                questionCardId={ATTEMPT_QUESTION_ANCHOR_ID}
               />
               <div className="attemptQuestionHeader">
                 <div>
@@ -974,7 +987,11 @@ export default async function AttemptDetailPage({
                             : "attemptQuestionNavChipTodo"
                     }`}
                     formId="attempt-question-form"
-                    href={`/app/attempts/${attemptId}?question=${question.question}`}
+                    href={buildAttemptUrl(
+                      attemptId,
+                      { question: question.question },
+                      ATTEMPT_QUESTION_ANCHOR_ID,
+                    )}
                     key={question.id}
                   >
                     <strong>{question.question_order}</strong>

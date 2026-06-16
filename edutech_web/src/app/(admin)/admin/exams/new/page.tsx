@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { PlatformAdminPageHeader } from "@/components/ui/platform-admin-page-header";
 import { CreateExamWizard } from "@/components/ui/create-exam-wizard";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
@@ -143,6 +143,7 @@ async function createPlatformExamAction(formData: FormData) {
     });
     redirect(`/admin/exams?message=${encodeURIComponent("Platform exam shell created successfully.")}`);
   } catch (error) {
+    unstable_rethrow(error);
     const message =
       error instanceof Error && error.message
         ? error.message

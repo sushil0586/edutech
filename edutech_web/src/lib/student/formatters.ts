@@ -49,6 +49,31 @@ export function titleCaseState(value: string) {
   return value.replaceAll("_", " ");
 }
 
+export function benchmarkLabel(value: string) {
+  const normalized = value
+    .replaceAll("_", " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/([A-Za-z])(\d)/g, "$1 $2")
+    .replace(/(\d)([A-Za-z])/g, "$1 $2")
+    .trim();
+
+  if (!normalized) {
+    return "Peer scope";
+  }
+
+  return normalized
+    .split(/\s+/)
+    .map((part) =>
+      /^\d+$/.test(part) ? part : `${part.charAt(0).toUpperCase()}${part.slice(1)}`,
+    )
+    .join(" ");
+}
+
+export function peerRecordLabel(count: number, noun: "records" | "results" = "records") {
+  const suffix = count === 1 ? noun.slice(0, -1) : noun;
+  return `${count} peer ${suffix}`;
+}
+
 export function questionTypeLabel(value: string) {
   switch (value) {
     case "mcq_single":

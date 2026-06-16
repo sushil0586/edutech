@@ -48,6 +48,28 @@ function scoreChipStyle(percentage: number) {
   };
 }
 
+function nextActionMessage(params: {
+  weakTopicCount: number;
+  strongTopicCount: number;
+  latestPercentage: number | null;
+}) {
+  const { weakTopicCount, strongTopicCount, latestPercentage } = params;
+
+  if (latestPercentage !== null && latestPercentage < 50) {
+    return "Start with your lowest topics first. Do not spread effort too wide until the recent score stabilizes.";
+  }
+
+  if (weakTopicCount >= 3) {
+    return "Your next study move should be focused revision, not more random practice. Pick the weakest two topics first.";
+  }
+
+  if (strongTopicCount > 0) {
+    return "You already have some reliable strengths. Use them for confidence, but spend the next session on weaker areas.";
+  }
+
+  return "Keep building attempt history. Analytics will become sharper as more completed results are processed.";
+}
+
 export default function AnalyticsScreen() {
   const accessToken = useSessionStore((state) => state.accessToken);
   const profile = useSessionStore((state) => state.profile);
@@ -82,6 +104,12 @@ export default function AnalyticsScreen() {
     .sort((a, b) => Number(b.percentage) - Number(a.percentage))
     .slice(0, 3);
   const latestResult = publishedResults[0] ?? null;
+  const latestPercentage = latestResult ? Number(latestResult.percentage) : null;
+  const nextAction = nextActionMessage({
+    weakTopicCount: weakTopics.length,
+    strongTopicCount: strongTopics.length,
+    latestPercentage,
+  });
 
   return (
     <ScreenShell>
@@ -133,6 +161,23 @@ export default function AnalyticsScreen() {
         />
       </View>
       <SectionBlock
+        title="Next action"
+        subtitle="Turn analytics into a practical study move"
+      >
+        <View style={appStyles.emphasisPanel}>
+          <Text style={appStyles.body}>{nextAction}</Text>
+        </View>
+        {latestResult ? (
+          <Text style={appStyles.helper}>
+            Latest published result: {latestResult.exam_title} · {latestResult.percentage}% · {latestResult.correct_answers} correct
+          </Text>
+        ) : (
+          <Text style={appStyles.helper}>
+            As more published results appear, this guidance will become more precise for the selected subject scope.
+          </Text>
+        )}
+      </SectionBlock>
+      <SectionBlock
         title="Weak topics"
         subtitle="Use these signals to decide what to revise next"
       >
@@ -150,6 +195,9 @@ export default function AnalyticsScreen() {
                 <Text style={appStyles.body}>{topic.subject_name}</Text>
                 <Text style={appStyles.helper}>
                   {topic.correct_answers} correct · {topic.incorrect_answers} incorrect · {topic.skipped_questions} skipped
+                </Text>
+                <Text style={appStyles.helper}>
+                  Next move: revise this topic before attempting another similar paper.
                 </Text>
               </View>
             );
@@ -175,6 +223,7 @@ export default function AnalyticsScreen() {
                 </View>
               </View>
               <Text style={appStyles.body}>{topic.subject_name}</Text>
+              <Text style={appStyles.helper}>Keep this topic warm with light revision, not heavy repetition.</Text>
             </View>
           ))
         ) : (
@@ -217,6 +266,14 @@ export default function AnalyticsScreen() {
             </Text>
             <Text style={appStyles.helper}>
               {latestResult.correct_answers} correct · {latestResult.incorrect_answers} incorrect · {latestResult.skipped_questions} skipped
+            </Text>
+            <Text style={appStyles.helper}>
+              Recommended interpretation:{" "}
+              {Number(latestResult.percentage) >= 75
+                ? "strong recent signal"
+                : Number(latestResult.percentage) >= 55
+                  ? "mixed but recoverable signal"
+                  : "urgent improvement signal"}
             </Text>
           </View>
         ) : (

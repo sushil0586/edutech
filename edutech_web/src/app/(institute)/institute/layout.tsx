@@ -36,6 +36,8 @@ export default async function InstituteLayout({
           profile={profile}
           workspaceLabel="Institute admin workspace"
           summaryText="Institute-only control surface for roster, academic setup, exams, and daily operations."
+          searchActionHref="/institute/search"
+          searchPlaceholder="Search exams, people, question bank, reports, or security"
           hintLabel="Institute"
           actions={[
             { href: "/institute/people", label: "People", icon: "◫" },

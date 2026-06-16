@@ -18,7 +18,9 @@ import {
   decodeAnalyticsParam,
 } from "@/lib/student/analytics";
 import {
+  benchmarkLabel,
   percentageLabel,
+  peerRecordLabel,
   questionTypeLabel,
   titleCaseState,
 } from "@/lib/student/formatters";
@@ -181,8 +183,8 @@ export default async function StudentAnalyticsQuestionTypePage({
               questionData.benchmark_overview.map((benchmark) => (
                 <div className="studentTopicRow" key={benchmark.scope}>
                   <div>
-                    <strong>{benchmark.label}</strong>
-                    <span>{benchmark.participant_count} peer records · percentile pending backend support</span>
+                    <strong>{benchmarkLabel(benchmark.label || benchmark.scope)}</strong>
+                    <span>{peerRecordLabel(benchmark.participant_count)} · percentile pending backend support</span>
                   </div>
                   <div className="studentTopicRowMeta">
                     <strong>{percentageLabel(benchmark.average_percentage)} peer average</strong>

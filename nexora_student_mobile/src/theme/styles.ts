@@ -317,8 +317,23 @@ export const appStyles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     color: colors.textPrimary,
   },
+  inputError: {
+    borderColor: "#efb4aa",
+    backgroundColor: colors.bgDangerSoft,
+  },
   fieldStack: {
     gap: spacing.xs,
+  },
+  fieldHint: {
+    color: colors.textMuted,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  fieldError: {
+    color: colors.danger,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: "600",
   },
   formCard: {
     backgroundColor: colors.bgSurface,
@@ -376,6 +391,10 @@ export const appStyles = StyleSheet.create({
   optionCardSelected: {
     backgroundColor: colors.bgPrimarySoft,
     borderColor: "#bfd4ff",
+  },
+  optionCardError: {
+    borderColor: "#efb4aa",
+    backgroundColor: colors.bgDangerSoft,
   },
   optionCardHeader: {
     flexDirection: "row",

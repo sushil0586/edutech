@@ -12,7 +12,13 @@ import {
   buildAnalyticsSubjectHref,
   buildAnalyticsTopicHref,
 } from "@/lib/student/analytics";
-import { percentageLabel, questionTypeLabel, titleCaseState } from "@/lib/student/formatters";
+import {
+  benchmarkLabel,
+  percentageLabel,
+  peerRecordLabel,
+  questionTypeLabel,
+  titleCaseState,
+} from "@/lib/student/formatters";
 
 export default async function StudentQuestionAnalyticsPage({
   searchParams,
@@ -239,10 +245,10 @@ export default async function StudentQuestionAnalyticsPage({
                 {data.benchmark_overview.length ? (
                   data.benchmark_overview.map((benchmark) => (
                     <div className="studentTopicRow" key={benchmark.scope}>
-                      <div>
-                        <strong>{benchmark.label}</strong>
-                        <span>{benchmark.participant_count} peer results</span>
-                      </div>
+                    <div>
+                      <strong>{benchmarkLabel(benchmark.label || benchmark.scope)}</strong>
+                      <span>{peerRecordLabel(benchmark.participant_count, "results")}</span>
+                    </div>
                       <div className="studentTopicRowMeta">
                         <strong>{percentageLabel(benchmark.average_percentage)} peer average</strong>
                         <span>{percentageLabel(benchmark.accuracy_percentage)} peer accuracy</span>

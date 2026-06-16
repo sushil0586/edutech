@@ -36,6 +36,8 @@ export default async function AdminLayout({
           profile={profile}
           workspaceLabel="Platform admin workspace"
           summaryText="Cross-institute control surface for coverage, readiness, and operational health."
+          searchActionHref="/admin/search"
+          searchPlaceholder="Search institutes, people, exams, reports, or security"
           hintLabel="Platform"
           actions={[
             { href: "/admin/institutes", label: "Institutes", icon: "◎" },

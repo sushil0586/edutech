@@ -34,6 +34,22 @@ function resultChip(question: { result_status: string }) {
   return { container: appStyles.chipWarm, text: appStyles.chipTextWarm, label: "Skipped" };
 }
 
+function improvementPrompt(review: {
+  correct_answers: number;
+  incorrect_answers: number;
+  skipped_questions: number;
+}) {
+  if (review.skipped_questions > review.incorrect_answers && review.skipped_questions > 0) {
+    return "The main opportunity here is attempt confidence. Too many questions were left blank compared with incorrect answers.";
+  }
+
+  if (review.incorrect_answers > review.correct_answers) {
+    return "The main opportunity here is concept revision. Incorrect answers outnumber correct ones in this attempt.";
+  }
+
+  return "The attempt has a useful base. Focus on the incorrect and review-marked questions first before moving on.";
+}
+
 export default function AttemptReviewScreen() {
   const router = useRouter();
   const { attemptId } = useLocalSearchParams<{ attemptId: string }>();
@@ -128,6 +144,7 @@ export default function AttemptReviewScreen() {
         {review ? (
           <View style={review.show_explanations ? appStyles.successPanel : appStyles.mutedPanel}>
             <Text style={appStyles.body}>{reviewCopy(review)}</Text>
+            <Text style={appStyles.body}>{improvementPrompt(review)}</Text>
             <Text style={appStyles.helper}>
               Correct answers: {review.show_correct_answers ? "visible" : "hidden"} · Explanations:{" "}
               {review.show_explanations ? "visible" : "hidden"}
@@ -198,10 +215,29 @@ export default function AttemptReviewScreen() {
                       </Text>
                     </View>
                   ) : null}
+                  {question.is_marked_for_review ? (
+                    <View style={[appStyles.chip, appStyles.chipWarm]}>
+                      <Text style={[appStyles.chipText, appStyles.chipTextWarm]}>Marked during attempt</Text>
+                    </View>
+                  ) : null}
                   <View style={appStyles.chip}>
                     <Text style={appStyles.chipText}>Marks {question.marks_awarded}</Text>
                   </View>
                 </View>
+                {question.result_status === "incorrect" ? (
+                  <View style={appStyles.errorPanel}>
+                    <Text style={appStyles.helper}>
+                      Revisit this question first in your next revision cycle.
+                    </Text>
+                  </View>
+                ) : null}
+                {question.result_status === "skipped" ? (
+                  <View style={appStyles.mutedPanel}>
+                    <Text style={appStyles.helper}>
+                      This question was skipped. Decide whether it was a time-management choice or a concept gap.
+                    </Text>
+                  </View>
+                ) : null}
                 {review.show_explanations && question.explanation ? (
                   <View style={appStyles.emphasisPanel}>
                     <Text style={appStyles.body}>{question.explanation}</Text>

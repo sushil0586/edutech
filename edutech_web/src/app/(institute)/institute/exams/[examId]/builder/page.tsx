@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import { BuilderRapidAttach } from "@/components/ui/builder-rapid-attach";
 import { BuilderTabs } from "@/components/ui/builder-tabs";
@@ -78,6 +78,7 @@ async function upsertTeacherExamQuestionLink(payload: {
     });
     return;
   } catch (error) {
+    unstable_rethrow(error);
     const message = error instanceof Error ? error.message : "";
     const looksLikeExistingPairConflict =
       message.includes("fields exam, question must make a unique set") ||
@@ -148,6 +149,7 @@ async function updateExamSettingsAction(formData: FormData) {
       review_available_until: asIsoDateTime(formData.get("review_available_until")),
     });
   } catch (error) {
+    unstable_rethrow(error);
     const message =
       error instanceof Error && error.message
         ? error.message
@@ -182,6 +184,7 @@ async function addSectionAction(formData: FormData) {
       lock_after_submit: isChecked(formData, "lock_after_submit"),
     });
   } catch (error) {
+    unstable_rethrow(error);
     const message =
       error instanceof Error && error.message
         ? error.message
@@ -202,6 +205,7 @@ async function deleteSectionAction(formData: FormData) {
   try {
     await deleteTeacherExamSection(sectionId);
   } catch (error) {
+    unstable_rethrow(error);
     const message =
       error instanceof Error && error.message
         ? error.message
@@ -229,6 +233,7 @@ async function addQuestionLinkAction(formData: FormData) {
       isMandatory: isChecked(formData, "is_mandatory"),
     });
   } catch (error) {
+    unstable_rethrow(error);
     const message =
       error instanceof Error && error.message
         ? error.message
@@ -271,6 +276,7 @@ async function bulkAddQuestionLinksAction(formData: FormData) {
       });
     }
   } catch (error) {
+    unstable_rethrow(error);
     const message =
       error instanceof Error && error.message
         ? error.message
@@ -295,6 +301,7 @@ async function deleteQuestionLinkAction(formData: FormData) {
   try {
     await deleteTeacherExamQuestion(examQuestionId);
   } catch (error) {
+    unstable_rethrow(error);
     const message =
       error instanceof Error && error.message
         ? error.message
@@ -322,6 +329,7 @@ async function updateQuestionLinkAction(formData: FormData) {
       is_active: true,
     });
   } catch (error) {
+    unstable_rethrow(error);
     const message =
       error instanceof Error && error.message
         ? error.message
@@ -346,6 +354,7 @@ async function updateAssignmentsAction(formData: FormData) {
       student_ids: studentIds,
     });
   } catch (error) {
+    unstable_rethrow(error);
     const message =
       error instanceof Error && error.message
         ? error.message
@@ -393,6 +402,7 @@ async function updateStudentAccommodationAction(formData: FormData) {
       },
     });
   } catch (error) {
+    unstable_rethrow(error);
     const message =
       error instanceof Error && error.message
         ? error.message

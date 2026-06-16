@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import { StudentKpiGrid } from "@/components/ui/student-kpi-grid";
 import { StudentPageHeader } from "@/components/ui/student-page-header";
@@ -56,6 +56,10 @@ function reviewStateCopy(review: {
   };
 }
 
+function reviewOptionText(value: string) {
+  return value.replace(/\s*\n+\s*/g, " ").replace(/\s{2,}/g, " ").trim();
+}
+
 async function loadAttemptReview(attemptId: string) {
   const state = getStudentApiState();
 
@@ -89,6 +93,7 @@ async function startPracticeAction(formData: FormData) {
     const response = await startStudentAttempt(examId, studentId);
     redirect(`/app/attempts/${response.data.id}`);
   } catch (error) {
+    unstable_rethrow(error);
     const message =
       error instanceof Error && error.message
         ? encodeURIComponent(error.message)
@@ -120,6 +125,7 @@ async function unlockPracticeAction(formData: FormData) {
       )}`,
     );
   } catch (error) {
+    unstable_rethrow(error);
     const message =
       error instanceof Error && error.message
         ? encodeURIComponent(error.message)
@@ -379,14 +385,14 @@ export default async function AttemptReviewPage({
 
             {question.question_type === "short_answer" ? (
               <div className="attemptOptionList">
-                <div className="attemptOptionRow attemptOptionSelected">
+                <div className="attemptOptionRow attemptOptionReviewRow attemptOptionSelected">
                   <strong>Your answer</strong>
-                  <span>{question.answer_text || "No answer submitted"}</span>
+                  <span>{reviewOptionText(question.answer_text || "No answer submitted")}</span>
                 </div>
                 {review.show_correct_answers && question.accepted_answers.length ? (
-                  <div className="attemptOptionRow">
+                  <div className="attemptOptionRow attemptOptionReviewRow">
                     <strong>Accepted answer</strong>
-                    <span>{question.accepted_answers.join(" / ")}</span>
+                    <span>{question.accepted_answers.map(reviewOptionText).join(" / ")}</span>
                   </div>
                 ) : null}
               </div>
@@ -394,14 +400,14 @@ export default async function AttemptReviewPage({
               <div className="attemptOptionList">
                 {question.options.map((option) => (
                   <div
-                    className={`attemptOptionRow ${
+                    className={`attemptOptionRow attemptOptionReviewRow ${
                       option.is_selected ? "attemptOptionSelected" : ""
                     }`}
                     key={option.id}
                   >
                     <strong>{option.option_order}.</strong>
                     <span>
-                      {option.option_text}
+                      {reviewOptionText(option.option_text)}
                       {option.is_correct && review.show_correct_answers ? " (Correct)" : ""}
                     </span>
                   </div>

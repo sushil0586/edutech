@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import Link from "next/link";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { ActionSubmitButton } from "@/components/ui/action-submit-button";
@@ -49,6 +49,7 @@ async function updateQuestionAction(formData: FormData) {
     const question = await updateTeacherQuestion(questionId, payload);
     redirect(`/institute/question-bank/${question.id}?message=${encodeURIComponent("Question updated successfully.")}`);
   } catch (error) {
+    unstable_rethrow(error);
     const message =
       error instanceof Error && error.message
         ? error.message
@@ -79,6 +80,7 @@ async function addQuestionTagAction(formData: FormData) {
       `/institute/question-bank/${questionId}?message=${encodeURIComponent("Tag added to the question.")}`,
     );
   } catch (error) {
+    unstable_rethrow(error);
     const message =
       error instanceof Error && error.message
         ? error.message
@@ -121,6 +123,7 @@ async function addQuestionAttachmentAction(formData: FormData) {
       `/institute/question-bank/${questionId}?message=${encodeURIComponent("Attachment uploaded successfully.")}`,
     );
   } catch (error) {
+    unstable_rethrow(error);
     const message =
       error instanceof Error && error.message
         ? error.message
@@ -149,6 +152,7 @@ async function removeQuestionAttachmentAction(formData: FormData) {
       `/institute/question-bank/${questionId}?message=${encodeURIComponent("Attachment removed successfully.")}`,
     );
   } catch (error) {
+    unstable_rethrow(error);
     const message =
       error instanceof Error && error.message
         ? error.message
@@ -175,6 +179,7 @@ async function removeQuestionTagAction(formData: FormData) {
       `/institute/question-bank/${questionId}?message=${encodeURIComponent("Tag removed from the question.")}`,
     );
   } catch (error) {
+    unstable_rethrow(error);
     const message =
       error instanceof Error && error.message
         ? error.message

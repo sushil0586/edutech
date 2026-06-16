@@ -17,6 +17,8 @@ export default async function TeacherAppLayout({
           profile={profile}
           workspaceLabel="Teacher workspace"
           summaryText="Create exams, monitor question quality, and move between authoring and results without leaving the teacher workspace."
+          searchActionHref="/teacher/search"
+          searchPlaceholder="Search exams, results, question bank, import, or builder pages"
           hintLabel="Teacher"
           actions={[
             { href: "/teacher/exams/new", label: "New Exam", icon: "+" },

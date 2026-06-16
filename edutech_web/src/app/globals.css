@@ -718,6 +718,11 @@ button {
     linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 249, 255, 0.95));
 }
 
+.advancedBuilderPanelHero > div,
+.advancedBuilderSectionHeader > div:first-child {
+  min-width: 0;
+}
+
 .advancedBuilderPanelHero h2 {
   font-size: clamp(1.7rem, 2.4vw, 2.35rem);
   line-height: 1.04;
@@ -758,6 +763,7 @@ button {
   align-items: flex-start;
   justify-content: space-between;
   gap: 18px;
+  flex-wrap: wrap;
 }
 
 .advancedBuilderInlineActions {
@@ -787,6 +793,7 @@ button {
   display: flex;
   align-items: end;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .advancedBuilderSavedTemplateField {
@@ -806,6 +813,7 @@ button {
   display: flex;
   align-items: end;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .advancedBuilderSavedTemplateLibrarySummary {
@@ -833,6 +841,7 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
   padding: 12px 14px;
   border: 1px solid rgba(188, 197, 221, 0.34);
   border-radius: 16px;
@@ -902,6 +911,7 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  flex-wrap: wrap;
   padding: 14px 16px;
   border: 1px solid rgba(188, 197, 221, 0.34);
   border-radius: 18px;
@@ -1130,6 +1140,7 @@ button {
   position: sticky;
   bottom: 12px;
   z-index: 4;
+  flex-wrap: wrap;
   padding: 16px 18px;
   border: 1px solid rgba(195, 204, 226, 0.28);
   border-radius: 20px;
@@ -1143,6 +1154,7 @@ button {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .advancedBuilderSummaryColumn {
@@ -1199,6 +1211,17 @@ button {
 @media (max-width: 1100px) {
   .advancedBuilderWorkspace,
   .advancedBuilderPanelHero {
+    grid-template-columns: 1fr;
+  }
+
+  .advancedBuilderStageRail,
+  .advancedBuilderTemplateStrip,
+  .advancedBuilderHeroStats,
+  .advancedBuilderSummaryStats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .advancedBuilderGridTwo {
     grid-template-columns: 1fr;
   }
 
@@ -3423,6 +3446,11 @@ button {
   font-size: 0.76rem;
 }
 
+.appSearchSubmit {
+  border: 0;
+  cursor: pointer;
+}
+
 .appTopbarActions {
   display: flex;
   align-items: center;
@@ -3763,6 +3791,76 @@ button {
   position: relative;
   overflow: hidden;
   box-shadow: 0 14px 28px rgba(79, 70, 229, 0.08);
+}
+
+.attemptPageFocusMode {
+  gap: 10px;
+  padding: 12px;
+}
+
+.attemptPageFocusMode .feedbackBanner {
+  padding: 10px 14px;
+  line-height: 1.45;
+}
+
+.attemptPageFocusMode .attemptConsoleLayout,
+.attemptPageFocusMode .attemptConsoleMain,
+.attemptPageFocusMode .attemptConsoleRail,
+.attemptPageFocusMode .attemptQuestionStack,
+.attemptPageFocusMode .attemptWorkspaceDetails {
+  gap: 12px;
+}
+
+.attemptPageFocusMode .attemptWorkspaceHeader {
+  gap: 10px;
+  padding: 14px 16px;
+}
+
+.attemptPageFocusMode .attemptWorkspaceHeaderCopy strong {
+  font-size: 1.55rem;
+}
+
+.attemptPageFocusMode .attemptWorkspaceHeaderCopy small {
+  line-height: 1.45;
+}
+
+.attemptPageFocusMode .attemptWorkspaceHeaderMeta {
+  gap: 10px;
+}
+
+.attemptPageFocusMode .attemptHeroTimerCluster {
+  padding: 8px 10px;
+}
+
+.attemptPageFocusMode .attemptToolbarConsole {
+  padding: 12px 14px;
+}
+
+.attemptPageFocusMode .attemptQuestionCard,
+.attemptPageFocusMode .attemptConsoleSummaryCard,
+.attemptPageFocusMode .attemptRailPanel {
+  gap: 14px;
+  padding: 18px;
+}
+
+.attemptPageFocusMode .attemptQuestionPrompt {
+  padding: 14px 16px;
+}
+
+.attemptPageFocusMode .attemptForm {
+  gap: 16px;
+}
+
+.attemptPageFocusMode .attemptOptionList {
+  gap: 10px;
+}
+
+.attemptPageFocusMode .attemptOptionRow {
+  padding: 12px 14px;
+}
+
+.attemptPageFocusMode .attemptQuestionFooter {
+  padding-top: 10px;
 }
 
 .studentPageTight {
@@ -5262,8 +5360,12 @@ button {
   gap: var(--space-4);
 }
 
+.resultsSummaryGrid {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
 .teacherResultsLayout {
-  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  grid-template-columns: minmax(300px, 0.92fr) minmax(0, 1.18fr);
   align-items: start;
 }
 
@@ -5271,6 +5373,7 @@ button {
 .teacherResultsMain {
   display: grid;
   gap: var(--space-4);
+  min-width: 0;
 }
 
 .teacherResultsCardActive {
@@ -5418,7 +5521,7 @@ button {
 }
 
 .teacherResultsSplit {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
 }
 
 .resultsSummaryGrid {
@@ -6114,6 +6217,15 @@ button {
   box-shadow: inset 0 0 0 1px rgba(31, 95, 214, 0.08);
 }
 
+.attemptOptionReviewRow {
+  grid-template-columns: minmax(84px, auto) minmax(0, 1fr);
+}
+
+.attemptOptionReviewRow span {
+  white-space: normal;
+  word-break: break-word;
+}
+
 .attemptForm {
   display: grid;
   gap: var(--space-5);
@@ -6428,6 +6540,7 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: var(--space-5);
   padding: 22px 24px;
   border: 1px solid rgba(109, 94, 252, 0.12);
@@ -6580,6 +6693,7 @@ button {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: var(--space-3);
   padding: 14px 16px;
   border-radius: 18px;
@@ -6590,6 +6704,8 @@ button {
 .teacherLaneRow > div {
   display: grid;
   gap: 4px;
+  min-width: 0;
+  flex: 1 1 240px;
 }
 
 .teacherLaneRow span {
@@ -6663,6 +6779,8 @@ button {
   display: grid;
   gap: 8px;
   max-width: 68ch;
+  min-width: 0;
+  flex: 1 1 320px;
 }
 
 .builderActionCallout strong {
@@ -7193,6 +7311,7 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: var(--space-4);
   padding: 28px 30px;
   border: 1px solid rgba(255, 255, 255, 0.84);
@@ -7206,6 +7325,7 @@ button {
 .builderHeroCard > div {
   display: grid;
   gap: 8px;
+  min-width: 0;
 }
 
 .builderHeroCard strong {
@@ -7251,7 +7371,7 @@ button {
 .builderPanelMetrics {
   display: grid;
   gap: var(--space-3);
-  grid-template-columns: repeat(2, minmax(120px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
 }
 
 .builderMetricChip {
@@ -7282,6 +7402,7 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: var(--space-3);
   padding: 18px 20px;
   border: 1px solid rgba(109, 94, 252, 0.1);
@@ -7294,6 +7415,8 @@ button {
 .builderMiniBanner > div {
   display: grid;
   gap: 6px;
+  min-width: 0;
+  flex: 1 1 280px;
 }
 
 .builderMiniBanner strong {
@@ -7309,14 +7432,15 @@ button {
 .builderComposerGrid {
   display: grid;
   gap: var(--space-4);
-  grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
-  align-items: end;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  align-items: start;
 }
 
 .builderListRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: var(--space-4);
   padding: 18px 20px;
   border: 1px solid rgba(255, 255, 255, 0.76);
@@ -7329,13 +7453,15 @@ button {
 .builderListRow > div {
   display: grid;
   gap: var(--space-2);
+  min-width: 0;
+  flex: 1 1 260px;
 }
 
 .builderListMeta {
   display: grid;
   gap: 6px;
   min-width: 110px;
-  text-align: right;
+  text-align: left;
 }
 
 .builderListMeta span {
@@ -7422,6 +7548,7 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: var(--space-4);
   padding: 20px 22px;
   border: 1px solid rgba(109, 94, 252, 0.14);
@@ -7435,6 +7562,8 @@ button {
 .builderSaveBar > div {
   display: grid;
   gap: 6px;
+  min-width: 0;
+  flex: 1 1 320px;
 }
 
 .builderSaveBar span {
@@ -7455,12 +7584,12 @@ button {
 .questionBankFilterForm {
   display: grid;
   gap: 14px;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   align-items: end;
 }
 
 .questionBankSearchField {
-  grid-column: span 2;
+  grid-column: 1 / -1;
 }
 
 .questionBankFilterActions {
@@ -7525,7 +7654,7 @@ button {
   flex-wrap: wrap;
 }
 
-@media (min-width: 1180px) {
+@media (min-width: 1280px) {
   .questionBankFilterForm {
     grid-template-columns: minmax(220px, 2fr) repeat(3, minmax(160px, 1fr));
   }
@@ -8225,6 +8354,7 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .questionImportRowMeta strong {
@@ -8554,9 +8684,36 @@ button {
   }
 }
 
+@media (max-width: 1180px) {
+  .teacherResultsLayout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .teacherTimelineRow {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .teacherTimelineRow > .statusPill {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .questionBankCardHeader {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .questionBankCardHeader > :last-child {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
 @media (max-width: 820px) {
   .builderActionCallout,
   .builderHeroCard,
+  .builderMiniBanner,
+  .builderSaveBar,
   .wizardSectionIntro,
   .wizardActionBar {
     flex-direction: column;
@@ -8784,7 +8941,7 @@ button {
   }
 
   .resultsSummaryGrid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   }
 
   .resultKpiGrid,
@@ -9414,6 +9571,7 @@ body::after {
   display: grid;
   gap: 14px;
   padding: 22px 24px;
+  min-width: 0;
 }
 
 .adminCommandDeckHero h2 {
@@ -9453,6 +9611,7 @@ body::after {
   display: grid;
   gap: 12px;
   padding: 14px;
+  min-width: 0;
 }
 
 .adminExecutiveStat {
@@ -9571,12 +9730,14 @@ body::after {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
+  flex-wrap: wrap;
 }
 
 .adminPriorityCardHeader > div:first-child,
 .adminActionCard > div {
   display: grid;
   gap: 6px;
+  min-width: 0;
 }
 
 .adminPriorityCardHeader strong,
@@ -9589,7 +9750,7 @@ body::after {
   display: grid;
   gap: 4px;
   min-width: 112px;
-  text-align: right;
+  text-align: left;
 }
 
 .adminPriorityCardMetric strong {
@@ -9616,6 +9777,22 @@ body::after {
   .adminDashboardLowerGrid,
   .adminCommandDeck {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1280px) {
+  .adminInstituteLayout,
+  .adminPeopleOperationsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .adminInstituteHero,
+  .adminPeopleHero {
+    grid-template-columns: 1fr;
+  }
+
+  .adminInstituteDetailCard {
+    position: static;
   }
 }
 
@@ -9694,6 +9871,7 @@ body::after {
   display: grid;
   gap: 12px;
   align-content: start;
+  min-width: 0;
 }
 
 .adminInstituteHeroMeta {
@@ -9962,6 +10140,7 @@ body::after {
   position: sticky;
   top: 20px;
   padding: 16px 18px;
+  min-width: 0;
 }
 
 .adminInstituteDetailHero {
@@ -9980,6 +10159,7 @@ body::after {
 .adminInstituteDetailHero > div {
   display: grid;
   gap: 8px;
+  min-width: 0;
 }
 
 .adminInstituteDetailHero h4 {
@@ -10164,6 +10344,7 @@ body::after {
   display: grid;
   gap: 14px;
   align-content: start;
+  min-width: 0;
 }
 
 .adminPeopleHeroCopy strong {
@@ -10241,7 +10422,7 @@ body::after {
 }
 
 .adminPeopleKpiGrid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
 .adminPeopleKpiCard {
@@ -10314,7 +10495,7 @@ body::after {
 .adminPeopleOnboardingNotes {
   display: grid;
   gap: 14px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
 .adminPeopleNoteCard {
@@ -10335,7 +10516,7 @@ body::after {
 .adminPeopleRosterGrid {
   display: grid;
   gap: 18px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
 }
 
 .adminPeopleRosterBrowser {
@@ -10872,6 +11053,10 @@ body::after {
 
   .adminPeopleScopeMiniGrid,
   .adminPeopleKpiGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .adminPeopleRosterRow {
     grid-template-columns: 1fr;
   }
 

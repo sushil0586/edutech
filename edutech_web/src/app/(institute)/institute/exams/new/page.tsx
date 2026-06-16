@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import Link from "next/link";
 import { InstitutePageHeader } from "@/components/ui/institute-page-header";
 import { CreateExamWizard } from "@/components/ui/create-exam-wizard";
@@ -96,6 +96,7 @@ async function createExamAction(formData: FormData) {
     });
     redirect(`/institute/exams/${exam.id}?message=${encodeURIComponent("Exam created. Continue with builder, questions, and assignments.")}`);
   } catch (error) {
+    unstable_rethrow(error);
     const message =
       error instanceof Error && error.message
         ? error.message

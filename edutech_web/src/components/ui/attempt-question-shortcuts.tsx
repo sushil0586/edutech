@@ -40,7 +40,7 @@ export function AttemptQuestionShortcuts({
 
     questionCard.scrollIntoView({
       block: "start",
-      behavior: "smooth",
+      behavior: "auto",
     });
     questionCard.focus({ preventScroll: true });
   });

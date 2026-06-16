@@ -11,17 +11,52 @@ import { persistSession } from "@/lib/secure-session";
 import { useSessionStore } from "@/store/session-store";
 import { appStyles } from "@/theme/styles";
 
+function friendlyLoginError(error: MobileApiError | Error) {
+  const rawMessage = error.message.toLowerCase();
+
+  if (rawMessage.includes("network request failed")) {
+    return "We could not reach the Nexora server. Check your internet connection and try again.";
+  }
+
+  if (rawMessage.includes("invalid") || rawMessage.includes("credential") || rawMessage.includes("password")) {
+    return "The username or password does not match. Please check the student credentials and try again.";
+  }
+
+  if (rawMessage.includes("inactive")) {
+    return "This account is currently inactive. Please contact your institute or platform administrator.";
+  }
+
+  return error.message || "Login failed. Please try again.";
+}
+
 export default function LoginScreen() {
   const router = useRouter();
   const setSession = useSessionStore((state) => state.setSession);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
+  function validateForm() {
+    const nextErrors: Record<string, string> = {};
+
+    if (!username.trim()) nextErrors.username = "Username is required.";
+    if (!password.trim()) nextErrors.password = "Password is required.";
+
+    setFieldErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  }
+
   async function submit() {
+    if (!validateForm()) {
+      setMessage("Please enter both username and password.");
+      return;
+    }
+
     setLoading(true);
     setMessage("");
+    setFieldErrors({});
     try {
       const response = await loginStudent({ username, password });
       await persistSession({
@@ -36,11 +71,14 @@ export default function LoginScreen() {
       });
       router.replace("/(auth)/role-gate");
     } catch (error) {
-      setMessage(
-        error instanceof MobileApiError || error instanceof Error
-          ? error.message
-          : "Login failed.",
-      );
+      if (error instanceof MobileApiError) {
+        setFieldErrors(error.fieldErrors ?? {});
+        setMessage(friendlyLoginError(error));
+      } else if (error instanceof Error) {
+        setMessage(friendlyLoginError(error));
+      } else {
+        setMessage("Login failed.");
+      }
     } finally {
       setLoading(false);
     }
@@ -70,20 +108,22 @@ export default function LoginScreen() {
             <TextInput
               autoCapitalize="none"
               placeholder="Enter username"
-              style={appStyles.input}
+              style={[appStyles.input, fieldErrors.username ? appStyles.inputError : null]}
               value={username}
               onChangeText={setUsername}
             />
+            {fieldErrors.username ? <Text style={appStyles.fieldError}>{fieldErrors.username}</Text> : null}
           </View>
           <View style={appStyles.fieldStack}>
             <Text style={appStyles.label}>Password</Text>
             <TextInput
               placeholder="Enter password"
               secureTextEntry
-              style={appStyles.input}
+              style={[appStyles.input, fieldErrors.password ? appStyles.inputError : null]}
               value={password}
               onChangeText={setPassword}
             />
+            {fieldErrors.password ? <Text style={appStyles.fieldError}>{fieldErrors.password}</Text> : null}
           </View>
         </View>
         {message ? <Text style={appStyles.errorText}>{message}</Text> : null}

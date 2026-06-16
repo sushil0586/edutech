@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { LiveMonitorRefresh } from "@/components/ui/live-monitor-refresh";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { InstitutePageHeader } from "@/components/ui/institute-page-header";
@@ -634,6 +634,7 @@ async function runSummaryAction(formData: FormData) {
       await publishTeacherExamResults(examId);
     }
   } catch (error) {
+    unstable_rethrow(error);
     const message =
       error instanceof Error && error.message
         ? error.message
@@ -670,6 +671,7 @@ async function runForceSubmitAction(formData: FormData) {
   try {
     await forceSubmitTeacherAttempt(attemptId);
   } catch (error) {
+    unstable_rethrow(error);
     const message =
       error instanceof Error && error.message
         ? error.message
@@ -717,6 +719,7 @@ async function runAttemptInterventionNoteAction(formData: FormData) {
       follow_up: followUp,
     });
   } catch (error) {
+    unstable_rethrow(error);
     const message =
       error instanceof Error && error.message
         ? error.message
@@ -756,6 +759,7 @@ async function runExamLifecycleAction(formData: FormData) {
   try {
     await runTeacherExamAction(examId, action);
   } catch (error) {
+    unstable_rethrow(error);
     const message =
       error instanceof Error && error.message
         ? error.message

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import { StudentKpiGrid } from "@/components/ui/student-kpi-grid";
 import { StudentPageHeader } from "@/components/ui/student-page-header";
@@ -137,6 +137,7 @@ async function startPracticeAction(formData: FormData) {
     const response = await startStudentAttempt(examId, studentId);
     redirect(`/app/attempts/${response.data.id}`);
   } catch (error) {
+    unstable_rethrow(error);
     const message =
       error instanceof Error && error.message
         ? encodeURIComponent(error.message)
@@ -168,6 +169,7 @@ async function unlockPracticeAction(formData: FormData) {
       )}`,
     );
   } catch (error) {
+    unstable_rethrow(error);
     const message =
       error instanceof Error && error.message
         ? encodeURIComponent(error.message)

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { InstitutePageHeader } from "@/components/ui/institute-page-header";
@@ -75,6 +75,7 @@ async function instituteExamAction(formData: FormData) {
 
     successMessage = response.message ?? successMessage;
   } catch (error) {
+    unstable_rethrow(error);
     const message =
       error instanceof Error && error.message
         ? error.message
@@ -103,6 +104,7 @@ async function instituteExamEconomyAction(formData: FormData) {
       priority: Number(formData.get("priority") ?? 100),
     });
   } catch (error) {
+    unstable_rethrow(error);
     const message =
       error instanceof Error && error.message
         ? error.message

@@ -5,7 +5,9 @@ import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { StudentAnalyticsDetailHero } from "@/components/ui/student-analytics-detail";
 import { loadStudentAnalyticsBundle, sourceDescriptor } from "@/lib/student/analytics";
 import {
+  benchmarkLabel,
   percentageLabel,
+  peerRecordLabel,
   studentDateTimeLabel,
   titleCaseState,
 } from "@/lib/student/formatters";
@@ -212,9 +214,9 @@ export default async function StudentAnalyticsResultsComparePage({
               bundle.summary.benchmark_overview.map((benchmark) => (
                 <div className="studentTopicRow" key={benchmark.scope}>
                   <div>
-                    <strong>{benchmark.label}</strong>
+                    <strong>{benchmarkLabel(benchmark.label || benchmark.scope)}</strong>
                     <span>
-                      {benchmark.participant_count} peer records
+                      {peerRecordLabel(benchmark.participant_count)}
                       {subject || source ? " · shown as overall snapshot" : ""}
                     </span>
                   </div>

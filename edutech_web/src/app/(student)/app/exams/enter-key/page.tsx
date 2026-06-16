@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { StudentPageHeader } from "@/components/ui/student-page-header";
 import { resolveStudentExamAccessKey } from "@/lib/api/student";
 
@@ -29,6 +29,7 @@ async function resolveExamKeyAction(formData: FormData) {
       )}`,
     );
   } catch (error) {
+    unstable_rethrow(error);
     const message =
       error instanceof Error && error.message
         ? error.message

@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import {
   fetchStudentInsightSummary,
@@ -25,7 +25,9 @@ import {
   sourceDescriptor,
 } from "@/lib/student/analytics";
 import {
+  benchmarkLabel,
   percentageLabel,
+  peerRecordLabel,
   questionTypeLabel,
   signedPercentageLabel,
   studentDateTimeLabel,
@@ -180,6 +182,7 @@ async function startPracticeAction(formData: FormData) {
     const response = await startStudentAttempt(examId, summary.student_id);
     redirect(`/app/attempts/${response.data.id}`);
   } catch (error) {
+    unstable_rethrow(error);
     const message =
       error instanceof Error && error.message
         ? encodeURIComponent(error.message)
@@ -212,6 +215,7 @@ async function unlockPracticeAction(formData: FormData) {
       )}`,
     );
   } catch (error) {
+    unstable_rethrow(error);
     const message =
       error instanceof Error && error.message
         ? encodeURIComponent(error.message)
@@ -594,9 +598,9 @@ export default async function AnalyticsPage({
                     {benchmarkOverview.slice(0, 4).map((benchmark) => (
                       <div className="analyticsBenchmarkRow" key={benchmark.scope}>
                         <span className={`analyticsBenchmarkDot analyticsBenchmarkDot${benchmark.scope}`} />
-                        <div>
-                          <strong>{benchmark.label}</strong>
-                          <span>{benchmark.participant_count} peer records</span>
+                        <div className="analyticsBenchmarkMeta">
+                          <strong>{benchmarkLabel(benchmark.label || benchmark.scope)}</strong>
+                          <span>{peerRecordLabel(benchmark.participant_count)}</span>
                         </div>
                         <div className="analyticsBenchmarkProgress">
                           <span

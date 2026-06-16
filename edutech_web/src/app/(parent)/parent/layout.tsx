@@ -35,6 +35,8 @@ export default async function ParentLayout({
           profile={profile}
           workspaceLabel="Parent workspace"
           summaryText={summaryText}
+          searchActionHref="/parent/search"
+          searchPlaceholder="Search children, progress, alerts, or settings"
           hintLabel="Parent"
           actions={[
             { href: "/parent/children", label: "Children", icon: "◎" },

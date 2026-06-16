@@ -9,11 +9,13 @@ function firstError(value: unknown) {
 
 export class MobileApiError extends Error {
   fieldErrors?: Record<string, string>;
+  status?: number;
 
-  constructor(message: string, fieldErrors?: Record<string, string>) {
+  constructor(message: string, fieldErrors?: Record<string, string>, status?: number) {
     super(message);
     this.name = "MobileApiError";
     this.fieldErrors = fieldErrors;
+    this.status = status;
   }
 }
 
@@ -51,7 +53,7 @@ export async function requestJson<T>(
       Object.values(fieldErrors)[0] ||
       `Request failed with status ${response.status}`;
 
-    throw new MobileApiError(message, fieldErrors);
+    throw new MobileApiError(message, fieldErrors, response.status);
   }
 
   return (await response.json()) as T;

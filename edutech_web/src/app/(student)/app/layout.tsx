@@ -123,6 +123,8 @@ export default async function StudentAppLayout({
           profile={profile}
           workspaceLabel="Student workspace"
           summaryText={summaryText}
+          searchActionHref="/app/search"
+          searchPlaceholder="Search tests, chapters, topics, practice, results, or settings"
           sourceOptions={sourceOptions}
           selectedSource={selectedSource}
           teacherOptions={teacherOptions}

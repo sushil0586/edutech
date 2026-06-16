@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
 
 type StudentAttachmentPreviewTriggerProps = {
@@ -18,6 +19,12 @@ export function StudentAttachmentPreviewTrigger({
   altText,
 }: StudentAttachmentPreviewTriggerProps) {
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
 
   useEffect(() => {
     if (!open) {
@@ -31,7 +38,12 @@ export function StudentAttachmentPreviewTrigger({
     };
 
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "";
+    };
   }, [open]);
 
   return (
@@ -40,59 +52,63 @@ export function StudentAttachmentPreviewTrigger({
         Open
       </button>
 
-      {open ? (
-        <div
-          className="analyticsAttachmentModal"
-          role="dialog"
-          aria-modal="true"
-          aria-label={title}
-          onClick={() => setOpen(false)}
-        >
-          <div
-            className="analyticsAttachmentModalCard"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="analyticsAttachmentModalHeader">
-              <strong>{title}</strong>
-              <div className="analyticsAttachmentModalActions">
-                <Link className="button buttonGhost" href={href} target="_blank">
-                  New tab
-                </Link>
-                <button
-                  className="button buttonSecondary"
-                  type="button"
-                  onClick={() => setOpen(false)}
-                >
-                  Done
-                </button>
+      {open && mounted
+        ? createPortal(
+            <div
+              className="analyticsAttachmentModal"
+              role="dialog"
+              aria-modal="true"
+              aria-label={title}
+              onClick={() => setOpen(false)}
+            >
+              <div
+                className="analyticsAttachmentModalCard"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="analyticsAttachmentModalHeader">
+                  <strong>{title}</strong>
+                  <div className="analyticsAttachmentModalActions">
+                    <Link className="button buttonGhost" href={href} target="_blank">
+                      New tab
+                    </Link>
+                    <button
+                      className="button buttonSecondary"
+                      type="button"
+                      onClick={() => setOpen(false)}
+                    >
+                      Done
+                    </button>
+                  </div>
+                </div>
+                <div className="analyticsAttachmentModalBody">
+                  {kind === "image" ? (
+                    <Image
+                      className="analyticsAttachmentPreviewImage"
+                      src={href}
+                      alt={altText}
+                      width={1200}
+                      height={900}
+                      unoptimized
+                    />
+                  ) : kind === "pdf" ? (
+                    <iframe
+                      className="analyticsAttachmentPreviewFrame"
+                      src={href}
+                      title={title}
+                    />
+                  ) : (
+                    <div className="analyticsAttachmentPreviewFallback">
+                      <strong>Preview is not available for this file type.</strong>
+                      <span>Use the new-tab action to inspect the attachment directly.</span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-            <div className="analyticsAttachmentModalBody">
-              {kind === "image" ? (
-                <Image
-                  className="analyticsAttachmentPreviewImage"
-                  src={href}
-                  alt={altText}
-                  width={1200}
-                  height={900}
-                  unoptimized
-                />
-              ) : kind === "pdf" ? (
-                <iframe
-                  className="analyticsAttachmentPreviewFrame"
-                  src={href}
-                  title={title}
-                />
-              ) : (
-                <div className="analyticsAttachmentPreviewFallback">
-                  <strong>Preview is not available for this file type.</strong>
-                  <span>Use the new-tab action to inspect the attachment directly.</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      ) : null}
+            ,
+            document.body,
+          )
+        : null}
     </>
   );
 }

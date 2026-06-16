@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { TeacherQuestionEditor } from "@/components/ui/teacher-question-editor";
 import { TeacherPageHeader } from "@/components/ui/teacher-page-header";
@@ -31,6 +31,7 @@ async function createQuestionAction(formData: FormData) {
     const question = await createTeacherQuestion(payload);
     redirect(`/teacher/question-bank/${question.id}?message=${encodeURIComponent("Question created successfully.")}`);
   } catch (error) {
+    unstable_rethrow(error);
     const message =
       error instanceof Error && error.message
         ? error.message
