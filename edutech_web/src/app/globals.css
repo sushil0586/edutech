@@ -3171,6 +3171,51 @@ button {
   overflow: hidden;
 }
 
+.mobileWorkspaceNav {
+  display: none;
+}
+
+.mobileWorkspaceNavBar,
+.mobileWorkspaceNavPanel {
+  border: 1px solid var(--color-border-default);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: var(--shadow-xs);
+}
+
+.mobileWorkspaceNavBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+}
+
+.mobileWorkspaceNavToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 14px;
+  background: #f8fbff;
+  color: var(--color-brand-primary-700);
+  font-weight: 700;
+}
+
+.mobileWorkspaceNavToggle span[aria-hidden="true"] {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.mobileWorkspaceNavPanel {
+  display: grid;
+  gap: 14px;
+  margin-top: 12px;
+  padding: 14px;
+}
+
 .appSidebar::before {
   display: none;
 }
@@ -3264,6 +3309,7 @@ button {
   align-content: start;
   gap: var(--space-6);
   padding-block: var(--space-1);
+  min-width: 0;
 }
 
 .appTopbar {
@@ -3558,6 +3604,118 @@ button {
 .appTopbarProfile span {
   color: var(--color-text-muted);
   font-size: 0.8rem;
+}
+
+@media (max-width: 959px) {
+  .appTopbar {
+    grid-template-columns: 1fr;
+    padding: 14px;
+    gap: 10px;
+  }
+
+  .appTopbarActions,
+  .appTopbarFiltersRail {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    width: 100%;
+    gap: 10px;
+  }
+
+  .appTopbarFiltersRail {
+    margin-right: 0;
+  }
+
+  .appTopbarSubjectSelector {
+    min-width: 0;
+    flex: 1 1 180px;
+  }
+}
+
+@media (max-width: 640px) {
+  .studentAppShell {
+    gap: 14px;
+    padding: 14px;
+  }
+
+  .studentAppMain {
+    gap: 14px;
+  }
+
+  .mobileWorkspaceNavBar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .mobileWorkspaceNavToggle {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .appTopbar {
+    padding: 12px;
+    border-radius: 18px;
+  }
+
+  .appTopbarIntro strong {
+    font-size: 0.95rem;
+  }
+
+  .appSearch {
+    grid-template-columns: auto minmax(0, 1fr);
+    padding: 10px 12px;
+  }
+
+  .appSearchHint {
+    display: none;
+  }
+
+  .appSearchText {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+    font-size: 0.86rem;
+    line-height: 1.45;
+  }
+
+  .appTopbarActions,
+  .appTopbarFiltersRail {
+    width: 100%;
+    gap: 8px;
+  }
+
+  .appTopbarSubjectSelector {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .appTopbarAction,
+  .appTopbarWalletPill {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .appTopbarProfile {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .appTopbarIconButton {
+    width: 48px;
+    flex: 0 0 48px;
+  }
+
+  .studentDashboardWelcome,
+  .studentDashboardPrimaryGrid,
+  .studentDashboardBottomGrid,
+  .dashboardWorkspaceGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .studentPage,
+  .studentDashboardCard {
+    padding: 18px;
+    border-radius: 22px;
+  }
 }
 
 .studentAppMain:has(.attemptPageFocusMode) .appTopbar {
@@ -8657,6 +8815,14 @@ button {
 
   .studentAppShell {
     padding: var(--space-4);
+  }
+
+  .mobileWorkspaceNav {
+    display: block;
+  }
+
+  .appSidebarDesktop {
+    display: none;
   }
 
   .studentPage {
