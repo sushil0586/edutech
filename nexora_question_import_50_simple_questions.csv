@@ -1,52 +1,52 @@
 subject,topic,question_type,difficulty_level,question_text,option_1,option_2,option_3,option_4,correct_answer,default_marks,negative_marks,explanation,tags
-Mathematics,Arithmetic,mcq_single,beginner,What is 5 + 3?,6,8,9,7,2,1.00,0.00,8 is correct because 5 plus 3 equals 8.,arithmetic|foundation
-Mathematics,Arithmetic,mcq_single,beginner,What is 10 - 4?,5,7,6,8,3,1.00,0.00,6 is correct because 10 minus 4 equals 6.,arithmetic|foundation
-Mathematics,Arithmetic,mcq_single,beginner,What is 6 x 2?,10,12,14,8,2,1.00,0.00,12 is correct because 6 multiplied by 2 equals 12.,multiplication|foundation
-Mathematics,Arithmetic,mcq_single,beginner,What is 15 divided by 3?,4,6,5,3,3,1.00,0.00,5 is correct because 15 divided by 3 equals 5.,division|foundation
-Mathematics,Arithmetic,mcq_single,beginner,Which number is even?,9,11,14,15,3,1.00,0.00,14 is even because it is divisible by 2.,numbers|foundation
-Mathematics,Fractions,mcq_single,beginner,Which fraction is equal to one half?,1/4,2/4,3/4,4/4,2,1.00,0.00,2/4 is equal to 1/2 when simplified.,fractions|foundation
-Mathematics,Fractions,mcq_single,beginner,What is 1/4 + 1/4?,1/2,1/4,3/4,1,1,1.00,0.00,1/2 is correct because two quarters make one half.,fractions|addition
-Mathematics,Geometry,mcq_single,beginner,How many sides does a triangle have?,2,3,4,5,2,1.00,0.00,A triangle always has 3 sides.,geometry|shapes
-Mathematics,Geometry,mcq_single,beginner,How many sides does a square have?,3,4,5,6,2,1.00,0.00,A square has 4 equal sides.,geometry|shapes
-Mathematics,Measurement,mcq_single,beginner,How many centimeters are in 1 meter?,10,50,100,1000,3,1.00,0.00,1 meter equals 100 centimeters.,measurement|units
-Science,Physics,mcq_single,beginner,What force pulls objects toward Earth?,Magnetism,Gravity,Friction,Heat,2,1.00,0.00,Gravity pulls objects toward Earth.,physics|forces
-Science,Physics,mcq_single,beginner,Which form of energy lets us see things?,Sound,Heat,Light,Wind,3,1.00,0.00,Light energy makes vision possible.,physics|energy
-Science,Physics,mcq_single,beginner,Which state of matter has a fixed shape?,Liquid,Gas,Solid,Steam,3,1.00,0.00,A solid has a fixed shape.,matter|states
-Science,Chemistry,mcq_single,beginner,What do plants need to make food?,Moonlight,Sunlight,Plastic,Sand,2,1.00,0.00,Plants use sunlight for photosynthesis.,biology|plants
-Science,Chemistry,mcq_single,beginner,Water freezes at what temperature in Celsius?,0,10,50,100,1,1.00,0.00,Water freezes at 0 degrees Celsius.,chemistry|water
-Science,Chemistry,mcq_single,beginner,Which of these is a gas?,Ice,Water,Oxygen,Wood,3,1.00,0.00,Oxygen is a gas at room temperature.,matter|states
-Science,Biology,mcq_single,beginner,Which part of the plant absorbs water?,Flower,Leaf,Root,Stem,3,1.00,0.00,Roots absorb water from the soil.,biology|plants
-Science,Biology,mcq_single,beginner,Which organ pumps blood in the human body?,Lungs,Heart,Brain,Stomach,2,1.00,0.00,The heart pumps blood throughout the body.,biology|human-body
-Science,Biology,mcq_single,beginner,Which sense organ is used for hearing?,Eye,Ear,Nose,Tongue,2,1.00,0.00,The ear is the organ used for hearing.,biology|senses
-Science,Environment,mcq_single,beginner,Which planet do we live on?,Mars,Venus,Earth,Jupiter,3,1.00,0.00,Humans live on Earth.,space|foundation
-English,Grammar,mcq_single,beginner,Which word is a noun?,Run,Blue,School,Quickly,3,1.00,0.00,School is a noun because it names a place.,grammar|parts-of-speech
-English,Grammar,mcq_single,beginner,Which word is a verb?,Jump,Table,Happy,Green,1,1.00,0.00,Jump is a verb because it shows an action.,grammar|parts-of-speech
-English,Grammar,mcq_single,beginner,Choose the correct article: ___ apple.,A,An,The,No article,2,1.00,0.00,An is used before a word beginning with a vowel sound.,grammar|articles
-English,Grammar,mcq_single,beginner,Which sentence ends with a question mark?,I like apples.,Where are you?,This is fun.,Please sit down.,2,1.00,0.00,A direct question ends with a question mark.,punctuation|foundation
-English,Vocabulary,mcq_single,beginner,What is the opposite of hot?,Warm,Cold,Boiling,Bright,2,1.00,0.00,Cold is the opposite of hot.,vocabulary|antonyms
-English,Vocabulary,mcq_single,beginner,Which word means very small?,Tiny,Huge,Heavy,Tall,1,1.00,0.00,Tiny means very small.,vocabulary|synonyms
-English,Reading,mcq_single,beginner,Which word names a color?,Red,Chair,Sing,Fast,1,1.00,0.00,Red is a color word.,vocabulary|basics
-English,Grammar,mcq_single,beginner,Which pronoun can replace Riya?,He,It,She,They,3,1.00,0.00,She is used for a female person.,grammar|pronouns
-English,Spelling,mcq_single,beginner,Which word is spelled correctly?,Frend,Friend,Freind,Frind,2,1.00,0.00,Friend is the correct spelling.,spelling|foundation
-English,Grammar,mcq_single,beginner,Choose the plural form of book.,Books,Bookes,Books',Book,1,1.00,0.00,Books is the correct plural form of book.,grammar|plural
-General Knowledge,Geography,mcq_single,beginner,What is the capital of India?,Mumbai,Delhi,Chennai,Kolkata,2,1.00,0.00,Delhi is the capital of India.,gk|india
-General Knowledge,Geography,mcq_single,beginner,How many days are in a week?,5,6,7,8,3,1.00,0.00,A week has 7 days.,time|foundation
-General Knowledge,Geography,mcq_single,beginner,How many months are in a year?,10,11,12,13,3,1.00,0.00,A year has 12 months.,time|calendar
-General Knowledge,Civics,mcq_single,beginner,Which is our national bird in India?,Peacock,Parrot,Crow,Eagle,1,1.00,0.00,The peacock is the national bird of India.,gk|india
-General Knowledge,Civics,mcq_single,beginner,Which festival is known as the festival of lights?,Holi,Diwali,Eid,Christmas,2,1.00,0.00,Diwali is known as the festival of lights.,gk|festivals
-General Knowledge,Transport,mcq_single,beginner,Which vehicle runs on tracks?,Bus,Car,Train,Cycle,3,1.00,0.00,A train runs on railway tracks.,transport|basics
-General Knowledge,Time,mcq_single,beginner,How many hours are in one day?,12,18,24,30,3,1.00,0.00,One day has 24 hours.,time|foundation
-Mathematics,Arithmetic,mcq_single,beginner,What comes after 99?,100,101,98,90,1,1.00,0.00,100 comes after 99.,numbers|sequence
-Mathematics,Arithmetic,mcq_single,beginner,Which number is greater?,18,21,19,20,2,1.00,0.00,21 is greater than 18, 19, and 20.,numbers|comparison
-Mathematics,Arithmetic,mcq_single,beginner,What is 9 + 1?,11,10,9,8,2,1.00,0.00,10 is correct because 9 plus 1 equals 10.,arithmetic|addition
-Mathematics,Arithmetic,mcq_single,beginner,What is 20 - 5?,10,12,15,18,3,1.00,0.00,15 is correct because 20 minus 5 equals 15.,arithmetic|subtraction
-Science,Biology,mcq_single,beginner,Which animal gives us milk?,Dog,Cat,Cow,Horse,3,1.00,0.00,A cow is commonly known for giving milk.,biology|animals
-Science,Environment,mcq_single,beginner,What do we breathe in to live?,Carbon,Oxygen,Water,Sand,2,1.00,0.00,Humans need oxygen to breathe.,biology|human-body
-Science,Environment,mcq_single,beginner,Which season is usually the coldest?,Summer,Winter,Spring,Monsoon,2,1.00,0.00,Winter is usually the coldest season.,environment|seasons
-English,Vocabulary,mcq_single,beginner,Which word is a fruit?,Potato,Apple,Carrot,Onion,2,1.00,0.00,Apple is a fruit.,vocabulary|basics
-English,Grammar,mcq_single,beginner,Choose the correct sentence.,He go to school.,He goes to school.,He going to school.,He gone to school.,2,1.00,0.00,He goes to school is grammatically correct.,grammar|sentences
-General Knowledge,Geography,mcq_single,beginner,Which direction does the sun rise from?,North,South,East,West,3,1.00,0.00,The sun rises in the east.,gk|directions
-General Knowledge,Civics,mcq_single,beginner,What color are the leaves of most healthy plants?,Blue,Green,Black,White,2,1.00,0.00,Most healthy plant leaves are green due to chlorophyll.,gk|nature
-Mathematics,Geometry,mcq_single,beginner,Which shape is round?,Square,Triangle,Circle,Rectangle,3,1.00,0.00,A circle is round.,geometry|shapes
-Science,Biology,mcq_single,beginner,Which part of the body helps us think?,Hand,Leg,Brain,Foot,3,1.00,0.00,The brain helps us think and control the body.,biology|human-body
-English,Reading,mcq_single,beginner,Which of these is a complete sentence?,Running fast,The dog barks.,Blue sky,Very happy,2,1.00,0.00,The dog barks is a complete sentence with a subject and a verb.,grammar|sentences
+Mathematics,Arithmetic,mcq_single,foundation,What is 5 + 3?,6,8,9,7,2,1.00,0.00,8 is correct because 5 plus 3 equals 8.,arithmetic|foundation
+Mathematics,Arithmetic,mcq_single,foundation,What is 10 - 4?,5,7,6,8,3,1.00,0.00,6 is correct because 10 minus 4 equals 6.,arithmetic|foundation
+Mathematics,Arithmetic,mcq_single,foundation,What is 6 x 2?,10,12,14,8,2,1.00,0.00,12 is correct because 6 multiplied by 2 equals 12.,multiplication|foundation
+Mathematics,Arithmetic,mcq_single,foundation,What is 15 divided by 3?,4,6,5,3,3,1.00,0.00,5 is correct because 15 divided by 3 equals 5.,division|foundation
+Mathematics,Arithmetic,mcq_single,foundation,Which number is even?,9,11,14,15,3,1.00,0.00,14 is even because it is divisible by 2.,numbers|foundation
+Mathematics,Fractions,mcq_single,foundation,Which fraction is equal to one half?,1/4,2/4,3/4,4/4,2,1.00,0.00,2/4 is equal to 1/2 when simplified.,fractions|foundation
+Mathematics,Fractions,mcq_single,foundation,What is 1/4 + 1/4?,1/2,1/4,3/4,1,1,1.00,0.00,1/2 is correct because two quarters make one half.,fractions|addition
+Mathematics,Geometry,mcq_single,foundation,How many sides does a triangle have?,2,3,4,5,2,1.00,0.00,A triangle always has 3 sides.,geometry|shapes
+Mathematics,Geometry,mcq_single,foundation,How many sides does a square have?,3,4,5,6,2,1.00,0.00,A square has 4 equal sides.,geometry|shapes
+Mathematics,Measurement,mcq_single,foundation,How many centimeters are in 1 meter?,10,50,100,1000,3,1.00,0.00,1 meter equals 100 centimeters.,measurement|units
+Science,Physics,mcq_single,foundation,What force pulls objects toward Earth?,Magnetism,Gravity,Friction,Heat,2,1.00,0.00,Gravity pulls objects toward Earth.,physics|forces
+Science,Physics,mcq_single,foundation,Which form of energy lets us see things?,Sound,Heat,Light,Wind,3,1.00,0.00,Light energy makes vision possible.,physics|energy
+Science,Physics,mcq_single,foundation,Which state of matter has a fixed shape?,Liquid,Gas,Solid,Steam,3,1.00,0.00,A solid has a fixed shape.,matter|states
+Science,Chemistry,mcq_single,foundation,What do plants need to make food?,Moonlight,Sunlight,Plastic,Sand,2,1.00,0.00,Plants use sunlight for photosynthesis.,biology|plants
+Science,Chemistry,mcq_single,foundation,Water freezes at what temperature in Celsius?,0,10,50,100,1,1.00,0.00,Water freezes at 0 degrees Celsius.,chemistry|water
+Science,Chemistry,mcq_single,foundation,Which of these is a gas?,Ice,Water,Oxygen,Wood,3,1.00,0.00,Oxygen is a gas at room temperature.,matter|states
+Science,Biology,mcq_single,foundation,Which part of the plant absorbs water?,Flower,Leaf,Root,Stem,3,1.00,0.00,Roots absorb water from the soil.,biology|plants
+Science,Biology,mcq_single,foundation,Which organ pumps blood in the human body?,Lungs,Heart,Brain,Stomach,2,1.00,0.00,The heart pumps blood throughout the body.,biology|human-body
+Science,Biology,mcq_single,foundation,Which sense organ is used for hearing?,Eye,Ear,Nose,Tongue,2,1.00,0.00,The ear is the organ used for hearing.,biology|senses
+Science,Environment,mcq_single,foundation,Which planet do we live on?,Mars,Venus,Earth,Jupiter,3,1.00,0.00,Humans live on Earth.,space|foundation
+English,Grammar,mcq_single,foundation,Which word is a noun?,Run,Blue,School,Quickly,3,1.00,0.00,School is a noun because it names a place.,grammar|parts-of-speech
+English,Grammar,mcq_single,foundation,Which word is a verb?,Jump,Table,Happy,Green,1,1.00,0.00,Jump is a verb because it shows an action.,grammar|parts-of-speech
+English,Grammar,mcq_single,foundation,Choose the correct article: ___ apple.,A,An,The,No article,2,1.00,0.00,An is used before a word beginning with a vowel sound.,grammar|articles
+English,Grammar,mcq_single,foundation,Which sentence ends with a question mark?,I like apples.,Where are you?,This is fun.,Please sit down.,2,1.00,0.00,A direct question ends with a question mark.,punctuation|foundation
+English,Vocabulary,mcq_single,foundation,What is the opposite of hot?,Warm,Cold,Boiling,Bright,2,1.00,0.00,Cold is the opposite of hot.,vocabulary|antonyms
+English,Vocabulary,mcq_single,foundation,Which word means very small?,Tiny,Huge,Heavy,Tall,1,1.00,0.00,Tiny means very small.,vocabulary|synonyms
+English,Reading,mcq_single,foundation,Which word names a color?,Red,Chair,Sing,Fast,1,1.00,0.00,Red is a color word.,vocabulary|basics
+English,Grammar,mcq_single,foundation,Which pronoun can replace Riya?,He,It,She,They,3,1.00,0.00,She is used for a female person.,grammar|pronouns
+English,Spelling,mcq_single,foundation,Which word is spelled correctly?,Frend,Friend,Freind,Frind,2,1.00,0.00,Friend is the correct spelling.,spelling|foundation
+English,Grammar,mcq_single,foundation,Choose the plural form of book.,Books,Bookes,Books',Book,1,1.00,0.00,Books is the correct plural form of book.,grammar|plural
+General Knowledge,Geography,mcq_single,foundation,What is the capital of India?,Mumbai,Delhi,Chennai,Kolkata,2,1.00,0.00,Delhi is the capital of India.,gk|india
+General Knowledge,Geography,mcq_single,foundation,How many days are in a week?,5,6,7,8,3,1.00,0.00,A week has 7 days.,time|foundation
+General Knowledge,Geography,mcq_single,foundation,How many months are in a year?,10,11,12,13,3,1.00,0.00,A year has 12 months.,time|calendar
+General Knowledge,Civics,mcq_single,foundation,Which is our national bird in India?,Peacock,Parrot,Crow,Eagle,1,1.00,0.00,The peacock is the national bird of India.,gk|india
+General Knowledge,Civics,mcq_single,foundation,Which festival is known as the festival of lights?,Holi,Diwali,Eid,Christmas,2,1.00,0.00,Diwali is known as the festival of lights.,gk|festivals
+General Knowledge,Transport,mcq_single,foundation,Which vehicle runs on tracks?,Bus,Car,Train,Cycle,3,1.00,0.00,A train runs on railway tracks.,transport|basics
+General Knowledge,Time,mcq_single,foundation,How many hours are in one day?,12,18,24,30,3,1.00,0.00,One day has 24 hours.,time|foundation
+Mathematics,Arithmetic,mcq_single,foundation,What comes after 99?,100,101,98,90,1,1.00,0.00,100 comes after 99.,numbers|sequence
+Mathematics,Arithmetic,mcq_single,foundation,Which number is greater?,18,21,19,20,2,1.00,0.00,21 is greater than 18, 19, and 20.,numbers|comparison
+Mathematics,Arithmetic,mcq_single,foundation,What is 9 + 1?,11,10,9,8,2,1.00,0.00,10 is correct because 9 plus 1 equals 10.,arithmetic|addition
+Mathematics,Arithmetic,mcq_single,foundation,What is 20 - 5?,10,12,15,18,3,1.00,0.00,15 is correct because 20 minus 5 equals 15.,arithmetic|subtraction
+Science,Biology,mcq_single,foundation,Which animal gives us milk?,Dog,Cat,Cow,Horse,3,1.00,0.00,A cow is commonly known for giving milk.,biology|animals
+Science,Environment,mcq_single,foundation,What do we breathe in to live?,Carbon,Oxygen,Water,Sand,2,1.00,0.00,Humans need oxygen to breathe.,biology|human-body
+Science,Environment,mcq_single,foundation,Which season is usually the coldest?,Summer,Winter,Spring,Monsoon,2,1.00,0.00,Winter is usually the coldest season.,environment|seasons
+English,Vocabulary,mcq_single,foundation,Which word is a fruit?,Potato,Apple,Carrot,Onion,2,1.00,0.00,Apple is a fruit.,vocabulary|basics
+English,Grammar,mcq_single,foundation,Choose the correct sentence.,He go to school.,He goes to school.,He going to school.,He gone to school.,2,1.00,0.00,He goes to school is grammatically correct.,grammar|sentences
+General Knowledge,Geography,mcq_single,foundation,Which direction does the sun rise from?,North,South,East,West,3,1.00,0.00,The sun rises in the east.,gk|directions
+General Knowledge,Civics,mcq_single,foundation,What color are the leaves of most healthy plants?,Blue,Green,Black,White,2,1.00,0.00,Most healthy plant leaves are green due to chlorophyll.,gk|nature
+Mathematics,Geometry,mcq_single,foundation,Which shape is round?,Square,Triangle,Circle,Rectangle,3,1.00,0.00,A circle is round.,geometry|shapes
+Science,Biology,mcq_single,foundation,Which part of the body helps us think?,Hand,Leg,Brain,Foot,3,1.00,0.00,The brain helps us think and control the body.,biology|human-body
+English,Reading,mcq_single,foundation,Which of these is a complete sentence?,Running fast,The dog barks.,Blue sky,Very happy,2,1.00,0.00,The dog barks is a complete sentence with a subject and a verb.,grammar|sentences

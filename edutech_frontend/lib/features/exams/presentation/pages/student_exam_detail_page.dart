@@ -7,12 +7,14 @@ import 'package:education_frontend/features/exams/domain/models/student_exam_det
 import 'package:education_frontend/features/exams/presentation/providers/student_exam_providers.dart';
 import 'package:education_frontend/shared/theme/app_colors.dart';
 import 'package:education_frontend/shared/theme/app_spacing.dart';
-import 'package:education_frontend/shared/widgets/app_badge.dart';
 import 'package:education_frontend/shared/widgets/app_button.dart';
 import 'package:education_frontend/shared/widgets/app_card.dart';
 import 'package:education_frontend/shared/widgets/app_error_state.dart';
 import 'package:education_frontend/shared/widgets/app_loader.dart';
 import 'package:education_frontend/shared/widgets/app_rich_text_renderer.dart';
+import 'package:education_frontend/shared/widgets/app_section_header.dart';
+import 'package:education_frontend/shared/widgets/page_header_component.dart';
+import 'package:education_frontend/shared/widgets/status_badge_component.dart';
 import 'package:education_frontend/shared/utils/app_date_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -24,7 +26,8 @@ class StudentExamDetailPage extends ConsumerStatefulWidget {
   final String examId;
 
   @override
-  ConsumerState<StudentExamDetailPage> createState() => _StudentExamDetailPageState();
+  ConsumerState<StudentExamDetailPage> createState() =>
+      _StudentExamDetailPageState();
 }
 
 class _StudentExamDetailPageState extends ConsumerState<StudentExamDetailPage> {
@@ -49,7 +52,9 @@ class _StudentExamDetailPageState extends ConsumerState<StudentExamDetailPage> {
     }
 
     final examValue = ref.watch(studentExamDetailProvider(widget.examId));
-    final inProgressAttempt = ref.watch(inProgressAttemptForExamProvider(widget.examId));
+    final inProgressAttempt = ref.watch(
+      inProgressAttemptForExamProvider(widget.examId),
+    );
 
     return DashboardShell(
       title: 'Exam Readiness',
@@ -58,109 +63,46 @@ class _StudentExamDetailPageState extends ConsumerState<StudentExamDetailPage> {
       onLogout: () => ref.read(authControllerProvider.notifier).logout(),
       body: examValue.when(
         data: (exam) {
-          final activeAttemptId = inProgressAttempt?.id ?? exam.activeAttempt?.id;
-          final canResume = activeAttemptId != null && activeAttemptId.isNotEmpty;
-          final canStartFresh = exam.availabilityState == 'available_now' &&
+          final activeAttemptId =
+              inProgressAttempt?.id ?? exam.activeAttempt?.id;
+          final canResume =
+              activeAttemptId != null && activeAttemptId.isNotEmpty;
+          final canStartFresh =
+              exam.availabilityState == 'available_now' &&
               !canResume &&
               exam.remainingAttempts > 0;
           return ListView(
             children: [
-              AppCard(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            exam.title,
-                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            exam.description.isEmpty
-                                ? 'Review the readiness checklist before you begin.'
-                                : exam.description,
-                          ),
-                          const SizedBox(height: 16),
-                          Wrap(
-                            spacing: 12,
-                            runSpacing: 12,
-                            children: [
-                              _ReadinessChip(label: 'Status', value: exam.status),
-                              _ReadinessChip(
-                                label: 'Availability',
-                                value: _availabilityLabel(exam.availabilityState),
-                              ),
-                              _ReadinessChip(
-                                label: 'Duration',
-                                value: '${exam.durationMinutes} min',
-                              ),
-                              _ReadinessChip(
-                                label: 'Attempts',
-                                value: '${exam.attemptsUsed}/${exam.attemptsUsed + exam.remainingAttempts}',
-                              ),
-                              _ReadinessChip(
-                                label: 'Review',
-                                value: exam.reviewAvailable ? 'Available later' : 'Restricted',
-                              ),
-                            ],
-                          ),
-                        ],
+              PageHeaderComponent(
+                eyebrow: 'Student exam start',
+                title: exam.title,
+                subtitle:
+                    'Review the official exam brief, confirm the rules, and begin only when you are ready to stay focused.',
+                breadcrumbs: const ['Student', 'Exams', 'Start'],
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              _ReadinessHero(
+                exam: exam,
+                canResume: canResume,
+                canStartFresh: canStartFresh,
+                isStarting: _isStarting,
+                onPrimaryAction: (!canResume && !canStartFresh) || _isStarting
+                    ? null
+                    : () => _startOrResumeExam(
+                        exam: exam,
+                        userStudentId: user.studentProfileId,
+                        activeAttemptId: activeAttemptId,
                       ),
-                    ),
-                    const SizedBox(width: AppSpacing.lg),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 280),
-                      child: AppCard(
-                        backgroundColor: AppColors.backgroundSoft,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Readiness status',
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: AppSpacing.sm),
-                            Text(_readinessMessage(exam, canResume)),
-                            const SizedBox(height: AppSpacing.md),
-                            AppButton(
-                              label: canResume
-                                  ? 'Resume attempt'
-                                  : canStartFresh
-                                  ? 'Begin exam'
-                                  : 'Exam not available yet',
-                              onPressed: (!canResume && !canStartFresh) || _isStarting
-                                  ? null
-                                  : () => _startOrResumeExam(
-                                        exam: exam,
-                                        userStudentId: user.studentProfileId,
-                                        activeAttemptId: activeAttemptId,
-                                      ),
-                              isLoading: _isStarting,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
               ),
               const SizedBox(height: 20),
               AppCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Before you begin',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                    const AppSectionHeader(
+                      title: 'Before you begin',
+                      subtitle:
+                          'Review the exam window, marks, structure, and instructions before starting the timer.',
                     ),
                     const SizedBox(height: 12),
                     Wrap(
@@ -177,8 +119,14 @@ class _StudentExamDetailPageState extends ConsumerState<StudentExamDetailPage> {
                           label: 'Questions',
                           value: '${exam.activeQuestionCount}',
                         ),
-                        _DetailTile(label: 'Total marks', value: exam.totalMarks),
-                        _DetailTile(label: 'Passing marks', value: exam.passingMarks),
+                        _DetailTile(
+                          label: 'Total marks',
+                          value: exam.totalMarks,
+                        ),
+                        _DetailTile(
+                          label: 'Passing marks',
+                          value: exam.passingMarks,
+                        ),
                         _DetailTile(
                           label: 'Remaining attempts',
                           value: '${exam.remainingAttempts}',
@@ -192,6 +140,72 @@ class _StudentExamDetailPageState extends ConsumerState<StudentExamDetailPage> {
                         color: AppColors.textSecondary,
                       ),
                     ),
+                    if (exam.sections.isNotEmpty) ...[
+                      const SizedBox(height: 20),
+                      Text(
+                        'Exam structure',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 8),
+                      AppCard(
+                        backgroundColor: AppColors.surfaceMuted,
+                        child: Column(
+                          children: exam.sections
+                              .map(
+                                (section) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 18,
+                                        child: Text('${section.sectionOrder}'),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              section.name,
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .titleSmall
+                                                  ?.copyWith(
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                            ),
+                                            if (section.instructions
+                                                .trim()
+                                                .isNotEmpty) ...[
+                                              const SizedBox(height: 4),
+                                              Text(section.instructions),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Text(
+                                        '${section.displayQuestionCount} questions',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: AppColors.textSecondary,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 20),
                     Text(
                       'Instructions',
@@ -268,10 +282,7 @@ class _StudentExamDetailPageState extends ConsumerState<StudentExamDetailPage> {
   }) async {
     if (activeAttemptId != null && activeAttemptId.isNotEmpty) {
       context.go(
-        AppRoutes.studentAttempt(
-          examId: exam.id,
-          attemptId: activeAttemptId,
-        ),
+        AppRoutes.studentAttempt(examId: exam.id, attemptId: activeAttemptId),
       );
       return;
     }
@@ -302,16 +313,13 @@ class _StudentExamDetailPageState extends ConsumerState<StudentExamDetailPage> {
       ref.invalidate(studentAttemptsProvider);
       if (!mounted) return;
       context.go(
-        AppRoutes.studentAttempt(
-          examId: exam.id,
-          attemptId: attempt.id,
-        ),
+        AppRoutes.studentAttempt(examId: exam.id, attemptId: attempt.id),
       );
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(readApiErrorMessage(error))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(readApiErrorMessage(error))));
     } finally {
       if (mounted) {
         setState(() => _isStarting = false);
@@ -321,10 +329,7 @@ class _StudentExamDetailPageState extends ConsumerState<StudentExamDetailPage> {
 }
 
 class _ChecklistItem extends StatelessWidget {
-  const _ChecklistItem({
-    required this.title,
-    required this.description,
-  });
+  const _ChecklistItem({required this.title, required this.description});
 
   final String title;
   final String description;
@@ -347,9 +352,9 @@ class _ChecklistItem extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 4),
                 Text(description),
@@ -362,6 +367,259 @@ class _ChecklistItem extends StatelessWidget {
   }
 }
 
+class _ReadinessHero extends StatelessWidget {
+  const _ReadinessHero({
+    required this.exam,
+    required this.canResume,
+    required this.canStartFresh,
+    required this.isStarting,
+    required this.onPrimaryAction,
+  });
+
+  final StudentExamDetail exam;
+  final bool canResume;
+  final bool canStartFresh;
+  final bool isStarting;
+  final VoidCallback? onPrimaryAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final isWide = MediaQuery.sizeOf(context).width >= 980;
+    final isCompact = MediaQuery.sizeOf(context).width < 600;
+    final availability = _availabilityLabel(exam.availabilityState);
+    final rightRail = AppCard(
+      padding: EdgeInsets.all(isCompact ? AppSpacing.md : AppSpacing.lg),
+      backgroundColor: AppColors.surfaceMuted,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Start controls',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            'Your exam timer begins only after you continue.',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          StatusBadgeComponent(label: availability),
+          const SizedBox(height: AppSpacing.sm),
+          Text(_readinessMessage(exam, canResume)),
+          const SizedBox(height: AppSpacing.md),
+          AppButton(
+            label: canResume
+                ? 'Resume attempt'
+                : canStartFresh
+                ? 'Begin exam'
+                : 'Not available yet',
+            onPressed: onPrimaryAction,
+            isLoading: isStarting,
+            expand: true,
+            icon: canResume
+                ? Icons.play_circle_outline_rounded
+                : Icons.arrow_forward_rounded,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            canResume
+                ? 'You will return to the same attempt with the same timer.'
+                : 'After you submit, visibility of answers and scores follows the exam policy.',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
+          ),
+        ],
+      ),
+    );
+
+    return AppCard(
+      backgroundColor: AppColors.surface,
+      child: isWide
+          ? Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const StatusBadgeComponent(label: 'Official exam brief'),
+                      const SizedBox(height: AppSpacing.md),
+                      Text(
+                        exam.title,
+                        style:
+                            (isCompact
+                                    ? Theme.of(context).textTheme.headlineSmall
+                                    : Theme.of(
+                                        context,
+                                      ).textTheme.headlineMedium)
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        exam.description.isEmpty
+                            ? 'Use this page as your final readiness check before you start.'
+                            : exam.description,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        children: [
+                          _ReadinessChip(label: 'Status', value: exam.status),
+                          _ReadinessChip(
+                            label: 'Availability',
+                            value: availability,
+                          ),
+                          _ReadinessChip(
+                            label: 'Duration',
+                            value: '${exam.durationMinutes} min',
+                          ),
+                          _ReadinessChip(
+                            label: 'Attempts',
+                            value:
+                                '${exam.attemptsUsed}/${exam.attemptsUsed + exam.remainingAttempts}',
+                          ),
+                          _ReadinessChip(
+                            label: 'Review',
+                            value: exam.reviewAvailable
+                                ? 'After submit'
+                                : 'Locked',
+                          ),
+                          if (canResume &&
+                              (exam
+                                          .activeAttempt
+                                          ?.sectionRuntime
+                                          .currentSectionName ??
+                                      '')
+                                  .isNotEmpty)
+                            _ReadinessChip(
+                              label: 'Current section',
+                              value: exam
+                                  .activeAttempt!
+                                  .sectionRuntime
+                                  .currentSectionName!,
+                            ),
+                          if (canResume &&
+                              exam
+                                      .activeAttempt
+                                      ?.sectionRuntime
+                                      .currentSectionExpiresAt !=
+                                  null)
+                            _ReadinessChip(
+                              label: 'Section timer',
+                              value: formatLocalDateTime(
+                                exam
+                                    .activeAttempt!
+                                    .sectionRuntime
+                                    .currentSectionExpiresAt,
+                                fallback: '-',
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.xl),
+                Flexible(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 300),
+                    child: rightRail,
+                  ),
+                ),
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const StatusBadgeComponent(label: 'Official exam brief'),
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  exam.title,
+                  style:
+                      (isCompact
+                              ? Theme.of(context).textTheme.headlineSmall
+                              : Theme.of(context).textTheme.headlineMedium)
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  exam.description.isEmpty
+                      ? 'Use this page as your final readiness check before you start.'
+                      : exam.description,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    _ReadinessChip(label: 'Status', value: exam.status),
+                    _ReadinessChip(label: 'Availability', value: availability),
+                    _ReadinessChip(
+                      label: 'Duration',
+                      value: '${exam.durationMinutes} min',
+                    ),
+                    _ReadinessChip(
+                      label: 'Attempts',
+                      value:
+                          '${exam.attemptsUsed}/${exam.attemptsUsed + exam.remainingAttempts}',
+                    ),
+                    _ReadinessChip(
+                      label: 'Review',
+                      value: exam.reviewAvailable ? 'After submit' : 'Locked',
+                    ),
+                    if (canResume &&
+                        (exam
+                                    .activeAttempt
+                                    ?.sectionRuntime
+                                    .currentSectionName ??
+                                '')
+                            .isNotEmpty)
+                      _ReadinessChip(
+                        label: 'Current section',
+                        value: exam
+                            .activeAttempt!
+                            .sectionRuntime
+                            .currentSectionName!,
+                      ),
+                    if (canResume &&
+                        exam
+                                .activeAttempt
+                                ?.sectionRuntime
+                                .currentSectionExpiresAt !=
+                            null)
+                      _ReadinessChip(
+                        label: 'Section timer',
+                        value: formatLocalDateTime(
+                          exam
+                              .activeAttempt!
+                              .sectionRuntime
+                              .currentSectionExpiresAt,
+                          fallback: '-',
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.xl),
+                rightRail,
+              ],
+            ),
+    );
+  }
+}
+
 class _ReadinessChip extends StatelessWidget {
   const _ReadinessChip({required this.label, required this.value});
 
@@ -370,10 +628,33 @@ class _ReadinessChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppBadge(
-      label: '$label: $value',
-      backgroundColor: AppColors.primary.withValues(alpha: 0.10),
-      foregroundColor: AppColors.primary,
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceMuted,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: RichText(
+        text: TextSpan(
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
+          children: [
+            TextSpan(
+              text: '$label: ',
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            TextSpan(
+              text: value,
+              style: const TextStyle(color: AppColors.textPrimary),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -386,10 +667,11 @@ class _DetailTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isCompact = MediaQuery.sizeOf(context).width < 600;
     return SizedBox(
-      width: 240,
+      width: isCompact ? double.infinity : 240,
       child: AppCard(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(isCompact ? AppSpacing.md : AppSpacing.lg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -397,9 +679,9 @@ class _DetailTile extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               value,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
             ),
           ],
         ),
@@ -423,6 +705,10 @@ String _availabilityLabel(String state) {
 
 String _readinessMessage(StudentExamDetail exam, bool canResume) {
   if (canResume) {
+    final sectionName = exam.activeAttempt?.sectionRuntime.currentSectionName;
+    if (sectionName != null && sectionName.trim().isNotEmpty) {
+      return 'You already have an in-progress attempt. Resume it to continue from $sectionName with the original timer.';
+    }
     return 'You already have an in-progress attempt. Resume it to continue with the original timer.';
   }
   switch (exam.availabilityState) {

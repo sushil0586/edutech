@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from apps.academics.models import AcademicYear, Cohort, Program, Subject, Topic
+from apps.academics.models import AcademicYear, Cohort, OptionCatalogEntry, Program, Subject, Topic
 
 
 class AcademicYearSerializer(serializers.ModelSerializer):
@@ -30,4 +30,10 @@ class SubjectSerializer(serializers.ModelSerializer):
 class TopicSerializer(serializers.ModelSerializer):
     class Meta:
         model = Topic
+        fields = "__all__"
+
+
+class OptionCatalogEntrySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OptionCatalogEntry
         fields = "__all__"

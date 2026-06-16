@@ -129,6 +129,31 @@ class AcademicAssessmentSmokeTestCase(TestCase):
         self.assertEqual(live_monitor_response.data["completed_students"], 1)
         self.assertEqual(len(live_monitor_response.data["recent_attempts"]), 1)
 
+        intervention_note_response = self.client.post(
+            "/api/v1/results/attempt-intervention-note/",
+            {
+                "attempt": str(attempt_id),
+                "note": "Reviewed the attempt after repeated integrity warnings.",
+                "follow_up": "monitoring",
+            },
+            format="json",
+        )
+        self.assertEqual(intervention_note_response.status_code, 201)
+        self.assertEqual(
+            intervention_note_response.data["data"]["metadata"]["follow_up"],
+            "monitoring",
+        )
+
+        intervention_history_response = self.client.get(
+            f"/api/v1/results/attempt/{attempt_id}/interventions/"
+        )
+        self.assertEqual(intervention_history_response.status_code, 200)
+        self.assertEqual(len(intervention_history_response.data), 1)
+        self.assertEqual(
+            intervention_history_response.data[0]["message"],
+            "Reviewed the attempt after repeated integrity warnings.",
+        )
+
         performance_response = self.client.get(
             f"/api/v1/results/student/{self.context['student'].id}/performance/"
         )

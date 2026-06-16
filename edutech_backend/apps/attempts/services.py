@@ -7,12 +7,173 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 
-from apps.exams.services import allows_unlimited_attempts, is_exam_assigned_to_student
+from apps.attempts.models import (
+    AttemptIntegrityEvent,
+    IntegrityEventSeverity,
+    IntegrityEventType,
+)
+from apps.exams.services import (
+    allows_unlimited_attempts,
+    is_exam_assigned_to_student,
+    resolve_exam_economy_access,
+    resolve_security_policy,
+)
 from apps.exams.models import ExamQuestion
 from apps.question_bank.models import QuestionType
 
 
 SECTION_TIMER_MODES = {"section", "hybrid"}
+INTEGRITY_EVENT_DEDUPE_SECONDS = 5
+MAX_ATTEMPT_EXTRA_TIME_MINUTES = 180
+INTEGRITY_EVENT_CONFIG = {
+    IntegrityEventType.FOCUS_LOST: {
+        "severity": IntegrityEventSeverity.MEDIUM,
+        "counts_as_violation": True,
+        "label": "Focus lost",
+    },
+    IntegrityEventType.VISIBILITY_HIDDEN: {
+        "severity": IntegrityEventSeverity.MEDIUM,
+        "counts_as_violation": True,
+        "label": "Tab hidden",
+    },
+    IntegrityEventType.FULLSCREEN_EXITED: {
+        "severity": IntegrityEventSeverity.HIGH,
+        "counts_as_violation": True,
+        "label": "Fullscreen exited",
+    },
+    IntegrityEventType.FULLSCREEN_RESTORED: {
+        "severity": IntegrityEventSeverity.LOW,
+        "counts_as_violation": False,
+        "label": "Fullscreen restored",
+    },
+    IntegrityEventType.CONNECTION_LOST: {
+        "severity": IntegrityEventSeverity.MEDIUM,
+        "counts_as_violation": False,
+        "label": "Connection lost",
+    },
+    IntegrityEventType.CONNECTION_RESTORED: {
+        "severity": IntegrityEventSeverity.LOW,
+        "counts_as_violation": False,
+        "label": "Connection restored",
+    },
+    IntegrityEventType.WARNING_THRESHOLD_REACHED: {
+        "severity": IntegrityEventSeverity.HIGH,
+        "counts_as_violation": False,
+        "label": "Warning threshold reached",
+    },
+}
+
+
+def normalized_accommodation_profile(student):
+    raw_profile = (
+        student.accommodation_profile
+        if isinstance(getattr(student, "accommodation_profile", {}), dict)
+        else {}
+    )
+
+    def integer_value(key):
+        value = raw_profile.get(key, 0)
+        try:
+            numeric = int(value)
+        except (TypeError, ValueError):
+            return 0
+        return max(numeric, 0)
+
+    def string_value(key):
+        value = raw_profile.get(key, "")
+        return value.strip() if isinstance(value, str) else ""
+
+    extra_time_minutes = min(
+        integer_value("extra_time_minutes"),
+        MAX_ATTEMPT_EXTRA_TIME_MINUTES,
+    )
+    extra_time_percentage = min(integer_value("extra_time_percentage"), 300)
+    additional_violation_allowance = min(
+        integer_value("additional_violation_allowance"),
+        2,
+    )
+    simplified_warning_copy = bool(raw_profile.get("simplified_warning_copy", False))
+    alternative_instructions = string_value("alternative_instructions")
+    notes = string_value("notes")
+
+    has_accommodations = any(
+        [
+            extra_time_minutes > 0,
+            extra_time_percentage > 0,
+            additional_violation_allowance > 0,
+            simplified_warning_copy,
+            bool(alternative_instructions),
+            bool(notes),
+        ]
+    )
+
+    return {
+        "has_accommodations": has_accommodations,
+        "extra_time_minutes": extra_time_minutes,
+        "extra_time_percentage": extra_time_percentage,
+        "additional_violation_allowance": additional_violation_allowance,
+        "simplified_warning_copy": simplified_warning_copy,
+        "alternative_instructions": alternative_instructions,
+        "notes": notes,
+        "source": "student_profile" if has_accommodations else "none",
+    }
+
+
+def build_attempt_accommodation_snapshot(student, exam):
+    profile = normalized_accommodation_profile(student)
+    base_duration_minutes = int(getattr(exam, "duration_minutes", 0) or 0)
+    percentage_extra_minutes = 0
+    if profile["extra_time_percentage"] > 0 and base_duration_minutes > 0:
+        percentage_extra_minutes = max(
+            int(round(base_duration_minutes * (profile["extra_time_percentage"] / 100))),
+            0,
+        )
+
+    applied_extra_time_minutes = min(
+        profile["extra_time_minutes"] + percentage_extra_minutes,
+        MAX_ATTEMPT_EXTRA_TIME_MINUTES,
+    )
+    effective_duration_minutes = base_duration_minutes + applied_extra_time_minutes
+
+    return {
+        **profile,
+        "base_duration_minutes": base_duration_minutes,
+        "applied_extra_time_minutes": applied_extra_time_minutes,
+        "effective_duration_minutes": effective_duration_minutes,
+    }
+
+
+def resolve_attempt_security_policy(attempt):
+    policy = resolve_security_policy(attempt.exam)
+    metadata = attempt.metadata if isinstance(attempt.metadata, dict) else {}
+    snapshot = metadata.get("accommodation_snapshot", {})
+    if not isinstance(snapshot, dict):
+        snapshot = {}
+
+    adjusted_policy = dict(policy)
+    allowance = max(int(snapshot.get("additional_violation_allowance", 0) or 0), 0)
+    if adjusted_policy.get("violation_limit_enabled") and adjusted_policy.get("violation_limit") is not None:
+        adjusted_policy["violation_limit"] = adjusted_policy["violation_limit"] + allowance
+
+    if snapshot.get("simplified_warning_copy"):
+        adjusted_policy["student_warning_copy"] = (
+            "Follow the exam steps shown on this page. If something goes wrong, stay here and ask for help before retrying."
+        )
+
+    if allowance > 0 and adjusted_policy.get("violation_limit_enabled"):
+        adjusted_policy["student_warning_copy"] = (
+            f"{adjusted_policy['student_warning_copy']} "
+            f"This approved support plan allows {allowance} extra warning"
+            f"{'' if allowance == 1 else 's'} before automatic action."
+        )
+        adjusted_policy["teacher_monitoring_copy"] = (
+            f"{adjusted_policy['teacher_monitoring_copy']} "
+            f"This attempt includes an accommodation allowance of {allowance} extra warning"
+            f"{'' if allowance == 1 else 's'}."
+        )
+
+    adjusted_policy["accommodation_adjusted"] = allowance > 0 or snapshot.get("simplified_warning_copy", False)
+    return adjusted_policy
 
 
 def validate_student_exam_scope(student, exam):
@@ -37,6 +198,12 @@ def validate_attempt_window(exam, at_time=None):
         raise ValidationError({"exam": "Exam has not started yet."})
     if exam.end_at and current_time > exam.end_at:
         raise ValidationError({"exam": "Exam is no longer available for attempts."})
+
+
+def _integrity_event_config(event_type):
+    if event_type not in INTEGRITY_EVENT_CONFIG:
+        raise ValidationError({"event_type": "Unsupported integrity event type."})
+    return INTEGRITY_EVENT_CONFIG[event_type]
 
 
 def _get_next_attempt_number(student, exam):
@@ -103,7 +270,7 @@ def _parse_datetime(value):
         return None
 
 
-def _calculate_attempt_expires_at(exam, started_at):
+def _calculate_attempt_expires_at(exam, started_at, *, extra_time_minutes=0):
     duration_minutes = exam.duration_minutes
     if exam.timer_mode == "section":
         section_durations = [
@@ -117,6 +284,7 @@ def _calculate_attempt_expires_at(exam, started_at):
         if section_durations:
             duration_minutes = sum(section_durations)
 
+    duration_minutes = (duration_minutes or 0) + max(int(extra_time_minutes or 0), 0)
     expires_at = started_at + timedelta(minutes=duration_minutes)
     if exam.end_at and expires_at > exam.end_at:
         expires_at = exam.end_at
@@ -208,6 +376,130 @@ def _delivery_snapshot(attempt):
     metadata = attempt.metadata if isinstance(attempt.metadata, dict) else {}
     delivery_snapshot = metadata.get("delivery_snapshot", {})
     return delivery_snapshot if isinstance(delivery_snapshot, dict) else {}
+
+
+def attempt_integrity_summary(attempt):
+    policy = resolve_attempt_security_policy(attempt)
+    events = list(
+        attempt.integrity_events.filter(is_active=True).order_by("-event_at", "-created_at")[:5]
+    )
+    violation_count = attempt.integrity_events.filter(
+        is_active=True,
+        counts_as_violation=True,
+    ).count()
+    violation_limit = policy.get("violation_limit")
+    remaining_before_action = None
+    threshold_reached = False
+    if policy.get("violation_limit_enabled") and violation_limit is not None:
+        remaining_before_action = max(violation_limit - violation_count, 0)
+        threshold_reached = violation_count >= violation_limit
+
+    latest_event = events[0] if events else None
+    return {
+        "violation_count": violation_count,
+        "violation_limit": violation_limit,
+        "remaining_before_action": remaining_before_action,
+        "threshold_reached": threshold_reached,
+        "latest_event": (
+            {
+                "event_type": latest_event.event_type,
+                "severity": latest_event.severity,
+                "counts_as_violation": latest_event.counts_as_violation,
+                "event_at": _serialize_datetime(latest_event.event_at),
+                "metadata": latest_event.metadata,
+            }
+            if latest_event
+            else None
+        ),
+        "recent_events": [
+            {
+                "event_type": event.event_type,
+                "severity": event.severity,
+                "counts_as_violation": event.counts_as_violation,
+                "event_at": _serialize_datetime(event.event_at),
+                "metadata": event.metadata,
+            }
+            for event in events
+        ],
+    }
+
+
+@transaction.atomic
+def log_integrity_event(attempt, *, event_type, metadata=None, event_at=None):
+    if attempt.status != "in_progress":
+        raise ValidationError({"attempt": "Integrity events can only be recorded for in-progress attempts."})
+
+    config = _integrity_event_config(event_type)
+    now = event_at or timezone.now()
+    metadata = metadata if isinstance(metadata, dict) else {}
+    latest_similar = (
+        attempt.integrity_events.filter(
+            is_active=True,
+            event_type=event_type,
+        )
+        .order_by("-event_at", "-created_at")
+        .first()
+    )
+    if latest_similar is not None:
+        delta_seconds = abs((now - latest_similar.event_at).total_seconds())
+        if delta_seconds < INTEGRITY_EVENT_DEDUPE_SECONDS:
+            return {
+                "event": latest_similar,
+                "summary": attempt_integrity_summary(attempt),
+                "duplicate": True,
+                "auto_submitted": False,
+                "status_changed": False,
+            }
+
+    event = AttemptIntegrityEvent.objects.create(
+        institute=attempt.institute,
+        attempt=attempt,
+        exam=attempt.exam,
+        student=attempt.student,
+        event_type=event_type,
+        severity=config["severity"],
+        counts_as_violation=config["counts_as_violation"],
+        event_at=now,
+        metadata=metadata,
+    )
+
+    auto_submitted = False
+    status_changed = False
+    policy = resolve_attempt_security_policy(attempt)
+    summary = attempt_integrity_summary(attempt)
+    if (
+        event.counts_as_violation
+        and policy.get("violation_limit_enabled")
+        and summary["threshold_reached"]
+    ):
+        AttemptIntegrityEvent.objects.create(
+            institute=attempt.institute,
+            attempt=attempt,
+            exam=attempt.exam,
+            student=attempt.student,
+            event_type=IntegrityEventType.WARNING_THRESHOLD_REACHED,
+            severity=IntegrityEventSeverity.HIGH,
+            counts_as_violation=False,
+            event_at=now,
+            metadata={
+                "violation_count": summary["violation_count"],
+                "violation_limit": summary["violation_limit"],
+                "violation_action": policy.get("violation_action"),
+            },
+        )
+        if policy.get("violation_action") == "auto_submit":
+            attempt = submit_attempt(attempt, auto_submitted=True)
+            auto_submitted = True
+            status_changed = True
+        summary = attempt_integrity_summary(attempt)
+
+    return {
+        "event": event,
+        "summary": summary,
+        "duplicate": False,
+        "auto_submitted": auto_submitted,
+        "status_changed": status_changed,
+    }
 
 
 def _stable_random(seed_value):
@@ -310,6 +602,16 @@ def start_attempt(student, exam):
         raise ValidationError(
             {"exam": "This exam is not assigned to the selected student."}
         )
+    economy_access = resolve_exam_economy_access(student, exam)
+    if economy_access["is_locked"]:
+        raise ValidationError(
+            {
+                "exam": (
+                    economy_access["lock_reason_message"]
+                    or "This exam must be unlocked before you can start it."
+                )
+            }
+        )
     validate_attempt_window(exam)
 
     if exam.attempts.filter(student=student, status="in_progress", is_active=True).exists():
@@ -319,7 +621,12 @@ def start_attempt(student, exam):
 
     next_attempt_no = _get_next_attempt_number(student, exam)
     started_at = timezone.now()
-    expires_at = _calculate_attempt_expires_at(exam, started_at)
+    accommodation_snapshot = build_attempt_accommodation_snapshot(student, exam)
+    expires_at = _calculate_attempt_expires_at(
+        exam,
+        started_at,
+        extra_time_minutes=accommodation_snapshot["applied_extra_time_minutes"],
+    )
 
     total_questions = exam.exam_questions.filter(is_active=True).count()
     if total_questions == 0:
@@ -335,6 +642,7 @@ def start_attempt(student, exam):
         expires_at=expires_at,
         total_questions=total_questions,
         metadata={
+            "accommodation_snapshot": accommodation_snapshot,
             "runtime_config": _build_runtime_config_snapshot(exam),
             "section_runtime": _build_section_runtime_snapshot(exam, started_at),
         },
@@ -461,6 +769,20 @@ def refresh_attempt_runtime_state(attempt, *, at_time=None, persist=True):
     return attempt
 
 
+def sync_attempt_access_state(attempt, *, at_time=None, persist=True):
+    current_time = at_time or timezone.now()
+    refresh_attempt_runtime_state(attempt, at_time=current_time, persist=persist)
+
+    if (
+        attempt.status == "in_progress"
+        and attempt.expires_at is not None
+        and current_time >= attempt.expires_at
+    ):
+        return _auto_submit_expired_attempt(attempt)
+
+    return attempt
+
+
 def _ensure_question_accessible_for_attempt(attempt, exam_question):
     refresh_attempt_runtime_state(attempt)
     config = _runtime_config(attempt)
@@ -568,6 +890,25 @@ def _normalized_selected_option_ids(selected_option_ids):
     return [str(option_id) for option_id in selected_option_ids if str(option_id).strip()]
 
 
+def _normalized_answer_text(answer_text):
+    return " ".join(str(answer_text or "").strip().lower().split())
+
+
+def _accepted_answers_for_question(question):
+    metadata = question.metadata if isinstance(question.metadata, dict) else {}
+    accepted_answers = metadata.get("accepted_answers")
+    if isinstance(accepted_answers, list):
+        return [
+            _normalized_answer_text(value)
+            for value in accepted_answers
+            if _normalized_answer_text(value)
+        ]
+
+    single_answer = metadata.get("accepted_answer") or metadata.get("answer_key")
+    normalized = _normalized_answer_text(single_answer)
+    return [normalized] if normalized else []
+
+
 def _question_has_response(answer):
     if answer is None:
         return False
@@ -621,6 +962,30 @@ def _evaluate_choice_answer(*, question, exam_question, selected_option, selecte
         "is_correct": False,
         "marks_awarded": Decimal("0.00"),
         "negative_marks_applied": Decimal("0.00"),
+    }
+
+
+def _evaluate_short_answer(*, question, exam_question, answer_text):
+    normalized_answer = _normalized_answer_text(answer_text)
+    if not normalized_answer:
+        return {
+            "is_correct": False,
+            "marks_awarded": Decimal("0.00"),
+            "negative_marks_applied": Decimal("0.00"),
+        }
+
+    accepted_answers = _accepted_answers_for_question(question)
+    if normalized_answer in accepted_answers:
+        return {
+            "is_correct": True,
+            "marks_awarded": exam_question.marks,
+            "negative_marks_applied": Decimal("0.00"),
+        }
+
+    return {
+        "is_correct": False,
+        "marks_awarded": Decimal("0.00"),
+        "negative_marks_applied": exam_question.negative_marks or Decimal("0.00"),
     }
 
 
@@ -700,12 +1065,13 @@ def save_answer(
         QuestionType.MCQ_SINGLE,
         QuestionType.MCQ_MULTIPLE,
         QuestionType.TRUE_FALSE,
+        QuestionType.SHORT_ANSWER,
     }:
         raise ValidationError(
             {
                 "question": (
                     "Saving answers is currently supported for single choice, multi-select, "
-                    "and true/false questions only."
+                    "true/false, and short answer questions only."
                 )
             }
         )
@@ -729,6 +1095,8 @@ def save_answer(
 
     if question.question_type == QuestionType.MCQ_MULTIPLE:
         answer.selected_option = None
+    elif question.question_type == QuestionType.SHORT_ANSWER:
+        answer.selected_option = None
     else:
         answer.selected_option = selected_option
     answer.selected_option_ids = selected_option_ids
@@ -737,12 +1105,19 @@ def save_answer(
     answer.is_marked_for_review = is_marked_for_review
     answer.answered_at = timezone.now()
 
-    scoring = _evaluate_choice_answer(
-        question=question,
-        exam_question=exam_question,
-        selected_option=selected_option,
-        selected_option_ids=selected_option_ids,
-    )
+    if question.question_type == QuestionType.SHORT_ANSWER:
+        scoring = _evaluate_short_answer(
+            question=question,
+            exam_question=exam_question,
+            answer_text=answer_text,
+        )
+    else:
+        scoring = _evaluate_choice_answer(
+            question=question,
+            exam_question=exam_question,
+            selected_option=selected_option,
+            selected_option_ids=selected_option_ids,
+        )
     answer.is_correct = scoring["is_correct"]
     answer.marks_awarded = scoring["marks_awarded"]
     answer.negative_marks_applied = scoring["negative_marks_applied"]

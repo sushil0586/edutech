@@ -1,8 +1,11 @@
-from rest_framework import serializers
-
-from apps.results.models import ExamPerformanceSummary, ExamResult, StudentTopicPerformance
 from apps.attempts.models import StudentExamAttempt
+from apps.attempts.serializers import attempt_accommodation_snapshot
+from apps.attempts.services import attempt_integrity_summary
+from apps.exams.services import is_review_available_for_attempt, resolve_exam_source_metadata
+from apps.results.models import ExamPerformanceSummary, ExamResult, StudentTopicPerformance
 from apps.results.services import attempt_monitor_alerts, force_submit_eligibility
+from apps.reports.models import AuditLog
+from rest_framework import serializers
 
 
 class ExamResultSerializer(serializers.ModelSerializer):
@@ -10,10 +13,36 @@ class ExamResultSerializer(serializers.ModelSerializer):
     exam_code = serializers.CharField(source="exam.code", read_only=True)
     student_name = serializers.CharField(source="student.full_name", read_only=True)
     student_admission_no = serializers.CharField(source="student.admission_no", read_only=True)
+    review_available = serializers.SerializerMethodField()
+    source_type = serializers.SerializerMethodField()
+    source_label = serializers.SerializerMethodField()
+    source_name = serializers.SerializerMethodField()
+    source_teacher_id = serializers.SerializerMethodField()
+    source_teacher_name = serializers.SerializerMethodField()
 
     class Meta:
         model = ExamResult
         fields = "__all__"
+
+    def get_review_available(self, obj):
+        if not obj.attempt_id:
+            return False
+        return is_review_available_for_attempt(obj.exam, obj.attempt, result=obj)
+
+    def get_source_type(self, obj):
+        return resolve_exam_source_metadata(obj.exam)["source_type"]
+
+    def get_source_label(self, obj):
+        return resolve_exam_source_metadata(obj.exam)["source_label"]
+
+    def get_source_name(self, obj):
+        return resolve_exam_source_metadata(obj.exam)["source_name"]
+
+    def get_source_teacher_id(self, obj):
+        return resolve_exam_source_metadata(obj.exam)["teacher_id"]
+
+    def get_source_teacher_name(self, obj):
+        return resolve_exam_source_metadata(obj.exam)["teacher_name"]
 
 
 class StudentTopicPerformanceSerializer(serializers.ModelSerializer):
@@ -30,10 +59,18 @@ class StudentTopicPerformanceSerializer(serializers.ModelSerializer):
 class ExamPerformanceSummarySerializer(serializers.ModelSerializer):
     exam_title = serializers.CharField(source="exam.title", read_only=True)
     exam_code = serializers.CharField(source="exam.code", read_only=True)
+    total_results_count = serializers.IntegerField(read_only=True)
+    published_results_count = serializers.IntegerField(read_only=True)
+    results_published = serializers.SerializerMethodField()
 
     class Meta:
         model = ExamPerformanceSummary
         fields = "__all__"
+
+    def get_results_published(self, obj):
+        total_results_count = getattr(obj, "total_results_count", 0) or 0
+        published_results_count = getattr(obj, "published_results_count", 0) or 0
+        return total_results_count > 0 and total_results_count == published_results_count
 
 
 class GenerateFromAttemptSerializer(serializers.Serializer):
@@ -75,6 +112,8 @@ class TeacherExamAttemptSerializer(serializers.ModelSerializer):
     can_force_submit = serializers.SerializerMethodField()
     force_submit_block_reason = serializers.SerializerMethodField()
     alerts = serializers.SerializerMethodField()
+    integrity_summary = serializers.SerializerMethodField()
+    accommodation_snapshot = serializers.SerializerMethodField()
 
     class Meta:
         model = StudentExamAttempt
@@ -99,6 +138,8 @@ class TeacherExamAttemptSerializer(serializers.ModelSerializer):
             "is_auto_submitted",
             "can_force_submit",
             "force_submit_block_reason",
+            "integrity_summary",
+            "accommodation_snapshot",
             "alerts",
         )
 
@@ -110,6 +151,12 @@ class TeacherExamAttemptSerializer(serializers.ModelSerializer):
 
     def get_alerts(self, obj):
         return attempt_monitor_alerts(obj)
+
+    def get_integrity_summary(self, obj):
+        return attempt_integrity_summary(obj)
+
+    def get_accommodation_snapshot(self, obj):
+        return attempt_accommodation_snapshot(obj)
 
 
 class TeacherQuestionAnalysisSerializer(serializers.Serializer):
@@ -144,3 +191,37 @@ class LiveExamMonitorSerializer(serializers.Serializer):
     submission_percentage = serializers.FloatField()
     last_activity_at = serializers.DateTimeField(allow_null=True)
     recent_attempts = serializers.ListField(child=serializers.DictField())
+
+
+class TeacherAttemptInterventionSerializer(serializers.ModelSerializer):
+    user_label = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AuditLog
+        fields = (
+            "id",
+            "action",
+            "message",
+            "metadata",
+            "created_at",
+            "user_label",
+        )
+
+    def get_user_label(self, obj):
+        if not obj.user:
+            return "System"
+        full_name = obj.user.get_full_name().strip()
+        return full_name or obj.user.username
+
+
+class TeacherAttemptInterventionCreateSerializer(serializers.Serializer):
+    attempt = serializers.UUIDField()
+    note = serializers.CharField(max_length=1000)
+    follow_up = serializers.ChoiceField(
+        choices=[
+            ("monitoring", "Monitoring"),
+            ("contacted", "Contacted"),
+            ("force_submit_considered", "Force Submit Considered"),
+            ("resolved", "Resolved"),
+        ]
+    )

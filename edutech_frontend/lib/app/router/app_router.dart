@@ -233,9 +233,14 @@ bool _isRouteAllowedForRole(AppRole role, String location) {
           location == AppRoutes.results ||
           location.startsWith(AppRoutes.exams);
     case AppRole.platformAdmin:
-    case AppRole.instituteAdmin:
       return location == AppRoutes.dashboard ||
           location == AppRoutes.academicSetup;
+    case AppRole.instituteAdmin:
+      return location == AppRoutes.dashboard ||
+          location == AppRoutes.academicSetup ||
+          location == AppRoutes.questionBank ||
+          location == AppRoutes.exams ||
+          location == AppRoutes.results;
     case AppRole.parent:
       return location == AppRoutes.dashboard;
   }

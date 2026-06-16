@@ -20,10 +20,12 @@ from apps.accounts.scopes import (
 from apps.attempts.models import StudentAnswer, StudentExamAttempt
 from apps.attempts.serializers import (
     AttemptDetailSerializer,
+    AttemptIntegrityEventSerializer,
     AttemptReviewSerializer,
     AttemptSwitchSectionSerializer,
     AttemptStartSerializer,
     AttemptSubmitSerializer,
+    ReportIntegrityEventSerializer,
     AttemptSummarySerializer,
     SaveAnswerSerializer,
     StudentAnswerSerializer,
@@ -32,6 +34,7 @@ from apps.attempts.serializers import (
 from apps.exams.models import ExamSection
 from apps.exams.services import is_review_available_for_attempt
 from apps.attempts.services import (
+    log_integrity_event,
     refresh_attempt_runtime_state,
     save_answer,
     start_attempt,
@@ -275,6 +278,68 @@ class StudentExamAttemptViewSet(ReadOnlyModelViewSet):
         attempt = self.get_object()
         refresh_attempt_runtime_state(attempt)
         return Response(AttemptDetailSerializer(attempt).data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["post"], url_path="integrity-event")
+    def integrity_event_action(self, request, pk=None):
+        attempt = self.get_object()
+        serializer = ReportIntegrityEventSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            result = log_integrity_event(
+                attempt,
+                event_type=serializer.validated_data["event_type"],
+                metadata=serializer.validated_data.get("metadata", {}),
+                event_at=serializer.validated_data.get("event_at"),
+            )
+        except DjangoValidationError as exc:
+            return Response(_validation_error_data(exc), status=status.HTTP_400_BAD_REQUEST)
+
+        latest_attempt = StudentExamAttempt.objects.select_related("exam", "student").get(pk=attempt.pk)
+        if result["auto_submitted"]:
+            create_audit_log(
+                user=request.user,
+                institute=latest_attempt.institute,
+                action="attempt_auto_submit_integrity",
+                entity_type="attempt",
+                entity_id=latest_attempt.id,
+                message="Attempt auto-submitted after reaching the integrity warning threshold.",
+                metadata={
+                    "exam_id": str(latest_attempt.exam_id),
+                    "student_id": str(latest_attempt.student_id),
+                    "event_type": serializer.validated_data["event_type"],
+                    "violation_count": result["summary"]["violation_count"],
+                },
+                request=request,
+            )
+        else:
+            create_audit_log(
+                user=request.user,
+                institute=latest_attempt.institute,
+                action="attempt_integrity_event",
+                entity_type="attempt",
+                entity_id=latest_attempt.id,
+                message="Integrity event captured during attempt runtime.",
+                metadata={
+                    "exam_id": str(latest_attempt.exam_id),
+                    "student_id": str(latest_attempt.student_id),
+                    "event_type": serializer.validated_data["event_type"],
+                    "severity": result["event"].severity,
+                },
+                request=request,
+            )
+
+        return action_response(
+            data={
+                "event": AttemptIntegrityEventSerializer(result["event"]).data,
+                "integrity_summary": result["summary"],
+                "attempt_status": latest_attempt.status,
+                "auto_submitted": result["auto_submitted"],
+                "duplicate": result["duplicate"],
+            },
+            message="Integrity event recorded successfully.",
+            status_code=status.HTTP_200_OK,
+        )
 
     @action(detail=True, methods=["get"], url_path="review")
     def review(self, request, pk=None):

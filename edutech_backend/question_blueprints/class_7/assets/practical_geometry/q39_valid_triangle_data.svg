@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="220" viewBox="0 0 360 220">
+  <rect width="360" height="220" fill="white"/>
+  <rect x="25" y="35" width="90" height="140" fill="#eff6ff" stroke="black"/>
+  <rect x="135" y="35" width="90" height="140" fill="#f0fdf4" stroke="black"/>
+  <rect x="245" y="35" width="90" height="140" fill="#fef3c7" stroke="black"/>
+  <text x="48" y="62" font-size="16">Plan 1</text>
+  <text x="158" y="62" font-size="16">Plan 2</text>
+  <text x="268" y="62" font-size="16">Plan 3</text>
+  <text x="36" y="95" font-size="14">3 sides</text>
+  <text x="147" y="95" font-size="14">1 side</text>
+  <text x="147" y="115" font-size="14">+ 2 angles</text>
+  <text x="258" y="95" font-size="14">3 angles</text>
+</svg>

@@ -9,6 +9,7 @@ from apps.exams.models import (
     TimerMode,
 )
 from apps.exams.services import INSTITUTE_EXAM_DEFAULT_FIELDS
+from apps.geography.services import resolve_location_selection
 from apps.institutes.models import Institute
 
 
@@ -74,6 +75,42 @@ class InstituteSerializer(serializers.ModelSerializer):
                 {"instructions": "Instructions must be a string value."}
             )
         return validated
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+
+        location_fields = {"country", "state", "city", "pincode"}
+        if location_fields.intersection(attrs.keys()):
+            instance = getattr(self, "instance", None)
+            country = str(attrs.get("country", getattr(instance, "country", "")) or "").strip()
+            state = str(attrs.get("state", getattr(instance, "state", "")) or "").strip()
+            city = str(attrs.get("city", getattr(instance, "city", "")) or "").strip()
+            pincode = str(attrs.get("pincode", getattr(instance, "pincode", "")) or "").strip()
+            missing = {
+                field: f"{field.replace('_', ' ').title()} is required when institute geography is being set."
+                for field, value in {
+                    "country": country,
+                    "state": state,
+                    "city": city,
+                    "pincode": pincode,
+                }.items()
+                if not value
+            }
+            if missing:
+                raise serializers.ValidationError(missing)
+
+            normalized_location = resolve_location_selection(
+                country_name=country,
+                state_name=state,
+                city_name=city,
+                postal_code=pincode,
+            )
+            attrs["country"] = normalized_location["country"]
+            attrs["state"] = normalized_location["state"]
+            attrs["city"] = normalized_location["city"]
+            attrs["pincode"] = normalized_location["pincode"]
+
+        return attrs
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

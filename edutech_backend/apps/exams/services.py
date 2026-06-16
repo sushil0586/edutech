@@ -1,8 +1,13 @@
+from datetime import datetime, time
 from decimal import Decimal
+import secrets
+import string
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
+
+from apps.accounts.models import AccountRole
 
 
 ATTEMPT_POLICY_UNLIMITED_PRACTICE = "unlimited_practice"
@@ -15,6 +20,30 @@ REVIEW_MODE_NONE = "none"
 REVIEW_MODE_ATTEMPTED_ONLY = "attempted_only"
 REVIEW_MODE_ALL_QUESTIONS = "all_questions"
 REVIEW_MODE_SOLUTION_REVIEW = "solution_review"
+RANK_VISIBILITY_MODE_HIDDEN = "hidden"
+RANK_VISIBILITY_MODE_PROVISIONAL_AFTER_SUBMIT = "provisional_after_submit"
+RANK_VISIBILITY_MODE_FINAL_AFTER_EXAM_CLOSURE = "final_after_exam_closure"
+PERCENTILE_VISIBILITY_MODE_HIDDEN = "hidden"
+PERCENTILE_VISIBILITY_MODE_PROVISIONAL_AFTER_SUBMIT = "provisional_after_submit"
+PERCENTILE_VISIBILITY_MODE_FINAL_AFTER_EXAM_CLOSURE = "final_after_exam_closure"
+BENCHMARK_VISIBILITY_MODE_HIDDEN = "hidden"
+BENCHMARK_VISIBILITY_MODE_PEER_AVERAGE_ONLY = "peer_average_only"
+BENCHMARK_VISIBILITY_MODE_PEER_AVERAGE_PLUS_PERCENTILE = "peer_average_plus_percentile"
+RANK_FREEZE_POLICY_ROLLING_UNTIL_EXAM_CLOSURE = "rolling_until_exam_closure"
+RANK_FREEZE_POLICY_FREEZE_ON_EXAM_CLOSURE = "freeze_on_exam_closure"
+
+DEFAULT_EXAM_RESULT_VISIBILITY_POLICY = {
+    "rank_visibility_mode": RANK_VISIBILITY_MODE_HIDDEN,
+    "percentile_visibility_mode": PERCENTILE_VISIBILITY_MODE_HIDDEN,
+    "benchmark_visibility_mode": BENCHMARK_VISIBILITY_MODE_PEER_AVERAGE_ONLY,
+    "rank_freeze_policy": RANK_FREEZE_POLICY_FREEZE_ON_EXAM_CLOSURE,
+}
+SECURITY_MODE_NORMAL = "normal"
+SECURITY_MODE_FOCUS = "focus"
+SECURITY_MODE_FULLSCREEN = "fullscreen"
+SECURITY_MODE_VIOLATION_LIMITED = "violation_limited"
+SECURITY_MODE_PROCTORED = "proctored"
+EXAM_CONTENT_TYPE = "exam"
 
 INSTITUTE_EXAM_DEFAULT_FIELDS = {
     "duration_minutes",
@@ -34,6 +63,20 @@ INSTITUTE_EXAM_DEFAULT_FIELDS = {
     "allow_resume",
     "allow_section_switching",
     "allow_return_to_previous_section",
+}
+EXAM_ACCESS_KEY_ALPHABET = string.ascii_uppercase + string.digits
+EXAM_ACCESS_KEY_LENGTH = 8
+STUDENT_EXAM_SOURCE_FILTERS = {"all", "platform", "institute", "teacher"}
+EXAM_SOURCE_PLATFORM = "platform"
+EXAM_SOURCE_INSTITUTE = "institute"
+EXAM_SOURCE_TEACHER = "teacher"
+QUESTION_SELECTION_MODE_STRICT = "strict"
+QUESTION_SELECTION_MODE_RELAXED = "relaxed"
+QUESTION_SELECTION_MODE_SUBJECT_FALLBACK = "subject_fallback"
+ADVANCED_EXAM_SELECTION_MODES = {
+    QUESTION_SELECTION_MODE_STRICT,
+    QUESTION_SELECTION_MODE_RELAXED,
+    QUESTION_SELECTION_MODE_SUBJECT_FALLBACK,
 }
 
 
@@ -90,6 +133,918 @@ def is_exam_assigned_to_student(exam, student):
     return exam.student_assignments.filter(student=student, is_active=True).exists()
 
 
+def resolve_exam_source_metadata(exam):
+    source_type = str(getattr(exam, "source_type", "") or "").strip() or "institute"
+    source_teacher = getattr(exam, "source_teacher", None)
+
+    if source_type == "platform":
+        return {
+            "source_type": "platform",
+            "source_label": "Platform",
+            "source_name": "Platform",
+            "teacher_id": None,
+            "teacher_name": None,
+        }
+
+    if source_type == "teacher":
+        teacher_name = getattr(source_teacher, "full_name", "") if source_teacher is not None else ""
+        return {
+            "source_type": "teacher",
+            "source_label": "Teacher",
+            "source_name": teacher_name or "Teacher",
+            "teacher_id": str(source_teacher.id) if source_teacher is not None else None,
+            "teacher_name": teacher_name or None,
+        }
+
+    institute = getattr(exam, "institute", None)
+    return {
+        "source_type": "institute",
+        "source_label": "Institute",
+        "source_name": getattr(institute, "name", "") or "Institute",
+        "teacher_id": None,
+        "teacher_name": None,
+    }
+
+
+def filter_student_visible_exams_by_source(exams, *, source="all", teacher_id=None):
+    normalized_source = str(source or "all").strip().lower() or "all"
+    normalized_teacher_id = str(teacher_id or "").strip() or None
+
+    if normalized_source not in STUDENT_EXAM_SOURCE_FILTERS:
+        return list(exams)
+
+    if normalized_source == "all":
+        return list(exams)
+
+    filtered = [
+        exam
+        for exam in exams
+        if resolve_exam_source_metadata(exam)["source_type"] == normalized_source
+    ]
+
+    if normalized_source != "teacher" or normalized_teacher_id is None:
+        return filtered
+
+    return [
+        exam
+        for exam in filtered
+        if resolve_exam_source_metadata(exam)["teacher_id"] == normalized_teacher_id
+    ]
+
+
+def allowed_exam_sources_for_profile(profile):
+    if profile is None or not getattr(profile, "is_active", False):
+        return set()
+
+    if profile.role == AccountRole.PLATFORM_ADMIN:
+        return {EXAM_SOURCE_PLATFORM, EXAM_SOURCE_INSTITUTE}
+
+    if profile.role == AccountRole.INSTITUTE_ADMIN:
+        return {EXAM_SOURCE_INSTITUTE}
+
+    if profile.role == AccountRole.TEACHER:
+        return {EXAM_SOURCE_INSTITUTE, EXAM_SOURCE_TEACHER}
+
+    return set()
+
+
+def default_exam_source_for_profile(profile):
+    allowed_sources = allowed_exam_sources_for_profile(profile)
+
+    if EXAM_SOURCE_TEACHER in allowed_sources and profile.role == AccountRole.TEACHER:
+        return EXAM_SOURCE_TEACHER
+    if EXAM_SOURCE_INSTITUTE in allowed_sources and profile.role == AccountRole.INSTITUTE_ADMIN:
+        return EXAM_SOURCE_INSTITUTE
+    if EXAM_SOURCE_PLATFORM in allowed_sources and profile.role == AccountRole.PLATFORM_ADMIN:
+        return EXAM_SOURCE_PLATFORM
+    if EXAM_SOURCE_INSTITUTE in allowed_sources:
+        return EXAM_SOURCE_INSTITUTE
+
+    return None
+
+
+def build_exam_content_target(exam):
+    return {
+        "content_type": EXAM_CONTENT_TYPE,
+        "content_key": str(exam.id),
+        "subject": getattr(exam, "subject", None),
+    }
+
+
+def resolve_exam_economy_access(student, exam, *, granted_by=None):
+    from apps.economy.models import AccessPolicyType, UnlockStateStatus
+    from apps.economy.services import (
+        evaluate_and_sync_unlock_state,
+        resolve_content_access_policy,
+    )
+
+    target = build_exam_content_target(exam)
+    access_policy = resolve_content_access_policy(
+        student=student,
+        content_type=target["content_type"],
+        content_key=target["content_key"],
+        subject=target["subject"],
+    )
+
+    unlock_state = None
+    if access_policy is not None:
+        unlock_state = evaluate_and_sync_unlock_state(
+            student=student,
+            content_type=target["content_type"],
+            content_key=target["content_key"],
+            subject=target["subject"],
+            granted_by=granted_by,
+        )
+
+    requires_unlock = bool(
+        access_policy is not None and access_policy.policy_type != AccessPolicyType.FREE
+    )
+    is_unlocked = not requires_unlock or (
+        unlock_state is not None and unlock_state.status == UnlockStateStatus.UNLOCKED
+    )
+    can_unlock_with_stars = bool(
+        access_policy is not None
+        and access_policy.policy_type
+        in {AccessPolicyType.STARS_ONLY, AccessPolicyType.STARS_OR_ENTITLEMENT}
+        and int(access_policy.star_cost or 0) > 0
+        and not is_unlocked
+    )
+
+    return {
+        "content_type": target["content_type"],
+        "content_key": target["content_key"],
+        "subject_id": str(target["subject"].id) if target["subject"] is not None else None,
+        "content_label": (
+            access_policy.content_label
+            if access_policy is not None and access_policy.content_label
+            else exam.title
+        ),
+        "policy_type": access_policy.policy_type if access_policy is not None else None,
+        "star_cost": int(access_policy.star_cost or 0) if access_policy is not None else 0,
+        "requires_unlock": requires_unlock,
+        "can_unlock_with_stars": can_unlock_with_stars,
+        "is_unlocked": is_unlocked,
+        "is_locked": requires_unlock and not is_unlocked,
+        "lock_reason_code": getattr(unlock_state, "lock_reason_code", ""),
+        "lock_reason_message": getattr(unlock_state, "lock_reason_message", ""),
+        "unlock_state_status": getattr(unlock_state, "status", ""),
+    }
+
+
+def get_exam_access_policy(exam):
+    from apps.economy.models import ContentAccessPolicy
+
+    target = build_exam_content_target(exam)
+    base_queryset = ContentAccessPolicy.objects.filter(
+        institute=exam.institute,
+        content_type=target["content_type"],
+        content_key=target["content_key"],
+        is_active=True,
+    ).order_by("priority", "created_at")
+
+    if target["subject"] is not None:
+        subject_policy = base_queryset.filter(subject=target["subject"]).first()
+        if subject_policy is not None:
+            return subject_policy
+
+    return base_queryset.filter(subject__isnull=True).first()
+
+
+@transaction.atomic
+def sync_exam_access_policy(
+    exam,
+    *,
+    policy_type="",
+    star_cost=0,
+    entitlement_code="",
+    priority=100,
+):
+    from apps.economy.models import ContentAccessPolicy
+
+    target = build_exam_content_target(exam)
+    queryset = ContentAccessPolicy.objects.filter(
+        institute=exam.institute,
+        content_type=target["content_type"],
+        content_key=target["content_key"],
+    )
+
+    if target["subject"] is not None:
+        queryset = queryset.filter(subject=target["subject"])
+    else:
+        queryset = queryset.filter(subject__isnull=True)
+
+    queryset.update(is_active=False, updated_at=timezone.now())
+
+    normalized_policy_type = (policy_type or "").strip()
+    if not normalized_policy_type:
+        return None
+
+    policy = ContentAccessPolicy(
+        institute=exam.institute,
+        subject=target["subject"],
+        content_type=target["content_type"],
+        content_key=target["content_key"],
+        content_label=exam.title,
+        policy_type=normalized_policy_type,
+        star_cost=star_cost,
+        entitlement_code=(entitlement_code or "").strip(),
+        priority=priority,
+        is_active=True,
+    )
+    policy.save()
+    return policy
+
+
+@transaction.atomic
+def sync_exam_unlock_rule(
+    exam,
+    *,
+    rule_type="",
+    required_star_balance=None,
+    required_entitlement_code="",
+    required_completion_count=None,
+    required_score_percentage=None,
+    admin_override_allowed=True,
+    priority=100,
+):
+    from apps.economy.models import UnlockRule
+
+    target = build_exam_content_target(exam)
+    queryset = UnlockRule.objects.filter(
+        institute=exam.institute,
+        content_type=target["content_type"],
+        content_key=target["content_key"],
+    )
+
+    if target["subject"] is not None:
+        queryset = queryset.filter(subject=target["subject"])
+    else:
+        queryset = queryset.filter(subject__isnull=True)
+
+    queryset.update(is_active=False, updated_at=timezone.now())
+
+    normalized_rule_type = (rule_type or "").strip()
+    if not normalized_rule_type:
+        return None
+
+    rule = UnlockRule(
+        institute=exam.institute,
+        subject=target["subject"],
+        content_type=target["content_type"],
+        content_key=target["content_key"],
+        content_label=exam.title,
+        rule_type=normalized_rule_type,
+        required_star_balance=required_star_balance,
+        required_entitlement_code=(required_entitlement_code or "").strip(),
+        required_completion_count=required_completion_count,
+        required_score_percentage=required_score_percentage,
+        admin_override_allowed=admin_override_allowed,
+        priority=priority,
+        is_active=True,
+    )
+    rule.save()
+    return rule
+
+
+def _end_of_academic_day(value):
+    naive = datetime.combine(value, time(23, 59, 59))
+    current_timezone = timezone.get_current_timezone()
+    if timezone.is_naive(naive):
+        return timezone.make_aware(naive, current_timezone)
+    return naive.astimezone(current_timezone)
+
+
+def _normalize_decimal(value, fallback):
+    if value in {None, ""}:
+        return Decimal(str(fallback))
+    return Decimal(str(value))
+
+
+def _normalize_difficulty_mix(mix):
+    normalized = {
+        "foundation": int(mix.get("foundation", 0) or 0),
+        "intermediate": int(mix.get("intermediate", 0) or 0),
+        "advanced": int(mix.get("advanced", 0) or 0),
+    }
+    total = sum(normalized.values())
+    if total != 100:
+        raise ValidationError({"difficulty_mix": "Difficulty mix must add up to 100."})
+    return normalized
+
+
+def _allocate_counts(total, weights):
+    if total <= 0:
+        return {key: 0 for key in weights}
+
+    raw_values = {}
+    allocated = {}
+    remainder_rows = []
+    running_total = 0
+    for key, weight in weights.items():
+        exact = total * (Decimal(str(weight)) / Decimal("100"))
+        floor_value = int(exact)
+        raw_values[key] = exact
+        allocated[key] = floor_value
+        running_total += floor_value
+        remainder_rows.append((exact - floor_value, key))
+
+    remainder_rows.sort(key=lambda row: (-row[0], row[1]))
+    for _, key in remainder_rows[: total - running_total]:
+        allocated[key] += 1
+
+    return allocated
+
+
+def _resolve_advanced_exam_scope(actor, scope_payload, exam_payload):
+    from apps.academics.models import AcademicYear, Cohort, Program, Subject
+    from apps.accounts.scopes import get_account_profile
+    from apps.institutes.models import Institute
+    from apps.teachers.models import TeacherAssignment, TeacherProfile
+
+    profile = get_account_profile(actor)
+    if profile is None or not profile.is_active:
+        raise ValidationError({"scope": "An active account profile is required to build exams."})
+
+    institute_code = str(scope_payload.get("institute_code") or "").strip()
+    institute = None
+    if institute_code:
+        institute = Institute.objects.filter(
+            code=institute_code,
+            is_active=True,
+        ).first()
+        if institute is None:
+            raise ValidationError({"scope": "Institute not found."})
+    elif profile.institute_id:
+        institute = Institute.objects.filter(
+            id=profile.institute_id,
+            is_active=True,
+        ).first()
+        if institute is None:
+            raise ValidationError({"scope": "Your institute is not active."})
+    else:
+        raise ValidationError({"scope": "Institute scope is required to build this exam."})
+
+    if profile.role != AccountRole.PLATFORM_ADMIN and profile.institute_id != institute.id:
+        raise ValidationError({"scope": "You can only build exams inside your own institute."})
+
+    academic_year = AcademicYear.objects.filter(
+        institute=institute,
+        name=scope_payload["academic_year_name"],
+        is_active=True,
+    ).first()
+    if academic_year is None:
+        raise ValidationError({"scope": "Academic year not found in the selected institute."})
+
+    program = Program.objects.filter(
+        institute=institute,
+        code=scope_payload["program_code"],
+        is_active=True,
+    ).first()
+    if program is None:
+        raise ValidationError({"scope": "Program not found in the selected institute."})
+
+    subject = Subject.objects.filter(
+        institute=institute,
+        code=scope_payload["subject_code"],
+        is_active=True,
+    ).first()
+    if subject is None:
+        raise ValidationError({"scope": "Subject not found in the selected institute."})
+    if subject.program_id and subject.program_id != program.id:
+        raise ValidationError({"scope": "Subject must belong to the selected program."})
+
+    cohort = None
+    cohort_code = (scope_payload.get("cohort_code") or "").strip()
+    if cohort_code:
+        cohort = Cohort.objects.filter(
+            institute=institute,
+            code=cohort_code,
+            is_active=True,
+        ).first()
+        if cohort is None:
+            raise ValidationError({"scope": "Cohort not found in the selected institute."})
+        if cohort.program_id != program.id:
+            raise ValidationError({"scope": "Cohort must belong to the selected program."})
+        if cohort.academic_year_id != academic_year.id:
+            raise ValidationError({"scope": "Cohort must belong to the selected academic year."})
+
+    source_type = exam_payload.get("source_type")
+    if not source_type:
+        raise ValidationError({"exam": "Exam source type could not be resolved for this account."})
+    source_teacher = None
+    if source_type == EXAM_SOURCE_TEACHER:
+        if profile.role != AccountRole.TEACHER:
+            raise ValidationError({"exam": "Only teacher accounts can create teacher-source advanced exams."})
+        source_teacher = getattr(profile, "teacher_profile", None)
+        if source_teacher is None:
+            raise ValidationError({"exam": "Teacher source exams require a linked teacher profile."})
+        supplied_employee_code = (scope_payload.get("source_teacher_employee_code") or "").strip()
+        if supplied_employee_code and supplied_employee_code != source_teacher.employee_code:
+            source_teacher = TeacherProfile.objects.filter(
+                institute=institute,
+                employee_code=supplied_employee_code,
+                is_active=True,
+            ).first()
+            if source_teacher is None:
+                raise ValidationError({"scope": "Teacher not found in the selected institute."})
+            if profile.role != AccountRole.PLATFORM_ADMIN:
+                raise ValidationError({"scope": "You cannot build a teacher-source exam for another teacher."})
+    elif (scope_payload.get("source_teacher_employee_code") or "").strip():
+        source_teacher = TeacherProfile.objects.filter(
+            institute=institute,
+            employee_code=scope_payload["source_teacher_employee_code"],
+            is_active=True,
+        ).first()
+        if source_teacher is None:
+            raise ValidationError({"scope": "Teacher not found in the selected institute."})
+
+    if profile.role == AccountRole.TEACHER:
+        teacher_profile = getattr(profile, "teacher_profile", None)
+        assignment_queryset = TeacherAssignment.objects.filter(
+            institute=institute,
+            teacher=teacher_profile,
+            academic_year=academic_year,
+            program=program,
+            subject=subject,
+            is_active=True,
+        )
+        if cohort is not None:
+            assignment_exists = assignment_queryset.filter(cohort__in=[cohort]).exists() or assignment_queryset.filter(
+                cohort__isnull=True
+            ).exists()
+        else:
+            assignment_exists = assignment_queryset.exists()
+        if not assignment_exists:
+            raise ValidationError(
+                {"scope": "Teacher does not have an active assignment for the selected academic scope."}
+            )
+
+    return {
+        "profile": profile,
+        "institute": institute,
+        "academic_year": academic_year,
+        "program": program,
+        "cohort": cohort,
+        "subject": subject,
+        "source_teacher": source_teacher,
+    }
+
+
+def _resolve_exam_schedule(academic_year, exam_payload):
+    start_at = exam_payload.get("start_at")
+    end_at = exam_payload.get("end_at")
+    academic_year_end_at = _end_of_academic_day(academic_year.end_date)
+
+    if end_at is None:
+        end_at = academic_year_end_at
+    elif end_at > academic_year_end_at:
+        raise ValidationError(
+            {"exam": "Exam end date cannot go beyond the academic year end date."}
+        )
+
+    if start_at and end_at and end_at <= start_at:
+        raise ValidationError({"exam": "Exam end time must be after the start time."})
+
+    return start_at, end_at, academic_year_end_at
+
+
+def _build_question_buckets(*, institute, program, subject, topic_ids):
+    from apps.question_bank.models import Question
+
+    queryset = Question.objects.filter(
+        institute=institute,
+        subject=subject,
+        is_active=True,
+        topic_id__in=topic_ids,
+    ).order_by("created_at", "id")
+
+    if program is not None:
+        queryset = queryset.filter(program=program)
+
+    by_topic = {}
+    for question in queryset:
+        topic_bucket = by_topic.setdefault(question.topic_id, {})
+        difficulty_bucket = topic_bucket.setdefault(question.difficulty_level, [])
+        difficulty_bucket.append(question)
+
+    return by_topic
+
+
+def _pick_questions_from_pool(
+    *,
+    section_name,
+    topic,
+    requested_count,
+    difficulty_targets,
+    question_buckets,
+    used_question_ids,
+    selection_mode,
+):
+    available_for_topic = question_buckets.get(topic.id, {})
+    chosen = []
+    shortage_messages = []
+    topic_selection = {
+        "topic_code": topic.code,
+        "topic_name": topic.name,
+        "requested": requested_count,
+        "resolved": 0,
+        "difficulty_breakup": {},
+    }
+
+    def consume_exact(difficulty_key, count_needed):
+        bucket = available_for_topic.get(difficulty_key, [])
+        picked = []
+        for question in bucket:
+            if question.id in used_question_ids:
+                continue
+            picked.append(question)
+            if len(picked) == count_needed:
+                break
+        return picked
+
+    difficulty_order = ("foundation", "intermediate", "advanced")
+    for difficulty_key in difficulty_order:
+        target_count = difficulty_targets.get(difficulty_key, 0)
+        if target_count <= 0:
+            topic_selection["difficulty_breakup"][difficulty_key] = 0
+            continue
+        exact_matches = consume_exact(difficulty_key, target_count)
+        chosen.extend(exact_matches)
+        topic_selection["difficulty_breakup"][difficulty_key] = len(exact_matches)
+        remaining = target_count - len(exact_matches)
+        if remaining <= 0:
+            continue
+        if selection_mode == QUESTION_SELECTION_MODE_STRICT:
+            shortage_messages.append(
+                f"{section_name}: {topic.name} is short by {remaining} {difficulty_key} questions."
+            )
+            continue
+        fallback_difficulties = [key for key in difficulty_order if key != difficulty_key]
+        for fallback_key in fallback_difficulties:
+            fallback_matches = consume_exact(fallback_key, remaining)
+            if fallback_matches:
+                chosen.extend(fallback_matches)
+                topic_selection["difficulty_breakup"][fallback_key] = (
+                    topic_selection["difficulty_breakup"].get(fallback_key, 0) + len(fallback_matches)
+                )
+                remaining -= len(fallback_matches)
+            if remaining <= 0:
+                break
+        if remaining > 0:
+            shortage_messages.append(
+                f"{section_name}: {topic.name} is short by {remaining} questions after same-topic fallback."
+            )
+
+    unique_chosen = []
+    for question in chosen:
+        if question.id in used_question_ids:
+            continue
+        used_question_ids.add(question.id)
+        unique_chosen.append(question)
+
+    topic_selection["resolved"] = len(unique_chosen)
+    return unique_chosen, topic_selection, shortage_messages
+
+
+def _resolve_section_blueprint(
+    *,
+    section_payload,
+    topic_map,
+    question_buckets,
+    used_question_ids,
+    selection_mode,
+):
+    difficulty_mix = _normalize_difficulty_mix(section_payload["difficulty_mix"])
+    requested_total = int(section_payload["question_count"])
+    resolved_topic_rows = []
+    section_questions = []
+    warnings = []
+    topic_shortages = []
+
+    for topic_row in section_payload["topics"]:
+        topic = topic_map.get(topic_row["topic_code"])
+        if topic is None:
+            raise ValidationError(
+                {"composition": f"Topic {topic_row['topic_code']} does not belong to the selected subject."}
+            )
+        topic_count = int(topic_row["count"])
+        difficulty_targets = _allocate_counts(topic_count, difficulty_mix)
+        chosen, selection_summary, shortage_messages = _pick_questions_from_pool(
+            section_name=section_payload["name"],
+            topic=topic,
+            requested_count=topic_count,
+            difficulty_targets=difficulty_targets,
+            question_buckets=question_buckets,
+            used_question_ids=used_question_ids,
+            selection_mode=selection_mode,
+        )
+        section_questions.extend(chosen)
+        resolved_topic_rows.append(selection_summary)
+        topic_shortages.extend(shortage_messages)
+
+    if topic_shortages and selection_mode == QUESTION_SELECTION_MODE_STRICT:
+        raise ValidationError({"composition": topic_shortages})
+
+    resolved_total = len(section_questions)
+    if resolved_total != requested_total:
+        if selection_mode == QUESTION_SELECTION_MODE_SUBJECT_FALLBACK:
+            shortage = requested_total - resolved_total
+            if shortage > 0:
+                fallback_pool = []
+                for buckets in question_buckets.values():
+                    for bucket in buckets.values():
+                        for question in bucket:
+                            if question.id not in used_question_ids:
+                                fallback_pool.append(question)
+                fallback_pool = fallback_pool[:shortage]
+                for question in fallback_pool:
+                    used_question_ids.add(question.id)
+                    section_questions.append(question)
+                resolved_total = len(section_questions)
+                if fallback_pool:
+                    warnings.append(
+                        f"{section_payload['name']}: backfilled {len(fallback_pool)} question(s) from other subject topics."
+                    )
+
+        if resolved_total != requested_total:
+            raise ValidationError(
+                {
+                    "composition": (
+                        f"{section_payload['name']} requested {requested_total} question(s) but only "
+                        f"{resolved_total} could be resolved."
+                    )
+                }
+            )
+
+    actual_difficulty = {"foundation": 0, "intermediate": 0, "advanced": 0}
+    for question in section_questions:
+        actual_difficulty[question.difficulty_level] = actual_difficulty.get(question.difficulty_level, 0) + 1
+
+    return {
+        "name": section_payload["name"],
+        "description": section_payload.get("description", ""),
+        "instructions": section_payload.get("instructions", ""),
+        "order": int(section_payload["order"]),
+        "requested": requested_total,
+        "resolved": resolved_total,
+        "difficulty_mix": difficulty_mix,
+        "actual_difficulty_breakup": actual_difficulty,
+        "topic_breakup": resolved_topic_rows,
+        "marks_per_question": section_payload.get("marks_per_question"),
+        "negative_marks_per_question": section_payload.get("negative_marks_per_question"),
+        "timer_enabled": bool(section_payload.get("timer_enabled", False)),
+        "duration_minutes": section_payload.get("duration_minutes"),
+        "allow_skip_section": bool(section_payload.get("allow_skip_section", True)),
+        "lock_after_submit": bool(section_payload.get("lock_after_submit", False)),
+        "questions": section_questions,
+        "warnings": warnings + topic_shortages if selection_mode != QUESTION_SELECTION_MODE_STRICT else warnings,
+    }
+
+
+def preview_advanced_exam_blueprint(*, actor, blueprint):
+    from apps.academics.models import Topic
+
+    scope = _resolve_advanced_exam_scope(actor, blueprint["scope"], blueprint["exam"])
+    start_at, end_at, academic_year_end_at = _resolve_exam_schedule(
+        scope["academic_year"],
+        blueprint["exam"],
+    )
+    selection_mode = blueprint["composition"]["selection_mode"]
+    if selection_mode not in ADVANCED_EXAM_SELECTION_MODES:
+        raise ValidationError({"composition": "Unsupported selection mode."})
+
+    topic_codes = []
+    for section in blueprint["composition"]["sections"]:
+        for topic_row in section["topics"]:
+            topic_codes.append(topic_row["topic_code"])
+
+    topic_map = {
+        topic.code: topic
+        for topic in Topic.objects.filter(
+            institute=scope["institute"],
+            subject=scope["subject"],
+            code__in=topic_codes,
+            is_active=True,
+        )
+    }
+    if len(topic_map) != len(set(topic_codes)):
+        missing = sorted(set(topic_codes) - set(topic_map.keys()))
+        raise ValidationError({"composition": f"Unknown topic code(s): {', '.join(missing)}"})
+
+    question_buckets = _build_question_buckets(
+        institute=scope["institute"],
+        program=scope["program"],
+        subject=scope["subject"],
+        topic_ids=[topic.id for topic in topic_map.values()],
+    )
+    used_question_ids = set()
+    section_plans = []
+    warnings = []
+    total_marks = Decimal("0.00")
+    total_questions = 0
+
+    for section_payload in sorted(blueprint["composition"]["sections"], key=lambda row: row["order"]):
+        section_plan = _resolve_section_blueprint(
+            section_payload=section_payload,
+            topic_map=topic_map,
+            question_buckets=question_buckets,
+            used_question_ids=used_question_ids,
+            selection_mode=selection_mode,
+        )
+        section_plans.append(section_plan)
+        warnings.extend(section_plan["warnings"])
+        total_questions += section_plan["resolved"]
+        for question in section_plan["questions"]:
+            section_marks = section_plan["marks_per_question"]
+            if section_marks is None:
+                total_marks += question.default_marks
+            else:
+                total_marks += Decimal(str(section_marks))
+
+    return {
+        "scope": scope,
+        "resolved_exam": {
+            "title": blueprint["exam"]["title"],
+            "code": blueprint["exam"]["code"],
+            "source_type": blueprint["exam"]["source_type"],
+            "source_teacher_id": str(scope["source_teacher"].id) if scope["source_teacher"] is not None else None,
+            "academic_year_end_at": academic_year_end_at,
+            "start_at": start_at,
+            "end_at": end_at,
+            "duration_minutes": int(blueprint["exam"]["duration_minutes"]),
+            "total_questions": total_questions,
+            "total_marks": total_marks,
+        },
+        "sections": section_plans,
+        "warnings": warnings,
+    }
+
+
+@transaction.atomic
+def create_advanced_exam_from_blueprint(*, actor, blueprint):
+    from apps.exams.models import Exam, ExamQuestion, ExamSection
+
+    preview = preview_advanced_exam_blueprint(actor=actor, blueprint=blueprint)
+    scope = preview["scope"]
+    resolved_exam = preview["resolved_exam"]
+    exam_payload = blueprint["exam"]
+    delivery_payload = blueprint.get("delivery") or {}
+
+    exam_queryset = Exam.objects.filter(
+        institute=scope["institute"],
+        code=exam_payload["code"],
+    )
+    existing_exam = exam_queryset.first()
+    if existing_exam is not None and not exam_payload.get("replace_existing_code", False):
+        raise ValidationError({"exam": "An exam with this code already exists in the institute."})
+    if existing_exam is not None and existing_exam.exam_questions.filter(is_active=True).exists():
+        raise ValidationError({"exam": "Replacement is allowed only when the existing exam has no linked questions."})
+
+    exam_attrs = {
+        "institute": scope["institute"],
+        "academic_year": scope["academic_year"],
+        "program": scope["program"],
+        "cohort": scope["cohort"],
+        "subject": scope["subject"],
+        "title": exam_payload["title"],
+        "code": exam_payload["code"],
+        "description": exam_payload.get("description", ""),
+        "exam_type": exam_payload["exam_type"],
+        "delivery_mode": exam_payload["delivery_mode"],
+        "status": exam_payload["status"],
+        "duration_minutes": int(exam_payload["duration_minutes"]),
+        "total_marks": Decimal("0.00"),
+        "passing_marks": _normalize_decimal(exam_payload.get("passing_marks"), "0.00"),
+        "start_at": resolved_exam["start_at"],
+        "end_at": resolved_exam["end_at"],
+        "instructions": exam_payload.get("instructions", ""),
+        "allow_late_submit": bool(delivery_payload.get("allow_late_submit", False)),
+        "randomize_questions": bool(delivery_payload.get("randomize_questions", False)),
+        "randomize_options": bool(delivery_payload.get("randomize_options", False)),
+        "show_result_immediately": bool(delivery_payload.get("show_result_immediately", False)),
+        "allow_review_after_submit": bool(delivery_payload.get("allow_review_after_submit", True)),
+        "max_attempts": int(delivery_payload.get("max_attempts", 1)),
+        "timer_mode": delivery_payload.get("timer_mode", Exam._meta.get_field("timer_mode").default),
+        "navigation_mode": delivery_payload.get(
+            "navigation_mode",
+            Exam._meta.get_field("navigation_mode").default,
+        ),
+        "attempt_policy": delivery_payload.get(
+            "attempt_policy",
+            Exam._meta.get_field("attempt_policy").default,
+        ),
+        "result_publish_mode": delivery_payload.get(
+            "result_publish_mode",
+            Exam._meta.get_field("result_publish_mode").default,
+        ),
+        "review_mode": delivery_payload.get("review_mode", Exam._meta.get_field("review_mode").default),
+        "security_mode": delivery_payload.get(
+            "security_mode",
+            Exam._meta.get_field("security_mode").default,
+        ),
+        "source_type": exam_payload["source_type"],
+        "source_teacher": scope["source_teacher"],
+        "assignment_mode": delivery_payload.get(
+            "assignment_mode",
+            Exam._meta.get_field("assignment_mode").default,
+        ),
+        "allow_resume": bool(delivery_payload.get("allow_resume", True)),
+        "allow_section_switching": bool(delivery_payload.get("allow_section_switching", True)),
+        "allow_return_to_previous_section": bool(
+            delivery_payload.get("allow_return_to_previous_section", True)
+        ),
+        "result_publish_at": delivery_payload.get("result_publish_at"),
+        "review_available_from": delivery_payload.get("review_available_from"),
+        "review_available_until": delivery_payload.get("review_available_until"),
+        "metadata": {
+            "advanced_builder": {
+                "selection_mode": blueprint["composition"]["selection_mode"],
+                "subject_code": scope["subject"].code,
+            },
+            "result_visibility_policy": {
+                "rank_visibility_mode": delivery_payload.get("rank_visibility_mode", "hidden"),
+                "percentile_visibility_mode": delivery_payload.get("percentile_visibility_mode", "hidden"),
+                "benchmark_visibility_mode": delivery_payload.get(
+                    "benchmark_visibility_mode",
+                    "peer_average_only",
+                ),
+                "rank_freeze_policy": delivery_payload.get(
+                    "rank_freeze_policy",
+                    "freeze_on_exam_closure",
+                ),
+            },
+        },
+    }
+
+    if existing_exam is None:
+        exam = Exam.objects.create(**exam_attrs)
+    else:
+        for field_name, value in exam_attrs.items():
+            setattr(existing_exam, field_name, value)
+        existing_exam.save()
+        existing_exam.sections.all().delete()
+        existing_exam.exam_questions.all().delete()
+        exam = existing_exam
+
+    question_order = 1
+    for section_plan in preview["sections"]:
+        section = ExamSection.objects.create(
+            exam=exam,
+            name=section_plan["name"],
+            description=section_plan["description"],
+            section_order=section_plan["order"],
+            instructions=section_plan["instructions"],
+            total_questions=section_plan["resolved"],
+            marks_per_question=section_plan["marks_per_question"],
+            negative_marks_per_question=section_plan["negative_marks_per_question"],
+            timer_enabled=section_plan["timer_enabled"],
+            duration_minutes=section_plan["duration_minutes"],
+            allow_skip_section=section_plan["allow_skip_section"],
+            lock_after_submit=section_plan["lock_after_submit"],
+        )
+        for question in section_plan["questions"]:
+            marks = section_plan["marks_per_question"]
+            negative_marks = section_plan["negative_marks_per_question"]
+            ExamQuestion.objects.create(
+                exam=exam,
+                question=question,
+                section=section,
+                question_order=question_order,
+                marks=question.default_marks if marks is None else Decimal(str(marks)),
+                negative_marks=question.negative_marks if negative_marks is None else Decimal(str(negative_marks)),
+            )
+            question_order += 1
+
+    sync_total_marks_from_questions(exam)
+
+    economy_payload = blueprint.get("economy") or {}
+    policy = sync_exam_access_policy(
+        exam,
+        policy_type=economy_payload.get("policy_type", ""),
+        star_cost=int(economy_payload.get("star_cost", 0) or 0),
+        entitlement_code=economy_payload.get("entitlement_code", ""),
+        priority=int(economy_payload.get("priority", 100) or 100),
+    )
+    unlock_payload = economy_payload.get("unlock_rule") or {}
+    unlock_rule = sync_exam_unlock_rule(
+        exam,
+        rule_type=unlock_payload.get("rule_type", ""),
+        required_star_balance=unlock_payload.get("required_star_balance"),
+        required_entitlement_code=unlock_payload.get("required_entitlement_code", ""),
+        required_completion_count=unlock_payload.get("required_completion_count"),
+        required_score_percentage=unlock_payload.get("required_score_percentage"),
+        admin_override_allowed=bool(unlock_payload.get("admin_override_allowed", True)),
+        priority=int(unlock_payload.get("priority", 100) or 100),
+    )
+    exam.refresh_from_db()
+    return {
+        "exam": exam,
+        "preview": preview,
+        "policy": policy,
+        "unlock_rule": unlock_rule,
+    }
+
+
 def resolve_institute_exam_defaults(institute):
     metadata = getattr(institute, "metadata", {}) or {}
     if not isinstance(metadata, dict):
@@ -113,16 +1068,160 @@ def apply_institute_exam_defaults(institute, attrs, supplied_fields=None):
     return attrs
 
 
+def normalize_exam_access_key(value):
+    return "".join(str(value or "").upper().split())
+
+
+def generate_exam_access_key(length=EXAM_ACCESS_KEY_LENGTH):
+    return "".join(secrets.choice(EXAM_ACCESS_KEY_ALPHABET) for _ in range(length))
+
+
+def regenerate_exam_access_key(exam):
+    while True:
+        key = generate_exam_access_key()
+        if not exam.__class__.objects.filter(
+            institute_id=exam.institute_id,
+            access_key=key,
+        ).exclude(pk=exam.pk).exists():
+            exam.access_key = key
+            exam.save(update_fields=["access_key", "updated_at"])
+            return exam
+
+
 def resolve_result_publish_mode(exam):
     if exam.show_result_immediately:
         return RESULT_PUBLISH_MODE_IMMEDIATE
     return exam.result_publish_mode
 
 
+def resolve_exam_result_visibility_policy(exam):
+    metadata = getattr(exam, "metadata", {}) or {}
+    if not isinstance(metadata, dict):
+        metadata = {}
+    raw_policy = metadata.get("result_visibility_policy", {})
+    if not isinstance(raw_policy, dict):
+        raw_policy = {}
+
+    policy = dict(DEFAULT_EXAM_RESULT_VISIBILITY_POLICY)
+    for key in policy:
+        value = raw_policy.get(key)
+        if isinstance(value, str) and value.strip():
+            policy[key] = value.strip()
+    return policy
+
+
 def resolve_review_mode(exam):
     if exam.allow_review_after_submit and exam.review_mode == REVIEW_MODE_NONE:
         return REVIEW_MODE_ATTEMPTED_ONLY
     return exam.review_mode
+
+
+def resolve_security_policy(exam):
+    mode = getattr(exam, "security_mode", SECURITY_MODE_NORMAL) or SECURITY_MODE_NORMAL
+
+    if mode == SECURITY_MODE_FOCUS:
+        return {
+            "mode": mode,
+            "student_label": "Focus monitoring",
+            "teacher_label": "Focus signal tracking",
+            "requires_fullscreen": False,
+            "tracks_focus_loss": True,
+            "tracks_visibility_change": True,
+            "tracks_fullscreen_exit": False,
+            "violation_limit_enabled": False,
+            "violation_limit": None,
+            "violation_action": None,
+            "enhanced_monitoring": False,
+            "student_warning_copy": (
+                "Stay on the attempt screen during the exam. Leaving the tab or switching away may be logged."
+            ),
+            "teacher_monitoring_copy": (
+                "Track focus-loss and tab-visibility changes as light integrity signals."
+            ),
+        }
+
+    if mode == SECURITY_MODE_FULLSCREEN:
+        return {
+            "mode": mode,
+            "student_label": "Fullscreen required",
+            "teacher_label": "Fullscreen monitoring",
+            "requires_fullscreen": True,
+            "tracks_focus_loss": True,
+            "tracks_visibility_change": True,
+            "tracks_fullscreen_exit": True,
+            "violation_limit_enabled": False,
+            "violation_limit": None,
+            "violation_action": None,
+            "enhanced_monitoring": True,
+            "student_warning_copy": (
+                "Enter fullscreen before continuing and stay in fullscreen during the attempt. Exits may be logged."
+            ),
+            "teacher_monitoring_copy": (
+                "Track fullscreen exits together with focus and visibility changes during the attempt."
+            ),
+        }
+
+    if mode == SECURITY_MODE_VIOLATION_LIMITED:
+        return {
+            "mode": mode,
+            "student_label": "Violation-limited monitoring",
+            "teacher_label": "Escalating integrity monitoring",
+            "requires_fullscreen": True,
+            "tracks_focus_loss": True,
+            "tracks_visibility_change": True,
+            "tracks_fullscreen_exit": True,
+            "violation_limit_enabled": True,
+            "violation_limit": 3,
+            "violation_action": "auto_submit",
+            "enhanced_monitoring": True,
+            "student_warning_copy": (
+                "This attempt tracks integrity warnings. Repeated fullscreen exits or tab switches can trigger auto-submit."
+            ),
+            "teacher_monitoring_copy": (
+                "Track integrity warnings and escalate automatically when the configured violation threshold is reached."
+            ),
+        }
+
+    if mode == SECURITY_MODE_PROCTORED:
+        return {
+            "mode": mode,
+            "student_label": "Enhanced monitoring",
+            "teacher_label": "Enhanced event monitoring",
+            "requires_fullscreen": True,
+            "tracks_focus_loss": True,
+            "tracks_visibility_change": True,
+            "tracks_fullscreen_exit": True,
+            "violation_limit_enabled": True,
+            "violation_limit": 2,
+            "violation_action": "auto_submit",
+            "enhanced_monitoring": True,
+            "student_warning_copy": (
+                "This attempt is under enhanced browser monitoring. Keep the exam in fullscreen and avoid leaving the attempt window."
+            ),
+            "teacher_monitoring_copy": (
+                "Prioritize these attempts in live monitoring and review integrity-event patterns closely."
+            ),
+        }
+
+    return {
+        "mode": SECURITY_MODE_NORMAL,
+        "student_label": "Standard online",
+        "teacher_label": "Standard online",
+        "requires_fullscreen": False,
+        "tracks_focus_loss": False,
+        "tracks_visibility_change": False,
+        "tracks_fullscreen_exit": False,
+        "violation_limit_enabled": False,
+        "violation_limit": None,
+        "violation_action": None,
+        "enhanced_monitoring": False,
+        "student_warning_copy": (
+            "Standard exam rules apply. Keep your session stable and submit before the timer ends."
+        ),
+        "teacher_monitoring_copy": (
+            "Use normal attempt monitoring and standard operational alerts."
+        ),
+    }
 
 
 def is_result_visible_for_attempt(exam, attempt, result=None, at_time=None):

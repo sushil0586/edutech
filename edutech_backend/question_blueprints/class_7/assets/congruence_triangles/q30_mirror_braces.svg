@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="220" viewBox="0 0 360 220">
+  <rect width="360" height="220" fill="white"/>
+  <polygon points="60,170 140,70 180,170" fill="#e0f2fe" stroke="black" stroke-width="3"/>
+  <polygon points="300,170 220,70 180,170" fill="#ede9fe" stroke="black" stroke-width="3"/>
+  <line x1="180" y1="40" x2="180" y2="185" stroke="#94a3b8" stroke-width="2" stroke-dasharray="6 4"/>
+  <text x="145" y="55" font-size="14" fill="#475569">mirror line</text>
+</svg>

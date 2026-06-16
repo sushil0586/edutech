@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
 
 from apps.exams.models import Exam
 from apps.institutes.models import Institute
@@ -89,6 +90,78 @@ class StudentExamAttempt(BaseModel):
 
     def __str__(self):
         return f"{self.student.full_name} - {self.exam.code} (Attempt {self.attempt_no})"
+
+
+class IntegrityEventType(models.TextChoices):
+    FOCUS_LOST = "focus_lost", "Focus Lost"
+    VISIBILITY_HIDDEN = "visibility_hidden", "Tab Hidden"
+    FULLSCREEN_EXITED = "fullscreen_exited", "Fullscreen Exited"
+    FULLSCREEN_RESTORED = "fullscreen_restored", "Fullscreen Restored"
+    CONNECTION_LOST = "connection_lost", "Connection Lost"
+    CONNECTION_RESTORED = "connection_restored", "Connection Restored"
+    WARNING_THRESHOLD_REACHED = "warning_threshold_reached", "Warning Threshold Reached"
+
+
+class IntegrityEventSeverity(models.TextChoices):
+    LOW = "low", "Low"
+    MEDIUM = "medium", "Medium"
+    HIGH = "high", "High"
+
+
+class AttemptIntegrityEvent(BaseModel):
+    institute = models.ForeignKey(
+        Institute,
+        on_delete=models.CASCADE,
+        related_name="attempt_integrity_events",
+    )
+    attempt = models.ForeignKey(
+        StudentExamAttempt,
+        on_delete=models.CASCADE,
+        related_name="integrity_events",
+    )
+    exam = models.ForeignKey(
+        Exam,
+        on_delete=models.CASCADE,
+        related_name="integrity_events",
+    )
+    student = models.ForeignKey(
+        StudentProfile,
+        on_delete=models.CASCADE,
+        related_name="attempt_integrity_events",
+    )
+    event_type = models.CharField(max_length=40, choices=IntegrityEventType.choices)
+    severity = models.CharField(
+        max_length=10,
+        choices=IntegrityEventSeverity.choices,
+        default=IntegrityEventSeverity.LOW,
+    )
+    counts_as_violation = models.BooleanField(default=False)
+    event_at = models.DateTimeField(default=timezone.now)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["-event_at", "-created_at"]
+        indexes = [
+            models.Index(fields=["attempt", "event_type", "event_at"]),
+            models.Index(fields=["exam", "student", "event_at"]),
+            models.Index(fields=["severity", "counts_as_violation"]),
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.attempt_id and self.exam_id and self.attempt.exam_id != self.exam_id:
+            raise ValidationError({"exam": "Integrity event exam must match the attempt exam."})
+        if self.attempt_id and self.student_id and self.attempt.student_id != self.student_id:
+            raise ValidationError({"student": "Integrity event student must match the attempt student."})
+        if self.attempt_id and self.institute_id and self.attempt.institute_id != self.institute_id:
+            raise ValidationError({"institute": "Integrity event institute must match the attempt institute."})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.attempt_id} - {self.event_type}"
 
 
 class StudentAnswer(BaseModel):

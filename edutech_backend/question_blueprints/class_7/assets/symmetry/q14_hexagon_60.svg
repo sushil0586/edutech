@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="220" viewBox="0 0 360 220">
+  <rect width="360" height="220" fill="white"/>
+  <polygon points="180,40 240,75 240,145 180,180 120,145 120,75" fill="#dcfce7" stroke="black" stroke-width="3"/>
+  <path d="M180 110 A45 45 0 0 1 219 87" fill="none" stroke="#dc2626" stroke-width="3"/>
+  <text x="213" y="84" font-size="16" fill="#dc2626">60°</text>
+</svg>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="220" viewBox="0 0 360 220">
+  <rect width="360" height="220" fill="white"/>
+  <path d="M50 180 A130 130 0 0 1 310 180" fill="#f8fafc" stroke="black" stroke-width="3"/>
+  <line x1="180" y1="180" x2="300" y2="180" stroke="black" stroke-width="4"/>
+  <line x1="180" y1="180" x2="240" y2="76" stroke="black" stroke-width="4"/>
+  <text x="225" y="92" font-size="15" fill="#2563eb">60° correct</text>
+  <text x="112" y="96" font-size="15" fill="#dc2626">120° wrong scale</text>
+</svg>

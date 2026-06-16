@@ -1,0 +1,1451 @@
+{
+  "topic_code": "MATH-ALGEBRA-VARIABLES",
+  "topic_name": "Variables and Expressions",
+  "questions": [
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "In the expression `5x + 3`, which symbol is the variable?",
+      "explanation": "The variable is the symbol that can take different values, so `x` is the variable. The number `5` is a coefficient and `3` is a constant. A common misconception is to call the whole term `5x` the variable, but only the letter changes from one value to another.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "5",
+          "is_correct": false
+        },
+        {
+          "option_text": "x",
+          "is_correct": true
+        },
+        {
+          "option_text": "3",
+          "is_correct": false
+        },
+        {
+          "option_text": "+",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "category": "conceptual",
+        "skill": "identify a variable in an algebraic expression",
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "How should `n + 7` be read?",
+      "explanation": "`n + 7` means a number increased by 7, so it is read as “n plus seven.” A common misconception is to read it as “seven n,” which would describe multiplication, not addition.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "seven n",
+          "is_correct": false
+        },
+        {
+          "option_text": "n plus seven",
+          "is_correct": true
+        },
+        {
+          "option_text": "n times seven",
+          "is_correct": false
+        },
+        {
+          "option_text": "seven minus n",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "category": "conceptual",
+        "skill": "read an algebraic expression in words",
+        "archetype": "reading_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which expression represents “8 more than p”?",
+      "explanation": "“More than” tells us to add, so “8 more than p” becomes `p + 8`. A common misconception is to write `8 - p`, which changes the meaning completely from increase to difference.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "8p",
+          "is_correct": false
+        },
+        {
+          "option_text": "8 - p",
+          "is_correct": false
+        },
+        {
+          "option_text": "p + 8",
+          "is_correct": true
+        },
+        {
+          "option_text": "p - 8",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "category": "conceptual",
+        "skill": "convert words into an algebraic expression",
+        "archetype": "simple_conversion",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which of the following is an algebraic expression?",
+      "explanation": "An algebraic expression contains numbers, variables, and operations without an equality sign. `4y - 9` is an expression. A common misconception is to think only very long forms count as expressions, but even a short variable-based form is an expression.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "12",
+          "is_correct": false
+        },
+        {
+          "option_text": "4y - 9",
+          "is_correct": true
+        },
+        {
+          "option_text": ">",
+          "is_correct": false
+        },
+        {
+          "option_text": "7 = 7",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "category": "conceptual",
+        "skill": "distinguish between term and operation symbol",
+        "archetype": "symbol_or_form_identification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "true_false",
+      "difficulty_level": "foundation",
+      "question_text": "In the expression `a + 11`, the number 11 is a constant.",
+      "explanation": "A constant is a fixed number whose value does not change, so 11 is a constant here. A common misconception is to think every symbol in an expression can vary, but only the variable letter can change.",
+      "default_marks": "1.00",
+      "negative_marks": "0.00",
+      "options": [
+        {
+          "option_text": "True",
+          "is_correct": true
+        },
+        {
+          "option_text": "False",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "category": "conceptual",
+        "skill": "identify constants in expressions",
+        "archetype": "true_false_concept",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "How many terms are there in the expression `3m + 4 - 2n`?",
+      "explanation": "Terms are separated by `+` or `-`, so the terms are `3m`, `4`, and `-2n`. That makes 3 terms. A common misconception is to ignore the negative term and count only positive-looking pieces.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "2",
+          "is_correct": false
+        },
+        {
+          "option_text": "3",
+          "is_correct": true
+        },
+        {
+          "option_text": "4",
+          "is_correct": false
+        },
+        {
+          "option_text": "5",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "category": "conceptual",
+        "skill": "classify expressions by number of terms",
+        "archetype": "basic_classification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "foundation",
+      "question_text": "Write an algebraic expression for “twice a number t”.",
+      "explanation": "“Twice” means multiply by 2, so the expression is `2t`. A common misconception is to write `t + 2`, but that means “2 more than t,” not “twice t.”",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "category": "conceptual",
+        "skill": "write an expression from a phrase",
+        "archetype": "numeral_writing",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "2t",
+          "2*t"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "What is the coefficient of `x` in `9x - 4`?",
+      "explanation": "The coefficient is the number multiplied by the variable, so the coefficient of `x` is 9. A common misconception is to say the coefficient is `9x`, but that includes the variable itself.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "9",
+          "is_correct": true
+        },
+        {
+          "option_text": "x",
+          "is_correct": false
+        },
+        {
+          "option_text": "-4",
+          "is_correct": false
+        },
+        {
+          "option_text": "94",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "category": "conceptual",
+        "skill": "identify coefficient of a variable",
+        "archetype": "place_value_inference",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which of these means “7 multiplied by y”?",
+      "explanation": "In algebra, `7y` means 7 times y. A common misconception is to think multiplication must always use the `x` sign, but writing the number next to the variable is the standard algebraic form.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "7 + y",
+          "is_correct": false
+        },
+        {
+          "option_text": "7 - y",
+          "is_correct": false
+        },
+        {
+          "option_text": "7y",
+          "is_correct": true
+        },
+        {
+          "option_text": "y7+",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "category": "conceptual",
+        "skill": "distinguish multiplication notation in algebra",
+        "archetype": "symbol_or_form_identification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which pair contains like terms?",
+      "explanation": "Like terms have the same variable part. `5a` and `-2a` both contain the variable `a`, so they are like terms. A common misconception is to look only at the numbers and ignore whether the variable part matches.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "3x and 3y",
+          "is_correct": false
+        },
+        {
+          "option_text": "5a and -2a",
+          "is_correct": true
+        },
+        {
+          "option_text": "7 and 7b",
+          "is_correct": false
+        },
+        {
+          "option_text": "m and n",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "category": "conceptual",
+        "skill": "identify like and unlike terms",
+        "archetype": "basic_classification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Ira buys a notebook for `n` rupees and a pen for 12 rupees. Which expression shows the total cost?",
+      "explanation": "The total is found by adding the notebook cost and the fixed pen cost, so the expression is `n + 12`. A common misconception is to write `12n`, but that would mean 12 notebooks, not one notebook and one pen.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "n + 12",
+          "is_correct": true
+        },
+        {
+          "option_text": "12n",
+          "is_correct": false
+        },
+        {
+          "option_text": "n - 12",
+          "is_correct": false
+        },
+        {
+          "option_text": "12 - n",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "category": "real_life",
+        "skill": "model a one-step real-life situation with a variable",
+        "archetype": "representation_selection",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "A square garden has side length `s` metres. Which expression gives its perimeter?",
+      "explanation": "Perimeter of a square is 4 times one side, so the expression is `4s`. A common misconception is to use `s + 4`, but that adds 4 instead of taking four equal sides.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "s + 4",
+          "is_correct": false
+        },
+        {
+          "option_text": "4s",
+          "is_correct": true
+        },
+        {
+          "option_text": "s/4",
+          "is_correct": false
+        },
+        {
+          "option_text": "s - 4",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "category": "real_life",
+        "skill": "express perimeter of a repeated pattern",
+        "archetype": "words_to_figures",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "A cab charges 50 rupees as a booking fee and 14 rupees per kilometre. Which expression gives the fare for `k` kilometres?",
+      "explanation": "The total fare is the fixed booking fee plus the per-kilometre charge, so it is `50 + 14k`. A common misconception is to write `50k + 14`, which wrongly multiplies the fixed fee by the number of kilometres.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "50k + 14",
+          "is_correct": false
+        },
+        {
+          "option_text": "50 + 14k",
+          "is_correct": true
+        },
+        {
+          "option_text": "14 + k",
+          "is_correct": false
+        },
+        {
+          "option_text": "64k",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "category": "real_life",
+        "skill": "form an expression for repeated travel cost",
+        "archetype": "compare_and_choose",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "intermediate",
+      "question_text": "The marked price of a bag is `p` rupees and the discount is 150 rupees. Write an expression for the sale price.",
+      "explanation": "Sale price means the marked price after subtracting the discount, so the expression is `p - 150`. A common misconception is to add 150 because the question mentions two amounts, but discount reduces the price.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "category": "real_life",
+        "skill": "model a discount situation",
+        "archetype": "numeral_writing",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "p - 150",
+          "p-150"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Rahul says his age after 6 years can be written as `r + 6`. What does `r` represent?",
+      "explanation": "If `r + 6` means Rahul's age after 6 years, then `r` must be his present age. A common misconception is to think `r` stands for the future age, but the extra `+ 6` already accounts for the passage of time.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Rahul's present age",
+          "is_correct": true
+        },
+        {
+          "option_text": "Rahul's age 6 years ago",
+          "is_correct": false
+        },
+        {
+          "option_text": "Rahul's age after 6 years",
+          "is_correct": false
+        },
+        {
+          "option_text": "Rahul's brother's age",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "category": "real_life",
+        "skill": "interpret an expression in context",
+        "archetype": "case_based_interpretation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_multiple",
+      "difficulty_level": "intermediate",
+      "question_text": "Which of the following expressions correctly represent the given situations? Select all that apply.",
+      "explanation": "“Three more than x” is `x + 3`, and “double of m” is `2m`. “Seven less than p” should be `p - 7`, not `7 - p`, and “total of q and 9” is `q + 9`, not `9q`. A common misconception is to reverse subtraction phrases or turn every phrase into multiplication.",
+      "default_marks": "2.00",
+      "negative_marks": "0.50",
+      "options": [
+        {
+          "option_text": "Three more than x -> x + 3",
+          "is_correct": true
+        },
+        {
+          "option_text": "Double of m -> 2m",
+          "is_correct": true
+        },
+        {
+          "option_text": "Seven less than p -> 7 - p",
+          "is_correct": false
+        },
+        {
+          "option_text": "Total of q and 9 -> 9q",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "category": "real_life",
+        "skill": "select multiple correct real-life algebra models",
+        "archetype": "multi_select_truth_evaluation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "true_false",
+      "difficulty_level": "intermediate",
+      "question_text": "If one movie ticket costs `t` rupees, then the cost of 4 tickets is `t + 4`.",
+      "explanation": "The cost of 4 identical tickets is found by multiplying by 4, so the expression should be `4t`, not `t + 4`. A common misconception is to add 4 because there are 4 tickets, but repeated equal cost is multiplication.",
+      "default_marks": "1.00",
+      "negative_marks": "0.00",
+      "options": [
+        {
+          "option_text": "True",
+          "is_correct": false
+        },
+        {
+          "option_text": "False",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "category": "real_life",
+        "skill": "identify a valid daily-life expression",
+        "archetype": "true_false_concept",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Meera already has 300 rupees and saves `d` rupees every week for 5 weeks. Which expression shows the total money she will have?",
+      "explanation": "She starts with 300 and adds `d` rupees five times, so the total is `300 + 5d`. A common misconception is to write `5(300 + d)`, which incorrectly repeats the initial 300 every week.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "5(300 + d)",
+          "is_correct": false
+        },
+        {
+          "option_text": "300d + 5",
+          "is_correct": false
+        },
+        {
+          "option_text": "300 + 5d",
+          "is_correct": true
+        },
+        {
+          "option_text": "305d",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "category": "real_life",
+        "skill": "form an expression for savings after repeated deposits",
+        "archetype": "representation_selection",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "intermediate",
+      "question_text": "A rectangular floor has length `l` metres and width 8 metres. Write an expression for its area.",
+      "explanation": "Area of a rectangle is length multiplied by width, so the expression is `8l`. A common misconception is to write `l + 8`, which gives a sum, not area.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "category": "real_life",
+        "skill": "write an area expression in context",
+        "archetype": "short_answer_reasoning",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "8l",
+          "8*l"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "A snack stall packs `b` biscuits in each box. If the owner fills 9 boxes, which expression gives the total number of biscuits packed?",
+      "explanation": "Nine boxes with `b` biscuits each means repeated addition of `b` nine times, which is `9b`. A common misconception is to write `b + 9`, but that adds a count of boxes to a count of biscuits.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "b + 9",
+          "is_correct": false
+        },
+        {
+          "option_text": "9b",
+          "is_correct": true
+        },
+        {
+          "option_text": "9 + b + b",
+          "is_correct": false
+        },
+        {
+          "option_text": "b/9",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "category": "real_life",
+        "skill": "interpret a table rule as an expression",
+        "archetype": "data_interpretation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "If `x = 4`, what is the value of `3x + 2`?",
+      "explanation": "Substitute 4 for x: `3(4) + 2 = 12 + 2 = 14`. A common misconception is to join the digits and read `3x` as 34, which is not how substitution works.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "12",
+          "is_correct": false
+        },
+        {
+          "option_text": "14",
+          "is_correct": true
+        },
+        {
+          "option_text": "18",
+          "is_correct": false
+        },
+        {
+          "option_text": "42",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "category": "logic_based",
+        "skill": "substitute a value into a one-step expression",
+        "archetype": "compare_and_choose",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "For `a = 5`, which is greater: `2a + 1` or `a + 7`?",
+      "explanation": "`2a + 1 = 2(5) + 1 = 11`, and `a + 7 = 5 + 7 = 12`. So `a + 7` is greater. A common misconception is to assume the expression with multiplication is always larger without checking the substituted value.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "2a + 1",
+          "is_correct": false
+        },
+        {
+          "option_text": "a + 7",
+          "is_correct": true
+        },
+        {
+          "option_text": "Both are equal",
+          "is_correct": false
+        },
+        {
+          "option_text": "Cannot be decided",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "category": "logic_based",
+        "skill": "compare values of two expressions after substitution",
+        "archetype": "ordering_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "intermediate",
+      "question_text": "Find the value of `2p + q` when `p = 3` and `q = 5`.",
+      "explanation": "Substitute carefully: `2(3) + 5 = 6 + 5 = 11`. A common misconception is to multiply all the numbers together and get 30, but only the coefficient 2 multiplies p here.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "category": "logic_based",
+        "skill": "evaluate a two-variable expression",
+        "archetype": "short_answer_reasoning",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "11"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "A pattern machine multiplies the input by 3 and then adds 2. Which expression shows the output for input `n`?",
+      "explanation": "First multiply `n` by 3, then add 2, giving `3n + 2`. A common misconception is to write `3(n + 2)`, which changes the order of operations and adds 2 before multiplying.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "3(n + 2)",
+          "is_correct": false
+        },
+        {
+          "option_text": "3n + 2",
+          "is_correct": true
+        },
+        {
+          "option_text": "n + 5",
+          "is_correct": false
+        },
+        {
+          "option_text": "2n + 3",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "category": "logic_based",
+        "skill": "choose expression from a function table pattern",
+        "archetype": "representation_selection",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_multiple",
+      "difficulty_level": "intermediate",
+      "question_text": "If `m = 2`, which statements are true? Select all that apply.",
+      "explanation": "`m + 4 = 6`, `3m = 6`, and `m^2 = 4`. But `m + m + 1 = 2 + 2 + 1 = 5`, not 6. A common misconception is to rush through repeated use of a variable and forget to substitute consistently each time.",
+      "default_marks": "2.00",
+      "negative_marks": "0.50",
+      "options": [
+        {
+          "option_text": "m + 4 = 6",
+          "is_correct": true
+        },
+        {
+          "option_text": "3m = 6",
+          "is_correct": true
+        },
+        {
+          "option_text": "m + m + 1 = 6",
+          "is_correct": false
+        },
+        {
+          "option_text": "m x m = 4",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "category": "logic_based",
+        "skill": "identify all true statements about substitution",
+        "archetype": "multi_select_truth_evaluation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "If `x + 5 = 12`, what is the value of `x`?",
+      "explanation": "To find x, subtract 5 from 12, so `x = 7`. A common misconception is to add 5 again because the expression shows addition, but solving means undoing that addition.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "5",
+          "is_correct": false
+        },
+        {
+          "option_text": "6",
+          "is_correct": false
+        },
+        {
+          "option_text": "7",
+          "is_correct": true
+        },
+        {
+          "option_text": "17",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "category": "logic_based",
+        "skill": "identify the input from output of a simple expression",
+        "archetype": "rule_application",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "true_false",
+      "difficulty_level": "intermediate",
+      "question_text": "When `y = 3`, the expressions `2y + 1` and `y + 4` have the same value.",
+      "explanation": "`2y + 1 = 2(3) + 1 = 7`, and `y + 4 = 3 + 4 = 7`, so they are equal for this value of y. A common misconception is to think two different-looking expressions can never produce the same value.",
+      "default_marks": "1.00",
+      "negative_marks": "0.00",
+      "options": [
+        {
+          "option_text": "True",
+          "is_correct": true
+        },
+        {
+          "option_text": "False",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "category": "logic_based",
+        "skill": "check equivalence of two expressions for a given value",
+        "archetype": "true_false_concept",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which value of `k` makes `k + 9 = 15` true?",
+      "explanation": "Subtract 9 from 15 to get `k = 6`. A common misconception is to choose 24 by adding 9 instead of reversing the operation.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "5",
+          "is_correct": false
+        },
+        {
+          "option_text": "6",
+          "is_correct": true
+        },
+        {
+          "option_text": "9",
+          "is_correct": false
+        },
+        {
+          "option_text": "24",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "category": "logic_based",
+        "skill": "select value that makes an expression true",
+        "archetype": "compare_and_choose",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "intermediate",
+      "question_text": "Evaluate `4(r - 1)` when `r = 6`.",
+      "explanation": "Substitute 6 for r: `4(6 - 1) = 4(5) = 20`. A common misconception is to multiply 4 by 6 first and then subtract 1, but the brackets must be handled first.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "category": "logic_based",
+        "skill": "evaluate nested operation expression",
+        "archetype": "short_answer_reasoning",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "20"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "A table shows input 1 -> output 4, input 2 -> output 7, input 3 -> output 10. Which expression fits the rule?",
+      "explanation": "The output increases by 3 each time and starts 3 more than the input times 3, so the rule is `3x + 1`. Checking: `3(1)+1=4`, `3(2)+1=7`, and `3(3)+1=10`. A common misconception is to choose `x + 3`, which matches only the first pair.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "x + 3",
+          "is_correct": false
+        },
+        {
+          "option_text": "3x + 1",
+          "is_correct": true
+        },
+        {
+          "option_text": "2x + 2",
+          "is_correct": false
+        },
+        {
+          "option_text": "x^2 + 3",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "category": "logic_based",
+        "skill": "infer the expression rule from input-output pairs",
+        "archetype": "data_interpretation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Sam wrote the expression for “5 less than x” as `5 - x`. What is the correct correction?",
+      "explanation": "“5 less than x” means start with x and subtract 5, so the correct expression is `x - 5`. A common misconception is to reverse the order because the phrase begins with 5, but “less than” reverses the spoken order.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "5x",
+          "is_correct": false
+        },
+        {
+          "option_text": "x - 5",
+          "is_correct": true
+        },
+        {
+          "option_text": "x + 5",
+          "is_correct": false
+        },
+        {
+          "option_text": "5 + x",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "category": "error_detection",
+        "skill": "detect reversal of phrase-to-expression translation",
+        "archetype": "error_detection",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Aisha calculated `3n` for `n = 4` as 34. What should the correct value be?",
+      "explanation": "`3n` means `3 x n`, so with `n = 4`, the value is `3 x 4 = 12`. A common misconception is to join 3 and 4 as digits and write 34, but algebraic multiplication is not place-value concatenation.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "7",
+          "is_correct": false
+        },
+        {
+          "option_text": "12",
+          "is_correct": true
+        },
+        {
+          "option_text": "34",
+          "is_correct": false
+        },
+        {
+          "option_text": "16",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "category": "error_detection",
+        "skill": "detect coefficient substitution error",
+        "archetype": "worked_step_analysis",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Karan says `2(a + 3)` and `2a + 3` always mean the same thing. What is wrong?",
+      "explanation": "`2(a + 3)` means multiply the entire bracket by 2, giving `2a + 6`, not `2a + 3`. A common misconception is to multiply only the variable and forget that the whole bracket is doubled.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Nothing is wrong; they are always equal",
+          "is_correct": false
+        },
+        {
+          "option_text": "The variable should be removed first",
+          "is_correct": false
+        },
+        {
+          "option_text": "The 2 must multiply both `a` and `3`",
+          "is_correct": true
+        },
+        {
+          "option_text": "Brackets are ignored in algebra",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "category": "error_detection",
+        "skill": "detect distributive thinking error in simple expression reading",
+        "archetype": "what_went_wrong",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Ritu says that in `11p`, the variable is 11 because it comes first. Which response is best?",
+      "explanation": "The variable is `p` because it is the symbol that can change, while 11 is the coefficient. A common misconception is to assume the first part of an expression is automatically the variable, but numbers act as fixed multipliers.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Ritu is correct because 11 is larger",
+          "is_correct": false
+        },
+        {
+          "option_text": "Ritu is correct only when p = 1",
+          "is_correct": false
+        },
+        {
+          "option_text": "Ritu is incorrect because p is the variable and 11 is the coefficient",
+          "is_correct": true
+        },
+        {
+          "option_text": "Ritu is incorrect because there is no variable in 11p",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "category": "error_detection",
+        "skill": "detect confusion between variable and its coefficient",
+        "archetype": "misconception_correction",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "advanced",
+      "question_text": "Dev evaluated `2x + 5` for `x = 3` as 25. Write the correct value.",
+      "explanation": "Substitute first: `2(3) + 5 = 6 + 5 = 11`. A common misconception is to place 3 next to 2 and 5 and read 25, but substitution must follow the operation structure of the expression.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "category": "error_detection",
+        "skill": "correct an incorrect evaluation",
+        "archetype": "short_answer_reasoning",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "11"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Aman simplified `7q - 2q` as `9q`. What should it be?",
+      "explanation": "Subtract the coefficients: `7q - 2q = 5q`. A common misconception is to add 7 and 2 just because both terms have q, but the minus sign tells us to subtract.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "9q",
+          "is_correct": false
+        },
+        {
+          "option_text": "5q",
+          "is_correct": true
+        },
+        {
+          "option_text": "14q",
+          "is_correct": false
+        },
+        {
+          "option_text": "5",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "category": "error_detection",
+        "skill": "detect sign error in simplification of like terms",
+        "archetype": "worked_step_analysis",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Why is the simplification `3x + 4y = 7xy` incorrect?",
+      "explanation": "`3x` and `4y` are unlike terms because they have different variable parts, so they cannot be added into one like term. A common misconception is to combine any terms with letters by multiplying the variables together, but that changes the expression completely.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Because 3 + 4 is not 7",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because x and y should both become 1",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because unlike terms cannot be combined into a single term",
+          "is_correct": true
+        },
+        {
+          "option_text": "Because every expression must have a bracket",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "category": "error_detection",
+        "skill": "detect incorrect like-term grouping",
+        "archetype": "what_went_wrong",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which expression is wrongly matched with its phrase?",
+      "explanation": "“Twice a number decreased by 3” should be `2x - 3`, not `2(x - 3)` unless the phrase says “twice the quantity of a number decreased by 3.” A common misconception is to insert brackets where the phrase does not ask for them.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "8 more than y -> y + 8",
+          "is_correct": false
+        },
+        {
+          "option_text": "4 times n -> 4n",
+          "is_correct": false
+        },
+        {
+          "option_text": "Twice a number decreased by 3 -> 2(x - 3)",
+          "is_correct": true
+        },
+        {
+          "option_text": "10 less than p -> p - 10",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "category": "error_detection",
+        "skill": "detect wrong expression from phrase order",
+        "archetype": "error_detection",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "At a school fair, each game token costs `t` rupees and Kavya buys 6 tokens plus one entry pass worth 40 rupees. Which expression gives her total spending?",
+      "explanation": "Kavya spends on 6 equal tokens and one fixed pass, so the total is `6t + 40`. A common misconception is to write `40t + 6`, which wrongly makes the pass depend on the token price.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "40t + 6",
+          "is_correct": false
+        },
+        {
+          "option_text": "6t + 40",
+          "is_correct": true
+        },
+        {
+          "option_text": "6(t + 40)",
+          "is_correct": false
+        },
+        {
+          "option_text": "t + 46",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "category": "case_based",
+        "skill": "interpret a token system with variable totals",
+        "archetype": "case_based_interpretation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Naman's reading club charges `3b + 20` rupees for `b` books, while Zoya's club charges `2b + 35` rupees. If `b = 5`, which club is cheaper?",
+      "explanation": "For Naman's club, `3(5) + 20 = 35`. For Zoya's club, `2(5) + 35 = 45`. So Naman's club is cheaper by 10 rupees. A common misconception is to compare the expressions only by looking at 3 and 2 without using the given value of b.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Naman's club",
+          "is_correct": true
+        },
+        {
+          "option_text": "Zoya's club",
+          "is_correct": false
+        },
+        {
+          "option_text": "Both cost the same",
+          "is_correct": false
+        },
+        {
+          "option_text": "Cannot be decided",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "category": "case_based",
+        "skill": "compare two algebraic pricing plans",
+        "archetype": "case_based_interpretation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "advanced",
+      "question_text": "An electric bus charges a fixed fee of 30 rupees and `4d` rupees for `d` kilometres. Find the fare when `d = 9`.",
+      "explanation": "The fare expression is `30 + 4d`. Substituting `d = 9` gives `30 + 36 = 66`. A common misconception is to multiply 30 and 4, but the fixed fee is added, not multiplied by the distance.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "category": "case_based",
+        "skill": "derive and evaluate an expression from a transport story",
+        "archetype": "short_answer_reasoning",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "66"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_multiple",
+      "difficulty_level": "advanced",
+      "question_text": "A florist uses the expression `12r + 5` for the cost of `r` red roses and a greeting card. Which statements are correct? Select all that apply.",
+      "explanation": "The coefficient 12 means each rose costs 12 rupees, and the constant 5 is the fixed card cost. If `r = 2`, then the total is 29 rupees. A common misconception is to think 5 is also multiplied by r, but the constant stays fixed.",
+      "default_marks": "2.00",
+      "negative_marks": "0.50",
+      "options": [
+        {
+          "option_text": "One red rose costs 12 rupees",
+          "is_correct": true
+        },
+        {
+          "option_text": "The greeting card costs 5 rupees",
+          "is_correct": true
+        },
+        {
+          "option_text": "The total cost for 2 roses is 24 rupees",
+          "is_correct": false
+        },
+        {
+          "option_text": "The total cost for 2 roses is 29 rupees",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "category": "case_based",
+        "skill": "analyse multiple correct conclusions from a context expression",
+        "archetype": "multi_select_truth_evaluation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "In a quiz league, each correct answer gives `c` points and each bonus star gives 10 points. If Arjun gets 8 correct answers and 3 bonus stars, which expression gives his score?",
+      "explanation": "The score combines 8 lots of `c` points and 3 bonus stars worth 10 each, so the expression is `8c + 30`. A common misconception is to write `8(c + 10)`, which incorrectly gives each correct answer the bonus-star points too.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "8(c + 10)",
+          "is_correct": false
+        },
+        {
+          "option_text": "8c + 30",
+          "is_correct": true
+        },
+        {
+          "option_text": "30c + 8",
+          "is_correct": false
+        },
+        {
+          "option_text": "11c",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "category": "case_based",
+        "skill": "choose the correct expression from a sports scoring context",
+        "archetype": "case_based_interpretation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "true_false",
+      "difficulty_level": "advanced",
+      "question_text": "If a canteen bill is `2p + 15`, then doubling `p` will always double the whole bill.",
+      "explanation": "Doubling p doubles only the variable part `2p`, but the fixed charge 15 stays unchanged. So the whole bill does not necessarily double. A common misconception is to think every part of an expression changes when the variable changes.",
+      "default_marks": "1.00",
+      "negative_marks": "0.00",
+      "options": [
+        {
+          "option_text": "True",
+          "is_correct": false
+        },
+        {
+          "option_text": "False",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "category": "case_based",
+        "skill": "judge a contextual equality claim",
+        "archetype": "true_false_concept",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "advanced",
+      "question_text": "A librarian arranges `s` story books and 14 science books on a shelf. If `s = 18`, how many books are there in total?",
+      "explanation": "The total is `s + 14`. Substituting `s = 18` gives `18 + 14 = 32`. A common misconception is to multiply 18 and 14 even though the question is about combining two groups.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "category": "case_based",
+        "skill": "build a context expression and evaluate it",
+        "archetype": "short_answer_reasoning",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "32"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "If `x = 9`, which is larger: `x + x + x` or `2x + 8`?",
+      "explanation": "`x + x + x = 3x = 27` when `x = 9`, and `2x + 8 = 18 + 8 = 26`. So `x + x + x` is larger. A common misconception is to assume the expression with more symbols is larger without evaluating both carefully.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "x + x + x",
+          "is_correct": true
+        },
+        {
+          "option_text": "2x + 8",
+          "is_correct": false
+        },
+        {
+          "option_text": "Both are equal",
+          "is_correct": false
+        },
+        {
+          "option_text": "Cannot be compared",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "category": "olympiad_style",
+        "skill": "compare expressions without full expansion by substitution",
+        "archetype": "comparison_justification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_multiple",
+      "difficulty_level": "advanced",
+      "question_text": "For which values of `n` does `2n + 1` become an odd number? Select all correct statements.",
+      "explanation": "For every whole-number value of n, `2n` is even, and adding 1 makes it odd. So the expression is always odd for whole numbers. A common misconception is to check only one example and assume the rule may change later.",
+      "default_marks": "2.00",
+      "negative_marks": "0.50",
+      "options": [
+        {
+          "option_text": "It is odd when n = 1",
+          "is_correct": true
+        },
+        {
+          "option_text": "It is odd when n = 4",
+          "is_correct": true
+        },
+        {
+          "option_text": "It is odd for every whole-number value of n",
+          "is_correct": true
+        },
+        {
+          "option_text": "It is even when n = 3",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "category": "olympiad_style",
+        "skill": "identify all values satisfying a simple expression condition",
+        "archetype": "multi_select_truth_evaluation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "advanced",
+      "question_text": "Find the value of `a` if `3a - 2 = 19`.",
+      "explanation": "Add 2 to both sides to get `3a = 21`, then divide by 3 to get `a = 7`. A common misconception is to divide first and ignore the subtraction, but inverse operations must be undone in the correct order.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "category": "olympiad_style",
+        "skill": "reverse-think from expression value to variable",
+        "archetype": "short_answer_reasoning",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "7"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which statement must be false?",
+      "explanation": "If `p = 2`, then `p + p + p = 6`, so that can be true. If `q = 5`, then `q - 5 = 0`, so that can be true. But `r + 1 = r` is impossible for ordinary numbers because adding 1 changes the value. A common misconception is to think a variable can “absorb” 1 without changing.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "p + p + p = 6 for p = 2",
+          "is_correct": false
+        },
+        {
+          "option_text": "q - 5 = 0 for q = 5",
+          "is_correct": false
+        },
+        {
+          "option_text": "r + 1 = r for some ordinary number r",
+          "is_correct": true
+        },
+        {
+          "option_text": "2s = 10 for s = 5",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "category": "olympiad_style",
+        "skill": "reject impossible algebraic interpretation",
+        "archetype": "elimination_based_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which statement best explains why `4(x + 2)` is not the same as `4x + 2`?",
+      "explanation": "In `4(x + 2)`, the 4 multiplies both x and 2, giving `4x + 8`. In `4x + 2`, only x is multiplied by 4. A common misconception is to think the bracket does not matter, but brackets control the operations inside them.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Because x cannot be multiplied by 4",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because 4(x + 2) always means 4x + 2",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because the 4 multiplies the whole bracket, not just x",
+          "is_correct": true
+        },
+        {
+          "option_text": "Because 2 cannot be added in algebra",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "category": "olympiad_style",
+        "skill": "reason about expression equivalence",
+        "archetype": "best_explanation",
+        "source_pack": "class7_curated_v2"
+      }
+    }
+  ]
+}

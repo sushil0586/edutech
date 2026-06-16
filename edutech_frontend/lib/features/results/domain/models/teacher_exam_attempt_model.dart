@@ -18,6 +18,9 @@ class TeacherExamAttemptModel {
     required this.percentage,
     required this.timeTakenSeconds,
     required this.isAutoSubmitted,
+    required this.canForceSubmit,
+    required this.forceSubmitBlockReason,
+    required this.alerts,
   });
 
   final String id;
@@ -38,6 +41,19 @@ class TeacherExamAttemptModel {
   final String percentage;
   final int? timeTakenSeconds;
   final bool isAutoSubmitted;
+  final bool canForceSubmit;
+  final String? forceSubmitBlockReason;
+  final List<AttemptMonitorAlertModel> alerts;
+
+  bool get hasActiveAlerts => alerts.isNotEmpty;
+  bool get hasHighPriorityAlert => alerts.any((alert) => alert.priority >= 3);
+  bool get hasMediumPriorityAlert => alerts.any((alert) => alert.priority == 2);
+  int get highestAlertPriority => alerts.fold(
+    0,
+    (highest, alert) => alert.priority > highest ? alert.priority : highest,
+  );
+
+  bool hasAlertCode(String code) => alerts.any((alert) => alert.code == code);
 
   factory TeacherExamAttemptModel.fromJson(Map<String, dynamic> json) {
     return TeacherExamAttemptModel(
@@ -59,6 +75,45 @@ class TeacherExamAttemptModel {
       percentage: (json['percentage'] ?? '0').toString(),
       timeTakenSeconds: _readNullableInt(json['time_taken_seconds']),
       isAutoSubmitted: json['is_auto_submitted'] as bool? ?? false,
+      canForceSubmit: json['can_force_submit'] as bool? ?? false,
+      forceSubmitBlockReason:
+          json['force_submit_block_reason']?.toString().trim().isEmpty ?? true
+          ? null
+          : json['force_submit_block_reason']?.toString(),
+      alerts: (json['alerts'] as List<dynamic>? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(AttemptMonitorAlertModel.fromJson)
+          .toList(),
+    );
+  }
+}
+
+class AttemptMonitorAlertModel {
+  const AttemptMonitorAlertModel({
+    required this.code,
+    required this.label,
+    required this.severity,
+    required this.message,
+  });
+
+  final String code;
+  final String label;
+  final String severity;
+  final String message;
+
+  int get priority => switch (severity) {
+    'high' => 3,
+    'medium' => 2,
+    'low' => 1,
+    _ => 0,
+  };
+
+  factory AttemptMonitorAlertModel.fromJson(Map<String, dynamic> json) {
+    return AttemptMonitorAlertModel(
+      code: (json['code'] ?? '').toString(),
+      label: (json['label'] ?? 'Alert').toString(),
+      severity: (json['severity'] ?? 'medium').toString(),
+      message: (json['message'] ?? '').toString(),
     );
   }
 }

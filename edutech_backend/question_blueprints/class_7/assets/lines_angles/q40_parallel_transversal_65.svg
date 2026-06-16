@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="340" height="220" viewBox="0 0 340 220">
+  <rect width="340" height="220" fill="white"/>
+  <line x1="50" y1="70" x2="290" y2="70" stroke="black" stroke-width="4"/>
+  <line x1="50" y1="150" x2="290" y2="150" stroke="black" stroke-width="4"/>
+  <line x1="100" y1="190" x2="230" y2="30" stroke="black" stroke-width="4"/>
+  <path d="M198 70 A28 28 0 0 0 180 47" fill="none" stroke="#dc2626" stroke-width="3"/>
+  <path d="M198 70 A28 28 0 0 1 221 88" fill="none" stroke="#2563eb" stroke-width="3"/>
+  <text x="171" y="45" font-size="15" fill="#dc2626">65°</text>
+  <text x="225" y="93" font-size="15" fill="#2563eb">?</text>
+  <text x="295" y="74" font-size="16">p</text>
+  <text x="295" y="154" font-size="16">q</text>
+  <text x="233" y="28" font-size="16">r</text>
+</svg>

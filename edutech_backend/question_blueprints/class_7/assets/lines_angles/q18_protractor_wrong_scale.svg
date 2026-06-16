@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="340" height="220" viewBox="0 0 340 220">
+  <rect width="340" height="220" fill="white"/>
+  <path d="M40 180 A130 130 0 0 1 300 180" fill="#f8fafc" stroke="black" stroke-width="3"/>
+  <line x1="170" y1="180" x2="290" y2="180" stroke="black" stroke-width="4"/>
+  <line x1="170" y1="180" x2="247" y2="88" stroke="black" stroke-width="4"/>
+  <path d="M210 180 A40 40 0 0 0 196 149" fill="none" stroke="#16a34a" stroke-width="3"/>
+  <text x="198" y="145" font-size="15" fill="#16a34a">50°</text>
+  <text x="233" y="122" font-size="15" fill="#dc2626">130°</text>
+  <text x="70" y="173" font-size="14">0</text>
+  <text x="280" y="173" font-size="14">180</text>
+</svg>

@@ -10,7 +10,7 @@ from apps.attempts.services import save_answer, start_attempt, submit_attempt
 from apps.exams.models import ExamSection
 from apps.exams.services import mark_exam_completed, publish_exam, sync_total_marks_from_questions
 from apps.results.services import generate_result_from_attempt, publish_exam_results
-from apps.question_bank.models import QuestionType
+from apps.question_bank.models import Question, QuestionType
 from common.tests.builders import AcademicAssessmentBuilder
 
 
@@ -94,6 +94,79 @@ class AttemptWorkspaceApiTestCase(TestCase):
         self.assertIn("options", question_payload)
         self.assertNotIn("is_correct", question_payload["options"][0])
 
+    def test_attempt_detail_includes_security_policy_and_integrity_summary(self):
+        self.exam.security_mode = "fullscreen"
+        self.exam.save(update_fields=["security_mode", "updated_at"])
+        attempt = self._start_attempt()
+
+        response = self.client.get(f"/api/v1/attempts/{attempt.id}/detail/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["security_mode"], "fullscreen")
+        self.assertEqual(response.data["security_policy"]["mode"], "fullscreen")
+        self.assertTrue(response.data["security_policy"]["requires_fullscreen"])
+        self.assertEqual(response.data["integrity_summary"]["violation_count"], 0)
+        self.assertFalse(response.data["integrity_summary"]["threshold_reached"])
+
+    def test_attempt_start_applies_accommodation_snapshot_and_extra_time(self):
+        self.context["student"].accommodation_profile = {
+            "extra_time_minutes": 15,
+            "simplified_warning_copy": True,
+            "alternative_instructions": "Take a moment to read each question twice.",
+        }
+        self.context["student"].save(update_fields=["accommodation_profile", "updated_at"])
+
+        attempt = self._start_attempt()
+        snapshot = attempt.metadata.get("accommodation_snapshot", {})
+
+        self.assertTrue(snapshot["has_accommodations"])
+        self.assertEqual(snapshot["applied_extra_time_minutes"], 15)
+        self.assertTrue(snapshot["simplified_warning_copy"])
+        self.assertEqual(
+            snapshot["alternative_instructions"],
+            "Take a moment to read each question twice.",
+        )
+        expected_minutes = self.exam.duration_minutes + 15
+        actual_minutes = int((attempt.expires_at - attempt.started_at).total_seconds() / 60)
+        self.assertEqual(actual_minutes, expected_minutes)
+
+    def test_attempt_detail_includes_accommodation_snapshot_and_simplified_copy(self):
+        self.exam.security_mode = "proctored"
+        self.exam.save(update_fields=["security_mode", "updated_at"])
+        self.context["student"].accommodation_profile = {
+            "extra_time_minutes": 10,
+            "simplified_warning_copy": True,
+            "notes": "Allow additional reading time.",
+        }
+        self.context["student"].save(update_fields=["accommodation_profile", "updated_at"])
+        attempt = self._start_attempt()
+
+        response = self.client.get(f"/api/v1/attempts/{attempt.id}/detail/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["accommodation_snapshot"]["has_accommodations"])
+        self.assertEqual(response.data["accommodation_snapshot"]["applied_extra_time_minutes"], 10)
+        self.assertTrue(response.data["accommodation_snapshot"]["simplified_warning_copy"])
+        self.assertIn("ask for help", response.data["security_policy"]["student_warning_copy"])
+
+    def test_attempt_detail_includes_adjusted_violation_limit_from_accommodation(self):
+        self.exam.security_mode = "violation_limited"
+        self.exam.save(update_fields=["security_mode", "updated_at"])
+        self.context["student"].accommodation_profile = {
+            "additional_violation_allowance": 1,
+        }
+        self.context["student"].save(update_fields=["accommodation_profile", "updated_at"])
+        attempt = self._start_attempt()
+
+        response = self.client.get(f"/api/v1/attempts/{attempt.id}/detail/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["security_policy"]["violation_limit"], 4)
+        self.assertEqual(
+            response.data["accommodation_snapshot"]["additional_violation_allowance"],
+            1,
+        )
+
     def test_attempt_start_creates_delivery_snapshot(self):
         self.exam.randomize_questions = True
         self.exam.randomize_options = True
@@ -125,6 +198,58 @@ class AttemptWorkspaceApiTestCase(TestCase):
         attempt.refresh_from_db()
         saved_answer = attempt.answers.get(question=self.context["question"])
         self.assertTrue(saved_answer.is_marked_for_review)
+
+    def test_integrity_event_endpoint_auto_submits_after_violation_threshold(self):
+        self.exam.security_mode = "violation_limited"
+        self.exam.save(update_fields=["security_mode", "updated_at"])
+        attempt = self._start_attempt()
+        base_time = timezone.now()
+
+        for offset in [0, 10, 20]:
+            response = self.client.post(
+                f"/api/v1/attempts/{attempt.id}/integrity-event/",
+                {
+                    "event_type": "fullscreen_exited",
+                    "event_at": (base_time + timedelta(seconds=offset)).isoformat(),
+                    "metadata": {"source": "test"},
+                },
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["data"]["auto_submitted"])
+        self.assertEqual(response.data["data"]["attempt_status"], "auto_submitted")
+        self.assertEqual(response.data["data"]["integrity_summary"]["violation_count"], 3)
+        attempt.refresh_from_db()
+        self.assertEqual(attempt.status, "auto_submitted")
+
+    def test_integrity_event_threshold_respects_accommodation_allowance(self):
+        self.exam.security_mode = "violation_limited"
+        self.exam.save(update_fields=["security_mode", "updated_at"])
+        self.context["student"].accommodation_profile = {
+            "additional_violation_allowance": 1,
+        }
+        self.context["student"].save(update_fields=["accommodation_profile", "updated_at"])
+        attempt = self._start_attempt()
+        base_time = timezone.now()
+
+        for offset in [0, 10, 20]:
+            response = self.client.post(
+                f"/api/v1/attempts/{attempt.id}/integrity-event/",
+                {
+                    "event_type": "fullscreen_exited",
+                    "event_at": (base_time + timedelta(seconds=offset)).isoformat(),
+                    "metadata": {"source": "test"},
+                },
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.data["data"]["auto_submitted"])
+        self.assertEqual(response.data["data"]["integrity_summary"]["violation_count"], 3)
+        self.assertEqual(response.data["data"]["integrity_summary"]["violation_limit"], 4)
+        attempt.refresh_from_db()
+        self.assertEqual(attempt.status, "in_progress")
 
     def test_save_answer_supports_clear_response(self):
         attempt = self._start_attempt()
@@ -233,6 +358,103 @@ class AttemptWorkspaceApiTestCase(TestCase):
             [str(multi_options[0].id), str(multi_options[1].id)],
         )
         self.assertTrue(saved_answer.is_correct)
+
+    def test_save_answer_supports_short_answer_questions(self):
+        short_question = Question.objects.create(
+            institute=self.context["institute"],
+            program=self.context["program"],
+            subject=self.context["subject"],
+            topic=self.context["topic"],
+            created_by_teacher=self.context["teacher"],
+            question_type=QuestionType.SHORT_ANSWER,
+            difficulty_level="foundation",
+            question_text="What is 3 + 4?",
+            explanation="3 + 4 = 7.",
+            default_marks=Decimal("2.00"),
+            negative_marks=Decimal("0.00"),
+            is_verified=True,
+            is_active=True,
+            metadata={"accepted_answers": ["7"]},
+        )
+        self.builder.create_exam_question(
+            exam=self.exam,
+            question=short_question,
+            question_order=2,
+            section_name="Section A",
+        )
+
+        attempt = self._start_attempt()
+        response = self.client.post(
+            f"/api/v1/attempts/{attempt.id}/save-answer/",
+            {
+                "question": str(short_question.id),
+                "answer_text": "7",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = self._action_data(response)
+        self.assertEqual(payload["answer_text"], "7")
+        attempt.refresh_from_db()
+        saved_answer = attempt.answers.get(question=short_question)
+        self.assertEqual(saved_answer.answer_text, "7")
+        self.assertTrue(saved_answer.is_correct)
+
+    def test_review_marks_short_answer_correct_when_answer_key_matches(self):
+        short_question = Question.objects.create(
+            institute=self.context["institute"],
+            program=self.context["program"],
+            subject=self.context["subject"],
+            topic=self.context["topic"],
+            created_by_teacher=self.context["teacher"],
+            question_type=QuestionType.SHORT_ANSWER,
+            difficulty_level="foundation",
+            question_text="What is the square root of 81?",
+            explanation="The principal square root of 81 is 9.",
+            default_marks=Decimal("2.00"),
+            negative_marks=Decimal("0.00"),
+            is_verified=True,
+            is_active=True,
+            metadata={"accepted_answers": ["9"]},
+        )
+        self.builder.create_exam_question(
+            exam=self.exam,
+            question=short_question,
+            question_order=2,
+            section_name="Section A",
+        )
+        self.exam.allow_review_after_submit = True
+        self.exam.show_result_immediately = True
+        self.exam.review_mode = "solution_review"
+        self.exam.save(
+            update_fields=[
+                "allow_review_after_submit",
+                "show_result_immediately",
+                "review_mode",
+                "updated_at",
+            ]
+        )
+
+        attempt = self._start_attempt()
+        save_answer(
+            attempt=attempt,
+            question=short_question,
+            answer_text="9",
+        )
+        submit_attempt(attempt)
+
+        response = self.client.get(f"/api/v1/attempts/{attempt.id}/review/")
+        self.assertEqual(response.status_code, 200)
+        question_payload = next(
+            item
+            for item in response.data["review_questions"]
+            if str(item["question_id"]) == str(short_question.id)
+        )
+        self.assertEqual(question_payload["answer_text"], "9")
+        self.assertEqual(question_payload["result_status"], "correct")
+        self.assertEqual(question_payload["accepted_answers"], ["9"])
+        self.assertEqual(question_payload["explanation"], "The principal square root of 81 is 9.")
 
     def test_cannot_save_after_submitted(self):
         attempt = self._start_attempt()

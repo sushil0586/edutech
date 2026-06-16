@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="220" viewBox="0 0 360 220">
+  <rect width="360" height="220" fill="white"/>
+  <line x1="70" y1="170" x2="270" y2="170" stroke="black" stroke-width="4"/>
+  <path d="M70 170 A110 110 0 0 1 178 63" fill="none" stroke="#2563eb" stroke-width="3"/>
+  <path d="M270 170 A100 100 0 0 0 178 63" fill="none" stroke="#16a34a" stroke-width="3" stroke-dasharray="6 4"/>
+  <circle cx="178" cy="63" r="4" fill="#dc2626"/>
+  <text x="62" y="188" font-size="18">A</text>
+  <text x="272" y="188" font-size="18">B</text>
+  <text x="181" y="60" font-size="18">C</text>
+  <text x="110" y="107" font-size="14">6 cm from A</text>
+  <text x="208" y="107" font-size="14">7 cm from B</text>
+</svg>

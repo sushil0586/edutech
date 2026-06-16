@@ -5,33 +5,41 @@
 This guide covers pilot deployment readiness for:
 
 - `edutech_backend`
-- `edutech_frontend`
+- `edutech_web`
 
 It does not include ERP-style module rollout.
+
+## Current Deployment Posture
+
+The active web frontend for the current product is `edutech_web`, the Next.js application.
+
+The older Flutter frontend may still exist in the repository for reference, but it is not the primary web deployment target for the current pilot-hardening phase.
 
 ## Recommended Shared-EC2 Topology
 
 Since you already have another project on the same EC2 machine, the safest setup is:
 
 - keep your existing project unchanged
-- deploy Nexora Learn into its own folder, database, virtualenv, and systemd service
+- deploy Nexora Learn into its own folder, database, virtualenv, and systemd services
 - use a separate `server_name` in Nginx such as `learn.yourdomain.com`
-- serve Flutter web statically from Nginx
-- reverse proxy `/api/` and `/admin/` to Django on a private localhost port
+- run Django and Next.js on private localhost ports
+- reverse proxy public traffic through Nginx
 
 Recommended layout:
 
 ```text
 /var/www/nexora-learn/
   edutech_backend/
-  edutech_frontend/
+  edutech_web/
+  deployment/
 ```
 
-Recommended backend bind:
+Recommended private runtime ports:
 
-- `127.0.0.1:8010`
+- backend: `127.0.0.1:8010`
+- web: `127.0.0.1:3001`
 
-This avoids port collisions with the other project and keeps public traffic on the existing Nginx entrypoint.
+This avoids collisions with other apps on the machine and keeps public traffic on the Nginx entrypoint.
 
 ## Backend Environment
 
@@ -91,32 +99,43 @@ Expected response includes:
 
 ## Frontend Environment
 
-Production web config lives in [edutech_frontend/env/prod.json](/Users/ansh/Documents/Eductech/edutech_frontend/env/prod.json:1).
+The Next.js app reads:
 
-For a same-host deployment, set:
+- `API_BASE_URL`
+- `NEXT_PUBLIC_API_BASE_URL`
 
-```json
-{
-  "API_BASE_URL": "https://learn.yourdomain.com/api/v1"
-}
+Local development already uses [edutech_web/.env.local](/Users/ansh/Documents/Eductech/edutech_web/.env.local:1).
+
+For production, create:
+
+- `edutech_web/.env.production`
+
+Recommended same-host values:
+
+```env
+API_BASE_URL=https://learn.yourdomain.com
+NEXT_PUBLIC_API_BASE_URL=https://learn.yourdomain.com
 ```
 
-Update `API_BASE_URL` before rollout.
+Important:
+
+- Do not append `/api/v1` to `API_BASE_URL` or `NEXT_PUBLIC_API_BASE_URL`.
+- The web app already requests paths like `/api/v1/auth/login/`.
+- If you include `/api/v1` in the base URL, requests will become invalid, for example `/api/v1/api/v1/auth/login/`.
 
 ## Frontend Pre-Deploy Commands
 
-Run from `edutech_frontend/`:
+Run from `edutech_web/`:
 
 ```bash
-flutter analyze
-flutter test
-flutter build web --release --dart-define-from-file=env/prod.json
+npm install
+npm run build
 ```
 
-Optional Android build when the Android SDK is available:
+Optional local production verification:
 
 ```bash
-flutter build apk --release --dart-define-from-file=env/prod.json
+npm run start
 ```
 
 ## Shared EC2 Deployment Steps
@@ -141,7 +160,7 @@ cp .env.production.example .env.production
 
 Then edit `.env.production` with the real database and domain values.
 
-Prepare the database:
+Prepare the backend:
 
 ```bash
 cd /var/www/nexora-learn/edutech_backend
@@ -151,12 +170,26 @@ export DJANGO_SETTINGS_MODULE=config.settings.prod
 ./manage.py collectstatic --noinput
 ```
 
-Build the frontend:
+Prepare the Next.js web app:
 
 ```bash
-cd /var/www/nexora-learn/edutech_frontend
-flutter pub get
-flutter build web --release --dart-define-from-file=env/prod.json
+cd /var/www/nexora-learn/edutech_web
+npm install
+cp .env.example .env.production
+npm run build
+```
+
+Then update `.env.production` with real production values before starting the service.
+
+Recommended `edutech_web/.env.production`:
+
+```env
+API_BASE_URL=https://learn.yourdomain.com
+NEXT_PUBLIC_API_BASE_URL=https://learn.yourdomain.com
+PUBLIC_IP_GEO_ENDPOINT=
+PUBLIC_IP_GEO_AUTH_HEADER=
+PUBLIC_IP_GEO_AUTH_VALUE=
+PUBLIC_IP_GEO_FIELD_MAP_JSON=
 ```
 
 ## Nginx And systemd
@@ -164,16 +197,21 @@ flutter build web --release --dart-define-from-file=env/prod.json
 Sample deployment files are included here:
 
 - [deployment/nexora-learn-backend.service](/Users/ansh/Documents/Eductech/deployment/nexora-learn-backend.service:1)
+- [deployment/nexora-learn-web.service](/Users/ansh/Documents/Eductech/deployment/nexora-learn-web.service:1)
 - [deployment/nexora-learn.nginx.conf](/Users/ansh/Documents/Eductech/deployment/nexora-learn.nginx.conf:1)
 
 Suggested install flow on EC2:
 
 ```bash
 sudo cp /var/www/nexora-learn/deployment/nexora-learn-backend.service /etc/systemd/system/
+sudo cp /var/www/nexora-learn/deployment/nexora-learn-web.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable nexora-learn-backend
+sudo systemctl enable nexora-learn-web
 sudo systemctl start nexora-learn-backend
+sudo systemctl start nexora-learn-web
 sudo systemctl status nexora-learn-backend
+sudo systemctl status nexora-learn-web
 
 sudo cp /var/www/nexora-learn/deployment/nexora-learn.nginx.conf /etc/nginx/sites-available/nexora-learn
 sudo ln -s /etc/nginx/sites-available/nexora-learn /etc/nginx/sites-enabled/nexora-learn
@@ -193,6 +231,7 @@ To avoid breaking the existing app on the same EC2:
 
 - do not reuse its systemd service
 - do not reuse its Gunicorn port
+- do not reuse its web app port
 - do not reuse its database
 - do not replace its Nginx server block
 - add a new `server_name` instead of changing the old one
@@ -203,12 +242,14 @@ To avoid breaking the existing app on the same EC2:
 After deployment:
 
 1. Open `https://learn.yourdomain.com`.
-2. Confirm the web app loads.
+2. Confirm the Next.js web app loads.
 3. Check `https://learn.yourdomain.com/api/v1/health/`.
 4. Sign in as an admin.
 5. Create one teacher login and one student login.
 6. Confirm both users can sign in.
 7. Verify `/admin/` loads only for authorized users.
+8. Log in as a teacher and open `/teacher/dashboard`.
+9. Log in as a student and open `/app/dashboard`.
 
 ## Credential Management
 
@@ -245,8 +286,9 @@ When creating or resetting a password:
 1. Prepare production backend environment variables.
 2. Run backend checks, tests, and `collectstatic`.
 3. Apply migrations.
-4. Build the frontend web release with `env/prod.json`.
-5. Deploy backend and frontend.
-6. Verify `/api/v1/health/`.
-7. Create pilot teacher/student logins for the first institute admins and staff.
-8. Perform a live sign-in smoke test for one admin, one teacher, and one student.
+4. Prepare `edutech_web/.env.production`.
+5. Build the Next.js web release with `npm run build`.
+6. Deploy backend and web services.
+7. Verify `/api/v1/health/`.
+8. Create pilot teacher and student logins for the first institute admins and staff.
+9. Perform a live sign-in smoke test for one admin, one teacher, and one student.

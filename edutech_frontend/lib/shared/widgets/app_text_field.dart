@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:education_frontend/shared/theme/app_colors.dart';
-import 'package:education_frontend/shared/theme/app_radius.dart';
 
 class AppTextField extends StatelessWidget {
   const AppTextField({
@@ -18,6 +17,10 @@ class AppTextField extends StatelessWidget {
     this.prefixIcon,
     this.suffixIcon,
     this.onChanged,
+    this.helperText,
+    this.required = false,
+    this.minLines,
+    this.expands = false,
   });
 
   final TextEditingController? controller;
@@ -33,38 +36,43 @@ class AppTextField extends StatelessWidget {
   final Widget? prefixIcon;
   final Widget? suffixIcon;
   final ValueChanged<String>? onChanged;
+  final String? helperText;
+  final bool required;
+  final int? minLines;
+  final bool expands;
 
   @override
   Widget build(BuildContext context) {
+    final labelText = label == null
+        ? null
+        : required
+        ? '$label *'
+        : label;
     return TextFormField(
       controller: controller,
       obscureText: obscureText,
       keyboardType: keyboardType,
       maxLines: maxLines,
+      minLines: expands ? null : minLines,
+      expands: expands,
       enabled: enabled,
       textInputAction: textInputAction,
       onFieldSubmitted: onFieldSubmitted,
       onChanged: onChanged,
       validator: validator,
       decoration: InputDecoration(
-        labelText: label,
+        labelText: labelText,
         hintText: hint,
+        helperText: helperText,
         prefixIcon: prefixIcon,
         suffixIcon: suffixIcon,
         filled: true,
-        fillColor: enabled ? AppColors.surface : AppColors.surfaceStrong,
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-          borderSide: const BorderSide(color: AppColors.border),
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-          borderSide: const BorderSide(color: AppColors.border),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-          borderSide: const BorderSide(color: AppColors.accent, width: 1.5),
-        ),
+        fillColor: enabled
+            ? AppColors.surface
+            : AppColors.surfaceStrong.withValues(alpha: 0.9),
+      ),
+      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+        color: enabled ? AppColors.textPrimary : AppColors.textSecondary,
       ),
     );
   }

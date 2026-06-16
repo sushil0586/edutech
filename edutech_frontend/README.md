@@ -83,7 +83,7 @@ Recommended demo flow after backend seed data is ready:
 The seeded credentials are:
 
 - `demo-platform-admin` / `Demo@12345`
-- `demo-institute-admin` / `Demo@12345`
+- `   ` / `Demo@12345`
 - `demo-teacher` / `Demo@12345`
 - `demo-student` / `Demo@12345`
 - `demo-parent` / `Demo@12345`

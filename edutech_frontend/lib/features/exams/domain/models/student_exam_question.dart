@@ -5,6 +5,9 @@ class StudentExamQuestion {
   const StudentExamQuestion({
     required this.id,
     required this.questionId,
+    required this.sectionId,
+    required this.sectionTitle,
+    required this.sectionOrder,
     required this.questionText,
     required this.questionTextSummary,
     required this.contentFormat,
@@ -21,6 +24,9 @@ class StudentExamQuestion {
 
   final String id;
   final String questionId;
+  final String? sectionId;
+  final String? sectionTitle;
+  final int? sectionOrder;
   final String questionText;
   final String questionTextSummary;
   final String contentFormat;
@@ -35,7 +41,11 @@ class StudentExamQuestion {
   final List<RichAttachmentModel> attachments;
 
   bool get supportsChoiceOptions =>
-      questionType == 'mcq_single' || questionType == 'true_false';
+      questionType == 'mcq_single' ||
+      questionType == 'mcq_multiple' ||
+      questionType == 'true_false';
+
+  bool get supportsMultiSelect => questionType == 'mcq_multiple';
 
   factory StudentExamQuestion.fromJson(Map<String, dynamic> json) {
     final options =
@@ -54,6 +64,9 @@ class StudentExamQuestion {
     return StudentExamQuestion(
       id: (json['id'] ?? '').toString(),
       questionId: (json['question'] ?? '').toString(),
+      sectionId: json['section']?.toString(),
+      sectionTitle: json['section_title']?.toString(),
+      sectionOrder: _readNullableInt(json['section_order']),
       questionText: json['question_text'] as String? ?? '',
       questionTextSummary: json['question_text_summary'] as String? ?? '',
       contentFormat: (json['content_format'] ?? 'markdown_latex').toString(),
@@ -68,4 +81,14 @@ class StudentExamQuestion {
       attachments: attachments,
     );
   }
+}
+
+int? _readNullableInt(dynamic value) {
+  if (value == null) {
+    return null;
+  }
+  if (value is int) {
+    return value;
+  }
+  return int.tryParse(value.toString());
 }

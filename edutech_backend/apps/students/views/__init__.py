@@ -8,6 +8,7 @@ from rest_framework.decorators import action
 from rest_framework.viewsets import ModelViewSet
 
 from apps.accounts.permissions import IsPlatformOrInstituteAdmin
+from apps.accounts.permissions import IsTeacherOrInstituteAdmin
 from apps.accounts.permissions import CanManageStudents
 from apps.accounts.scopes import scope_institute_queryset, scope_teacher_queryset
 from apps.accounts.services import (
@@ -56,6 +57,8 @@ class StudentProfileViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
         return scope_teacher_queryset(queryset, self.request.user)
 
     def get_permissions(self):
+        if self.action in {"list", "retrieve"}:
+            return [IsAuthenticated(), IsTeacherOrInstituteAdmin()]
         if self.action in {"import_template", "preview_import", "finalize_import"}:
             return [IsAuthenticated(), IsPlatformOrInstituteAdmin()]
         return super().get_permissions()

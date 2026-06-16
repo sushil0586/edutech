@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="220" viewBox="0 0 360 220">
+  <rect width="360" height="220" fill="white"/>
+  <line x1="70" y1="150" x2="290" y2="150" stroke="black" stroke-width="4"/>
+  <path d="M70 150 A120 120 0 0 1 180 55" fill="none" stroke="#16a34a" stroke-width="3"/>
+  <path d="M290 150 A120 120 0 0 0 180 55" fill="none" stroke="#16a34a" stroke-width="3"/>
+  <path d="M70 150 A40 40 0 0 1 110 120" fill="none" stroke="#dc2626" stroke-width="3"/>
+  <path d="M290 150 A40 40 0 0 0 250 120" fill="none" stroke="#dc2626" stroke-width="3"/>
+  <text x="150" y="48" font-size="14" fill="#16a34a">good radius: arcs meet</text>
+  <text x="110" y="112" font-size="14" fill="#dc2626">small radius</text>
+</svg>

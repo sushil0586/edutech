@@ -32,11 +32,13 @@ class DashboardShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
-    final isDesktop = width >= 1100;
+    final isDesktop = width >= 1200;
+    final isLaptop = width >= 960 && width < 1200;
+    final compactMobile = width < 600;
     final items = _navigationItemsForRole(user.role);
     final selectedIndex = _selectedIndex(items, currentRoute);
 
-    if (isDesktop) {
+    if (isDesktop || isLaptop) {
       return Scaffold(
         backgroundColor: AppColors.background,
         body: Row(
@@ -46,6 +48,7 @@ class DashboardShell extends StatelessWidget {
               items: items,
               currentRoute: currentRoute,
               onLogout: onLogout,
+              compact: isLaptop,
             ),
             Expanded(
               child: Column(
@@ -63,11 +66,38 @@ class DashboardShell extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.surface.withValues(alpha: 0.92),
-        title: Text(title),
-        actions: const [
-          NotificationBellButton(),
-          SizedBox(width: AppSpacing.xs),
+        backgroundColor: AppColors.surface.withValues(alpha: 0.94),
+        titleSpacing: compactMobile ? AppSpacing.sm : null,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+            if (compactMobile)
+              Text(
+                user.instituteLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+          ],
+        ),
+        actions: [
+          if (!compactMobile)
+            Padding(
+              padding: const EdgeInsets.only(right: AppSpacing.xs),
+              child: Center(
+                child: AppBadge(
+                  label: user.role.label,
+                  backgroundColor: AppColors.surfaceMuted,
+                  foregroundColor: AppColors.secondary,
+                ),
+              ),
+            ),
+          const NotificationBellButton(),
+          const SizedBox(width: AppSpacing.xs),
         ],
       ),
       drawer: Drawer(
@@ -77,10 +107,10 @@ class DashboardShell extends StatelessWidget {
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(
+                padding: EdgeInsets.fromLTRB(
+                  compactMobile ? AppSpacing.md : AppSpacing.lg,
                   AppSpacing.lg,
-                  AppSpacing.lg,
-                  AppSpacing.lg,
+                  compactMobile ? AppSpacing.md : AppSpacing.lg,
                   AppSpacing.md,
                 ),
                 child: _CompactUserPanel(user: user),
@@ -124,7 +154,7 @@ class DashboardShell extends StatelessWidget {
         ),
       ),
       body: _ShellBody(child: body),
-      bottomNavigationBar: items.length > 1
+      bottomNavigationBar: items.length > 1 && items.length <= 4
           ? NavigationBar(
               selectedIndex: selectedIndex,
               onDestinationSelected: (index) => context.go(items[index].route),
@@ -189,6 +219,18 @@ class DashboardShell extends StatelessWidget {
           ),
         ];
       case AppRole.platformAdmin:
+        return const [
+          _DashboardNavItem(
+            label: 'Dashboard',
+            icon: Icons.dashboard_outlined,
+            route: AppRoutes.dashboard,
+          ),
+          _DashboardNavItem(
+            label: 'Academic Setup',
+            icon: Icons.account_tree_outlined,
+            route: AppRoutes.academicSetup,
+          ),
+        ];
       case AppRole.instituteAdmin:
         return const [
           _DashboardNavItem(
@@ -200,6 +242,21 @@ class DashboardShell extends StatelessWidget {
             label: 'Academic Setup',
             icon: Icons.account_tree_outlined,
             route: AppRoutes.academicSetup,
+          ),
+          _DashboardNavItem(
+            label: 'Question Bank',
+            icon: Icons.library_books_outlined,
+            route: AppRoutes.questionBank,
+          ),
+          _DashboardNavItem(
+            label: 'Exams',
+            icon: Icons.fact_check_outlined,
+            route: AppRoutes.exams,
+          ),
+          _DashboardNavItem(
+            label: 'Results',
+            icon: Icons.analytics_outlined,
+            route: AppRoutes.results,
           ),
         ];
       case AppRole.parent:
@@ -220,61 +277,99 @@ class _Sidebar extends StatelessWidget {
     required this.items,
     required this.currentRoute,
     required this.onLogout,
+    this.compact = false,
   });
 
   final AppUser user;
   final List<_DashboardNavItem> items;
   final String currentRoute;
   final VoidCallback onLogout;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 292,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [AppColors.sidebarStart, AppColors.sidebarEnd],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
-        border: Border(right: BorderSide(color: AppColors.sidebarBorder)),
+      width: compact ? 92 : 272,
+      decoration: BoxDecoration(
+        color: AppColors.sidebar,
+        border: const Border(right: BorderSide(color: AppColors.sidebarBorder)),
       ),
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.lg,
-            AppSpacing.xl,
-            AppSpacing.lg,
-            AppSpacing.lg,
-          ),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const _BrandBlock(),
-              const SizedBox(height: AppSpacing.xl),
-              Text(
-                'Workspace',
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: AppColors.sidebarMuted,
-                  letterSpacing: 0.3,
+              _BrandBlock(compact: compact),
+              const SizedBox(height: AppSpacing.lg),
+              if (!compact) ...[
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.03),
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.06),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(AppRadius.sm),
+                        ),
+                        child: const Icon(
+                          Icons.auto_graph_rounded,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Workspace',
+                              style: Theme.of(context).textTheme.labelMedium
+                                  ?.copyWith(color: AppColors.sidebarMuted),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Exam intelligence hub',
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
+                const SizedBox(height: AppSpacing.md),
+              ],
               Expanded(
                 child: ListView.separated(
+                  padding: EdgeInsets.zero,
                   itemBuilder: (context, index) {
                     final item = items[index];
                     return _SidebarItem(
                       item: item,
                       selected: item.route == currentRoute,
+                      compact: compact,
                     );
                   },
                   separatorBuilder: (_, _) => const SizedBox(height: 6),
                   itemCount: items.length,
                 ),
               ),
-              const SizedBox(height: AppSpacing.lg),
-              _SidebarFooter(user: user, onLogout: onLogout),
+              const SizedBox(height: AppSpacing.md),
+              _SidebarFooter(user: user, onLogout: onLogout, compact: compact),
             ],
           ),
         ),
@@ -284,100 +379,111 @@ class _Sidebar extends StatelessWidget {
 }
 
 class _BrandBlock extends StatelessWidget {
-  const _BrandBlock();
+  const _BrandBlock({this.compact = false});
+
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     return Row(
+      mainAxisAlignment: compact
+          ? MainAxisAlignment.center
+          : MainAxisAlignment.start,
       children: [
         Container(
-          width: 44,
-          height: 44,
+          width: 40,
+          height: 40,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.12),
+            color: AppColors.primary,
             borderRadius: BorderRadius.circular(AppRadius.md),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
           ),
-          child: const Icon(Icons.school_rounded, color: Colors.white),
-        ),
-        const SizedBox(width: AppSpacing.md),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                AppBranding.shortName,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                AppBranding.tagline,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.sidebarMuted,
-                ),
-              ),
-            ],
+          child: const Icon(
+            Icons.layers_rounded,
+            color: Colors.white,
+            size: 20,
           ),
         ),
+        if (!compact) ...[
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  AppBranding.shortName,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  AppBranding.tagline,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.sidebarMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }
 }
 
 class _SidebarItem extends StatelessWidget {
-  const _SidebarItem({required this.item, required this.selected});
+  const _SidebarItem({
+    required this.item,
+    required this.selected,
+    this.compact = false,
+  });
 
   final _DashboardNavItem item;
   final bool selected;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: () => context.go(item.route),
-      borderRadius: BorderRadius.circular(AppRadius.md),
+      borderRadius: BorderRadius.circular(AppRadius.sm),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOut,
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md,
-          vertical: AppSpacing.sm,
+          vertical: 12,
         ),
         decoration: BoxDecoration(
-          color: selected
-              ? Colors.white.withValues(alpha: 0.14)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                    color: AppColors.sidebarGlow,
-                    blurRadius: 24,
-                    spreadRadius: -10,
-                    offset: const Offset(0, 10),
-                  ),
-                ]
-              : const [],
+          color: selected ? AppColors.sidebarActive : Colors.transparent,
+          borderRadius: BorderRadius.circular(AppRadius.sm),
+          border: Border.all(
+            color: selected ? AppColors.sidebarActive : Colors.transparent,
+          ),
         ),
         child: Row(
+          mainAxisAlignment: compact
+              ? MainAxisAlignment.center
+              : MainAxisAlignment.start,
           children: [
             Icon(
               item.icon,
-              size: 20,
+              size: 19,
               color: selected ? Colors.white : AppColors.sidebarMuted,
             ),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: Text(
-                item.label,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: selected ? Colors.white : AppColors.sidebarText,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+            if (!compact) ...[
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  item.label,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: selected ? Colors.white : AppColors.sidebarText,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  ),
                 ),
               ),
-            ),
+            ],
           ],
         ),
       ),
@@ -386,34 +492,32 @@ class _SidebarItem extends StatelessWidget {
 }
 
 class _SidebarFooter extends StatelessWidget {
-  const _SidebarFooter({required this.user, required this.onLogout});
+  const _SidebarFooter({
+    required this.user,
+    required this.onLogout,
+    this.compact = false,
+  });
 
   final AppUser user;
   final VoidCallback onLogout;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Colors.white.withValues(alpha: 0.12),
-            Colors.white.withValues(alpha: 0.08),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 22,
+          if (compact)
+            Center(
+              child: CircleAvatar(
+                radius: 20,
                 backgroundColor: Colors.white,
                 child: Text(
                   user.displayName.isEmpty
@@ -425,45 +529,64 @@ class _SidebarFooter extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      user.displayName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
+            )
+          else
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 20,
+                  backgroundColor: Colors.white,
+                  child: Text(
+                    user.displayName.isEmpty
+                        ? '?'
+                        : user.displayName[0].toUpperCase(),
+                    style: const TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      user.instituteLabel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.sidebarMuted,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-          AppBadge(
-            label: user.role.label,
-            backgroundColor: Colors.white.withValues(alpha: 0.12),
-            foregroundColor: Colors.white,
-          ),
-          const SizedBox(height: AppSpacing.md),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        user.displayName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        user.instituteLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.sidebarMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          const SizedBox(height: AppSpacing.sm),
+          if (!compact)
+            AppBadge(
+              label: user.role.label,
+              backgroundColor: Colors.white.withValues(alpha: 0.12),
+              foregroundColor: Colors.white,
+            ),
+          const SizedBox(height: AppSpacing.sm),
           SizedBox(
             width: double.infinity,
             child: AppButton(
-              label: 'Log out',
+              label: compact ? 'Logout' : 'Log out',
               onPressed: onLogout,
               icon: Icons.logout_rounded,
               variant: AppButtonVariant.ghost,
@@ -489,73 +612,91 @@ class _TopHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final searchPlaceholder = _searchPlaceholderForTitle(title);
+    final greeting = _greetingForNow();
+    final firstName = user.displayName.trim().split(' ').first;
+    final width = MediaQuery.sizeOf(context).width;
+    final compactDesktop = width < 1380;
+    final wrapHeader = width < 1260;
+    final searchControl = _SearchControl(
+      placeholder: searchPlaceholder,
+      compact: width < 720,
+      width: wrapHeader
+          ? (width < 720 ? width - 40 : 320)
+          : (compactDesktop ? 280 : 340),
+    );
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppColors.glass.withValues(alpha: 0.86),
+        color: AppColors.surface,
         border: const Border(bottom: BorderSide(color: AppColors.border)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.05),
-            blurRadius: 24,
-            spreadRadius: -10,
-            offset: const Offset(0, 8),
-          ),
-        ],
       ),
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.xxl,
-            AppSpacing.lg,
-            AppSpacing.xxl,
-            AppSpacing.lg,
+          padding: EdgeInsets.fromLTRB(
+            wrapHeader ? 20 : 32,
+            20,
+            wrapHeader ? 20 : 32,
+            20,
           ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
+          child: wrapHeader
+              ? Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Nexora Learn / $title',
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: AppColors.textMuted,
-                      ),
+                    _HeaderTitleBlock(
+                      title: title,
+                      greeting: greeting,
+                      firstName: firstName,
+                      subtitle: _subtitleForTitle(title),
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      title,
-                      style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'A calm workspace for focused teaching, learning, and assessment.',
-                      style: Theme.of(context).textTheme.bodySmall,
+                    const SizedBox(height: AppSpacing.md),
+                    Wrap(
+                      spacing: AppSpacing.sm,
+                      runSpacing: AppSpacing.sm,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        searchControl,
+                        _ContextChip(
+                          label: user.instituteLabel,
+                          compact: compactDesktop,
+                        ),
+                        const NotificationBellButton(),
+                        const _HeaderIconButton(
+                          icon: Icons.help_outline_rounded,
+                        ),
+                        const _HeaderIconButton(icon: Icons.tune_rounded),
+                        _HeaderUserChip(user: user, onLogout: onLogout),
+                      ],
                     ),
                   ],
+                )
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: _HeaderTitleBlock(
+                        title: title,
+                        greeting: greeting,
+                        firstName: firstName,
+                        subtitle: _subtitleForTitle(title),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.lg),
+                    searchControl,
+                    const SizedBox(width: AppSpacing.md),
+                    _ContextChip(
+                      label: user.instituteLabel,
+                      compact: compactDesktop,
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    const NotificationBellButton(),
+                    const SizedBox(width: AppSpacing.xs),
+                    const _HeaderIconButton(icon: Icons.help_outline_rounded),
+                    const SizedBox(width: AppSpacing.xs),
+                    const _HeaderIconButton(icon: Icons.tune_rounded),
+                    const SizedBox(width: AppSpacing.md),
+                    _HeaderUserChip(user: user, onLogout: onLogout),
+                  ],
                 ),
-              ),
-              const SizedBox(width: AppSpacing.xl),
-              SizedBox(
-                width: 320,
-                child: AppTextField(
-                  enabled: false,
-                  hint: searchPlaceholder,
-                  prefixIcon: const Icon(Icons.search_rounded),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              const NotificationBellButton(),
-              const SizedBox(width: AppSpacing.xs),
-              const _HeaderIconButton(icon: Icons.help_outline_rounded),
-              const SizedBox(width: AppSpacing.xs),
-              const _HeaderIconButton(icon: Icons.tune_rounded),
-              const SizedBox(width: AppSpacing.md),
-              _HeaderUserChip(user: user, onLogout: onLogout),
-            ],
-          ),
         ),
       ),
     );
@@ -570,6 +711,171 @@ class _TopHeader extends StatelessWidget {
       _ => 'Search your workspace',
     };
   }
+
+  String _subtitleForTitle(String title) {
+    return switch (title) {
+      'Question Bank' =>
+        'Curate cleaner questions, metadata, and reusable assessment assets.',
+      'Exams' =>
+        'Manage paper structure, schedules, and submissions from one clear workspace.',
+      'Results' =>
+        'Track performance, trends, and weak areas with better clarity.',
+      'Academic Setup' =>
+        'Configure institute structure, cohorts, and permissions with confidence.',
+      _ => 'Your exam intelligence overview for today.',
+    };
+  }
+
+  String _greetingForNow() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) {
+      return 'Good morning';
+    }
+    if (hour < 17) {
+      return 'Good afternoon';
+    }
+    return 'Good evening';
+  }
+}
+
+class _SearchControl extends StatelessWidget {
+  const _SearchControl({
+    required this.placeholder,
+    required this.width,
+    this.compact = false,
+  });
+
+  final String placeholder;
+  final double width;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      child: SizedBox(
+        height: 48,
+        child: AppTextField(
+          enabled: false,
+          hint: placeholder,
+          prefixIcon: const Icon(Icons.search_rounded, size: 20),
+          suffixIcon: compact
+              ? null
+              : Padding(
+                  padding: const EdgeInsets.only(right: AppSpacing.sm),
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.sm,
+                        vertical: AppSpacing.xs,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceStrong,
+                        borderRadius: BorderRadius.circular(AppRadius.xs),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Text(
+                        'Ctrl K',
+                        style: Theme.of(context).textTheme.labelMedium,
+                      ),
+                    ),
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HeaderTitleBlock extends StatelessWidget {
+  const _HeaderTitleBlock({
+    required this.title,
+    required this.greeting,
+    required this.firstName,
+    required this.subtitle,
+  });
+
+  final String title;
+  final String greeting;
+  final String firstName;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Workspace / $title',
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: AppColors.textMuted,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          '$greeting, $firstName',
+          style: Theme.of(
+            context,
+          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          subtitle,
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
+        ),
+      ],
+    );
+  }
+}
+
+class _ContextChip extends StatelessWidget {
+  const _ContextChip({required this.label, this.compact = false});
+
+  final String label;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.corporate_fare_outlined,
+            size: 18,
+            color: AppColors.secondary,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: compact ? 140 : 220),
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(
+                context,
+              ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: AppColors.textSecondary,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _HeaderIconButton extends StatelessWidget {
@@ -580,14 +886,16 @@ class _HeaderIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      width: 44,
+      height: 44,
       decoration: BoxDecoration(
-        color: AppColors.surfaceMuted,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: AppColors.border.withValues(alpha: 0.8)),
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.button),
+        border: Border.all(color: AppColors.border),
       ),
       child: IconButton(
         onPressed: () {},
-        icon: Icon(icon, size: 20),
+        icon: Icon(icon, size: 18),
         color: AppColors.textSecondary,
         tooltip: 'Workspace action',
       ),
@@ -616,13 +924,11 @@ class _HeaderUserChip extends StatelessWidget {
         PopupMenuItem(value: 'logout', child: Text('Log out')),
       ],
       child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.sm,
-          vertical: AppSpacing.xs,
-        ),
+        height: 44,
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
         decoration: BoxDecoration(
           color: AppColors.surface,
-          borderRadius: BorderRadius.circular(AppRadius.pill),
+          borderRadius: BorderRadius.circular(AppRadius.button),
           border: Border.all(color: AppColors.border),
         ),
         child: Row(
@@ -643,13 +949,16 @@ class _HeaderUserChip extends StatelessWidget {
             ),
             const SizedBox(width: AppSpacing.sm),
             Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   user.displayName,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
                 ),
                 Text(
                   user.role.label,
@@ -679,20 +988,18 @@ class _CompactUserPanel extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppColors.surface, AppColors.surfaceMuted],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(AppRadius.lg),
         border: Border.all(color: AppColors.border),
       ),
       child: Row(
         children: [
           CircleAvatar(
-            backgroundColor: AppColors.primary,
+            backgroundColor: AppColors.secondary,
             child: Text(
-              user.displayName.isEmpty ? '?' : user.displayName[0].toUpperCase(),
+              user.displayName.isEmpty
+                  ? '?'
+                  : user.displayName[0].toUpperCase(),
               style: const TextStyle(color: Colors.white),
             ),
           ),
@@ -709,7 +1016,10 @@ class _CompactUserPanel extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                Text(user.role.label, style: Theme.of(context).textTheme.bodySmall),
+                Text(
+                  user.role.label,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
               ],
             ),
           ),
@@ -736,7 +1046,7 @@ class _DrawerItem extends StatelessWidget {
       onTap: onTap,
       tileColor: selected ? AppColors.subtleAccent : null,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppRadius.md),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
       ),
       leading: Icon(
         item.icon,
@@ -760,14 +1070,8 @@ class _ShellBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [AppColors.background, AppColors.backgroundSoft],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
+    return ColoredBox(
+      color: AppColors.background,
       child: ResponsivePageContainer(child: child),
     );
   }

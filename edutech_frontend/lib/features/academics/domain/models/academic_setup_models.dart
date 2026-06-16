@@ -6,6 +6,94 @@ class SetupQuery {
   final String? instituteId;
 }
 
+class InstituteExamDefaultsModel {
+  const InstituteExamDefaultsModel({
+    this.durationMinutes,
+    this.instructions = '',
+    this.allowLateSubmit = false,
+    this.randomizeQuestions = false,
+    this.randomizeOptions = false,
+    this.showResultImmediately = false,
+    this.allowReviewAfterSubmit = true,
+    this.maxAttempts = 1,
+    this.timerMode = 'global',
+    this.navigationMode = 'free_exam',
+    this.attemptPolicy = 'single',
+    this.resultPublishMode = 'after_review',
+    this.reviewMode = 'attempted_only',
+    this.securityMode = 'normal',
+    this.allowResume = true,
+    this.allowSectionSwitching = true,
+    this.allowReturnToPreviousSection = true,
+  });
+
+  final int? durationMinutes;
+  final String instructions;
+  final bool allowLateSubmit;
+  final bool randomizeQuestions;
+  final bool randomizeOptions;
+  final bool showResultImmediately;
+  final bool allowReviewAfterSubmit;
+  final int maxAttempts;
+  final String timerMode;
+  final String navigationMode;
+  final String attemptPolicy;
+  final String resultPublishMode;
+  final String reviewMode;
+  final String securityMode;
+  final bool allowResume;
+  final bool allowSectionSwitching;
+  final bool allowReturnToPreviousSection;
+
+  factory InstituteExamDefaultsModel.fromJson(Map<String, dynamic>? json) {
+    final data = json ?? const <String, dynamic>{};
+    return InstituteExamDefaultsModel(
+      durationMinutes: _readNullableInt(data['duration_minutes']),
+      instructions: (data['instructions'] ?? '').toString(),
+      allowLateSubmit: data['allow_late_submit'] as bool? ?? false,
+      randomizeQuestions: data['randomize_questions'] as bool? ?? false,
+      randomizeOptions: data['randomize_options'] as bool? ?? false,
+      showResultImmediately: data['show_result_immediately'] as bool? ?? false,
+      allowReviewAfterSubmit:
+          data['allow_review_after_submit'] as bool? ?? true,
+      maxAttempts: _readInt(data['max_attempts'], fallback: 1),
+      timerMode: (data['timer_mode'] ?? 'global').toString(),
+      navigationMode: (data['navigation_mode'] ?? 'free_exam').toString(),
+      attemptPolicy: (data['attempt_policy'] ?? 'single').toString(),
+      resultPublishMode: (data['result_publish_mode'] ?? 'after_review')
+          .toString(),
+      reviewMode: (data['review_mode'] ?? 'attempted_only').toString(),
+      securityMode: (data['security_mode'] ?? 'normal').toString(),
+      allowResume: data['allow_resume'] as bool? ?? true,
+      allowSectionSwitching: data['allow_section_switching'] as bool? ?? true,
+      allowReturnToPreviousSection:
+          data['allow_return_to_previous_section'] as bool? ?? true,
+    );
+  }
+
+  Map<String, dynamic> toPayload() {
+    return {
+      if (durationMinutes != null) 'duration_minutes': durationMinutes,
+      'instructions': instructions,
+      'allow_late_submit': allowLateSubmit,
+      'randomize_questions': randomizeQuestions,
+      'randomize_options': randomizeOptions,
+      'show_result_immediately': showResultImmediately,
+      'allow_review_after_submit': allowReviewAfterSubmit,
+      'max_attempts': maxAttempts,
+      'timer_mode': timerMode,
+      'navigation_mode': navigationMode,
+      'attempt_policy': attemptPolicy,
+      'result_publish_mode': resultPublishMode,
+      'review_mode': reviewMode,
+      'security_mode': securityMode,
+      'allow_resume': allowResume,
+      'allow_section_switching': allowSectionSwitching,
+      'allow_return_to_previous_section': allowReturnToPreviousSection,
+    };
+  }
+}
+
 class InstituteAdminModel {
   const InstituteAdminModel({
     required this.id,
@@ -19,6 +107,7 @@ class InstituteAdminModel {
     required this.website,
     required this.description,
     required this.isActive,
+    required this.examDefaults,
   });
 
   final String id;
@@ -32,6 +121,7 @@ class InstituteAdminModel {
   final String website;
   final String description;
   final bool isActive;
+  final InstituteExamDefaultsModel examDefaults;
 
   factory InstituteAdminModel.fromJson(Map<String, dynamic> json) {
     return InstituteAdminModel(
@@ -46,8 +136,34 @@ class InstituteAdminModel {
       website: json['website'] as String? ?? '',
       description: json['description'] as String? ?? '',
       isActive: json['is_active'] as bool? ?? false,
+      examDefaults: InstituteExamDefaultsModel.fromJson(
+        json['exam_defaults'] as Map<String, dynamic>?,
+      ),
     );
   }
+}
+
+int _readInt(Object? value, {int fallback = 0}) {
+  if (value is int) {
+    return value;
+  }
+  if (value is String) {
+    return int.tryParse(value) ?? fallback;
+  }
+  return fallback;
+}
+
+int? _readNullableInt(Object? value) {
+  if (value == null) {
+    return null;
+  }
+  if (value is int) {
+    return value;
+  }
+  if (value is String) {
+    return int.tryParse(value);
+  }
+  return null;
 }
 
 class AcademicYearAdminModel {
@@ -432,9 +548,10 @@ class RosterImportPreview {
           .whereType<Map<String, dynamic>>()
           .map(RosterImportPreviewRow.fromJson)
           .toList(),
-      validPayloads: (json['valid_payloads'] as List<dynamic>? ?? const <dynamic>[])
-          .whereType<Map<String, dynamic>>()
-          .toList(),
+      validPayloads:
+          (json['valid_payloads'] as List<dynamic>? ?? const <dynamic>[])
+              .whereType<Map<String, dynamic>>()
+              .toList(),
     );
   }
 }

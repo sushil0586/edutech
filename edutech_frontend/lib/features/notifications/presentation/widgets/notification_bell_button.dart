@@ -8,6 +8,7 @@ import 'package:education_frontend/shared/theme/app_spacing.dart';
 import 'package:education_frontend/shared/utils/app_date_time.dart';
 import 'package:education_frontend/shared/widgets/app_badge.dart';
 import 'package:education_frontend/shared/widgets/app_empty_state.dart';
+import 'package:education_frontend/shared/widgets/app_error_state.dart';
 import 'package:education_frontend/shared/widgets/app_loader.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -117,10 +118,7 @@ class _NotificationPanelSheet extends StatelessWidget {
         color: AppColors.surface,
         borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
       ),
-      child: const SafeArea(
-        top: false,
-        child: _NotificationPanelBody(),
-      ),
+      child: const SafeArea(top: false, child: _NotificationPanelBody()),
     );
   }
 }
@@ -166,7 +164,9 @@ class _NotificationPanelBody extends ConsumerWidget {
                   data: (count) => count > 0
                       ? AppBadge(
                           label: '$count unread',
-                          backgroundColor: AppColors.primary.withValues(alpha: 0.10),
+                          backgroundColor: AppColors.primary.withValues(
+                            alpha: 0.10,
+                          ),
                           foregroundColor: AppColors.primary,
                         )
                       : const SizedBox.shrink(),
@@ -178,15 +178,16 @@ class _NotificationPanelBody extends ConsumerWidget {
             const SizedBox(height: 6),
             Text(
               'Exam reminders, result alerts, and teacher actions appear here.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.textSecondary,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
             ),
             const SizedBox(height: AppSpacing.md),
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
-                onPressed: () => ref.read(notificationActionsProvider).markAllRead(),
+                onPressed: () =>
+                    ref.read(notificationActionsProvider).markAllRead(),
                 child: const Text('Mark all as read'),
               ),
             ),
@@ -212,12 +213,19 @@ class _NotificationPanelBody extends ConsumerWidget {
                 },
                 loading: () => const AppLoader(label: 'Loading notifications'),
                 error: (error, _) => Center(
-                  child: Text(
-                    readApiErrorMessage(error),
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.error,
-                    ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AppErrorState(message: readApiErrorMessage(error)),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        readApiErrorMessage(error),
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -254,7 +262,9 @@ class _NotificationTile extends ConsumerWidget {
       child: Ink(
         padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
-          color: notification.isRead ? AppColors.surface : AppColors.primary.withValues(alpha: 0.05),
+          color: notification.isRead
+              ? AppColors.surface
+              : AppColors.primary.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(AppRadius.lg),
           border: Border.all(
             color: notification.isRead
@@ -270,7 +280,9 @@ class _NotificationTile extends ConsumerWidget {
               height: 10,
               margin: const EdgeInsets.only(top: 6),
               decoration: BoxDecoration(
-                color: notification.isRead ? AppColors.textMuted : AppColors.primary,
+                color: notification.isRead
+                    ? AppColors.textMuted
+                    : AppColors.primary,
                 shape: BoxShape.circle,
               ),
             ),
@@ -349,10 +361,15 @@ String? _routeForNotification(AppNotification notification) {
     case 'exam_scheduled':
     case 'exam_starting_soon':
     case 'exam_live':
-      return examId == null ? AppRoutes.exams : AppRoutes.studentExamDetail(examId);
+      return examId == null
+          ? AppRoutes.exams
+          : AppRoutes.studentExamDetail(examId);
     case 'exam_submitted':
       if (examId != null && attemptId != null) {
-        return AppRoutes.studentAttemptSummary(examId: examId, attemptId: attemptId);
+        return AppRoutes.studentAttemptSummary(
+          examId: examId,
+          attemptId: attemptId,
+        );
       }
       return AppRoutes.exams;
     case 'result_published':

@@ -1,10 +1,13 @@
 from django.contrib import admin
 
 from apps.results.models import ExamPerformanceSummary, ExamResult, StudentTopicPerformance
+from common.admin import JsonPreviewAdminMixin, ReadOnlyAdmin, RichModelAdmin, build_json_preview
 
 
 @admin.register(ExamResult)
-class ExamResultAdmin(admin.ModelAdmin):
+class ExamResultAdmin(JsonPreviewAdminMixin, RichModelAdmin):
+    json_preview_fields = ("metadata",)
+    metadata_preview = build_json_preview("metadata", "Metadata")
     list_display = (
         "student",
         "exam",
@@ -12,6 +15,8 @@ class ExamResultAdmin(admin.ModelAdmin):
         "rank",
         "final_score",
         "percentage",
+        "correct_answers",
+        "incorrect_answers",
         "is_published",
     )
     list_filter = ("institute", "exam", "result_status", "is_published", "is_active")
@@ -21,12 +26,14 @@ class ExamResultAdmin(admin.ModelAdmin):
 
 
 @admin.register(StudentTopicPerformance)
-class StudentTopicPerformanceAdmin(admin.ModelAdmin):
+class StudentTopicPerformanceAdmin(RichModelAdmin):
     list_display = (
         "student",
         "exam",
         "subject",
         "topic",
+        "correct_answers",
+        "incorrect_answers",
         "final_score",
         "percentage",
         "is_active",
@@ -38,7 +45,9 @@ class StudentTopicPerformanceAdmin(admin.ModelAdmin):
 
 
 @admin.register(ExamPerformanceSummary)
-class ExamPerformanceSummaryAdmin(admin.ModelAdmin):
+class ExamPerformanceSummaryAdmin(JsonPreviewAdminMixin, ReadOnlyAdmin):
+    json_preview_fields = ("metadata",)
+    metadata_preview = build_json_preview("metadata", "Metadata")
     list_display = (
         "exam",
         "total_students",
@@ -53,12 +62,3 @@ class ExamPerformanceSummaryAdmin(admin.ModelAdmin):
     search_fields = ("exam__title", "exam__code")
     ordering = ("-last_calculated_at",)
     autocomplete_fields = ("institute", "exam")
-
-    def has_add_permission(self, request):
-        return False
-
-    def has_change_permission(self, request, obj=None):
-        return False
-
-    def has_delete_permission(self, request, obj=None):
-        return False

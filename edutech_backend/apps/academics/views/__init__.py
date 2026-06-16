@@ -4,10 +4,11 @@ from rest_framework.viewsets import ModelViewSet
 from apps.accounts.permissions import CanManageAcademics
 from apps.accounts.permissions import CanViewAcademics
 from apps.accounts.scopes import scope_teacher_queryset
-from apps.academics.models import AcademicYear, Cohort, Program, Subject, Topic
+from apps.academics.models import AcademicYear, Cohort, OptionCatalogEntry, Program, Subject, Topic
 from apps.academics.serializers import (
     AcademicYearSerializer,
     CohortSerializer,
+    OptionCatalogEntrySerializer,
     ProgramSerializer,
     SubjectSerializer,
     TopicSerializer,
@@ -103,3 +104,20 @@ class TopicViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
     def get_queryset(self):
         queryset = Topic.objects.select_related("institute", "subject", "parent_topic").all()
         return scope_teacher_queryset(queryset, self.request.user)
+
+
+class OptionCatalogEntryViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
+    serializer_class = OptionCatalogEntrySerializer
+    permission_classes = [IsAuthenticated, CanManageAcademics]
+    filterset_fields = ["namespace", "is_active", "is_default"]
+    search_fields = ["namespace", "code", "label", "description"]
+    ordering_fields = ["namespace", "sort_order", "label", "created_at"]
+    ordering = ["namespace", "sort_order", "label"]
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [IsAuthenticated(), CanViewAcademics()]
+        return [IsAuthenticated(), CanManageAcademics()]
+
+    def get_queryset(self):
+        return OptionCatalogEntry.objects.all()

@@ -1,21 +1,43 @@
 from rest_framework import serializers
 
-from apps.attempts.models import StudentAnswer, StudentExamAttempt
+from apps.attempts.models import AttemptIntegrityEvent, StudentAnswer, StudentExamAttempt
 from apps.attempts.services import (
+    attempt_integrity_summary,
     ensure_delivery_snapshot,
     ordered_exam_questions_for_attempt,
     ordered_options_for_attempt,
     question_order_map_for_attempt,
     refresh_attempt_runtime_state,
+    resolve_attempt_security_policy,
 )
 from apps.exams.serializers import StudentExamQuestionDetailSerializer
 from apps.exams.models import Exam
 from apps.exams.services import (
     is_result_visible_for_attempt,
+    resolve_exam_source_metadata,
     review_visibility_for_attempt,
 )
 from apps.question_bank.models import Question, QuestionOption
 from apps.students.models import StudentProfile
+
+
+def attempt_accommodation_snapshot(attempt):
+    metadata = attempt.metadata if isinstance(attempt.metadata, dict) else {}
+    snapshot = metadata.get("accommodation_snapshot", {})
+    return snapshot if isinstance(snapshot, dict) else {}
+
+
+def review_answer_key_for_question(question):
+    metadata = question.metadata if isinstance(question.metadata, dict) else {}
+    accepted_answers = metadata.get("accepted_answers")
+    if isinstance(accepted_answers, list):
+        return [str(value).strip() for value in accepted_answers if str(value).strip()]
+
+    single_answer = metadata.get("accepted_answer") or metadata.get("answer_key")
+    if single_answer is None:
+        return []
+    normalized = str(single_answer).strip()
+    return [normalized] if normalized else []
 
 
 class StudentAnswerSerializer(serializers.ModelSerializer):
@@ -84,10 +106,20 @@ class StudentAnswerSerializer(serializers.ModelSerializer):
 class StudentExamAttemptSerializer(serializers.ModelSerializer):
     exam_title = serializers.CharField(source="exam.title", read_only=True)
     exam_code = serializers.CharField(source="exam.code", read_only=True)
+    exam_type = serializers.CharField(source="exam.exam_type", read_only=True)
+    source_type = serializers.SerializerMethodField()
+    source_label = serializers.SerializerMethodField()
+    source_name = serializers.SerializerMethodField()
+    source_teacher_id = serializers.SerializerMethodField()
+    source_teacher_name = serializers.SerializerMethodField()
     student_name = serializers.CharField(source="student.full_name", read_only=True)
     answers = StudentAnswerSerializer(many=True, read_only=True)
     server_time = serializers.SerializerMethodField()
     section_runtime = serializers.SerializerMethodField()
+    security_mode = serializers.CharField(source="exam.security_mode", read_only=True)
+    security_policy = serializers.SerializerMethodField()
+    integrity_summary = serializers.SerializerMethodField()
+    accommodation_snapshot = serializers.SerializerMethodField()
 
     class Meta:
         model = StudentExamAttempt
@@ -98,21 +130,54 @@ class StudentExamAttemptSerializer(serializers.ModelSerializer):
 
         return timezone.now()
 
+    def get_source_type(self, obj):
+        return resolve_exam_source_metadata(obj.exam)["source_type"]
+
+    def get_source_label(self, obj):
+        return resolve_exam_source_metadata(obj.exam)["source_label"]
+
+    def get_source_name(self, obj):
+        return resolve_exam_source_metadata(obj.exam)["source_name"]
+
+    def get_source_teacher_id(self, obj):
+        return resolve_exam_source_metadata(obj.exam)["teacher_id"]
+
+    def get_source_teacher_name(self, obj):
+        return resolve_exam_source_metadata(obj.exam)["teacher_name"]
+
     def get_section_runtime(self, obj):
         refresh_attempt_runtime_state(obj)
         metadata = obj.metadata if isinstance(obj.metadata, dict) else {}
         runtime = metadata.get("section_runtime", {})
         return runtime if isinstance(runtime, dict) else {}
 
+    def get_security_policy(self, obj):
+        return resolve_attempt_security_policy(obj)
+
+    def get_integrity_summary(self, obj):
+        return attempt_integrity_summary(obj)
+
+    def get_accommodation_snapshot(self, obj):
+        return attempt_accommodation_snapshot(obj)
+
 
 class AttemptDetailSerializer(serializers.ModelSerializer):
     exam_title = serializers.CharField(source="exam.title", read_only=True)
     exam_code = serializers.CharField(source="exam.code", read_only=True)
+    exam_type = serializers.CharField(source="exam.exam_type", read_only=True)
+    source_type = serializers.SerializerMethodField()
+    source_label = serializers.SerializerMethodField()
+    source_name = serializers.SerializerMethodField()
+    source_teacher_name = serializers.SerializerMethodField()
     student_name = serializers.CharField(source="student.full_name", read_only=True)
     questions = serializers.SerializerMethodField()
     answers = StudentAnswerSerializer(many=True, read_only=True)
     server_time = serializers.SerializerMethodField()
     section_runtime = serializers.SerializerMethodField()
+    security_mode = serializers.CharField(source="exam.security_mode", read_only=True)
+    security_policy = serializers.SerializerMethodField()
+    integrity_summary = serializers.SerializerMethodField()
+    accommodation_snapshot = serializers.SerializerMethodField()
 
     class Meta:
         model = StudentExamAttempt
@@ -122,6 +187,11 @@ class AttemptDetailSerializer(serializers.ModelSerializer):
             "exam",
             "exam_title",
             "exam_code",
+            "exam_type",
+            "source_type",
+            "source_label",
+            "source_name",
+            "source_teacher_name",
             "student",
             "student_name",
             "attempt_no",
@@ -131,6 +201,10 @@ class AttemptDetailSerializer(serializers.ModelSerializer):
             "expires_at",
             "server_time",
             "section_runtime",
+            "security_mode",
+            "security_policy",
+            "integrity_summary",
+            "accommodation_snapshot",
             "total_questions",
             "attempted_questions",
             "correct_answers",
@@ -175,16 +249,64 @@ class AttemptDetailSerializer(serializers.ModelSerializer):
 
         return timezone.now()
 
+    def get_source_type(self, obj):
+        return resolve_exam_source_metadata(obj.exam)["source_type"]
+
+    def get_source_label(self, obj):
+        return resolve_exam_source_metadata(obj.exam)["source_label"]
+
+    def get_source_name(self, obj):
+        return resolve_exam_source_metadata(obj.exam)["source_name"]
+
+    def get_source_teacher_name(self, obj):
+        return resolve_exam_source_metadata(obj.exam)["teacher_name"]
+
     def get_section_runtime(self, obj):
         refresh_attempt_runtime_state(obj)
         metadata = obj.metadata if isinstance(obj.metadata, dict) else {}
         runtime = metadata.get("section_runtime", {})
         return runtime if isinstance(runtime, dict) else {}
 
+    def get_security_policy(self, obj):
+        return resolve_attempt_security_policy(obj)
+
+    def get_integrity_summary(self, obj):
+        return attempt_integrity_summary(obj)
+
+    def get_accommodation_snapshot(self, obj):
+        return attempt_accommodation_snapshot(obj)
+
+
+class AttemptIntegrityEventSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AttemptIntegrityEvent
+        fields = (
+            "id",
+            "event_type",
+            "severity",
+            "counts_as_violation",
+            "event_at",
+            "metadata",
+        )
+
+
+class ReportIntegrityEventSerializer(serializers.Serializer):
+    event_type = serializers.ChoiceField(choices=AttemptIntegrityEvent._meta.get_field("event_type").choices)
+    event_at = serializers.DateTimeField(required=False)
+    metadata = serializers.JSONField(required=False)
+
+    def validate_metadata(self, value):
+        if value is None:
+            return {}
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("Metadata must be an object.")
+        return value
+
 
 class AttemptReviewSerializer(serializers.ModelSerializer):
     exam_title = serializers.CharField(source="exam.title", read_only=True)
     exam_code = serializers.CharField(source="exam.code", read_only=True)
+    exam_type = serializers.CharField(source="exam.exam_type", read_only=True)
     student_name = serializers.CharField(source="student.full_name", read_only=True)
     server_time = serializers.SerializerMethodField()
     review_questions = serializers.SerializerMethodField()
@@ -199,6 +321,7 @@ class AttemptReviewSerializer(serializers.ModelSerializer):
             "exam",
             "exam_title",
             "exam_code",
+            "exam_type",
             "student",
             "student_name",
             "attempt_no",
@@ -265,16 +388,16 @@ class AttemptReviewSerializer(serializers.ModelSerializer):
                 for item in (getattr(answer, "selected_option_ids", []) or [])
                 if str(item).strip()
             ]
-            if not review_visibility["include_all_questions"]:
-                has_attempt = bool(
-                    answer
-                    and (
-                        answer.selected_option_id
-                        or selected_option_ids
-                        or (answer.answer_text or "").strip()
-                        or answer.is_marked_for_review
-                    )
+            has_response = bool(
+                answer
+                and (
+                    answer.selected_option_id
+                    or selected_option_ids
+                    or (answer.answer_text or "").strip()
                 )
+            )
+            if not review_visibility["include_all_questions"]:
+                has_attempt = bool(has_response or (answer and answer.is_marked_for_review))
                 if not has_attempt:
                     continue
             selected_option_id = answer.selected_option_id if answer else None
@@ -301,6 +424,11 @@ class AttemptReviewSerializer(serializers.ModelSerializer):
                     "difficulty_level": question.difficulty_level,
                     "subject_name": question.subject.name if question.subject_id else None,
                     "topic_name": question.topic.name if question.topic_id else None,
+                    "accepted_answers": (
+                        review_answer_key_for_question(question)
+                        if review_visibility["show_correct_answers"]
+                        else []
+                    ),
                     "explanation": (
                         question.explanation
                         if review_visibility["show_explanations"]
@@ -331,11 +459,9 @@ class AttemptReviewSerializer(serializers.ModelSerializer):
                     "negative_marks_applied": str(answer.negative_marks_applied) if answer else "0.00",
                     "result_status": (
                         "correct"
-                        if answer
-                        and (answer.selected_option_id or selected_option_ids)
-                        and answer.is_correct
+                        if has_response and answer and answer.is_correct
                         else "wrong"
-                        if answer and (answer.selected_option_id or selected_option_ids)
+                        if has_response
                         else "skipped"
                     ),
                     "options": [
@@ -442,7 +568,9 @@ class SaveAnswerSerializer(serializers.Serializer):
         attrs["selected_option_objs"] = option_objects
 
         if attrs.get("clear_response") and (
-            attrs.get("selected_option") or attrs.get("selected_option_ids")
+            attrs.get("selected_option")
+            or attrs.get("selected_option_ids")
+            or attrs.get("answer_text", "").strip()
         ):
             raise serializers.ValidationError(
                 {
@@ -453,10 +581,28 @@ class SaveAnswerSerializer(serializers.Serializer):
                 }
             )
         if attrs.get("skip") and (
-            attrs.get("selected_option") or attrs.get("selected_option_ids")
+            attrs.get("selected_option")
+            or attrs.get("selected_option_ids")
+            or attrs.get("answer_text", "").strip()
         ):
             raise serializers.ValidationError(
-                {"skip": "Skip cannot be combined with selected_option or selected_option_ids."}
+                {"skip": "Skip cannot be combined with selected_option, selected_option_ids, or answer_text."}
+            )
+
+        question_type = attrs["question_obj"].question_type
+        has_text_answer = bool(attrs.get("answer_text", "").strip())
+        if question_type == "short_answer":
+            if selected_option_id or selected_option_ids:
+                raise serializers.ValidationError(
+                    {
+                        "answer_text": (
+                            "Short answer questions only accept answer_text responses."
+                        )
+                    }
+                )
+        elif has_text_answer:
+            raise serializers.ValidationError(
+                {"answer_text": "answer_text is only supported for short answer questions."}
             )
 
         return attrs
@@ -472,10 +618,16 @@ class AttemptSwitchSectionSerializer(serializers.Serializer):
 
 class AttemptSummarySerializer(serializers.ModelSerializer):
     exam_title = serializers.CharField(source="exam.title", read_only=True)
+    exam_type = serializers.CharField(source="exam.exam_type", read_only=True)
+    source_type = serializers.SerializerMethodField()
+    source_label = serializers.SerializerMethodField()
+    source_name = serializers.SerializerMethodField()
+    source_teacher_name = serializers.SerializerMethodField()
     student_name = serializers.CharField(source="student.full_name", read_only=True)
     server_time = serializers.SerializerMethodField()
     result_visible = serializers.SerializerMethodField()
     review_available = serializers.SerializerMethodField()
+    accommodation_snapshot = serializers.SerializerMethodField()
 
     class Meta:
         model = StudentExamAttempt
@@ -483,6 +635,11 @@ class AttemptSummarySerializer(serializers.ModelSerializer):
             "id",
             "exam",
             "exam_title",
+            "exam_type",
+            "source_type",
+            "source_label",
+            "source_name",
+            "source_teacher_name",
             "student",
             "student_name",
             "attempt_no",
@@ -504,6 +661,7 @@ class AttemptSummarySerializer(serializers.ModelSerializer):
             "server_time",
             "result_visible",
             "review_available",
+            "accommodation_snapshot",
         )
 
     def get_server_time(self, obj):
@@ -515,11 +673,26 @@ class AttemptSummarySerializer(serializers.ModelSerializer):
         result = getattr(obj, "result", None)
         return is_result_visible_for_attempt(obj.exam, obj, result=result)
 
+    def get_source_type(self, obj):
+        return resolve_exam_source_metadata(obj.exam)["source_type"]
+
+    def get_source_label(self, obj):
+        return resolve_exam_source_metadata(obj.exam)["source_label"]
+
+    def get_source_name(self, obj):
+        return resolve_exam_source_metadata(obj.exam)["source_name"]
+
+    def get_source_teacher_name(self, obj):
+        return resolve_exam_source_metadata(obj.exam)["teacher_name"]
+
     def get_review_available(self, obj):
         result = getattr(obj, "result", None)
         return review_visibility_for_attempt(obj.exam, obj, result=result)[
             "review_available"
         ]
+
+    def get_accommodation_snapshot(self, obj):
+        return attempt_accommodation_snapshot(obj)
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

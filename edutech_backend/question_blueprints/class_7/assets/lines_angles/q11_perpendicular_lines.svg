@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="220" viewBox="0 0 320 220">
+  <rect width="320" height="220" fill="white"/>
+  <line x1="40" y1="110" x2="280" y2="110" stroke="black" stroke-width="4"/>
+  <line x1="160" y1="30" x2="160" y2="190" stroke="black" stroke-width="4"/>
+  <path d="M160 110 L160 85 L185 85" fill="none" stroke="#2563eb" stroke-width="3"/>
+  <text x="287" y="114" font-size="18">l</text>
+  <text x="166" y="26" font-size="18">m</text>
+  <text x="188" y="80" font-size="16" fill="#2563eb">90°</text>
+</svg>

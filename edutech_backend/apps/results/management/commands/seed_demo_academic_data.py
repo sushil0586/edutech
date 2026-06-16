@@ -32,7 +32,17 @@ User = get_user_model()
 class Command(BaseCommand):
     help = "Seed a complete demo academic assessment flow for local testing."
 
-    def _ensure_demo_user(self, *, username, password, role, institute=None, student_profile=None, teacher_profile=None):
+    def _ensure_demo_user(
+        self,
+        *,
+        username,
+        password,
+        role,
+        institute=None,
+        student_profile=None,
+        teacher_profile=None,
+        registration_context=None,
+    ):
         user, created = User.objects.get_or_create(
             username=username,
             defaults={"email": f"{username}@demo.edu", "is_active": True},
@@ -47,6 +57,7 @@ class Command(BaseCommand):
             "institute": institute,
             "student_profile": student_profile,
             "teacher_profile": teacher_profile,
+            "registration_context": registration_context or {},
             "is_active": True,
         }
         profile, _ = AccountProfile.objects.update_or_create(user=user, defaults=profile_defaults)
@@ -143,6 +154,22 @@ class Command(BaseCommand):
             role=AccountRole.STUDENT,
             institute=context["institute"],
             student_profile=context["student"],
+            registration_context={
+                "role": "student",
+                "class_level": "10",
+                "board": "CBSE",
+                "exam_interest": "Olympiad",
+                "subject_interests": [
+                    "Mathematics",
+                    "Science",
+                    "Computer",
+                    "Social Science",
+                    "GK",
+                    "Mental Aptitude",
+                ],
+                "school_name": context["institute"].name,
+                "school_code": context["institute"].code,
+            },
         )
         self._ensure_demo_user(
             username="demo-parent",

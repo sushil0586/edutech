@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="220" viewBox="0 0 360 220">
+  <rect width="360" height="220" fill="white"/>
+  <rect x="40" y="80" width="35" height="35" fill="#e0f2fe" stroke="black"/>
+  <rect x="75" y="80" width="35" height="35" fill="#e0f2fe" stroke="black"/>
+  <rect x="110" y="80" width="35" height="35" fill="#e0f2fe" stroke="black"/>
+  <rect x="145" y="80" width="35" height="35" fill="#e0f2fe" stroke="black"/>
+  <rect x="110" y="45" width="35" height="35" fill="#e0f2fe" stroke="black"/>
+  <rect x="110" y="115" width="35" height="35" fill="#e0f2fe" stroke="black"/>
+  <text x="55" y="170" font-size="14">valid cube net</text>
+  <rect x="240" y="55" width="35" height="35" fill="#fde68a" stroke="black"/>
+  <rect x="275" y="55" width="35" height="35" fill="#fde68a" stroke="black"/>
+  <rect x="310" y="55" width="35" height="35" fill="#fde68a" stroke="black"/>
+  <rect x="275" y="90" width="35" height="35" fill="#fde68a" stroke="black"/>
+  <rect x="310" y="90" width="35" height="35" fill="#fde68a" stroke="black"/>
+  <rect x="310" y="125" width="35" height="35" fill="#fde68a" stroke="black"/>
+  <text x="242" y="170" font-size="14">not every 6-square layout works</text>
+</svg>

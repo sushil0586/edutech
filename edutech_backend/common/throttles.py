@@ -1,3 +1,4 @@
+from django.conf import settings
 from rest_framework.throttling import SimpleRateThrottle
 
 
@@ -14,6 +15,15 @@ class _UserOrIpThrottle(SimpleRateThrottle):
 
 class LoginRateThrottle(_UserOrIpThrottle):
     scope = "login"
+
+
+class RegistrationRateThrottle(_UserOrIpThrottle):
+    scope = "registration"
+
+    def get_cache_key(self, request, view):
+        if settings.DEBUG:
+            return None
+        return super().get_cache_key(request, view)
 
 
 class AttemptSaveAnswerRateThrottle(_UserOrIpThrottle):

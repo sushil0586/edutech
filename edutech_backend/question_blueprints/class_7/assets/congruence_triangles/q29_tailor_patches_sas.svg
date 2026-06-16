@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="220" viewBox="0 0 360 220">
+  <rect width="360" height="220" fill="white"/>
+  <polygon points="55,170 120,70 185,170" fill="#fef3c7" stroke="black" stroke-width="3"/>
+  <polygon points="305,170 240,70 175,170" fill="#dcfce7" stroke="black" stroke-width="3"/>
+  <text x="82" y="116" font-size="14">7 cm</text>
+  <text x="137" y="116" font-size="14">9 cm</text>
+  <text x="257" y="116" font-size="14">7 cm</text>
+  <text x="202" y="116" font-size="14">9 cm</text>
+  <path d="M99 100 A25 25 0 0 1 136 102" fill="none" stroke="#dc2626" stroke-width="3"/>
+  <path d="M224 102 A25 25 0 0 1 261 100" fill="none" stroke="#dc2626" stroke-width="3"/>
+  <text x="107" y="108" font-size="14" fill="#dc2626">50°</text>
+  <text x="232" y="108" font-size="14" fill="#dc2626">50°</text>
+</svg>

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="220" viewBox="0 0 320 220">
+  <rect width="320" height="220" fill="white"/>
+  <line x1="60" y1="180" x2="260" y2="40" stroke="black" stroke-width="4"/>
+  <line x1="60" y1="40" x2="260" y2="180" stroke="black" stroke-width="4"/>
+  <path d="M160 110 A34 34 0 0 0 139 81" fill="none" stroke="#2563eb" stroke-width="3"/>
+  <path d="M160 110 A34 34 0 0 1 181 139" fill="none" stroke="#2563eb" stroke-width="3"/>
+  <text x="126" y="81" font-size="15" fill="#2563eb">72°</text>
+  <text x="181" y="149" font-size="15" fill="#2563eb">?</text>
+</svg>

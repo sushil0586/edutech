@@ -25,6 +25,9 @@ class StudentAttemptReview {
     required this.percentage,
     required this.timeTakenSeconds,
     required this.isAutoSubmitted,
+    required this.reviewMode,
+    required this.showCorrectAnswers,
+    required this.showExplanations,
     required this.questions,
   });
 
@@ -51,6 +54,9 @@ class StudentAttemptReview {
   final String percentage;
   final int? timeTakenSeconds;
   final bool isAutoSubmitted;
+  final String reviewMode;
+  final bool showCorrectAnswers;
+  final bool showExplanations;
   final List<StudentAttemptReviewQuestion> questions;
 
   factory StudentAttemptReview.fromJson(Map<String, dynamic> json) {
@@ -85,6 +91,9 @@ class StudentAttemptReview {
       percentage: (json['percentage'] ?? '0').toString(),
       timeTakenSeconds: json['time_taken_seconds'] as int?,
       isAutoSubmitted: json['is_auto_submitted'] as bool? ?? false,
+      reviewMode: (json['review_mode'] ?? 'attempted_only').toString(),
+      showCorrectAnswers: json['show_correct_answers'] as bool? ?? false,
+      showExplanations: json['show_explanations'] as bool? ?? false,
       questions: reviewQuestions,
     );
   }
@@ -95,7 +104,10 @@ class StudentAttemptReviewQuestion {
     required this.examQuestionId,
     required this.questionId,
     required this.questionOrder,
+    required this.sectionId,
     required this.sectionName,
+    required this.sectionTitle,
+    required this.sectionOrder,
     required this.questionText,
     required this.contentFormat,
     required this.questionType,
@@ -116,7 +128,10 @@ class StudentAttemptReviewQuestion {
   final String examQuestionId;
   final String questionId;
   final int questionOrder;
+  final String? sectionId;
   final String? sectionName;
+  final String? sectionTitle;
+  final int? sectionOrder;
   final String questionText;
   final String contentFormat;
   final String questionType;
@@ -154,7 +169,10 @@ class StudentAttemptReviewQuestion {
       examQuestionId: (json['exam_question_id'] ?? '').toString(),
       questionId: (json['question_id'] ?? '').toString(),
       questionOrder: json['question_order'] as int? ?? 0,
+      sectionId: json['section_id']?.toString(),
       sectionName: json['section_name'] as String?,
+      sectionTitle: json['section_title'] as String?,
+      sectionOrder: json['section_order'] as int?,
       questionText: json['question_text'] as String? ?? '',
       contentFormat: (json['content_format'] ?? 'markdown_latex').toString(),
       questionType: json['question_type'] as String? ?? 'mcq_single',

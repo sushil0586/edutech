@@ -1,9 +1,14 @@
 from django import forms
 from django.contrib import admin
 from django.core.exceptions import ValidationError
+from django.db.models import Count
 from django.forms import BaseInlineFormSet
 
 from apps.question_bank.models import (
+    InstituteQuestionAccess,
+    MasterQuestion,
+    MasterQuestionAttachment,
+    MasterQuestionOption,
     Question,
     QuestionAttachment,
     QuestionOption,
@@ -11,6 +16,7 @@ from apps.question_bank.models import (
     QuestionTagMap,
 )
 from apps.question_bank.services import validate_question_options
+from common.admin import JsonPreviewAdminMixin, RichModelAdmin, RichTabularInline, build_json_preview
 
 
 class QuestionOptionInlineFormSet(BaseInlineFormSet):
@@ -19,9 +25,7 @@ class QuestionOptionInlineFormSet(BaseInlineFormSet):
 
         options = []
         for form in self.forms:
-            if not hasattr(form, "cleaned_data") or not form.cleaned_data:
-                continue
-            if form.cleaned_data.get("DELETE"):
+            if not hasattr(form, "cleaned_data") or not form.cleaned_data or form.cleaned_data.get("DELETE"):
                 continue
             options.append(
                 {
@@ -45,25 +49,27 @@ class QuestionOptionInlineFormSet(BaseInlineFormSet):
                 raise forms.ValidationError(exc) from exc
 
 
-class QuestionOptionInline(admin.TabularInline):
+class QuestionOptionInline(RichTabularInline):
     model = QuestionOption
-    extra = 0
     formset = QuestionOptionInlineFormSet
+    fields = ("option_order", "option_text", "content_format", "is_correct", "is_active")
 
 
-class QuestionAttachmentInline(admin.TabularInline):
+class QuestionAttachmentInline(RichTabularInline):
     model = QuestionAttachment
-    extra = 0
+    fields = ("title", "attachment_type", "display_order", "is_inline", "is_active")
 
 
-class QuestionTagMapInline(admin.TabularInline):
+class QuestionTagMapInline(RichTabularInline):
     model = QuestionTagMap
-    extra = 0
     autocomplete_fields = ("tag",)
+    fields = ("tag", "is_active")
 
 
 @admin.register(Question)
-class QuestionAdmin(admin.ModelAdmin):
+class QuestionAdmin(JsonPreviewAdminMixin, RichModelAdmin):
+    json_preview_fields = ("metadata",)
+    metadata_preview = build_json_preview("metadata", "Metadata")
     list_display = (
         "id",
         "subject",
@@ -72,6 +78,8 @@ class QuestionAdmin(admin.ModelAdmin):
         "difficulty_level",
         "default_marks",
         "negative_marks",
+        "option_count",
+        "tag_count",
         "is_verified",
         "is_active",
         "created_at",
@@ -90,11 +98,26 @@ class QuestionAdmin(admin.ModelAdmin):
     ordering = ("-created_at",)
     autocomplete_fields = ("institute", "program", "subject", "topic", "created_by_teacher")
     inlines = (QuestionOptionInline, QuestionTagMapInline, QuestionAttachmentInline)
+    date_hierarchy = "created_at"
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).annotate(
+            option_total=Count("options", distinct=True),
+            tag_total=Count("tag_maps", distinct=True),
+        )
+
+    @admin.display(ordering="option_total", description="Options")
+    def option_count(self, obj):
+        return obj.option_total
+
+    @admin.display(ordering="tag_total", description="Tags")
+    def tag_count(self, obj):
+        return obj.tag_total
 
 
 @admin.register(QuestionOption)
-class QuestionOptionAdmin(admin.ModelAdmin):
-    list_display = ("question", "option_order", "is_correct", "is_active")
+class QuestionOptionAdmin(RichModelAdmin):
+    list_display = ("question", "option_order", "content_format", "is_correct", "is_active")
     list_filter = ("is_correct", "is_active", "question__question_type")
     search_fields = ("option_text", "question__question_text")
     ordering = ("question", "option_order")
@@ -102,16 +125,23 @@ class QuestionOptionAdmin(admin.ModelAdmin):
 
 
 @admin.register(QuestionTag)
-class QuestionTagAdmin(admin.ModelAdmin):
-    list_display = ("name", "code", "institute", "is_active")
+class QuestionTagAdmin(RichModelAdmin):
+    list_display = ("name", "code", "institute", "mapped_questions_count", "is_active")
     list_filter = ("institute", "is_active")
     search_fields = ("name", "code", "institute__name")
     ordering = ("name",)
     autocomplete_fields = ("institute",)
 
+    def get_queryset(self, request):
+        return super().get_queryset(request).annotate(question_total=Count("question_maps", distinct=True))
+
+    @admin.display(ordering="question_total", description="Mapped questions")
+    def mapped_questions_count(self, obj):
+        return obj.question_total
+
 
 @admin.register(QuestionTagMap)
-class QuestionTagMapAdmin(admin.ModelAdmin):
+class QuestionTagMapAdmin(RichModelAdmin):
     list_display = ("question", "tag", "is_active", "created_at")
     list_filter = ("tag", "is_active")
     search_fields = ("question__question_text", "tag__name", "tag__code")
@@ -120,9 +150,79 @@ class QuestionTagMapAdmin(admin.ModelAdmin):
 
 
 @admin.register(QuestionAttachment)
-class QuestionAttachmentAdmin(admin.ModelAdmin):
-    list_display = ("title", "question", "attachment_type", "is_active", "created_at")
-    list_filter = ("attachment_type", "is_active")
+class QuestionAttachmentAdmin(RichModelAdmin):
+    list_display = ("title", "question", "attachment_type", "display_order", "is_inline", "is_active", "created_at")
+    list_filter = ("attachment_type", "is_inline", "is_active")
     search_fields = ("title", "question__question_text")
     ordering = ("title", "created_at")
     autocomplete_fields = ("question",)
+
+
+class MasterQuestionOptionInline(RichTabularInline):
+    model = MasterQuestionOption
+    fields = ("option_order", "option_text", "content_format", "is_correct", "is_active")
+
+
+class MasterQuestionAttachmentInline(RichTabularInline):
+    model = MasterQuestionAttachment
+    fields = ("title", "attachment_type", "display_order", "is_inline", "is_active")
+
+
+@admin.register(MasterQuestion)
+class MasterQuestionAdmin(JsonPreviewAdminMixin, RichModelAdmin):
+    json_preview_fields = ("metadata",)
+    metadata_preview = build_json_preview("metadata", "Metadata")
+    list_display = (
+        "id",
+        "source_institute",
+        "source_subject",
+        "source_topic",
+        "question_type",
+        "source_type",
+        "visibility",
+        "is_verified",
+        "is_active",
+        "created_at",
+    )
+    list_filter = (
+        "source_institute",
+        "source_subject",
+        "question_type",
+        "source_type",
+        "visibility",
+        "difficulty_level",
+        "is_verified",
+        "is_active",
+    )
+    search_fields = ("question_text", "explanation", "source_subject__name", "source_topic__name")
+    autocomplete_fields = ("source_institute", "source_program", "source_subject", "source_topic", "created_by_teacher")
+    inlines = (MasterQuestionOptionInline, MasterQuestionAttachmentInline)
+
+
+@admin.register(InstituteQuestionAccess)
+class InstituteQuestionAccessAdmin(JsonPreviewAdminMixin, RichModelAdmin):
+    json_preview_fields = ("metadata",)
+    metadata_preview = build_json_preview("metadata", "Metadata")
+    list_display = (
+        "id",
+        "institute",
+        "master_question",
+        "status",
+        "requested_by_teacher",
+        "approved_by",
+        "linked_question",
+        "is_active",
+        "created_at",
+    )
+    list_filter = ("institute", "status", "is_active")
+    search_fields = ("master_question__question_text", "institute__name", "requested_by_teacher__full_name")
+    autocomplete_fields = (
+        "institute",
+        "master_question",
+        "requested_by_teacher",
+        "approved_by",
+        "linked_question",
+        "local_program",
+        "local_subject",
+        "local_topic",
+    )

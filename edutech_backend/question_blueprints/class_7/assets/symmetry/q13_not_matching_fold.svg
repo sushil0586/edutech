@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="220" viewBox="0 0 360 220">
+  <rect width="360" height="220" fill="white"/>
+  <line x1="180" y1="30" x2="180" y2="190" stroke="#475569" stroke-width="3" stroke-dasharray="6 4"/>
+  <polygon points="80,170 120,60 160,170" fill="#bfdbfe" stroke="black" stroke-width="3"/>
+  <polygon points="210,170 280,90 300,170" fill="#fde68a" stroke="black" stroke-width="3"/>
+  <text x="110" y="48" font-size="14">halves do not overlap</text>
+</svg>

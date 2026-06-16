@@ -1,0 +1,64 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { logoutAction } from "@/lib/auth/actions";
+import { LogoutButton } from "@/components/ui/logout-button";
+import { AccountProfile } from "@/lib/auth/session";
+
+const navItems = [
+  { href: "/teacher/dashboard", label: "Dashboard", icon: "◈" },
+  { href: "/teacher/exams", label: "Exams", icon: "◫" },
+  { href: "/teacher/question-bank", label: "Question Bank", icon: "◌" },
+  { href: "/teacher/results", label: "Results", icon: "◎" },
+];
+
+export function TeacherSidebar({ profile }: { profile: AccountProfile }) {
+  const pathname = usePathname();
+
+  function isActive(href: string) {
+    if (href === "/teacher/dashboard") {
+      return pathname === href;
+    }
+
+    return pathname === href || pathname.startsWith(`${href}/`);
+  }
+
+  return (
+    <aside className="appSidebar">
+      <Link className="brand" href="/">
+        <span className="brandMark">N</span>
+        <span className="brandText">
+          <strong>Nexora</strong>
+          <small>Teacher Portal</small>
+        </span>
+      </Link>
+
+      <nav className="appSidebarNav" aria-label="Teacher navigation">
+        {navItems.map((item) => (
+          <Link
+            aria-current={isActive(item.href) ? "page" : undefined}
+            className={`appSidebarLink ${isActive(item.href) ? "appSidebarLinkActive" : ""}`}
+            href={item.href}
+            key={item.href}
+          >
+            <span className="appSidebarIcon" aria-hidden="true">
+              {item.icon}
+            </span>
+            {item.label}
+          </Link>
+        ))}
+      </nav>
+
+      <div className="appSidebarFooter">
+        <div className="sidebarProfile">
+          <strong>{profile.username}</strong>
+          <span>{profile.role.replaceAll("_", " ")}</span>
+        </div>
+        <form action={logoutAction}>
+          <LogoutButton />
+        </form>
+      </div>
+    </aside>
+  );
+}

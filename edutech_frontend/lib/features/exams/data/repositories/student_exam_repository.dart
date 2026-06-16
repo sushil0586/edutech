@@ -25,11 +25,16 @@ abstract class StudentExamRepository {
     required String attemptId,
     required String questionId,
     String? selectedOptionId,
+    List<String>? selectedOptionIds,
     String? answerText,
     bool isMarkedForReview,
     int? timeSpentSeconds,
     bool clearResponse,
     bool skip,
+  });
+  Future<StudentAttempt> switchSection({
+    required String attemptId,
+    required String sectionId,
   });
   Future<StudentAttemptSummary> submitAttempt({
     required String attemptId,
@@ -91,9 +96,7 @@ class DioStudentExamRepository implements StudentExamRepository {
     final response = await _dio.get<Map<String, dynamic>>(
       'attempts/$attemptId/review/',
     );
-    return StudentAttemptReview.fromJson(
-      response.data ?? <String, dynamic>{},
-    );
+    return StudentAttemptReview.fromJson(response.data ?? <String, dynamic>{});
   }
 
   @override
@@ -101,6 +104,7 @@ class DioStudentExamRepository implements StudentExamRepository {
     required String attemptId,
     required String questionId,
     String? selectedOptionId,
+    List<String>? selectedOptionIds,
     String? answerText,
     bool isMarkedForReview = false,
     int? timeSpentSeconds,
@@ -116,6 +120,9 @@ class DioStudentExamRepository implements StudentExamRepository {
     if (selectedOptionId != null && selectedOptionId.isNotEmpty) {
       payload['selected_option'] = selectedOptionId;
     }
+    if (selectedOptionIds != null && selectedOptionIds.isNotEmpty) {
+      payload['selected_option_ids'] = selectedOptionIds;
+    }
     if (answerText != null) {
       payload['answer_text'] = answerText;
     }
@@ -128,6 +135,18 @@ class DioStudentExamRepository implements StudentExamRepository {
       data: payload,
     );
     return StudentAttemptAnswer.fromJson(_extractActionData(response.data));
+  }
+
+  @override
+  Future<StudentAttempt> switchSection({
+    required String attemptId,
+    required String sectionId,
+  }) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      'attempts/$attemptId/switch-section/',
+      data: {'section': sectionId},
+    );
+    return StudentAttempt.fromJson(_extractActionData(response.data));
   }
 
   @override

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="220" viewBox="0 0 360 220">
+  <rect width="360" height="220" fill="white"/>
+  <line x1="40" y1="150" x2="320" y2="150" stroke="black" stroke-width="4"/>
+  <circle cx="180" cy="150" r="4" fill="#dc2626"/>
+  <circle cx="130" cy="150" r="3" fill="#2563eb"/>
+  <circle cx="230" cy="150" r="3" fill="#2563eb"/>
+  <path d="M130 150 A90 90 0 0 1 180 75" fill="none" stroke="#2563eb" stroke-width="3"/>
+  <path d="M230 150 A90 90 0 0 0 180 75" fill="none" stroke="#2563eb" stroke-width="3"/>
+  <line x1="180" y1="150" x2="180" y2="75" stroke="#16a34a" stroke-width="4"/>
+  <text x="184" y="154" font-size="18">P</text>
+</svg>

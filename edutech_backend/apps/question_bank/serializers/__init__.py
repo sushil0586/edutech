@@ -1,6 +1,7 @@
 from django.db import transaction
 from rest_framework import serializers
 
+from apps.academics.services import QUESTION_DIFFICULTY_NAMESPACE, validate_option_catalog_code
 from apps.academics.models import Topic
 from apps.question_bank.models import (
     Question,
@@ -12,6 +13,7 @@ from apps.question_bank.models import (
 from apps.question_bank.services import (
     QUESTION_TYPES_WITH_OPTIONS,
     IMPORT_TEMPLATE_COLUMNS,
+    sync_master_question_from_institute_question,
     validate_question_options,
 )
 
@@ -169,6 +171,7 @@ class QuestionSerializer(serializers.ModelSerializer):
         options_data = validated_data.pop("options", [])
         question = Question.objects.create(**validated_data)
         self._replace_options(question, options_data)
+        sync_master_question_from_institute_question(question)
         return question
 
     @transaction.atomic
@@ -182,6 +185,7 @@ class QuestionSerializer(serializers.ModelSerializer):
         if options_data is not serializers.empty:
             self._replace_options(instance, options_data)
 
+        sync_master_question_from_institute_question(instance)
         return instance
 
     def _replace_options(self, question, options_data):
@@ -250,6 +254,12 @@ class QuestionBulkActionSerializer(serializers.Serializer):
             )
         if action == "set_topic" and "topic" not in attrs:
             raise serializers.ValidationError({"topic": "Topic must be provided for set_topic."})
+        if action == "set_difficulty" and attrs.get("difficulty_level"):
+            attrs["difficulty_level"] = validate_option_catalog_code(
+                QUESTION_DIFFICULTY_NAMESPACE,
+                attrs["difficulty_level"],
+                "difficulty_level",
+            )
         return attrs
 
 

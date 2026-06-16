@@ -9,10 +9,18 @@ class ResponsivePageContainer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
-    final horizontalPadding = width >= 1280
-        ? AppSpacing.xxxl
-        : width >= 900
-        ? AppSpacing.xxl
+    final bool isDesktop = width >= 1440;
+    final bool isLaptop = width >= 1180;
+    final bool isTablet = width >= 720;
+    final bool isCompact = width < 600;
+    final double horizontalPadding = isDesktop
+        ? 40.0
+        : isLaptop
+        ? 32.0
+        : isTablet
+        ? 20.0
+        : isCompact
+        ? AppSpacing.sm
         : AppSpacing.md;
 
     return SafeArea(
@@ -23,9 +31,17 @@ class ResponsivePageContainer extends StatelessWidget {
           child: Padding(
             padding: EdgeInsets.fromLTRB(
               horizontalPadding,
-              width >= 900 ? AppSpacing.xl : AppSpacing.md,
+              isDesktop
+                  ? 32
+                  : isLaptop
+                  ? 28
+                  : isTablet
+                  ? 20
+                  : isCompact
+                  ? AppSpacing.sm
+                  : AppSpacing.md,
               horizontalPadding,
-              AppSpacing.xl,
+              isCompact ? AppSpacing.lg : 32,
             ),
             child: child,
           ),

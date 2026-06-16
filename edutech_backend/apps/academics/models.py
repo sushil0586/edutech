@@ -191,6 +191,45 @@ class TopicDifficulty(models.TextChoices):
     ADVANCED = "advanced", "Advanced"
 
 
+class OptionCatalogEntry(BaseModel):
+    namespace = models.CharField(max_length=80)
+    code = models.CharField(max_length=80, blank=True)
+    label = models.CharField(max_length=150)
+    description = models.TextField(blank=True)
+    sort_order = models.PositiveIntegerField(default=0)
+    is_default = models.BooleanField(default=False)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["namespace", "sort_order", "label"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["namespace", "code"],
+                name="unique_option_catalog_code_per_namespace",
+            ),
+            models.UniqueConstraint(
+                fields=["namespace"],
+                condition=Q(is_default=True),
+                name="unique_default_option_catalog_entry_per_namespace",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["namespace", "is_active"]),
+            models.Index(fields=["namespace", "sort_order"]),
+            models.Index(fields=["is_default"]),
+        ]
+
+    def save(self, *args, **kwargs):
+        self.code = self.code.strip().lower()
+        self.namespace = self.namespace.strip().lower()
+        self.label = self.label.strip()
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.namespace}:{self.code}"
+
+
 class Topic(BaseModel):
     institute = models.ForeignKey(
         Institute,

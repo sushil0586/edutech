@@ -1,7 +1,5 @@
 import 'package:education_frontend/shared/theme/app_colors.dart';
-import 'package:education_frontend/shared/theme/app_radius.dart';
-import 'package:education_frontend/shared/theme/app_spacing.dart';
-import 'package:education_frontend/shared/widgets/app_card.dart';
+import 'package:education_frontend/shared/widgets/kpi_card_component.dart';
 import 'package:flutter/material.dart';
 
 class DashboardStatCard extends StatelessWidget {
@@ -22,67 +20,31 @@ class DashboardStatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = tint ?? AppColors.primary;
-    return AppCard(
-      gradient: LinearGradient(
-        colors: [
-          AppColors.surface,
-          accent.withValues(alpha: 0.045),
-        ],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              if (icon != null)
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: accent.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(AppRadius.lg),
-                  ),
-                  child: Icon(icon, color: accent),
-                ),
-              const Spacer(),
-              Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  color: accent,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: accent.withValues(alpha: 0.35),
-                      blurRadius: 14,
-                      spreadRadius: -2,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Text(label, style: Theme.of(context).textTheme.labelLarge),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            value,
-            style: Theme.of(
-              context,
-            ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800),
-          ),
-          if (helper != null) ...[
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              helper!,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
-        ],
-      ),
+    return KpiCardComponent(
+      label: label,
+      value: value,
+      icon: icon,
+      helper: helper,
+      variant: _variantFromColor(tint ?? AppColors.accent),
     );
+  }
+
+  KpiCardVariant _variantFromColor(Color color) {
+    if (color == AppColors.success || color == AppColors.teal) {
+      return KpiCardVariant.success;
+    }
+    if (color == AppColors.warning || color == AppColors.amber) {
+      return KpiCardVariant.warning;
+    }
+    if (color == AppColors.danger || color == AppColors.rose) {
+      return KpiCardVariant.danger;
+    }
+    if (color == AppColors.info || color == AppColors.secondary) {
+      return KpiCardVariant.info;
+    }
+    if (color == AppColors.textSecondary) {
+      return KpiCardVariant.neutral;
+    }
+    return KpiCardVariant.primary;
   }
 }

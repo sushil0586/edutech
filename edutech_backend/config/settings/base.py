@@ -35,9 +35,12 @@ THIRD_PARTY_APPS = [
 LOCAL_APPS = [
     "apps.accounts",
     "apps.institutes",
+    "apps.geography",
     "apps.academics",
     "apps.students",
     "apps.teachers",
+    "apps.economy",
+    "apps.parents",
     "apps.question_bank",
     "apps.exams",
     "apps.attempts",
@@ -128,6 +131,7 @@ REST_FRAMEWORK = {
 
 REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {
     "login": config("THROTTLE_LOGIN", default="10/minute"),
+    "registration": config("THROTTLE_REGISTRATION", default="20/hour"),
     "attempt_save_answer": config("THROTTLE_ATTEMPT_SAVE", default="120/minute"),
     "bulk_import": config("THROTTLE_BULK_IMPORT", default="10/hour"),
 }

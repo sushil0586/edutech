@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 
 from apps.academics.models import AcademicYear, Cohort, Program, Subject
-from apps.exams.services import validate_exam_scope
+from apps.exams.services import generate_exam_access_key, normalize_exam_access_key, validate_exam_scope
 from apps.institutes.models import Institute
 from apps.question_bank.models import Question
 from apps.students.models import StudentProfile
@@ -79,6 +79,17 @@ class SecurityMode(models.TextChoices):
 class AssignmentMode(models.TextChoices):
     SCOPE = "scope", "Program/Cohort Scope"
     SELECTED_STUDENTS = "selected_students", "Selected Students"
+
+
+class ExamSourceType(models.TextChoices):
+    PLATFORM = "platform", "Platform"
+    INSTITUTE = "institute", "Institute"
+    TEACHER = "teacher", "Teacher"
+
+
+class AdvancedExamTemplateAudience(models.TextChoices):
+    INSTITUTE = "institute", "Institute"
+    TEACHER = "teacher", "Teacher"
 
 
 class Exam(BaseModel):
@@ -159,6 +170,20 @@ class Exam(BaseModel):
         choices=SecurityMode.choices,
         default=SecurityMode.NORMAL,
     )
+    access_key = models.CharField(max_length=16, blank=True)
+    access_key_enabled = models.BooleanField(default=True)
+    source_type = models.CharField(
+        max_length=20,
+        choices=ExamSourceType.choices,
+        default=ExamSourceType.INSTITUTE,
+    )
+    source_teacher = models.ForeignKey(
+        TeacherProfile,
+        on_delete=models.SET_NULL,
+        related_name="source_owned_exams",
+        blank=True,
+        null=True,
+    )
     assignment_mode = models.CharField(
         max_length=30,
         choices=AssignmentMode.choices,
@@ -178,13 +203,20 @@ class Exam(BaseModel):
             models.UniqueConstraint(
                 fields=["institute", "code"],
                 name="unique_exam_code_per_institute",
-            )
+            ),
+            models.UniqueConstraint(
+                fields=["institute", "access_key"],
+                name="unique_exam_access_key_per_institute",
+            ),
         ]
         indexes = [
             models.Index(fields=["institute", "academic_year"]),
             models.Index(fields=["program", "cohort", "subject"]),
             models.Index(fields=["exam_type", "delivery_mode", "status"]),
+            models.Index(fields=["source_type"]),
+            models.Index(fields=["source_teacher"]),
             models.Index(fields=["start_at", "end_at"]),
+            models.Index(fields=["institute", "access_key_enabled"]),
             models.Index(fields=["is_active"]),
         ]
 
@@ -220,15 +252,90 @@ class Exam(BaseModel):
             )
         if self.attempt_policy != AttemptPolicy.UNLIMITED_PRACTICE and self.max_attempts <= 0:
             raise ValidationError({"max_attempts": "Max attempts must be at least 1."})
+        if self.access_key:
+            self.access_key = normalize_exam_access_key(self.access_key)
         if self.institute_id and self.academic_year_id and self.program_id:
             validate_exam_scope(self)
+        if self.source_type == ExamSourceType.TEACHER:
+            if self.source_teacher_id is None:
+                raise ValidationError(
+                    {"source_teacher": "Teacher source exams must define a source teacher."}
+                )
+            if self.source_teacher.institute_id != self.institute_id:
+                raise ValidationError(
+                    {"source_teacher": "Source teacher must belong to the same institute as the exam."}
+                )
+        elif self.source_teacher_id and self.source_teacher.institute_id != self.institute_id:
+            raise ValidationError(
+                {"source_teacher": "Source teacher must belong to the same institute as the exam."}
+            )
+
+    def save(self, *args, **kwargs):
+        if not self.access_key:
+            self.access_key = generate_exam_access_key()
+        self.access_key = normalize_exam_access_key(self.access_key)
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.title} ({self.code})"
+
+    @property
+    def source_label(self):
+        return ExamSourceType(self.source_type).label
+
+
+class AdvancedExamTemplate(BaseModel):
+    institute = models.ForeignKey(
+        Institute,
+        on_delete=models.CASCADE,
+        related_name="advanced_exam_templates",
+    )
+    created_by_teacher = models.ForeignKey(
+        TeacherProfile,
+        on_delete=models.SET_NULL,
+        related_name="advanced_exam_templates_created",
+        blank=True,
+        null=True,
+    )
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    audience_context = models.CharField(
+        max_length=20,
+        choices=AdvancedExamTemplateAudience.choices,
+        default=AdvancedExamTemplateAudience.INSTITUTE,
+    )
+    blueprint = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["name", "-updated_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["institute", "name"],
+                name="unique_advanced_exam_template_name_per_institute",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["institute", "audience_context"]),
+            models.Index(fields=["created_by_teacher"]),
+            models.Index(fields=["is_active"]),
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.created_by_teacher_id and self.created_by_teacher.institute_id != self.institute_id:
+            raise ValidationError(
+                {"created_by_teacher": "Template teacher must belong to the same institute."}
+            )
+        if not isinstance(self.blueprint, dict):
+            raise ValidationError({"blueprint": "Blueprint must be stored as a JSON object."})
 
     def save(self, *args, **kwargs):
         self.full_clean()
         return super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.title} ({self.code})"
+        return self.name
 
 
 class ExamSection(BaseModel):

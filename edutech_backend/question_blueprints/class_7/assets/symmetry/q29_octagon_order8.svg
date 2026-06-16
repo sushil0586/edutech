@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="220" viewBox="0 0 360 220">
+  <rect width="360" height="220" fill="white"/>
+  <polygon points="150,30 210,30 250,70 250,130 210,170 150,170 110,130 110,70" fill="#fde68a" stroke="black" stroke-width="3"/>
+  <text x="258" y="104" font-size="16">order 8</text>
+</svg>

@@ -1,0 +1,77 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import type { ReactNode } from "react";
+import { logoutAction } from "@/lib/auth/actions";
+import { LogoutButton } from "@/components/ui/logout-button";
+import type { AccountProfile } from "@/lib/auth/session";
+
+export type WorkspaceNavItem = {
+  href: string;
+  label: string;
+  icon: string;
+};
+
+export function WorkspaceSidebar({
+  profile,
+  portalLabel,
+  ariaLabel,
+  navItems,
+  footerContent,
+}: {
+  profile: AccountProfile;
+  portalLabel: string;
+  ariaLabel: string;
+  navItems: WorkspaceNavItem[];
+  footerContent?: ReactNode;
+}) {
+  const pathname = usePathname();
+
+  function isActive(href: string) {
+    if (href.endsWith("/dashboard")) {
+      return pathname === href;
+    }
+
+    return pathname === href || pathname.startsWith(`${href}/`);
+  }
+
+  return (
+    <aside className="appSidebar">
+      <Link className="brand" href="/">
+        <span className="brandMark">N</span>
+        <span className="brandText">
+          <strong>Nexora</strong>
+          <small>{portalLabel}</small>
+        </span>
+      </Link>
+
+      <nav className="appSidebarNav" aria-label={ariaLabel}>
+        {navItems.map((item) => (
+          <Link
+            aria-current={isActive(item.href) ? "page" : undefined}
+            className={`appSidebarLink ${isActive(item.href) ? "appSidebarLinkActive" : ""}`}
+            href={item.href}
+            key={item.href}
+          >
+            <span className="appSidebarIcon" aria-hidden="true">
+              {item.icon}
+            </span>
+            {item.label}
+          </Link>
+        ))}
+      </nav>
+
+      <div className="appSidebarFooter">
+        {footerContent}
+        <div className="sidebarProfile">
+          <strong>{profile.username}</strong>
+          <span>{profile.role.replaceAll("_", " ")}</span>
+        </div>
+        <form action={logoutAction}>
+          <LogoutButton />
+        </form>
+      </div>
+    </aside>
+  );
+}

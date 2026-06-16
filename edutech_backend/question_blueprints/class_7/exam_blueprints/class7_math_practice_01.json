@@ -1,0 +1,98 @@
+{
+  "scope": {
+    "institute_code": "DLI001",
+    "academic_year_name": "2026-2027",
+    "program_code": "CLS7",
+    "subject_code": "CLS7-MATH"
+  },
+  "exam": {
+    "title": "Class 7 Math Practice Set 01",
+    "code": "CLS7-MATH-PRAC-01",
+    "description": "A first draft practice paper built from the curated Class 7 math question bank.",
+    "exam_type": "practice",
+    "delivery_mode": "online",
+    "status": "draft",
+    "source_type": "institute",
+    "duration_minutes": 30,
+    "passing_marks": "0.00",
+    "instructions": "Read each question carefully before answering. Use rough work where needed."
+  },
+  "composition": {
+    "selection_mode": "strict",
+    "sections": [
+      {
+        "name": "Section A",
+        "order": 1,
+        "description": "Core numeration practice",
+        "instructions": "Focus on accuracy in number reading and comparison.",
+        "question_count": 10,
+        "marks_per_question": "1.00",
+        "negative_marks_per_question": "0.25",
+        "difficulty_mix": {
+          "foundation": 40,
+          "intermediate": 40,
+          "advanced": 20
+        },
+        "topics": [
+          {
+            "topic_code": "MATH-NUMBERS-SYSTEMS",
+            "count": 5
+          },
+          {
+            "topic_code": "MATH-NUMBERS-PLACE",
+            "count": 5
+          }
+        ]
+      },
+      {
+        "name": "Section B",
+        "order": 2,
+        "description": "Operation fluency",
+        "instructions": "Apply operation rules and show careful reasoning.",
+        "question_count": 10,
+        "marks_per_question": "2.00",
+        "negative_marks_per_question": "0.25",
+        "difficulty_mix": {
+          "foundation": 20,
+          "intermediate": 50,
+          "advanced": 30
+        },
+        "topics": [
+          {
+            "topic_code": "MATH-ARITH-ORDER",
+            "count": 10
+          }
+        ]
+      }
+    ]
+  },
+  "delivery": {
+    "timer_mode": "global",
+    "navigation_mode": "free_exam",
+    "attempt_policy": "single",
+    "max_attempts": 1,
+    "result_publish_mode": "after_review",
+    "review_mode": "attempted_only",
+    "security_mode": "normal",
+    "assignment_mode": "scope",
+    "randomize_questions": true,
+    "randomize_options": true,
+    "allow_late_submit": false,
+    "show_result_immediately": false,
+    "allow_review_after_submit": true,
+    "allow_resume": true,
+    "allow_section_switching": true,
+    "allow_return_to_previous_section": true
+  },
+  "economy": {
+    "policy_type": "free",
+    "star_cost": 0,
+    "entitlement_code": "",
+    "priority": 100,
+    "unlock_rule": {
+      "rule_type": "none",
+      "priority": 100,
+      "admin_override_allowed": true
+    }
+  }
+}

@@ -1,0 +1,1963 @@
+.studentAppFooter {
+  padding: 0 6px 10px;
+}
+
+.studentAppFooterInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.studentAppFooterTrust {
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+}
+
+.studentAppFooterLinks {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.studentAppFooterLinks a {
+  color: var(--color-brand-primary-600);
+  font-weight: 600;
+}
+
+.studentPage {
+  gap: 18px;
+  padding: 22px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: var(--shadow-sm);
+}
+
+.studentPage::before,
+.studentPage::after {
+  display: none;
+}
+
+.studentDashboardPage {
+  gap: 16px;
+  padding: 16px;
+}
+
+.studentDashboardModern {
+  gap: 16px;
+}
+
+.studentDashboardWelcome {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(220px, 0.8fr);
+  align-items: center;
+  gap: 14px;
+  padding: 4px 2px 2px;
+}
+
+.studentDashboardWelcomeCompact {
+  gap: 10px;
+  padding: 2px 0 0;
+}
+
+.studentDashboardWelcomeCopy {
+  display: grid;
+  gap: 8px;
+}
+
+.studentDashboardEyebrow,
+.studentDashboardTag,
+.studentDashboardMiniBadge,
+.studentDashboardChip {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #f3f6fb;
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.studentDashboardTag {
+  background: #edf4ff;
+  color: var(--color-brand-primary-600);
+}
+
+.studentDashboardTagWarm {
+  background: #fff6e8;
+  color: #9d6f1a;
+}
+
+.studentDashboardWelcomeCopy h1 {
+  font-size: clamp(1.75rem, 3.5vw, 2.45rem);
+  line-height: 1.04;
+  letter-spacing: -0.04em;
+}
+
+.studentDashboardWelcomeCompact .studentDashboardWelcomeCopy {
+  gap: 6px;
+}
+
+.studentDashboardWelcomeCompact .studentDashboardWelcomeCopy h1 {
+  font-size: clamp(1.58rem, 3vw, 2.15rem);
+  line-height: 1.02;
+}
+
+.studentDashboardWelcomeCompact .studentDashboardIllustration {
+  min-height: 96px;
+}
+
+.studentDashboardWelcomeCompact .studentDashboardIllustration span:nth-child(1) {
+  width: 132px;
+}
+
+.studentDashboardWelcomeCompact .studentDashboardIllustration span:nth-child(2) {
+  inset: 40px 66px auto auto;
+  width: 104px;
+}
+
+.studentDashboardWelcomeCompact .studentDashboardIllustration span:nth-child(3) {
+  inset: 68px 0 auto auto;
+  width: 178px;
+}
+
+.studentDashboardWelcomeCopy p,
+.studentDashboardWelcomeCopy small,
+.studentDashboardRecommendation p,
+.studentDashboardWalletCard p,
+.studentDashboardExamCard p,
+.studentDashboardPremiumInfo p {
+  color: var(--color-text-secondary);
+  line-height: 1.65;
+}
+
+.studentDashboardIllustration {
+  position: relative;
+  min-height: 118px;
+}
+
+.studentDashboardIllustration span {
+  position: absolute;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(31, 95, 214, 0.18), rgba(108, 139, 199, 0.08));
+}
+
+.studentDashboardIllustration span:nth-child(1) {
+  inset: 12px 20px auto auto;
+  width: 150px;
+  height: 14px;
+}
+
+.studentDashboardIllustration span:nth-child(2) {
+  inset: 46px 76px auto auto;
+  width: 118px;
+  height: 14px;
+}
+
+.studentDashboardIllustration span:nth-child(3) {
+  inset: 76px 0 auto auto;
+  width: 210px;
+  height: 18px;
+}
+
+.studentAppContent {
+  display: grid;
+}
+
+.dashboardWorkspaceGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(300px, 0.92fr);
+  gap: 18px;
+  align-items: flex-start;
+}
+
+.dashboardWorkspaceMain,
+.dashboardWorkspaceRail {
+  display: grid;
+  gap: 18px;
+}
+
+.studentDashboardPrimaryGrid,
+.studentDashboardBottomGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.studentDashboardPrimaryGridCompact {
+  gap: 14px;
+}
+
+.studentDashboardCard {
+  display: grid;
+  gap: 14px;
+  padding: 22px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 28px;
+  background: #ffffff;
+  box-shadow: var(--shadow-xs);
+}
+
+.studentDashboardWalletCard {
+  background: linear-gradient(180deg, #fffdf8 0%, #fff8ee 100%);
+  border-color: #f0dfc1;
+}
+
+.studentDashboardCard strong {
+  font-size: clamp(1.8rem, 3vw, 2.6rem);
+  line-height: 1.04;
+  letter-spacing: -0.04em;
+}
+
+.studentDashboardCardCompact {
+  gap: 12px;
+  padding: 18px;
+  border-radius: 24px;
+}
+
+.studentDashboardCardCompact strong {
+  font-size: clamp(1.45rem, 2.3vw, 2rem);
+}
+
+.studentDashboardActionRow,
+.studentDashboardMetaRow,
+.studentDashboardBadgeRow,
+.studentDashboardChipRow,
+.studentDashboardPremiumGrid,
+.studentDashboardProgressSummary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.studentDashboardTextLink {
+  color: var(--color-brand-primary-600);
+  font-weight: 700;
+}
+
+.studentDashboardMetaRow span {
+  color: var(--color-text-muted);
+  font-size: 0.88rem;
+}
+
+.studentDashboardBadgeRow {
+  gap: 10px;
+}
+
+.studentDashboardChipRow {
+  gap: 10px;
+}
+
+.studentDashboardChipActive {
+  background: #edf4ff;
+  color: var(--color-brand-primary-600);
+}
+
+.studentDashboardExamGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.studentDashboardExamCard,
+.dashboardOfferCard {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 22px;
+  background: #ffffff;
+}
+
+.studentDashboardExamCard strong,
+.dashboardOfferCard strong {
+  font-size: 1.08rem;
+  line-height: 1.35;
+}
+
+.studentDashboardExamCardTop {
+  display: flex;
+  justify-content: space-between;
+}
+
+.studentDashboardPremiumSection {
+  background: linear-gradient(180deg, #fffdf8 0%, #fff8ef 100%);
+  border-color: #f0dfc1;
+}
+
+.studentDashboardPremiumGrid {
+  align-items: stretch;
+  justify-content: space-between;
+}
+
+.studentDashboardPremiumInfo {
+  display: grid;
+  gap: 10px;
+  flex: 1 1 320px;
+}
+
+.studentDashboardPremiumStats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(140px, 1fr));
+  gap: 12px;
+  flex: 0 1 360px;
+}
+
+.studentDashboardProgressRing {
+  display: grid;
+  place-items: center;
+  width: 160px;
+  min-height: 160px;
+  border-radius: 50%;
+  border: 10px solid #edf4ff;
+  background: radial-gradient(circle at center, #ffffff 58%, transparent 59%);
+  color: var(--color-brand-primary-600);
+}
+
+.studentDashboardProgressRing span {
+  font-size: 2rem;
+  font-weight: 800;
+}
+
+.studentDashboardProgressRing small,
+.studentDashboardWeakRow span,
+.dashboardLedgerDelta,
+.dashboardRailStat {
+  color: var(--color-text-muted);
+}
+
+.studentDashboardWeakList {
+  display: grid;
+  gap: 12px;
+  flex: 1 1 260px;
+}
+
+.dashboardRailCard {
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+}
+
+.dashboardRailStack {
+  display: grid;
+  gap: 12px;
+}
+
+.studentDashboardWeakRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 18px;
+  background: #f8fafd;
+}
+
+.dashboardRailRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(160, 174, 208, 0.16);
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.dashboardRailRow span {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+}
+
+.dashboardRailRow strong {
+  display: block;
+  font-size: 0.96rem;
+}
+
+.dashboardRailTone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(22, 163, 74, 0.08);
+  color: var(--color-success-500);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.dashboardRailRowTone,
+.dashboardLedgerRow {
+  align-items: flex-start;
+}
+
+.dashboardLedgerDeltaPositive {
+  color: #2d7d46;
+}
+
+.dashboardLedgerDeltaNegative {
+  color: #b15f56;
+}
+
+.studentInsightHeroCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 18px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at top right, rgba(31, 95, 214, 0.08), transparent 34%),
+    #ffffff;
+  box-shadow: var(--shadow-xs);
+}
+
+.studentInsightHeroCardWarm {
+  background:
+    radial-gradient(circle at top right, rgba(210, 162, 74, 0.12), transparent 36%),
+    linear-gradient(180deg, #fffdf8 0%, #fff8ef 100%);
+  border-color: #f0dfc1;
+}
+
+.studentInsightHeroCardCompact {
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 20px;
+}
+
+.studentInsightHeroCopy {
+  display: grid;
+  gap: 6px;
+  flex: 1 1 360px;
+}
+
+.studentInsightHeroCopy strong {
+  font-size: clamp(1.25rem, 2.15vw, 1.7rem);
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+}
+
+.studentInsightHeroCardCompact .studentInsightHeroCopy {
+  gap: 6px;
+}
+
+.studentInsightHeroCardCompact .studentInsightHeroCopy strong {
+  font-size: clamp(1.2rem, 2vw, 1.55rem);
+}
+
+.studentInsightHeroCopy p,
+.studentInsightHeroCopy small,
+.studentResultSurfaceHead span,
+.studentResultHelper small,
+.studentNotificationMessage,
+.studentTopicRow span,
+.studentWeakAreaTopic span,
+.studentWeakAreaTopic p,
+.studentInsightMessage p,
+.studentInsightColumnHeading span,
+.studentResultStat span,
+.studentResultBreakdown span {
+  color: var(--color-text-secondary);
+  line-height: 1.55;
+}
+
+.studentInsightHeroActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.studentResultsGrid,
+.studentInsightsTwoColumn,
+.studentWeakAreasLayout,
+.studentNotificationGrid {
+  display: grid;
+  gap: 18px;
+}
+
+.studentResultsGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.studentInsightsTwoColumn,
+.studentWeakAreasLayout,
+.studentNotificationGrid {
+  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+}
+
+.studentResultSurface,
+.studentNotificationSurface,
+.studentInsightColumn,
+.studentWeakAreasRail,
+.studentWeakAreaStack,
+.studentTopicStack,
+.studentInsightMessageStack {
+  display: grid;
+  gap: 14px;
+}
+
+.studentResultSurface,
+.studentNotificationSurface {
+  gap: 18px;
+}
+
+.studentResultSurfaceHead,
+.studentResultFooter,
+.studentWeakAreaRow,
+.studentTopicRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.studentResultSurfaceStatus {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.studentResultSurfaceHead strong,
+.studentWeakAreaTitleLine strong,
+.studentTopicRow strong,
+.studentInsightColumnHeading strong {
+  display: block;
+}
+
+.studentResultStatGrid,
+.studentResultBreakdown,
+.studentInsightDualList {
+  display: grid;
+  gap: 14px;
+}
+
+.studentResultStatGrid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.studentResultBreakdown {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.studentResultStat,
+.studentResultBreakdown > div,
+.studentResultHelper,
+.studentWeakAreaMetrics,
+.studentTopicRowMeta {
+  display: grid;
+  gap: 6px;
+}
+
+.studentResultStat,
+.studentResultBreakdown > div {
+  padding: 14px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 18px;
+  background: #f8fafd;
+}
+
+.studentResultStat strong,
+.studentResultBreakdown strong,
+.studentWeakAreaMetrics strong,
+.studentTopicRowMeta strong {
+  font-size: 1.05rem;
+}
+
+.studentResultFooter {
+  padding-top: 6px;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.studentResultHelper {
+  flex: 1 1 240px;
+}
+
+.studentInsightDualList {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.studentInsightColumn {
+  align-content: start;
+}
+
+.studentInsightColumnHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 4px;
+}
+
+.studentInsightScoreRow {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 18px;
+  background: #f8fafd;
+}
+
+.studentTopicRow,
+.studentWeakAreaRow,
+.studentInsightMessage {
+  padding: 14px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 18px;
+  background: #f8fafd;
+}
+
+.studentNotificationMessage {
+  margin: 0;
+}
+
+.studentNotificationUnread {
+  border-color: rgba(31, 95, 214, 0.18);
+  box-shadow: 0 18px 40px rgba(31, 95, 214, 0.08);
+}
+
+.studentNotificationRead {
+  background: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
+}
+
+.studentTopicRowMeta {
+  justify-items: flex-end;
+  text-align: right;
+  min-width: 110px;
+}
+
+.studentInsightMessage {
+  grid-template-columns: auto 1fr;
+  align-items: flex-start;
+}
+
+.builderInlineQuestionEditor {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.builderInlineQuestionEditor select,
+.builderInlineQuestionEditor input[type="number"] {
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.builderInlineQuestionEditor input[type="number"] {
+  width: 88px;
+}
+
+.builderInlineCheckbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 12px;
+  background: #f8fafd;
+  color: var(--color-text-secondary);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.studentWeakAreasRail {
+  align-content: start;
+}
+
+.studentWeakAreaTopic {
+  display: grid;
+  gap: 6px;
+  flex: 1 1 250px;
+}
+
+.studentWeakAreaTitleLine {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.studentWeakAreaMetrics {
+  flex: 0 0 120px;
+  align-items: flex-end;
+}
+
+.analyticsLandingHero,
+.analyticsShowcaseGrid {
+  display: grid;
+  gap: 16px;
+}
+
+.topicFocusCompact {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+  gap: 16px;
+  padding: 18px 20px;
+  border: 1px solid rgba(220, 165, 74, 0.18);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at top right, rgba(220, 165, 74, 0.14), transparent 36%),
+    linear-gradient(180deg, #fffdf8 0%, #fff8ef 100%);
+}
+
+.topicFocusCompactSummary,
+.topicFocusCompactStats {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.topicFocusCompactSummary strong {
+  font-size: clamp(1.55rem, 2.7vw, 2.2rem);
+  line-height: 1;
+  letter-spacing: -0.045em;
+}
+
+.topicFocusCompactActions {
+  padding-top: 6px;
+}
+
+.topicFocusCompactStats {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.topicFocusCompactStat {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(230, 208, 160, 0.34);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.topicFocusCompactStat span {
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.topicFocusCompactStat strong {
+  font-size: 1.55rem;
+  line-height: 1;
+}
+
+.analyticsLandingHeroMain {
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(360px, 0.88fr);
+  align-items: stretch;
+  gap: 20px;
+  padding: 20px;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.96), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(86, 121, 235, 0.08), transparent 34%);
+}
+
+.analyticsHeroVisuals,
+.analyticsBenchmarkStack,
+.analyticsTopicMiniGrid {
+  display: grid;
+  gap: 12px;
+}
+
+.analyticsLandingHeroCopy {
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.analyticsLandingHeroCopy .studentDashboardTagWarm {
+  box-shadow: inset 0 0 0 1px rgba(221, 181, 101, 0.18);
+}
+
+.analyticsLandingHeroCopy strong {
+  font-size: clamp(1.7rem, 2.9vw, 2.4rem);
+  line-height: 0.98;
+  letter-spacing: -0.045em;
+}
+
+.analyticsLandingHeroCopy p {
+  max-width: 56ch;
+  font-size: 0.97rem;
+}
+
+.analyticsHeroSketch {
+  display: grid;
+  justify-items: end;
+  padding-top: 4px;
+}
+
+.analyticsHeroSketchSvg {
+  width: min(220px, 100%);
+  height: auto;
+  filter: drop-shadow(0 14px 34px rgba(79, 104, 204, 0.08));
+}
+
+.analyticsHeroSketchOutline,
+.analyticsHeroSketchLine,
+.analyticsHeroSketchArc,
+.analyticsHeroSketchTick {
+  fill: none;
+  stroke: rgba(94, 122, 232, 0.55);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.analyticsHeroSketchArc {
+  stroke: rgba(160, 123, 46, 0.62);
+}
+
+.analyticsHeroSketchBars rect {
+  fill: rgba(72, 99, 234, 0.88);
+}
+
+.analyticsLandingHeroActions {
+  padding-top: 6px;
+}
+
+.analyticsHeroMetaGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.analyticsHeroMetaCard {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px 14px 64px;
+  border-radius: 18px;
+  border: 1px solid rgba(221, 194, 142, 0.34);
+  background: rgba(255, 255, 255, 0.72);
+  position: relative;
+  overflow: hidden;
+}
+
+.analyticsHeroMetaCard span {
+  color: var(--color-text-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.analyticsHeroMetaCard strong {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.analyticsHeroMetaIcon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  width: 32px;
+  height: 32px;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+}
+
+.analyticsHeroMetaIcon svg,
+.metricCardIcon svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+.analyticsHeroMetaIconScore {
+  background: linear-gradient(180deg, rgba(54, 99, 255, 0.16), rgba(54, 99, 255, 0.06));
+  color: #3557d4;
+}
+
+.analyticsHeroMetaIconAccuracy {
+  background: linear-gradient(180deg, rgba(16, 185, 129, 0.18), rgba(16, 185, 129, 0.06));
+  color: #0f9f8c;
+}
+
+.analyticsHeroMetaIconHistory {
+  background: linear-gradient(180deg, rgba(245, 158, 11, 0.18), rgba(245, 158, 11, 0.06));
+  color: #d18b1f;
+}
+
+.analyticsHeroVisualsCompact {
+  align-content: start;
+}
+
+.analyticsHeroTrendCard,
+.analyticsHeroBenchmarkCard,
+.analyticsShowcaseCard {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 18px 46px rgba(15, 23, 42, 0.05);
+}
+
+.analyticsHeroInsightCard {
+  min-height: 0;
+}
+
+.analyticsHeroTrendCard {
+  background:
+    linear-gradient(180deg, rgba(245, 249, 255, 0.98) 0%, rgba(235, 244, 255, 0.92) 100%);
+}
+
+.analyticsHeroBenchmarkCard {
+  background:
+    linear-gradient(180deg, rgba(255, 250, 241, 0.98) 0%, rgba(255, 245, 225, 0.94) 100%);
+}
+
+.analyticsLineChartSurface {
+  display: grid;
+  gap: 12px;
+}
+
+.analyticsLineChartStableNote {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(117, 145, 233, 0.24);
+}
+
+.analyticsLineChartStableNote strong {
+  font-size: 1rem;
+  color: #3650b8;
+}
+
+.analyticsLineChartStableNote span {
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+}
+
+.analyticsLineChart {
+  width: 100%;
+  height: 170px;
+}
+
+.analyticsLineChartFlat .analyticsLineChartArea {
+  opacity: 0.7;
+}
+
+.analyticsLineChartAxis,
+.analyticsLineChartGrid {
+  stroke: rgba(148, 163, 184, 0.24);
+  stroke-width: 1;
+}
+
+.analyticsLineChartGrid {
+  stroke-dasharray: 4 6;
+}
+
+.analyticsLineChartArea {
+  fill: url(#analyticsScoreArea);
+}
+
+.analyticsLineChartPath {
+  fill: none;
+  stroke: #2b63ff;
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 8px 18px rgba(43, 99, 255, 0.18));
+}
+
+.analyticsLineChartPointHalo {
+  fill: rgba(43, 99, 255, 0.12);
+}
+
+.analyticsLineChartPoint {
+  fill: #2b63ff;
+  stroke: #ffffff;
+  stroke-width: 2;
+}
+
+.analyticsLineChartLabels {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.analyticsLineChartLabel {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  text-align: center;
+}
+
+.analyticsLineChartLabel strong {
+  font-size: 0.88rem;
+  color: #3650b8;
+  min-height: 1em;
+  font-variant-numeric: tabular-nums;
+}
+
+.analyticsLineChartLabel span,
+.analyticsTopicMiniCard small {
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.analyticsBenchmarkRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(120px, 0.85fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.76);
+  border: 1px solid rgba(222, 199, 148, 0.34);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.analyticsBenchmarkDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.analyticsBenchmarkDotschool,
+.analyticsBenchmarkDotschool_level,
+.analyticsBenchmarkDotschool24,
+.analyticsBenchmarkDotprogram {
+  background: #22c55e;
+}
+
+.analyticsBenchmarkDotclass_level,
+.analyticsBenchmarkDotclasslevel24 {
+  background: #f59e0b;
+}
+
+.analyticsBenchmarkDotcity,
+.analyticsBenchmarkDotcity24 {
+  background: #fbbf24;
+}
+
+.analyticsBenchmarkDotstate,
+.analyticsBenchmarkDotstate24 {
+  background: #ef4444;
+}
+
+.analyticsBenchmarkProgress {
+  position: relative;
+  min-height: 8px;
+  border-radius: 999px;
+  background: rgba(226, 232, 240, 0.92);
+  overflow: hidden;
+}
+
+.analyticsBenchmarkProgressFill,
+.analyticsInlineProgressFill,
+.analyticsRiskBarWrong,
+.analyticsRiskBarSkipped {
+  display: block;
+  height: 100%;
+}
+
+.analyticsBenchmarkProgressFill {
+  width: var(--benchmark-fill);
+  border-radius: 999px;
+  background: linear-gradient(90deg, #2b63ff, #79a5ff);
+}
+
+.analyticsShowcaseGrid {
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 0.95fr) minmax(0, 1.1fr);
+}
+
+.analyticsShowcaseCardScore {
+  background:
+    radial-gradient(circle at top right, rgba(29, 78, 216, 0.15), transparent 38%),
+    linear-gradient(180deg, #f7fbff 0%, #eef6ff 100%);
+}
+
+.analyticsShowcaseCardAccuracy {
+  background:
+    radial-gradient(circle at top right, rgba(13, 148, 136, 0.14), transparent 38%),
+    linear-gradient(180deg, #f3fcfb 0%, #e9f8f6 100%);
+}
+
+.analyticsShowcaseCardTopics {
+  background:
+    radial-gradient(circle at top right, rgba(217, 119, 6, 0.14), transparent 40%),
+    linear-gradient(180deg, #fffaf2 0%, #fff3df 100%);
+}
+
+.analyticsGaugeCard,
+.analyticsGaugeMeta,
+.analyticsSplitLegend {
+  display: grid;
+  gap: 12px;
+}
+
+.analyticsGaugeCard {
+  justify-items: start;
+  align-content: start;
+}
+
+.analyticsGaugeRing {
+  --gauge-fill: 0%;
+  width: 132px;
+  height: 132px;
+  padding: 12px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at center, #ffffff 58%, transparent 59%),
+    conic-gradient(#225fe1 0 var(--gauge-fill), rgba(194, 210, 236, 0.55) var(--gauge-fill) 100%);
+  box-shadow: inset 0 0 0 10px rgba(255, 255, 255, 0.7);
+}
+
+.analyticsGaugeRingCool {
+  background:
+    radial-gradient(circle at center, #ffffff 58%, transparent 59%),
+    conic-gradient(#0f9f8c 0 var(--gauge-fill), rgba(188, 228, 222, 0.72) var(--gauge-fill) 100%);
+}
+
+.analyticsGaugeRing > div {
+  display: grid;
+  gap: 4px;
+  text-align: center;
+}
+
+.analyticsGaugeRing strong {
+  font-size: 1.35rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.analyticsGaugeRing span,
+.analyticsGaugeMeta span,
+.analyticsSplitLegend span,
+.analyticsTopicMiniCard span {
+  color: var(--color-text-secondary);
+}
+
+.analyticsSplitLegend {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100%;
+}
+
+.analyticsSplitLegend > div {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.analyticsStackedBar {
+  display: flex;
+  width: 100%;
+  min-height: 12px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(207, 221, 241, 0.72);
+}
+
+.analyticsStackedBarFill {
+  width: var(--stack-size);
+}
+
+.analyticsStackedBarAnswered {
+  background: linear-gradient(90deg, #0f9f8c, #34d399);
+}
+
+.analyticsStackedBarSkipped {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+}
+
+.analyticsTopicMiniGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.analyticsTopicMiniCard {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  min-height: 102px;
+}
+
+.analyticsTopicMiniCardWeak {
+  background: linear-gradient(180deg, #fff6f1 0%, #ffeae2 100%);
+  border-color: rgba(238, 172, 154, 0.42);
+}
+
+.analyticsTopicMiniCardStrong {
+  background: linear-gradient(180deg, #f3fff8 0%, #e2faec 100%);
+  border-color: rgba(124, 207, 156, 0.36);
+}
+
+.analyticsKpiGrid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.analyticsKpiGrid .metricCard {
+  border-radius: 20px;
+  box-shadow: 0 16px 30px rgba(15, 23, 42, 0.05);
+  padding: 18px 18px 18px 82px;
+  min-height: 112px;
+  justify-content: center;
+}
+
+.analyticsKpiGrid .metricCard .metricCardIcon {
+  position: absolute;
+  left: 20px;
+  top: 22px;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+}
+
+.analyticsKpiGrid .metricCard:nth-child(1) .metricCardIcon {
+  background:
+    radial-gradient(circle at center, rgba(255, 255, 255, 0.92) 0 34%, transparent 35%),
+    linear-gradient(180deg, #4f68ff, #6d78ff);
+  box-shadow: 0 10px 22px rgba(79, 104, 255, 0.22);
+  color: #ffffff;
+}
+
+.analyticsKpiGrid .metricCard:nth-child(2) .metricCardIcon {
+  background:
+    radial-gradient(circle at center, rgba(255, 255, 255, 0.92) 0 24%, transparent 25%),
+    linear-gradient(180deg, #12c26d, #0ea85f);
+  box-shadow: 0 10px 22px rgba(18, 194, 109, 0.22);
+  color: #ffffff;
+}
+
+.analyticsKpiGrid .metricCard:nth-child(3) .metricCardIcon {
+  background: linear-gradient(180deg, #ffb21d, #ff9f0a);
+  box-shadow: 0 10px 22px rgba(255, 176, 29, 0.22);
+  color: #ffffff;
+}
+
+.analyticsKpiGrid .metricCard:nth-child(4) .metricCardIcon {
+  background: linear-gradient(180deg, #8b5cf6, #7c3aed);
+  box-shadow: 0 10px 22px rgba(124, 58, 237, 0.22);
+  color: #ffffff;
+}
+
+.analyticsKpiGrid .metricCard span {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.analyticsKpiGrid .metricCard strong {
+  font-size: clamp(1.45rem, 2.5vw, 2rem);
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+}
+
+.analyticsKpiGrid .metricCard small {
+  font-size: 0.8rem;
+  max-width: 28ch;
+}
+
+.analyticsKpiGrid .metricCard::after {
+  inset: auto 18px 14px;
+  height: 4px;
+}
+
+.analyticsInlineProgress {
+  width: min(320px, 100%);
+  min-height: 8px;
+  margin-top: 10px;
+  border-radius: 999px;
+  background: rgba(226, 232, 240, 0.92);
+  overflow: hidden;
+}
+
+.analyticsInlineProgressFill {
+  width: var(--inline-progress);
+  border-radius: 999px;
+}
+
+.analyticsInlineProgressFillgood {
+  background: linear-gradient(90deg, #16a34a, #4ade80);
+}
+
+.analyticsInlineProgressFillmid {
+  background: linear-gradient(90deg, #2563eb, #60a5fa);
+}
+
+.analyticsInlineProgressFillwarn {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+}
+
+.analyticsInlineProgressFillrisk {
+  background: linear-gradient(90deg, #ef4444, #fb7185);
+}
+
+.analyticsRiskRow {
+  gap: 16px;
+}
+
+.analyticsRiskBar {
+  display: flex;
+  width: min(260px, 100%);
+  min-height: 9px;
+  margin-top: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(226, 232, 240, 0.92);
+}
+
+.analyticsRiskBarWrong {
+  width: var(--risk-size);
+  background: linear-gradient(90deg, #ef4444, #fb7185);
+}
+
+.analyticsRiskBarSkipped {
+  width: var(--risk-size);
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+}
+
+.sectionHeadingCompact strong {
+  font-size: 0.96rem;
+}
+
+.sectionHeadingCompact span {
+  font-size: 0.78rem;
+}
+
+.analyticsPanel {
+  position: relative;
+  overflow: hidden;
+}
+
+.analyticsPanel::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 4px;
+  border-radius: 999px;
+}
+
+.analyticsPanelSource {
+  background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+}
+
+.analyticsPanelSource::before {
+  background: linear-gradient(90deg, #1f5fd6, #5cc8ff);
+}
+
+.analyticsPanelMatrix {
+  background: linear-gradient(180deg, #ffffff 0%, #fffaf1 100%);
+}
+
+.analyticsPanelMatrix::before {
+  background: linear-gradient(90deg, #d18b1f, #ffd166);
+}
+
+.analyticsPanelSubjects {
+  background: linear-gradient(180deg, #ffffff 0%, #f4fcf9 100%);
+}
+
+.analyticsPanelSubjects::before {
+  background: linear-gradient(90deg, #0f9f8c, #34d399);
+}
+
+.analyticsPanelResults {
+  background: linear-gradient(180deg, #ffffff 0%, #f8faff 100%);
+}
+
+.analyticsPanelResults::before {
+  background: linear-gradient(90deg, #3557d4, #7ea6ff);
+}
+
+.analyticsPanelTopics {
+  background: linear-gradient(180deg, #ffffff 0%, #fffaf5 100%);
+}
+
+.analyticsPanelTopics::before {
+  background: linear-gradient(90deg, #f97316, #fbbf24);
+}
+
+.analyticsPanelRisk {
+  background: linear-gradient(180deg, #ffffff 0%, #fff7f7 100%);
+}
+
+.analyticsPanelRisk::before {
+  background: linear-gradient(90deg, #dc2626, #fb7185);
+}
+
+.analyticsPanelInsights {
+  background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+}
+
+.analyticsPanelInsights::before {
+  background: linear-gradient(90deg, #2563eb, #14b8a6);
+}
+
+.analyticsTrendUp {
+  color: #0f9f8c;
+}
+
+.analyticsTrendDown {
+  color: #dc2626;
+}
+
+.analyticsTrendStable {
+  color: #3557d4;
+}
+
+.analyticsDetailHero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  gap: 18px;
+  padding: 22px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 26px;
+  background:
+    radial-gradient(circle at top right, rgba(31, 95, 214, 0.14), transparent 36%),
+    linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.06);
+}
+
+.analyticsDetailHeroWarm {
+  background:
+    radial-gradient(circle at top right, rgba(220, 165, 74, 0.16), transparent 38%),
+    linear-gradient(180deg, #fffdf9 0%, #fff7ea 100%);
+  border-color: #efd9b1;
+}
+
+.analyticsDetailHeroCopy,
+.analyticsDetailHeroRail {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.analyticsDetailHeroCopy strong {
+  font-size: clamp(1.5rem, 3vw, 2.35rem);
+  line-height: 1;
+  letter-spacing: -0.05em;
+}
+
+.analyticsDetailHeroCopy p,
+.analyticsSignalCard span,
+.analyticsSignalCard small,
+.analyticsTimelineMetrics span,
+.analyticsChecklistItem span,
+.analyticsQuestionHeadline span,
+.analyticsQuestionNarrative p {
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+.analyticsSignalGrid,
+.analyticsActionGrid {
+  display: grid;
+  gap: 14px;
+}
+
+.analyticsSignalGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.analyticsSignalCard {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.analyticsSignalCard strong {
+  font-size: 1.3rem;
+  line-height: 1.05;
+}
+
+.analyticsActionGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.analyticsActionCard {
+  align-content: start;
+}
+
+.analyticsChecklist {
+  display: grid;
+  gap: 12px;
+}
+
+.analyticsChecklistItem {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 18px;
+  background: #f8fafd;
+}
+
+.analyticsTimelineStack {
+  display: grid;
+  gap: 14px;
+}
+
+.analyticsTimelineItem {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 14px;
+}
+
+.analyticsTimelineDot {
+  width: 12px;
+  height: 12px;
+  margin-top: 10px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #1f5fd6, #6d93d7);
+  box-shadow: 0 0 0 6px rgba(31, 95, 214, 0.08);
+}
+
+.analyticsTimelineBody {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 18px;
+  background: #f8fafd;
+}
+
+.analyticsTimelineHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.analyticsTimelineMetrics {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.analyticsQuestionSurface {
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 20px;
+  background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
+}
+
+.analyticsQuestionSummary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  list-style: none;
+  cursor: pointer;
+}
+
+.analyticsQuestionSummary::-webkit-details-marker {
+  display: none;
+}
+
+.analyticsQuestionHeadline,
+.analyticsQuestionDetail,
+.analyticsQuestionNarrative {
+  display: grid;
+  gap: 12px;
+}
+
+.analyticsQuestionHeadline {
+  flex: 1 1 auto;
+}
+
+.analyticsQuestionHeadline > strong {
+  font-size: 1.08rem;
+  line-height: 1.45;
+}
+
+.analyticsQuestionDetail {
+  padding-top: 8px;
+}
+
+.analyticsQuestionDetailMain {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.85fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.analyticsQuestionStoryCard {
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.analyticsQuestionAside {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.analyticsQuestionMiniCard {
+  gap: 14px;
+}
+
+.analyticsQuestionMiniStats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.analyticsQuestionMiniStat {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(244, 247, 255, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.analyticsQuestionMiniStat span {
+  font-size: 0.74rem;
+  color: var(--color-text-secondary);
+}
+
+.analyticsQuestionMiniStat strong {
+  font-size: 1rem;
+  color: var(--color-text-primary);
+}
+
+.analyticsQuestionEvidenceRow {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.analyticsQuestionEvidencePill {
+  display: grid;
+  gap: 2px;
+  min-width: 122px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(244, 247, 255, 0.78);
+}
+
+.analyticsQuestionEvidencePill strong {
+  font-size: 0.95rem;
+  color: var(--color-text-primary);
+}
+
+.analyticsQuestionEvidencePill span {
+  font-size: 0.76rem;
+  color: var(--color-text-secondary);
+}
+
+.analyticsQuestionOutcomeMeta {
+  align-self: stretch;
+  min-width: 220px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(250, 252, 255, 0.88);
+}
+
+.analyticsQuestionOutcome {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+}
+
+.analyticsQuestionOutcomeWrong {
+  color: #b42318;
+  background: rgba(254, 226, 226, 0.92);
+}
+
+.analyticsQuestionOutcomeCorrect {
+  color: #027a48;
+  background: rgba(220, 252, 231, 0.92);
+}
+
+.analyticsQuestionOutcomeSkipped {
+  color: #8a5300;
+  background: rgba(254, 243, 199, 0.96);
+}
+
+.analyticsQuestionSupportGrid {
+  grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+}
+
+.analyticsQuestionSupportCard {
+  align-content: start;
+  gap: 14px;
+}
+
+.analyticsQuestionActionCard {
+  min-height: 100%;
+}
+
+.analyticsQuestionActionGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.analyticsQuestionActionButton {
+  width: 100%;
+  justify-content: center;
+  min-height: 46px;
+}
+
+.analyticsQuestionActionCard .sectionHeading {
+  min-height: 0;
+}
+
+.analyticsAttachmentModal {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.58);
+  backdrop-filter: blur(10px);
+}
+
+.analyticsAttachmentModalCard {
+  width: min(1040px, 100%);
+  max-height: calc(100vh - 48px);
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: 0 32px 80px rgba(15, 23, 42, 0.2);
+}
+
+.analyticsAttachmentModalHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.analyticsAttachmentModalHeader > strong {
+  font-size: 1rem;
+  line-height: 1.4;
+  color: var(--color-text-primary);
+}
+
+.analyticsAttachmentModalActions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.analyticsAttachmentModalBody {
+  min-height: 320px;
+  max-height: calc(100vh - 180px);
+  overflow: auto;
+  display: grid;
+  place-items: center;
+  padding: 4px;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(244, 247, 255, 0.94) 0%, rgba(236, 243, 255, 0.86) 100%);
+}
+
+.analyticsAttachmentPreviewImage,
+.analyticsAttachmentPreviewFrame {
+  width: 100%;
+  max-height: calc(100vh - 220px);
+  border: 0;
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+.analyticsAttachmentPreviewImage {
+  object-fit: contain;
+}
+
+.analyticsAttachmentPreviewFrame {
+  min-height: 70vh;
+}
+
+.analyticsAttachmentPreviewFallback {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  text-align: center;
+  padding: 36px 24px;
+  color: var(--color-text-secondary);
+}
+
+@media (max-width: 1200px) {
+  .studentDashboardExamGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .studentResultsGrid,
+  .studentInsightsTwoColumn,
+  .studentWeakAreasLayout,
+  .studentNotificationGrid,
+  .analyticsDetailHero,
+  .analyticsActionGrid,
+  .analyticsLandingHeroMain,
+  .analyticsShowcaseGrid,
+  .analyticsQuestionDetailMain,
+  .analyticsQuestionSupportGrid,
+  .topicFocusCompact {
+    grid-template-columns: 1fr;
+  }
+
+  .analyticsHeroMetaGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .analyticsKpiGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .topicFocusCompactStats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .analyticsBenchmarkRow {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .analyticsBenchmarkProgress {
+    grid-column: 2 / 4;
+  }
+
+  .analyticsHeroSketch {
+    justify-items: start;
+  }
+
+  .analyticsQuestionOutcomeMeta {
+    min-width: 100%;
+  }
+
+  .analyticsAttachmentModalHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .analyticsAttachmentModalActions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 1024px) {
+  .dashboardWorkspaceGrid,
+  .studentDashboardPrimaryGrid,
+  .studentDashboardBottomGrid,
+  .studentDashboardWelcome {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .studentResultStatGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .studentInsightDualList {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .studentDashboardExamGrid,
+  .studentDashboardPremiumStats,
+  .analyticsSignalGrid,
+  .analyticsTopicMiniGrid,
+  .analyticsKpiGrid,
+  .analyticsQuestionMiniStats,
+  .analyticsQuestionActionGrid,
+  .topicFocusCompactStats {
+    grid-template-columns: 1fr;
+  }
+
+  .analyticsLineChartLabels {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .dashboardRailRow {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .studentAppFooterInner,
+  .studentInsightHeroCard,
+  .studentResultSurfaceHead,
+  .studentResultFooter,
+  .studentWeakAreaRow,
+  .studentTopicRow,
+  .analyticsTimelineHeader,
+  .analyticsQuestionSummary {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .studentResultBreakdown {
+    grid-template-columns: 1fr;
+  }
+
+  .studentTopicRowMeta,
+  .studentWeakAreaMetrics {
+    justify-items: flex-start;
+    text-align: left;
+  }
+
+  .analyticsQuestionEvidencePill {
+    min-width: calc(50% - 6px);
+  }
+
+  .analyticsAttachmentModal {
+    padding: 16px;
+  }
+
+  .analyticsAttachmentModalCard {
+    padding: 14px;
+  }
+}
+
+@media (max-width: 560px) {
+  .analyticsQuestionEvidencePill {
+    min-width: 100%;
+  }
+}

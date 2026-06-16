@@ -1,5 +1,6 @@
 import 'package:education_frontend/shared/theme/app_colors.dart';
 import 'package:education_frontend/shared/theme/app_spacing.dart';
+import 'package:education_frontend/shared/widgets/loading_skeleton_component.dart';
 import 'package:flutter/material.dart';
 
 class AppLoader extends StatelessWidget {
@@ -13,31 +14,21 @@ class AppLoader extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [AppColors.surface, AppColors.surfaceMuted],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(999),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primary.withValues(alpha: 0.08),
-                  blurRadius: 24,
-                  spreadRadius: -8,
-                  offset: const Offset(0, 12),
-                ),
-              ],
-            ),
-            child: const Padding(
-              padding: EdgeInsets.all(AppSpacing.md),
-              child: CircularProgressIndicator(color: AppColors.primary),
+          const SizedBox(
+            width: 240,
+            child: LoadingSkeletonComponent(
+              type: LoadingSkeletonType.card,
+              itemCount: 1,
             ),
           ),
           if (label != null) ...[
             const SizedBox(height: AppSpacing.md),
-            Text(label!, style: Theme.of(context).textTheme.bodyMedium),
+            Text(
+              label!,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+            ),
           ],
         ],
       ),

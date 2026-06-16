@@ -1,4 +1,5 @@
 from django.core.exceptions import PermissionDenied
+from django.db.models import Q
 
 from apps.accounts.models import AccountRole
 
@@ -102,7 +103,9 @@ def scope_exam_queryset(queryset, user):
         queryset = queryset.filter(institute_id=profile.institute_id, is_active=True)
         queryset = queryset.filter(program_id=student.program_id)
         if student.cohort_id:
-            queryset = queryset.filter(cohort_id__in=[student.cohort_id, None])
+            queryset = queryset.filter(
+                Q(cohort_id=student.cohort_id) | Q(cohort__isnull=True)
+            )
         return queryset
 
     return queryset.none()

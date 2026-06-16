@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="220" viewBox="0 0 360 220">
+  <rect width="360" height="220" fill="white"/>
+  <line x1="70" y1="170" x2="240" y2="170" stroke="black" stroke-width="4"/>
+  <line x1="70" y1="170" x2="150" y2="90" stroke="black" stroke-width="4"/>
+  <line x1="150" y1="90" x2="240" y2="170" stroke="black" stroke-width="4"/>
+  <path d="M102 170 A32 32 0 0 0 93 148" fill="none" stroke="#dc2626" stroke-width="3"/>
+  <text x="98" y="150" font-size="14" fill="#dc2626">50°</text>
+  <text x="145" y="186" font-size="14">6 cm</text>
+  <text x="103" y="124" font-size="14">4 cm</text>
+  <text x="62" y="188" font-size="18">X</text>
+  <text x="150" y="84" font-size="18">Z</text>
+  <text x="242" y="188" font-size="18">Y</text>
+</svg>

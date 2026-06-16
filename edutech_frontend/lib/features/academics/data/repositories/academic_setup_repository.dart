@@ -11,6 +11,10 @@ final academicSetupRepositoryProvider = Provider<AcademicSetupRepository>((
 
 abstract class AcademicSetupRepository {
   Future<List<InstituteAdminModel>> fetchInstitutes(SetupQuery query);
+  Future<InstituteAdminModel> updateInstitute(
+    String id,
+    Map<String, dynamic> payload,
+  );
   Future<List<AcademicYearAdminModel>> fetchAcademicYears(SetupQuery query);
   Future<List<ProgramAdminModel>> fetchPrograms(SetupQuery query);
   Future<List<CohortAdminModel>> fetchCohorts(SetupQuery query);
@@ -109,6 +113,14 @@ class DioAcademicSetupRepository implements AcademicSetupRepository {
       queryParameters: _queryParams(query),
     );
     return _mapCollection(response.data, InstituteAdminModel.fromJson);
+  }
+
+  @override
+  Future<InstituteAdminModel> updateInstitute(
+    String id,
+    Map<String, dynamic> payload,
+  ) async {
+    return _update('institutes/$id/', payload, InstituteAdminModel.fromJson);
   }
 
   @override

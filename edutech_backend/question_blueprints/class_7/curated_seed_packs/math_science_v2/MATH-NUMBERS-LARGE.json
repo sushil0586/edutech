@@ -1,0 +1,1343 @@
+{
+  "topic_code": "MATH-NUMBERS-LARGE",
+  "topic_name": "Large Numbers Around Us",
+  "questions": [
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which quantity is most likely to be counted in lakhs rather than in hundreds?",
+      "explanation": "A busy metro station can handle a very large number of passengers in a year, often running into lakhs. A pocket of marbles, one classroom, or one pencil box would contain much smaller counts. So the metro passengers are the most suitable quantity to count in lakhs.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Marbles in one schoolbag",
+          "is_correct": false
+        },
+        {
+          "option_text": "Passengers using a busy metro station in one year",
+          "is_correct": true
+        },
+        {
+          "option_text": "Students in one classroom",
+          "is_correct": false
+        },
+        {
+          "option_text": "Pencils in one box",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "What does 6,80,000 mean?",
+      "explanation": "In the Indian system, 6,80,000 is read as 6 lakh 80 thousand. The comma placement shows that the number has 6 lakhs and 80 thousands, not 680 lakhs or 68 thousand.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Six thousand eighty",
+          "is_correct": false
+        },
+        {
+          "option_text": "Six lakh eighty thousand",
+          "is_correct": true
+        },
+        {
+          "option_text": "Sixty-eight thousand",
+          "is_correct": false
+        },
+        {
+          "option_text": "Six crore eighty thousand",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "reading_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "How is forty lakh written in figures?",
+      "explanation": "One lakh is 1,00,000. So forty lakh means 40 times 1,00,000, which is 40,00,000.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "4,00,000",
+          "is_correct": false
+        },
+        {
+          "option_text": "40,000",
+          "is_correct": false
+        },
+        {
+          "option_text": "40,00,000",
+          "is_correct": true
+        },
+        {
+          "option_text": "4,00,00,000",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "simple_conversion",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which number is exactly one more than 9,99,999?",
+      "explanation": "Adding 1 to 9,99,999 makes all the 9s turn into 0s and adds 1 to the next place. So the next number is 10,00,000, which is ten lakh.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "9,99,100",
+          "is_correct": false
+        },
+        {
+          "option_text": "9,00,000",
+          "is_correct": false
+        },
+        {
+          "option_text": "10,00,000",
+          "is_correct": true
+        },
+        {
+          "option_text": "10,00,001",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "symbol_or_form_identification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "true_false",
+      "difficulty_level": "foundation",
+      "question_text": "The number 3,50,000 is greater than 35,000.",
+      "explanation": "3,50,000 means three lakh fifty thousand, while 35,000 means only thirty-five thousand. Since lakh-level numbers are much larger than thousand-level numbers, the statement is true.",
+      "default_marks": "1.00",
+      "negative_marks": "0.00",
+      "options": [
+        {
+          "option_text": "True",
+          "is_correct": true
+        },
+        {
+          "option_text": "False",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "true_false_concept",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which of the following quantities is the smallest?",
+      "explanation": "Compare the place values. 7,500 is in the thousands, 75,000 is in the ten-thousands, 7,50,000 is in the lakhs, and 75,00,000 is in the tens of lakhs. So 7,500 is the smallest.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "7,500",
+          "is_correct": true
+        },
+        {
+          "option_text": "75,000",
+          "is_correct": false
+        },
+        {
+          "option_text": "7,50,000",
+          "is_correct": false
+        },
+        {
+          "option_text": "75,00,000",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "basic_classification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "foundation",
+      "question_text": "Write “twelve lakh five thousand eight” in figures.",
+      "explanation": "Twelve lakh is 12,00,000, five thousand is 5,000, and eight is 8. Adding these parts gives 12,05,008.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "archetype": "numeral_writing",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "12,05,008",
+          "1205008"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "In the number 4,25,000, what is the value of the digit 2?",
+      "explanation": "In 4,25,000, the digit 2 is in the ten-thousands place. So its value is 20,000.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "2,000",
+          "is_correct": false
+        },
+        {
+          "option_text": "20,000",
+          "is_correct": true
+        },
+        {
+          "option_text": "2,00,000",
+          "is_correct": false
+        },
+        {
+          "option_text": "200",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "place_value_inference",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "true_false",
+      "difficulty_level": "foundation",
+      "question_text": "9,99,999 is less than 10,00,000.",
+      "explanation": "9,99,999 is the largest six-digit number in Indian grouping here, and 10,00,000 is the next number, equal to ten lakh. So the statement is true.",
+      "default_marks": "1.00",
+      "negative_marks": "0.00",
+      "options": [
+        {
+          "option_text": "True",
+          "is_correct": true
+        },
+        {
+          "option_text": "False",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "magnitude_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "foundation",
+      "question_text": "Round 4,67,200 to the nearest lakh.",
+      "explanation": "To round to the nearest lakh, look at the ten-thousands digit. In 4,67,200, the ten-thousands digit is 6, so we round 4 lakh up to 5 lakh. The rounded number is 5,00,000.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "archetype": "rounding_basics",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "5,00,000",
+          "500000",
+          "5 lakh"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "A student reads 18,50,000 as “one lakh eighty-five thousand.” What is the correct reading?",
+      "explanation": "18,50,000 means 18 lakh and 50 thousand. Reading it as one lakh eighty-five thousand changes the place values and makes the number much smaller than it really is.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "One crore eighty-five thousand",
+          "is_correct": false
+        },
+        {
+          "option_text": "Eighteen lakh fifty thousand",
+          "is_correct": true
+        },
+        {
+          "option_text": "One lakh eighty-five thousand",
+          "is_correct": false
+        },
+        {
+          "option_text": "Eighteen thousand five hundred",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "error_detection",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which city has the greatest population?",
+      "explanation": "Compare the lakh places first. 23,45,000 is 23 lakh 45 thousand, which is greater than 22,90,000, 21,95,500, and 19,99,900. So the city with 23,45,000 people has the highest population.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "19,99,900",
+          "is_correct": false
+        },
+        {
+          "option_text": "23,45,000",
+          "is_correct": true
+        },
+        {
+          "option_text": "22,90,000",
+          "is_correct": false
+        },
+        {
+          "option_text": "21,95,500",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "compare_and_choose",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which numeral matches “thirty-two lakh forty thousand nineteen”?",
+      "explanation": "Thirty-two lakh is 32,00,000, forty thousand is 40,000, and nineteen is 19. Putting them together gives 32,40,019.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "3,24,00,019",
+          "is_correct": false
+        },
+        {
+          "option_text": "32,40,019",
+          "is_correct": true
+        },
+        {
+          "option_text": "32,04,019",
+          "is_correct": false
+        },
+        {
+          "option_text": "32,40,190",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "words_to_figures",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "A report says that a state planted twenty-four lakh thirty thousand saplings. Which numeral shows this quantity?",
+      "explanation": "Twenty-four lakh is 24,00,000 and thirty thousand is 30,000. Adding them gives 24,30,000.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "2,43,00,000",
+          "is_correct": false
+        },
+        {
+          "option_text": "24,03,000",
+          "is_correct": false
+        },
+        {
+          "option_text": "24,30,000",
+          "is_correct": true
+        },
+        {
+          "option_text": "24,30,00",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "representation_selection",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "In the number 7,34,56,210, what is the value of the digit 5?",
+      "explanation": "In 7,34,56,210, the digit 5 is in the ten-thousands place within 56,210. So its value is 50,000.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "5,000",
+          "is_correct": false
+        },
+        {
+          "option_text": "50,000",
+          "is_correct": true
+        },
+        {
+          "option_text": "5,00,000",
+          "is_correct": false
+        },
+        {
+          "option_text": "50,00,000",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "place_value_inference",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which is the correct expanded form of 58,04,020?",
+      "explanation": "58,04,020 means 50,00,000 + 8,00,000 + 4,000 + 20. There are no hundreds or tens of thousands beyond those shown, so that full sum is the correct expanded form.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "50,00,000 + 80,000 + 4,000 + 20",
+          "is_correct": false
+        },
+        {
+          "option_text": "50,00,000 + 8,00,000 + 4,000 + 20",
+          "is_correct": true
+        },
+        {
+          "option_text": "58,00,000 + 400 + 20",
+          "is_correct": false
+        },
+        {
+          "option_text": "5,00,00,000 + 8,00,000 + 4,000 + 20",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "expanded_form",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which list is arranged from smallest to largest?",
+      "explanation": "Compare the lakh values carefully. 8,95,000 is less than 9,05,000, which is less than 9,50,000, which is less than 10,20,000. So the correctly ordered list is the one that follows this increasing sequence.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "9,05,000, 8,95,000, 9,50,000, 10,20,000",
+          "is_correct": false
+        },
+        {
+          "option_text": "10,20,000, 9,50,000, 9,05,000, 8,95,000",
+          "is_correct": false
+        },
+        {
+          "option_text": "8,95,000, 9,05,000, 9,50,000, 10,20,000",
+          "is_correct": true
+        },
+        {
+          "option_text": "8,95,000, 9,50,000, 9,05,000, 10,20,000",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "ordering_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Kabir says, “A number with more commas is always greater.” Which response is best?",
+      "explanation": "Commas only help us group digits for reading; they do not decide the size of the number. A number like 9,99,999 has more commas than 10,00,000 in some forms, but that does not mean commas alone determine which number is greater. Place value does.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Kabir is correct because more commas always mean more digits",
+          "is_correct": false
+        },
+        {
+          "option_text": "Kabir is correct for Indian numbers only",
+          "is_correct": false
+        },
+        {
+          "option_text": "Kabir is incorrect because the size of a number depends on place value, not on the number of commas",
+          "is_correct": true
+        },
+        {
+          "option_text": "Kabir is incorrect because large numbers should not use commas at all",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "misconception_correction",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "intermediate",
+      "question_text": "Find the difference between 52,40,000 and 49,95,000.",
+      "explanation": "Subtract 49,95,000 from 52,40,000. The difference is 2,45,000.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "archetype": "subtraction_reasoning",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "2,45,000",
+          "245000",
+          "2 lakh 45 thousand"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_multiple",
+      "difficulty_level": "intermediate",
+      "question_text": "Which of the following quantities are more than one lakh? Select all that apply.",
+      "explanation": "One lakh is 1,00,000. So any number greater than 1,00,000 should be selected. 1,25,000 and 2,40,500 are greater than one lakh, while 95,000 and 99,999 are not.",
+      "default_marks": "2.00",
+      "negative_marks": "0.50",
+      "options": [
+        {
+          "option_text": "1,25,000",
+          "is_correct": true
+        },
+        {
+          "option_text": "95,000",
+          "is_correct": false
+        },
+        {
+          "option_text": "2,40,500",
+          "is_correct": true
+        },
+        {
+          "option_text": "99,999",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "threshold_selection",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "true_false",
+      "difficulty_level": "intermediate",
+      "question_text": "12,50,000 and 1,250,000 represent the same quantity.",
+      "explanation": "These are the same digits grouped in two different numeration systems. The quantity does not change; only the comma placement changes. So the statement is true.",
+      "default_marks": "1.00",
+      "negative_marks": "0.00",
+      "options": [
+        {
+          "option_text": "True",
+          "is_correct": true
+        },
+        {
+          "option_text": "False",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "equivalence_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "A district display board shows 2,48,75,300 trees planted. Which reading is correct?",
+      "explanation": "Read the number according to Indian grouping: 2 crore, 48 lakh, 75 thousand, 300. So the correct reading is two crore forty-eight lakh seventy-five thousand three hundred.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Twenty-four lakh eighty-seven thousand three hundred",
+          "is_correct": false
+        },
+        {
+          "option_text": "Two crore four lakh eighty-seven thousand three hundred",
+          "is_correct": false
+        },
+        {
+          "option_text": "Two crore forty-eight lakh seventy-five thousand three hundred",
+          "is_correct": true
+        },
+        {
+          "option_text": "Two hundred forty-eight lakh seventy-five thousand three hundred",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "case_based_interpretation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Aarav rounded 8,49,900 to the nearest lakh as 8,00,000. Which statement is correct?",
+      "explanation": "To round to the nearest lakh, look at the ten-thousands digit. In 8,49,900, that digit is 4, so rounding down to 8,00,000 is correct. Aarav's answer is right.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Aarav is correct because the ten-thousands digit is less than 5",
+          "is_correct": true
+        },
+        {
+          "option_text": "Aarav is wrong because every number above 8,00,000 rounds to 9,00,000",
+          "is_correct": false
+        },
+        {
+          "option_text": "Aarav is wrong because 8,49,900 should round to 8,50,000",
+          "is_correct": false
+        },
+        {
+          "option_text": "Aarav is wrong because only numbers ending in 000 can be rounded",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "worked_step_analysis",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "intermediate",
+      "question_text": "Write the number that is one more than 99,99,999.",
+      "explanation": "Adding 1 to 99,99,999 makes all the trailing 9s become 0s and creates the next place value. The result is 1,00,00,000.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "archetype": "successor_reasoning",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "1,00,00,000",
+          "10000000",
+          "1 crore"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "An NGO planted 1,85,000 saplings in June, 2,05,000 in July, 1,98,000 in August, and 2,01,000 in September. In which month was the count highest?",
+      "explanation": "Compare the four monthly counts. 2,05,000 is greater than 2,01,000, 1,98,000, and 1,85,000. So July had the highest planting count.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "June",
+          "is_correct": false
+        },
+        {
+          "option_text": "July",
+          "is_correct": true
+        },
+        {
+          "option_text": "August",
+          "is_correct": false
+        },
+        {
+          "option_text": "September",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "data_interpretation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_multiple",
+      "difficulty_level": "intermediate",
+      "question_text": "Which of the following pairs are matched correctly? Select all that apply.",
+      "explanation": "Thirty lakh equals 30,00,000 and ninety-five thousand equals 95,000. Seven crore equals 7,00,00,000, not 70,00,000, and twelve lakh fifty thousand equals 12,50,000, not 1,25,000.",
+      "default_marks": "2.00",
+      "negative_marks": "0.50",
+      "options": [
+        {
+          "option_text": "Thirty lakh - 30,00,000",
+          "is_correct": true
+        },
+        {
+          "option_text": "Ninety-five thousand - 95,000",
+          "is_correct": true
+        },
+        {
+          "option_text": "Seven crore - 70,00,000",
+          "is_correct": false
+        },
+        {
+          "option_text": "Twelve lakh fifty thousand - 1,25,000",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "representation_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "The number of grains stored in a large warehouse is 9,82,450. Which is the best estimate in lakhs?",
+      "explanation": "9,82,450 is very close to 10,00,000, which is 10 lakh. So 10 lakh is the best estimate in lakhs.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "5 lakh",
+          "is_correct": false
+        },
+        {
+          "option_text": "8 lakh",
+          "is_correct": false
+        },
+        {
+          "option_text": "10 lakh",
+          "is_correct": true
+        },
+        {
+          "option_text": "20 lakh",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "estimate_selection",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "intermediate",
+      "question_text": "Round 84,49,999 to the nearest ten lakh.",
+      "explanation": "Ten lakh groups go like 80,00,000, 90,00,000, and so on. Since 84,49,999 is below the midpoint of 85,00,000, it rounds down to 80,00,000.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "archetype": "rounding_to_ten_lakh",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "80,00,000",
+          "8000000",
+          "80 lakh"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Why is 7,05,000 greater than 6,95,999?",
+      "explanation": "The lakh digit in 7,05,000 is 7, while the lakh digit in 6,95,999 is 6. A number with 7 lakhs is greater than a number with 6 lakhs, even before comparing the remaining digits.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Because 7,05,000 has more commas",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because 6,95,999 has more digits",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because 7 lakh is greater than 6 lakh",
+          "is_correct": true
+        },
+        {
+          "option_text": "Because 5,000 is greater than 95,999",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "comparison_justification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What do you get when one lakh is added to 23,45,600?",
+      "explanation": "One lakh is 1,00,000. Adding 1,00,000 to 23,45,600 increases the lakh part by 1 and gives 24,45,600.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "23,55,600",
+          "is_correct": false
+        },
+        {
+          "option_text": "24,45,600",
+          "is_correct": true
+        },
+        {
+          "option_text": "33,45,600",
+          "is_correct": false
+        },
+        {
+          "option_text": "24,05,600",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "rule_application",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Assertion (A): Rounding a large number can make it easier to report in newspapers.\n\nReason (R): Rounded numbers are simpler to read and compare quickly.\n\nChoose the correct option.",
+      "explanation": "The assertion is true because newspapers often use rounded values to make reports easier to understand. The reason is also true because rounded numbers are simpler to read and compare. The reason correctly explains the assertion.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Both A and R are true, and R correctly explains A",
+          "is_correct": true
+        },
+        {
+          "option_text": "Both A and R are true, but R does not correctly explain A",
+          "is_correct": false
+        },
+        {
+          "option_text": "A is true, but R is false",
+          "is_correct": false
+        },
+        {
+          "option_text": "A is false, but R is true",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "assertion_reason",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_multiple",
+      "difficulty_level": "advanced",
+      "question_text": "Which statements about 1,00,00,000 are true? Select all that apply.",
+      "explanation": "1,00,00,000 is one crore. It is also equal to 10,000,000 in International grouping and is one more than 99,99,999. But it is not less than 9,99,999; it is much greater.",
+      "default_marks": "2.00",
+      "negative_marks": "0.50",
+      "options": [
+        {
+          "option_text": "It is called one crore",
+          "is_correct": true
+        },
+        {
+          "option_text": "It is equal to 10,000,000",
+          "is_correct": true
+        },
+        {
+          "option_text": "It is one more than 99,99,999",
+          "is_correct": true
+        },
+        {
+          "option_text": "It is smaller than 9,99,999",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "multi_select_truth_evaluation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "advanced",
+      "question_text": "Three districts recorded populations of 12,45,000, 9,80,000, and 15,75,000. What is their total population?",
+      "explanation": "Add the three values carefully: 12,45,000 + 9,80,000 = 22,25,000. Then 22,25,000 + 15,75,000 = 38,00,000.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "archetype": "addition_reasoning",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "38,00,000",
+          "3800000",
+          "38 lakh"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Aman read 4,03,07,020 as “four crore thirty lakh seven thousand twenty.” What was his mistake?",
+      "explanation": "The part 03 lakh means 3 lakh, not 30 lakh. The correct reading is four crore three lakh seven thousand twenty. Aman incorrectly changed 03 lakh into 30 lakh.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "He should have ignored the lakh part completely",
+          "is_correct": false
+        },
+        {
+          "option_text": "He treated 03 lakh as 30 lakh",
+          "is_correct": true
+        },
+        {
+          "option_text": "He should have read the number in the International system",
+          "is_correct": false
+        },
+        {
+          "option_text": "He forgot that 020 means two hundred",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "what_went_wrong",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Two state budgets are 8,42,50,000 and 8,39,99,999. Which statement is correct?",
+      "explanation": "Both numbers have 8 crore, so compare the lakh parts next. 42 lakh is greater than 39 lakh, so 8,42,50,000 is the larger budget.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "8,42,50,000 is greater because its lakh part is larger",
+          "is_correct": true
+        },
+        {
+          "option_text": "8,39,99,999 is greater because 99,999 is close to 1,00,000",
+          "is_correct": false
+        },
+        {
+          "option_text": "Both numbers are equal because both begin with 8",
+          "is_correct": false
+        },
+        {
+          "option_text": "They cannot be compared without rounding",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "comparison_justification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "advanced",
+      "question_text": "An account balance of 8,99,750 increases by 25,000. What is the new balance?",
+      "explanation": "Add 25,000 to 8,99,750. The result is 9,24,750.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "archetype": "rule_application",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "9,24,750",
+          "924750"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "A donation drive has a target of 1,00,00,000 rupees and has already collected 96,75,000 rupees. How much more is needed to reach the target?",
+      "explanation": "Subtract 96,75,000 from 1,00,00,000. The remaining amount is 3,25,000.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "2,25,000",
+          "is_correct": false
+        },
+        {
+          "option_text": "3,75,000",
+          "is_correct": false
+        },
+        {
+          "option_text": "3,25,000",
+          "is_correct": true
+        },
+        {
+          "option_text": "25,000",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "case_based_interpretation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_multiple",
+      "difficulty_level": "advanced",
+      "question_text": "Which of the following statements are correct? Select all that apply.",
+      "explanation": "99,99,999 is one less than one crore. 10,00,000 is ten lakh. 1,00,001 is greater than one lakh, not smaller. 9,99,999 is one less than ten lakh.",
+      "default_marks": "2.00",
+      "negative_marks": "0.50",
+      "options": [
+        {
+          "option_text": "99,99,999 is one less than 1,00,00,000",
+          "is_correct": true
+        },
+        {
+          "option_text": "10,00,000 is equal to ten lakh",
+          "is_correct": true
+        },
+        {
+          "option_text": "1,00,001 is smaller than one lakh",
+          "is_correct": false
+        },
+        {
+          "option_text": "9,99,999 is one less than ten lakh",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "archetype": "boundary_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which figure is least reasonable for the annual number of visitors to a single school library?",
+      "explanation": "A school library may have thousands or tens of thousands of visits in a year, but 8,47,20,300 is an extremely large national-scale number. It is not a reasonable annual visitor count for one school library.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "28,500",
+          "is_correct": false
+        },
+        {
+          "option_text": "1,05,000",
+          "is_correct": false
+        },
+        {
+          "option_text": "3,20,000",
+          "is_correct": false
+        },
+        {
+          "option_text": "8,47,20,300",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "archetype": "elimination_based_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "advanced",
+      "question_text": "A company sold 12,50,000 units in April, 13,20,000 in May, 11,95,000 in June, and 14,10,000 in July. Find the total number of units sold in these four months.",
+      "explanation": "Add the four monthly sales: 12,50,000 + 13,20,000 = 25,70,000. Then 25,70,000 + 11,95,000 = 37,65,000. Finally, 37,65,000 + 14,10,000 = 51,75,000.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "archetype": "data_interpretation",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "51,75,000",
+          "5175000",
+          "51 lakh 75 thousand"
+        ]
+      }
+    },
+    {
+      "question_type": "true_false",
+      "difficulty_level": "advanced",
+      "question_text": "1,49,99,999 rounds to 1,00,00,000 when rounded to the nearest crore.",
+      "explanation": "To round to the nearest crore, compare the number with the midpoint 1,50,00,000. Since 1,49,99,999 is just below that midpoint, it rounds down to 1,00,00,000. So the statement is true.",
+      "default_marks": "1.00",
+      "negative_marks": "0.00",
+      "options": [
+        {
+          "option_text": "True",
+          "is_correct": true
+        },
+        {
+          "option_text": "False",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "crore_rounding",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Why does adding 1 to 99,99,999 change the overall look of the number to 1,00,00,000?",
+      "explanation": "Every place from ones up to lakhs is already filled with 9. Adding 1 causes carrying through all those places, turning them into 0 and creating a new digit in the crore place. That is why the number changes form so clearly.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Because commas are removed when 1 is added",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because 99,99,999 is an odd number",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because carrying happens through every place and creates a new crore place",
+          "is_correct": true
+        },
+        {
+          "option_text": "Because the Indian system changes to the International system",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "best_explanation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_multiple",
+      "difficulty_level": "advanced",
+      "question_text": "Which numbers lie between 50 lakh and 1 crore? Select all that apply.",
+      "explanation": "50 lakh is 50,00,000 and 1 crore is 1,00,00,000. So a number must be greater than 50,00,000 and less than 1,00,00,000 to fit the range. 75,20,000 and 99,99,999 fit, while 48,50,000 is too small and 1,05,00,000 is too large.",
+      "default_marks": "2.00",
+      "negative_marks": "0.50",
+      "options": [
+        {
+          "option_text": "75,20,000",
+          "is_correct": true
+        },
+        {
+          "option_text": "48,50,000",
+          "is_correct": false
+        },
+        {
+          "option_text": "99,99,999",
+          "is_correct": true
+        },
+        {
+          "option_text": "1,05,00,000",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "range_selection",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "advanced",
+      "question_text": "How many more people are needed to make 87,65,432 reach exactly 1,00,00,000?",
+      "explanation": "Subtract 87,65,432 from 1,00,00,000. The difference is 12,34,568.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "archetype": "target_gap_reasoning",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "12,34,568",
+          "1234568"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "A student writes the expanded form of 6,07,08,090 as 6,00,00,000 + 70,00,000 + 8,000 + 90. What correction is needed?",
+      "explanation": "In 6,07,08,090, the part 07 lakh means 7,00,000, not 70,00,000. The correct expanded form is 6,00,00,000 + 7,00,000 + 8,000 + 90.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Replace 8,000 with 80,000",
+          "is_correct": false
+        },
+        {
+          "option_text": "Remove the 90 because it is too small",
+          "is_correct": false
+        },
+        {
+          "option_text": "Replace 70,00,000 with 7,00,000",
+          "is_correct": true
+        },
+        {
+          "option_text": "Replace 6,00,00,000 with 60,00,000",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "worked_step_analysis",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "If each of 48 districts plants 2,25,000 saplings, which expression should be used to find the total number of saplings?",
+      "explanation": "When the same number of saplings is planted in each district, repeated addition can be written as multiplication. So the total should be found using 48 x 2,25,000.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "48 + 2,25,000",
+          "is_correct": false
+        },
+        {
+          "option_text": "48 - 2,25,000",
+          "is_correct": false
+        },
+        {
+          "option_text": "48 x 2,25,000",
+          "is_correct": true
+        },
+        {
+          "option_text": "2,25,000 / 48",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "rule_application",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "true_false",
+      "difficulty_level": "advanced",
+      "question_text": "75,00,000 is closer to 1,00,00,000 than to 50,00,000.",
+      "explanation": "75,00,000 is exactly 25,00,000 away from 50,00,000 and also exactly 25,00,000 away from 1,00,00,000. So it is not closer to one of them; it is equally distant from both. The statement is false.",
+      "default_marks": "1.00",
+      "negative_marks": "0.00",
+      "options": [
+        {
+          "option_text": "True",
+          "is_correct": false
+        },
+        {
+          "option_text": "False",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "archetype": "midpoint_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "advanced",
+      "question_text": "A city fund had 34,82,450 rupees. After spending 2,37,450 rupees, round the remaining amount to the nearest lakh.",
+      "explanation": "First subtract 2,37,450 from 34,82,450 to get 32,45,000. Then round 32,45,000 to the nearest lakh. Since the ten-thousands digit is 4, it rounds to 32,00,000.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "archetype": "two_step_rounding",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "32,00,000",
+          "3200000",
+          "32 lakh"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Four districts reported these annual library visits: 24,95,000, 25,10,000, 24,80,000, and 24,99,999. Which district crossed the 25 lakh mark?",
+      "explanation": "Crossing 25 lakh means being greater than 25,00,000. Among the given numbers, only 25,10,000 is greater than 25,00,000.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "24,95,000",
+          "is_correct": false
+        },
+        {
+          "option_text": "25,10,000",
+          "is_correct": true
+        },
+        {
+          "option_text": "24,80,000",
+          "is_correct": false
+        },
+        {
+          "option_text": "24,99,999",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "data_interpretation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_multiple",
+      "difficulty_level": "advanced",
+      "question_text": "A survey gives these population estimates for four towns: 9,80,000, 10,20,000, 9,95,000, and 10,05,000. Which conclusions are reasonable? Select all that apply.",
+      "explanation": "Two towns are above ten lakh: 10,20,000 and 10,05,000. The average is close to ten lakh because the values cluster around that mark. Not every town is above ten lakh, and 9,80,000 is the smallest, not the largest.",
+      "default_marks": "2.00",
+      "negative_marks": "0.50",
+      "options": [
+        {
+          "option_text": "At least two towns have populations above ten lakh",
+          "is_correct": true
+        },
+        {
+          "option_text": "The average population is close to ten lakh",
+          "is_correct": true
+        },
+        {
+          "option_text": "Every town has a population above ten lakh",
+          "is_correct": false
+        },
+        {
+          "option_text": "9,80,000 is the largest estimate in the list",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "reasoned_conclusions",
+        "source_pack": "class7_curated_v2"
+      }
+    }
+  ]
+}

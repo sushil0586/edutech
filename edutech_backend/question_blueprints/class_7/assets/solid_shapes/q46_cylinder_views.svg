@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="220" viewBox="0 0 360 220">
+  <rect width="360" height="220" fill="white"/>
+  <ellipse cx="95" cy="70" rx="32" ry="20" fill="#fde68a" stroke="black" stroke-width="3"/>
+  <text x="64" y="110" font-size="14">top view</text>
+  <rect x="230" y="50" width="70" height="100" fill="#bfdbfe" stroke="black" stroke-width="3"/>
+  <text x="222" y="170" font-size="14">front view</text>
+</svg>

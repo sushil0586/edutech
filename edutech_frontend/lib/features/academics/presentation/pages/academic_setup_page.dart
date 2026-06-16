@@ -11,20 +11,25 @@ import 'package:education_frontend/features/auth/presentation/providers/auth_con
 import 'package:education_frontend/features/dashboard/presentation/widgets/dashboard_shell.dart';
 import 'package:education_frontend/shared/presentation/widgets/placeholder_feature_view.dart';
 import 'package:education_frontend/shared/theme/app_colors.dart';
+import 'package:education_frontend/shared/theme/app_spacing.dart';
 import 'package:education_frontend/shared/widgets/app_badge.dart';
 import 'package:education_frontend/shared/widgets/app_button.dart';
 import 'package:education_frontend/shared/widgets/app_card.dart';
 import 'package:education_frontend/shared/widgets/app_dialog_shell.dart';
 import 'package:education_frontend/shared/widgets/app_empty_state.dart';
 import 'package:education_frontend/shared/widgets/app_error_state.dart';
-import 'package:education_frontend/shared/widgets/app_section_header.dart';
 import 'package:education_frontend/shared/widgets/app_text_field.dart';
+import 'package:education_frontend/shared/widgets/compact_action_menu_component.dart';
+import 'package:education_frontend/shared/widgets/loading_skeleton_component.dart';
+import 'package:education_frontend/shared/widgets/professional_data_table_component.dart';
+import 'package:education_frontend/shared/widgets/status_badge_component.dart';
 import 'package:education_frontend/shared/utils/app_date_time.dart';
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 class AcademicSetupPage extends ConsumerStatefulWidget {
   const AcademicSetupPage({super.key});
@@ -37,6 +42,9 @@ class _AcademicSetupPageState extends ConsumerState<AcademicSetupPage> {
   late final TextEditingController _searchController;
   final Set<String> _selectedStudentIds = <String>{};
   final Set<String> _selectedTeacherIds = <String>{};
+  final Map<AcademicSetupSection, Set<String>> _selectedEntityIds =
+      <AcademicSetupSection, Set<String>>{};
+  String? _selectedControlYearId;
 
   @override
   void initState() {
@@ -74,6 +82,49 @@ class _AcademicSetupPageState extends ConsumerState<AcademicSetupPage> {
     invalidateAcademicCredentialSections(ref);
   }
 
+  InstituteAdminModel? _resolveSelectedInstitute(
+    AppUser user,
+    List<InstituteAdminModel> items,
+    String? instituteFilter,
+  ) {
+    final selectedId = instituteFilter ?? user.instituteId;
+    if (selectedId == null || selectedId.isEmpty) {
+      return null;
+    }
+    for (final item in items) {
+      if (item.id == selectedId) {
+        return item;
+      }
+    }
+    return null;
+  }
+
+  Future<void> _openExamDefaultsDialog({
+    required AppUser user,
+    required InstituteAdminModel institute,
+  }) async {
+    final changed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) =>
+          _InstituteExamDefaultsDialog(user: user, institute: institute),
+    );
+    if (changed == true) {
+      ref.invalidate(setupInstitutesProvider);
+      ref.invalidate(lookupInstitutesProvider);
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Exam defaults updated for ${institute.name}. New exams will inherit these policies.',
+          ),
+        ),
+      );
+    }
+  }
+
   void _toggleStudentSelection(String id, bool selected) {
     setState(() {
       if (selected) {
@@ -94,7 +145,10 @@ class _AcademicSetupPageState extends ConsumerState<AcademicSetupPage> {
     });
   }
 
-  void _toggleAllStudentSelections(List<StudentProfileAdminModel> items, bool selected) {
+  void _toggleAllStudentSelections(
+    List<StudentProfileAdminModel> items,
+    bool selected,
+  ) {
     setState(() {
       if (selected) {
         _selectedStudentIds.addAll(items.map((item) => item.id));
@@ -104,7 +158,10 @@ class _AcademicSetupPageState extends ConsumerState<AcademicSetupPage> {
     });
   }
 
-  void _toggleAllTeacherSelections(List<TeacherProfileAdminModel> items, bool selected) {
+  void _toggleAllTeacherSelections(
+    List<TeacherProfileAdminModel> items,
+    bool selected,
+  ) {
     setState(() {
       if (selected) {
         _selectedTeacherIds.addAll(items.map((item) => item.id));
@@ -112,6 +169,49 @@ class _AcademicSetupPageState extends ConsumerState<AcademicSetupPage> {
         _selectedTeacherIds.removeAll(items.map((item) => item.id));
       }
     });
+  }
+
+  Set<String> _selectedIdsFor(AcademicSetupSection section) =>
+      _selectedEntityIds[section] ?? const <String>{};
+
+  void _toggleEntitySelection(
+    AcademicSetupSection section,
+    String id,
+    bool selected,
+  ) {
+    setState(() {
+      final selection = _selectedEntityIds.putIfAbsent(
+        section,
+        () => <String>{},
+      );
+      if (selected) {
+        selection.add(id);
+      } else {
+        selection.remove(id);
+      }
+    });
+  }
+
+  void _toggleAllEntitySelections(
+    AcademicSetupSection section,
+    Iterable<String> ids,
+    bool selected,
+  ) {
+    setState(() {
+      final selection = _selectedEntityIds.putIfAbsent(
+        section,
+        () => <String>{},
+      );
+      if (selected) {
+        selection.addAll(ids);
+      } else {
+        selection.removeAll(ids);
+      }
+    });
+  }
+
+  void _clearEntitySelection(AcademicSetupSection section) {
+    setState(() => _selectedEntityIds[section]?.clear());
   }
 
   Future<void> _bulkToggleStudentLogins(
@@ -180,9 +280,9 @@ class _AcademicSetupPageState extends ConsumerState<AcademicSetupPage> {
       );
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(readApiErrorMessage(error))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(readApiErrorMessage(error))));
     }
   }
 
@@ -252,13 +352,15 @@ class _AcademicSetupPageState extends ConsumerState<AcademicSetupPage> {
       );
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(readApiErrorMessage(error))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(readApiErrorMessage(error))));
     }
   }
 
-  Future<void> _bulkCreateStudentLogins(List<StudentProfileAdminModel> items) async {
+  Future<void> _bulkCreateStudentLogins(
+    List<StudentProfileAdminModel> items,
+  ) async {
     final selectedRows = items
         .where((item) => _selectedStudentIds.contains(item.id))
         .where((item) => !item.hasLogin)
@@ -337,7 +439,9 @@ class _AcademicSetupPageState extends ConsumerState<AcademicSetupPage> {
     );
   }
 
-  Future<void> _bulkCreateTeacherLogins(List<TeacherProfileAdminModel> items) async {
+  Future<void> _bulkCreateTeacherLogins(
+    List<TeacherProfileAdminModel> items,
+  ) async {
     final selectedRows = items
         .where((item) => _selectedTeacherIds.contains(item.id))
         .where((item) => !item.hasLogin)
@@ -416,8 +520,12 @@ class _AcademicSetupPageState extends ConsumerState<AcademicSetupPage> {
     );
   }
 
-  Future<void> _exportSelectedStudents(List<StudentProfileAdminModel> items) async {
-    final selectedRows = items.where((item) => _selectedStudentIds.contains(item.id)).toList();
+  Future<void> _exportSelectedStudents(
+    List<StudentProfileAdminModel> items,
+  ) async {
+    final selectedRows = items
+        .where((item) => _selectedStudentIds.contains(item.id))
+        .toList();
     if (selectedRows.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -439,12 +547,18 @@ class _AcademicSetupPageState extends ConsumerState<AcademicSetupPage> {
     );
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Exported ${selectedRows.length} selected students.')),
+      SnackBar(
+        content: Text('Exported ${selectedRows.length} selected students.'),
+      ),
     );
   }
 
-  Future<void> _exportSelectedTeachers(List<TeacherProfileAdminModel> items) async {
-    final selectedRows = items.where((item) => _selectedTeacherIds.contains(item.id)).toList();
+  Future<void> _exportSelectedTeachers(
+    List<TeacherProfileAdminModel> items,
+  ) async {
+    final selectedRows = items
+        .where((item) => _selectedTeacherIds.contains(item.id))
+        .toList();
     if (selectedRows.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -466,7 +580,195 @@ class _AcademicSetupPageState extends ConsumerState<AcademicSetupPage> {
     );
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Exported ${selectedRows.length} selected teachers.')),
+      SnackBar(
+        content: Text('Exported ${selectedRows.length} selected teachers.'),
+      ),
+    );
+  }
+
+  Future<void> _bulkToggleAcademicEntities<T>(
+    AcademicSetupSection section,
+    List<T> items, {
+    required bool enable,
+  }) async {
+    final selectedIds = _selectedIdsFor(section);
+    final selectedRows = items.where((item) {
+      final dynamic entity = item;
+      return selectedIds.contains(entity.id as String);
+    }).toList();
+    if (selectedRows.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Select one or more ${_sectionLabel(section).toLowerCase()} first.',
+          ),
+        ),
+      );
+      return;
+    }
+    if (!enable) {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(
+            'Disable selected ${_sectionLabel(section).toLowerCase()}?',
+          ),
+          content: Text(
+            'This will mark ${selectedRows.length} selected ${_sectionLabel(section).toLowerCase()} as inactive.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Disable'),
+            ),
+          ],
+        ),
+      );
+      if (confirm != true) return;
+    }
+
+    final repo = ref.read(academicSetupRepositoryProvider);
+    try {
+      for (final item in selectedRows) {
+        final dynamic entity = item;
+        switch (section) {
+          case AcademicSetupSection.academicYears:
+            await repo.updateAcademicYear(entity.id as String, {
+              'is_active': enable,
+            });
+          case AcademicSetupSection.programs:
+            await repo.updateProgram(entity.id as String, {
+              'is_active': enable,
+            });
+          case AcademicSetupSection.cohorts:
+            await repo.updateCohort(entity.id as String, {'is_active': enable});
+          case AcademicSetupSection.subjects:
+            await repo.updateSubject(entity.id as String, {
+              'is_active': enable,
+            });
+          case AcademicSetupSection.topics:
+            await repo.updateTopic(entity.id as String, {'is_active': enable});
+          case AcademicSetupSection.teacherAssignments:
+            await repo.updateTeacherAssignment(entity.id as String, {
+              'is_active': enable,
+            });
+          case AcademicSetupSection.students:
+          case AcademicSetupSection.teachers:
+            break;
+        }
+      }
+      _clearEntitySelection(section);
+      _invalidateCurrentSection();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${enable ? 'Enabled' : 'Disabled'} ${selectedRows.length} ${_sectionLabel(section).toLowerCase()}.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(readApiErrorMessage(error))));
+    }
+  }
+
+  Future<void> _exportSelectedAcademicEntities<T>(
+    AcademicSetupSection section,
+    List<T> items,
+  ) async {
+    final selectedIds = _selectedIdsFor(section);
+    final selectedRows = items.where((item) {
+      final dynamic entity = item;
+      return selectedIds.contains(entity.id as String);
+    }).toList();
+    if (selectedRows.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Select one or more ${_sectionLabel(section).toLowerCase()} first.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    late final List<String> lines;
+    switch (section) {
+      case AcademicSetupSection.academicYears:
+        lines = <String>[
+          'name,start_date,end_date,is_current,is_active',
+          ...selectedRows.map((item) {
+            final e = item as AcademicYearAdminModel;
+            return '"${e.name}","${e.startDate}","${e.endDate}","${e.isCurrent}","${e.isActive}"';
+          }),
+        ];
+      case AcademicSetupSection.programs:
+        lines = <String>[
+          'name,code,category,sort_order,is_active',
+          ...selectedRows.map((item) {
+            final e = item as ProgramAdminModel;
+            return '"${e.name}","${e.code}","${e.category}","${e.sortOrder}","${e.isActive}"';
+          }),
+        ];
+      case AcademicSetupSection.cohorts:
+        lines = <String>[
+          'name,code,program_id,academic_year_id,capacity,is_active',
+          ...selectedRows.map((item) {
+            final e = item as CohortAdminModel;
+            return '"${e.name}","${e.code}","${e.programId}","${e.academicYearId}","${e.capacity ?? ''}","${e.isActive}"';
+          }),
+        ];
+      case AcademicSetupSection.subjects:
+        lines = <String>[
+          'name,code,program_id,sort_order,is_active',
+          ...selectedRows.map((item) {
+            final e = item as SubjectAdminModel;
+            return '"${e.name}","${e.code}","${e.programId ?? ''}","${e.sortOrder}","${e.isActive}"';
+          }),
+        ];
+      case AcademicSetupSection.topics:
+        lines = <String>[
+          'name,code,subject_id,parent_topic_id,difficulty_level,is_active',
+          ...selectedRows.map((item) {
+            final e = item as TopicAdminModel;
+            return '"${e.name}","${e.code}","${e.subjectId}","${e.parentTopicId ?? ''}","${e.difficultyLevel}","${e.isActive}"';
+          }),
+        ];
+      case AcademicSetupSection.teacherAssignments:
+        lines = <String>[
+          'teacher_id,subject_id,program_id,cohort_id,assignment_role,is_primary,is_active',
+          ...selectedRows.map((item) {
+            final e = item as TeacherAssignmentAdminModel;
+            return '"${e.teacherId}","${e.subjectId}","${e.programId}","${e.cohortId ?? ''}","${e.assignmentRole}","${e.isPrimary}","${e.isActive}"';
+          }),
+        ];
+      case AcademicSetupSection.students:
+      case AcademicSetupSection.teachers:
+        return;
+    }
+
+    await downloadTextFile(
+      filename:
+          '${_sectionLabel(section).toLowerCase().replaceAll(' ', '_')}_export.csv',
+      content: '${lines.join('\n')}\n',
+      mimeType: 'text/csv',
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Exported ${selectedRows.length} selected ${_sectionLabel(section).toLowerCase()}.',
+        ),
+      ),
     );
   }
 
@@ -606,9 +908,9 @@ class _AcademicSetupPageState extends ConsumerState<AcademicSetupPage> {
       await _showCredentialResult(result);
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(readApiErrorMessage(error))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(readApiErrorMessage(error))));
     }
   }
 
@@ -630,9 +932,9 @@ class _AcademicSetupPageState extends ConsumerState<AcademicSetupPage> {
       await _showCredentialResult(result);
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(readApiErrorMessage(error))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(readApiErrorMessage(error))));
     }
   }
 
@@ -653,9 +955,9 @@ class _AcademicSetupPageState extends ConsumerState<AcademicSetupPage> {
       await _showCredentialResult(result);
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(readApiErrorMessage(error))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(readApiErrorMessage(error))));
     }
   }
 
@@ -700,18 +1002,21 @@ class _AcademicSetupPageState extends ConsumerState<AcademicSetupPage> {
       );
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(readApiErrorMessage(error))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(readApiErrorMessage(error))));
     }
   }
 
   Future<void> _openStudentImportDialog(AppUser user) async {
-    final instituteId = ref.read(academicSetupInstituteFilterProvider) ?? user.instituteId;
+    final instituteId =
+        ref.read(academicSetupInstituteFilterProvider) ?? user.instituteId;
     if (instituteId == null || instituteId.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Select an institute first to import students.')),
+        const SnackBar(
+          content: Text('Select an institute first to import students.'),
+        ),
       );
       return;
     }
@@ -723,7 +1028,9 @@ class _AcademicSetupPageState extends ConsumerState<AcademicSetupPage> {
         subtitle:
             'Upload an Excel-friendly CSV to create student profiles and optional login credentials in one step.',
         instituteId: instituteId,
-        fetchTemplate: ref.read(academicSetupRepositoryProvider).fetchStudentImportTemplate,
+        fetchTemplate: ref
+            .read(academicSetupRepositoryProvider)
+            .fetchStudentImportTemplate,
         previewImport: (file) => ref
             .read(academicSetupRepositoryProvider)
             .previewStudentImport(instituteId: instituteId, file: file),
@@ -738,11 +1045,14 @@ class _AcademicSetupPageState extends ConsumerState<AcademicSetupPage> {
   }
 
   Future<void> _openTeacherImportDialog(AppUser user) async {
-    final instituteId = ref.read(academicSetupInstituteFilterProvider) ?? user.instituteId;
+    final instituteId =
+        ref.read(academicSetupInstituteFilterProvider) ?? user.instituteId;
     if (instituteId == null || instituteId.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Select an institute first to import teachers.')),
+        const SnackBar(
+          content: Text('Select an institute first to import teachers.'),
+        ),
       );
       return;
     }
@@ -754,7 +1064,9 @@ class _AcademicSetupPageState extends ConsumerState<AcademicSetupPage> {
         subtitle:
             'Upload an Excel-friendly CSV to create teacher profiles and optional login credentials in one step.',
         instituteId: instituteId,
-        fetchTemplate: ref.read(academicSetupRepositoryProvider).fetchTeacherImportTemplate,
+        fetchTemplate: ref
+            .read(academicSetupRepositoryProvider)
+            .fetchTeacherImportTemplate,
         previewImport: (file) => ref
             .read(academicSetupRepositoryProvider)
             .previewTeacherImport(instituteId: instituteId, file: file),
@@ -847,6 +1159,77 @@ class _AcademicSetupPageState extends ConsumerState<AcademicSetupPage> {
     };
   }
 
+  List<Widget> _buildSectionQuickActions({
+    required AppUser user,
+    required AcademicSetupSection section,
+    required InstituteAdminModel? selectedInstitute,
+  }) {
+    final actions = <Widget>[
+      AppButton(
+        label: _buttonLabelForSection(section),
+        onPressed: () => _openCreateDialog(user),
+        icon: Icons.add,
+      ),
+    ];
+    if (section == AcademicSetupSection.subjects) {
+      actions.add(
+        AppButton(
+          label: 'Open question bank',
+          onPressed: () => context.go(AppRoutes.questionBank),
+          icon: Icons.quiz_outlined,
+          variant: AppButtonVariant.ghost,
+        ),
+      );
+    } else if (section == AcademicSetupSection.students) {
+      actions.add(
+        AppButton(
+          label: 'Bulk import students',
+          onPressed: () => _openStudentImportDialog(user),
+          icon: Icons.upload_file_outlined,
+          variant: AppButtonVariant.secondary,
+        ),
+      );
+    } else if (section == AcademicSetupSection.teachers) {
+      actions.add(
+        AppButton(
+          label: 'Bulk import teachers',
+          onPressed: () => _openTeacherImportDialog(user),
+          icon: Icons.upload_file_outlined,
+          variant: AppButtonVariant.secondary,
+        ),
+      );
+    } else if (section == AcademicSetupSection.teacherAssignments) {
+      actions.add(
+        AppButton(
+          label: 'Open exams',
+          onPressed: () => context.go(AppRoutes.exams),
+          icon: Icons.fact_check_outlined,
+          variant: AppButtonVariant.ghost,
+        ),
+      );
+    } else if (section == AcademicSetupSection.academicYears &&
+        selectedInstitute != null) {
+      actions.add(
+        AppButton(
+          label: 'Exam defaults',
+          onPressed: () =>
+              _openExamDefaultsDialog(user: user, institute: selectedInstitute),
+          icon: Icons.tune_rounded,
+          variant: AppButtonVariant.ghost,
+        ),
+      );
+    }
+
+    return actions;
+  }
+
+  String _metricCountLabel<T>(AsyncValue<List<T>> value) {
+    return value.maybeWhen(
+      data: (items) => items.length.toString(),
+      orElse: () => '--',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider);
@@ -865,6 +1248,14 @@ class _AcademicSetupPageState extends ConsumerState<AcademicSetupPage> {
           title: 'Academic setup restricted',
           description:
               'Academic master data management is only available for platform admin and institute admin roles.',
+          highlights: [
+            'Platform and institute admins already manage core master data here.',
+            'Role-based routing protects cross-tenant academic operations.',
+            'The refreshed UI is ready for future approval or review surfaces.',
+          ],
+          statusLabel: 'Admin-only workspace',
+          footerMessage:
+              'This surface is intentionally protected because it drives structural academic data across the product, but it already shares the same navigation and visual language as the rest of the portal.',
         ),
       );
     }
@@ -879,6 +1270,42 @@ class _AcademicSetupPageState extends ConsumerState<AcademicSetupPage> {
           data: (items) => items,
           orElse: () => const <InstituteAdminModel>[],
         );
+    final selectedInstitute = _resolveSelectedInstitute(
+      user,
+      instituteOptions,
+      instituteFilter,
+    );
+    final yearsValue = ref.watch(setupAcademicYearsProvider);
+    final programsValue = ref.watch(setupProgramsProvider);
+    final cohortsValue = ref.watch(setupCohortsProvider);
+    final subjectsValue = ref.watch(setupSubjectsProvider);
+    final topicsValue = ref.watch(setupTopicsProvider);
+    final studentsValue = ref.watch(setupStudentsProvider);
+    final teachersValue = ref.watch(setupTeachersProvider);
+    final assignmentsValue = ref.watch(setupTeacherAssignmentsProvider);
+    final academicYears = yearsValue.maybeWhen(
+      data: (items) => items,
+      orElse: () => const <AcademicYearAdminModel>[],
+    );
+    String? selectedControlYearId = _selectedControlYearId;
+    if (selectedControlYearId == null && academicYears.isNotEmpty) {
+      final currentYear = academicYears.where((item) => item.isCurrent);
+      selectedControlYearId = currentYear.isNotEmpty
+          ? currentYear.first.id
+          : academicYears.first.id;
+    }
+    final sectionCounts = <AcademicSetupSection, String>{
+      AcademicSetupSection.academicYears: _metricCountLabel(yearsValue),
+      AcademicSetupSection.programs: _metricCountLabel(programsValue),
+      AcademicSetupSection.cohorts: _metricCountLabel(cohortsValue),
+      AcademicSetupSection.subjects: _metricCountLabel(subjectsValue),
+      AcademicSetupSection.topics: _metricCountLabel(topicsValue),
+      AcademicSetupSection.students: _metricCountLabel(studentsValue),
+      AcademicSetupSection.teachers: _metricCountLabel(teachersValue),
+      AcademicSetupSection.teacherAssignments: _metricCountLabel(
+        assignmentsValue,
+      ),
+    };
 
     return DashboardShell(
       title: 'Academic Setup',
@@ -888,148 +1315,306 @@ class _AcademicSetupPageState extends ConsumerState<AcademicSetupPage> {
       body: ListView(
         children: [
           AppCard(
-            child: Padding(
-              padding: const EdgeInsets.all(0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  AppSectionHeader(
-                    title: 'Academic setup',
-                    subtitle:
-                        'Manage academic years, programs, cohorts, subjects, topics, students, teachers, and teacher assignments from a single admin workspace.',
-                    action: AppButton(
-                      label: _buttonLabelForSection(section),
-                      onPressed: () => _openCreateDialog(user),
-                      icon: Icons.add,
-                    ),
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Academic setup',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
                   ),
-                  const SizedBox(height: 20),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
-                    children: [
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  'Use the section menu to manage one academic domain at a time.',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                Wrap(
+                  spacing: AppSpacing.md,
+                  runSpacing: AppSpacing.md,
+                  children: [
+                    SizedBox(
+                      width: 240,
+                      child: DropdownButtonFormField<String?>(
+                        initialValue: selectedControlYearId,
+                        decoration: const InputDecoration(
+                          labelText: 'Academic year',
+                          prefixIcon: Icon(Icons.calendar_today_outlined),
+                        ),
+                        items: academicYears
+                            .map(
+                              (item) => DropdownMenuItem<String?>(
+                                value: item.id,
+                                child: Text(item.name),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (value) {
+                          setState(() => _selectedControlYearId = value);
+                        },
+                      ),
+                    ),
+                    if (isPlatformAdmin)
                       SizedBox(
                         width: 260,
-                        child: AppTextField(
-                          controller: _searchController,
-                          onFieldSubmitted: (_) => _applySearch(),
-                          label: 'Search records',
-                          hint: 'Search by name, code, email, or phone',
-                          suffixIcon: IconButton(
-                            onPressed: _applySearch,
-                            icon: const Icon(Icons.search),
-                          ),
-                        ),
-                      ),
-                      SizedBox(
-                        width: 180,
-                        child: DropdownButtonFormField<bool?>(
-                          initialValue: activeFilter,
+                        child: DropdownButtonFormField<String?>(
+                          initialValue: instituteFilter,
                           decoration: const InputDecoration(
-                            labelText: 'Active filter',
+                            labelText: 'Institute',
                           ),
-                          items: const [
-                            DropdownMenuItem<bool?>(
+                          items: [
+                            const DropdownMenuItem<String?>(
                               value: null,
-                              child: Text('All'),
+                              child: Text('All institutes'),
                             ),
-                            DropdownMenuItem<bool?>(
-                              value: true,
-                              child: Text('Active'),
-                            ),
-                            DropdownMenuItem<bool?>(
-                              value: false,
-                              child: Text('Inactive'),
+                            ...instituteOptions.map(
+                              (item) => DropdownMenuItem<String?>(
+                                value: item.id,
+                                child: Text(item.name),
+                              ),
                             ),
                           ],
                           onChanged: (value) {
                             ref
                                 .read(
-                                  academicSetupActiveFilterProvider.notifier,
+                                  academicSetupInstituteFilterProvider.notifier,
                                 )
-                                .setActiveFilter(value);
+                                .setInstitute(value);
                           },
                         ),
                       ),
-                      if (isPlatformAdmin)
-                        SizedBox(
-                          width: 260,
-                          child: DropdownButtonFormField<String?>(
-                            initialValue: instituteFilter,
-                            decoration: const InputDecoration(
-                              labelText: 'Institute',
-                            ),
-                            items: [
-                              const DropdownMenuItem<String?>(
-                                value: null,
-                                child: Text('All institutes'),
-                              ),
-                              ...instituteOptions.map(
-                                (item) => DropdownMenuItem<String?>(
-                                  value: item.id,
-                                  child: Text(item.name),
-                                ),
-                              ),
-                            ],
-                            onChanged: (value) {
-                              ref
-                                  .read(
-                                    academicSetupInstituteFilterProvider
-                                        .notifier,
-                                  )
-                                  .setInstitute(value);
-                            },
-                          ),
-                        )
-                      else
-                        _StaticInfoPill(
-                          label: 'Scope',
-                          value: user.instituteLabel,
+                    PopupMenuButton<String>(
+                      onSelected: (value) {
+                        if (value == 'students') {
+                          _openStudentImportDialog(user);
+                        } else if (value == 'teachers') {
+                          _openTeacherImportDialog(user);
+                        }
+                      },
+                      itemBuilder: (context) => const [
+                        PopupMenuItem(
+                          value: 'students',
+                          child: Text('Import students'),
                         ),
-                      OutlinedButton(
-                        onPressed: () {
-                          _searchController.clear();
-                          ref
-                              .read(academicSetupSearchProvider.notifier)
-                              .setSearch('');
-                          ref
-                              .read(academicSetupActiveFilterProvider.notifier)
-                              .setActiveFilter(true);
-                          if (isPlatformAdmin) {
-                            ref
-                                .read(
-                                  academicSetupInstituteFilterProvider.notifier,
-                                )
-                                .setInstitute(null);
-                          }
-                        },
-                        child: const Text('Clear filters'),
+                        PopupMenuItem(
+                          value: 'teachers',
+                          child: Text('Import teachers'),
+                        ),
+                      ],
+                      child: const AppButton(
+                        label: 'Import',
+                        icon: Icons.upload_outlined,
+                        variant: AppButtonVariant.secondary,
                       ),
-                    ],
-                  ),
-                ],
-              ),
+                    ),
+                    if (selectedInstitute != null)
+                      AppButton(
+                        label: 'Exam defaults',
+                        onPressed: () => _openExamDefaultsDialog(
+                          user: user,
+                          institute: selectedInstitute,
+                        ),
+                        icon: Icons.tune_rounded,
+                        variant: AppButtonVariant.secondary,
+                      ),
+                  ],
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 20),
-          Wrap(
-            spacing: 14,
-            runSpacing: 14,
-            children: [
-              for (final item in _sectionCards)
-                _SectionSelectorCard(
-                  item: item,
-                  selected: item.section == section,
-                  onTap: () {
-                    ref
-                        .read(academicSetupSectionProvider.notifier)
-                        .setSection(item.section);
-                  },
+          const SizedBox(height: AppSpacing.lg),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 980;
+              final sectionMenu = AppCard(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Sections',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    ...AcademicSetupSection.values.map(
+                      (item) => Padding(
+                        padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                        child: _AcademicSectionMenuItem(
+                          label: _sectionLabel(item),
+                          icon: _sectionIcon(item),
+                          countLabel: sectionCounts[item]!,
+                          selected: section == item,
+                          onTap: () => ref
+                              .read(academicSetupSectionProvider.notifier)
+                              .setSection(item),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-            ],
+              );
+
+              final workspace = Column(
+                children: [
+                  AppCard(
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _sectionLabel(section),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .headlineSmall
+                                        ?.copyWith(fontWeight: FontWeight.w800),
+                                  ),
+                                  const SizedBox(height: AppSpacing.xs),
+                                  Text(
+                                    'Manage ${_sectionLabel(section).toLowerCase()} records with focused actions and filters.',
+                                    style: Theme.of(context).textTheme.bodyLarge
+                                        ?.copyWith(
+                                          color: AppColors.textSecondary,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: AppSpacing.md),
+                            AppBadge(
+                              label:
+                                  '${sectionCounts[section]} ${_sectionLabel(section).toLowerCase()}',
+                              backgroundColor: AppColors.subtleAccent,
+                              foregroundColor: AppColors.primary,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        Wrap(
+                          spacing: AppSpacing.sm,
+                          runSpacing: AppSpacing.sm,
+                          children: _buildSectionQuickActions(
+                            user: user,
+                            section: section,
+                            selectedInstitute: selectedInstitute,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: [
+                            SizedBox(
+                              width: 260,
+                              child: AppTextField(
+                                controller: _searchController,
+                                onFieldSubmitted: (_) => _applySearch(),
+                                label: 'Search records',
+                                hint: 'Search by name, code, email, or phone',
+                                suffixIcon: IconButton(
+                                  onPressed: _applySearch,
+                                  icon: const Icon(Icons.search),
+                                ),
+                              ),
+                            ),
+                            SizedBox(
+                              width: 180,
+                              child: DropdownButtonFormField<bool?>(
+                                initialValue: activeFilter,
+                                decoration: const InputDecoration(
+                                  labelText: 'Active filter',
+                                ),
+                                items: const [
+                                  DropdownMenuItem<bool?>(
+                                    value: null,
+                                    child: Text('All'),
+                                  ),
+                                  DropdownMenuItem<bool?>(
+                                    value: true,
+                                    child: Text('Active'),
+                                  ),
+                                  DropdownMenuItem<bool?>(
+                                    value: false,
+                                    child: Text('Inactive'),
+                                  ),
+                                ],
+                                onChanged: (value) {
+                                  ref
+                                      .read(
+                                        academicSetupActiveFilterProvider
+                                            .notifier,
+                                      )
+                                      .setActiveFilter(value);
+                                },
+                              ),
+                            ),
+                            AppButton(
+                              label: 'Clear filters',
+                              icon: Icons.filter_alt_off_outlined,
+                              variant: AppButtonVariant.ghost,
+                              onPressed: () {
+                                _searchController.clear();
+                                ref
+                                    .read(academicSetupSearchProvider.notifier)
+                                    .setSearch('');
+                                ref
+                                    .read(
+                                      academicSetupActiveFilterProvider
+                                          .notifier,
+                                    )
+                                    .setActiveFilter(true);
+                                if (isPlatformAdmin) {
+                                  ref
+                                      .read(
+                                        academicSetupInstituteFilterProvider
+                                            .notifier,
+                                      )
+                                      .setInstitute(null);
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  _buildSectionBody(user, section),
+                ],
+              );
+
+              if (compact) {
+                return Column(
+                  children: [
+                    sectionMenu,
+                    const SizedBox(height: AppSpacing.lg),
+                    workspace,
+                  ],
+                );
+              }
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(width: 230, child: sectionMenu),
+                  const SizedBox(width: AppSpacing.lg),
+                  Expanded(child: workspace),
+                ],
+              );
+            },
           ),
-          const SizedBox(height: 20),
-          _buildSectionBody(user, section),
         ],
       ),
     );
@@ -1043,7 +1628,119 @@ class _AcademicSetupPageState extends ConsumerState<AcademicSetupPage> {
           subtitle:
               'Control year windows, current year status, and institute-level academic timelines.',
           value: ref.watch(setupAcademicYearsProvider),
+          summaryMetrics: ref
+              .watch(setupAcademicYearsProvider)
+              .maybeWhen(
+                data: (items) => [
+                  _ManagementSectionMetric(
+                    label: 'Years',
+                    value: items.length.toString(),
+                    helper: 'Configured cycles',
+                    icon: Icons.date_range_outlined,
+                  ),
+                  _ManagementSectionMetric(
+                    label: 'Current',
+                    value: items
+                        .where((item) => item.isCurrent)
+                        .length
+                        .toString(),
+                    helper: 'Current academic window',
+                    icon: Icons.event_available_outlined,
+                    tint: AppColors.success,
+                  ),
+                  _ManagementSectionMetric(
+                    label: 'Inactive',
+                    value: items
+                        .where((item) => !item.isActive)
+                        .length
+                        .toString(),
+                    helper: 'Archived or paused cycles',
+                    icon: Icons.event_busy_outlined,
+                    tint: AppColors.textMuted,
+                  ),
+                ],
+                orElse: () => const [],
+              ),
           onEdit: (item) => _openEditDialog(user: user, entity: item),
+          selectedCount: _selectedIdsFor(
+            AcademicSetupSection.academicYears,
+          ).length,
+          onBulkEnable: (items) => _bulkToggleAcademicEntities(
+            AcademicSetupSection.academicYears,
+            items,
+            enable: true,
+          ),
+          onBulkDisable: (items) => _bulkToggleAcademicEntities(
+            AcademicSetupSection.academicYears,
+            items,
+            enable: false,
+          ),
+          onExportSelected: (items) => _exportSelectedAcademicEntities(
+            AcademicSetupSection.academicYears,
+            items,
+          ),
+          tableMinWidth: 780,
+          compactBreakpoint: 640,
+          tableBuilder: (items) => _buildAdminDataTable(
+            context,
+            showCheckboxColumn: true,
+            onSelectAll: (selected) => _toggleAllEntitySelections(
+              AcademicSetupSection.academicYears,
+              items.map((item) => item.id),
+              selected ?? false,
+            ),
+            columns: const [
+              DataColumn(label: Text('Academic year')),
+              DataColumn(label: Text('Start')),
+              DataColumn(label: Text('End')),
+              DataColumn(label: Text('Status')),
+              DataColumn(label: Text('Actions')),
+            ],
+            rows: items
+                .map(
+                  (item) => DataRow(
+                    selected: _selectedIdsFor(
+                      AcademicSetupSection.academicYears,
+                    ).contains(item.id),
+                    onSelectChanged: (selected) => _toggleEntitySelection(
+                      AcademicSetupSection.academicYears,
+                      item.id,
+                      selected ?? false,
+                    ),
+                    cells: [
+                      DataCell(
+                        _buildPrimarySecondaryCell(
+                          context,
+                          primary: item.name,
+                          secondary: item.isCurrent
+                              ? 'Current window'
+                              : 'Archive',
+                        ),
+                      ),
+                      DataCell(Text(item.startDate)),
+                      DataCell(Text(item.endDate)),
+                      DataCell(
+                        Wrap(
+                          spacing: 8,
+                          children: [
+                            if (item.isCurrent)
+                              const StatusBadgeComponent(label: 'Current'),
+                            StatusBadgeComponent(
+                              label: item.isActive ? 'Active' : 'Inactive',
+                            ),
+                          ],
+                        ),
+                      ),
+                      DataCell(
+                        _buildEntityRowAction(
+                          () => _openEditDialog(user: user, entity: item),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+                .toList(),
+          ),
           itemBuilder: (context, item) => _EntityCard(
             title: item.name,
             subtitle: '${item.startDate} to ${item.endDate}',
@@ -1059,7 +1756,118 @@ class _AcademicSetupPageState extends ConsumerState<AcademicSetupPage> {
           subtitle:
               'Set up classes, courses, or training programs with scalable naming and ordering.',
           value: ref.watch(setupProgramsProvider),
+          summaryMetrics: ref
+              .watch(setupProgramsProvider)
+              .maybeWhen(
+                data: (items) => [
+                  _ManagementSectionMetric(
+                    label: 'Programs',
+                    value: items.length.toString(),
+                    helper: 'Classes and learning tracks',
+                    icon: Icons.class_outlined,
+                  ),
+                  _ManagementSectionMetric(
+                    label: 'Active',
+                    value: items
+                        .where((item) => item.isActive)
+                        .length
+                        .toString(),
+                    helper: 'Available for enrollment',
+                    icon: Icons.check_circle_outline,
+                    tint: AppColors.success,
+                  ),
+                  _ManagementSectionMetric(
+                    label: 'Uncategorized',
+                    value: items
+                        .where((item) => item.category.trim().isEmpty)
+                        .length
+                        .toString(),
+                    helper: 'Needs category cleanup',
+                    icon: Icons.label_outline,
+                    tint: AppColors.warning,
+                  ),
+                ],
+                orElse: () => const [],
+              ),
           onEdit: (item) => _openEditDialog(user: user, entity: item),
+          selectedCount: _selectedIdsFor(AcademicSetupSection.programs).length,
+          onBulkEnable: (items) => _bulkToggleAcademicEntities(
+            AcademicSetupSection.programs,
+            items,
+            enable: true,
+          ),
+          onBulkDisable: (items) => _bulkToggleAcademicEntities(
+            AcademicSetupSection.programs,
+            items,
+            enable: false,
+          ),
+          onExportSelected: (items) => _exportSelectedAcademicEntities(
+            AcademicSetupSection.programs,
+            items,
+          ),
+          tableMinWidth: 920,
+          compactBreakpoint: 640,
+          tableBuilder: (items) => _buildAdminDataTable(
+            context,
+            showCheckboxColumn: true,
+            onSelectAll: (selected) => _toggleAllEntitySelections(
+              AcademicSetupSection.programs,
+              items.map((item) => item.id),
+              selected ?? false,
+            ),
+            columns: const [
+              DataColumn(label: Text('Program')),
+              DataColumn(label: Text('Code')),
+              DataColumn(label: Text('Category')),
+              DataColumn(label: Text('Order')),
+              DataColumn(label: Text('Status')),
+              DataColumn(label: Text('Actions')),
+            ],
+            rows: items
+                .map(
+                  (item) => DataRow(
+                    selected: _selectedIdsFor(
+                      AcademicSetupSection.programs,
+                    ).contains(item.id),
+                    onSelectChanged: (selected) => _toggleEntitySelection(
+                      AcademicSetupSection.programs,
+                      item.id,
+                      selected ?? false,
+                    ),
+                    cells: [
+                      DataCell(
+                        _buildPrimarySecondaryCell(
+                          context,
+                          primary: item.name,
+                          secondary: item.description.isEmpty
+                              ? 'No description'
+                              : item.description,
+                        ),
+                      ),
+                      DataCell(Text(item.code)),
+                      DataCell(
+                        Text(
+                          item.category.isEmpty
+                              ? 'Uncategorized'
+                              : item.category,
+                        ),
+                      ),
+                      DataCell(Text(item.sortOrder.toString())),
+                      DataCell(
+                        StatusBadgeComponent(
+                          label: item.isActive ? 'Active' : 'Inactive',
+                        ),
+                      ),
+                      DataCell(
+                        _buildEntityRowAction(
+                          () => _openEditDialog(user: user, entity: item),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+                .toList(),
+          ),
           itemBuilder: (context, item) => _EntityCard(
             title: item.name,
             subtitle:
@@ -1089,7 +1897,117 @@ class _AcademicSetupPageState extends ConsumerState<AcademicSetupPage> {
           subtitle:
               'Manage batches, sections, and timetable-ready groupings linked to program and academic year.',
           value: ref.watch(setupCohortsProvider),
+          summaryMetrics: ref
+              .watch(setupCohortsProvider)
+              .maybeWhen(
+                data: (items) => [
+                  _ManagementSectionMetric(
+                    label: 'Batches',
+                    value: items.length.toString(),
+                    helper: 'Operational cohorts',
+                    icon: Icons.groups_outlined,
+                  ),
+                  _ManagementSectionMetric(
+                    label: 'With capacity',
+                    value: items
+                        .where((item) => item.capacity != null)
+                        .length
+                        .toString(),
+                    helper: 'Ready for intake planning',
+                    icon: Icons.reduce_capacity_outlined,
+                    tint: AppColors.info,
+                  ),
+                  _ManagementSectionMetric(
+                    label: 'Inactive',
+                    value: items
+                        .where((item) => !item.isActive)
+                        .length
+                        .toString(),
+                    helper: 'Archived or paused groups',
+                    icon: Icons.pause_circle_outline,
+                    tint: AppColors.textMuted,
+                  ),
+                ],
+                orElse: () => const [],
+              ),
           onEdit: (item) => _openEditDialog(user: user, entity: item),
+          selectedCount: _selectedIdsFor(AcademicSetupSection.cohorts).length,
+          onBulkEnable: (items) => _bulkToggleAcademicEntities(
+            AcademicSetupSection.cohorts,
+            items,
+            enable: true,
+          ),
+          onBulkDisable: (items) => _bulkToggleAcademicEntities(
+            AcademicSetupSection.cohorts,
+            items,
+            enable: false,
+          ),
+          onExportSelected: (items) => _exportSelectedAcademicEntities(
+            AcademicSetupSection.cohorts,
+            items,
+          ),
+          tableMinWidth: 1080,
+          compactBreakpoint: 700,
+          tableBuilder: (items) => _buildAdminDataTable(
+            context,
+            showCheckboxColumn: true,
+            onSelectAll: (selected) => _toggleAllEntitySelections(
+              AcademicSetupSection.cohorts,
+              items.map((item) => item.id),
+              selected ?? false,
+            ),
+            columns: const [
+              DataColumn(label: Text('Cohort')),
+              DataColumn(label: Text('Code')),
+              DataColumn(label: Text('Program')),
+              DataColumn(label: Text('Academic year')),
+              DataColumn(label: Text('Capacity')),
+              DataColumn(label: Text('Status')),
+              DataColumn(label: Text('Actions')),
+            ],
+            rows: items
+                .map(
+                  (item) => DataRow(
+                    selected: _selectedIdsFor(
+                      AcademicSetupSection.cohorts,
+                    ).contains(item.id),
+                    onSelectChanged: (selected) => _toggleEntitySelection(
+                      AcademicSetupSection.cohorts,
+                      item.id,
+                      selected ?? false,
+                    ),
+                    cells: [
+                      DataCell(
+                        SizedBox(
+                          width: 170,
+                          child: Text(
+                            item.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ),
+                      DataCell(Text(item.code)),
+                      DataCell(Text(_lookupName(programs, item.programId))),
+                      DataCell(Text(_lookupName(years, item.academicYearId))),
+                      DataCell(Text(item.capacity?.toString() ?? '--')),
+                      DataCell(
+                        StatusBadgeComponent(
+                          label: item.isActive ? 'Active' : 'Inactive',
+                        ),
+                      ),
+                      DataCell(
+                        _buildEntityRowAction(
+                          () => _openEditDialog(user: user, entity: item),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+                .toList(),
+          ),
           itemBuilder: (context, item) => _EntityCard(
             title: item.name,
             subtitle:
@@ -1113,7 +2031,118 @@ class _AcademicSetupPageState extends ConsumerState<AcademicSetupPage> {
           subtitle:
               'Maintain subject masters that teachers, question bank, and exam builder workflows depend on.',
           value: ref.watch(setupSubjectsProvider),
+          summaryMetrics: ref
+              .watch(setupSubjectsProvider)
+              .maybeWhen(
+                data: (items) => [
+                  _ManagementSectionMetric(
+                    label: 'Subjects',
+                    value: items.length.toString(),
+                    helper: 'Curriculum catalog entries',
+                    icon: Icons.menu_book_outlined,
+                  ),
+                  _ManagementSectionMetric(
+                    label: 'Program linked',
+                    value: items
+                        .where((item) => item.programId != null)
+                        .length
+                        .toString(),
+                    helper: 'Scoped to a specific program',
+                    icon: Icons.link_outlined,
+                    tint: AppColors.info,
+                  ),
+                  _ManagementSectionMetric(
+                    label: 'Inactive',
+                    value: items
+                        .where((item) => !item.isActive)
+                        .length
+                        .toString(),
+                    helper: 'Hidden from active use',
+                    icon: Icons.visibility_off_outlined,
+                    tint: AppColors.textMuted,
+                  ),
+                ],
+                orElse: () => const [],
+              ),
           onEdit: (item) => _openEditDialog(user: user, entity: item),
+          selectedCount: _selectedIdsFor(AcademicSetupSection.subjects).length,
+          onBulkEnable: (items) => _bulkToggleAcademicEntities(
+            AcademicSetupSection.subjects,
+            items,
+            enable: true,
+          ),
+          onBulkDisable: (items) => _bulkToggleAcademicEntities(
+            AcademicSetupSection.subjects,
+            items,
+            enable: false,
+          ),
+          onExportSelected: (items) => _exportSelectedAcademicEntities(
+            AcademicSetupSection.subjects,
+            items,
+          ),
+          tableMinWidth: 940,
+          compactBreakpoint: 640,
+          tableBuilder: (items) => _buildAdminDataTable(
+            context,
+            showCheckboxColumn: true,
+            onSelectAll: (selected) => _toggleAllEntitySelections(
+              AcademicSetupSection.subjects,
+              items.map((item) => item.id),
+              selected ?? false,
+            ),
+            columns: const [
+              DataColumn(label: Text('Subject')),
+              DataColumn(label: Text('Code')),
+              DataColumn(label: Text('Program')),
+              DataColumn(label: Text('Order')),
+              DataColumn(label: Text('Status')),
+              DataColumn(label: Text('Actions')),
+            ],
+            rows: items
+                .map(
+                  (item) => DataRow(
+                    selected: _selectedIdsFor(
+                      AcademicSetupSection.subjects,
+                    ).contains(item.id),
+                    onSelectChanged: (selected) => _toggleEntitySelection(
+                      AcademicSetupSection.subjects,
+                      item.id,
+                      selected ?? false,
+                    ),
+                    cells: [
+                      DataCell(
+                        _buildPrimarySecondaryCell(
+                          context,
+                          primary: item.name,
+                          secondary: item.description.isEmpty
+                              ? 'No description'
+                              : item.description,
+                        ),
+                      ),
+                      DataCell(Text(item.code)),
+                      DataCell(
+                        Text(
+                          item.programId == null
+                              ? 'General'
+                              : _lookupName(programs, item.programId),
+                        ),
+                      ),
+                      DataCell(Text(item.sortOrder.toString())),
+                      DataCell(
+                        StatusBadgeComponent(
+                          label: item.isActive ? 'Active' : 'Inactive',
+                        ),
+                      ),
+                      DataCell(
+                        _buildEntityRowAction(
+                          () => _openEditDialog(user: user, entity: item),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+                .toList(),
+          ),
           itemBuilder: (context, item) => _EntityCard(
             title: item.name,
             subtitle: item.code,
@@ -1143,7 +2172,120 @@ class _AcademicSetupPageState extends ConsumerState<AcademicSetupPage> {
           subtitle:
               'Build a nested topic hierarchy for content planning, assessments, and analytics.',
           value: ref.watch(setupTopicsProvider),
+          summaryMetrics: ref
+              .watch(setupTopicsProvider)
+              .maybeWhen(
+                data: (items) => [
+                  _ManagementSectionMetric(
+                    label: 'Topics',
+                    value: items.length.toString(),
+                    helper: 'Tagged learning units',
+                    icon: Icons.account_tree_outlined,
+                  ),
+                  _ManagementSectionMetric(
+                    label: 'Root topics',
+                    value: items
+                        .where((item) => item.parentTopicId == null)
+                        .length
+                        .toString(),
+                    helper: 'Top-level taxonomy nodes',
+                    icon: Icons.fork_right_outlined,
+                    tint: AppColors.secondary,
+                  ),
+                  _ManagementSectionMetric(
+                    label: 'Inactive',
+                    value: items
+                        .where((item) => !item.isActive)
+                        .length
+                        .toString(),
+                    helper: 'Hidden from live content',
+                    icon: Icons.visibility_off_outlined,
+                    tint: AppColors.textMuted,
+                  ),
+                ],
+                orElse: () => const [],
+              ),
           onEdit: (item) => _openEditDialog(user: user, entity: item),
+          selectedCount: _selectedIdsFor(AcademicSetupSection.topics).length,
+          onBulkEnable: (items) => _bulkToggleAcademicEntities(
+            AcademicSetupSection.topics,
+            items,
+            enable: true,
+          ),
+          onBulkDisable: (items) => _bulkToggleAcademicEntities(
+            AcademicSetupSection.topics,
+            items,
+            enable: false,
+          ),
+          onExportSelected: (items) => _exportSelectedAcademicEntities(
+            AcademicSetupSection.topics,
+            items,
+          ),
+          tableMinWidth: 1100,
+          compactBreakpoint: 700,
+          tableBuilder: (items) => _buildAdminDataTable(
+            context,
+            showCheckboxColumn: true,
+            onSelectAll: (selected) => _toggleAllEntitySelections(
+              AcademicSetupSection.topics,
+              items.map((item) => item.id),
+              selected ?? false,
+            ),
+            columns: const [
+              DataColumn(label: Text('Topic')),
+              DataColumn(label: Text('Code')),
+              DataColumn(label: Text('Subject')),
+              DataColumn(label: Text('Difficulty')),
+              DataColumn(label: Text('Parent')),
+              DataColumn(label: Text('Status')),
+              DataColumn(label: Text('Actions')),
+            ],
+            rows: items
+                .map(
+                  (item) => DataRow(
+                    selected: _selectedIdsFor(
+                      AcademicSetupSection.topics,
+                    ).contains(item.id),
+                    onSelectChanged: (selected) => _toggleEntitySelection(
+                      AcademicSetupSection.topics,
+                      item.id,
+                      selected ?? false,
+                    ),
+                    cells: [
+                      DataCell(
+                        _buildPrimarySecondaryCell(
+                          context,
+                          primary: item.name,
+                          secondary: item.description.isEmpty
+                              ? 'No description'
+                              : item.description,
+                        ),
+                      ),
+                      DataCell(Text(item.code)),
+                      DataCell(Text(_lookupName(subjects, item.subjectId))),
+                      DataCell(Text(item.difficultyLevel)),
+                      DataCell(
+                        Text(
+                          item.parentTopicId == null
+                              ? 'Root topic'
+                              : _lookupName(topics, item.parentTopicId),
+                        ),
+                      ),
+                      DataCell(
+                        StatusBadgeComponent(
+                          label: item.isActive ? 'Active' : 'Inactive',
+                        ),
+                      ),
+                      DataCell(
+                        _buildEntityRowAction(
+                          () => _openEditDialog(user: user, entity: item),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+                .toList(),
+          ),
           itemBuilder: (context, item) => _EntityCard(
             title: item.name,
             subtitle: '${_lookupName(subjects, item.subjectId)} • ${item.code}',
@@ -1179,8 +2321,10 @@ class _AcademicSetupPageState extends ConsumerState<AcademicSetupPage> {
           onSelectionChanged: _toggleStudentSelection,
           onSelectAllVisible: _toggleAllStudentSelections,
           onBulkCreate: _bulkCreateStudentLogins,
-          onBulkEnable: (items) => _bulkToggleStudentLogins(items, enable: true),
-          onBulkDisable: (items) => _bulkToggleStudentLogins(items, enable: false),
+          onBulkEnable: (items) =>
+              _bulkToggleStudentLogins(items, enable: true),
+          onBulkDisable: (items) =>
+              _bulkToggleStudentLogins(items, enable: false),
           onExportSelected: _exportSelectedStudents,
           onEdit: (item) => _openEditDialog(user: user, entity: item),
           programs: programs,
@@ -1188,16 +2332,8 @@ class _AcademicSetupPageState extends ConsumerState<AcademicSetupPage> {
           onCreateLogin: _createStudentLogin,
           onResetPassword: ({required userId, required title}) =>
               _resetUserPassword(userId: userId, title: title),
-          onToggleLogin: ({
-            required userId,
-            required enable,
-            required label,
-          }) =>
-              _toggleLogin(
-            userId: userId,
-            enable: enable,
-            label: label,
-          ),
+          onToggleLogin: ({required userId, required enable, required label}) =>
+              _toggleLogin(userId: userId, enable: enable, label: label),
         );
       case AcademicSetupSection.teachers:
         return _TeacherTableSection(
@@ -1210,23 +2346,17 @@ class _AcademicSetupPageState extends ConsumerState<AcademicSetupPage> {
           onSelectionChanged: _toggleTeacherSelection,
           onSelectAllVisible: _toggleAllTeacherSelections,
           onBulkCreate: _bulkCreateTeacherLogins,
-          onBulkEnable: (items) => _bulkToggleTeacherLogins(items, enable: true),
-          onBulkDisable: (items) => _bulkToggleTeacherLogins(items, enable: false),
+          onBulkEnable: (items) =>
+              _bulkToggleTeacherLogins(items, enable: true),
+          onBulkDisable: (items) =>
+              _bulkToggleTeacherLogins(items, enable: false),
           onExportSelected: _exportSelectedTeachers,
           onEdit: (item) => _openEditDialog(user: user, entity: item),
           onCreateLogin: _createTeacherLogin,
           onResetPassword: ({required userId, required title}) =>
               _resetUserPassword(userId: userId, title: title),
-          onToggleLogin: ({
-            required userId,
-            required enable,
-            required label,
-          }) =>
-              _toggleLogin(
-            userId: userId,
-            enable: enable,
-            label: label,
-          ),
+          onToggleLogin: ({required userId, required enable, required label}) =>
+              _toggleLogin(userId: userId, enable: enable, label: label),
         );
       case AcademicSetupSection.teacherAssignments:
         final teachers = ref
@@ -1258,7 +2388,129 @@ class _AcademicSetupPageState extends ConsumerState<AcademicSetupPage> {
           subtitle:
               'Assign teachers to academic scope and subjects so teaching responsibilities stay explicit.',
           value: ref.watch(setupTeacherAssignmentsProvider),
+          summaryMetrics: ref
+              .watch(setupTeacherAssignmentsProvider)
+              .maybeWhen(
+                data: (items) => [
+                  _ManagementSectionMetric(
+                    label: 'Assignments',
+                    value: items.length.toString(),
+                    helper: 'Teacher-subject mappings',
+                    icon: Icons.assignment_ind_outlined,
+                  ),
+                  _ManagementSectionMetric(
+                    label: 'Primary owners',
+                    value: items
+                        .where((item) => item.isPrimary)
+                        .length
+                        .toString(),
+                    helper: 'Marked as primary teacher',
+                    icon: Icons.star_border_outlined,
+                    tint: AppColors.warning,
+                  ),
+                  _ManagementSectionMetric(
+                    label: 'Batch linked',
+                    value: items
+                        .where((item) => item.cohortId != null)
+                        .length
+                        .toString(),
+                    helper: 'Scoped to a specific cohort',
+                    icon: Icons.groups_2_outlined,
+                    tint: AppColors.info,
+                  ),
+                ],
+                orElse: () => const [],
+              ),
           onEdit: (item) => _openEditDialog(user: user, entity: item),
+          selectedCount: _selectedIdsFor(
+            AcademicSetupSection.teacherAssignments,
+          ).length,
+          onBulkEnable: (items) => _bulkToggleAcademicEntities(
+            AcademicSetupSection.teacherAssignments,
+            items,
+            enable: true,
+          ),
+          onBulkDisable: (items) => _bulkToggleAcademicEntities(
+            AcademicSetupSection.teacherAssignments,
+            items,
+            enable: false,
+          ),
+          onExportSelected: (items) => _exportSelectedAcademicEntities(
+            AcademicSetupSection.teacherAssignments,
+            items,
+          ),
+          tableMinWidth: 1180,
+          compactBreakpoint: 760,
+          tableBuilder: (items) => _buildAdminDataTable(
+            context,
+            showCheckboxColumn: true,
+            onSelectAll: (selected) => _toggleAllEntitySelections(
+              AcademicSetupSection.teacherAssignments,
+              items.map((item) => item.id),
+              selected ?? false,
+            ),
+            columns: const [
+              DataColumn(label: Text('Teacher')),
+              DataColumn(label: Text('Subject')),
+              DataColumn(label: Text('Program')),
+              DataColumn(label: Text('Cohort')),
+              DataColumn(label: Text('Role')),
+              DataColumn(label: Text('Status')),
+              DataColumn(label: Text('Actions')),
+            ],
+            rows: items
+                .map(
+                  (item) => DataRow(
+                    selected: _selectedIdsFor(
+                      AcademicSetupSection.teacherAssignments,
+                    ).contains(item.id),
+                    onSelectChanged: (selected) => _toggleEntitySelection(
+                      AcademicSetupSection.teacherAssignments,
+                      item.id,
+                      selected ?? false,
+                    ),
+                    cells: [
+                      DataCell(
+                        _buildPrimarySecondaryCell(
+                          context,
+                          primary: _lookupName(teachers, item.teacherId),
+                          secondary: item.isPrimary
+                              ? 'Primary owner'
+                              : 'Assigned',
+                        ),
+                      ),
+                      DataCell(Text(_lookupName(subjects, item.subjectId))),
+                      DataCell(Text(_lookupName(programs, item.programId))),
+                      DataCell(
+                        Text(
+                          item.cohortId == null
+                              ? 'All cohorts'
+                              : _lookupName(cohorts, item.cohortId),
+                        ),
+                      ),
+                      DataCell(Text(item.assignmentRole)),
+                      DataCell(
+                        Wrap(
+                          spacing: 8,
+                          children: [
+                            if (item.isPrimary)
+                              const StatusBadgeComponent(label: 'Primary'),
+                            StatusBadgeComponent(
+                              label: item.isActive ? 'Active' : 'Inactive',
+                            ),
+                          ],
+                        ),
+                      ),
+                      DataCell(
+                        _buildEntityRowAction(
+                          () => _openEditDialog(user: user, entity: item),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+                .toList(),
+          ),
           itemBuilder: (context, item) => _EntityCard(
             title: _lookupName(teachers, item.teacherId),
             subtitle:
@@ -1275,6 +2527,179 @@ class _AcademicSetupPageState extends ConsumerState<AcademicSetupPage> {
   }
 }
 
+String _sectionLabel(AcademicSetupSection section) {
+  return switch (section) {
+    AcademicSetupSection.academicYears => 'Academic years',
+    AcademicSetupSection.programs => 'Programs',
+    AcademicSetupSection.cohorts => 'Cohorts',
+    AcademicSetupSection.subjects => 'Subjects',
+    AcademicSetupSection.topics => 'Topics',
+    AcademicSetupSection.students => 'Students',
+    AcademicSetupSection.teachers => 'Teachers',
+    AcademicSetupSection.teacherAssignments => 'Assignments',
+  };
+}
+
+IconData _sectionIcon(AcademicSetupSection section) {
+  return switch (section) {
+    AcademicSetupSection.academicYears => Icons.calendar_today_outlined,
+    AcademicSetupSection.programs => Icons.account_tree_outlined,
+    AcademicSetupSection.cohorts => Icons.groups_2_outlined,
+    AcademicSetupSection.subjects => Icons.menu_book_outlined,
+    AcademicSetupSection.topics => Icons.topic_outlined,
+    AcademicSetupSection.students => Icons.school_outlined,
+    AcademicSetupSection.teachers => Icons.person_outline,
+    AcademicSetupSection.teacherAssignments => Icons.assignment_ind_outlined,
+  };
+}
+
+Widget _buildAdminDataTable(
+  BuildContext context, {
+  required List<DataColumn> columns,
+  required List<DataRow> rows,
+  bool showCheckboxColumn = false,
+  ValueSetter<bool?>? onSelectAll,
+}) {
+  final headingStyle = Theme.of(context).textTheme.labelLarge?.copyWith(
+    fontWeight: FontWeight.w800,
+    color: AppColors.textSecondary,
+  );
+  final dataStyle = Theme.of(
+    context,
+  ).textTheme.bodyMedium?.copyWith(color: AppColors.textPrimary);
+  return DataTableTheme(
+    data: DataTableThemeData(
+      headingTextStyle: headingStyle,
+      dataTextStyle: dataStyle,
+      headingRowColor: WidgetStatePropertyAll(AppColors.surfaceMuted),
+      dataRowMinHeight: 52,
+      dataRowMaxHeight: 64,
+      headingRowHeight: 44,
+      columnSpacing: 18,
+      horizontalMargin: 12,
+      checkboxHorizontalMargin: 10,
+      dividerThickness: 0.6,
+    ),
+    child: DataTable(
+      showCheckboxColumn: showCheckboxColumn,
+      onSelectAll: onSelectAll,
+      columns: columns,
+      rows: rows,
+    ),
+  );
+}
+
+Widget _buildEntityRowAction(VoidCallback onEdit) {
+  return CompactActionMenuComponent(
+    tooltip: 'Record actions',
+    items: [
+      CompactActionMenuItem(
+        value: 'edit',
+        label: 'Edit record',
+        icon: Icons.edit_outlined,
+        onSelected: onEdit,
+      ),
+    ],
+  );
+}
+
+Widget _buildPrimarySecondaryCell(
+  BuildContext context, {
+  required String primary,
+  required String secondary,
+}) {
+  return SizedBox(
+    width: 220,
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          primary,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          secondary,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
+        ),
+      ],
+    ),
+  );
+}
+
+class _AcademicSectionMenuItem extends StatelessWidget {
+  const _AcademicSectionMenuItem({
+    required this.label,
+    required this.icon,
+    required this.countLabel,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final String countLabel;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = selected ? Colors.white : AppColors.textPrimary;
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: onTap,
+      child: Ink(
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primary : AppColors.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected ? AppColors.primary : AppColors.border,
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: 10,
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 18, color: foreground),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  label,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: foreground,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              AppBadge(
+                label: countLabel,
+                backgroundColor: selected
+                    ? Colors.white.withValues(alpha: 0.16)
+                    : AppColors.surface,
+                foregroundColor: selected
+                    ? Colors.white
+                    : AppColors.textSecondary,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _AsyncSection<T> extends StatelessWidget {
   const _AsyncSection({
     required this.title,
@@ -1282,7 +2707,16 @@ class _AsyncSection<T> extends StatelessWidget {
     required this.value,
     required this.onEdit,
     required this.itemBuilder,
+    this.summaryMetrics = const [],
     this.extraActionsBuilder,
+    this.compactBuilder,
+    this.tableBuilder,
+    this.tableMinWidth = 940,
+    this.compactBreakpoint = 820,
+    this.selectedCount = 0,
+    this.onBulkEnable,
+    this.onBulkDisable,
+    this.onExportSelected,
   });
 
   final String title;
@@ -1290,7 +2724,16 @@ class _AsyncSection<T> extends StatelessWidget {
   final AsyncValue<List<T>> value;
   final ValueChanged<T> onEdit;
   final Widget Function(BuildContext context, T item) itemBuilder;
+  final List<_ManagementSectionMetric> summaryMetrics;
   final Widget Function(BuildContext context, T item)? extraActionsBuilder;
+  final Widget Function(List<T> items)? compactBuilder;
+  final Widget Function(List<T> items)? tableBuilder;
+  final double tableMinWidth;
+  final double compactBreakpoint;
+  final int selectedCount;
+  final Future<void> Function(List<T> items)? onBulkEnable;
+  final Future<void> Function(List<T> items)? onBulkDisable;
+  final Future<void> Function(List<T> items)? onExportSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -1300,8 +2743,34 @@ class _AsyncSection<T> extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            AppSectionHeader(title: title, subtitle: subtitle),
-            const SizedBox(height: 18),
+            if (summaryMetrics.isNotEmpty) ...[
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final width = constraints.maxWidth;
+                  final columns = width >= 1100
+                      ? 4
+                      : width >= 720
+                      ? 2
+                      : 1;
+                  final cardWidth = columns == 1
+                      ? width
+                      : (width - ((columns - 1) * AppSpacing.sm)) / columns;
+                  return Wrap(
+                    spacing: AppSpacing.sm,
+                    runSpacing: AppSpacing.sm,
+                    children: summaryMetrics
+                        .map(
+                          (metric) => SizedBox(
+                            width: cardWidth,
+                            child: _ManagementMetricCard(metric: metric),
+                          ),
+                        )
+                        .toList(),
+                  );
+                },
+              ),
+              const SizedBox(height: AppSpacing.md),
+            ],
             value.when(
               data: (items) {
                 if (items.isEmpty) {
@@ -1315,40 +2784,157 @@ class _AsyncSection<T> extends StatelessWidget {
                   );
                 }
                 return Column(
-                  children: items
-                      .map(
-                        (item) => Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Column(
-                            children: [
-                              Stack(
-                                children: [
-                                  itemBuilder(context, item),
-                                  Positioned(
-                                    top: 12,
-                                    right: 12,
-                                    child: IconButton.outlined(
-                                      onPressed: () => onEdit(item),
-                                      icon: const Icon(Icons.edit_outlined),
-                                      tooltip: 'Edit',
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              if (extraActionsBuilder != null) ...[
-                                const SizedBox(height: 10),
-                                extraActionsBuilder!(context, item),
-                              ],
-                            ],
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: AppSpacing.sm,
+                      runSpacing: AppSpacing.sm,
+                      children: [
+                        AppBadge(label: '${items.length} records'),
+                        AppBadge(label: title),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    if (selectedCount > 0 &&
+                        (onBulkEnable != null ||
+                            onBulkDisable != null ||
+                            onExportSelected != null)) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(AppSpacing.md),
+                        decoration: BoxDecoration(
+                          color: AppColors.subtleAccent,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: AppColors.primary.withValues(alpha: 0.18),
                           ),
                         ),
+                        child: Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            AppBadge(label: '$selectedCount selected'),
+                            if (onBulkEnable != null)
+                              AppButton(
+                                label: 'Enable selected',
+                                onPressed: () => onBulkEnable!(items),
+                                icon: Icons.check_circle_outline,
+                                variant: AppButtonVariant.secondary,
+                              ),
+                            if (onBulkDisable != null)
+                              AppButton(
+                                label: 'Disable selected',
+                                onPressed: () => onBulkDisable!(items),
+                                icon: Icons.block_outlined,
+                                variant: AppButtonVariant.ghost,
+                              ),
+                            if (onExportSelected != null)
+                              AppButton(
+                                label: 'Export selected',
+                                onPressed: () => onExportSelected!(items),
+                                icon: Icons.download_outlined,
+                                variant: AppButtonVariant.secondary,
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                    ],
+                    if (tableBuilder != null)
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final compactTable =
+                              constraints.maxWidth < compactBreakpoint;
+                          return ProfessionalDataTableComponent(
+                            table: tableBuilder!(items),
+                            compactContent:
+                                compactBuilder?.call(items) ??
+                                Column(
+                                  children: items
+                                      .map(
+                                        (item) => Padding(
+                                          padding: const EdgeInsets.only(
+                                            bottom: AppSpacing.sm,
+                                          ),
+                                          child: Column(
+                                            children: [
+                                              itemBuilder(context, item),
+                                              const SizedBox(
+                                                height: AppSpacing.xs,
+                                              ),
+                                              _InlineEditBar(
+                                                onEdit: () => onEdit(item),
+                                              ),
+                                              if (extraActionsBuilder !=
+                                                  null) ...[
+                                                const SizedBox(height: 10),
+                                                extraActionsBuilder!(
+                                                  context,
+                                                  item,
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                        ),
+                                      )
+                                      .toList(),
+                                ),
+                            isCompact: compactTable,
+                            isEmpty: items.isEmpty,
+                            emptyTitle: 'No records match these filters',
+                            emptyDescription:
+                                'Try a broader search or add your first record in this section.',
+                            loadingType: LoadingSkeletonType.table,
+                            loadingItemCount: 4,
+                            minWidth: tableMinWidth,
+                          );
+                        },
                       )
-                      .toList(),
+                    else
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final width = constraints.maxWidth;
+                          final columns = width >= 860 ? 2 : 1;
+                          final cardWidth = columns == 1
+                              ? width
+                              : (width - ((columns - 1) * 12)) / columns;
+
+                          return Wrap(
+                            spacing: 12,
+                            runSpacing: 12,
+                            children: items
+                                .map(
+                                  (item) => SizedBox(
+                                    width: cardWidth,
+                                    child: Column(
+                                      children: [
+                                        itemBuilder(context, item),
+                                        const SizedBox(height: AppSpacing.xs),
+                                        _InlineEditBar(
+                                          onEdit: () => onEdit(item),
+                                        ),
+                                        if (extraActionsBuilder != null) ...[
+                                          const SizedBox(height: 10),
+                                          extraActionsBuilder!(context, item),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                          );
+                        },
+                      ),
+                  ],
                 );
               },
               loading: () => const Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
-                child: Center(child: CircularProgressIndicator()),
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: LoadingSkeletonComponent(
+                  type: LoadingSkeletonType.list,
+                  itemCount: 3,
+                ),
               ),
               error: (error, _) => Padding(
                 padding: const EdgeInsets.symmetric(vertical: 12),
@@ -1357,6 +2943,39 @@ class _AsyncSection<T> extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _InlineEditBar extends StatelessWidget {
+  const _InlineEditBar({required this.onEdit});
+
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceMuted,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          const AppBadge(label: 'Management record'),
+          const Spacer(),
+          TextButton.icon(
+            onPressed: onEdit,
+            icon: const Icon(Icons.edit_outlined, size: 16),
+            label: const Text('Edit'),
+          ),
+        ],
       ),
     );
   }
@@ -1377,36 +2996,100 @@ class _EntityCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accentSeed = title.isNotEmpty ? title.codeUnitAt(0) : 65;
+    final accent = [
+      AppColors.primary,
+      AppColors.secondary,
+      AppColors.success,
+      AppColors.warning,
+    ][accentSeed % 4];
+
     return AppCard(
-      padding: const EdgeInsets.all(16),
-      child: Padding(
-        padding: const EdgeInsets.all(0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 6),
-            Text(subtitle),
-            if (description != null && description!.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(description!),
+      padding: const EdgeInsets.all(AppSpacing.md),
+      backgroundColor: AppColors.surfaceStrong,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Center(
+                  child: Text(
+                    title.isEmpty ? '-' : title.characters.first.toUpperCase(),
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: accent,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: chips
-                  .where((chip) => chip.trim().isNotEmpty)
-                  .map((chip) => _ChipLabel(label: chip))
-                  .toList(),
+          ),
+          if (description != null && description!.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.sm,
+                vertical: AppSpacing.sm,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceMuted,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Text(
+                description!,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
+              ),
             ),
           ],
-        ),
+          const SizedBox(height: AppSpacing.sm),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: chips
+                .where((chip) => chip.trim().isNotEmpty)
+                .map((chip) => _ChipLabel(label: chip))
+                .toList(),
+          ),
+        ],
       ),
     );
   }
@@ -1451,11 +3134,15 @@ class _StudentTableSection extends StatelessWidget {
   final Set<String> selectedIds;
   final void Function(String id, bool selected) onSelectionChanged;
   final void Function(List<StudentProfileAdminModel> items, bool selected)
-      onSelectAllVisible;
-  final Future<void> Function(List<StudentProfileAdminModel> items) onBulkCreate;
-  final Future<void> Function(List<StudentProfileAdminModel> items) onBulkEnable;
-  final Future<void> Function(List<StudentProfileAdminModel> items) onBulkDisable;
-  final Future<void> Function(List<StudentProfileAdminModel> items) onExportSelected;
+  onSelectAllVisible;
+  final Future<void> Function(List<StudentProfileAdminModel> items)
+  onBulkCreate;
+  final Future<void> Function(List<StudentProfileAdminModel> items)
+  onBulkEnable;
+  final Future<void> Function(List<StudentProfileAdminModel> items)
+  onBulkDisable;
+  final Future<void> Function(List<StudentProfileAdminModel> items)
+  onExportSelected;
   final ValueChanged<StudentProfileAdminModel> onEdit;
   final Future<void> Function(StudentProfileAdminModel item) onCreateLogin;
   final _ResetPasswordAction onResetPassword;
@@ -1463,9 +3150,14 @@ class _StudentTableSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final items = value.maybeWhen(
+      data: (items) => items,
+      orElse: () => const <StudentProfileAdminModel>[],
+    );
     return _RosterTableShell(
       title: title,
       subtitle: subtitle,
+      rosterLabel: 'student roster',
       onImport: onImport,
       value: value,
       selectedCount: selectedIds.length,
@@ -1473,8 +3165,130 @@ class _StudentTableSection extends StatelessWidget {
       onBulkEnable: onBulkEnable,
       onBulkDisable: onBulkDisable,
       onExportSelected: onExportSelected,
-      tableBuilder: (items) => DataTable(
-        columnSpacing: 18,
+      overviewMetrics: [
+        _RosterOverviewMetric(
+          label: 'Students',
+          value: items.length.toString(),
+          helper: 'Current active roster',
+          icon: Icons.school_outlined,
+        ),
+        _RosterOverviewMetric(
+          label: 'Without batch',
+          value: items.where((item) => item.cohortId == null).length.toString(),
+          helper: 'Needs cohort assignment',
+          icon: Icons.groups_2_outlined,
+          tint: AppColors.warning,
+        ),
+        _RosterOverviewMetric(
+          label: 'Pending login',
+          value: items.where((item) => !item.hasLogin).length.toString(),
+          helper: 'Ready for bulk login creation',
+          icon: Icons.lock_outline,
+          tint: AppColors.info,
+        ),
+        _RosterOverviewMetric(
+          label: 'Inactive',
+          value: items.where((item) => !item.isActive).length.toString(),
+          helper: 'Profiles paused or archived',
+          icon: Icons.person_off_outlined,
+          tint: AppColors.textMuted,
+        ),
+      ],
+      compactBuilder: (items) => Column(
+        children: items
+            .map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                child: AppCard(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  backgroundColor: AppColors.surfaceMuted,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              item.fullName,
+                              style: Theme.of(context).textTheme.titleSmall
+                                  ?.copyWith(fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                          _TableRowActions(
+                            onEdit: () => onEdit(item),
+                            onCreateLogin: item.hasLogin
+                                ? null
+                                : () => onCreateLogin(item),
+                            onResetPassword: item.accountUserId == null
+                                ? null
+                                : () => onResetPassword(
+                                    userId: item.accountUserId!,
+                                    title: 'Reset student password',
+                                  ),
+                            onDisable:
+                                item.hasLogin &&
+                                    item.loginIsActive &&
+                                    item.accountUserId != null
+                                ? () => onToggleLogin(
+                                    userId: item.accountUserId!,
+                                    enable: false,
+                                    label: item.fullName,
+                                  )
+                                : null,
+                            onEnable:
+                                item.hasLogin &&
+                                    !item.loginIsActive &&
+                                    item.accountUserId != null
+                                ? () => onToggleLogin(
+                                    userId: item.accountUserId!,
+                                    enable: true,
+                                    label: item.fullName,
+                                  )
+                                : null,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      Text(
+                        item.admissionNo,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Wrap(
+                        spacing: AppSpacing.sm,
+                        runSpacing: AppSpacing.sm,
+                        children: [
+                          StatusBadgeComponent(
+                            label: item.isActive ? 'Active' : 'Inactive',
+                          ),
+                          _MetaChip(
+                            label: _lookupName(programs, item.programId),
+                          ),
+                          _MetaChip(
+                            label: item.cohortId == null
+                                ? 'No cohort'
+                                : _lookupName(cohorts, item.cohortId),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        item.email.isEmpty ? item.phone : item.email,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      _LoginStatusCell(item: item),
+                    ],
+                  ),
+                ),
+              ),
+            )
+            .toList(),
+      ),
+      tableBuilder: (items) => _buildAdminDataTable(
+        context,
         showCheckboxColumn: true,
         onSelectAll: (selected) => onSelectAllVisible(items, selected ?? false),
         columns: const [
@@ -1493,41 +3307,28 @@ class _StudentTableSection extends StatelessWidget {
                     onSelectionChanged(item.id, selected ?? false),
                 cells: [
                   DataCell(
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.fullName,
-                          style: Theme.of(context).textTheme.titleSmall
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                        Text(item.isActive ? 'Active profile' : 'Inactive profile'),
-                      ],
+                    _buildPrimarySecondaryCell(
+                      context,
+                      primary: item.fullName,
+                      secondary: item.isActive
+                          ? 'Active profile'
+                          : 'Inactive profile',
                     ),
                   ),
                   DataCell(
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(item.admissionNo),
-                        Text(item.gender),
-                      ],
+                    _buildPrimarySecondaryCell(
+                      context,
+                      primary: item.admissionNo,
+                      secondary: item.gender,
                     ),
                   ),
                   DataCell(
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(_lookupName(programs, item.programId)),
-                        Text(
-                          item.cohortId == null
-                              ? 'No cohort'
-                              : _lookupName(cohorts, item.cohortId),
-                        ),
-                      ],
+                    _buildPrimarySecondaryCell(
+                      context,
+                      primary: _lookupName(programs, item.programId),
+                      secondary: item.cohortId == null
+                          ? 'No cohort'
+                          : _lookupName(cohorts, item.cohortId),
                     ),
                   ),
                   DataCell(Text(item.email.isEmpty ? item.phone : item.email)),
@@ -1535,26 +3336,34 @@ class _StudentTableSection extends StatelessWidget {
                   DataCell(
                     _TableRowActions(
                       onEdit: () => onEdit(item),
-                      onCreateLogin: item.hasLogin ? null : () => onCreateLogin(item),
+                      onCreateLogin: item.hasLogin
+                          ? null
+                          : () => onCreateLogin(item),
                       onResetPassword: item.accountUserId == null
                           ? null
                           : () => onResetPassword(
-                                userId: item.accountUserId!,
-                                title: 'Reset student password',
-                              ),
-                      onDisable: item.hasLogin && item.loginIsActive && item.accountUserId != null
+                              userId: item.accountUserId!,
+                              title: 'Reset student password',
+                            ),
+                      onDisable:
+                          item.hasLogin &&
+                              item.loginIsActive &&
+                              item.accountUserId != null
                           ? () => onToggleLogin(
-                                userId: item.accountUserId!,
-                                enable: false,
-                                label: item.fullName,
-                              )
+                              userId: item.accountUserId!,
+                              enable: false,
+                              label: item.fullName,
+                            )
                           : null,
-                      onEnable: item.hasLogin && !item.loginIsActive && item.accountUserId != null
+                      onEnable:
+                          item.hasLogin &&
+                              !item.loginIsActive &&
+                              item.accountUserId != null
                           ? () => onToggleLogin(
-                                userId: item.accountUserId!,
-                                enable: true,
-                                label: item.fullName,
-                              )
+                              userId: item.accountUserId!,
+                              enable: true,
+                              label: item.fullName,
+                            )
                           : null,
                     ),
                   ),
@@ -1593,11 +3402,15 @@ class _TeacherTableSection extends StatelessWidget {
   final Set<String> selectedIds;
   final void Function(String id, bool selected) onSelectionChanged;
   final void Function(List<TeacherProfileAdminModel> items, bool selected)
-      onSelectAllVisible;
-  final Future<void> Function(List<TeacherProfileAdminModel> items) onBulkCreate;
-  final Future<void> Function(List<TeacherProfileAdminModel> items) onBulkEnable;
-  final Future<void> Function(List<TeacherProfileAdminModel> items) onBulkDisable;
-  final Future<void> Function(List<TeacherProfileAdminModel> items) onExportSelected;
+  onSelectAllVisible;
+  final Future<void> Function(List<TeacherProfileAdminModel> items)
+  onBulkCreate;
+  final Future<void> Function(List<TeacherProfileAdminModel> items)
+  onBulkEnable;
+  final Future<void> Function(List<TeacherProfileAdminModel> items)
+  onBulkDisable;
+  final Future<void> Function(List<TeacherProfileAdminModel> items)
+  onExportSelected;
   final ValueChanged<TeacherProfileAdminModel> onEdit;
   final Future<void> Function(TeacherProfileAdminModel item) onCreateLogin;
   final _ResetPasswordAction onResetPassword;
@@ -1605,9 +3418,14 @@ class _TeacherTableSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final items = value.maybeWhen(
+      data: (items) => items,
+      orElse: () => const <TeacherProfileAdminModel>[],
+    );
     return _RosterTableShell(
       title: title,
       subtitle: subtitle,
+      rosterLabel: 'teacher roster',
       onImport: onImport,
       value: value,
       selectedCount: selectedIds.length,
@@ -1615,8 +3433,132 @@ class _TeacherTableSection extends StatelessWidget {
       onBulkEnable: onBulkEnable,
       onBulkDisable: onBulkDisable,
       onExportSelected: onExportSelected,
-      tableBuilder: (items) => DataTable(
-        columnSpacing: 18,
+      overviewMetrics: [
+        _RosterOverviewMetric(
+          label: 'Teachers',
+          value: items.length.toString(),
+          helper: 'Faculty records',
+          icon: Icons.person_outline,
+        ),
+        _RosterOverviewMetric(
+          label: 'Pending login',
+          value: items.where((item) => !item.hasLogin).length.toString(),
+          helper: 'Can be provisioned in bulk',
+          icon: Icons.lock_outline,
+          tint: AppColors.info,
+        ),
+        _RosterOverviewMetric(
+          label: 'Inactive',
+          value: items.where((item) => !item.isActive).length.toString(),
+          helper: 'Profiles not currently active',
+          icon: Icons.person_off_outlined,
+          tint: AppColors.textMuted,
+        ),
+        _RosterOverviewMetric(
+          label: 'Specialized',
+          value: items
+              .where((item) => item.specialization.trim().isNotEmpty)
+              .length
+              .toString(),
+          helper: 'Tagged with specialization',
+          icon: Icons.psychology_alt_outlined,
+          tint: AppColors.secondary,
+        ),
+      ],
+      compactBuilder: (items) => Column(
+        children: items
+            .map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                child: AppCard(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  backgroundColor: AppColors.surfaceMuted,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              item.fullName,
+                              style: Theme.of(context).textTheme.titleSmall
+                                  ?.copyWith(fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                          _TableRowActions(
+                            onEdit: () => onEdit(item),
+                            onCreateLogin: item.hasLogin
+                                ? null
+                                : () => onCreateLogin(item),
+                            onResetPassword: item.accountUserId == null
+                                ? null
+                                : () => onResetPassword(
+                                    userId: item.accountUserId!,
+                                    title: 'Reset teacher password',
+                                  ),
+                            onDisable:
+                                item.hasLogin &&
+                                    item.loginIsActive &&
+                                    item.accountUserId != null
+                                ? () => onToggleLogin(
+                                    userId: item.accountUserId!,
+                                    enable: false,
+                                    label: item.fullName,
+                                  )
+                                : null,
+                            onEnable:
+                                item.hasLogin &&
+                                    !item.loginIsActive &&
+                                    item.accountUserId != null
+                                ? () => onToggleLogin(
+                                    userId: item.accountUserId!,
+                                    enable: true,
+                                    label: item.fullName,
+                                  )
+                                : null,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      Text(
+                        item.employeeCode,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Wrap(
+                        spacing: AppSpacing.sm,
+                        runSpacing: AppSpacing.sm,
+                        children: [
+                          StatusBadgeComponent(
+                            label: item.isActive ? 'Active' : 'Inactive',
+                          ),
+                          _MetaChip(
+                            label: item.specialization.isEmpty
+                                ? 'General'
+                                : item.specialization,
+                          ),
+                          if (item.qualification.isNotEmpty)
+                            _MetaChip(label: item.qualification),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        item.email.isEmpty ? item.phone : item.email,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      _LoginStatusCell(item: item),
+                    ],
+                  ),
+                ),
+              ),
+            )
+            .toList(),
+      ),
+      tableBuilder: (items) => _buildAdminDataTable(
+        context,
         showCheckboxColumn: true,
         onSelectAll: (selected) => onSelectAllVisible(items, selected ?? false),
         columns: const [
@@ -1635,55 +3577,63 @@ class _TeacherTableSection extends StatelessWidget {
                     onSelectionChanged(item.id, selected ?? false),
                 cells: [
                   DataCell(
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.fullName,
-                          style: Theme.of(context).textTheme.titleSmall
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                        Text(item.isActive ? 'Active profile' : 'Inactive profile'),
-                      ],
+                    _buildPrimarySecondaryCell(
+                      context,
+                      primary: item.fullName,
+                      secondary: item.isActive
+                          ? 'Active profile'
+                          : 'Inactive profile',
                     ),
                   ),
                   DataCell(
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(item.employeeCode),
-                        Text(item.qualification.isEmpty ? 'No qualification' : item.qualification),
-                      ],
+                    _buildPrimarySecondaryCell(
+                      context,
+                      primary: item.employeeCode,
+                      secondary: item.qualification.isEmpty
+                          ? 'No qualification'
+                          : item.qualification,
                     ),
                   ),
-                  DataCell(Text(item.specialization.isEmpty ? 'General' : item.specialization)),
+                  DataCell(
+                    Text(
+                      item.specialization.isEmpty
+                          ? 'General'
+                          : item.specialization,
+                    ),
+                  ),
                   DataCell(Text(item.email.isEmpty ? item.phone : item.email)),
                   DataCell(_LoginStatusCell(item: item)),
                   DataCell(
                     _TableRowActions(
                       onEdit: () => onEdit(item),
-                      onCreateLogin: item.hasLogin ? null : () => onCreateLogin(item),
+                      onCreateLogin: item.hasLogin
+                          ? null
+                          : () => onCreateLogin(item),
                       onResetPassword: item.accountUserId == null
                           ? null
                           : () => onResetPassword(
-                                userId: item.accountUserId!,
-                                title: 'Reset teacher password',
-                              ),
-                      onDisable: item.hasLogin && item.loginIsActive && item.accountUserId != null
+                              userId: item.accountUserId!,
+                              title: 'Reset teacher password',
+                            ),
+                      onDisable:
+                          item.hasLogin &&
+                              item.loginIsActive &&
+                              item.accountUserId != null
                           ? () => onToggleLogin(
-                                userId: item.accountUserId!,
-                                enable: false,
-                                label: item.fullName,
-                              )
+                              userId: item.accountUserId!,
+                              enable: false,
+                              label: item.fullName,
+                            )
                           : null,
-                      onEnable: item.hasLogin && !item.loginIsActive && item.accountUserId != null
+                      onEnable:
+                          item.hasLogin &&
+                              !item.loginIsActive &&
+                              item.accountUserId != null
                           ? () => onToggleLogin(
-                                userId: item.accountUserId!,
-                                enable: true,
-                                label: item.fullName,
-                              )
+                              userId: item.accountUserId!,
+                              enable: true,
+                              label: item.fullName,
+                            )
                           : null,
                     ),
                   ),
@@ -1700,6 +3650,7 @@ class _RosterTableShell<T> extends StatelessWidget {
   const _RosterTableShell({
     required this.title,
     required this.subtitle,
+    required this.rosterLabel,
     required this.value,
     required this.onImport,
     required this.selectedCount,
@@ -1707,11 +3658,14 @@ class _RosterTableShell<T> extends StatelessWidget {
     required this.onBulkEnable,
     required this.onBulkDisable,
     required this.onExportSelected,
+    required this.overviewMetrics,
+    this.compactBuilder,
     required this.tableBuilder,
   });
 
   final String title;
   final String subtitle;
+  final String rosterLabel;
   final AsyncValue<List<T>> value;
   final VoidCallback onImport;
   final int selectedCount;
@@ -1719,6 +3673,8 @@ class _RosterTableShell<T> extends StatelessWidget {
   final Future<void> Function(List<T> items) onBulkEnable;
   final Future<void> Function(List<T> items) onBulkDisable;
   final Future<void> Function(List<T> items) onExportSelected;
+  final List<_RosterOverviewMetric> overviewMetrics;
+  final Widget Function(List<T> items)? compactBuilder;
   final Widget Function(List<T> items) tableBuilder;
 
   @override
@@ -1727,81 +3683,313 @@ class _RosterTableShell<T> extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          AppSectionHeader(
-            title: title,
-            subtitle: subtitle,
-            action: AppButton(
-              label: 'Bulk upload',
-              onPressed: onImport,
-              icon: Icons.upload_file_outlined,
-              variant: AppButtonVariant.secondary,
+          if (overviewMetrics.isNotEmpty) ...[
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final width = constraints.maxWidth;
+                final columns = width >= 1180
+                    ? 4
+                    : width >= 760
+                    ? 2
+                    : 1;
+                final cardWidth = columns == 1
+                    ? width
+                    : (width - ((columns - 1) * AppSpacing.sm)) / columns;
+                return Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
+                  children: overviewMetrics
+                      .map(
+                        (metric) => SizedBox(
+                          width: cardWidth,
+                          child: _RosterStatCard(metric: metric),
+                        ),
+                      )
+                      .toList(),
+                );
+              },
             ),
-          ),
-          const SizedBox(height: 18),
+            const SizedBox(height: AppSpacing.md),
+          ],
           value.when(
             data: (items) {
-              if (items.isEmpty) {
-                return const AppEmptyState(
-                  title: 'No records match these filters',
-                  message:
-                      'Try a broader search, adjust the filters, or upload your first roster in bulk.',
-                );
-              }
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceMuted,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Wrap(
+                      spacing: AppSpacing.sm,
+                      runSpacing: AppSpacing.sm,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        AppBadge(label: '${items.length} records'),
+                        AppBadge(label: '$rosterLabel workspace'),
+                        AppButton(
+                          label: 'Export selected',
+                          onPressed: selectedCount > 0
+                              ? () => onExportSelected(items)
+                              : null,
+                          icon: Icons.download_outlined,
+                          variant: AppButtonVariant.ghost,
+                        ),
+                        Text(
+                          'Use import for large onboarding, then manage logins and activation from the selection tools below.',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: AppColors.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
                   if (selectedCount > 0) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      decoration: BoxDecoration(
+                        color: AppColors.subtleAccent,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: AppColors.primary.withValues(alpha: 0.18),
+                        ),
+                      ),
+                      child: Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          AppBadge(label: '$selectedCount selected'),
+                          AppButton(
+                            label: 'Create selected logins',
+                            onPressed: () => onBulkCreate(items),
+                            icon: Icons.person_add_alt_1_outlined,
+                            variant: AppButtonVariant.primary,
+                          ),
+                          AppButton(
+                            label: 'Enable selected',
+                            onPressed: () => onBulkEnable(items),
+                            icon: Icons.check_circle_outline,
+                            variant: AppButtonVariant.secondary,
+                          ),
+                          AppButton(
+                            label: 'Disable selected',
+                            onPressed: () => onBulkDisable(items),
+                            icon: Icons.block_outlined,
+                            variant: AppButtonVariant.ghost,
+                          ),
+                          AppButton(
+                            label: 'Export selected',
+                            onPressed: () => onExportSelected(items),
+                            icon: Icons.download_outlined,
+                            variant: AppButtonVariant.secondary,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                  ] else ...[
                     Wrap(
                       spacing: 10,
                       runSpacing: 10,
-                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        AppBadge(label: '$selectedCount selected'),
-                        AppButton(
-                          label: 'Create selected logins',
-                          onPressed: () => onBulkCreate(items),
-                          icon: Icons.person_add_alt_1_outlined,
-                          variant: AppButtonVariant.primary,
-                        ),
-                        AppButton(
-                          label: 'Enable selected logins',
-                          onPressed: () => onBulkEnable(items),
-                          icon: Icons.check_circle_outline,
-                          variant: AppButtonVariant.secondary,
-                        ),
-                        AppButton(
-                          label: 'Disable selected logins',
-                          onPressed: () => onBulkDisable(items),
-                          icon: Icons.block_outlined,
-                          variant: AppButtonVariant.ghost,
-                        ),
-                        AppButton(
-                          label: 'Export selected',
-                          onPressed: () => onExportSelected(items),
-                          icon: Icons.download_outlined,
-                          variant: AppButtonVariant.secondary,
+                        AppBadge(
+                          label:
+                              'Select rows to unlock bulk login and export actions',
+                          backgroundColor: AppColors.surfaceMuted,
+                          foregroundColor: AppColors.textSecondary,
                         ),
                       ],
                     ),
                     const SizedBox(height: 14),
                   ],
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(minWidth: 980),
-                      child: tableBuilder(items),
-                    ),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final compactTable = constraints.maxWidth < 820;
+                      return ProfessionalDataTableComponent(
+                        table: tableBuilder(items),
+                        compactContent: compactBuilder?.call(items),
+                        isCompact: compactTable,
+                        isEmpty: items.isEmpty,
+                        emptyTitle: 'No records match these filters',
+                        emptyDescription:
+                            'Try a broader search, adjust the filters, or upload your first roster in bulk.',
+                        loadingType: LoadingSkeletonType.table,
+                        loadingItemCount: 4,
+                        minWidth: 980,
+                      );
+                    },
                   ),
                 ],
               );
             },
-            loading: () => const Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
-              child: Center(child: CircularProgressIndicator()),
+            loading: () => const ProfessionalDataTableComponent(
+              table: SizedBox.shrink(),
+              isLoading: true,
+              loadingType: LoadingSkeletonType.table,
+              loadingItemCount: 5,
+              minWidth: 980,
             ),
             error: (error, _) => Padding(
               padding: const EdgeInsets.symmetric(vertical: 12),
               child: AppErrorState(message: readApiErrorMessage(error)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RosterOverviewMetric {
+  const _RosterOverviewMetric({
+    required this.label,
+    required this.value,
+    required this.helper,
+    required this.icon,
+    this.tint,
+  });
+
+  final String label;
+  final String value;
+  final String helper;
+  final IconData icon;
+  final Color? tint;
+}
+
+class _ManagementSectionMetric {
+  const _ManagementSectionMetric({
+    required this.label,
+    required this.value,
+    required this.helper,
+    required this.icon,
+    this.tint,
+  });
+
+  final String label;
+  final String value;
+  final String helper;
+  final IconData icon;
+  final Color? tint;
+}
+
+class _ManagementMetricCard extends StatelessWidget {
+  const _ManagementMetricCard({required this.metric});
+
+  final _ManagementSectionMetric metric;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = metric.tint ?? AppColors.primary;
+    return AppCard(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      backgroundColor: AppColors.surfaceMuted,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(metric.icon, color: accent, size: 18),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  metric.label,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  metric.value,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  metric.helper,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: AppColors.textMuted),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RosterStatCard extends StatelessWidget {
+  const _RosterStatCard({required this.metric});
+
+  final _RosterOverviewMetric metric;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = metric.tint ?? AppColors.primary;
+    return AppCard(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      backgroundColor: AppColors.surfaceMuted,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(metric.icon, color: accent, size: 18),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  metric.label,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  metric.value,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  metric.helper,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: AppColors.textMuted),
+                ),
+              ],
             ),
           ),
         ],
@@ -1824,16 +4012,8 @@ class _LoginStatusCell extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        AppBadge(
-          label: hasLogin ? (loginIsActive ? 'Active' : 'Disabled') : 'No Login',
-          backgroundColor: hasLogin
-              ? (loginIsActive
-                    ? AppColors.success.withValues(alpha: 0.12)
-                    : AppColors.textSecondary.withValues(alpha: 0.12))
-              : AppColors.warning.withValues(alpha: 0.12),
-          foregroundColor: hasLogin
-              ? (loginIsActive ? AppColors.success : AppColors.textSecondary)
-              : AppColors.warning,
+        StatusBadgeComponent(
+          label: hasLogin ? (loginIsActive ? 'Active' : 'Inactive') : 'Pending',
         ),
         if (hasLogin && username != null && username.isNotEmpty) ...[
           const SizedBox(height: 6),
@@ -1861,39 +4041,39 @@ class _TableRowActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 6,
-      runSpacing: 6,
-      children: [
-        IconButton.outlined(
-          onPressed: onEdit,
-          tooltip: 'Edit',
-          icon: const Icon(Icons.edit_outlined),
+    return CompactActionMenuComponent(
+      items: [
+        CompactActionMenuItem(
+          value: 'edit',
+          label: 'Edit profile',
+          icon: Icons.edit_outlined,
+          onSelected: onEdit,
         ),
-        if (onCreateLogin != null)
-          IconButton.outlined(
-            onPressed: onCreateLogin,
-            tooltip: 'Create login',
-            icon: const Icon(Icons.person_add_alt_1_outlined),
-          ),
-        if (onResetPassword != null)
-          IconButton.outlined(
-            onPressed: onResetPassword,
-            tooltip: 'Reset password',
-            icon: const Icon(Icons.lock_reset_outlined),
-          ),
-        if (onDisable != null)
-          IconButton.outlined(
-            onPressed: onDisable,
-            tooltip: 'Disable login',
-            icon: const Icon(Icons.block_outlined),
-          ),
-        if (onEnable != null)
-          IconButton.outlined(
-            onPressed: onEnable,
-            tooltip: 'Enable login',
-            icon: const Icon(Icons.check_circle_outline),
-          ),
+        CompactActionMenuItem(
+          value: 'create-login',
+          label: 'Create login',
+          icon: Icons.person_add_alt_1_outlined,
+          onSelected: onCreateLogin,
+        ),
+        CompactActionMenuItem(
+          value: 'reset-password',
+          label: 'Reset password',
+          icon: Icons.lock_reset_outlined,
+          onSelected: onResetPassword,
+        ),
+        CompactActionMenuItem(
+          value: 'disable-login',
+          label: 'Disable login',
+          icon: Icons.block_outlined,
+          onSelected: onDisable,
+          isDestructive: true,
+        ),
+        CompactActionMenuItem(
+          value: 'enable-login',
+          label: 'Enable login',
+          icon: Icons.check_circle_outline,
+          onSelected: onEnable,
+        ),
       ],
     );
   }
@@ -1914,7 +4094,8 @@ class _RosterImportDialog extends StatefulWidget {
   final String instituteId;
   final Future<Map<String, dynamic>> Function() fetchTemplate;
   final Future<RosterImportPreview> Function(MultipartFile file) previewImport;
-  final Future<BulkImportResult> Function(RosterImportPreview preview) finalizeImport;
+  final Future<BulkImportResult> Function(RosterImportPreview preview)
+  finalizeImport;
 
   @override
   State<_RosterImportDialog> createState() => _RosterImportDialogState();
@@ -2008,7 +4189,9 @@ class _RosterImportDialogState extends State<_RosterImportDialog> {
       subtitle: widget.subtitle,
       eyebrow: 'Roster import',
       onClose: () => Navigator.of(context).pop(),
-      primaryActionLabel: _preview == null ? 'Preview import' : 'Import valid rows',
+      primaryActionLabel: _preview == null
+          ? 'Preview import'
+          : 'Import valid rows',
       onPrimaryAction: _preview == null ? _pickAndPreview : _finalizeImport,
       secondaryActionLabel: 'Download template',
       onSecondaryAction: _downloadTemplate,
@@ -2017,15 +4200,16 @@ class _RosterImportDialogState extends State<_RosterImportDialog> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (_selectedFileName != null) Text('Selected file: $_selectedFileName'),
+          if (_selectedFileName != null)
+            Text('Selected file: $_selectedFileName'),
           if (_error != null) ...[
             const SizedBox(height: 12),
             Text(
               _error!,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.error,
-                    fontWeight: FontWeight.w600,
-                  ),
+                color: AppColors.error,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
           const SizedBox(height: 12),
@@ -2055,7 +4239,9 @@ class _RosterImportDialogState extends State<_RosterImportDialog> {
                     contentPadding: EdgeInsets.zero,
                     isThreeLine: !row.isValid && row.errors.isNotEmpty,
                     title: Text(
-                      row.displayName.isEmpty ? 'Row ${row.rowNumber}' : row.displayName,
+                      row.displayName.isEmpty
+                          ? 'Row ${row.rowNumber}'
+                          : row.displayName,
                     ),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2069,7 +4255,8 @@ class _RosterImportDialogState extends State<_RosterImportDialog> {
                             row.errors.entries
                                 .map((entry) => '${entry.key}: ${entry.value}')
                                 .join('  |  '),
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
                                   color: AppColors.error,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -2080,7 +4267,9 @@ class _RosterImportDialogState extends State<_RosterImportDialog> {
                     trailing: Text(
                       row.isValid ? 'Valid' : 'Issue',
                       style: TextStyle(
-                        color: row.isValid ? AppColors.success : AppColors.error,
+                        color: row.isValid
+                            ? AppColors.success
+                            : AppColors.error,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -2141,7 +4330,9 @@ class _CreateLoginDialogState extends State<_CreateLoginDialog> {
   @override
   void initState() {
     super.initState();
-    _usernameController = TextEditingController(text: widget.suggestedUsername.toLowerCase());
+    _usernameController = TextEditingController(
+      text: widget.suggestedUsername.toLowerCase(),
+    );
     _passwordController = TextEditingController();
     _confirmController = TextEditingController();
   }
@@ -2253,7 +4444,9 @@ class _ResetPasswordDialogState extends State<_ResetPasswordDialog> {
             contentPadding: EdgeInsets.zero,
             value: _autoGenerate,
             title: const Text('Generate temporary password'),
-            subtitle: const Text('Use this when you want to share a fresh one-time password securely.'),
+            subtitle: const Text(
+              'Use this when you want to share a fresh one-time password securely.',
+            ),
             onChanged: (value) => setState(() => _autoGenerate = value),
           ),
           const SizedBox(height: 12),
@@ -2276,85 +4469,6 @@ class _ResetPasswordDialogState extends State<_ResetPasswordDialog> {
   }
 }
 
-class _SectionSelectorCard extends StatelessWidget {
-  const _SectionSelectorCard({
-    required this.item,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final _SectionCardItem item;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(20),
-      onTap: onTap,
-      child: Ink(
-        width: 220,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          color: selected
-              ? AppColors.primary.withValues(alpha: 0.08)
-              : Colors.white,
-          border: Border.all(
-            color: selected ? AppColors.primary : AppColors.border,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.textPrimary.withValues(alpha: 0.03),
-              blurRadius: 18,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(item.icon, color: const Color(0xFF113B39)),
-              const SizedBox(height: 12),
-              Text(
-                item.title,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 6),
-              Text(item.subtitle),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StaticInfoPill extends StatelessWidget {
-  const _StaticInfoPill({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppColors.surfaceMuted,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        child: Text('$label: $value'),
-      ),
-    );
-  }
-}
-
 class _ChipLabel extends StatelessWidget {
   const _ChipLabel({required this.label});
 
@@ -2365,71 +4479,6 @@ class _ChipLabel extends StatelessWidget {
     return AppBadge(label: label);
   }
 }
-
-class _SectionCardItem {
-  const _SectionCardItem({
-    required this.section,
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-  });
-
-  final AcademicSetupSection section;
-  final String title;
-  final String subtitle;
-  final IconData icon;
-}
-
-const _sectionCards = [
-  _SectionCardItem(
-    section: AcademicSetupSection.academicYears,
-    title: 'Academic Years',
-    subtitle: 'Year windows and current cycle',
-    icon: Icons.date_range_outlined,
-  ),
-  _SectionCardItem(
-    section: AcademicSetupSection.programs,
-    title: 'Programs',
-    subtitle: 'Classes, courses, and batches',
-    icon: Icons.class_outlined,
-  ),
-  _SectionCardItem(
-    section: AcademicSetupSection.cohorts,
-    title: 'Cohorts',
-    subtitle: 'Sections and grouped batches',
-    icon: Icons.groups_outlined,
-  ),
-  _SectionCardItem(
-    section: AcademicSetupSection.subjects,
-    title: 'Subjects',
-    subtitle: 'Academic subject catalog',
-    icon: Icons.menu_book_outlined,
-  ),
-  _SectionCardItem(
-    section: AcademicSetupSection.topics,
-    title: 'Topics',
-    subtitle: 'Nested topic hierarchy',
-    icon: Icons.account_tree_outlined,
-  ),
-  _SectionCardItem(
-    section: AcademicSetupSection.students,
-    title: 'Students',
-    subtitle: 'Student profile records',
-    icon: Icons.school_outlined,
-  ),
-  _SectionCardItem(
-    section: AcademicSetupSection.teachers,
-    title: 'Teachers',
-    subtitle: 'Teacher profile records',
-    icon: Icons.person_outline,
-  ),
-  _SectionCardItem(
-    section: AcademicSetupSection.teacherAssignments,
-    title: 'Assignments',
-    subtitle: 'Teacher to subject mapping',
-    icon: Icons.assignment_ind_outlined,
-  ),
-];
 
 String _buttonLabelForSection(AcademicSetupSection section) {
   return switch (section) {
@@ -2457,6 +4506,502 @@ String _lookupName(List<dynamic> items, String? id) {
     if (item is AcademicYearAdminModel && item.id == id) return item.name;
   }
   return 'Unknown';
+}
+
+class _InstituteExamDefaultsDialog extends ConsumerStatefulWidget {
+  const _InstituteExamDefaultsDialog({
+    required this.user,
+    required this.institute,
+  });
+
+  final AppUser user;
+  final InstituteAdminModel institute;
+
+  @override
+  ConsumerState<_InstituteExamDefaultsDialog> createState() =>
+      _InstituteExamDefaultsDialogState();
+}
+
+class _InstituteExamDefaultsDialogState
+    extends ConsumerState<_InstituteExamDefaultsDialog> {
+  late final TextEditingController _durationController;
+  late final TextEditingController _maxAttemptsController;
+  late final TextEditingController _instructionsController;
+
+  late String _timerMode;
+  late String _navigationMode;
+  late String _attemptPolicy;
+  late String _resultPublishMode;
+  late String _reviewMode;
+  late String _securityMode;
+  late bool _allowLateSubmit;
+  late bool _randomizeQuestions;
+  late bool _randomizeOptions;
+  late bool _showResultImmediately;
+  late bool _allowReviewAfterSubmit;
+  late bool _allowResume;
+  late bool _allowSectionSwitching;
+  late bool _allowReturnToPreviousSection;
+
+  bool _isSaving = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    final defaults = widget.institute.examDefaults;
+    _durationController = TextEditingController(
+      text: defaults.durationMinutes?.toString() ?? '',
+    );
+    _maxAttemptsController = TextEditingController(
+      text: defaults.maxAttempts.toString(),
+    );
+    _instructionsController = TextEditingController(
+      text: defaults.instructions,
+    );
+    _timerMode = defaults.timerMode;
+    _navigationMode = defaults.navigationMode;
+    _attemptPolicy = defaults.attemptPolicy;
+    _resultPublishMode = defaults.resultPublishMode;
+    _reviewMode = defaults.reviewMode;
+    _securityMode = defaults.securityMode;
+    _allowLateSubmit = defaults.allowLateSubmit;
+    _randomizeQuestions = defaults.randomizeQuestions;
+    _randomizeOptions = defaults.randomizeOptions;
+    _showResultImmediately = defaults.showResultImmediately;
+    _allowReviewAfterSubmit = defaults.allowReviewAfterSubmit;
+    _allowResume = defaults.allowResume;
+    _allowSectionSwitching = defaults.allowSectionSwitching;
+    _allowReturnToPreviousSection = defaults.allowReturnToPreviousSection;
+  }
+
+  @override
+  void dispose() {
+    _durationController.dispose();
+    _maxAttemptsController.dispose();
+    _instructionsController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final duration = int.tryParse(_durationController.text.trim());
+    final maxAttempts = int.tryParse(_maxAttemptsController.text.trim());
+    if (duration == null || duration <= 0) {
+      setState(() => _error = 'Default duration must be greater than zero.');
+      return;
+    }
+    if (maxAttempts == null || maxAttempts <= 0) {
+      setState(() => _error = 'Max attempts must be at least 1.');
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+      _error = null;
+    });
+
+    try {
+      await ref.read(academicSetupRepositoryProvider).updateInstitute(
+        widget.institute.id,
+        {
+          'exam_defaults': {
+            'duration_minutes': duration,
+            'instructions': _instructionsController.text.trim(),
+            'allow_late_submit': _allowLateSubmit,
+            'randomize_questions': _randomizeQuestions,
+            'randomize_options': _randomizeOptions,
+            'show_result_immediately': _showResultImmediately,
+            'allow_review_after_submit': _allowReviewAfterSubmit,
+            'max_attempts': maxAttempts,
+            'timer_mode': _timerMode,
+            'navigation_mode': _navigationMode,
+            'attempt_policy': _attemptPolicy,
+            'result_publish_mode': _resultPublishMode,
+            'review_mode': _reviewMode,
+            'security_mode': _securityMode,
+            'allow_resume': _allowResume,
+            'allow_section_switching': _allowSectionSwitching,
+            'allow_return_to_previous_section': _allowReturnToPreviousSection,
+          },
+        },
+      );
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).pop(true);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isSaving = false;
+        _error = readApiErrorMessage(error);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppDialogShell(
+      title: 'Exam defaults',
+      eyebrow: 'Institute policy',
+      subtitle:
+          'New exams inside ${widget.institute.name} inherit these defaults until a teacher overrides them.',
+      onClose: () => Navigator.of(context).pop(false),
+      primaryActionLabel: 'Save defaults',
+      onPrimaryAction: _save,
+      isSaving: _isSaving,
+      maxWidth: 920,
+      maxHeight: 860,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (_error != null) ...[
+            AppErrorState(message: _error!),
+            const SizedBox(height: 16),
+          ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 760;
+              final leftColumn = Column(
+                children: [
+                  _DialogSectionCard(
+                    title: 'Core defaults',
+                    subtitle:
+                        'Set the baseline duration, instructions, and attempt count for new exams.',
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: AppTextField(
+                                controller: _durationController,
+                                label: 'Duration (minutes)',
+                                hint: '60',
+                                keyboardType: TextInputType.number,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: AppTextField(
+                                controller: _maxAttemptsController,
+                                label: 'Max attempts',
+                                hint: '1',
+                                keyboardType: TextInputType.number,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        AppTextField(
+                          controller: _instructionsController,
+                          label: 'Default instructions',
+                          hint:
+                              'Add standard instructions to prefill every new exam.',
+                          maxLines: 6,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _DialogSectionCard(
+                    title: 'Runtime behavior',
+                    subtitle:
+                        'Set the default time, navigation, attempt, and security contract.',
+                    child: Column(
+                      children: [
+                        _PolicyDropdown(
+                          label: 'Timer mode',
+                          value: _timerMode,
+                          items: const {
+                            'global': 'Global timer',
+                            'section': 'Section timer',
+                            'hybrid': 'Hybrid timer',
+                          },
+                          onChanged: (value) =>
+                              setState(() => _timerMode = value),
+                        ),
+                        const SizedBox(height: 12),
+                        _PolicyDropdown(
+                          label: 'Navigation mode',
+                          value: _navigationMode,
+                          items: const {
+                            'free_exam': 'Free across exam',
+                            'free_section': 'Free within section',
+                            'sequential': 'Sequential',
+                            'hybrid': 'Hybrid',
+                          },
+                          onChanged: (value) =>
+                              setState(() => _navigationMode = value),
+                        ),
+                        const SizedBox(height: 12),
+                        _PolicyDropdown(
+                          label: 'Attempt policy',
+                          value: _attemptPolicy,
+                          items: const {
+                            'single': 'Single attempt',
+                            'latest': 'Latest attempt counted',
+                            'best': 'Best attempt counted',
+                            'unlimited_practice': 'Unlimited practice',
+                          },
+                          onChanged: (value) =>
+                              setState(() => _attemptPolicy = value),
+                        ),
+                        const SizedBox(height: 12),
+                        _PolicyDropdown(
+                          label: 'Security mode',
+                          value: _securityMode,
+                          items: const {
+                            'normal': 'Normal',
+                            'focus': 'Focus mode',
+                            'fullscreen': 'Fullscreen required',
+                            'violation_limited': 'Violation limited',
+                            'proctored': 'Proctored',
+                          },
+                          onChanged: (value) =>
+                              setState(() => _securityMode = value),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+              final rightColumn = Column(
+                children: [
+                  _DialogSectionCard(
+                    title: 'Visibility defaults',
+                    subtitle:
+                        'Control what students can see after submitting by default.',
+                    child: Column(
+                      children: [
+                        _PolicyDropdown(
+                          label: 'Result publish mode',
+                          value: _resultPublishMode,
+                          items: const {
+                            'immediate': 'Immediate',
+                            'scheduled': 'Scheduled',
+                            'after_review': 'After review',
+                          },
+                          onChanged: (value) =>
+                              setState(() => _resultPublishMode = value),
+                        ),
+                        const SizedBox(height: 12),
+                        _PolicyDropdown(
+                          label: 'Review mode',
+                          value: _reviewMode,
+                          items: const {
+                            'none': 'No review',
+                            'attempted_only': 'Attempted only',
+                            'all_questions': 'All questions',
+                            'solution_review': 'Solution review',
+                          },
+                          onChanged: (value) =>
+                              setState(() => _reviewMode = value),
+                        ),
+                        SwitchListTile.adaptive(
+                          value: _showResultImmediately,
+                          onChanged: (value) =>
+                              setState(() => _showResultImmediately = value),
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Show result immediately'),
+                        ),
+                        SwitchListTile.adaptive(
+                          value: _allowReviewAfterSubmit,
+                          onChanged: (value) =>
+                              setState(() => _allowReviewAfterSubmit = value),
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Allow review after submit'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _DialogSectionCard(
+                    title: 'Operational switches',
+                    subtitle:
+                        'Set small delivery defaults so teachers are not re-entering the same toggles for every exam.',
+                    child: _ToggleGrid(
+                      items: [
+                        _ToggleConfig(
+                          label: 'Allow resume',
+                          value: _allowResume,
+                          onChanged: (value) =>
+                              setState(() => _allowResume = value),
+                        ),
+                        _ToggleConfig(
+                          label: 'Allow late submit',
+                          value: _allowLateSubmit,
+                          onChanged: (value) =>
+                              setState(() => _allowLateSubmit = value),
+                        ),
+                        _ToggleConfig(
+                          label: 'Randomize questions',
+                          value: _randomizeQuestions,
+                          onChanged: (value) =>
+                              setState(() => _randomizeQuestions = value),
+                        ),
+                        _ToggleConfig(
+                          label: 'Randomize options',
+                          value: _randomizeOptions,
+                          onChanged: (value) =>
+                              setState(() => _randomizeOptions = value),
+                        ),
+                        _ToggleConfig(
+                          label: 'Allow section switching',
+                          value: _allowSectionSwitching,
+                          onChanged: (value) =>
+                              setState(() => _allowSectionSwitching = value),
+                        ),
+                        _ToggleConfig(
+                          label: 'Allow return to previous section',
+                          value: _allowReturnToPreviousSection,
+                          onChanged: (value) => setState(
+                            () => _allowReturnToPreviousSection = value,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+
+              if (compact) {
+                return Column(
+                  children: [
+                    leftColumn,
+                    const SizedBox(height: 16),
+                    rightColumn,
+                  ],
+                );
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: leftColumn),
+                  const SizedBox(width: 16),
+                  Expanded(child: rightColumn),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DialogSectionCard extends StatelessWidget {
+  const _DialogSectionCard({
+    required this.title,
+    required this.subtitle,
+    required this.child,
+  });
+
+  final String title;
+  final String subtitle;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      padding: const EdgeInsets.all(18),
+      backgroundColor: AppColors.surfaceStrong,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            subtitle,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 16),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _PolicyDropdown extends StatelessWidget {
+  const _PolicyDropdown({
+    required this.label,
+    required this.value,
+    required this.items,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String value;
+  final Map<String, String> items;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownButtonFormField<String>(
+      initialValue: value,
+      decoration: InputDecoration(labelText: label),
+      items: items.entries
+          .map(
+            (entry) => DropdownMenuItem<String>(
+              value: entry.key,
+              child: Text(entry.value),
+            ),
+          )
+          .toList(),
+      onChanged: (next) {
+        if (next != null) {
+          onChanged(next);
+        }
+      },
+    );
+  }
+}
+
+class _ToggleConfig {
+  const _ToggleConfig({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String label;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+}
+
+class _ToggleGrid extends StatelessWidget {
+  const _ToggleGrid({required this.items});
+
+  final List<_ToggleConfig> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: items
+          .map(
+            (item) => SizedBox(
+              width: 240,
+              child: SwitchListTile.adaptive(
+                value: item.value,
+                onChanged: item.onChanged,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 6),
+                title: Text(item.label),
+              ),
+            ),
+          )
+          .toList(),
+    );
+  }
 }
 
 class _DialogShell extends StatelessWidget {

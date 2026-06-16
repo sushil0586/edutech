@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="220" viewBox="0 0 360 220">
+  <rect width="360" height="220" fill="white"/>
+  <rect x="70" y="60" width="80" height="80" fill="#bfdbfe" stroke="black" stroke-width="3"/>
+  <rect x="230" y="60" width="80" height="80" fill="#bfdbfe" stroke="black" stroke-width="3" transform="rotate(90 270 100)"/>
+  <path d="M170 100 A50 50 0 0 1 220 50" fill="none" stroke="#dc2626" stroke-width="3"/>
+  <text x="186" y="57" font-size="16" fill="#dc2626">90°</text>
+</svg>

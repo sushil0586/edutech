@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="220" viewBox="0 0 360 220">
+  <rect width="360" height="220" fill="white"/>
+  <polygon points="90,70 230,70 230,150 90,150" fill="#dbeafe" stroke="black" stroke-width="3"/>
+  <polygon points="130,40 270,40 270,120 230,150 230,70" fill="#bfdbfe" stroke="black" stroke-width="3"/>
+  <polygon points="90,70 130,40 130,120 90,150" fill="#93c5fd" stroke="black" stroke-width="3"/>
+  <text x="145" y="32" font-size="14">rectangular faces</text>
+</svg>

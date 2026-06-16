@@ -17,3 +17,17 @@ enum AppRole {
     );
   }
 }
+
+extension AppRoleCapabilities on AppRole {
+  bool get canAccessAcademicSetup =>
+      this == AppRole.platformAdmin || this == AppRole.instituteAdmin;
+
+  bool get canAccessInstituteOperations =>
+      this == AppRole.instituteAdmin || this == AppRole.teacher;
+
+  String get operationalWorkspaceLabel => switch (this) {
+    AppRole.instituteAdmin => 'Institute',
+    AppRole.teacher => 'Teacher',
+    _ => label,
+  };
+}

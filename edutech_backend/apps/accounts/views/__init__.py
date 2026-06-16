@@ -9,6 +9,7 @@ from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.accounts.permissions import (
     CanBuildExams,
@@ -22,6 +23,7 @@ from apps.accounts.services import (
     create_student_login,
     create_teacher_login,
     generate_temporary_password,
+    get_public_registration_options,
     get_scoped_student_for_admin,
     get_scoped_teacher_for_admin,
     get_scoped_user_for_admin,
@@ -36,7 +38,10 @@ from apps.accounts.serializers import (
     AccountProfileSerializer,
     CreateLoginSerializer,
     LoginSerializer,
+    OnboardingProfileSerializer,
+    PublicRegistrationSerializer,
     ResetPasswordSerializer,
+    StudentExamAccessKeySerializer,
 )
 from apps.attempts.models import StudentExamAttempt
 from apps.exams.models import Exam
@@ -45,7 +50,9 @@ from apps.exams.serializers import (
     StudentExamAvailabilitySerializer,
     StudentExamReadinessSerializer,
 )
+from apps.exams.services import STUDENT_EXAM_SOURCE_FILTERS
 from apps.exams.services import is_exam_assigned_to_student
+from apps.exams.services import filter_student_visible_exams_by_source
 from apps.question_bank.models import Question
 from apps.question_bank.serializers import QuestionSerializer
 from apps.reports.services import create_audit_log
@@ -54,10 +61,12 @@ from apps.results.models import ExamResult
 from apps.results.serializers import ExamPerformanceSummarySerializer, ExamResultSerializer
 from apps.results.services import (
     build_student_insight_summary,
+    build_student_question_analytics,
     build_teacher_insight_summary,
     build_teacher_question_performance_summary,
 )
 from common.throttles import LoginRateThrottle
+from common.throttles import RegistrationRateThrottle
 
 
 auth_logger = logging.getLogger("nexora.auth")
@@ -104,11 +113,71 @@ class LoginView(APIView):
         return Response(payload, status=status.HTTP_200_OK)
 
 
+class PublicRegisterView(APIView):
+    permission_classes = [AllowAny]
+    throttle_classes = [RegistrationRateThrottle]
+
+    def post(self, request):
+        serializer = PublicRegistrationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        account_profile = serializer.save()
+        user = account_profile.user
+        refresh = RefreshToken.for_user(user)
+        create_audit_log(
+            user=user,
+            institute=account_profile.institute,
+            action="public_registration",
+            entity_type="user",
+            entity_id=user.id,
+            message="Public registration completed.",
+            metadata={
+                "username": user.username,
+                "role": account_profile.role,
+            },
+            request=request,
+        )
+        return Response(
+            {
+                "refresh": str(refresh),
+                "access": str(refresh.access_token),
+                "user": AccountProfileSerializer(account_profile).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class PublicRegistrationOptionsView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        return Response(get_public_registration_options(), status=status.HTTP_200_OK)
+
+
 class MeView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         return Response(AccountProfileSerializer(request.user.account_profile).data)
+
+
+class OnboardingProfileView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request):
+        serializer = OnboardingProfileSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        account_profile = serializer.save()
+        create_audit_log(
+            user=request.user,
+            institute=account_profile.institute,
+            action="onboarding_profile_complete",
+            entity_type="user",
+            entity_id=request.user.id,
+            message="Public onboarding profile completed.",
+            metadata={"role": account_profile.role},
+            request=request,
+        )
+        return Response(AccountProfileSerializer(account_profile).data, status=status.HTTP_200_OK)
 
 
 class StudentCreateLoginView(APIView):
@@ -293,8 +362,23 @@ class StudentAvailableExamView(APIView):
 
     def get(self, request):
         student = request.user.account_profile.student_profile
+        source_filter = str(request.query_params.get("source", "all") or "all").strip().lower()
+        teacher_filter = str(
+            request.query_params.get("teacher")
+            or request.query_params.get("teacher_id")
+            or ""
+        ).strip()
+        if source_filter not in STUDENT_EXAM_SOURCE_FILTERS:
+            raise ValidationError({"source": "Invalid source filter."})
         queryset = scope_exam_queryset(
-            Exam.objects.select_related("institute", "academic_year", "program", "cohort", "subject"),
+            Exam.objects.select_related(
+                "institute",
+                "academic_year",
+                "program",
+                "cohort",
+                "subject",
+                "source_teacher",
+            ),
             request.user,
         ).filter(is_active=True).prefetch_related(
             "student_assignments",
@@ -305,6 +389,11 @@ class StudentAvailableExamView(APIView):
             )
         )
         exams = [exam for exam in queryset if is_exam_assigned_to_student(exam, student)]
+        exams = filter_student_visible_exams_by_source(
+            exams,
+            source=source_filter,
+            teacher_id=teacher_filter or None,
+        )
         ensure_exam_window_notifications(student, exams)
         return Response(
             StudentExamAvailabilitySerializer(
@@ -321,7 +410,14 @@ class StudentExamDetailView(APIView):
     def get(self, request, exam_id):
         student = request.user.account_profile.student_profile
         queryset = scope_exam_queryset(
-            Exam.objects.select_related("institute", "academic_year", "program", "cohort", "subject").prefetch_related(
+            Exam.objects.select_related(
+                "institute",
+                "academic_year",
+                "program",
+                "cohort",
+                "subject",
+                "source_teacher",
+            ).prefetch_related(
                 "sections",
                 "student_assignments",
                 "exam_questions__section",
@@ -340,6 +436,72 @@ class StudentExamDetailView(APIView):
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
         return Response(
             StudentExamReadinessSerializer(exam, context={"request": request}).data
+        )
+
+
+class StudentExamAccessKeyResolveView(APIView):
+    permission_classes = [IsAuthenticated, IsStudent]
+
+    def post(self, request):
+        serializer = StudentExamAccessKeySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        student = request.user.account_profile.student_profile
+        access_key = serializer.validated_data["access_key"]
+
+        queryset = scope_exam_queryset(
+            Exam.objects.select_related(
+                "institute",
+                "academic_year",
+                "program",
+                "cohort",
+                "subject",
+                "source_teacher",
+            ).prefetch_related(
+                "sections",
+                "student_assignments",
+                "exam_questions__section",
+                "exam_questions__question",
+                "exam_questions__question__options",
+                Prefetch(
+                    "attempts",
+                    queryset=StudentExamAttempt.objects.filter(
+                        student=student,
+                        is_active=True,
+                    ).select_related("result"),
+                    to_attr="_prefetched_attempts_for_student",
+                ),
+            ),
+            request.user,
+        ).filter(
+            access_key=access_key,
+            access_key_enabled=True,
+            is_active=True,
+        )
+        exam = queryset.first()
+        if exam is None:
+            return Response(
+                {"detail": "Invalid exam key."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        if not is_exam_assigned_to_student(exam, student):
+            return Response(
+                {"detail": "This exam is not available to your student profile."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        create_audit_log(
+            user=request.user,
+            institute=exam.institute,
+            action="student_exam_key_lookup",
+            entity_type="exam",
+            entity_id=exam.id,
+            message="Student resolved an exam using the access key flow.",
+            metadata={"student_id": str(student.id), "access_key": access_key},
+            request=request,
+        )
+        return Response(
+            StudentExamReadinessSerializer(exam, context={"request": request}).data,
+            status=status.HTTP_200_OK,
         )
 
 
@@ -376,6 +538,22 @@ class StudentInsightSummaryView(APIView):
         return Response(payload)
 
 
+class StudentQuestionAnalyticsView(APIView):
+    permission_classes = [IsAuthenticated, IsStudent]
+
+    def get(self, request):
+        profile = request.user.account_profile
+        payload = build_student_question_analytics(
+            profile.student_profile,
+            subject=request.query_params.get("subject"),
+            topic=request.query_params.get("topic"),
+            question_type=request.query_params.get("question_type"),
+            source=request.query_params.get("source"),
+            teacher=request.query_params.get("teacher"),
+        )
+        return Response(payload)
+
+
 class TeacherExamListView(APIView):
     permission_classes = [IsAuthenticated, CanBuildExams]
 
@@ -405,11 +583,19 @@ class TeacherResultSummaryView(APIView):
 
     def get(self, request):
         from apps.results.models import ExamPerformanceSummary
+        from django.db.models import Count, Q
 
         queryset = scope_teacher_queryset(
             ExamPerformanceSummary.objects.select_related("institute", "exam"),
             request.user,
-        ).filter(is_active=True)
+        ).filter(is_active=True).annotate(
+            total_results_count=Count("exam__results", distinct=True),
+            published_results_count=Count(
+                "exam__results",
+                filter=Q(exam__results__is_published=True),
+                distinct=True,
+            ),
+        )
         return Response(ExamPerformanceSummarySerializer(queryset, many=True).data)
 
 

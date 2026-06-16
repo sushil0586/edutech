@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="220" viewBox="0 0 360 220">
+  <rect width="360" height="220" fill="white"/>
+  <polygon points="50,170 120,70 180,170" fill="#eff6ff" stroke="black" stroke-width="3"/>
+  <polygon points="210,170 280,70 330,170" fill="#f5f3ff" stroke="black" stroke-width="3"/>
+  <text x="40" y="185" font-size="18">A</text>
+  <text x="114" y="62" font-size="18">B</text>
+  <text x="182" y="185" font-size="18">C</text>
+  <text x="200" y="185" font-size="18">P</text>
+  <text x="274" y="62" font-size="18">Q</text>
+  <text x="332" y="185" font-size="18">R</text>
+  <line x1="50" y1="170" x2="120" y2="70" stroke="#2563eb" stroke-width="4"/>
+  <line x1="210" y1="170" x2="280" y2="70" stroke="#2563eb" stroke-width="4"/>
+  <text x="78" y="115" font-size="15" fill="#2563eb">AB</text>
+  <text x="236" y="115" font-size="15" fill="#2563eb">PQ</text>
+</svg>

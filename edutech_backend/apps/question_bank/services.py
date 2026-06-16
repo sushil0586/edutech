@@ -5,9 +5,25 @@ from decimal import Decimal, InvalidOperation
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
-from apps.academics.models import Subject, Topic
-from apps.academics.models import Program
-from apps.question_bank.models import Question, QuestionOption, QuestionTag, QuestionTagMap
+from apps.academics.services import (
+    QUESTION_DIFFICULTY_NAMESPACE,
+    QUESTION_TYPE_NAMESPACE,
+    get_option_catalog_default_code,
+    validate_option_catalog_code,
+)
+from apps.academics.models import Program, Subject, Topic
+from apps.question_bank.models import (
+    InstituteQuestionAccess,
+    InstituteQuestionAccessStatus,
+    MasterQuestion,
+    MasterQuestionOption,
+    MasterQuestionSourceType,
+    MasterQuestionVisibility,
+    Question,
+    QuestionOption,
+    QuestionTag,
+    QuestionTagMap,
+)
 
 
 QUESTION_TYPES_WITH_OPTIONS = {"mcq_single", "mcq_multiple", "true_false"}
@@ -128,6 +144,244 @@ def validate_tag_mapping(question, tag):
         raise ValidationError({"tag": "Tag must belong to the same institute as the question."})
 
 
+def _derive_master_source_type(question):
+    metadata = question.metadata if isinstance(question.metadata, dict) else {}
+    if (question.institute.metadata or {}).get("is_public_content_hub"):
+        return MasterQuestionSourceType.PLATFORM
+    if question.created_by_teacher_id:
+        return MasterQuestionSourceType.TEACHER
+    if metadata.get("source_type") == "platform":
+        return MasterQuestionSourceType.PLATFORM
+    return MasterQuestionSourceType.INSTITUTE
+
+
+def _derive_master_visibility(question):
+    metadata = question.metadata if isinstance(question.metadata, dict) else {}
+    if metadata.get("question_visibility") in {
+        MasterQuestionVisibility.PRIVATE,
+        MasterQuestionVisibility.SHARED_BY_REQUEST,
+        MasterQuestionVisibility.PUBLIC,
+    }:
+        return metadata["question_visibility"]
+    if (question.institute.metadata or {}).get("is_public_content_hub"):
+        return MasterQuestionVisibility.SHARED_BY_REQUEST
+    return MasterQuestionVisibility.PRIVATE
+
+
+@transaction.atomic
+def sync_master_question_from_institute_question(question):
+    master_defaults = {
+        "source_institute": question.institute,
+        "source_program": question.program,
+        "source_subject": question.subject,
+        "source_topic": question.topic,
+        "created_by_teacher": question.created_by_teacher,
+        "question_type": question.question_type,
+        "difficulty_level": question.difficulty_level,
+        "content_format": question.content_format,
+        "question_text": question.question_text,
+        "explanation": question.explanation,
+        "default_marks": question.default_marks,
+        "negative_marks": question.negative_marks,
+        "is_verified": question.is_verified,
+        "source_type": _derive_master_source_type(question),
+        "visibility": _derive_master_visibility(question),
+        "metadata": {
+            "origin_question_id": str(question.id),
+            **(question.metadata if isinstance(question.metadata, dict) else {}),
+        },
+        "is_active": question.is_active,
+    }
+    if question.master_question_id:
+        master = question.master_question
+        for field_name, value in master_defaults.items():
+            setattr(master, field_name, value)
+        master.save()
+    else:
+        master = MasterQuestion.objects.create(**master_defaults)
+        question.master_question = master
+        question.save(update_fields=["master_question", "updated_at"])
+
+    master.options.all().delete()
+    option_payloads = [
+        MasterQuestionOption(
+            master_question=master,
+            content_format=option.content_format,
+            option_text=option.option_text,
+            option_order=option.option_order,
+            is_correct=option.is_correct,
+            is_active=option.is_active,
+        )
+        for option in question.options.all().order_by("option_order")
+    ]
+    if option_payloads:
+        MasterQuestionOption.objects.bulk_create(option_payloads)
+    return master
+
+
+@transaction.atomic
+def request_master_question_access(
+    *,
+    master_question,
+    institute,
+    requested_by_teacher=None,
+    local_program=None,
+    local_subject=None,
+    local_topic=None,
+    notes="",
+):
+    access, _ = InstituteQuestionAccess.objects.update_or_create(
+        institute=institute,
+        master_question=master_question,
+        defaults={
+            "requested_by_teacher": requested_by_teacher,
+            "local_program": local_program,
+            "local_subject": local_subject,
+            "local_topic": local_topic,
+            "status": InstituteQuestionAccessStatus.REQUESTED,
+            "notes": notes,
+            "is_active": True,
+        },
+    )
+    return access
+
+
+@transaction.atomic
+def link_master_question_to_institute(
+    *,
+    master_question,
+    institute,
+    approved_by=None,
+    requested_by_teacher=None,
+    local_program=None,
+    local_subject=None,
+    local_topic=None,
+    notes="",
+):
+    subject = local_subject or master_question.source_subject
+    topic = local_topic or master_question.source_topic
+    program = local_program or master_question.source_program or getattr(subject, "program", None)
+    question, _ = Question.objects.update_or_create(
+        institute=institute,
+        master_question=master_question,
+        question_text=master_question.question_text,
+        defaults={
+            "program": program,
+            "subject": subject,
+            "topic": topic,
+            "created_by_teacher": requested_by_teacher,
+            "question_type": master_question.question_type,
+            "difficulty_level": master_question.difficulty_level,
+            "content_format": master_question.content_format,
+            "explanation": master_question.explanation,
+            "default_marks": master_question.default_marks,
+            "negative_marks": master_question.negative_marks,
+            "is_verified": master_question.is_verified,
+            "is_active": True,
+            "metadata": {
+                "linked_from_master": str(master_question.id),
+                "link_mode": "approved_request",
+                **(master_question.metadata if isinstance(master_question.metadata, dict) else {}),
+            },
+        },
+    )
+    question.options.all().delete()
+    option_payloads = [
+        QuestionOption(
+            question=question,
+            content_format=option.content_format,
+            option_text=option.option_text,
+            option_order=option.option_order,
+            is_correct=option.is_correct,
+            is_active=option.is_active,
+        )
+        for option in master_question.options.all().order_by("option_order")
+    ]
+    if option_payloads:
+        QuestionOption.objects.bulk_create(option_payloads)
+
+    access, _ = InstituteQuestionAccess.objects.update_or_create(
+        institute=institute,
+        master_question=master_question,
+        defaults={
+            "requested_by_teacher": requested_by_teacher,
+            "approved_by": approved_by,
+            "linked_question": question,
+            "local_program": program,
+            "local_subject": subject,
+            "local_topic": topic,
+            "status": InstituteQuestionAccessStatus.LINKED,
+            "notes": notes,
+            "is_active": True,
+        },
+    )
+    return access
+
+
+@transaction.atomic
+def materialize_master_question_for_source_institute(
+    *,
+    master_question,
+    notes="",
+):
+    institute = master_question.source_institute
+    subject = master_question.source_subject
+    topic = master_question.source_topic
+    program = master_question.source_program or getattr(subject, "program", None)
+
+    defaults = {
+        "program": program,
+        "subject": subject,
+        "topic": topic,
+        "created_by_teacher": master_question.created_by_teacher,
+        "question_type": master_question.question_type,
+        "difficulty_level": master_question.difficulty_level,
+        "content_format": master_question.content_format,
+        "explanation": master_question.explanation,
+        "default_marks": master_question.default_marks,
+        "negative_marks": master_question.negative_marks,
+        "is_verified": master_question.is_verified,
+        "is_active": True,
+        "metadata": {
+            "linked_from_master": str(master_question.id),
+            "link_mode": "source_materialization",
+            "materialization_notes": notes,
+            **(master_question.metadata if isinstance(master_question.metadata, dict) else {}),
+        },
+    }
+    question = Question.objects.filter(
+        institute=institute,
+        master_question=master_question,
+    ).first()
+    if question is None:
+        question = Question(
+            institute=institute,
+            master_question=master_question,
+            question_text=master_question.question_text,
+            **defaults,
+        )
+    else:
+        question.question_text = master_question.question_text
+        for field, value in defaults.items():
+            setattr(question, field, value)
+    question.save()
+    question.options.all().delete()
+    option_payloads = [
+        QuestionOption(
+            question=question,
+            content_format=option.content_format,
+            option_text=option.option_text,
+            option_order=option.option_order,
+            is_correct=option.is_correct,
+            is_active=option.is_active,
+        )
+        for option in master_question.options.all().order_by("option_order")
+    ]
+    if option_payloads:
+        QuestionOption.objects.bulk_create(option_payloads)
+    return question
+
+
 def notify_question_saved(question):
     from apps.reports.services import notify_question_missing_explanation
 
@@ -135,6 +389,8 @@ def notify_question_saved(question):
 
 
 def question_import_template_csv():
+    default_question_type = get_option_catalog_default_code(QUESTION_TYPE_NAMESPACE)
+    default_difficulty = get_option_catalog_default_code(QUESTION_DIFFICULTY_NAMESPACE)
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(IMPORT_TEMPLATE_COLUMNS)
@@ -142,8 +398,8 @@ def question_import_template_csv():
         [
             "Mathematics",
             "Algebra",
-            "mcq_single",
-            "intermediate",
+            default_question_type,
+            default_difficulty,
             "What is 2 + 2?",
             "3",
             "4",
@@ -176,11 +432,63 @@ def parse_question_import_file(uploaded_file):
 
 
 def _normalize_question_type(value):
-    return (value or "mcq_single").strip().lower()
+    return validate_option_catalog_code(
+        QUESTION_TYPE_NAMESPACE,
+        value or get_option_catalog_default_code(QUESTION_TYPE_NAMESPACE),
+        "question_type",
+    )
 
 
 def _normalize_difficulty(value):
-    return (value or "intermediate").strip().lower()
+    return validate_option_catalog_code(
+        QUESTION_DIFFICULTY_NAMESPACE,
+        value or get_option_catalog_default_code(QUESTION_DIFFICULTY_NAMESPACE),
+        "difficulty_level",
+    )
+
+
+def _resolve_program_for_import(institute, program_value):
+    if not program_value:
+        return None
+
+    if hasattr(program_value, "pk"):
+        if program_value.institute_id != institute.id:
+            raise ValidationError({"program": "Program must belong to the selected institute."})
+        return program_value
+
+    program = Program.objects.filter(institute=institute, pk=program_value).first()
+    if program is None:
+        raise ValidationError({"program": "Program must belong to the selected institute."})
+    return program
+
+
+def _resolve_subject_for_import(institute, subject_value):
+    if hasattr(subject_value, "pk"):
+        if subject_value.institute_id != institute.id:
+            raise ValidationError({"subject": "Subject must belong to the selected institute."})
+        return subject_value
+
+    try:
+        return Subject.objects.get(institute=institute, pk=subject_value)
+    except Subject.DoesNotExist as exc:
+        raise ValidationError({"subject": "Subject must belong to the selected institute."}) from exc
+
+
+def _resolve_topic_for_import(institute, subject, topic_value):
+    if not topic_value:
+        return None
+
+    if hasattr(topic_value, "pk"):
+        if topic_value.institute_id != institute.id:
+            raise ValidationError({"topic": "Topic must belong to the selected institute."})
+        if topic_value.subject_id != subject.id:
+            raise ValidationError({"topic": "Topic must belong to the selected subject."})
+        return topic_value
+
+    try:
+        return Topic.objects.get(institute=institute, subject=subject, pk=topic_value)
+    except Topic.DoesNotExist as exc:
+        raise ValidationError({"topic": "Topic must belong to the selected subject."}) from exc
 
 
 def _resolve_subject(institute, subject_value):
@@ -409,15 +717,9 @@ def import_bulk_questions(*, institute, preview_payload, created_by=None):
             failures.append(row)
     for payload in preview_payload.get("valid_payloads", []):
         try:
-            program = payload["program"]
-            if program and not hasattr(program, "pk"):
-                program = Program.objects.filter(pk=program).first()
-            subject = payload["subject"]
-            if not hasattr(subject, "pk"):
-                subject = Subject.objects.get(pk=subject)
-            topic = payload["topic"]
-            if topic and not hasattr(topic, "pk"):
-                topic = Topic.objects.get(pk=topic)
+            program = _resolve_program_for_import(institute, payload.get("program"))
+            subject = _resolve_subject_for_import(institute, payload["subject"])
+            topic = _resolve_topic_for_import(institute, subject, payload.get("topic"))
             question = Question.objects.create(
                 institute=institute,
                 program=program,
@@ -437,6 +739,7 @@ def import_bulk_questions(*, institute, preview_payload, created_by=None):
             QuestionOption.objects.bulk_create(
                 [QuestionOption(question=question, **option) for option in payload["options"]]
             )
+            sync_master_question_from_institute_question(question)
             for tag_value in payload.get("tags", []):
                 tag, _ = QuestionTag.objects.get_or_create(
                     institute=institute,

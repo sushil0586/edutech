@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="220" viewBox="0 0 360 220">
+  <rect width="360" height="220" fill="white"/>
+  <rect x="25" y="35" width="90" height="140" fill="#eff6ff" stroke="black"/>
+  <rect x="135" y="35" width="90" height="140" fill="#f0fdf4" stroke="black"/>
+  <rect x="245" y="35" width="90" height="140" fill="#fef3c7" stroke="black"/>
+  <text x="58" y="60" font-size="16">P</text>
+  <text x="167" y="60" font-size="16">Q</text>
+  <text x="278" y="60" font-size="16">R</text>
+  <text x="36" y="90" font-size="14">6 equal</text>
+  <text x="36" y="110" font-size="14">square faces</text>
+  <text x="148" y="90" font-size="14">2 circular</text>
+  <text x="148" y="110" font-size="14">faces + 1 curved</text>
+  <text x="258" y="90" font-size="14">1 circular</text>
+  <text x="258" y="110" font-size="14">face + 1 vertex</text>
+</svg>

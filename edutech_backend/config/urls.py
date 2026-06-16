@@ -1,3 +1,5 @@
+from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
@@ -22,5 +24,9 @@ urlpatterns = [
     path("api/v1/exams/", include("apps.exams.urls")),
     path("api/v1/attempts/", include("apps.attempts.urls")),
     path("api/v1/results/", include("apps.results.urls")),
+    path("api/v1/economy/", include("apps.economy.urls")),
+    path("api/v1/parent/", include("apps.parents.urls")),
     path("api/v1/notifications/", include("apps.reports.urls")),
 ]
+
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="220" viewBox="0 0 360 220">
+  <rect width="360" height="220" fill="white"/>
+  <ellipse cx="100" cy="70" rx="28" ry="18" fill="#fde68a" stroke="black" stroke-width="2"/>
+  <rect x="72" y="88" width="56" height="75" fill="#bfdbfe" stroke="black" stroke-width="2"/>
+  <ellipse cx="100" cy="163" rx="28" ry="18" fill="#fde68a" stroke="black" stroke-width="2"/>
+  <text x="150" y="118" font-size="16">rectangle + 2 circles</text>
+</svg>

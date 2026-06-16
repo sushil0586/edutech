@@ -21,6 +21,8 @@ class StudentAttemptSummary {
     required this.percentage,
     required this.timeTakenSeconds,
     required this.isAutoSubmitted,
+    required this.resultVisible,
+    required this.reviewAvailable,
   });
 
   final String id;
@@ -44,6 +46,8 @@ class StudentAttemptSummary {
   final String percentage;
   final int? timeTakenSeconds;
   final bool isAutoSubmitted;
+  final bool resultVisible;
+  final bool reviewAvailable;
 
   factory StudentAttemptSummary.fromJson(Map<String, dynamic> json) {
     return StudentAttemptSummary(
@@ -62,12 +66,20 @@ class StudentAttemptSummary {
       correctAnswers: _readInt(json['correct_answers']),
       incorrectAnswers: _readInt(json['incorrect_answers']),
       skippedQuestions: _readInt(json['skipped_questions']),
-      score: (json['score'] ?? '0').toString(),
-      negativeScore: (json['negative_score'] ?? '0').toString(),
-      finalScore: (json['final_score'] ?? '0').toString(),
-      percentage: (json['percentage'] ?? '0').toString(),
+      score: json['score'] == null ? '' : (json['score'] ?? '0').toString(),
+      negativeScore: json['negative_score'] == null
+          ? ''
+          : (json['negative_score'] ?? '0').toString(),
+      finalScore: json['final_score'] == null
+          ? ''
+          : (json['final_score'] ?? '0').toString(),
+      percentage: json['percentage'] == null
+          ? ''
+          : (json['percentage'] ?? '0').toString(),
       timeTakenSeconds: _readNullableInt(json['time_taken_seconds']),
       isAutoSubmitted: json['is_auto_submitted'] as bool? ?? false,
+      resultVisible: json['result_visible'] as bool? ?? false,
+      reviewAvailable: json['review_available'] as bool? ?? false,
     );
   }
 }

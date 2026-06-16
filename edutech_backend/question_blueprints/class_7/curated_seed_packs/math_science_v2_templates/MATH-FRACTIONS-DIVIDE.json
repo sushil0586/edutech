@@ -1,0 +1,1716 @@
+{
+  "topic_code": "MATH-FRACTIONS-DIVIDE",
+  "topic_name": "Division of Fractions",
+  "subject_name": "Math",
+  "subject_alias": "math",
+  "parent_topic_name": "Fractions",
+  "template_only": true,
+  "template_batch": "curated_template_batch_v1",
+  "questions": [
+    {
+      "question_number": 1,
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "[AUTHORING REQUIRED] Create a foundation mcq single direct concept check question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='foundation', archetype='direct_concept_check'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "direct_concept_check",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='foundation', archetype='direct_concept_check'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 2,
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "[AUTHORING REQUIRED] Create a foundation mcq single reading check question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='foundation', archetype='reading_check'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "reading_check",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='foundation', archetype='reading_check'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 3,
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "[AUTHORING REQUIRED] Create a foundation mcq single simple conversion question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='foundation', archetype='simple_conversion'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "simple_conversion",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='foundation', archetype='simple_conversion'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 4,
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "[AUTHORING REQUIRED] Create a foundation mcq single symbol or form identification question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='foundation', archetype='symbol_or_form_identification'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "symbol_or_form_identification",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='foundation', archetype='symbol_or_form_identification'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 5,
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "[AUTHORING REQUIRED] Create a foundation mcq single basic classification question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='foundation', archetype='basic_classification'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "basic_classification",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='foundation', archetype='basic_classification'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 6,
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "[AUTHORING REQUIRED] Create a foundation mcq single direct concept check question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='foundation', archetype='direct_concept_check'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "direct_concept_check",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='foundation', archetype='direct_concept_check'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 7,
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "[AUTHORING REQUIRED] Create a foundation mcq single reading check question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='foundation', archetype='reading_check'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "reading_check",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='foundation', archetype='reading_check'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 8,
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "[AUTHORING REQUIRED] Create a foundation mcq single simple conversion question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='foundation', archetype='simple_conversion'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "simple_conversion",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='foundation', archetype='simple_conversion'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 9,
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "[AUTHORING REQUIRED] Create a foundation mcq single symbol or form identification question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='foundation', archetype='symbol_or_form_identification'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "symbol_or_form_identification",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='foundation', archetype='symbol_or_form_identification'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 10,
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "[AUTHORING REQUIRED] Create a foundation mcq single basic classification question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='foundation', archetype='basic_classification'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "basic_classification",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='foundation', archetype='basic_classification'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 11,
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "[AUTHORING REQUIRED] Create a intermediate mcq single words to figures question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='words_to_figures'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "words_to_figures",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='words_to_figures'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 12,
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "[AUTHORING REQUIRED] Create a intermediate mcq single representation selection question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='representation_selection'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "representation_selection",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='representation_selection'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 13,
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "[AUTHORING REQUIRED] Create a intermediate mcq single place value inference question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='place_value_inference'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "place_value_inference",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='place_value_inference'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 14,
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "[AUTHORING REQUIRED] Create a intermediate mcq single expanded form question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='expanded_form'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "expanded_form",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='expanded_form'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 15,
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "[AUTHORING REQUIRED] Create a intermediate mcq single ordering reasoning question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='ordering_reasoning'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "ordering_reasoning",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='ordering_reasoning'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 16,
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "[AUTHORING REQUIRED] Create a intermediate mcq single misconception correction question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='misconception_correction'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "misconception_correction",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='misconception_correction'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 17,
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "[AUTHORING REQUIRED] Create a intermediate mcq single error detection question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='error_detection'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "error_detection",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='error_detection'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 18,
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "[AUTHORING REQUIRED] Create a intermediate mcq single compare and choose question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='compare_and_choose'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "compare_and_choose",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='compare_and_choose'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 19,
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "[AUTHORING REQUIRED] Create a intermediate mcq single words to figures question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='words_to_figures'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "words_to_figures",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='words_to_figures'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 20,
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "[AUTHORING REQUIRED] Create a intermediate mcq single representation selection question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='representation_selection'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "representation_selection",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='representation_selection'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 21,
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "[AUTHORING REQUIRED] Create a intermediate mcq single place value inference question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='place_value_inference'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "place_value_inference",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='place_value_inference'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 22,
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "[AUTHORING REQUIRED] Create a intermediate mcq single expanded form question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='expanded_form'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "expanded_form",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='expanded_form'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 23,
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "[AUTHORING REQUIRED] Create a intermediate mcq single ordering reasoning question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='ordering_reasoning'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "ordering_reasoning",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='ordering_reasoning'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 24,
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "[AUTHORING REQUIRED] Create a intermediate mcq single misconception correction question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='misconception_correction'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "misconception_correction",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='misconception_correction'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 25,
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "[AUTHORING REQUIRED] Create a intermediate mcq single error detection question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='error_detection'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "error_detection",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='error_detection'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 26,
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "[AUTHORING REQUIRED] Create a intermediate mcq single compare and choose question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='compare_and_choose'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "compare_and_choose",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='compare_and_choose'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 27,
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "[AUTHORING REQUIRED] Create a intermediate mcq single words to figures question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='words_to_figures'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "words_to_figures",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='words_to_figures'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 28,
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "[AUTHORING REQUIRED] Create a intermediate mcq single representation selection question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='representation_selection'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "representation_selection",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='representation_selection'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 29,
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "[AUTHORING REQUIRED] Create a intermediate mcq single place value inference question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='place_value_inference'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "place_value_inference",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='place_value_inference'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 30,
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "[AUTHORING REQUIRED] Create a intermediate mcq single expanded form question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='expanded_form'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "expanded_form",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='intermediate', archetype='expanded_form'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 31,
+      "question_type": "short_answer",
+      "difficulty_level": "advanced",
+      "question_text": "[AUTHORING REQUIRED] Create a advanced short answer cross system conversion question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='cross_system_conversion'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "cross_system_conversion",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='cross_system_conversion'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": [
+          "[AUTHORING REQUIRED] Add one or more accepted answers."
+        ]
+      }
+    },
+    {
+      "question_number": 32,
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "[AUTHORING REQUIRED] Create a advanced mcq single data interpretation question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='data_interpretation'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "data_interpretation",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='data_interpretation'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 33,
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "[AUTHORING REQUIRED] Create a advanced mcq single worked step analysis question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='worked_step_analysis'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "worked_step_analysis",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='worked_step_analysis'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 34,
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "[AUTHORING REQUIRED] Create a advanced mcq single what went wrong question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='what_went_wrong'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "what_went_wrong",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='what_went_wrong'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 35,
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "[AUTHORING REQUIRED] Create a advanced mcq single comparison justification question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='comparison_justification'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "comparison_justification",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='comparison_justification'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 36,
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "[AUTHORING REQUIRED] Create a advanced mcq single rule application question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='rule_application'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "rule_application",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='rule_application'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 37,
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "[AUTHORING REQUIRED] Create a advanced mcq single case based interpretation question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='case_based_interpretation'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "case_based_interpretation",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='case_based_interpretation'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 38,
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "[AUTHORING REQUIRED] Create a advanced mcq single best explanation question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='best_explanation'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "best_explanation",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='best_explanation'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 39,
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "[AUTHORING REQUIRED] Create a advanced mcq single assertion reason question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='assertion_reason'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "assertion_reason",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='assertion_reason'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 40,
+      "question_type": "mcq_multiple",
+      "difficulty_level": "advanced",
+      "question_text": "[AUTHORING REQUIRED] Create a advanced mcq multiple multi select truth evaluation question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='multi_select_truth_evaluation'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "2.00",
+      "negative_marks": "0.50",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "multi_select_truth_evaluation",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='multi_select_truth_evaluation'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 41,
+      "question_type": "short_answer",
+      "difficulty_level": "advanced",
+      "question_text": "[AUTHORING REQUIRED] Create a advanced short answer short answer reasoning question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='short_answer_reasoning'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "short_answer_reasoning",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='short_answer_reasoning'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": [
+          "[AUTHORING REQUIRED] Add one or more accepted answers."
+        ]
+      }
+    },
+    {
+      "question_number": 42,
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "[AUTHORING REQUIRED] Create a advanced mcq single elimination based reasoning question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='elimination_based_reasoning'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "elimination_based_reasoning",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='elimination_based_reasoning'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 43,
+      "question_type": "short_answer",
+      "difficulty_level": "advanced",
+      "question_text": "[AUTHORING REQUIRED] Create a advanced short answer cross system conversion question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='cross_system_conversion'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "cross_system_conversion",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='cross_system_conversion'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": [
+          "[AUTHORING REQUIRED] Add one or more accepted answers."
+        ]
+      }
+    },
+    {
+      "question_number": 44,
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "[AUTHORING REQUIRED] Create a advanced mcq single data interpretation question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='data_interpretation'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "data_interpretation",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='data_interpretation'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 45,
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "[AUTHORING REQUIRED] Create a advanced mcq single worked step analysis question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='worked_step_analysis'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "worked_step_analysis",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='worked_step_analysis'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 46,
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "[AUTHORING REQUIRED] Create a advanced mcq single what went wrong question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='what_went_wrong'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "what_went_wrong",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='what_went_wrong'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 47,
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "[AUTHORING REQUIRED] Create a advanced mcq single comparison justification question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='comparison_justification'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "comparison_justification",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='comparison_justification'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 48,
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "[AUTHORING REQUIRED] Create a advanced mcq single rule application question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='rule_application'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "rule_application",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='rule_application'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 49,
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "[AUTHORING REQUIRED] Create a advanced mcq single case based interpretation question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='case_based_interpretation'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "case_based_interpretation",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='case_based_interpretation'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    },
+    {
+      "question_number": 50,
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "[AUTHORING REQUIRED] Create a advanced mcq single best explanation question for Class 7 Math on 'Division of Fractions'. Focus: topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='best_explanation'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
+      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "[AUTHORING REQUIRED] Option A",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option B",
+          "is_correct": true
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option C",
+          "is_correct": false
+        },
+        {
+          "option_text": "[AUTHORING REQUIRED] Option D",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "template_status": "authoring_required",
+        "archetype": "best_explanation",
+        "authoring_focus": "topic='Division of Fractions', subject='Math', difficulty='advanced', archetype='best_explanation'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
+        "source_template_batch": "curated_template_batch_v1",
+        "review_required": true,
+        "accepted_answers": []
+      }
+    }
+  ]
+}

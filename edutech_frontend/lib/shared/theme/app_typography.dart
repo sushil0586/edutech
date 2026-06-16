@@ -6,47 +6,61 @@ abstract final class AppTypography {
   static TextTheme textTheme() {
     final base = GoogleFonts.interTextTheme();
     return base.copyWith(
-      headlineLarge: base.headlineLarge?.copyWith(
+      headlineLarge: GoogleFonts.inter(
         fontSize: 32,
         fontWeight: FontWeight.w700,
         color: AppColors.textPrimary,
-        letterSpacing: -1.0,
+        letterSpacing: -0.8,
+        height: 1.15,
       ),
-      headlineMedium: base.headlineMedium?.copyWith(
-        fontSize: 30,
+      headlineMedium: GoogleFonts.inter(
+        fontSize: 28,
         fontWeight: FontWeight.w700,
         color: AppColors.textPrimary,
-        letterSpacing: -0.9,
+        letterSpacing: -0.6,
+        height: 1.2,
       ),
-      headlineSmall: base.headlineSmall?.copyWith(
-        fontSize: 22,
-        fontWeight: FontWeight.w600,
+      headlineSmall: GoogleFonts.inter(
+        fontSize: 24,
+        fontWeight: FontWeight.w700,
         color: AppColors.textPrimary,
-        letterSpacing: -0.5,
+        letterSpacing: -0.4,
+        height: 1.25,
       ),
       titleLarge: base.titleLarge?.copyWith(
-        fontSize: 18,
-        fontWeight: FontWeight.w600,
+        fontSize: 20,
+        fontWeight: FontWeight.w700,
         color: AppColors.textPrimary,
+        height: 1.3,
       ),
       titleMedium: base.titleMedium?.copyWith(
         fontSize: 16,
-        fontWeight: FontWeight.w500,
+        fontWeight: FontWeight.w600,
         color: AppColors.textPrimary,
+        height: 1.35,
+      ),
+      titleSmall: base.titleSmall?.copyWith(
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        color: AppColors.textPrimary,
+        height: 1.35,
       ),
       bodyLarge: base.bodyLarge?.copyWith(
-        fontSize: 15,
-        height: 1.55,
+        fontSize: 16,
+        fontWeight: FontWeight.w400,
+        height: 1.6,
         color: AppColors.textPrimary,
       ),
       bodyMedium: base.bodyMedium?.copyWith(
         fontSize: 14,
-        height: 1.55,
+        fontWeight: FontWeight.w400,
+        height: 1.6,
         color: AppColors.textPrimary,
       ),
       bodySmall: base.bodySmall?.copyWith(
-        fontSize: 12.5,
-        height: 1.45,
+        fontSize: 12,
+        fontWeight: FontWeight.w400,
+        height: 1.5,
         color: AppColors.textSecondary,
       ),
       labelLarge: base.labelLarge?.copyWith(
@@ -59,7 +73,13 @@ abstract final class AppTypography {
         fontSize: 12,
         fontWeight: FontWeight.w600,
         color: AppColors.textSecondary,
-        letterSpacing: 0.15,
+        letterSpacing: 0.1,
+      ),
+      labelSmall: base.labelSmall?.copyWith(
+        fontSize: 11,
+        fontWeight: FontWeight.w500,
+        color: AppColors.textMuted,
+        letterSpacing: 0.1,
       ),
     );
   }

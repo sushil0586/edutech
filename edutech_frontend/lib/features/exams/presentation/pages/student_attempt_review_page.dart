@@ -15,6 +15,9 @@ import 'package:education_frontend/shared/widgets/app_empty_state.dart';
 import 'package:education_frontend/shared/widgets/app_error_state.dart';
 import 'package:education_frontend/shared/widgets/app_loader.dart';
 import 'package:education_frontend/shared/widgets/app_rich_text_renderer.dart';
+import 'package:education_frontend/shared/widgets/app_section_header.dart';
+import 'package:education_frontend/shared/widgets/page_header_component.dart';
+import 'package:education_frontend/shared/widgets/status_badge_component.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -47,7 +50,9 @@ class _StudentAttemptReviewPageState
       return const SizedBox.shrink();
     }
 
-    final reviewValue = ref.watch(studentAttemptReviewProvider(widget.attemptId));
+    final reviewValue = ref.watch(
+      studentAttemptReviewProvider(widget.attemptId),
+    );
     final insightValue = ref.watch(studentInsightSummaryProvider);
 
     return DashboardShell(
@@ -75,7 +80,10 @@ class _StudentAttemptReviewPageState
             );
           }
 
-          final safeIndex = _currentIndex.clamp(0, filteredQuestions.length - 1);
+          final safeIndex = _currentIndex.clamp(
+            0,
+            filteredQuestions.length - 1,
+          );
           final question = filteredQuestions[safeIndex];
           final isWide = MediaQuery.sizeOf(context).width >= 1180;
           final insightSummary = insightValue.maybeWhen(
@@ -84,14 +92,15 @@ class _StudentAttemptReviewPageState
           );
 
           final sidebar = AppCard(
+            backgroundColor: AppColors.surface,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   review.examTitle,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text('${review.examCode} • Attempt #${review.attemptNo}'),
@@ -100,6 +109,9 @@ class _StudentAttemptReviewPageState
                   spacing: AppSpacing.sm,
                   runSpacing: AppSpacing.sm,
                   children: [
+                    AppBadge(
+                      label: 'Mode: ${review.reviewMode.replaceAll('_', ' ')}',
+                    ),
                     _FilterChip(
                       label: 'All',
                       selected: _filter == _ReviewFilter.all,
@@ -114,7 +126,8 @@ class _StudentAttemptReviewPageState
                     _FilterChip(
                       label: 'Wrong',
                       selected: _filter == _ReviewFilter.wrong,
-                      onTap: () => setState(() => _filter = _ReviewFilter.wrong),
+                      onTap: () =>
+                          setState(() => _filter = _ReviewFilter.wrong),
                     ),
                     _FilterChip(
                       label: 'Skipped',
@@ -162,10 +175,8 @@ class _StudentAttemptReviewPageState
                                   children: [
                                     AppBadge(
                                       label: 'Q${item.questionOrder}',
-                                      backgroundColor:
-                                          AppColors.primary.withValues(
-                                            alpha: 0.12,
-                                          ),
+                                      backgroundColor: AppColors.primary
+                                          .withValues(alpha: 0.12),
                                       foregroundColor: AppColors.primary,
                                     ),
                                     const SizedBox(width: AppSpacing.sm),
@@ -173,6 +184,18 @@ class _StudentAttemptReviewPageState
                                   ],
                                 ),
                                 const SizedBox(height: AppSpacing.sm),
+                                if ((item.sectionTitle ??
+                                        item.sectionName ??
+                                        '')
+                                    .isNotEmpty) ...[
+                                  AppBadge(
+                                    label:
+                                        item.sectionTitle ?? item.sectionName!,
+                                    backgroundColor: AppColors.surfaceMuted,
+                                    foregroundColor: AppColors.textSecondary,
+                                  ),
+                                  const SizedBox(height: AppSpacing.sm),
+                                ],
                                 AppRichTextRenderer(
                                   content: item.questionText,
                                   contentFormat: item.contentFormat,
@@ -192,6 +215,20 @@ class _StudentAttemptReviewPageState
 
           final detail = Column(
             children: [
+              const PageHeaderComponent(
+                eyebrow: 'Attempt review',
+                title: 'Review your exam',
+                subtitle:
+                    'Inspect question outcomes, explanations, and feedback in a calmer review workspace.',
+                breadcrumbs: ['Student', 'Results', 'Review'],
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              _ReviewHero(
+                review: review,
+                filter: _filter,
+                questionCount: filteredQuestions.length,
+              ),
+              const SizedBox(height: AppSpacing.lg),
               Expanded(
                 child: _ReviewQuestionPanel(
                   review: review,
@@ -217,7 +254,12 @@ class _StudentAttemptReviewPageState
             return Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(width: 340, child: sidebar),
+                Flexible(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 340),
+                    child: sidebar,
+                  ),
+                ),
                 const SizedBox(width: AppSpacing.lg),
                 Expanded(child: detail),
               ],
@@ -226,7 +268,10 @@ class _StudentAttemptReviewPageState
 
           return Column(
             children: [
-              SizedBox(height: 320, child: sidebar),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 360),
+                child: sidebar,
+              ),
               const SizedBox(height: AppSpacing.lg),
               Expanded(child: detail),
             ],
@@ -256,11 +301,10 @@ class _WhatToImproveCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'What to improve',
-            style: Theme.of(
-              context,
-            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+          const AppSectionHeader(
+            title: 'What to improve',
+            subtitle:
+                'Use weak topics and question-type patterns to guide your next revision block.',
           ),
           const SizedBox(height: AppSpacing.sm),
           if (topicEntries.isEmpty && typeEntries.isEmpty)
@@ -296,6 +340,118 @@ class _WhatToImproveCard extends StatelessWidget {
   }
 }
 
+class _ReviewHero extends StatelessWidget {
+  const _ReviewHero({
+    required this.review,
+    required this.filter,
+    required this.questionCount,
+  });
+
+  final StudentAttemptReview review;
+  final _ReviewFilter filter;
+  final int questionCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      backgroundColor: AppColors.surface,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 3,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const StatusBadgeComponent(label: 'Review workspace'),
+                const SizedBox(height: AppSpacing.lg),
+                Text(
+                  review.examTitle,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  'Filter ${_reviewFilterLabel(filter).toLowerCase()} questions, inspect explanations, and turn mistakes into your next revision plan.',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.xl),
+          Expanded(
+            flex: 2,
+            child: AppCard(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              backgroundColor: AppColors.surfaceMuted,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Review pulse',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  _ReviewPulseLine(
+                    label: 'Attempt',
+                    value: '#${review.attemptNo}',
+                  ),
+                  _ReviewPulseLine(
+                    label: 'Filter',
+                    value: _reviewFilterLabel(filter),
+                  ),
+                  _ReviewPulseLine(
+                    label: 'Visible items',
+                    value: '$questionCount',
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReviewPulseLine extends StatelessWidget {
+  const _ReviewPulseLine({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '$label: ',
+            style: Theme.of(
+              context,
+            ).textTheme.labelLarge?.copyWith(color: AppColors.textSecondary),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: Theme.of(
+                context,
+              ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ReviewQuestionPanel extends StatelessWidget {
   const _ReviewQuestionPanel({
     required this.review,
@@ -316,6 +472,7 @@ class _ReviewQuestionPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppCard(
+      backgroundColor: AppColors.surface,
       child: ListView(
         children: [
           Row(
@@ -335,6 +492,14 @@ class _ReviewQuestionPanel extends StatelessWidget {
                       spacing: AppSpacing.sm,
                       runSpacing: AppSpacing.sm,
                       children: [
+                        if ((question.sectionTitle ??
+                                question.sectionName ??
+                                '')
+                            .isNotEmpty)
+                          AppBadge(
+                            label:
+                                question.sectionTitle ?? question.sectionName!,
+                          ),
                         if ((question.subjectName ?? '').isNotEmpty)
                           AppBadge(label: question.subjectName!),
                         if ((question.topicName ?? '').isNotEmpty)
@@ -435,7 +600,8 @@ class _ReviewQuestionPanel extends StatelessWidget {
                         foregroundColor: AppColors.warning,
                       ),
                     if (option.isCorrect) ...[
-                      if (option.isSelected) const SizedBox(width: AppSpacing.xs),
+                      if (option.isSelected)
+                        const SizedBox(width: AppSpacing.xs),
                       const AppBadge(
                         label: 'Correct',
                         backgroundColor: Color(0xFFD1FAE5),
@@ -458,14 +624,15 @@ class _ReviewQuestionPanel extends StatelessWidget {
                     children: [
                       Text(
                         'Your answer',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: AppSpacing.sm),
                       Builder(
                         builder: (context) {
-                          final selectedOptions = question.options.where((item) => item.isSelected).toList();
+                          final selectedOptions = question.options
+                              .where((item) => item.isSelected)
+                              .toList();
                           if (selectedOptions.isEmpty) {
                             return const Text('No answer selected');
                           }
@@ -474,7 +641,9 @@ class _ReviewQuestionPanel extends StatelessWidget {
                             children: selectedOptions
                                 .map(
                                   (item) => Padding(
-                                    padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                                    padding: const EdgeInsets.only(
+                                      bottom: AppSpacing.xs,
+                                    ),
                                     child: AppRichTextRenderer(
                                       content: item.optionText,
                                       contentFormat: item.contentFormat,
@@ -498,9 +667,8 @@ class _ReviewQuestionPanel extends StatelessWidget {
                     children: [
                       Text(
                         'Correct answer',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: AppSpacing.sm),
                       Column(
@@ -509,7 +677,9 @@ class _ReviewQuestionPanel extends StatelessWidget {
                             .where((item) => item.isCorrect)
                             .map(
                               (item) => Padding(
-                                padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                                padding: const EdgeInsets.only(
+                                  bottom: AppSpacing.xs,
+                                ),
                                 child: AppRichTextRenderer(
                                   content: item.optionText,
                                   contentFormat: item.contentFormat,
@@ -552,7 +722,8 @@ class _ReviewQuestionPanel extends StatelessWidget {
               ],
             ),
           ),
-          if (question.explanation.trim().isNotEmpty) ...[
+          if (review.showExplanations &&
+              question.explanation.trim().isNotEmpty) ...[
             const SizedBox(height: AppSpacing.lg),
             AppCard(
               padding: const EdgeInsets.all(AppSpacing.lg),
@@ -627,20 +798,20 @@ class _ResultBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final (bg, fg, label) = switch (status) {
       'correct' => (
-          AppColors.success.withValues(alpha: 0.12),
-          AppColors.success,
-          'Correct',
-        ),
+        AppColors.success.withValues(alpha: 0.12),
+        AppColors.success,
+        'Correct',
+      ),
       'wrong' => (
-          AppColors.error.withValues(alpha: 0.12),
-          AppColors.error,
-          'Wrong',
-        ),
+        AppColors.error.withValues(alpha: 0.12),
+        AppColors.error,
+        'Wrong',
+      ),
       _ => (
-          AppColors.warning.withValues(alpha: 0.12),
-          AppColors.warning,
-          'Skipped',
-        ),
+        AppColors.warning.withValues(alpha: 0.12),
+        AppColors.warning,
+        'Skipped',
+      ),
     };
     return AppBadge(label: label, backgroundColor: bg, foregroundColor: fg);
   }
@@ -661,21 +832,31 @@ class _ReviewStat extends StatelessWidget {
         children: [
           Text(
             label,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppColors.textSecondary,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
           ),
           const SizedBox(height: AppSpacing.xxs),
           Text(
             value,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
           ),
         ],
       ),
     );
   }
+}
+
+String _reviewFilterLabel(_ReviewFilter filter) {
+  return switch (filter) {
+    _ReviewFilter.all => 'All',
+    _ReviewFilter.correct => 'Correct',
+    _ReviewFilter.wrong => 'Wrong',
+    _ReviewFilter.skipped => 'Skipped',
+    _ReviewFilter.marked => 'Marked',
+  };
 }
 
 String _formatSeconds(int? value) {

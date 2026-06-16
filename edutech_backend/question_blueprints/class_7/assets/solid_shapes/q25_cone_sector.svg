@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="220" viewBox="0 0 360 220">
+  <rect width="360" height="220" fill="white"/>
+  <path d="M100 170 A100 100 0 0 1 260 170 L180 70 Z" fill="#fbcfe8" stroke="black" stroke-width="3"/>
+  <text x="144" y="190" font-size="16">sector of a circle</text>
+</svg>

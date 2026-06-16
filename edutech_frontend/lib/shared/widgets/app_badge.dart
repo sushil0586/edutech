@@ -16,22 +16,19 @@ class AppBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textColor = foregroundColor ?? AppColors.secondary;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color:
-            backgroundColor ??
-            AppColors.subtleAccent,
-        borderRadius: BorderRadius.circular(AppRadius.pill),
-        border: Border.all(
-          color: (foregroundColor ?? AppColors.primary).withValues(alpha: 0.12),
-        ),
+        color: backgroundColor ?? AppColors.surfaceStrong,
+        borderRadius: BorderRadius.circular(AppRadius.button),
+        border: Border.all(color: textColor.withValues(alpha: 0.12)),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         child: Text(
           label.replaceAll('_', ' '),
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-            color: foregroundColor ?? AppColors.primary,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: textColor,
             fontWeight: FontWeight.w700,
           ),
         ),

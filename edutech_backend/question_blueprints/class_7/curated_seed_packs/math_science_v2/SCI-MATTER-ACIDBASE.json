@@ -1,0 +1,381 @@
+{
+  "topic_code": "SCI-MATTER-ACIDBASE",
+  "topic_name": "Acidic, Basic, and Neutral Substances",
+  "questions": [
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which of the following is most likely to be acidic?",
+      "explanation": "Lemon juice contains citric acid, which gives it acidic properties. The other options are commonly basic substances used for cleaning or oral care. So lemon juice is the best acidic example here.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {"option_text": "Soap solution", "is_correct": false},
+        {"option_text": "Lemon juice", "is_correct": true},
+        {"option_text": "Baking soda solution", "is_correct": false},
+        {"option_text": "Toothpaste", "is_correct": false}
+      ],
+      "metadata": {"archetype": "classification", "source_pack": "class7_curated_v2"}
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Blue litmus paper is dipped into a liquid and turns red. What can you conclude?",
+      "explanation": "Blue litmus turning red is a standard sign of an acid. A base would turn red litmus blue, while a neutral substance usually would not change either paper. So the liquid is acidic.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {"option_text": "The liquid is basic", "is_correct": false},
+        {"option_text": "The liquid is neutral", "is_correct": false},
+        {"option_text": "The liquid is acidic", "is_correct": true},
+        {"option_text": "The liquid is always safe to touch", "is_correct": false}
+      ],
+      "metadata": {"archetype": "indicator_result", "source_pack": "class7_curated_v2"}
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "A student tests an unknown liquid. Red litmus remains red, but blue litmus turns red. What is the best conclusion?",
+      "explanation": "This pattern matches the behavior of an acid: blue litmus changes to red, while red litmus shows no new change. So the observations point to an acidic liquid, making option `A` correct.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {"option_text": "The liquid is acidic", "is_correct": true},
+        {"option_text": "The liquid is basic", "is_correct": false},
+        {"option_text": "The liquid is neutral", "is_correct": false},
+        {"option_text": "The liquid is a metal solution", "is_correct": false}
+      ],
+      "metadata": {"archetype": "observation_based_inference", "source_pack": "class7_curated_v2"}
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which item would most likely be used to clean a greasy kitchen surface because of its basic nature?",
+      "explanation": "Soap solution is basic and is commonly used to remove greasy or oily dirt. The acidic options like vinegar or lemon water are not the best answer for this question. So option `C` is the most suitable choice.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {"option_text": "Vinegar", "is_correct": false},
+        {"option_text": "Lemon water", "is_correct": false},
+        {"option_text": "Soap solution", "is_correct": true},
+        {"option_text": "Fruit juice", "is_correct": false}
+      ],
+      "metadata": {"archetype": "daily_life_application", "source_pack": "class7_curated_v2"}
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Aarav says, “Every acidic substance is dangerous and must never be touched or eaten.” Which is the best correction?",
+      "explanation": "Aarav’s idea is too broad. Some acidic substances such as lemon juice and curd are safe to eat, but that does not mean all acids are harmless. So option `B` gives the best balanced correction.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {"option_text": "Aarav is correct because all acids burn skin immediately", "is_correct": false},
+        {"option_text": "Aarav is incorrect because some weak acids are found in foods, though not all acids are safe in every form", "is_correct": true},
+        {"option_text": "Aarav is incorrect because acids and bases are the same", "is_correct": false},
+        {"option_text": "Aarav is correct because only bases can be used in daily life", "is_correct": false}
+      ],
+      "metadata": {"archetype": "misconception_correction", "source_pack": "class7_curated_v2"}
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Three drops of china rose indicator are added to a liquid. The liquid turns dark pink. Which is the most reasonable conclusion?",
+      "explanation": "China rose indicator changes to a dark pink or magenta shade in acidic substances. So the observed color change suggests that the liquid is acidic. That makes option `A` the strongest conclusion.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {"option_text": "The liquid is acidic", "is_correct": true},
+        {"option_text": "The liquid is basic", "is_correct": false},
+        {"option_text": "The liquid must be neutral", "is_correct": false},
+        {"option_text": "No conclusion can be made from an indicator", "is_correct": false}
+      ],
+      "metadata": {"archetype": "experiment_interpretation", "source_pack": "class7_curated_v2"}
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "A child is stung by an ant, and a mild basic paste is suggested for relief. Why can this help?",
+      "explanation": "At this level, ant stings are often described as acidic in nature. A mild base may help reduce their effect by partial neutralization. So option `A` connects the idea correctly without making an exaggerated claim.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {"option_text": "The base may help reduce the effect of the acidic sting by partial neutralization", "is_correct": true},
+        {"option_text": "Bases always cool the skin instantly, regardless of the sting", "is_correct": false},
+        {"option_text": "Bases turn every harmful substance into water", "is_correct": false},
+        {"option_text": "The base makes the skin acidic enough to resist pain", "is_correct": false}
+      ],
+      "metadata": {"archetype": "neutralization_reasoning", "source_pack": "class7_curated_v2"}
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "A bottle in the lab has no label. A student wants to taste one drop to identify whether it is acidic or basic. What is the safest response?",
+      "explanation": "Unknown substances should never be tasted because they may be harmful. A safer scientific method is to test them with a suitable indicator or by following lab instructions. That is why option `C` is the correct response.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {"option_text": "Taste only a very tiny amount", "is_correct": false},
+        {"option_text": "Smell it closely first, then taste it", "is_correct": false},
+        {"option_text": "Test it with a suitable indicator instead of tasting it", "is_correct": true},
+        {"option_text": "Add it directly to another chemical and watch what happens", "is_correct": false}
+      ],
+      "metadata": {"archetype": "safety_reasoning", "source_pack": "class7_curated_v2"}
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Assertion (A): A neutral substance does not change the color of either red litmus or blue litmus.\n\nReason (R): Neutral substances are neither acidic nor basic.\n\nChoose the correct option.",
+      "explanation": "A neutral substance is neither acidic nor basic. Because of that, it usually does not change red litmus or blue litmus. So both the assertion and the reason are true, and the reason explains the assertion.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {"option_text": "Both A and R are true, and R correctly explains A", "is_correct": true},
+        {"option_text": "Both A and R are true, but R does not correctly explain A", "is_correct": false},
+        {"option_text": "A is true, but R is false", "is_correct": false},
+        {"option_text": "A is false, but R is true", "is_correct": false}
+      ],
+      "metadata": {"archetype": "assertion_reason", "source_pack": "class7_curated_v2"}
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "A student tests two liquids. Liquid P turns turmeric paper reddish-brown. Liquid Q does not change turmeric paper at all. Which explanation is best?",
+      "explanation": "Turmeric turns reddish-brown in a basic substance, so Liquid P is likely basic. If turmeric shows no change for Liquid Q, that result alone does not prove it is acidic; it may be acidic or neutral. So option `A` is the best explanation.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {"option_text": "P is likely basic, while Q may be acidic or neutral", "is_correct": true},
+        {"option_text": "P is acidic, while Q must be basic", "is_correct": false},
+        {"option_text": "P is neutral, while Q must be acidic", "is_correct": false},
+        {"option_text": "Both liquids are definitely neutral", "is_correct": false}
+      ],
+      "metadata": {"archetype": "case_based_best_explanation", "source_pack": "class7_curated_v2"}
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which of the following is most likely to be basic?",
+      "explanation": "Soap solution is commonly basic in nature and is often used as an everyday example of a base. The other options are acidic or are not the best basic example here. So option `B` is correct.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {"option_text": "Curd", "is_correct": false},
+        {"option_text": "Soap solution", "is_correct": true},
+        {"option_text": "Orange juice", "is_correct": false},
+        {"option_text": "Vinegar", "is_correct": false}
+      ],
+      "metadata": {"archetype": "direct_classification", "source_pack": "class7_curated_v2"}
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "A substance that changes neither red litmus nor blue litmus is most likely:",
+      "explanation": "A neutral substance is neither acidic nor basic. Because of that, it usually does not change either red litmus or blue litmus. So option `C` is the correct answer.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {"option_text": "acidic", "is_correct": false},
+        {"option_text": "basic", "is_correct": false},
+        {"option_text": "neutral", "is_correct": true},
+        {"option_text": "metallic", "is_correct": false}
+      ],
+      "metadata": {"archetype": "direct_concept_check", "source_pack": "class7_curated_v2"}
+    },
+    {
+      "question_type": "true_false",
+      "difficulty_level": "foundation",
+      "question_text": "Turmeric paper turns reddish-brown in a basic substance.",
+      "explanation": "Turmeric is a natural indicator that stays yellow in acidic or neutral substances. In a basic substance, it changes to a reddish-brown shade. So the statement is true.",
+      "default_marks": "1.00",
+      "negative_marks": "0.00",
+      "options": [
+        {"option_text": "True", "is_correct": true},
+        {"option_text": "False", "is_correct": false}
+      ],
+      "metadata": {"archetype": "concept_check", "source_pack": "class7_curated_v2"}
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which kitchen substance would be the best simple example of an acid in a classroom discussion?",
+      "explanation": "Lemon juice contains citric acid and is one of the most familiar acidic substances found at home. The other options are not suitable examples of an acid in this context. So option `C` is correct.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {"option_text": "Baking soda", "is_correct": false},
+        {"option_text": "Soap water", "is_correct": false},
+        {"option_text": "Lemon juice", "is_correct": true},
+        {"option_text": "Chalk powder", "is_correct": false}
+      ],
+      "metadata": {"archetype": "daily_life_observation", "source_pack": "class7_curated_v2"}
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which pair contains one acidic substance and one basic substance?",
+      "explanation": "Lemon juice is acidic because it contains natural acids, while soap solution is basic. The other pairs do not contain one acidic and one basic substance in the required combination. So option `A` is correct.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {"option_text": "Lemon juice and soap solution", "is_correct": true},
+        {"option_text": "Vinegar and curd", "is_correct": false},
+        {"option_text": "Soap solution and baking soda solution", "is_correct": false},
+        {"option_text": "Water and lemon juice", "is_correct": false}
+      ],
+      "metadata": {"archetype": "compare_and_classify", "source_pack": "class7_curated_v2"}
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "A liquid turns blue litmus red but does not change turmeric. Which is the best conclusion?",
+      "explanation": "Blue litmus turning red is a strong sign of an acidic substance. Turmeric is mainly useful for identifying bases, so “no change” in turmeric does not go against the acid result. That is why option `A` is the best conclusion.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {"option_text": "It is likely acidic", "is_correct": true},
+        {"option_text": "It is likely basic", "is_correct": false},
+        {"option_text": "It is definitely neutral", "is_correct": false},
+        {"option_text": "It is certainly a metal solution", "is_correct": false}
+      ],
+      "metadata": {"archetype": "observation_interpretation", "source_pack": "class7_curated_v2"}
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Meera says, “Anything that tastes bitter must be safe because it is basic.” Which correction is best?",
+      "explanation": "A substance being basic does not automatically make it safe. Some basic substances can still irritate or harm the body, especially if they are unknown. So option `B` gives the best correction to Meera’s statement.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {"option_text": "She is right because all bases are harmless", "is_correct": false},
+        {"option_text": "She is wrong because a basic substance is not automatically safe to taste or touch", "is_correct": true},
+        {"option_text": "She is right because bitter substances are always food items", "is_correct": false},
+        {"option_text": "She is wrong because all bitter substances are acidic", "is_correct": false}
+      ],
+      "metadata": {"archetype": "misconception_correction", "source_pack": "class7_curated_v2"}
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "intermediate",
+      "question_text": "Why is litmus paper useful when testing an unknown liquid?",
+      "explanation": "Litmus paper is useful because it gives a quick visible clue about the nature of a liquid. Instead of guessing by taste or touch, we can use an indicator and observe the color change safely. That is why litmus is a simple scientific testing tool.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "accepted_answers": [
+          "Litmus paper helps indicate whether a liquid is acidic or basic by showing a color change.",
+          "It shows whether an unknown liquid is acidic or basic through color change."
+        ],
+        "archetype": "concept_explanation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "A student tests Liquid X. Blue litmus turns red, red litmus stays red, and turmeric paper shows no change. Which conclusion is strongest?",
+      "explanation": "Blue litmus turning red is a major sign of acidity. Red litmus staying red and turmeric showing no change also fit with an acidic liquid. So all the observations support option `A`.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {"option_text": "Liquid X is likely acidic", "is_correct": true},
+        {"option_text": "Liquid X is likely basic", "is_correct": false},
+        {"option_text": "Liquid X is definitely neutral", "is_correct": false},
+        {"option_text": "Liquid X cannot be identified by indicators", "is_correct": false}
+      ],
+      "metadata": {"archetype": "experiment_interpretation", "source_pack": "class7_curated_v2"}
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "A cleaning liquid has accidentally spilled on the lab table. Before deciding how to handle it, what is the best first scientific step?",
+      "explanation": "A scientific response must be safe as well as logical. Touching, tasting, or randomly mixing a spilled liquid can be dangerous, so the best first step is to use a safe test or follow lab instructions. That makes option `B` the correct choice.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {"option_text": "Touch it gently to feel whether it is slippery", "is_correct": false},
+        {"option_text": "Use a suitable indicator or follow lab safety guidance instead of guessing", "is_correct": true},
+        {"option_text": "Taste it to know whether it is sour or bitter", "is_correct": false},
+        {"option_text": "Mix it with another liquid to see whether foam forms", "is_correct": false}
+      ],
+      "metadata": {"archetype": "safety_reasoning", "source_pack": "class7_curated_v2"}
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Why might adding a mild basic substance be useful in a situation involving an acidic sting?",
+      "explanation": "At this level, the usual explanation is that a mild base can help reduce the effect of an acidic sting by partial neutralization. It does not magically remove all pain, but it explains why a basic substance may help. So option `B` is correct.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {"option_text": "Because every base destroys pain completely", "is_correct": false},
+        {"option_text": "Because a base may reduce the effect of the acid through neutralization", "is_correct": true},
+        {"option_text": "Because acids become basic when exposed to air", "is_correct": false},
+        {"option_text": "Because bases always cool the skin instantly", "is_correct": false}
+      ],
+      "metadata": {"archetype": "neutralization_application", "source_pack": "class7_curated_v2"}
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "A teacher says that water is often taken as a neutral substance in school-level experiments. Which explanation is best?",
+      "explanation": "A neutral substance is one that is neither acidic nor basic in the given context. Water is often used as an example of a neutral substance in school experiments for this reason. So option `A` is the best explanation.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {"option_text": "Because neutral substances are those that are neither acidic nor basic", "is_correct": true},
+        {"option_text": "Because water turns every indicator green", "is_correct": false},
+        {"option_text": "Because water is a kind of base", "is_correct": false},
+        {"option_text": "Because water is not a substance", "is_correct": false}
+      ],
+      "metadata": {"archetype": "best_explanation", "source_pack": "class7_curated_v2"}
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Assertion (A): A basic substance can turn turmeric paper reddish-brown.\n\nReason (R): Some indicators change color differently in acidic and basic substances.\n\nChoose the correct option.",
+      "explanation": "The assertion is true because turmeric can change to reddish-brown in a basic substance. The reason is also true because indicators show different colors in different kinds of substances. Since that is exactly why turmeric changes color, option `A` is correct.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {"option_text": "Both A and R are true, and R correctly explains A", "is_correct": true},
+        {"option_text": "Both A and R are true, but R does not correctly explain A", "is_correct": false},
+        {"option_text": "A is true, but R is false", "is_correct": false},
+        {"option_text": "A is false, but R is true", "is_correct": false}
+      ],
+      "metadata": {"archetype": "assertion_reason", "source_pack": "class7_curated_v2"}
+    },
+    {
+      "question_type": "mcq_multiple",
+      "difficulty_level": "advanced",
+      "question_text": "Select all correct statements.",
+      "explanation": "Statement A is correct because acids turn blue litmus red. Statement B is correct because bases can turn red litmus blue. Statement D is also correct because unknown substances should always be tested safely. Statement C is false because neutral substances do not make turmeric paper turn green.",
+      "default_marks": "2.00",
+      "negative_marks": "0.50",
+      "options": [
+        {"option_text": "Acids can turn blue litmus red.", "is_correct": true},
+        {"option_text": "Bases can turn red litmus blue.", "is_correct": true},
+        {"option_text": "Neutral substances must turn turmeric paper green.", "is_correct": false},
+        {"option_text": "Unknown substances should be tested safely, not tasted.", "is_correct": true}
+      ],
+      "metadata": {"archetype": "multi_select_truth_evaluation", "source_pack": "class7_curated_v2"}
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "A student says, “This liquid did not change blue litmus, so it must be basic.” What is the best response?",
+      "explanation": "If blue litmus does not change, that alone does not prove the substance is basic. A base is usually confirmed by a change in red litmus, while a neutral substance may not change either. So more evidence is needed, which is why option `B` is the best response.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {"option_text": "Correct, because bases never change blue litmus", "is_correct": false},
+        {"option_text": "Incorrect, because not changing blue litmus does not by itself prove a substance is basic", "is_correct": true},
+        {"option_text": "Correct, because acids always change both red and blue litmus", "is_correct": false},
+        {"option_text": "Incorrect, because every base must make blue litmus red", "is_correct": false}
+      ],
+      "metadata": {"archetype": "case_based_reasoning", "source_pack": "class7_curated_v2"}
+    }
+  ]
+}

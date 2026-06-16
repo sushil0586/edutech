@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="220" viewBox="0 0 360 220">
+  <rect width="360" height="220" fill="white"/>
+  <polygon points="40,170 40,80 130,170" fill="#eff6ff" stroke="black" stroke-width="3"/>
+  <polygon points="220,170 220,90 310,170" fill="#fef3c7" stroke="black" stroke-width="3"/>
+  <path d="M40 170 L40 150 L60 150" fill="none" stroke="#2563eb" stroke-width="3"/>
+  <path d="M220 170 L220 150 L240 150" fill="none" stroke="#2563eb" stroke-width="3"/>
+  <text x="63" y="163" font-size="14" fill="#2563eb">90°</text>
+  <text x="243" y="163" font-size="14" fill="#2563eb">90°</text>
+  <text x="85" y="127" font-size="15">hypotenuse</text>
+  <text x="260" y="128" font-size="15">hypotenuse</text>
+</svg>

@@ -55,6 +55,7 @@ class StudentProfile(BaseModel):
     profile_photo = models.FileField(upload_to="students/profiles/", blank=True, null=True)
     address = models.TextField(blank=True)
     joined_at = models.DateField(default=date.today)
+    accommodation_profile = models.JSONField(default=dict, blank=True)
 
     class Meta:
         ordering = ["first_name", "last_name", "admission_no"]
@@ -92,6 +93,12 @@ class StudentProfile(BaseModel):
                 raise ValidationError(
                     {"cohort": "Cohort must match the selected academic year."}
                 )
+        if self.accommodation_profile is None:
+            self.accommodation_profile = {}
+        if not isinstance(self.accommodation_profile, dict):
+            raise ValidationError(
+                {"accommodation_profile": "Accommodation profile must be stored as an object."}
+            )
 
     def save(self, *args, **kwargs):
         self.full_name = " ".join(

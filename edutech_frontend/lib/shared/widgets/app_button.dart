@@ -3,7 +3,7 @@ import 'package:education_frontend/shared/theme/app_radius.dart';
 import 'package:education_frontend/shared/theme/app_spacing.dart';
 import 'package:flutter/material.dart';
 
-enum AppButtonVariant { primary, secondary, ghost }
+enum AppButtonVariant { primary, secondary, ghost, destructive }
 
 class AppButton extends StatelessWidget {
   const AppButton({
@@ -25,16 +25,24 @@ class AppButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const buttonHeight = 42.0;
+    const horizontalPadding = 16.0;
+    const verticalPadding = 12.0;
+    final borderRadius = BorderRadius.circular(AppRadius.button);
     final loaderColor = switch (variant) {
       AppButtonVariant.primary => Colors.white,
       AppButtonVariant.secondary => AppColors.primary,
       AppButtonVariant.ghost => AppColors.primary,
+      AppButtonVariant.destructive => Colors.white,
     };
     final child = isLoading
         ? SizedBox(
             width: 18,
             height: 18,
-            child: CircularProgressIndicator(strokeWidth: 2.2, color: loaderColor),
+            child: CircularProgressIndicator(
+              strokeWidth: 2.2,
+              color: loaderColor,
+            ),
           )
         : Row(
             mainAxisSize: MainAxisSize.min,
@@ -57,10 +65,12 @@ class AppButton extends StatelessWidget {
             foregroundColor: Colors.white,
             shadowColor: AppColors.accent.withValues(alpha: 0.25),
             elevation: 0,
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppRadius.pill),
+            minimumSize: const Size(0, buttonHeight),
+            padding: const EdgeInsets.symmetric(
+              horizontal: horizontalPadding,
+              vertical: verticalPadding,
             ),
+            shape: RoundedRectangleBorder(borderRadius: borderRadius),
           ),
           child: child,
         );
@@ -69,12 +79,14 @@ class AppButton extends StatelessWidget {
           onPressed: isLoading ? null : onPressed,
           style: OutlinedButton.styleFrom(
             foregroundColor: AppColors.primary,
-            backgroundColor: AppColors.surface,
+            backgroundColor: AppColors.surface.withValues(alpha: 0.94),
             side: BorderSide(color: AppColors.border.withValues(alpha: 0.9)),
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppRadius.pill),
+            minimumSize: const Size(0, buttonHeight),
+            padding: const EdgeInsets.symmetric(
+              horizontal: horizontalPadding,
+              vertical: verticalPadding,
             ),
+            shape: RoundedRectangleBorder(borderRadius: borderRadius),
           ),
           child: child,
         );
@@ -83,11 +95,32 @@ class AppButton extends StatelessWidget {
           onPressed: isLoading ? null : onPressed,
           style: TextButton.styleFrom(
             foregroundColor: AppColors.primary,
-            backgroundColor: AppColors.subtleAccent,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppRadius.pill),
+            backgroundColor: AppColors.surfaceStrong,
+            minimumSize: const Size(0, buttonHeight),
+            padding: const EdgeInsets.symmetric(
+              horizontal: horizontalPadding,
+              vertical: verticalPadding,
             ),
+            shape: RoundedRectangleBorder(borderRadius: borderRadius),
+          ),
+          child: child,
+        );
+      case AppButtonVariant.destructive:
+        button = FilledButton(
+          onPressed: isLoading ? null : onPressed,
+          style: FilledButton.styleFrom(
+            backgroundColor: AppColors.danger,
+            foregroundColor: Colors.white,
+            disabledBackgroundColor: AppColors.border,
+            disabledForegroundColor: AppColors.textSecondary,
+            shadowColor: AppColors.danger.withValues(alpha: 0.18),
+            elevation: 0,
+            minimumSize: const Size(0, buttonHeight),
+            padding: const EdgeInsets.symmetric(
+              horizontal: horizontalPadding,
+              vertical: verticalPadding,
+            ),
+            shape: RoundedRectangleBorder(borderRadius: borderRadius),
           ),
           child: child,
         );

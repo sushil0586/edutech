@@ -33,8 +33,11 @@ from apps.results.serializers import (
     PublishExamResultsSerializer,
     StudentTopicPerformanceSerializer,
     TeacherExamAttemptSerializer,
+    TeacherAttemptInterventionCreateSerializer,
+    TeacherAttemptInterventionSerializer,
     TeacherQuestionAnalysisSerializer,
 )
+from apps.reports.models import AuditLog
 from apps.results.services import (
     attempt_monitor_alerts,
     calculate_exam_performance_summary,
@@ -263,6 +266,73 @@ class ExamResultViewSet(ModelViewSet):
             data=TeacherExamAttemptSerializer(attempt).data,
             message="Attempt force-submitted successfully.",
             status_code=status.HTTP_200_OK,
+        )
+
+    @action(detail=False, methods=["get"], url_path=r"attempt/(?P<attempt_id>[^/.]+)/interventions")
+    def attempt_interventions(self, request, attempt_id=None):
+        try:
+            attempt = get_scoped_object_or_403(
+                scope_teacher_queryset(
+                    StudentExamAttempt.objects.select_related("exam", "student", "institute"),
+                    request.user,
+                ),
+                user=request.user,
+                value=attempt_id,
+                not_found_message="Attempt not found in your scope.",
+            )
+        except PermissionDenied as exc:
+            return Response({"attempt": str(exc)}, status=status.HTTP_403_FORBIDDEN)
+
+        logs = AuditLog.objects.filter(
+            entity_type="attempt",
+            entity_id=str(attempt.id),
+            action__in=[
+                "attempt_force_submit",
+                "attempt_intervention_note",
+            ],
+        ).select_related("user").order_by("-created_at")
+
+        return Response(
+            TeacherAttemptInterventionSerializer(logs, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=False, methods=["post"], url_path="attempt-intervention-note")
+    def attempt_intervention_note(self, request):
+        serializer = TeacherAttemptInterventionCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            attempt = get_scoped_object_or_403(
+                scope_teacher_queryset(
+                    StudentExamAttempt.objects.select_related("exam", "student", "institute"),
+                    request.user,
+                ),
+                user=request.user,
+                value=serializer.validated_data["attempt"],
+                not_found_message="Attempt not found in your scope.",
+            )
+        except PermissionDenied as exc:
+            return Response({"attempt": str(exc)}, status=status.HTTP_403_FORBIDDEN)
+
+        log = create_audit_log(
+            user=request.user,
+            institute=attempt.institute,
+            action="attempt_intervention_note",
+            entity_type="attempt",
+            entity_id=attempt.id,
+            message=serializer.validated_data["note"],
+            metadata={
+                "exam_id": str(attempt.exam_id),
+                "student_id": str(attempt.student_id),
+                "follow_up": serializer.validated_data["follow_up"],
+            },
+            request=request,
+        )
+        return action_response(
+            data=TeacherAttemptInterventionSerializer(log).data,
+            message="Intervention note saved successfully.",
+            status_code=status.HTTP_201_CREATED,
         )
 
     @action(detail=False, methods=["get"], url_path=r"exam/(?P<exam_id>[^/.]+)/live-monitor")

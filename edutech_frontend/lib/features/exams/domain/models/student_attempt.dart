@@ -25,6 +25,7 @@ class StudentAttempt {
     required this.timeTakenSeconds,
     required this.isAutoSubmitted,
     required this.answers,
+    required this.sectionRuntime,
     this.serverTime,
   });
 
@@ -51,6 +52,7 @@ class StudentAttempt {
   final int? timeTakenSeconds;
   final bool isAutoSubmitted;
   final List<StudentAttemptAnswer> answers;
+  final StudentAttemptSectionRuntime sectionRuntime;
   final DateTime? serverTime;
 
   bool get isInProgress => status == 'in_progress';
@@ -85,7 +87,56 @@ class StudentAttempt {
       timeTakenSeconds: _readNullableInt(json['time_taken_seconds']),
       isAutoSubmitted: json['is_auto_submitted'] as bool? ?? false,
       answers: answers,
+      sectionRuntime: StudentAttemptSectionRuntime.fromJson(
+        (json['section_runtime'] as Map<String, dynamic>?) ??
+            const <String, dynamic>{},
+      ),
       serverTime: DateTime.tryParse(json['server_time']?.toString() ?? ''),
+    );
+  }
+}
+
+class StudentAttemptSectionRuntime {
+  const StudentAttemptSectionRuntime({
+    required this.currentSectionId,
+    required this.currentSectionName,
+    required this.currentSectionOrder,
+    required this.currentSectionStartedAt,
+    required this.currentSectionExpiresAt,
+    required this.currentSectionTimerEnabled,
+    required this.visitedSectionIds,
+    required this.highestSectionOrderReached,
+  });
+
+  final String? currentSectionId;
+  final String? currentSectionName;
+  final int? currentSectionOrder;
+  final DateTime? currentSectionStartedAt;
+  final DateTime? currentSectionExpiresAt;
+  final bool currentSectionTimerEnabled;
+  final List<String> visitedSectionIds;
+  final int? highestSectionOrderReached;
+
+  factory StudentAttemptSectionRuntime.fromJson(Map<String, dynamic> json) {
+    return StudentAttemptSectionRuntime(
+      currentSectionId: json['current_section_id']?.toString(),
+      currentSectionName: json['current_section_name']?.toString(),
+      currentSectionOrder: _readNullableInt(json['current_section_order']),
+      currentSectionStartedAt: DateTime.tryParse(
+        json['current_section_started_at']?.toString() ?? '',
+      ),
+      currentSectionExpiresAt: DateTime.tryParse(
+        json['current_section_expires_at']?.toString() ?? '',
+      ),
+      currentSectionTimerEnabled:
+          json['current_section_timer_enabled'] as bool? ?? false,
+      visitedSectionIds:
+          (json['visited_section_ids'] as List<dynamic>? ?? const [])
+              .map((item) => item.toString())
+              .toList(),
+      highestSectionOrderReached: _readNullableInt(
+        json['highest_section_order_reached'],
+      ),
     );
   }
 }
