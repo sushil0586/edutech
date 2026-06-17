@@ -791,6 +791,37 @@ def complete_public_onboarding(account_profile, validated_data):
 
 
 @transaction.atomic
+def create_institute_login(*, institute, username=None, password=None, auto_generate=False):
+    if AccountProfile.objects.filter(
+        institute=institute,
+        role=AccountRole.INSTITUTE_ADMIN,
+    ).exists():
+        raise ValidationError({"institute": ["Login already exists for this institute."]})
+
+    generated_password = None
+    if auto_generate:
+        if not username:
+            username = build_unique_username(institute.code or institute.name)
+        if not password:
+            password = generate_temporary_password()
+            generated_password = password
+
+    user = User.objects.create_user(
+        username=username,
+        password=password,
+        email=institute.email or f"{username}@nexora.local",
+        is_active=True,
+    )
+    profile = AccountProfile.objects.create(
+        user=user,
+        role=AccountRole.INSTITUTE_ADMIN,
+        institute=institute,
+        is_active=True,
+    )
+    return profile, generated_password
+
+
+@transaction.atomic
 def create_student_login(*, student, username=None, password=None, auto_generate=False):
     if hasattr(student, "account_profile"):
         raise ValidationError({"student": ["Login already exists for this student."]})
@@ -853,6 +884,13 @@ def get_scoped_student_for_admin(*, student_id, requesting_profile):
     if requesting_profile.role != AccountRole.PLATFORM_ADMIN:
         queryset = queryset.filter(institute_id=requesting_profile.institute_id)
     return queryset.filter(pk=student_id).first()
+
+
+def get_scoped_institute_for_admin(*, institute_id, requesting_profile):
+    queryset = Institute.objects.all()
+    if requesting_profile.role != AccountRole.PLATFORM_ADMIN:
+        queryset = queryset.filter(pk=requesting_profile.institute_id)
+    return queryset.filter(pk=institute_id).first()
 
 
 def get_scoped_teacher_for_admin(*, teacher_id, requesting_profile):

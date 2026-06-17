@@ -964,6 +964,13 @@ export type TeacherExamQuestion = {
   section_title: string | null;
   section_order: number | null;
   question_text_summary: string;
+  question_text: string;
+  question_type: string;
+  difficulty_level: string;
+  topic: string | null;
+  topic_name: string | null;
+  explanation: string;
+  has_explanation: boolean;
   section_name: string;
   question_order: number;
   marks: string | null;

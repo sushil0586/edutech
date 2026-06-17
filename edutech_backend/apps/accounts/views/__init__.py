@@ -22,10 +22,12 @@ from apps.accounts.permissions import (
     IsTeacherOrInstituteAdmin,
 )
 from apps.accounts.services import (
+    create_institute_login,
     create_student_login,
     create_teacher_login,
     generate_temporary_password,
     get_public_registration_options,
+    get_scoped_institute_for_admin,
     get_scoped_student_for_admin,
     get_scoped_teacher_for_admin,
     get_scoped_user_for_admin,
@@ -281,6 +283,53 @@ class StudentCreateLoginView(APIView):
             entity_type="student_profile",
             entity_id=student.id,
             message="Student login created.",
+            metadata={"created_username": account_profile.user.username},
+            request=request,
+        )
+        return Response(
+            {
+                "user_id": account_profile.user.id,
+                "username": account_profile.user.username,
+                "generated_password": generated_password,
+                "role": account_profile.role,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class InstituteCreateLoginView(APIView):
+    permission_classes = [IsAuthenticated, IsPlatformOrInstituteAdmin]
+    throttle_classes = [AdminProvisionRateThrottle]
+
+    def post(self, request, institute_id):
+        admin_profile = request.user.account_profile
+        institute = get_scoped_institute_for_admin(
+            institute_id=institute_id,
+            requesting_profile=admin_profile,
+        )
+        if institute is None:
+            return Response({"detail": "Institute not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = CreateLoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            account_profile, generated_password = create_institute_login(
+                institute=institute,
+                username=serializer.validated_data.get("username") or None,
+                password=serializer.validated_data.get("password") or None,
+                auto_generate=serializer.validated_data.get("auto_generate", False),
+            )
+        except DjangoValidationError as exc:
+            detail = exc.message_dict if getattr(exc, "message_dict", None) else {"detail": exc.messages}
+            return Response(detail, status=status.HTTP_400_BAD_REQUEST)
+
+        create_audit_log(
+            user=request.user,
+            institute=institute,
+            action="institute_login_create",
+            entity_type="institute",
+            entity_id=institute.id,
+            message="Institute admin login created.",
             metadata={"created_username": account_profile.user.username},
             request=request,
         )
@@ -629,18 +678,26 @@ class TeacherExamListView(APIView):
 
     def get(self, request):
         queryset = scope_teacher_queryset(
-            Exam.objects.select_related("institute", "academic_year", "program", "cohort", "subject"),
+            Exam.objects.select_related(
+                "institute",
+                "academic_year",
+                "program",
+                "cohort",
+                "subject",
+                "source_teacher",
+            ),
             request.user,
         ).filter(is_active=True)
         if not any(
             key in request.query_params
-            for key in ("page", "page_size", "filter", "sort", "search")
+            for key in ("page", "page_size", "filter", "sort", "search", "teacher")
         ):
             return Response(ExamReadSerializer(queryset, many=True).data)
 
         exam_filter = (request.query_params.get("filter") or "all").strip()
         exam_sort = (request.query_params.get("sort") or "recommended").strip()
         search = (request.query_params.get("search") or "").strip()
+        teacher_id = (request.query_params.get("teacher") or "").strip()
         economy_summary = None
 
         queryset = queryset.annotate(
@@ -677,6 +734,9 @@ class TeacherExamListView(APIView):
                 | Q(exam_type__icontains=search)
                 | Q(subject__name__icontains=search)
             )
+
+        if teacher_id:
+            queryset = queryset.filter(source_teacher_id=teacher_id)
 
         if exam_filter in {"economy_gated", "stars_gated", "entitlement_gated"}:
             scoped_exams = list(queryset)
@@ -743,6 +803,7 @@ class TeacherExamListView(APIView):
         response.data["applied_filter"] = exam_filter
         response.data["applied_sort"] = exam_sort
         response.data["applied_search"] = search
+        response.data["applied_teacher"] = teacher_id
         if economy_summary is not None:
             response.data["summary"] = economy_summary
         return response

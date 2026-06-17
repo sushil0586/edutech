@@ -11,6 +11,8 @@ type ActionResult = {
   detail?: string;
 };
 
+type AccountAction = "create-login" | "reset-password" | "enable" | "disable";
+
 type ActionState = {
   message: string;
   result: ActionResult | null;
@@ -18,9 +20,9 @@ type ActionState = {
 };
 
 async function postAction(
-  resource: "students" | "teachers" | "users",
+  resource: "students" | "teachers" | "institutes" | "users",
   entityId: string,
-  action: "create-login" | "reset-password" | "enable" | "disable",
+  action: AccountAction,
   payload: Record<string, unknown> = { auto_generate: true },
 ) {
   const response = await fetch(
@@ -51,13 +53,15 @@ export function AccountActionButtons({
   hasLogin,
   loginIsActive,
   isCompact = false,
+  onActionComplete,
 }: {
-  resource: "students" | "teachers";
+  resource: "students" | "teachers" | "institutes";
   entityId: string;
   userId: number | null;
   hasLogin: boolean;
   loginIsActive: boolean;
   isCompact?: boolean;
+  onActionComplete?: (action: AccountAction, result: ActionResult) => void;
 }) {
   const [state, setState] = useState<ActionState>({
     message: "",
@@ -90,8 +94,24 @@ export function AccountActionButtons({
     };
   }, [resetDialogOpen]);
 
+  useEffect(() => {
+    if (!isCompact || state.loading || (!state.message && !state.result)) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setState((current) =>
+        current.loading
+          ? current
+          : { message: "", result: null, loading: false },
+      );
+    }, 4000);
+
+    return () => window.clearTimeout(timeout);
+  }, [isCompact, state.loading, state.message, state.result]);
+
   async function runAction(
-    action: "create-login" | "reset-password" | "enable" | "disable",
+    action: AccountAction,
     payload?: Record<string, unknown>,
   ) {
     if (state.loading) {
@@ -124,6 +144,7 @@ export function AccountActionButtons({
                 : "Login disabled successfully.",
         result,
       });
+      onActionComplete?.(action, result);
       return true;
     } catch (error) {
       setState({
@@ -173,7 +194,7 @@ export function AccountActionButtons({
             </span>
             Create login
           </button>
-        ) : (
+        ) : hasLogin ? (
           <>
             <button
               className="appTopbarAction"
@@ -198,11 +219,15 @@ export function AccountActionButtons({
               {loginIsActive ? "Disable login" : "Enable login"}
             </button>
           </>
-        )}
+        ) : null}
       </div>
 
       {(state.message || state.result) && (
-        <div className={`featurePlaceholder ${isCompact ? "statePanel" : ""}`}>
+        <div
+          className={`featurePlaceholder${
+            isCompact ? " accountActionFeedbackCompact" : ""
+          }`}
+        >
           {state.message && <p>{state.message}</p>}
           {state.result?.username && (
             <p className="authMeta">

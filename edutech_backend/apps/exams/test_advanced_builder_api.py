@@ -230,3 +230,26 @@ class AdvancedExamBuilderApiTests(APITestCase):
             response.data["composition"]["sections"][0]["topics"][0],
             "Section A has 9 topic slot(s), but needs 18 question(s). Topic counts must add up to the section question count.",
         )
+
+    def test_teacher_scope_error_names_missing_assignment_scope(self):
+        self.client.force_authenticate(user=self.teacher_user)
+        TeacherAssignment.objects.all().delete()
+        payload = self._payload()
+        payload["exam"]["code"] = "ADV-BUILDER-04"
+
+        response = self.client.post(
+            "/api/v1/exams/advanced-builder/create/",
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.data["scope"][0],
+            (
+                f"You are not assigned to {self.context['academic_year'].name} / "
+                f"{self.context['program'].code} / {self.context['subject'].code} / {self.context['cohort'].code}. "
+                "Choose a year, program, subject, and cohort that match one of your active teacher assignments, "
+                "or ask your institute admin to add this assignment before creating the exam."
+            ),
+        )

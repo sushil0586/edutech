@@ -4853,6 +4853,19 @@ button {
   padding: 0 14px;
 }
 
+.accountActionFeedbackCompact {
+  min-height: 0;
+  max-width: 320px;
+  padding: 10px 12px;
+  justify-self: end;
+}
+
+.accountActionFeedbackCompact > p {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
 .setupFormGrid {
   display: grid;
   gap: var(--space-4);
@@ -5662,6 +5675,75 @@ button {
   display: flex;
   gap: var(--space-3);
   flex-wrap: wrap;
+}
+
+.buttonClusterGrid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  align-items: stretch;
+}
+
+.buttonClusterGrid > * {
+  min-width: 0;
+  display: flex;
+}
+
+.buttonClusterGrid > a,
+.buttonClusterGrid > form > * {
+  width: 100%;
+  justify-content: center;
+}
+
+.examDetailActionGrid {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.examDetailActionLane {
+  display: grid;
+  gap: var(--space-3);
+  align-items: stretch;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+
+.examDetailActionLane > * {
+  min-width: 0;
+  display: flex;
+}
+
+.examDetailActionLanePrimary {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.examDetailActionLaneUtility {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.examDetailActionLane > a,
+.examDetailActionLane > form {
+  min-width: 0;
+}
+
+.examDetailActionLane > a,
+.examDetailActionLane > form > * {
+  width: 100%;
+  justify-content: center;
+}
+
+@media (max-width: 1320px) {
+  .examDetailActionLanePrimary,
+  .examDetailActionLaneUtility {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .examDetailActionLanePrimary,
+  .examDetailActionLaneUtility,
+  .buttonClusterGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .resultStatusGroup {
@@ -7028,6 +7110,18 @@ button {
   gap: var(--space-4);
 }
 
+.builderQuickAttachWorkspace {
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.9fr);
+  align-items: start;
+}
+
+.builderQuickAttachMain {
+  display: grid;
+  gap: var(--space-4);
+}
+
 .builderQuickActionRow {
   display: flex;
   align-items: center;
@@ -7068,6 +7162,112 @@ button {
 
 .builderQuickSelectionSummary small {
   color: var(--color-text-muted);
+}
+
+.builderSelectionPreviewPanel {
+  display: grid;
+  gap: var(--space-4);
+  padding: 20px;
+  border: 1px solid rgba(109, 94, 252, 0.12);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top right, rgba(109, 94, 252, 0.1), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(245, 247, 255, 0.84));
+  position: sticky;
+  top: 24px;
+}
+
+.builderSelectionPreviewHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.builderSelectionPreviewHeader > div {
+  display: grid;
+  gap: 6px;
+}
+
+.builderSelectionPreviewHeader strong {
+  font-size: 1rem;
+  letter-spacing: -0.02em;
+}
+
+.builderSelectionPreviewHeader p {
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+
+.builderSelectionPreviewStats {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.builderSelectionPreviewStats article {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(109, 94, 252, 0.1);
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.builderSelectionPreviewStats span {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.builderSelectionPreviewStats strong {
+  font-size: 1rem;
+  letter-spacing: -0.03em;
+}
+
+.builderSelectionPreviewList {
+  display: grid;
+  gap: var(--space-3);
+  max-height: 780px;
+  overflow: auto;
+  padding-right: var(--space-1);
+}
+
+.builderSelectionPreviewCard {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(109, 94, 252, 0.1);
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.builderSelectionPreviewMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+}
+
+.builderSelectionPreviewCard strong {
+  font-size: 0.96rem;
+  line-height: 1.55;
+}
+
+.builderSelectionPreviewCard p {
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+}
+
+.builderSelectionPreviewEmpty {
+  min-height: 160px;
+  align-content: start;
 }
 
 .builderTopicAttachStack {
@@ -7170,6 +7370,18 @@ button {
   color: var(--color-text-muted);
   font-size: var(--text-sm);
   line-height: var(--leading-normal);
+}
+
+.builderQuickAttachPreviewRow,
+.builderSelectionPreviewAction {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.builderQuickAttachPreviewButton {
+  min-height: 40px;
+  padding-inline: 14px;
 }
 
 .builderFlowRailInner {
@@ -7576,11 +7788,239 @@ button {
   line-height: 1.6;
 }
 
+.builderQuestionOverviewGrid {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.builderQuestionOverviewCard {
+  display: grid;
+  gap: 8px;
+  padding: 18px 20px;
+  border-radius: 22px;
+  border: 1px solid rgba(109, 94, 252, 0.12);
+  background:
+    radial-gradient(circle at top right, rgba(109, 94, 252, 0.08), transparent 30%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(246, 248, 255, 0.82));
+}
+
+.builderQuestionOverviewCard span {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.builderQuestionOverviewCard strong {
+  font-size: 1.18rem;
+  letter-spacing: -0.03em;
+}
+
+.builderQuestionOverviewCard p {
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+
+.builderQuestionToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  padding: 18px 20px;
+  border: 1px solid rgba(109, 94, 252, 0.1);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(246, 248, 255, 0.78));
+}
+
+.builderQuestionToolbarCopy {
+  display: grid;
+  gap: 6px;
+}
+
+.builderQuestionToolbarCopy strong {
+  font-size: 1rem;
+  letter-spacing: -0.02em;
+}
+
+.builderQuestionToolbarCopy span,
+.builderQuestionPageIndicator {
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+}
+
+.builderQuestionToolbarActions,
+.builderQuestionPaginationFooter,
+.builderQuestionPaginationNumbers {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.builderQuestionPaginationFooter {
+  justify-content: center;
+}
+
+.builderQuestionPageButton {
+  min-width: 46px;
+  padding-inline: 14px;
+}
+
 .builderComposerGrid {
   display: grid;
   gap: var(--space-4);
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   align-items: start;
+}
+
+.builderQuestionCard {
+  display: grid;
+  gap: var(--space-4);
+  padding: 22px;
+  border-radius: 24px;
+  border: 1px solid rgba(109, 94, 252, 0.12);
+  background:
+    radial-gradient(circle at top right, rgba(109, 94, 252, 0.08), transparent 32%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(246, 248, 255, 0.82));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78);
+}
+
+.builderQuestionCardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.builderQuestionCardCopy {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  flex: 1 1 420px;
+}
+
+.builderQuestionTagRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.builderQuestionCardCopy strong {
+  font-size: 1.02rem;
+  line-height: 1.5;
+  letter-spacing: -0.02em;
+}
+
+.builderQuestionCardCopy p {
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.7;
+}
+
+.builderQuestionStatStack {
+  display: grid;
+  gap: 8px;
+  min-width: 150px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(109, 94, 252, 0.1);
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.builderQuestionStatStack span {
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+}
+
+.builderQuestionInfoGrid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.builderQuestionInfoGrid > div {
+  display: grid;
+  gap: 6px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(109, 94, 252, 0.08);
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.builderQuestionInfoGrid span {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.builderQuestionInfoGrid strong {
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.builderQuestionPreviewPanel {
+  display: grid;
+  gap: var(--space-3);
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(109, 94, 252, 0.1);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.builderQuestionPreviewPanel summary {
+  cursor: pointer;
+  font-weight: var(--weight-semibold);
+  color: var(--color-brand-primary-700);
+}
+
+.builderQuestionPreviewPanel p {
+  color: var(--color-text-secondary);
+  line-height: 1.75;
+}
+
+.builderQuestionPreviewActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.builderQuestionCardFooter {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.builderQuestionEditorGrid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  align-items: end;
+}
+
+.builderInlineCheckboxCard {
+  min-height: 48px;
+  padding: 0 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(109, 94, 252, 0.12);
+  background: rgba(255, 255, 255, 0.84);
+}
+
+.builderQuestionActionRow,
+.builderQuestionRemoveForm {
+  display: flex;
+  align-items: center;
+}
+
+.builderQuestionRemoveForm {
+  justify-content: flex-start;
 }
 
 .builderListRow {
@@ -8894,6 +9334,25 @@ button {
 
   .marketingAppMock {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .builderQuickAttachWorkspace,
+  .builderSelectionPreviewStats {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .builderSelectionPreviewPanel {
+    position: static;
+  }
+
+  .builderQuestionToolbar {
+    align-items: stretch;
+  }
+
+  .builderQuestionToolbarActions,
+  .builderQuestionPaginationFooter,
+  .builderQuestionPaginationNumbers {
+    justify-content: flex-start;
   }
 
   .marketingAppSidebar {
@@ -10367,6 +10826,19 @@ body::after {
 .adminInstituteInfoList {
   display: grid;
   gap: 12px;
+}
+
+.adminInstituteAccountPanel {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(160, 174, 208, 0.18);
+  background: rgba(248, 250, 255, 0.88);
+}
+
+.adminInstituteAccountPanel .accountActionRow {
+  justify-content: flex-start;
 }
 
 .adminInstituteModalOverlay {

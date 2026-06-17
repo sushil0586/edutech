@@ -612,7 +612,9 @@ export function AdvancedExamBuilder({
 
   const [selectedAcademicYear, setSelectedAcademicYear] = useState(academicYears[0]?.id ?? "");
   const [selectedProgram, setSelectedProgram] = useState(programs[0]?.id ?? "");
-  const [selectedCohort, setSelectedCohort] = useState(initialCohorts[0]?.id ?? "");
+  const [selectedCohort, setSelectedCohort] = useState(
+    initialCohorts.length === 1 ? initialCohorts[0]?.id ?? "" : "",
+  );
   const [selectedSubject, setSelectedSubject] = useState(initialSubjects[0]?.id ?? "");
   const [cohortOptions, setCohortOptions] = useState(initialCohorts);
   const [subjectOptions, setSubjectOptions] = useState(initialSubjects);
@@ -807,7 +809,11 @@ export function AdvancedExamBuilder({
         setCohortOptions(nextCohorts);
         setSubjectOptions(nextSubjects);
         setSelectedCohort((current) =>
-          current && nextCohorts.some((cohort) => cohort.id === current) ? current : "",
+          current && nextCohorts.some((cohort) => cohort.id === current)
+            ? current
+            : nextCohorts.length === 1
+              ? nextCohorts[0]?.id ?? ""
+              : "",
         );
         setSelectedSubject((current) =>
           current && nextSubjects.some((subject) => subject.id === current)

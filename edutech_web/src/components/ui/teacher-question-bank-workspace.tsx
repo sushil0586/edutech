@@ -14,6 +14,12 @@ import type {
 } from "@/lib/api/teacher-builder";
 import type { CatalogSelectOption } from "@/lib/teacher/option-catalog";
 
+type TeacherFilterOption = {
+  id: string;
+  full_name: string;
+  employee_code: string;
+};
+
 function percentage(value: string) {
   const numeric = Number(value);
   return Number.isFinite(numeric) ? `${Math.round(numeric)}%` : "0%";
@@ -145,6 +151,7 @@ export function TeacherQuestionBankWorkspace({
   subjects,
   storageKeyPrefix = "teacher-question-bank",
   tags,
+  teachers = [],
   topics,
   questions,
   totalCount,
@@ -165,6 +172,7 @@ export function TeacherQuestionBankWorkspace({
   subjects: LookupSubject[];
   storageKeyPrefix?: string;
   tags: QuestionTagLite[];
+  teachers?: TeacherFilterOption[];
   topics: LookupTopic[];
   questions: TeacherQuestionSummary[];
   totalCount: number;
@@ -599,6 +607,18 @@ export function TeacherQuestionBankWorkspace({
           </label>
 
           <label className="fieldStack">
+            <span>Teacher</span>
+            <select defaultValue={filters.teacher ?? ""} name="teacher">
+              <option value="">All teachers</option>
+              {teachers.map((teacher) => (
+                <option key={teacher.id} value={teacher.id}>
+                  {teacher.full_name} ({teacher.employee_code})
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="fieldStack">
             <span>Tag</span>
             <select defaultValue={filters.tag ?? ""} name="tag">
               <option value="">All tags</option>
@@ -687,6 +707,7 @@ export function TeacherQuestionBankWorkspace({
                 !filters.program &&
                 !filters.subject &&
                 !filters.topic &&
+                !filters.teacher &&
                 !filters.tag &&
                 !filters.question_type &&
                 !filters.difficulty_level &&
@@ -759,6 +780,9 @@ export function TeacherQuestionBankWorkspace({
         <div className="workspaceFilterChips">
           <span className="statusPill statusDefault">
             Search: {filters.search ? "active" : "all"}
+          </span>
+          <span className="statusPill statusDefault">
+            Teacher: {teachers.find((teacher) => teacher.id === (filters.teacher ?? ""))?.full_name || "all"}
           </span>
           <span className="statusPill statusDefault">
             Type: {filters.question_type || "all"}

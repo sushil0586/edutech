@@ -3,7 +3,7 @@ from rest_framework.viewsets import ModelViewSet
 
 from apps.accounts.permissions import CanManageAcademics
 from apps.accounts.permissions import CanViewAcademics
-from apps.accounts.scopes import scope_teacher_queryset
+from apps.accounts.scopes import scope_teacher_academic_queryset
 from apps.academics.models import AcademicYear, Cohort, OptionCatalogEntry, Program, Subject, Topic
 from apps.academics.serializers import (
     AcademicYearSerializer,
@@ -52,7 +52,7 @@ class AcademicYearViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
                 "is_current",
                 "is_active",
             )
-        return scope_teacher_queryset(queryset, self.request.user)
+        return scope_teacher_academic_queryset(queryset, self.request.user)
 
 
 class ProgramViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
@@ -85,7 +85,7 @@ class ProgramViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
                 "sort_order",
                 "is_active",
             )
-        return scope_teacher_queryset(queryset, self.request.user)
+        return scope_teacher_academic_queryset(queryset, self.request.user)
 
 
 class CohortViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
@@ -119,7 +119,7 @@ class CohortViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
                 "capacity",
                 "is_active",
             )
-        return scope_teacher_queryset(queryset, self.request.user)
+        return scope_teacher_academic_queryset(queryset, self.request.user)
 
 
 class SubjectViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
@@ -152,7 +152,7 @@ class SubjectViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
                 "sort_order",
                 "is_active",
             )
-        return scope_teacher_queryset(queryset, self.request.user)
+        return scope_teacher_academic_queryset(queryset, self.request.user)
 
 
 class TopicViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
@@ -187,7 +187,7 @@ class TopicViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
                 "sort_order",
                 "is_active",
             )
-        return scope_teacher_queryset(queryset, self.request.user)
+        return scope_teacher_academic_queryset(queryset, self.request.user)
 
 
 class OptionCatalogEntryViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):

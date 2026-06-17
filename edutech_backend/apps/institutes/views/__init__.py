@@ -1,6 +1,8 @@
+from django.db.models import Prefetch
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.viewsets import ModelViewSet
 
+from apps.accounts.models import AccountProfile, AccountRole
 from apps.accounts.permissions import CanManageAcademics
 from apps.accounts.scopes import get_account_profile
 from apps.institutes.models import Institute
@@ -17,13 +19,21 @@ class InstituteViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
     ordering = ["name"]
     archive_message = "Institute archived successfully."
 
+    institute_admin_prefetch = Prefetch(
+        "account_profiles",
+        queryset=AccountProfile.objects.filter(role=AccountRole.INSTITUTE_ADMIN)
+        .select_related("user")
+        .order_by("created_at", "user__username"),
+        to_attr="institute_admin_profiles",
+    )
+
     def get_serializer_class(self):
         if self.action == "list":
             return InstituteListSerializer
         return super().get_serializer_class()
 
     def get_queryset(self):
-        queryset = Institute.objects.all()
+        queryset = Institute.objects.all().prefetch_related(self.institute_admin_prefetch)
         if self.action == "list":
             queryset = queryset.only(
                 "id",

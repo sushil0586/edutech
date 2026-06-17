@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FilterSummaryPills } from "@/components/ui/filter-summary-pills";
 import { PlatformAdminPageHeader } from "@/components/ui/platform-admin-page-header";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import type { TeacherExam } from "@/features/dashboard/types";
@@ -15,6 +16,12 @@ type PlatformExamSortOption =
   | "questions_high"
   | "title";
 type PlatformExamGroupOption = "none" | "status" | "type" | "source" | "subject";
+type InstituteOption = {
+  id: string;
+  name: string;
+  code: string;
+  is_active: boolean;
+};
 
 function titleCase(value: string) {
   return value.replaceAll("_", " ");
@@ -142,19 +149,34 @@ function buildPlatformExamFilterHref(args: {
   source?: PlatformExamSourceFilter;
   sort?: PlatformExamSortOption;
   group?: PlatformExamGroupOption;
+  institute?: string;
 }) {
   const params = new URLSearchParams();
   if (args.status && args.status !== "all") params.set("exam_status", args.status);
   if (args.source && args.source !== "all") params.set("exam_source", args.source);
   if (args.sort && args.sort !== "recommended") params.set("exam_sort", args.sort);
   if (args.group && args.group !== "none") params.set("exam_group", args.group);
+  if (args.institute) params.set("institute", args.institute);
   const query = params.toString();
   return query ? `/admin/exams?${query}` : "/admin/exams";
 }
 
-async function loadPlatformExams() {
+function normalizeSelectedInstitute(
+  requestedInstituteId: string | undefined,
+  institutes: InstituteOption[],
+) {
+  if (!requestedInstituteId) {
+    return "";
+  }
+
+  return institutes.some((item) => item.id === requestedInstituteId) ? requestedInstituteId : "";
+}
+
+async function loadPlatformExams(selectedInstituteId: string) {
   try {
-    const exams = await fetchPortalList<TeacherExam>("/api/v1/exams/?page_size=200");
+    const exams = await fetchPortalList<TeacherExam>(
+      `/api/v1/exams/?page_size=200${selectedInstituteId ? `&institute=${selectedInstituteId}` : ""}`,
+    );
     return {
       source: "live" as const,
       exams,
@@ -175,11 +197,15 @@ export default async function PlatformAdminExamsPage({
     exam_source?: string;
     exam_sort?: string;
     exam_group?: string;
+    institute?: string;
   }>;
 }) {
   await requirePlatformAdminSession();
   const params = (await searchParams) ?? {};
-  const { source, exams } = await loadPlatformExams();
+  const institutes = await fetchPortalList<InstituteOption>("/api/v1/institutes/?page_size=100").catch(() => []);
+  const selectedInstituteId = normalizeSelectedInstitute(params.institute, institutes);
+  const selectedInstitute = institutes.find((item) => item.id === selectedInstituteId) ?? null;
+  const { source, exams } = await loadPlatformExams(selectedInstituteId);
   const statusFilter = resolvePlatformExamStatusFilter(params.exam_status);
   const sourceFilter = resolvePlatformExamSourceFilter(params.exam_source);
   const sortOption = resolvePlatformExamSortOption(params.exam_sort);
@@ -281,6 +307,17 @@ export default async function PlatformAdminExamsPage({
             </div>
             <form className="workspaceFiltersForm" method="GET">
               <label className="workspaceFilterField">
+                <span>Institute</span>
+                <select defaultValue={selectedInstituteId} name="institute">
+                  <option value="">All institutes</option>
+                  {institutes.map((institute) => (
+                    <option key={institute.id} value={institute.id}>
+                      {institute.name} ({institute.code})
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="workspaceFilterField">
                 <span>Status</span>
                 <select defaultValue={statusFilter} name="exam_status">
                   <option value="all">All exams</option>
@@ -334,8 +371,9 @@ export default async function PlatformAdminExamsPage({
                 {[
                   {
                     label: "All",
-                    href: buildPlatformExamFilterHref({}),
+                    href: buildPlatformExamFilterHref({ institute: selectedInstituteId }),
                     active:
+                      !selectedInstituteId &&
                       statusFilter === "all" &&
                       sourceFilter === "all" &&
                       sortOption === "recommended" &&
@@ -343,32 +381,32 @@ export default async function PlatformAdminExamsPage({
                   },
                   {
                     label: "Platform",
-                    href: buildPlatformExamFilterHref({ status: statusFilter, source: "platform", sort: sortOption, group: groupOption }),
+                    href: buildPlatformExamFilterHref({ institute: selectedInstituteId, status: statusFilter, source: "platform", sort: sortOption, group: groupOption }),
                     active: sourceFilter === "platform",
                   },
                   {
                     label: "Institute",
-                    href: buildPlatformExamFilterHref({ status: statusFilter, source: "institute", sort: sortOption, group: groupOption }),
+                    href: buildPlatformExamFilterHref({ institute: selectedInstituteId, status: statusFilter, source: "institute", sort: sortOption, group: groupOption }),
                     active: sourceFilter === "institute",
                   },
                   {
                     label: "Teacher",
-                    href: buildPlatformExamFilterHref({ status: statusFilter, source: "teacher", sort: sortOption, group: groupOption }),
+                    href: buildPlatformExamFilterHref({ institute: selectedInstituteId, status: statusFilter, source: "teacher", sort: sortOption, group: groupOption }),
                     active: sourceFilter === "teacher",
                   },
                   {
                     label: "Live",
-                    href: buildPlatformExamFilterHref({ status: "live", source: sourceFilter, sort: sortOption, group: groupOption }),
+                    href: buildPlatformExamFilterHref({ institute: selectedInstituteId, status: "live", source: sourceFilter, sort: sortOption, group: groupOption }),
                     active: statusFilter === "live",
                   },
                   {
                     label: "Starts Soon",
-                    href: buildPlatformExamFilterHref({ status: statusFilter, source: sourceFilter, sort: "start_soon", group: groupOption }),
+                    href: buildPlatformExamFilterHref({ institute: selectedInstituteId, status: statusFilter, source: sourceFilter, sort: "start_soon", group: groupOption }),
                     active: sortOption === "start_soon",
                   },
                   {
                     label: "Group by Source",
-                    href: buildPlatformExamFilterHref({ status: statusFilter, source: sourceFilter, sort: sortOption, group: "source" }),
+                    href: buildPlatformExamFilterHref({ institute: selectedInstituteId, status: statusFilter, source: sourceFilter, sort: sortOption, group: "source" }),
                     active: groupOption === "source",
                   },
                 ].map((chip) => (
@@ -383,11 +421,21 @@ export default async function PlatformAdminExamsPage({
               </div>
             </div>
             <div className="workspaceFilterChips">
+              <span className="statusPill statusDefault">Institute: {selectedInstitute?.code ?? "all"}</span>
               <span className="statusPill statusDefault">Status: {statusFilter.replaceAll("_", " ")}</span>
               <span className="statusPill statusDefault">Source: {sourceFilter.replaceAll("_", " ")}</span>
               <span className="statusPill statusDefault">Sort: {sortOption.replaceAll("_", " ")}</span>
               <span className="statusPill statusDefault">Group: {groupOption.replaceAll("_", " ")}</span>
             </div>
+            <FilterSummaryPills
+              items={[
+                { label: "Institute", value: selectedInstitute?.name ?? "All institutes" },
+                { label: "Status", value: statusFilter.replaceAll("_", " ") },
+                { label: "Source", value: sourceFilter.replaceAll("_", " ") },
+                { label: "Sort", value: sortOption.replaceAll("_", " ") },
+                { label: "Group", value: groupOption.replaceAll("_", " ") },
+              ]}
+            />
           </section>
 
           {exams.length === 0 ? (
@@ -404,7 +452,7 @@ export default async function PlatformAdminExamsPage({
               eyebrow="No matching exams"
               title="No exams match these platform controls"
               description="Try a broader source or status filter, change the grouping, or reset the controls to return to the full governance list."
-              ctaHref="/admin/exams"
+              ctaHref={selectedInstituteId ? "/admin/exams" : "/admin/exams"}
               ctaLabel="Reset exam filters"
               statusLabel="Filter returned zero exams"
             />

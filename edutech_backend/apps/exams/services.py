@@ -575,8 +575,18 @@ def _resolve_advanced_exam_scope(actor, scope_payload, exam_payload):
         else:
             assignment_exists = assignment_queryset.exists()
         if not assignment_exists:
+            scope_label = (
+                f"{academic_year.name} / {program.code} / {subject.code}"
+                + (f" / {cohort.code}" if cohort is not None else " / all cohorts")
+            )
             raise ValidationError(
-                {"scope": "Teacher does not have an active assignment for the selected academic scope."}
+                {
+                    "scope": (
+                        f"You are not assigned to {scope_label}. "
+                        "Choose a year, program, subject, and cohort that match one of your active teacher assignments, "
+                        "or ask your institute admin to add this assignment before creating the exam."
+                    )
+                }
             )
 
     return {

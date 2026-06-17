@@ -15,6 +15,7 @@ class QuestionFilterSet(django_filters.FilterSet):
             "program": ["exact"],
             "subject": ["exact"],
             "topic": ["exact"],
+            "created_by_teacher": ["exact"],
             "question_type": ["exact"],
             "difficulty_level": ["exact"],
             "is_verified": ["exact"],

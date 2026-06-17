@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { AccountActionButtons } from "@/components/admin/account-action-buttons";
 
 type LocationCatalogOption = {
   country: string;
@@ -30,6 +31,10 @@ export type AdminInstituteRecord = {
   description: string;
   is_active: boolean;
   exam_defaults: Record<string, unknown>;
+  has_login: boolean;
+  login_username: string | null;
+  login_is_active: boolean;
+  account_user_id: number | null;
 };
 
 type InstituteDraft = {
@@ -69,6 +74,10 @@ type InstituteCounts = {
   teacherCount: number;
   examCount: number;
 };
+
+type InstituteLoginOverride = Partial<
+  Pick<AdminInstituteRecord, "has_login" | "login_username" | "login_is_active" | "account_user_id">
+>;
 
 function firstError(value: unknown) {
   if (Array.isArray(value)) {
@@ -584,10 +593,29 @@ export function InstituteManagementWorkspace({
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<InstituteFieldErrors>({});
+  const [loginOverrides, setLoginOverrides] = useState<Record<string, InstituteLoginOverride>>({});
+
+  const mergedInstitutes = useMemo(
+    () =>
+      institutes.map((item) => ({
+        ...item,
+        ...(loginOverrides[item.id] ?? {}),
+      })),
+    [institutes, loginOverrides],
+  );
+  const mergedInstitute = useMemo(() => {
+    if (!institute) {
+      return null;
+    }
+    return {
+      ...institute,
+      ...(loginOverrides[institute.id] ?? {}),
+    };
+  }, [institute, loginOverrides]);
 
   const filteredInstitutes = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-    return institutes
+    return mergedInstitutes
       .filter((item) => (showActiveOnly ? item.is_active : true))
       .filter((item) => {
         if (!normalizedQuery) {
@@ -613,11 +641,52 @@ export function InstituteManagementWorkspace({
         }
         return left.name.localeCompare(right.name);
       });
-  }, [institutes, query, showActiveOnly]);
+  }, [mergedInstitutes, query, showActiveOnly]);
   const activeInstituteCount = useMemo(
-    () => institutes.filter((item) => item.is_active).length,
-    [institutes],
+    () => mergedInstitutes.filter((item) => item.is_active).length,
+    [mergedInstitutes],
   );
+
+  function handleInstituteAccountAction(
+    targetInstituteId: string,
+    action: "create-login" | "reset-password" | "enable" | "disable",
+    result: { user_id?: number; username?: string; is_active?: boolean },
+  ) {
+    setLoginOverrides((current) => {
+      const previous = current[targetInstituteId] ?? {};
+      let next: InstituteLoginOverride = previous;
+
+      if (action === "create-login") {
+        next = {
+          ...previous,
+          has_login: true,
+          login_username: result.username ?? previous.login_username ?? null,
+          login_is_active: true,
+          account_user_id: result.user_id ?? previous.account_user_id ?? null,
+        };
+      } else if (action === "enable") {
+        next = {
+          ...previous,
+          has_login: true,
+          login_is_active: true,
+        };
+      } else if (action === "disable") {
+        next = {
+          ...previous,
+          has_login: true,
+          login_is_active: false,
+        };
+      } else if (action === "reset-password") {
+        next = {
+          ...previous,
+          has_login: true,
+          login_username: result.username ?? previous.login_username ?? null,
+        };
+      }
+
+      return { ...current, [targetInstituteId]: next };
+    });
+  }
 
   function updateField<Key extends keyof InstituteDraft>(key: Key, value: InstituteDraft[Key]) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -821,7 +890,7 @@ export function InstituteManagementWorkspace({
       <div className="adminInstituteToolbar contentCard">
         <div>
           <div className="adminInstituteToolbarStats">
-            <span>{institutes.length} total</span>
+            <span>{mergedInstitutes.length} total</span>
             <span>{activeInstituteCount} active</span>
             <span>{filteredInstitutes.length} visible</span>
           </div>
@@ -850,7 +919,7 @@ export function InstituteManagementWorkspace({
           </button>
           <button
             className="button buttonSecondary"
-            disabled={!institute}
+            disabled={!mergedInstitute}
             onClick={() => openEditModal()}
             type="button"
           >
@@ -876,6 +945,7 @@ export function InstituteManagementWorkspace({
                     <th>Location</th>
                     <th>Contact</th>
                     <th>Status</th>
+                    <th>Login</th>
                     <th />
                   </tr>
                 </thead>
@@ -905,6 +975,18 @@ export function InstituteManagementWorkspace({
                           <span className={item.is_active ? "statusPill statusLive" : "statusPill statusWarning"}>
                             {item.is_active ? "Active" : "Inactive"}
                           </span>
+                        </td>
+                        <td>
+                          <div className="adminPeopleRosterStatusStack">
+                            <span className={item.has_login ? "statusPill statusLive" : "statusPill statusWarning"}>
+                              {item.has_login ? "Access ready" : "No login"}
+                            </span>
+                            {item.has_login ? (
+                              <small>{item.login_username || "Linked institute admin"}</small>
+                            ) : (
+                              <small>No institute admin account linked</small>
+                            )}
+                          </div>
                         </td>
                         <td>
                           <div className="adminInstituteRowActions">
@@ -942,27 +1024,27 @@ export function InstituteManagementWorkspace({
 
         <article className="contentCard adminInstituteDetailCard">
           <div className="sectionHeading">
-            <strong>{institute ? institute.name : "Selected institute"}</strong>
-            <span>{institute ? institute.code : "Choose a record"}</span>
+            <strong>{mergedInstitute ? mergedInstitute.name : "Selected institute"}</strong>
+            <span>{mergedInstitute ? mergedInstitute.code : "Choose a record"}</span>
           </div>
 
-          {institute ? (
+          {mergedInstitute ? (
             <>
               <div className="adminInstituteDetailHero">
                 <div>
                   <span className="studentDashboardTag">Selected profile</span>
-                  <h4>{institute.name}</h4>
-                  {institute.description ? <p>{institute.description}</p> : null}
+                  <h4>{mergedInstitute.name}</h4>
+                  {mergedInstitute.description ? <p>{mergedInstitute.description}</p> : null}
                 </div>
-                <span className={institute.is_active ? "statusPill statusLive" : "statusPill statusWarning"}>
-                  {institute.is_active ? "Active" : "Inactive"}
+                <span className={mergedInstitute.is_active ? "statusPill statusLive" : "statusPill statusWarning"}>
+                  {mergedInstitute.is_active ? "Active" : "Inactive"}
                 </span>
               </div>
 
               <div className="adminInstituteDetailGrid">
                 <div className="studentResultStat">
                   <span>Status</span>
-                  <strong>{institute.is_active ? "Active" : "Inactive"}</strong>
+                  <strong>{mergedInstitute.is_active ? "Active" : "Inactive"}</strong>
                 </div>
                 <div className="studentResultStat">
                   <span>Students</span>
@@ -978,22 +1060,51 @@ export function InstituteManagementWorkspace({
                 </div>
                 <div className="studentResultStat">
                   <span>Location</span>
-                  <strong>{institute.city || "NA"}</strong>
+                  <strong>{mergedInstitute.city || "NA"}</strong>
                 </div>
                 <div className="studentResultStat">
                   <span>Defaults</span>
-                  <strong>{Object.keys(institute.exam_defaults ?? {}).length}</strong>
+                  <strong>{Object.keys(mergedInstitute.exam_defaults ?? {}).length}</strong>
                 </div>
               </div>
 
               <div className="adminInstituteInfoList">
+                <div className="adminInstituteAccountPanel">
+                  <div className="weakTopicRow">
+                    <div>
+                      <strong>Institute admin login</strong>
+                      <span>Credential controls for the linked institute administrator account</span>
+                    </div>
+                    <div className="weakTopicMeta">
+                      <strong>{mergedInstitute.login_username || "No linked login"}</strong>
+                      <span>
+                        {mergedInstitute.has_login
+                          ? mergedInstitute.login_is_active
+                            ? "Login active"
+                            : "Login disabled"
+                          : "No institute admin account is linked to this institute yet"}
+                      </span>
+                    </div>
+                  </div>
+                  <AccountActionButtons
+                    entityId={mergedInstitute.id}
+                    hasLogin={mergedInstitute.has_login}
+                    loginIsActive={mergedInstitute.login_is_active}
+                    onActionComplete={(action, result) =>
+                      handleInstituteAccountAction(mergedInstitute.id, action, result)
+                    }
+                    resource="institutes"
+                    userId={mergedInstitute.account_user_id}
+                  />
+                </div>
+
                 <div className="weakTopicRow">
                   <div>
                     <strong>Email</strong>
                     <span>Primary operational contact</span>
                   </div>
                   <div className="weakTopicMeta">
-                    <strong>{institute.email || "Not set"}</strong>
+                    <strong>{mergedInstitute.email || "Not set"}</strong>
                   </div>
                 </div>
                 <div className="weakTopicRow">
@@ -1002,7 +1113,7 @@ export function InstituteManagementWorkspace({
                     <span>Administrative contact number</span>
                   </div>
                   <div className="weakTopicMeta">
-                    <strong>{institute.phone || "Not set"}</strong>
+                    <strong>{mergedInstitute.phone || "Not set"}</strong>
                   </div>
                 </div>
                 <div className="weakTopicRow">
@@ -1011,9 +1122,9 @@ export function InstituteManagementWorkspace({
                     <span>Governed address and geography</span>
                   </div>
                   <div className="weakTopicMeta">
-                    <strong>{institute.address || "Not set"}</strong>
+                    <strong>{mergedInstitute.address || "Not set"}</strong>
                     <span>
-                      {[institute.city, institute.state, institute.country, institute.pincode]
+                      {[mergedInstitute.city, mergedInstitute.state, mergedInstitute.country, mergedInstitute.pincode]
                         .filter(Boolean)
                         .join(", ") || "Location details missing"}
                     </span>
@@ -1025,7 +1136,7 @@ export function InstituteManagementWorkspace({
                     <span>Operational context for this institute</span>
                   </div>
                   <div className="weakTopicMeta">
-                    <strong>{institute.description || "No description set"}</strong>
+                    <strong>{mergedInstitute.description || "No description set"}</strong>
                   </div>
                 </div>
               </div>

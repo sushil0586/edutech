@@ -547,6 +547,65 @@ DNS check:
 dig +short learn.accerio.in
 ```
 
+### Known Failure Pattern: `/api/teacher/...` returns 404 while `/api/v1/...` works
+
+Symptoms:
+
+- `curl -I https://learn.accerio.in/api/v1/academics/cohorts/` returns `401 Unauthorized`
+- `curl -I https://learn.accerio.in/api/teacher/academics/cohorts` returns `404 Not Found`
+- direct local check to Next may return `401 {"detail":"Portal session is not available."}`
+
+What this means:
+
+- Django is healthy and nginx is correctly reaching the backend for `/api/v1/...`
+- the failing route is a Next.js route handler under `/api/teacher/...`
+- if the public domain still returns `404`, nginx is almost certainly routing `/api/` to Django instead of Next
+
+Root cause from the June 17, 2026 incident:
+
+- the live nginx site had `location /api/ { proxy_pass http://127.0.0.1:8010; }`
+- that sent all `/api/teacher/...` requests to Django
+- Django does not own `/api/teacher/...`, so the request returned `404`
+- in parallel, the frontend needed a fresh production build so the current route handlers were definitely present in `.next`
+
+Correct routing split:
+
+```nginx
+location /api/v1/ {
+    proxy_pass http://127.0.0.1:8010;
+}
+
+location /api/ {
+    proxy_pass http://127.0.0.1:3001;
+}
+```
+
+Recovery checklist:
+
+```bash
+cd /var/www/nexora-learn/edutech/edutech_web
+npm install
+npm run build
+sudo systemctl restart nexora-learn-web
+
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+Verification checklist:
+
+```bash
+curl -i http://127.0.0.1:3001/api/teacher/academics/cohorts
+curl -I https://learn.accerio.in/api/teacher/academics/cohorts
+curl -I https://learn.accerio.in/api/v1/academics/cohorts/
+```
+
+Expected results:
+
+- local Next route returns `401` JSON without a logged-in session
+- public `/api/teacher/...` returns `401` JSON, not `404`
+- public `/api/v1/...` returns backend-auth `401`
+
 ## Operational Notes
 
 - Do not reuse the Mac-created `.venv` on Linux

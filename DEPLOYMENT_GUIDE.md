@@ -247,6 +247,13 @@ If you use Certbot on the same machine:
 sudo certbot --nginx -d learn.yourdomain.com
 ```
 
+Important routing rule:
+
+- `/api/v1/` must proxy to Django on `127.0.0.1:8010`
+- `/api/` must proxy to Next.js on `127.0.0.1:3001`
+
+If `https://learn.yourdomain.com/api/v1/...` works but `https://learn.yourdomain.com/api/teacher/...` returns `404`, the usual cause is that nginx is still sending `/api/` traffic to Django instead of Next.
+
 ## Coexisting With Another Project
 
 To avoid breaking the existing app on the same EC2:

@@ -144,6 +144,7 @@ export async function fetchTeacherExamPage(
       | "learners_high"
       | "marks_high";
     search?: string;
+    teacher?: string;
   },
 ) {
   const params = new URLSearchParams();
@@ -152,6 +153,7 @@ export async function fetchTeacherExamPage(
   if (options?.filter && options.filter !== "all") params.set("filter", options.filter);
   if (options?.sort && options.sort !== "recommended") params.set("sort", options.sort);
   if (options?.search?.trim()) params.set("search", options.search.trim());
+  if (options?.teacher?.trim()) params.set("teacher", options.teacher.trim());
   const query = params.toString();
   return requestTeacherJson<TeacherExamPage>(`/api/v1/teacher/exams/${query ? `?${query}` : ""}`);
 }

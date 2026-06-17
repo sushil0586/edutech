@@ -72,6 +72,13 @@ class ExamStudentAssignmentUpdateSerializer(serializers.Serializer):
 
 class ExamQuestionSerializer(serializers.ModelSerializer):
     question_text_summary = serializers.SerializerMethodField()
+    question_text = serializers.CharField(source="question.question_text", read_only=True)
+    question_type = serializers.CharField(source="question.question_type", read_only=True)
+    difficulty_level = serializers.CharField(source="question.difficulty_level", read_only=True)
+    topic = serializers.UUIDField(source="question.topic_id", read_only=True)
+    topic_name = serializers.CharField(source="question.topic.name", read_only=True)
+    explanation = serializers.CharField(source="question.explanation", read_only=True)
+    has_explanation = serializers.SerializerMethodField()
     section_title = serializers.CharField(source="section.name", read_only=True)
     section_order = serializers.IntegerField(source="section.section_order", read_only=True)
 
@@ -108,6 +115,13 @@ class ExamQuestionSerializer(serializers.ModelSerializer):
             "section_title",
             "section_order",
             "question_text_summary",
+            "question_text",
+            "question_type",
+            "difficulty_level",
+            "topic",
+            "topic_name",
+            "explanation",
+            "has_explanation",
             "section_name",
             "question_order",
             "marks",
@@ -121,6 +135,9 @@ class ExamQuestionSerializer(serializers.ModelSerializer):
     def get_question_text_summary(self, obj):
         text = obj.question.question_text.strip()
         return text[:120] + ("..." if len(text) > 120 else "")
+
+    def get_has_explanation(self, obj):
+        return bool(obj.question.explanation.strip())
 
 
 class ExamPublishLogSerializer(serializers.ModelSerializer):

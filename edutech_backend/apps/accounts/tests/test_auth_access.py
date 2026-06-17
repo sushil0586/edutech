@@ -1133,6 +1133,17 @@ class AuthenticationAccessControlTestCase(TestCase):
 
         self.context["institute"].refresh_from_db()
         self.assertEqual(self.context["institute"].metadata["exam_defaults"]["timer_mode"], "hybrid")
+
+    def test_institute_detail_includes_linked_admin_login_metadata(self):
+        self._authenticate_with_token("platform-admin-cred", "Platform@123")
+
+        response = self.client.get(f"/api/v1/institutes/{self.context['institute'].id}/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["has_login"])
+        self.assertEqual(response.data["login_username"], "institute-admin-cred")
+        self.assertTrue(response.data["login_is_active"])
+        self.assertEqual(response.data["account_user_id"], self.institute_admin_user.id)
         self.assertEqual(
             self.context["institute"].metadata["exam_defaults"]["review_mode"],
             "solution_review",
@@ -1267,6 +1278,42 @@ class CredentialManagementApiTestCase(TestCase):
         login_response = self.client.post(
             "/api/v1/auth/login/",
             {"username": "fresh-student-login", "password": "StrongPass@123"},
+            format="json",
+        )
+        self.assertEqual(login_response.status_code, 200)
+
+    def test_platform_admin_can_create_institute_login_and_authenticate(self):
+        self._auth("platform-admin-cred", "Platform@123")
+        response = self.client.post(
+            f"/api/v1/accounts/institutes/{self.other_institute.id}/create-login/",
+            {"auto_generate": True},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["role"], "institute_admin")
+        self.assertTrue(response.data["username"].startswith("cri002"))
+        self.assertTrue(response.data["generated_password"])
+        self.assertTrue(
+            AccountProfile.objects.filter(
+                institute=self.other_institute,
+                role="institute_admin",
+            ).exists()
+        )
+
+        institute_response = self.client.get(f"/api/v1/institutes/{self.other_institute.id}/")
+        self.assertEqual(institute_response.status_code, 200)
+        self.assertTrue(institute_response.data["has_login"])
+        self.assertEqual(institute_response.data["login_username"], response.data["username"])
+
+        self.client.credentials()
+        cache.clear()
+        login_response = self.client.post(
+            "/api/v1/auth/login/",
+            {
+                "username": response.data["username"],
+                "password": response.data["generated_password"],
+            },
             format="json",
         )
         self.assertEqual(login_response.status_code, 200)

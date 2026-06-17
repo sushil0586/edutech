@@ -74,11 +74,20 @@ export async function POST(
     );
   }
 
+  if (resource === "institutes" && action === "create-login") {
+    return proxyToBackend(
+      `/api/v1/accounts/institutes/${entityId}/create-login/`,
+      "POST",
+      ["platform_admin", "institute_admin"],
+      body,
+    );
+  }
+
   if (resource === "users" && action === "reset-password") {
     return proxyToBackend(
       `/api/v1/accounts/users/${entityId}/reset-password/`,
       "POST",
-      ["platform_admin"],
+      ["platform_admin", "institute_admin"],
       body,
     );
   }
@@ -87,7 +96,7 @@ export async function POST(
     return proxyToBackend(
       `/api/v1/accounts/users/${entityId}/enable/`,
       "POST",
-      ["platform_admin"],
+      ["platform_admin", "institute_admin"],
       body,
     );
   }
@@ -96,7 +105,7 @@ export async function POST(
     return proxyToBackend(
       `/api/v1/accounts/users/${entityId}/disable/`,
       "POST",
-      ["platform_admin"],
+      ["platform_admin", "institute_admin"],
       body,
     );
   }

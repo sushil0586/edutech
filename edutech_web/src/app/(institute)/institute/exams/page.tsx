@@ -3,6 +3,7 @@ import { FilterSummaryPills } from "@/components/ui/filter-summary-pills";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { InstitutePageHeader } from "@/components/ui/institute-page-header";
 import type { TeacherExamListItem } from "@/features/dashboard/types";
+import { fetchPortalList } from "@/lib/api/portal";
 import { fetchTeacherExamPage, getTeacherApiState } from "@/lib/api/teacher";
 import { requireInstituteAdminSession } from "@/lib/auth/session";
 import { buildFilterHref, formatFilterValue, resolveFilterValue } from "@/lib/workspace/filter-utils";
@@ -17,6 +18,12 @@ type InstituteExamSortOption =
   | "marks_high"
   | "title";
 type InstituteExamGroupOption = "none" | "status" | "type" | "subject";
+type TeacherOption = {
+  id: string;
+  full_name: string;
+  employee_code: string;
+  is_active: boolean;
+};
 
 function titleCase(value: string) {
   return formatFilterValue(value);
@@ -59,6 +66,7 @@ function buildInstituteExamFilterHref(args: {
   status?: InstituteExamStatusFilter;
   sort?: InstituteExamSortOption;
   group?: InstituteExamGroupOption;
+  teacher?: string;
   page?: number;
   pageSize?: number;
 }) {
@@ -66,14 +74,24 @@ function buildInstituteExamFilterHref(args: {
     ["exam_status", args.status, "all"],
     ["exam_sort", args.sort, "recommended"],
     ["exam_group", args.group, "none"],
+    ["teacher", args.teacher, ""],
     ["exam_page", args.page ? String(args.page) : undefined, "1"],
     ["exam_page_size", args.pageSize ? String(args.pageSize) : undefined, "12"],
   ]);
 }
 
+function normalizeTeacherFilter(value: string | undefined, teachers: TeacherOption[]) {
+  if (!value) {
+    return "";
+  }
+
+  return teachers.some((teacher) => teacher.id === value) ? value : "";
+}
+
 async function loadInstituteExams(
   statusFilter: InstituteExamStatusFilter,
   sortOption: InstituteExamSortOption,
+  teacherFilter: string,
   page: number,
   pageSize: number,
 ) {
@@ -92,6 +110,7 @@ async function loadInstituteExams(
       pageSize,
       filter: statusFilter,
       sort: sortOption,
+      teacher: teacherFilter || undefined,
     });
 
     return {
@@ -113,12 +132,18 @@ export default async function InstituteExamsPage({
     exam_status?: string;
     exam_sort?: string;
     exam_group?: string;
+    teacher?: string;
     exam_page?: string;
     exam_page_size?: string;
   }>;
 }) {
-  await requireInstituteAdminSession();
+  const profile = await requireInstituteAdminSession();
   const params = (await searchParams) ?? {};
+  const teachers = await fetchPortalList<TeacherOption>(
+    `/api/v1/teachers/${profile.institute ? `?institute=${profile.institute}&page_size=100` : "?page_size=100"}`,
+  ).catch(() => []);
+  const teacherFilter = normalizeTeacherFilter(params.teacher, teachers);
+  const selectedTeacher = teachers.find((teacher) => teacher.id === teacherFilter) ?? null;
   const statusFilter = resolveInstituteExamStatusFilter(params.exam_status);
   const sortOption = resolveInstituteExamSortOption(params.exam_sort);
   const groupOption = resolveInstituteExamGroupOption(params.exam_group);
@@ -127,7 +152,13 @@ export default async function InstituteExamsPage({
     Number.parseInt(params.exam_page_size ?? "12", 10) > 0
       ? Number.parseInt(params.exam_page_size ?? "12", 10)
       : 12;
-  const { source, examsPage } = await loadInstituteExams(statusFilter, sortOption, examPage, examPageSize);
+  const { source, examsPage } = await loadInstituteExams(
+    statusFilter,
+    sortOption,
+    teacherFilter,
+    examPage,
+    examPageSize,
+  );
   const exams = examsPage?.results ?? [];
   const visibleExams = exams;
   const groupedExams = groupInstituteExams(visibleExams, groupOption);
@@ -258,6 +289,17 @@ export default async function InstituteExamsPage({
             <form className="workspaceFiltersForm" method="GET">
               <input name="exam_page" type="hidden" value="1" />
               <label className="workspaceFilterField">
+                <span>Teacher</span>
+                <select defaultValue={teacherFilter} name="teacher">
+                  <option value="">All teachers</option>
+                  {teachers.map((teacher) => (
+                    <option key={teacher.id} value={teacher.id}>
+                      {teacher.full_name} ({teacher.employee_code})
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="workspaceFilterField">
                 <span>Status</span>
                 <select defaultValue={statusFilter} name="exam_status">
                   <option value="all">All exams</option>
@@ -309,37 +351,37 @@ export default async function InstituteExamsPage({
                 {[
                   {
                     label: "All",
-                    href: buildInstituteExamFilterHref({ pageSize: examPageSize }),
-                    active: statusFilter === "all" && sortOption === "recommended" && groupOption === "none",
+                    href: buildInstituteExamFilterHref({ teacher: teacherFilter, pageSize: examPageSize }),
+                    active: !teacherFilter && statusFilter === "all" && sortOption === "recommended" && groupOption === "none",
                   },
                   {
                     label: "Live",
-                    href: buildInstituteExamFilterHref({ status: "live", sort: sortOption, group: groupOption, pageSize: examPageSize }),
+                    href: buildInstituteExamFilterHref({ teacher: teacherFilter, status: "live", sort: sortOption, group: groupOption, pageSize: examPageSize }),
                     active: statusFilter === "live",
                   },
                   {
                     label: "Scheduled",
-                    href: buildInstituteExamFilterHref({ status: "scheduled", sort: sortOption, group: groupOption, pageSize: examPageSize }),
+                    href: buildInstituteExamFilterHref({ teacher: teacherFilter, status: "scheduled", sort: sortOption, group: groupOption, pageSize: examPageSize }),
                     active: statusFilter === "scheduled",
                   },
                   {
                     label: "Drafts",
-                    href: buildInstituteExamFilterHref({ status: "draft", sort: sortOption, group: groupOption, pageSize: examPageSize }),
+                    href: buildInstituteExamFilterHref({ teacher: teacherFilter, status: "draft", sort: sortOption, group: groupOption, pageSize: examPageSize }),
                     active: statusFilter === "draft",
                   },
                   {
                     label: "Starts Soon",
-                    href: buildInstituteExamFilterHref({ status: statusFilter, sort: "start_soon", group: groupOption, pageSize: examPageSize }),
+                    href: buildInstituteExamFilterHref({ teacher: teacherFilter, status: statusFilter, sort: "start_soon", group: groupOption, pageSize: examPageSize }),
                     active: sortOption === "start_soon",
                   },
                   {
                     label: "Highest Marks",
-                    href: buildInstituteExamFilterHref({ status: statusFilter, sort: "marks_high", group: groupOption, pageSize: examPageSize }),
+                    href: buildInstituteExamFilterHref({ teacher: teacherFilter, status: statusFilter, sort: "marks_high", group: groupOption, pageSize: examPageSize }),
                     active: sortOption === "marks_high",
                   },
                   {
                     label: "Group by Subject",
-                    href: buildInstituteExamFilterHref({ status: statusFilter, sort: sortOption, group: "subject", pageSize: examPageSize }),
+                    href: buildInstituteExamFilterHref({ teacher: teacherFilter, status: statusFilter, sort: sortOption, group: "subject", pageSize: examPageSize }),
                     active: groupOption === "subject",
                   },
                 ].map((chip) => (
@@ -355,6 +397,7 @@ export default async function InstituteExamsPage({
             </div>
             <FilterSummaryPills
               items={[
+                { label: "Teacher", value: selectedTeacher?.full_name ?? "All teachers" },
                 { label: "Status", value: formatFilterValue(statusFilter) },
                 { label: "Sort", value: formatFilterValue(sortOption) },
                 { label: "Group", value: formatFilterValue(groupOption) },

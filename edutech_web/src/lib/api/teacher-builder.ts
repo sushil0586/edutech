@@ -202,6 +202,8 @@ export type TeacherQuestionSummary = {
   program: string | null;
   subject: string | null;
   topic: string | null;
+  created_by_teacher: string | null;
+  created_by_teacher_name: string;
   question_type: string;
   difficulty_level: string;
   content_format: string;
@@ -476,6 +478,7 @@ export async function fetchTeacherQuestions(filters?: {
     `/api/v1/question-bank/questions/${toQueryString({
       compact: true,
       is_active: true,
+      page_size: 500,
       program: filters?.program,
       subject: filters?.subject,
     })}`,
@@ -493,6 +496,7 @@ export async function fetchTeacherQuestionPage(filters?: {
   tag?: string | null;
   question_type?: string | null;
   difficulty_level?: string | null;
+  created_by_teacher?: string | null;
   ordering?: string | null;
   missing_explanation?: boolean;
 }) {
@@ -505,6 +509,7 @@ export async function fetchTeacherQuestionPage(filters?: {
       program: filters?.program,
       subject: filters?.subject,
       topic: filters?.topic,
+      created_by_teacher: filters?.created_by_teacher,
       tag: filters?.tag,
       question_type: filters?.question_type,
       difficulty_level: filters?.difficulty_level,

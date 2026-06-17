@@ -15,8 +15,16 @@ import {
   fetchTeacherTopics,
   performTeacherQuestionBulkAction,
 } from "@/lib/api/teacher-builder";
+import { fetchPortalList } from "@/lib/api/portal";
 import { requireInstituteAdminSession } from "@/lib/auth/session";
 import { groupTeacherOptionCatalog } from "@/lib/teacher/option-catalog";
+
+type TeacherOption = {
+  id: string;
+  full_name: string;
+  employee_code: string;
+  is_active: boolean;
+};
 
 function asPositiveInteger(value: string | undefined, fallback: number) {
   const parsed = Number(value);
@@ -146,7 +154,7 @@ export default async function InstituteQuestionBankPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requireInstituteAdminSession();
+  const profile = await requireInstituteAdminSession();
   const resolvedSearchParams = await searchParams;
 
   const page = asPositiveInteger(readSingle(resolvedSearchParams.page), 1);
@@ -154,6 +162,7 @@ export default async function InstituteQuestionBankPage({
   const program = readSingle(resolvedSearchParams.program);
   const subject = readSingle(resolvedSearchParams.subject);
   const topic = readSingle(resolvedSearchParams.topic);
+  const teacher = readSingle(resolvedSearchParams.teacher);
   const tag = readSingle(resolvedSearchParams.tag);
   const questionType = readSingle(resolvedSearchParams.question_type);
   const difficultyLevel = readSingle(resolvedSearchParams.difficulty_level);
@@ -166,6 +175,9 @@ export default async function InstituteQuestionBankPage({
     fetchTeacherOptionCatalog(),
     fetchTeacherPrograms(),
     fetchTeacherQuestionTags(),
+    fetchPortalList<TeacherOption>(
+      `/api/v1/teachers/${profile.institute ? `?institute=${profile.institute}&page_size=100` : "?page_size=100"}`,
+    ).catch(() => []),
   ]).catch(() => null);
 
   if (!bootstrapData) {
@@ -192,7 +204,8 @@ export default async function InstituteQuestionBankPage({
     );
   }
 
-  const [optionCatalogEntries, programs, tags] = bootstrapData;
+  const [optionCatalogEntries, programs, tags, teachers] = bootstrapData;
+  const validTeacher = teachers.some((entry) => entry.id === teacher) ? teacher : "";
   const validProgram = programs.some((entry) => entry.id === program) ? program : "";
   const subjects = await fetchTeacherSubjects({
     program: validProgram || undefined,
@@ -255,11 +268,17 @@ export default async function InstituteQuestionBankPage({
   const validTopic =
     validSubject && topics.some((entry) => entry.id === topic) ? topic : "";
 
-  if (program !== validProgram || subject !== validSubject || topic !== validTopic) {
+  if (
+    teacher !== validTeacher ||
+    program !== validProgram ||
+    subject !== validSubject ||
+    topic !== validTopic
+  ) {
     redirect(
       `/institute/question-bank${buildQuestionBankQuery({
         page: 1,
         search: search || undefined,
+        teacher: validTeacher || undefined,
         program: validProgram || undefined,
         subject: validSubject || undefined,
         topic: validTopic || undefined,
@@ -278,6 +297,7 @@ export default async function InstituteQuestionBankPage({
     page,
     page_size: 20,
     search: search || undefined,
+    created_by_teacher: validTeacher || undefined,
     program: validProgram || undefined,
     subject: validSubject || undefined,
     topic: validTopic || undefined,
@@ -388,6 +408,7 @@ export default async function InstituteQuestionBankPage({
         difficultyOptions={optionCatalog.selectOptions("question_difficulty")}
         filters={{
           search,
+          teacher: validTeacher,
           program: validProgram,
           subject: validSubject,
           topic: validTopic,
@@ -407,6 +428,7 @@ export default async function InstituteQuestionBankPage({
         storageKeyPrefix="institute-question-bank"
         subjects={subjects}
         tags={tags}
+        teachers={teachers}
         topics={topics}
         totalCount={questionPage.count}
       />

@@ -14,7 +14,7 @@ async function proxyRequest(request: NextRequest, id: string, method: "PATCH") {
   }
 
   const session = await getAuthenticatedSession();
-  if (!session || !hasRequiredRole(session.profile, ["platform_admin"])) {
+  if (!session || !hasRequiredRole(session.profile, ["platform_admin", "institute_admin"])) {
     return NextResponse.json(
       { detail: "Portal session is not available." },
       { status: 401 },

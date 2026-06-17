@@ -108,7 +108,9 @@ export function CreateExamWizard({
   const [selectedProgramValue, setSelectedProgramValue] = useState(selectedProgram);
   const [cohortOptions, setCohortOptions] = useState(cohorts);
   const [subjectOptions, setSubjectOptions] = useState(subjects);
-  const [selectedCohortValue, setSelectedCohortValue] = useState(cohorts[0]?.id ?? "");
+  const [selectedCohortValue, setSelectedCohortValue] = useState(
+    cohorts.length === 1 ? cohorts[0]?.id ?? "" : "",
+  );
   const [selectedSubjectValue, setSelectedSubjectValue] = useState(subjects[0]?.id ?? "");
   const [selectedSourceValue, setSelectedSourceValue] = useState(selectedSource);
   const [isScopeLoading, setIsScopeLoading] = useState(false);
@@ -189,7 +191,11 @@ export function CreateExamWizard({
         setCohortOptions(nextCohorts);
         setSubjectOptions(nextSubjects);
         setSelectedCohortValue((current) =>
-          current && nextCohorts.some((cohort) => cohort.id === current) ? current : "",
+          current && nextCohorts.some((cohort) => cohort.id === current)
+            ? current
+            : nextCohorts.length === 1
+              ? nextCohorts[0]?.id ?? ""
+              : "",
         );
         setSelectedSubjectValue((current) =>
           current && nextSubjects.some((subject) => subject.id === current) ? current : "",

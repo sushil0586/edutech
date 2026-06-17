@@ -1,6 +1,7 @@
 from django.urls import path
 
 from apps.accounts.views import (
+    InstituteCreateLoginView,
     StudentCreateLoginView,
     TeacherCreateLoginView,
     UserDisableView,
@@ -11,6 +12,11 @@ from apps.accounts.views import (
 app_name = "accounts-management"
 
 urlpatterns = [
+    path(
+        "institutes/<uuid:institute_id>/create-login/",
+        InstituteCreateLoginView.as_view(),
+        name="create-institute-login",
+    ),
     path(
         "students/<uuid:student_id>/create-login/",
         StudentCreateLoginView.as_view(),

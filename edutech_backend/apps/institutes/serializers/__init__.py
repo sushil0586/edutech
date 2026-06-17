@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from apps.accounts.models import AccountRole
 from apps.exams.models import (
     AttemptPolicy,
     NavigationMode,
@@ -13,7 +14,45 @@ from apps.geography.services import resolve_location_selection
 from apps.institutes.models import Institute
 
 
-class InstituteSerializer(serializers.ModelSerializer):
+class InstituteAdminCredentialMixin(serializers.Serializer):
+    has_login = serializers.SerializerMethodField()
+    login_username = serializers.SerializerMethodField()
+    login_is_active = serializers.SerializerMethodField()
+    account_user_id = serializers.SerializerMethodField()
+
+    def _get_institute_admin_profile(self, obj):
+        profiles = getattr(obj, "institute_admin_profiles", None)
+        if profiles is None:
+            profiles = list(
+                obj.account_profiles.filter(role=AccountRole.INSTITUTE_ADMIN)
+                .select_related("user")
+                .order_by("created_at", "user__username")
+            )
+        if not profiles:
+            return None
+        active_profile = next((profile for profile in profiles if profile.is_active), None)
+        return active_profile or profiles[0]
+
+    def get_has_login(self, obj):
+        profile = self._get_institute_admin_profile(obj)
+        return bool(profile and getattr(profile, "user", None))
+
+    def get_login_username(self, obj):
+        profile = self._get_institute_admin_profile(obj)
+        return getattr(getattr(profile, "user", None), "username", None)
+
+    def get_login_is_active(self, obj):
+        profile = self._get_institute_admin_profile(obj)
+        user = getattr(profile, "user", None)
+        return bool(user and user.is_active)
+
+    def get_account_user_id(self, obj):
+        profile = self._get_institute_admin_profile(obj)
+        user = getattr(profile, "user", None)
+        return getattr(user, "id", None)
+
+
+class InstituteSerializer(InstituteAdminCredentialMixin, serializers.ModelSerializer):
     exam_defaults = serializers.JSONField(required=False)
 
     class Meta:
@@ -37,6 +76,10 @@ class InstituteSerializer(serializers.ModelSerializer):
             "description",
             "metadata",
             "exam_defaults",
+            "has_login",
+            "login_username",
+            "login_is_active",
+            "account_user_id",
         ]
 
     def validate_exam_defaults(self, value):
@@ -175,7 +218,7 @@ class InstituteSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({key: "Value must be greater than zero."})
 
 
-class InstituteListSerializer(serializers.ModelSerializer):
+class InstituteListSerializer(InstituteAdminCredentialMixin, serializers.ModelSerializer):
     class Meta:
         model = Institute
         fields = (
@@ -188,5 +231,9 @@ class InstituteListSerializer(serializers.ModelSerializer):
             "state",
             "country",
             "is_active",
+            "has_login",
+            "login_username",
+            "login_is_active",
+            "account_user_id",
         )
         read_only_fields = fields

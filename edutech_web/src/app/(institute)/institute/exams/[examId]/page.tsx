@@ -273,65 +273,69 @@ export default async function InstituteExamDetailPage({
           <p className="emptyText">
             Use these live actions to move the exam through its backend-controlled delivery lifecycle.
           </p>
-          <div className="resultCardActions">
-            <Link className="button buttonPrimary" href={`/institute/exams/${detail.id}/builder?tab=questions`}>
-              Link Questions
-            </Link>
-            <Link className="button buttonSecondary" href={`/institute/exams/${detail.id}/builder`}>
-              Open Builder
-            </Link>
+          <div className="resultCardActions examDetailActionGrid">
+            <div className="examDetailActionLane examDetailActionLanePrimary">
+              <Link className="button buttonPrimary" href={`/institute/exams/${detail.id}/builder?tab=questions`}>
+                Link Questions
+              </Link>
+              <Link className="button buttonSecondary" href={`/institute/exams/${detail.id}/builder`}>
+                Open Builder
+              </Link>
 
-            {actionButtons.map((item) => (
-              <form action={instituteExamAction} key={item.action}>
+              {actionButtons.map((item) => (
+                <form action={instituteExamAction} key={item.action}>
+                  <input name="exam_id" type="hidden" value={detail.id} />
+                  <input name="action" type="hidden" value={item.action} />
+                  <ActionSubmitButton
+                    className="button buttonPrimary"
+                    idleLabel={item.idleLabel}
+                    pendingLabel={item.pendingLabel}
+                  />
+                </form>
+              ))}
+            </div>
+
+            <div className="examDetailActionLane examDetailActionLaneUtility">
+              <form action={instituteExamAction}>
                 <input name="exam_id" type="hidden" value={detail.id} />
-                <input name="action" type="hidden" value={item.action} />
+                <input name="action" type="hidden" value="refresh-status" />
                 <ActionSubmitButton
-                  className="button buttonPrimary"
-                  idleLabel={item.idleLabel}
-                  pendingLabel={item.pendingLabel}
+                  className="button buttonSecondary"
+                  idleLabel="Refresh Status"
+                  pendingLabel="Refreshing..."
                 />
               </form>
-            ))}
 
-            <form action={instituteExamAction}>
-              <input name="exam_id" type="hidden" value={detail.id} />
-              <input name="action" type="hidden" value="refresh-status" />
-              <ActionSubmitButton
-                className="button buttonSecondary"
-                idleLabel="Refresh Status"
-                pendingLabel="Refreshing..."
-              />
-            </form>
+              <form action={instituteExamAction}>
+                <input name="exam_id" type="hidden" value={detail.id} />
+                <input name="action" type="hidden" value="sync-marks" />
+                <ActionSubmitButton
+                  className="button buttonGhost"
+                  idleLabel="Sync Marks"
+                  pendingLabel="Syncing..."
+                />
+              </form>
 
-            <form action={instituteExamAction}>
-              <input name="exam_id" type="hidden" value={detail.id} />
-              <input name="action" type="hidden" value="sync-marks" />
-              <ActionSubmitButton
-                className="button buttonGhost"
-                idleLabel="Sync Marks"
-                pendingLabel="Syncing..."
-              />
-            </form>
+              <form action={instituteExamAction}>
+                <input name="exam_id" type="hidden" value={detail.id} />
+                <input name="action" type="hidden" value="toggle-access-key" />
+                <ActionSubmitButton
+                  className="button buttonSecondary"
+                  idleLabel={detail.access_key_enabled ? "Disable Key Entry" : "Enable Key Entry"}
+                  pendingLabel={detail.access_key_enabled ? "Disabling..." : "Enabling..."}
+                />
+              </form>
 
-            <form action={instituteExamAction}>
-              <input name="exam_id" type="hidden" value={detail.id} />
-              <input name="action" type="hidden" value="toggle-access-key" />
-              <ActionSubmitButton
-                className="button buttonSecondary"
-                idleLabel={detail.access_key_enabled ? "Disable Key Entry" : "Enable Key Entry"}
-                pendingLabel={detail.access_key_enabled ? "Disabling..." : "Enabling..."}
-              />
-            </form>
-
-            <form action={instituteExamAction}>
-              <input name="exam_id" type="hidden" value={detail.id} />
-              <input name="action" type="hidden" value="regenerate-access-key" />
-              <ActionSubmitButton
-                className="button buttonGhost"
-                idleLabel="Regenerate Key"
-                pendingLabel="Regenerating..."
-              />
-            </form>
+              <form action={instituteExamAction}>
+                <input name="exam_id" type="hidden" value={detail.id} />
+                <input name="action" type="hidden" value="regenerate-access-key" />
+                <ActionSubmitButton
+                  className="button buttonGhost"
+                  idleLabel="Regenerate Key"
+                  pendingLabel="Regenerating..."
+                />
+              </form>
+            </div>
           </div>
         </article>
 
@@ -456,7 +460,7 @@ export default async function InstituteExamDetailPage({
             <p className="emptyText">
               Define whether students get open access, need stars, need an entitlement, or can unlock through either route.
             </p>
-            <div className="resultCardActions">
+            <div className="resultCardActions examDetailActionGrid">
               <ActionSubmitButton
                 className="button buttonPrimary"
                 idleLabel="Save Access Policy"

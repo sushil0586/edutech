@@ -210,6 +210,11 @@ class QuestionSerializer(serializers.ModelSerializer):
 
 
 class QuestionListSerializer(serializers.ModelSerializer):
+    created_by_teacher_name = serializers.CharField(
+        source="created_by_teacher.full_name",
+        read_only=True,
+        default="",
+    )
     usage_count = serializers.IntegerField(read_only=True, default=0)
     correct_count = serializers.IntegerField(read_only=True, default=0)
     wrong_count = serializers.IntegerField(read_only=True, default=0)
@@ -231,6 +236,8 @@ class QuestionListSerializer(serializers.ModelSerializer):
             "program",
             "subject",
             "topic",
+            "created_by_teacher",
+            "created_by_teacher_name",
             "question_type",
             "difficulty_level",
             "content_format",

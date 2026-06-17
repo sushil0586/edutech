@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { ActionSubmitButton } from "@/components/ui/action-submit-button";
-import { BuilderRapidAttach } from "@/components/ui/builder-rapid-attach";
+import { BuilderQuestionMapping } from "@/components/ui/builder-question-mapping";
 import { BuilderTabs } from "@/components/ui/builder-tabs";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { TeacherPageHeader } from "@/components/ui/teacher-page-header";
@@ -430,41 +430,59 @@ async function updateStudentAccommodationAction(formData: FormData) {
 async function loadBuilderData(examId: string) {
   const detail = await fetchTeacherExamDetail(examId);
 
-  const [academicYears, programs, cohorts, subjects, questions, topics, students, optionCatalogEntries] = await Promise.all([
+  const [
+    academicYearsResult,
+    programsResult,
+    cohortsResult,
+    subjectsResult,
+    questionsResult,
+    topicsResult,
+    studentsResult,
+    optionCatalogResult,
+  ] = await Promise.allSettled([
     fetchTeacherAcademicYears(),
     fetchTeacherPrograms(),
-    fetchTeacherCohorts({
-      academic_year: detail.academic_year,
-      program: detail.program,
-    }),
-    fetchTeacherSubjects({
-      program: detail.program,
-    }),
+    detail.academic_year && detail.program
+      ? fetchTeacherCohorts({
+          academic_year: detail.academic_year,
+          program: detail.program,
+        })
+      : Promise.resolve([]),
+    detail.program
+      ? fetchTeacherSubjects({
+          program: detail.program,
+        })
+      : Promise.resolve([]),
     fetchTeacherQuestions({
       program: detail.program,
       subject: detail.subject,
     }),
-    fetchTeacherTopics({
-      subject: detail.subject,
-    }),
-    fetchTeacherStudents({
-      academic_year: detail.academic_year,
-      program: detail.program,
-      cohort: detail.cohort,
-    }),
+    detail.subject
+      ? fetchTeacherTopics({
+          subject: detail.subject,
+        })
+      : Promise.resolve([]),
+    detail.academic_year && detail.program
+      ? fetchTeacherStudents({
+          academic_year: detail.academic_year,
+          program: detail.program,
+          cohort: detail.cohort,
+        })
+      : Promise.resolve([]),
     fetchTeacherOptionCatalog(),
   ]);
 
   return {
     detail,
-    academicYears,
-    programs,
-    cohorts,
-    subjects,
-    questions,
-    topics,
-    students,
-    optionCatalogEntries,
+    academicYears: academicYearsResult.status === "fulfilled" ? academicYearsResult.value : [],
+    programs: programsResult.status === "fulfilled" ? programsResult.value : [],
+    cohorts: cohortsResult.status === "fulfilled" ? cohortsResult.value : [],
+    subjects: subjectsResult.status === "fulfilled" ? subjectsResult.value : [],
+    questions: questionsResult.status === "fulfilled" ? questionsResult.value : [],
+    topics: topicsResult.status === "fulfilled" ? topicsResult.value : [],
+    students: studentsResult.status === "fulfilled" ? studentsResult.value : [],
+    optionCatalogEntries:
+      optionCatalogResult.status === "fulfilled" ? optionCatalogResult.value : [],
   };
 }
 
@@ -538,7 +556,6 @@ export default async function TeacherExamBuilderPage({
   const availableQuestions = questions.filter(
     (question) => !activeExamQuestions.some((linked) => linked.question === question.id),
   );
-  const rapidAttachQuestions = availableQuestions.slice(0, 18);
   const requestedTabId = tab && ["sections", "questions", "assignment", "bank"].includes(tab) ? tab : null;
   const initialWorkspaceTabId =
     requestedTabId ?? (activeExamQuestions.length === 0 && availableQuestions.length > 0 ? "questions" : "sections");
@@ -660,187 +677,29 @@ export default async function TeacherExamBuilderPage({
       label: "Linked Questions",
       description: `${activeExamQuestions.length} attached`,
       content: (
-        <article className="dashboardPanel builderPanel" id="linked-questions">
-          <div className="builderPanelHeader">
-            <div>
-              <span className="builderFlowLabel">Question mapping</span>
-              <strong>Linked Questions</strong>
-              <p>Attach question-bank items to the exam shell and control ordering, section placement, and scoring overrides.</p>
-            </div>
-            <div className="builderPanelMetrics">
-              <article className="builderMetricChip">
-                <span>Attached</span>
-                <strong>{activeExamQuestions.length}</strong>
-              </article>
-              <article className="builderMetricChip">
-                <span>Available in bank</span>
-                <strong>{availableQuestions.length}</strong>
-              </article>
-            </div>
-          </div>
-
-          <div className="builderStack">
-            {activeExamQuestions.map((question) => (
-              <div className="builderListRow" key={question.id}>
-                <div>
-                  <strong>{question.question_text_summary}</strong>
-                  <span>
-                    Q{question.question_order}
-                    {question.section_title ? ` · ${question.section_title}` : ""}
-                  </span>
-                </div>
-                <div className="builderListMeta">
-                  <span>{question.marks} marks</span>
-                  <span>{question.is_mandatory ? "Mandatory" : "Optional"}</span>
-                </div>
-                <div className="builderListMeta builderListMetaActions">
-                  <form action={updateQuestionLinkAction} className="builderInlineQuestionEditor">
-                    <input name="exam_id" type="hidden" value={detail.id} />
-                    <input name="exam_question_id" type="hidden" value={question.id} />
-                    <select defaultValue={question.section ?? ""} name="section">
-                      <option value="">No section</option>
-                      {activeSections.map((section) => (
-                        <option key={section.id} value={section.id}>
-                          {section.name}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      defaultValue={question.question_order}
-                      min="1"
-                      name="question_order"
-                      type="number"
-                    />
-                    <input
-                      defaultValue={question.marks ?? ""}
-                      min="0"
-                      name="marks"
-                      placeholder="Marks"
-                      step="0.01"
-                      type="number"
-                    />
-                    <input
-                      defaultValue={question.negative_marks ?? ""}
-                      min="0"
-                      name="negative_marks"
-                      placeholder="Negative"
-                      step="0.01"
-                      type="number"
-                    />
-                    <label className="builderInlineCheckbox">
-                      <input
-                        defaultChecked={question.is_mandatory}
-                        name="is_mandatory"
-                        type="checkbox"
-                      />
-                      Mandatory
-                    </label>
-                    <ActionSubmitButton
-                      className="button buttonGhost"
-                      idleLabel="Save"
-                      pendingLabel="Saving..."
-                    />
-                  </form>
-                  <form action={deleteQuestionLinkAction}>
-                    <input name="exam_id" type="hidden" value={detail.id} />
-                    <input name="exam_question_id" type="hidden" value={question.id} />
-                    <ActionSubmitButton
-                      className="button buttonGhost"
-                      idleLabel="Remove"
-                      pendingLabel="Removing..."
-                    />
-                  </form>
-                </div>
-              </div>
-            ))}
-
-            {!activeExamQuestions.length ? (
-              <div className="builderEmptyState">
-                <strong>No questions linked yet</strong>
-                <p>Choose from the teacher question bank below and start building the live paper order.</p>
-              </div>
-            ) : null}
-          </div>
-
-          <form action={addQuestionLinkAction} className="builderForm builderSubform">
-            <input name="exam_id" type="hidden" value={detail.id} />
-
-            <div className="builderMiniBanner">
-              <div>
-                <strong>Attach question from bank</strong>
-                <span>Select a question, place it into a section if needed, then control order and marks.</span>
-              </div>
-              <Link className="button buttonGhost" href="/teacher/question-bank">
-                Open Question Bank
-              </Link>
-            </div>
-
-            <div className="builderGrid compact">
-              <label className="fieldStack fieldStackFull">
-                <span>Question</span>
-                <select name="question" required>
-                  <option value="">Select a question</option>
-                  {availableQuestions.map((question) => (
-                    <option key={question.id} value={question.id}>
-                      {question.question_text.slice(0, 120)}{question.question_text.length > 120 ? "..." : ""}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="fieldStack">
-                <span>Section</span>
-                <select name="section">
-                  <option value="">No section</option>
-                  {activeSections.map((section) => (
-                    <option key={section.id} value={section.id}>
-                      {section.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="fieldStack">
-                <span>Question order</span>
-                <input defaultValue={activeExamQuestions.length + 1} min="1" name="question_order" required type="number" />
-              </label>
-
-              <label className="fieldStack">
-                <span>Marks</span>
-                <input min="0" name="marks" step="0.01" type="number" />
-              </label>
-
-              <label className="fieldStack">
-                <span>Negative marks</span>
-                <input min="0" name="negative_marks" step="0.01" type="number" />
-              </label>
-            </div>
-
-            <div className="toggleGrid">
-              <label><input defaultChecked name="is_mandatory" type="checkbox" /> Mandatory question</label>
-            </div>
-
-            <div className="settingsActionRow">
-              <ActionSubmitButton
-                className="button buttonSecondary"
-                idleLabel="Attach Question"
-                pendingLabel="Attaching..."
-              />
-            </div>
-          </form>
-
-                <BuilderRapidAttach
-                  action={bulkAddQuestionLinksAction}
-                  difficultyLabelMap={difficultyLabelMap}
-                  difficultyOptions={difficultyOptions}
-                  examId={detail.id}
-                  nextOrder={activeExamQuestions.length + 1}
-                  questionTypeLabelMap={questionTypeLabelMap}
-                  questions={rapidAttachQuestions}
-                  sections={activeSections.map((section) => ({ id: section.id, name: section.name }))}
-                  topics={topics}
-                />
-        </article>
+        <BuilderQuestionMapping
+          academicSetupHref="/teacher/question-bank"
+          activeExamQuestions={activeExamQuestions}
+          activeSections={activeSections}
+          addQuestionLinkAction={addQuestionLinkAction}
+          allQuestions={questions}
+          availableQuestions={availableQuestions}
+          bulkAddQuestionLinksAction={bulkAddQuestionLinksAction}
+          deleteQuestionLinkAction={deleteQuestionLinkAction}
+          difficultyLabelMap={difficultyLabelMap}
+          difficultyOptions={difficultyOptions}
+          examId={detail.id}
+          examCode={detail.code}
+          examTitle={detail.title}
+          examType={detail.exam_type}
+          durationMinutes={detail.duration_minutes}
+          instructions={detail.instructions}
+          questionTypeLabelMap={questionTypeLabelMap}
+          startAt={detail.start_at}
+          subjectName={detail.subject_name}
+          topics={topics}
+          updateQuestionLinkAction={updateQuestionLinkAction}
+        />
       ),
     },
     {
