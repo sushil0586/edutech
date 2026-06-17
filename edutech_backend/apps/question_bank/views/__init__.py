@@ -126,7 +126,6 @@ class QuestionViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
             "program",
             "subject",
             "topic",
-            "created_by_teacher",
         ).annotate(
             usage_count=Count("student_answers", filter=Q(student_answers__is_active=True), distinct=True),
             correct_count=Count(
