@@ -147,14 +147,10 @@ export default async function NewInstituteExamPage({
 
       {error ? <p className="feedbackBanner feedbackBannerError">{decodeURIComponent(error)}</p> : null}
 
-      <section className="studentInsightHeroCard">
+      <section className="studentInsightHeroCard studentInsightHeroCardCompact">
         <div className="studentInsightHeroCopy">
           <span className="studentDashboardTag">Guided Authoring</span>
-          <strong>Create the exam shell first, then continue into builder and delivery setup</strong>
-          <p>
-            Academic scope, timing, runtime policy, and learner-facing guidance should all come from real configuration
-            rather than hardcoded defaults, so the wizard uses live backend lookups throughout.
-          </p>
+          <strong>Create exam shell</strong>
           <small>
             {academicYears.length} academic years · {programs.length} programs visible in scope
           </small>

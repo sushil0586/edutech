@@ -69,23 +69,9 @@ export function AttemptSecurityGuard({
   initialIntegritySummary: StudentIntegritySummary;
 }) {
   const [integritySummary, setIntegritySummary] = useState(initialIntegritySummary);
-  const [fullscreenPromptOpen, setFullscreenPromptOpen] = useState(() =>
-    Boolean(
-      attemptStatus === "in_progress" &&
-        securityPolicy.requires_fullscreen &&
-        typeof document !== "undefined" &&
-        !document.fullscreenElement,
-    ),
-  );
-  const [fullscreenSupported] = useState(() => browserSupportsFullscreen());
-  const [notice, setNotice] = useState<string | null>(() =>
-    attemptStatus === "in_progress" &&
-    securityPolicy.requires_fullscreen &&
-    typeof document !== "undefined" &&
-    !document.fullscreenElement
-      ? "This attempt is paused at a security checkpoint until fullscreen mode is active."
-      : null,
-  );
+  const [fullscreenPromptOpen, setFullscreenPromptOpen] = useState(false);
+  const [fullscreenSupported, setFullscreenSupported] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const recentEventTimes = useRef<Record<string, number>>({});
   const lastFullscreenState = useRef(false);
 
@@ -99,6 +85,24 @@ export function AttemptSecurityGuard({
       securityPolicy.enhanced_monitoring,
     [securityPolicy],
   );
+
+  useEffect(() => {
+    setFullscreenSupported(browserSupportsFullscreen());
+
+    if (
+      attemptStatus === "in_progress" &&
+      securityPolicy.requires_fullscreen &&
+      !document.fullscreenElement
+    ) {
+      setFullscreenPromptOpen(true);
+      setNotice(
+        "This attempt is paused at a security checkpoint until fullscreen mode is active.",
+      );
+      return;
+    }
+
+    setFullscreenPromptOpen(false);
+  }, [attemptStatus, securityPolicy.requires_fullscreen]);
 
   const reportEvent = useCallback(async (
     eventType: string,

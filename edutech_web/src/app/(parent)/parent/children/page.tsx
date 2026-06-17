@@ -91,14 +91,10 @@ export default async function ParentChildrenPage() {
         />
       ) : (
         <>
-          <section className="studentInsightHeroCard">
+          <section className="studentInsightHeroCard studentInsightHeroCardCompact">
             <div className="studentInsightHeroCopy">
               <span className="studentDashboardTag">Family Relationship Scope</span>
-              <strong>Each child relationship controls exactly what this parent account can see</strong>
-              <p>
-                Parent access stays relationship-driven, so progress, results, alerts, and future
-                wallet visibility remain configurable child by child.
-              </p>
+              <strong>Child access and visibility</strong>
               <small>{primaryContacts} primary contacts · {progressVisible} progress-enabled links</small>
             </div>
             <div className="studentInsightHeroActions">

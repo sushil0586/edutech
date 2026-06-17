@@ -274,6 +274,35 @@ class AuthenticationAccessControlTestCase(TestCase):
         self.assertEqual(teacher_exams_response.status_code, 200)
         self.assertEqual([str(item["id"]) for item in teacher_exams_response.data], [str(self.exam.id)])
 
+        teacher_exams_page_response = self.client.get(
+            "/api/v1/teacher/exams/?page=1&page_size=10&filter=all&sort=recommended"
+        )
+        self.assertEqual(teacher_exams_page_response.status_code, 200)
+        self.assertEqual(teacher_exams_page_response.data["count"], 1)
+        self.assertEqual(
+            str(teacher_exams_page_response.data["results"][0]["id"]),
+            str(self.exam.id),
+        )
+
+        ContentAccessPolicy.objects.create(
+            institute=self.context["institute"],
+            content_type="exam",
+            content_key=str(self.exam.id),
+            subject=self.context["subject"],
+            policy_type="stars_only",
+            star_cost=25,
+            priority=10,
+        )
+        teacher_gated_exams_response = self.client.get(
+            "/api/v1/teacher/exams/?page=1&page_size=10&filter=economy_gated&sort=recommended"
+        )
+        self.assertEqual(teacher_gated_exams_response.status_code, 200)
+        self.assertEqual(teacher_gated_exams_response.data["count"], 1)
+        self.assertEqual(
+            teacher_gated_exams_response.data["summary"]["total_star_cost"],
+            25,
+        )
+
         teacher_questions_response = self.client.get("/api/v1/teacher/questions/")
         self.assertEqual(teacher_questions_response.status_code, 200)
         self.assertEqual(
@@ -324,6 +353,15 @@ class AuthenticationAccessControlTestCase(TestCase):
         self.assertEqual(analysis_response.status_code, 200)
         self.assertEqual(len(analysis_response.data), 1)
         self.assertEqual(str(analysis_response.data[0]["question_id"]), str(self.context["question"].id))
+
+    def test_institute_admin_can_view_institute_dashboard_summary(self):
+        self._authenticate_with_token("institute-admin-auth", "Admin@123")
+
+        response = self.client.get("/api/v1/institute/dashboard/summary/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(str(response.data["institute"]["id"]), str(self.context["institute"].id))
+        self.assertEqual(response.data["counts"]["students"], 2)
+        self.assertIn("readiness_score", response.data["derived"])
 
     def test_student_available_exam_list_works_and_is_scoped(self):
         self._authenticate_with_token("student-auth", "Student@123")

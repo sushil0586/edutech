@@ -1,7 +1,12 @@
 import Link from "next/link";
+import { FilterSummaryPills } from "@/components/ui/filter-summary-pills";
 import { PlatformAdminPageHeader } from "@/components/ui/platform-admin-page-header";
 import { fetchPortalCount } from "@/lib/api/portal";
 import { requirePlatformAdminSession } from "@/lib/auth/session";
+import { buildFilterHref, formatFilterValue, resolveFilterValue } from "@/lib/workspace/filter-utils";
+
+type AdminDashboardFocus = "all" | "institutes" | "people" | "academics" | "reports";
+type AdminDashboardSort = "recommended" | "highest_value" | "title";
 
 async function loadCount(path: string) {
   try {
@@ -11,7 +16,27 @@ async function loadCount(path: string) {
   }
 }
 
-export default async function AdminDashboardPage() {
+function resolveAdminDashboardFocus(value?: string): AdminDashboardFocus {
+  return resolveFilterValue(value, ["institutes", "people", "academics", "reports"], "all");
+}
+
+function resolveAdminDashboardSort(value?: string): AdminDashboardSort {
+  return resolveFilterValue(value, ["highest_value", "title"], "recommended");
+}
+
+function buildAdminDashboardHref(args: { focus?: AdminDashboardFocus; sort?: AdminDashboardSort }) {
+  return buildFilterHref("/admin", [
+    ["focus", args.focus, "all"],
+    ["sort", args.sort, "recommended"],
+  ]);
+}
+
+export default async function AdminDashboardPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ focus?: string; sort?: string }>;
+}) {
+  const params = (await searchParams) ?? {};
   const profile = await requirePlatformAdminSession();
   const [
     instituteCount,
@@ -140,6 +165,32 @@ export default async function AdminDashboardPage() {
       action: "Go to reports",
     },
   ] as const;
+  const focus = resolveAdminDashboardFocus(params.focus);
+  const sortOption = resolveAdminDashboardSort(params.sort);
+  const visiblePriorityLanes = [...priorityLanes]
+    .filter((lane) => {
+      if (focus === "all") return true;
+      if (focus === "institutes") return lane.title === "Institute oversight";
+      if (focus === "people") return lane.title === "People operations";
+      if (focus === "academics") return lane.title === "Academic governance";
+      if (focus === "reports") return lane.title === "Reporting and policy";
+      return true;
+    })
+    .sort((left, right) => {
+      if (sortOption === "highest_value") return right.value - left.value;
+      if (sortOption === "title") return left.title.localeCompare(right.title);
+      return 0;
+    });
+  const visibleActionCards = [...actionCards]
+    .filter((card) => {
+      if (focus === "all") return true;
+      if (focus === "institutes") return card.href.includes("institutes");
+      if (focus === "people") return card.href.includes("people");
+      if (focus === "academics") return card.href.includes("academic");
+      if (focus === "reports") return card.href.includes("reports");
+      return true;
+    })
+    .sort((left, right) => (sortOption === "title" ? left.title.localeCompare(right.title) : 0));
 
   return (
     <section className="studentPage studentPageTight studentDashboardModern adminDashboardPage">
@@ -232,6 +283,63 @@ export default async function AdminDashboardPage() {
         ))}
       </section>
 
+      <section className="contentCard workspaceFiltersCard">
+        <div className="sectionHeading">
+          <strong>Dashboard Focus</strong>
+          <span>{visiblePriorityLanes.length} priority lanes in view</span>
+        </div>
+        <form className="workspaceFiltersForm" method="GET">
+          <label className="workspaceFilterField">
+            <span>Focus lane</span>
+            <select defaultValue={focus} name="focus">
+              <option value="all">All areas</option>
+              <option value="institutes">Institutes</option>
+              <option value="people">People</option>
+              <option value="academics">Academics</option>
+              <option value="reports">Reports</option>
+            </select>
+          </label>
+          <label className="workspaceFilterField">
+            <span>Sort by</span>
+            <select defaultValue={sortOption} name="sort">
+              <option value="recommended">Recommended order</option>
+              <option value="highest_value">Highest value</option>
+              <option value="title">Title A-Z</option>
+            </select>
+          </label>
+          <div className="workspaceFilterActions">
+            <button className="button buttonPrimary" type="submit">
+              Apply filters
+            </button>
+            <Link className="button buttonSecondary" href="/admin">
+              Reset filters
+            </Link>
+          </div>
+        </form>
+        <div className="workspaceFilterQuickRow">
+          <span className="workspaceFilterQuickLabel">Quick filters</span>
+          <div className="workspaceFilterQuickChips">
+            {[
+              { label: "All", href: buildAdminDashboardHref({}), active: focus === "all" && sortOption === "recommended" },
+              { label: "Institutes", href: buildAdminDashboardHref({ focus: "institutes", sort: sortOption }), active: focus === "institutes" },
+              { label: "People", href: buildAdminDashboardHref({ focus: "people", sort: sortOption }), active: focus === "people" },
+              { label: "Academics", href: buildAdminDashboardHref({ focus: "academics", sort: sortOption }), active: focus === "academics" },
+              { label: "Reports", href: buildAdminDashboardHref({ focus: "reports", sort: sortOption }), active: focus === "reports" },
+            ].map((chip) => (
+              <Link key={chip.label} className={`workspaceQuickChip${chip.active ? " workspaceQuickChipActive" : ""}`} href={chip.href}>
+                {chip.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+            <FilterSummaryPills
+              items={[
+            { label: "Focus", value: formatFilterValue(focus) },
+            { label: "Sort", value: formatFilterValue(sortOption) },
+              ]}
+        />
+      </section>
+
       <section className="adminWorkspaceGrid">
         <article className="dashboardPanel adminPriorityPanel">
           <div className="sectionHeading">
@@ -239,7 +347,7 @@ export default async function AdminDashboardPage() {
             <span>Where platform-admin time should go first</span>
           </div>
           <div className="adminPriorityGrid">
-            {priorityLanes.map((lane) => (
+            {visiblePriorityLanes.map((lane) => (
               <div className="adminPriorityCard" key={lane.title}>
                 <div className="adminPriorityCardHeader">
                   <div>
@@ -335,7 +443,7 @@ export default async function AdminDashboardPage() {
             <span>Move directly into the next admin workflow</span>
           </div>
           <div className="adminActionGrid">
-            {actionCards.map((card) => (
+            {visibleActionCards.map((card) => (
               <article className="adminActionCard" key={card.title}>
                 <div>
                   <strong>{card.title}</strong>

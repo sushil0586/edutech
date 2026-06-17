@@ -1,69 +1,51 @@
 import Link from "next/link";
+import { FilterSummaryPills } from "@/components/ui/filter-summary-pills";
 import { PageHeader } from "@/components/ui/page-header";
-import { fetchPortalCount, fetchPortalRecord } from "@/lib/api/portal";
+import { fetchInstituteDashboardSummary } from "@/lib/api/portal";
 import { requireInstituteAdminSession } from "@/lib/auth/session";
+import { buildFilterHref, formatFilterValue, resolveFilterValue } from "@/lib/workspace/filter-utils";
 
-type InstituteRecord = {
-  id: string;
-  name: string;
-  code: string;
-  city: string;
-  state: string;
-  country: string;
-  is_active: boolean;
-  exam_defaults: Record<string, unknown>;
-};
+type InstituteDashboardFocus = "all" | "people" | "academics" | "assessments";
+type InstituteDashboardSort = "recommended" | "highest_value" | "title";
 
-async function loadCount(path: string) {
-  try {
-    return await fetchPortalCount(path);
-  } catch {
-    return 0;
-  }
+function resolveInstituteDashboardFocus(value?: string): InstituteDashboardFocus {
+  return resolveFilterValue(value, ["people", "academics", "assessments"], "all");
 }
 
-export default async function InstituteDashboardPage() {
-  const profile = await requireInstituteAdminSession();
-  const instituteQuery = profile.institute ? `?institute=${profile.institute}` : "";
+function resolveInstituteDashboardSort(value?: string): InstituteDashboardSort {
+  return resolveFilterValue(value, ["highest_value", "title"], "recommended");
+}
 
-  const institute = profile.institute
-    ? await fetchPortalRecord<InstituteRecord>(`/api/v1/institutes/${profile.institute}/`).catch(() => null)
-    : null;
-
-  const [
-    academicYearCount,
-    programCount,
-    cohortCount,
-    subjectCount,
-    topicCount,
-    studentCount,
-    teacherCount,
-    examCount,
-    resultCount,
-  ] = await Promise.all([
-    loadCount(`/api/v1/academics/academic-years/${instituteQuery}`),
-    loadCount(`/api/v1/academics/programs/${instituteQuery}`),
-    loadCount(`/api/v1/academics/cohorts/${instituteQuery}`),
-    loadCount(`/api/v1/academics/subjects/${instituteQuery}`),
-    loadCount(`/api/v1/academics/topics/${instituteQuery}`),
-    loadCount(`/api/v1/students/${instituteQuery}`),
-    loadCount(`/api/v1/teachers/${instituteQuery}`),
-    loadCount(`/api/v1/exams/${instituteQuery}`),
-    loadCount(`/api/v1/results/${instituteQuery}`),
+function buildInstituteDashboardHref(args: { focus?: InstituteDashboardFocus; sort?: InstituteDashboardSort }) {
+  return buildFilterHref("/institute/dashboard", [
+    ["focus", args.focus, "all"],
+    ["sort", args.sort, "recommended"],
   ]);
+}
 
-  const examDefaultCount = institute?.exam_defaults ? Object.keys(institute.exam_defaults).length : 0;
-  const peopleCount = studentCount + teacherCount;
-  const academicStructureCount =
-    academicYearCount + programCount + cohortCount + subjectCount + topicCount;
-  const activeCoverageSignals = [
-    peopleCount > 0,
-    academicStructureCount > 0,
-    examCount > 0,
-    resultCount > 0,
-    examDefaultCount > 0,
-  ].filter(Boolean).length;
-  const readinessScore = Math.round((activeCoverageSignals / 5) * 100);
+export default async function InstituteDashboardPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ focus?: string; sort?: string }>;
+}) {
+  const params = (await searchParams) ?? {};
+  await requireInstituteAdminSession();
+  const dashboard = await fetchInstituteDashboardSummary().catch(() => null);
+  const institute = dashboard?.institute ?? null;
+  const academicYearCount = dashboard?.counts.academic_years ?? 0;
+  const programCount = dashboard?.counts.programs ?? 0;
+  const cohortCount = dashboard?.counts.cohorts ?? 0;
+  const subjectCount = dashboard?.counts.subjects ?? 0;
+  const topicCount = dashboard?.counts.topics ?? 0;
+  const studentCount = dashboard?.counts.students ?? 0;
+  const teacherCount = dashboard?.counts.teachers ?? 0;
+  const examCount = dashboard?.counts.exams ?? 0;
+  const resultCount = dashboard?.counts.results ?? 0;
+  const examDefaultCount = dashboard?.institute.exam_default_count ?? 0;
+  const peopleCount = dashboard?.derived.people_count ?? 0;
+  const academicStructureCount = dashboard?.derived.academic_structure_count ?? 0;
+  const activeCoverageSignals = dashboard?.derived.active_coverage_signals ?? 0;
+  const readinessScore = dashboard?.derived.readiness_score ?? 0;
 
   const instituteSignals = [
     {
@@ -130,6 +112,21 @@ export default async function InstituteDashboardPage() {
       action: "Open exams",
     },
   ] as const;
+  const focus = resolveInstituteDashboardFocus(params.focus);
+  const sortOption = resolveInstituteDashboardSort(params.sort);
+  const visiblePriorityLanes = [...priorityLanes]
+    .filter((lane) => {
+      if (focus === "all") return true;
+      if (focus === "people") return lane.title === "People operations";
+      if (focus === "academics") return lane.title === "Academic setup";
+      if (focus === "assessments") return lane.title === "Assessments";
+      return true;
+    })
+    .sort((left, right) => {
+      if (sortOption === "highest_value") return right.value - left.value;
+      if (sortOption === "title") return left.title.localeCompare(right.title);
+      return 0;
+    });
 
   return (
     <section className="studentPage studentPageTight studentDashboardModern adminDashboardPage instituteConsolePage">
@@ -222,6 +219,61 @@ export default async function InstituteDashboardPage() {
         ))}
       </section>
 
+      <section className="contentCard workspaceFiltersCard">
+        <div className="sectionHeading">
+          <strong>Dashboard Focus</strong>
+          <span>{visiblePriorityLanes.length} priority lanes in view</span>
+        </div>
+        <form className="workspaceFiltersForm" method="GET">
+          <label className="workspaceFilterField">
+            <span>Focus lane</span>
+            <select defaultValue={focus} name="focus">
+              <option value="all">All areas</option>
+              <option value="people">People</option>
+              <option value="academics">Academics</option>
+              <option value="assessments">Assessments</option>
+            </select>
+          </label>
+          <label className="workspaceFilterField">
+            <span>Sort by</span>
+            <select defaultValue={sortOption} name="sort">
+              <option value="recommended">Recommended order</option>
+              <option value="highest_value">Highest value</option>
+              <option value="title">Title A-Z</option>
+            </select>
+          </label>
+          <div className="workspaceFilterActions">
+            <button className="button buttonPrimary" type="submit">
+              Apply filters
+            </button>
+            <Link className="button buttonSecondary" href="/institute/dashboard">
+              Reset filters
+            </Link>
+          </div>
+        </form>
+        <div className="workspaceFilterQuickRow">
+          <span className="workspaceFilterQuickLabel">Quick filters</span>
+          <div className="workspaceFilterQuickChips">
+            {[
+              { label: "All", href: buildInstituteDashboardHref({}), active: focus === "all" && sortOption === "recommended" },
+              { label: "People", href: buildInstituteDashboardHref({ focus: "people", sort: sortOption }), active: focus === "people" },
+              { label: "Academics", href: buildInstituteDashboardHref({ focus: "academics", sort: sortOption }), active: focus === "academics" },
+              { label: "Assessments", href: buildInstituteDashboardHref({ focus: "assessments", sort: sortOption }), active: focus === "assessments" },
+            ].map((chip) => (
+              <Link key={chip.label} className={`workspaceQuickChip${chip.active ? " workspaceQuickChipActive" : ""}`} href={chip.href}>
+                {chip.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+        <FilterSummaryPills
+          items={[
+            { label: "Focus", value: formatFilterValue(focus) },
+            { label: "Sort", value: formatFilterValue(sortOption) },
+          ]}
+        />
+      </section>
+
       <section className="adminWorkspaceGrid">
         <article className="dashboardPanel adminPriorityPanel">
           <div className="sectionHeading">
@@ -229,7 +281,7 @@ export default async function InstituteDashboardPage() {
             <span>Institute actions that should stay visible every day</span>
           </div>
           <div className="adminPriorityGrid">
-            {priorityLanes.map((lane) => (
+            {visiblePriorityLanes.map((lane) => (
               <div className="adminPriorityCard" key={lane.title}>
                 <div className="adminPriorityCardHeader">
                   <div>

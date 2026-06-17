@@ -332,7 +332,7 @@ async function loadParentLiveEntries(query: string): Promise<WorkspaceSearchEntr
 
   if (alertsResult.status === "fulfilled") {
     entries.push(
-      ...alertsResult.value
+      ...alertsResult.value.results
         .filter((alert) =>
           matchesQuery(query, [alert.title, alert.message, alert.student_name, alert.alert_type]),
         )

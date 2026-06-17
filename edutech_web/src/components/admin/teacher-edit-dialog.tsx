@@ -74,7 +74,7 @@ export function TeacherEditDialog({ row }: { row: TeacherRosterRow }) {
     setMessage("");
 
     try {
-      const response = await fetch(`/api/v1/teachers/${row.id}/`, {
+      const response = await fetch(`/api/admin/people/teachers/${row.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

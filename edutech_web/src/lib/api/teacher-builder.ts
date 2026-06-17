@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { PaginatedResponse, TeacherExam } from "@/features/dashboard/types";
 import { getSessionAccessToken } from "@/lib/auth/session";
 
@@ -194,7 +195,37 @@ export type TeacherQuestion = {
   updated_at: string;
 };
 
-export type TeacherQuestionPage = PaginatedResponse<TeacherQuestion>;
+export type TeacherQuestionSummary = {
+  id: string;
+  institute: string;
+  program: string | null;
+  subject: string | null;
+  topic: string | null;
+  question_type: string;
+  difficulty_level: string;
+  content_format: string;
+  question_text: string;
+  explanation: string;
+  default_marks: string;
+  negative_marks: string;
+  is_active: boolean;
+  is_verified: boolean;
+  metadata: Record<string, unknown>;
+  usage_count: number;
+  correct_count: number;
+  wrong_count: number;
+  skipped_count: number;
+  option_count: number;
+  correct_option_count: number;
+  attachment_count: number;
+  tag_count: number;
+  has_explanation: boolean;
+  wrong_attempt_percentage: string;
+  skip_percentage: string;
+  is_quality_ready: boolean;
+};
+
+export type TeacherQuestionPage = PaginatedResponse<TeacherQuestionSummary>;
 
 export type QuestionTagLite = {
   id: string;
@@ -237,19 +268,15 @@ function getTeacherBuilderApiState(): TeacherBuilderApiState {
   };
 }
 
-async function requestTeacherBuilderJson<T>(
+async function performTeacherBuilderRequest<T>(
   path: string,
+  accessToken: string,
   init?: RequestInit,
 ): Promise<T> {
   const state = getTeacherBuilderApiState();
 
   if (!state.apiConfigured) {
     throw new Error("Teacher builder API is not configured.");
-  }
-
-  const accessToken = await getSessionAccessToken();
-  if (!accessToken) {
-    throw new Error("Teacher session is not available.");
   }
 
   const isFormDataBody =
@@ -305,6 +332,29 @@ async function requestTeacherBuilderJson<T>(
   }
 
   return (await response.json()) as T;
+}
+
+const requestTeacherBuilderJsonCached = cache(async <T>(path: string, accessToken: string) => {
+  return performTeacherBuilderRequest<T>(path, accessToken);
+});
+
+async function requestTeacherBuilderJson<T>(
+  path: string,
+  init?: RequestInit,
+): Promise<T> {
+  const accessToken = await getSessionAccessToken();
+  if (!accessToken) {
+    throw new Error("Teacher session is not available.");
+  }
+
+  const method = init?.method ?? "GET";
+  const shouldUseCachedRead = method === "GET" && !init?.body && !init?.headers;
+
+  if (shouldUseCachedRead) {
+    return requestTeacherBuilderJsonCached<T>(path, accessToken);
+  }
+
+  return performTeacherBuilderRequest<T>(path, accessToken, init);
 }
 
 function toQueryString(values: Record<string, string | number | boolean | null | undefined>) {
@@ -423,6 +473,7 @@ export async function fetchTeacherQuestions(filters?: {
 }) {
   const response = await requestTeacherBuilderJson<PaginatedResponse<LookupQuestion>>(
     `/api/v1/question-bank/questions/${toQueryString({
+      compact: true,
       is_active: true,
       program: filters?.program,
       subject: filters?.subject,
@@ -446,6 +497,7 @@ export async function fetchTeacherQuestionPage(filters?: {
 }) {
   return requestTeacherBuilderJson<TeacherQuestionPage>(
     `/api/v1/question-bank/questions/${toQueryString({
+      compact: true,
       page: filters?.page,
       page_size: filters?.page_size,
       search: filters?.search,

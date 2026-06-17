@@ -1,4 +1,6 @@
+import { cache } from "react";
 import { getSessionAccessToken } from "@/lib/auth/session";
+import type { PaginatedResponse } from "@/features/dashboard/types";
 
 const API_BASE_URL = (
   process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? ""
@@ -154,6 +156,31 @@ export type ParentAlert = {
   is_active: boolean;
 };
 
+export type ParentAlertListResponse = PaginatedResponse<ParentAlert> & {
+  summary: {
+    total: number;
+    unread: number;
+    read: number;
+    resolved: number;
+    dismissed: number;
+    high: number;
+    warning: number;
+    info: number;
+  };
+  available_alert_types: Array<{
+    alert_type: string;
+    count: number;
+  }>;
+  applied_filters: {
+    child_id: string | null;
+    status: string;
+    severity: string;
+    alert_type: string;
+    ordering: string;
+    search: string;
+  };
+};
+
 export type ParentPreferences = {
   score_drops: boolean;
   inactivity: boolean;
@@ -170,16 +197,15 @@ export function getParentApiState(): ParentApiState {
   };
 }
 
-async function requestParentJson<T>(path: string, init?: RequestInit): Promise<T> {
+async function performParentRequest<T>(
+  path: string,
+  accessToken: string,
+  init?: RequestInit,
+): Promise<T> {
   const state = getParentApiState();
 
   if (!state.apiConfigured) {
     throw new Error("Parent API is not configured.");
-  }
-
-  const accessToken = await getSessionAccessToken();
-  if (!accessToken) {
-    throw new Error("Parent session is not available.");
   }
 
   const response = await fetch(`${state.apiBaseUrl}${path}`, {
@@ -227,6 +253,26 @@ async function requestParentJson<T>(path: string, init?: RequestInit): Promise<T
   return (await response.json()) as T;
 }
 
+const requestParentJsonCached = cache(async <T>(path: string, accessToken: string) => {
+  return performParentRequest<T>(path, accessToken);
+});
+
+async function requestParentJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const accessToken = await getSessionAccessToken();
+  if (!accessToken) {
+    throw new Error("Parent session is not available.");
+  }
+
+  const method = init?.method ?? "GET";
+  const shouldUseCachedRead = method === "GET" && !init?.body && !init?.headers;
+
+  if (shouldUseCachedRead) {
+    return requestParentJsonCached<T>(path, accessToken);
+  }
+
+  return performParentRequest<T>(path, accessToken, init);
+}
+
 export async function fetchParentChildren() {
   return requestParentJson<ParentChildRecord[]>("/api/v1/parent/children/");
 }
@@ -245,9 +291,29 @@ export async function fetchParentProgress(childId?: string) {
   return requestParentJson<ParentProgressSummary>(`/api/v1/parent/progress/${query}`);
 }
 
-export async function fetchParentAlerts(childId?: string) {
-  const query = childId ? `?child_id=${encodeURIComponent(childId)}` : "";
-  return requestParentJson<ParentAlert[]>(`/api/v1/parent/alerts/${query}`);
+export async function fetchParentAlerts(filters?: {
+  childId?: string;
+  status?: string;
+  severity?: string;
+  alertType?: string;
+  ordering?: string;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}) {
+  const params = new URLSearchParams();
+
+  if (filters?.childId) params.set("child_id", filters.childId);
+  if (filters?.status && filters.status !== "all") params.set("status", filters.status);
+  if (filters?.severity && filters.severity !== "all") params.set("severity", filters.severity);
+  if (filters?.alertType && filters.alertType !== "all") params.set("alert_type", filters.alertType);
+  if (filters?.ordering && filters.ordering !== "latest") params.set("ordering", filters.ordering);
+  if (filters?.search?.trim()) params.set("search", filters.search.trim());
+  if (filters?.page && filters.page > 1) params.set("page", String(filters.page));
+  if (filters?.pageSize) params.set("page_size", String(filters.pageSize));
+
+  const query = params.toString();
+  return requestParentJson<ParentAlertListResponse>(`/api/v1/parent/alerts/${query ? `?${query}` : ""}`);
 }
 
 export async function fetchParentPreferences() {

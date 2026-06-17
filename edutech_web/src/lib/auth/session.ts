@@ -2,6 +2,7 @@ import "server-only";
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 
 const API_BASE_URL = (
   process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? ""
@@ -115,6 +116,11 @@ export type PortalRole =
   | "platform_admin"
   | "institute_admin"
   | "parent";
+
+export type AuthenticatedSession = {
+  accessToken: string;
+  profile: AccountProfile;
+};
 
 type LoginResponse = {
   refresh: string;
@@ -379,6 +385,13 @@ export function isSupportedPortalRole(role: string): role is PortalRole {
   );
 }
 
+export function hasRequiredRole(
+  profile: Pick<AccountProfile, "role">,
+  allowedRoles: readonly string[],
+) {
+  return allowedRoles.includes(profile.role);
+}
+
 export function getPortalHomePath(role: string) {
   switch (role) {
     case "teacher":
@@ -446,7 +459,9 @@ async function refreshAccessToken(refresh: string) {
   return payload.access;
 }
 
-export async function getSessionAccessToken() {
+const refreshRequests = new Map<string, Promise<string>>();
+
+const readSessionAccessToken = cache(async () => {
   const cookieStore = await cookies();
   const access = cookieStore.get(ACCESS_COOKIE)?.value ?? "";
   const refresh = cookieStore.get(REFRESH_COOKIE)?.value ?? "";
@@ -460,29 +475,54 @@ export async function getSessionAccessToken() {
   }
 
   try {
-    return await refreshAccessToken(refresh);
+    const inFlightRefresh =
+      refreshRequests.get(refresh) ??
+      refreshAccessToken(refresh).finally(() => {
+        refreshRequests.delete(refresh);
+      });
+
+    refreshRequests.set(refresh, inFlightRefresh);
+    return await inFlightRefresh;
   } catch {
     await clearSessionCookies();
     return "";
   }
+});
+
+export async function getSessionAccessToken() {
+  return readSessionAccessToken();
 }
 
-export async function fetchCurrentAccountProfile() {
+const readAuthenticatedSession = cache(async (): Promise<AuthenticatedSession | null> => {
   const accessToken = await getSessionAccessToken();
   if (!accessToken) {
     return null;
   }
 
   try {
-    return await requestAuthJson<AccountProfile>("/api/v1/auth/me/", {
+    const profile = await requestAuthJson<AccountProfile>("/api/v1/auth/me/", {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
     });
+
+    return {
+      accessToken,
+      profile,
+    };
   } catch {
     await clearSessionCookies();
     return null;
   }
+});
+
+export async function getAuthenticatedSession(): Promise<AuthenticatedSession | null> {
+  return readAuthenticatedSession();
+}
+
+export async function fetchCurrentAccountProfile() {
+  const session = await getAuthenticatedSession();
+  return session?.profile ?? null;
 }
 
 export async function requireStudentSession() {

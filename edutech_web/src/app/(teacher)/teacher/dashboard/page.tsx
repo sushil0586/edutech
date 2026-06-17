@@ -1,14 +1,43 @@
 import Link from "next/link";
+import { FilterSummaryPills } from "@/components/ui/filter-summary-pills";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { TeacherPageHeader } from "@/components/ui/teacher-page-header";
 import {
-  fetchTeacherExams,
   fetchTeacherInsightSummary,
   getTeacherApiState,
 } from "@/lib/api/teacher";
+import { buildFilterHref, formatFilterValue, resolveFilterValue } from "@/lib/workspace/filter-utils";
+
+type TeacherDashboardLane = "all" | "delivery" | "weak_topics" | "students" | "questions";
+type TeacherDashboardSortOption =
+  | "recommended"
+  | "score_low"
+  | "score_high"
+  | "attempts_high"
+  | "wrong_high";
 
 function percentage(value: string) {
   return `${Math.round(Number(value))}%`;
+}
+
+function resolveDashboardLane(value?: string): TeacherDashboardLane {
+  return resolveFilterValue(value, ["delivery", "weak_topics", "students", "questions"], "all");
+}
+
+function resolveDashboardSortOption(value?: string): TeacherDashboardSortOption {
+  return resolveFilterValue(value, ["score_low", "score_high", "attempts_high", "wrong_high"], "recommended");
+}
+
+function buildTeacherDashboardHref(args: {
+  lane?: TeacherDashboardLane;
+  sort?: TeacherDashboardSortOption;
+  subject?: string;
+}) {
+  return buildFilterHref("/teacher/dashboard", [
+    ["lane", args.lane, "all"],
+    ["sort", args.sort, "recommended"],
+    ["subject", args.subject, "all"],
+  ]);
 }
 
 function formatDuration(seconds: number) {
@@ -26,33 +55,97 @@ async function loadTeacherDashboard() {
   if (!state.apiConfigured) {
     return {
       source: "unconfigured" as const,
-      exams: [],
       summary: null,
     };
   }
 
   try {
-    const [summary, exams] = await Promise.all([
-      fetchTeacherInsightSummary(),
-      fetchTeacherExams(),
-    ]);
+    const summary = await fetchTeacherInsightSummary();
 
     return {
       source: "live" as const,
-      exams,
       summary,
     };
   } catch {
     return {
       source: "error" as const,
-      exams: [],
       summary: null,
     };
   }
 }
 
-export default async function TeacherDashboardPage() {
-  const { source, exams, summary } = await loadTeacherDashboard();
+export default async function TeacherDashboardPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ lane?: string; sort?: string; subject?: string }>;
+}) {
+  const params = (await searchParams) ?? {};
+  const { source, summary } = await loadTeacherDashboard();
+  const lane = resolveDashboardLane(params.lane);
+  const sortOption = resolveDashboardSortOption(params.sort);
+  const subjectFilter = params.subject?.trim() || "all";
+  const weakTopicSubjects = Array.from(
+    new Set((summary?.weak_topics ?? []).map((topic) => topic.subject_name).filter(Boolean)),
+  ).sort((left, right) => left.localeCompare(right));
+
+  const visibleExamOverview = [...(summary?.exam_overview ?? [])].sort((left, right) => {
+    switch (sortOption) {
+      case "score_low":
+        return Number(left.average_percentage) - Number(right.average_percentage);
+      case "score_high":
+        return Number(right.average_percentage) - Number(left.average_percentage);
+      case "attempts_high":
+      case "wrong_high":
+        return right.total_attempted - left.total_attempted;
+      case "recommended":
+      default:
+        return Number(right.average_percentage) - Number(left.average_percentage);
+    }
+  });
+
+  const visibleWeakTopics = (summary?.weak_topics ?? [])
+    .filter((topic) => (subjectFilter === "all" ? true : topic.subject_name === subjectFilter))
+    .sort((left, right) => {
+      switch (sortOption) {
+        case "attempts_high":
+        case "wrong_high":
+          return right.attempted_questions - left.attempted_questions;
+        case "score_high":
+          return Number(right.average_percentage) - Number(left.average_percentage);
+        case "score_low":
+        case "recommended":
+        default:
+          return Number(left.average_percentage) - Number(right.average_percentage);
+      }
+    });
+
+  const visibleHighPerformers = [...(summary?.high_performing_students ?? [])].sort((left, right) => {
+    switch (sortOption) {
+      case "score_low":
+        return Number(left.average_percentage) - Number(right.average_percentage);
+      case "attempts_high":
+      case "wrong_high":
+      case "score_high":
+      case "recommended":
+      default:
+        return Number(right.average_percentage) - Number(left.average_percentage);
+    }
+  });
+
+  const visibleWrongQuestions = [...(summary?.most_wrong_questions ?? [])]
+    .filter((question) => (subjectFilter === "all" ? true : (question.subject_name ?? "Unknown subject") === subjectFilter))
+    .sort((left, right) => {
+      switch (sortOption) {
+        case "score_low":
+        case "score_high":
+        case "attempts_high":
+          return right.total_attempts - left.total_attempts;
+        case "wrong_high":
+        case "recommended":
+        default:
+          return right.wrong_count - left.wrong_count;
+      }
+    });
 
   return (
     <div className="studentPage studentDashboardModern">
@@ -61,7 +154,7 @@ export default async function TeacherDashboardPage() {
         description="Track the current exam pipeline, student attempt activity, and weak learning signals from your scoped backend data."
         statusLabel={
           source === "live"
-            ? `${exams.length} exams in scope`
+            ? `${summary?.overview.tracked_exams ?? 0} exams in scope`
             : source === "unconfigured"
               ? "Backend not configured"
               : "Unable to load teacher data"
@@ -141,6 +234,84 @@ export default async function TeacherDashboardPage() {
             </article>
           </section>
 
+          <section className="contentCard workspaceFiltersCard">
+            <div className="sectionHeading">
+              <strong>Dashboard Controls</strong>
+              <span>
+                {visibleExamOverview.length} exam summaries · {visibleWeakTopics.length} weak topics
+              </span>
+            </div>
+            <form className="workspaceFiltersForm" method="GET">
+              <label className="workspaceFilterField">
+                <span>Focus lane</span>
+                <select defaultValue={lane} name="lane">
+                  <option value="all">All lanes</option>
+                  <option value="delivery">Delivery</option>
+                  <option value="weak_topics">Weak topics</option>
+                  <option value="students">Students</option>
+                  <option value="questions">Questions</option>
+                </select>
+              </label>
+              <label className="workspaceFilterField">
+                <span>Subject</span>
+                <select defaultValue={subjectFilter} name="subject">
+                  <option value="all">All subjects</option>
+                  {weakTopicSubjects.map((subject) => (
+                    <option key={subject} value={subject}>
+                      {subject}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="workspaceFilterField">
+                <span>Sort by</span>
+                <select defaultValue={sortOption} name="sort">
+                  <option value="recommended">Recommended order</option>
+                  <option value="score_low">Lowest score first</option>
+                  <option value="score_high">Highest score first</option>
+                  <option value="attempts_high">Most attempts</option>
+                  <option value="wrong_high">Most wrong signals</option>
+                </select>
+              </label>
+              <div className="workspaceFilterActions">
+                <button className="button buttonPrimary" type="submit">
+                  Apply filters
+                </button>
+                <Link className="button buttonSecondary" href="/teacher/dashboard">
+                  Reset filters
+                </Link>
+              </div>
+            </form>
+            <div className="workspaceFilterQuickRow">
+              <span className="workspaceFilterQuickLabel">Quick filters</span>
+              <div className="workspaceFilterQuickChips">
+                {[
+                  { label: "All", href: buildTeacherDashboardHref({}), active: lane === "all" && sortOption === "recommended" && subjectFilter === "all" },
+                  { label: "Delivery Risk", href: buildTeacherDashboardHref({ lane: "delivery", sort: "attempts_high", subject: subjectFilter }), active: lane === "delivery" && sortOption === "attempts_high" },
+                  { label: "Weakest Topics", href: buildTeacherDashboardHref({ lane: "weak_topics", sort: "score_low", subject: subjectFilter }), active: lane === "weak_topics" && sortOption === "score_low" },
+                  { label: "Top Students", href: buildTeacherDashboardHref({ lane: "students", sort: "score_high", subject: subjectFilter }), active: lane === "students" && sortOption === "score_high" },
+                  { label: "Wrong Questions", href: buildTeacherDashboardHref({ lane: "questions", sort: "wrong_high", subject: subjectFilter }), active: lane === "questions" && sortOption === "wrong_high" },
+                ].map((chip) => (
+                  <Link
+                    key={chip.label}
+                    className={`workspaceQuickChip${chip.active ? " workspaceQuickChipActive" : ""}`}
+                    href={chip.href}
+                  >
+                    {chip.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+            <FilterSummaryPills
+              items={[
+                { label: "Lane", value: formatFilterValue(lane) },
+                { label: "Subject", value: subjectFilter },
+                { label: "Sort", value: formatFilterValue(sortOption) },
+              ]}
+            />
+          </section>
+
+          {lane === "all" || lane === "delivery" || lane === "weak_topics" ? (
           <section className="dashboardGrid">
             <article className="dashboardPanel">
               <div className="sectionHeading">
@@ -148,8 +319,8 @@ export default async function TeacherDashboardPage() {
                 <Link href="/teacher/exams">Open exams</Link>
               </div>
               <div className="weakTopicStack">
-                {summary.exam_overview.length ? (
-                  summary.exam_overview.map((exam) => (
+                {visibleExamOverview.length ? (
+                  visibleExamOverview.map((exam) => (
                     <div className="weakTopicRow" key={exam.exam_id}>
                       <div>
                         <strong>{exam.exam_title}</strong>
@@ -170,11 +341,11 @@ export default async function TeacherDashboardPage() {
             <article className="dashboardPanel weakTopicsPanel">
               <div className="sectionHeading">
                 <strong>Weak Topics Across Learners</strong>
-                <span>{summary.weak_topics.length} tracked</span>
+                <span>{visibleWeakTopics.length} tracked</span>
               </div>
               <div className="weakTopicStack">
-                {summary.weak_topics.length ? (
-                  summary.weak_topics.map((topic) => (
+                {visibleWeakTopics.length ? (
+                  visibleWeakTopics.map((topic) => (
                     <div className="weakTopicRow" key={`${topic.subject_name}-${topic.topic_name ?? "none"}`}>
                       <div>
                         <strong>{topic.topic_name ?? "Untagged topic"}</strong>
@@ -192,16 +363,18 @@ export default async function TeacherDashboardPage() {
               </div>
             </article>
           </section>
+          ) : null}
 
+          {lane === "all" || lane === "students" || lane === "questions" ? (
           <section className="dashboardLowerGrid">
             <article className="dashboardPanel weakTopicsPanel">
               <div className="sectionHeading">
                 <strong>Top Performing Students</strong>
-                <span>{summary.high_performing_students.length} ranked</span>
+                <span>{visibleHighPerformers.length} ranked</span>
               </div>
               <div className="weakTopicStack">
-                {summary.high_performing_students.length ? (
-                  summary.high_performing_students.map((student) => (
+                {visibleHighPerformers.length ? (
+                  visibleHighPerformers.map((student) => (
                     <div className="weakTopicRow" key={student.student_id}>
                       <div>
                         <strong>{student.student_name}</strong>
@@ -222,11 +395,11 @@ export default async function TeacherDashboardPage() {
             <article className="dashboardPanel weakTopicsPanel">
               <div className="sectionHeading">
                 <strong>Most Wrong Questions</strong>
-                <span>{summary.most_wrong_questions.length} tracked</span>
+                <span>{visibleWrongQuestions.length} tracked</span>
               </div>
               <div className="weakTopicStack">
-                {summary.most_wrong_questions.length ? (
-                  summary.most_wrong_questions.map((question) => (
+                {visibleWrongQuestions.length ? (
+                  visibleWrongQuestions.map((question) => (
                     <div className="weakTopicRow" key={question.question_id}>
                       <div>
                         <strong>{question.question_text_summary}</strong>
@@ -247,6 +420,7 @@ export default async function TeacherDashboardPage() {
               </div>
             </article>
           </section>
+          ) : null}
         </>
       )}
     </div>

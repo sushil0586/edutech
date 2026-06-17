@@ -409,20 +409,15 @@ export default async function AnalyticsPage({
           <section className="analyticsLandingHero">
             <div className="studentInsightHeroCard studentInsightHeroCardWarm analyticsLandingHeroMain">
               <div className="studentInsightHeroCopy analyticsLandingHeroCopy">
-                <span className="studentDashboardTag studentDashboardTagWarm">
-                  Analytics Focus
-                </span>
-                <strong>
-                  {topWeakTopic?.topic_name ?? "Turn analytics into action"}
-                </strong>
-                <p>
-                  {topWeakTopic
-                    ? `Your lowest-performing tracked topic right now is ${topWeakTopic.topic_name ?? "untagged topic"} in ${topWeakTopic.subject_name}.`
-                    : "Your analytics are live. Use them to choose the next practice run and validate improvement through scored exams."}
-                </p>
-                <small>
-                  Trend: {trendDirectionLabel(scopedSummary.improvement_trend.direction)} ·{" "}
-                  {signedPercentageLabel(scopedSummary.improvement_trend.change_percentage)}
+              <span className="studentDashboardTag studentDashboardTagWarm">
+                Analytics Focus
+              </span>
+              <strong>
+                {topWeakTopic?.topic_name ?? "Turn analytics into action"}
+              </strong>
+              <small>
+                Trend: {trendDirectionLabel(scopedSummary.improvement_trend.direction)} ·{" "}
+                {signedPercentageLabel(scopedSummary.improvement_trend.change_percentage)}
                   {dominantSource
                     ? ` · Most published activity from ${sourceDescriptor(dominantSource)}`
                     : ""}

@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { getSessionAccessToken } from "@/lib/auth/session";
 
 const API_BASE_URL = (
@@ -16,19 +17,15 @@ function getPortalApiState(): PortalApiState {
   };
 }
 
-async function requestPortalJson<T>(
+async function performPortalRequest<T>(
   path: string,
+  accessToken: string,
   init?: RequestInit,
 ): Promise<T> {
   const state = getPortalApiState();
 
   if (!state.apiConfigured) {
     throw new Error("Portal API is not configured.");
-  }
-
-  const accessToken = await getSessionAccessToken();
-  if (!accessToken) {
-    throw new Error("Portal session is not available.");
   }
 
   const response = await fetch(`${state.apiBaseUrl}${path}`, {
@@ -79,6 +76,29 @@ async function requestPortalJson<T>(
   return (await response.json()) as T;
 }
 
+const requestPortalJsonCached = cache(async <T>(path: string, accessToken: string) => {
+  return performPortalRequest<T>(path, accessToken);
+});
+
+async function requestPortalJson<T>(
+  path: string,
+  init?: RequestInit,
+): Promise<T> {
+  const accessToken = await getSessionAccessToken();
+  if (!accessToken) {
+    throw new Error("Portal session is not available.");
+  }
+
+  const method = init?.method ?? "GET";
+  const shouldUseCachedRead = method === "GET" && !init?.body && !init?.headers;
+
+  if (shouldUseCachedRead) {
+    return requestPortalJsonCached<T>(path, accessToken);
+  }
+
+  return performPortalRequest<T>(path, accessToken, init);
+}
+
 export async function fetchPortalCount(path: string) {
   const payload = await requestPortalJson<unknown>(path);
 
@@ -100,6 +120,37 @@ export async function fetchPortalCount(path: string) {
 
 export async function fetchPortalRecord<T>(path: string) {
   return requestPortalJson<T>(path);
+}
+
+export type InstituteDashboardSummary = {
+  institute: {
+    id: string;
+    name: string;
+    code: string;
+    is_active: boolean;
+    exam_default_count: number;
+  };
+  counts: {
+    academic_years: number;
+    programs: number;
+    cohorts: number;
+    subjects: number;
+    topics: number;
+    students: number;
+    teachers: number;
+    exams: number;
+    results: number;
+  };
+  derived: {
+    people_count: number;
+    academic_structure_count: number;
+    active_coverage_signals: number;
+    readiness_score: number;
+  };
+};
+
+export async function fetchInstituteDashboardSummary() {
+  return requestPortalJson<InstituteDashboardSummary>("/api/v1/institute/dashboard/summary/");
 }
 
 export async function fetchPortalList<T>(path: string) {

@@ -2,6 +2,7 @@ from django.urls import path
 
 from apps.parents.views import (
     ParentAlertStatusView,
+    ParentAlertsMarkAllReadView,
     ParentAlertsView,
     ParentChildDetailView,
     ParentChildrenListView,
@@ -19,6 +20,7 @@ urlpatterns = [
     path("dashboard/summary/", ParentDashboardSummaryView.as_view(), name="dashboard-summary"),
     path("progress/", ParentProgressView.as_view(), name="progress"),
     path("alerts/", ParentAlertsView.as_view(), name="alerts"),
+    path("alerts/mark-all-read/", ParentAlertsMarkAllReadView.as_view(), name="alerts-mark-all-read"),
     path("alerts/<uuid:alert_id>/status/", ParentAlertStatusView.as_view(), name="alert-status"),
     path("preferences/", ParentPreferencesView.as_view(), name="preferences"),
 ]

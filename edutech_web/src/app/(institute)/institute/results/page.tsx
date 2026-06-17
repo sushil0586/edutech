@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect, unstable_rethrow } from "next/navigation";
+import { FilterSummaryPills } from "@/components/ui/filter-summary-pills";
 import { LiveMonitorRefresh } from "@/components/ui/live-monitor-refresh";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { InstitutePageHeader } from "@/components/ui/institute-page-header";
@@ -8,8 +9,8 @@ import {
   createTeacherAttemptInterventionNote,
   calculateTeacherExamRanks,
   fetchTeacherAttemptInterventions,
+  fetchTeacherExamAttemptPage,
   fetchTeacherExams,
-  fetchTeacherExamAttempts,
   fetchTeacherExamLeaderboard,
   fetchTeacherLiveExamMonitor,
   fetchTeacherQuestionAnalysis,
@@ -21,6 +22,32 @@ import {
   runTeacherExamAction,
 } from "@/lib/api/teacher";
 import { requireInstituteAdminSession } from "@/lib/auth/session";
+import { buildFilterHref, formatFilterValue } from "@/lib/workspace/filter-utils";
+import {
+  type AttemptHealth,
+  attemptHealth,
+  attemptHealthLabel as healthLabel,
+  attemptHealthPriorityScore as healthPriorityScore,
+  attemptHealthReason as healthReason,
+  attemptHealthTone as healthTone,
+  latestIntegrityLabel,
+} from "@/lib/workspace/attempt-risk";
+
+type InstituteResultsExamCard = Awaited<ReturnType<typeof fetchTeacherExams>>[number];
+type InstituteAttempt = Awaited<ReturnType<typeof fetchTeacherExamAttemptPage>>["results"][number];
+type InstituteResultExamFilter = "all" | "published" | "ready" | "live" | "draft";
+type InstituteResultExamSort = "latest" | "attempts" | "average" | "title";
+type InstituteResultExamGroup = "none" | "publication" | "status";
+type InstituteAttemptReviewFilter =
+  | "all"
+  | "low_performers"
+  | "skipped_heavy"
+  | "critical"
+  | "watch"
+  | "in_progress"
+  | "auto_submitted";
+type InstituteAttemptSort = "latest" | "score_low" | "warnings_high" | "time_long";
+type InstituteAttemptGroup = "none" | "health" | "status";
 
 function readSingle(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] ?? "" : value ?? "";
@@ -65,109 +92,10 @@ function formatDuration(totalSeconds: number | null) {
   return `${seconds}s`;
 }
 
-function latestIntegrityLabel(eventType: string | null | undefined) {
-  if (!eventType) {
-    return "No integrity events";
-  }
-  return eventType.replaceAll("_", " ");
-}
-
 function attemptTone(alertSeverity: string | undefined) {
   if (alertSeverity === "high") return "statusWarning";
   if (alertSeverity === "medium") return "statusDemo";
   return "statusLive";
-}
-
-type AttemptHealth = "critical" | "watch" | "stable";
-
-function attemptHealth(attempt: {
-  status: string;
-  is_auto_submitted: boolean;
-  integrity_summary: {
-    threshold_reached: boolean;
-    violation_count: number;
-  };
-  alerts: Array<{ severity: string }>;
-}) {
-  if (
-    attempt.is_auto_submitted ||
-    attempt.integrity_summary.threshold_reached ||
-    attempt.alerts.some((alert) => alert.severity === "high")
-  ) {
-    return "critical" as const;
-  }
-
-  if (
-    attempt.integrity_summary.violation_count > 0 ||
-    attempt.alerts.some((alert) => alert.severity === "medium") ||
-    attempt.status === "in_progress"
-  ) {
-    return "watch" as const;
-  }
-
-  return "stable" as const;
-}
-
-function healthLabel(health: AttemptHealth) {
-  if (health === "critical") return "Intervene now";
-  if (health === "watch") return "Watch closely";
-  return "Stable";
-}
-
-function healthTone(health: AttemptHealth) {
-  if (health === "critical") return "statusWarning";
-  if (health === "watch") return "statusDemo";
-  return "statusLive";
-}
-
-function healthReason(attempt: {
-  status: string;
-  is_auto_submitted: boolean;
-  integrity_summary: {
-    threshold_reached: boolean;
-    violation_count: number;
-    latest_event: { event_type?: string | null } | null;
-  };
-  alerts: Array<{ severity: string; label: string }>;
-}) {
-  if (attempt.is_auto_submitted) {
-    return "Attempt was auto-submitted after enforcement.";
-  }
-  if (attempt.integrity_summary.threshold_reached) {
-    return "Integrity threshold has been reached.";
-  }
-  const highAlert = attempt.alerts.find((alert) => alert.severity === "high");
-  if (highAlert) {
-    return highAlert.label;
-  }
-  if (attempt.integrity_summary.violation_count > 0) {
-    return `Warnings recorded: ${attempt.integrity_summary.violation_count}. Latest: ${latestIntegrityLabel(
-      attempt.integrity_summary.latest_event?.event_type,
-    )}.`;
-  }
-  if (attempt.status === "in_progress") {
-    return "Attempt is still in progress and should remain visible.";
-  }
-  return "No active risk signals returned from monitoring.";
-}
-
-function healthPriorityScore(attempt: {
-  status: string;
-  is_auto_submitted: boolean;
-  integrity_summary: {
-    threshold_reached: boolean;
-    violation_count: number;
-  };
-  alerts: Array<{ severity: string }>;
-}) {
-  let score = 0;
-  if (attempt.is_auto_submitted) score += 100;
-  if (attempt.integrity_summary.threshold_reached) score += 80;
-  if (attempt.alerts.some((alert) => alert.severity === "high")) score += 60;
-  if (attempt.alerts.some((alert) => alert.severity === "medium")) score += 30;
-  score += Math.min(attempt.integrity_summary.violation_count, 10) * 5;
-  if (attempt.status === "in_progress") score += 10;
-  return score;
 }
 
 function recommendedInstituteAction(attempt: {
@@ -318,6 +246,252 @@ function examPublicationState(summary: TeacherResultSummary | null) {
     label: "Summary ready",
     tone: "statusDemo",
   };
+}
+
+function resolveInstituteResultExamFilter(value?: string): InstituteResultExamFilter {
+  switch (value) {
+    case "published":
+    case "ready":
+    case "live":
+    case "draft":
+      return value;
+    default:
+      return "all";
+  }
+}
+
+function resolveInstituteResultExamSort(value?: string): InstituteResultExamSort {
+  switch (value) {
+    case "attempts":
+    case "average":
+    case "title":
+      return value;
+    default:
+      return "latest";
+  }
+}
+
+function resolveInstituteResultExamGroup(value?: string): InstituteResultExamGroup {
+  switch (value) {
+    case "publication":
+    case "status":
+      return value;
+    default:
+      return "none";
+  }
+}
+
+function resolveInstituteAttemptReviewFilter(value?: string): InstituteAttemptReviewFilter {
+  switch (value) {
+    case "low_performers":
+    case "skipped_heavy":
+    case "critical":
+    case "watch":
+    case "in_progress":
+    case "auto_submitted":
+      return value;
+    default:
+      return "all";
+  }
+}
+
+function resolveInstituteAttemptSort(value?: string): InstituteAttemptSort {
+  switch (value) {
+    case "score_low":
+    case "warnings_high":
+    case "time_long":
+      return value;
+    default:
+      return "latest";
+  }
+}
+
+function resolveInstituteAttemptGroup(value?: string): InstituteAttemptGroup {
+  switch (value) {
+    case "health":
+    case "status":
+      return value;
+    default:
+      return "none";
+  }
+}
+
+function parsePositiveInt(value: string | undefined, fallback: number) {
+  const parsed = Number.parseInt(value ?? "", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function buildInstituteResultsHref(args: {
+  examId?: string;
+  attemptId?: string | null;
+  attemptFilter?: InstituteAttemptReviewFilter;
+  attemptSort?: InstituteAttemptSort;
+  attemptGroup?: InstituteAttemptGroup;
+  attemptPage?: number;
+  attemptPageSize?: number;
+  questionFilter?: string;
+  examListFilter?: InstituteResultExamFilter;
+  examListSort?: InstituteResultExamSort;
+  examListGroup?: InstituteResultExamGroup;
+  examPage?: number;
+  examPageSize?: number;
+  leaderboardPage?: number;
+  leaderboardPageSize?: number;
+  topicPage?: number;
+  topicPageSize?: number;
+  questionPage?: number;
+  questionPageSize?: number;
+  error?: string;
+  message?: string;
+}) {
+  return buildFilterHref("/institute/results", [
+    ["exam", args.examId],
+    ["attempt", args.attemptId ?? undefined],
+    ["attempt_filter", args.attemptFilter, "all"],
+    ["attempt_sort", args.attemptSort, "latest"],
+    ["attempt_group", args.attemptGroup, "none"],
+    ["attempt_page", args.attemptPage ? String(args.attemptPage) : undefined, "1"],
+    ["attempt_page_size", args.attemptPageSize ? String(args.attemptPageSize) : undefined, "12"],
+    ["question_filter", args.questionFilter, "all"],
+    ["exam_list_filter", args.examListFilter, "all"],
+    ["exam_list_sort", args.examListSort, "latest"],
+    ["exam_list_group", args.examListGroup, "none"],
+    ["exam_page", args.examPage ? String(args.examPage) : undefined, "1"],
+    ["exam_page_size", args.examPageSize ? String(args.examPageSize) : undefined, "10"],
+    ["leaderboard_page", args.leaderboardPage ? String(args.leaderboardPage) : undefined, "1"],
+    ["leaderboard_page_size", args.leaderboardPageSize ? String(args.leaderboardPageSize) : undefined, "6"],
+    ["topic_page", args.topicPage ? String(args.topicPage) : undefined, "1"],
+    ["topic_page_size", args.topicPageSize ? String(args.topicPageSize) : undefined, "6"],
+    ["question_page", args.questionPage ? String(args.questionPage) : undefined, "1"],
+    ["question_page_size", args.questionPageSize ? String(args.questionPageSize) : undefined, "6"],
+    ["error", args.error],
+    ["message", args.message],
+  ]);
+}
+
+function filterInstituteResultExamCards(
+  cards: Array<{ exam: InstituteResultsExamCard; summary: TeacherResultSummary | null }>,
+  filter: InstituteResultExamFilter,
+) {
+  return cards.filter(({ exam, summary }) => {
+    switch (filter) {
+      case "published":
+        return Boolean(summary?.results_published);
+      case "ready":
+        return Boolean(summary) && summary?.results_published !== true;
+      case "live":
+        return exam.status === "live";
+      case "draft":
+        return exam.status === "draft";
+      default:
+        return true;
+    }
+  });
+}
+
+function sortInstituteResultExamCards(
+  cards: Array<{ exam: InstituteResultsExamCard; summary: TeacherResultSummary | null }>,
+  sortBy: InstituteResultExamSort,
+) {
+  const sortable = [...cards];
+  sortable.sort((left, right) => {
+    switch (sortBy) {
+      case "attempts":
+        return (right.summary?.total_attempted ?? 0) - (left.summary?.total_attempted ?? 0);
+      case "average":
+        return Number(right.summary?.average_percentage ?? 0) - Number(left.summary?.average_percentage ?? 0);
+      case "title":
+        return left.exam.title.localeCompare(right.exam.title);
+      case "latest":
+      default: {
+        const leftTime = Date.parse(left.summary?.last_calculated_at ?? left.exam.updated_at);
+        const rightTime = Date.parse(right.summary?.last_calculated_at ?? right.exam.updated_at);
+        return rightTime - leftTime;
+      }
+    }
+  });
+  return sortable;
+}
+
+function buildInstituteResultExamGroupLabel(
+  card: { exam: InstituteResultsExamCard; summary: TeacherResultSummary | null },
+  groupBy: InstituteResultExamGroup,
+) {
+  if (groupBy === "publication") return examPublicationState(card.summary).label;
+  if (groupBy === "status") return card.exam.status.replaceAll("_", " ");
+  return "Exams";
+}
+
+function groupInstituteResultExamCards(
+  cards: Array<{ exam: InstituteResultsExamCard; summary: TeacherResultSummary | null }>,
+  groupBy: InstituteResultExamGroup,
+) {
+  if (groupBy === "none") return [{ label: "All exams", items: cards }];
+  const buckets = new Map<string, Array<{ exam: InstituteResultsExamCard; summary: TeacherResultSummary | null }>>();
+  for (const card of cards) {
+    const label = buildInstituteResultExamGroupLabel(card, groupBy);
+    buckets.set(label, [...(buckets.get(label) ?? []), card]);
+  }
+  return Array.from(buckets.entries()).map(([label, items]) => ({ label, items }));
+}
+
+function filterInstituteAttempts(attempts: InstituteAttempt[], filter: InstituteAttemptReviewFilter) {
+  return attempts.filter((attempt) => {
+    const health = attemptHealth(attempt);
+    switch (filter) {
+      case "low_performers":
+        return Number(attempt.percentage) < 40;
+      case "skipped_heavy":
+        return attempt.skipped_questions >= 2;
+      case "critical":
+        return health === "critical";
+      case "watch":
+        return health === "watch";
+      case "in_progress":
+        return attempt.status === "in_progress";
+      case "auto_submitted":
+        return attempt.is_auto_submitted;
+      default:
+        return true;
+    }
+  });
+}
+
+function sortInstituteAttempts(attempts: InstituteAttempt[], sortBy: InstituteAttemptSort) {
+  const sortable = [...attempts];
+  sortable.sort((left, right) => {
+    switch (sortBy) {
+      case "score_low":
+        return Number(left.percentage) - Number(right.percentage);
+      case "warnings_high":
+        return right.integrity_summary.violation_count - left.integrity_summary.violation_count;
+      case "time_long":
+        return (right.time_taken_seconds ?? 0) - (left.time_taken_seconds ?? 0);
+      case "latest":
+      default: {
+        const leftTime = Date.parse(left.submitted_at ?? left.started_at ?? "");
+        const rightTime = Date.parse(right.submitted_at ?? right.started_at ?? "");
+        return rightTime - leftTime;
+      }
+    }
+  });
+  return sortable;
+}
+
+function buildInstituteAttemptGroupLabel(attempt: InstituteAttempt, groupBy: InstituteAttemptGroup) {
+  if (groupBy === "health") return healthLabel(attemptHealth(attempt));
+  if (groupBy === "status") return attempt.status.replaceAll("_", " ");
+  return "Attempts";
+}
+
+function groupInstituteAttempts(attempts: InstituteAttempt[], groupBy: InstituteAttemptGroup) {
+  if (groupBy === "none") return [{ label: "All attempts", items: attempts }];
+  const buckets = new Map<string, InstituteAttempt[]>();
+  for (const attempt of attempts) {
+    const label = buildInstituteAttemptGroupLabel(attempt, groupBy);
+    buckets.set(label, [...(buckets.get(label) ?? []), attempt]);
+  }
+  return Array.from(buckets.entries()).map(([label, items]) => ({ label, items }));
 }
 
 type WorkflowTone = "statusLive" | "statusDemo" | "statusWarning";
@@ -785,8 +959,35 @@ export default async function InstituteResultsPage({
   const resolvedSearchParams = await searchParams;
   const selectedExamId = readSingle(resolvedSearchParams.exam);
   const selectedAttemptId = readSingle(resolvedSearchParams.attempt);
-  const attemptFilter = readSingle(resolvedSearchParams.attempt_filter) || "all";
+  const attemptFilter = resolveInstituteAttemptReviewFilter(
+    readSingle(resolvedSearchParams.attempt_filter) || "all",
+  );
+  const attemptSort = resolveInstituteAttemptSort(
+    readSingle(resolvedSearchParams.attempt_sort) || "latest",
+  );
+  const attemptGroup = resolveInstituteAttemptGroup(
+    readSingle(resolvedSearchParams.attempt_group) || "none",
+  );
   const questionFilter = readSingle(resolvedSearchParams.question_filter) || "all";
+  const examListFilter = resolveInstituteResultExamFilter(
+    readSingle(resolvedSearchParams.exam_list_filter) || "all",
+  );
+  const examListSort = resolveInstituteResultExamSort(
+    readSingle(resolvedSearchParams.exam_list_sort) || "latest",
+  );
+  const examListGroup = resolveInstituteResultExamGroup(
+    readSingle(resolvedSearchParams.exam_list_group) || "none",
+  );
+  const examPage = parsePositiveInt(readSingle(resolvedSearchParams.exam_page), 1);
+  const examPageSize = parsePositiveInt(readSingle(resolvedSearchParams.exam_page_size), 10);
+  const attemptPage = parsePositiveInt(readSingle(resolvedSearchParams.attempt_page), 1);
+  const attemptPageSize = parsePositiveInt(readSingle(resolvedSearchParams.attempt_page_size), 12);
+  const leaderboardPage = parsePositiveInt(readSingle(resolvedSearchParams.leaderboard_page), 1);
+  const leaderboardPageSize = parsePositiveInt(readSingle(resolvedSearchParams.leaderboard_page_size), 6);
+  const topicPage = parsePositiveInt(readSingle(resolvedSearchParams.topic_page), 1);
+  const topicPageSize = parsePositiveInt(readSingle(resolvedSearchParams.topic_page_size), 6);
+  const questionPage = parsePositiveInt(readSingle(resolvedSearchParams.question_page), 1);
+  const questionPageSize = parsePositiveInt(readSingle(resolvedSearchParams.question_page_size), 6);
   const error = readSingle(resolvedSearchParams.error);
   const message = readSingle(resolvedSearchParams.message);
 
@@ -843,6 +1044,17 @@ export default async function InstituteResultsPage({
     exam,
     summary: summaryByExamId.get(exam.id) ?? null,
   }));
+  const visibleExamCards = sortInstituteResultExamCards(
+    filterInstituteResultExamCards(resultExamCards, examListFilter),
+    examListSort,
+  );
+  const examTotalPages = Math.max(Math.ceil(visibleExamCards.length / examPageSize), 1);
+  const safeExamPage = Math.min(examPage, examTotalPages);
+  const pagedExamCards = visibleExamCards.slice(
+    (safeExamPage - 1) * examPageSize,
+    safeExamPage * examPageSize,
+  );
+  const groupedExamCards = groupInstituteResultExamCards(pagedExamCards, examListGroup);
 
   const currentExamId = selectedExamId || resultExamCards[0]?.exam.id || "";
   const selectedExamCard =
@@ -853,23 +1065,69 @@ export default async function InstituteResultsPage({
   const detailData = selectedExam
     ? await Promise.allSettled([
         fetchTeacherLiveExamMonitor(selectedExam.id),
-        fetchTeacherExamLeaderboard(selectedExam.id),
-        fetchTeacherExamAttempts(selectedExam.id),
-        fetchTeacherQuestionAnalysis(selectedExam.id),
-        fetchTeacherTopicPerformance(selectedExam.id),
+        fetchTeacherExamLeaderboard(selectedExam.id, {
+          page: leaderboardPage,
+          pageSize: leaderboardPageSize,
+        }),
+        fetchTeacherExamAttemptPage(selectedExam.id, {
+          page: attemptPage,
+          pageSize: attemptPageSize,
+          filter: attemptFilter,
+          sort: attemptSort,
+          attemptId: selectedAttemptId,
+        }),
+        fetchTeacherQuestionAnalysis(selectedExam.id, {
+          page: questionPage,
+          pageSize: questionPageSize,
+          filter: questionFilter as "all" | "hard_questions" | "skipped_often",
+        }),
+        fetchTeacherTopicPerformance(selectedExam.id, {
+          page: topicPage,
+          pageSize: topicPageSize,
+        }),
       ])
     : [];
 
   const monitor =
     detailData[0]?.status === "fulfilled" ? detailData[0].value : null;
-  const leaderboard =
-    detailData[1]?.status === "fulfilled" ? detailData[1].value : [];
-  const attempts =
-    detailData[2]?.status === "fulfilled" ? detailData[2].value : [];
-  const questionAnalysis =
-    detailData[3]?.status === "fulfilled" ? detailData[3].value : [];
-  const topicPerformance =
-    detailData[4]?.status === "fulfilled" ? detailData[4].value.results : [];
+  const leaderboardPageData =
+    detailData[1]?.status === "fulfilled"
+      ? detailData[1].value
+      : {
+          count: 0,
+          next: null,
+          previous: null,
+          results: [],
+          summary: {
+            total: 0,
+            ranked_count: 0,
+            published_count: 0,
+            all_ranked: false,
+            published_results: false,
+          },
+        };
+  const attemptsPageData =
+    detailData[2]?.status === "fulfilled"
+      ? detailData[2].value
+      : {
+          count: 0,
+          next: null,
+          previous: null,
+          results: [],
+          summary: { total_attempts: 0 },
+          applied_filter: "all",
+          applied_sort: "latest",
+          applied_search: "",
+          selected_attempt: null,
+        };
+  const questionAnalysisPageData =
+    detailData[3]?.status === "fulfilled"
+      ? detailData[3].value
+      : { count: 0, next: null, previous: null, results: [] };
+  const topicPerformancePageData =
+    detailData[4]?.status === "fulfilled"
+      ? detailData[4].value
+      : { count: 0, next: null, previous: null, results: [] };
 
   const totalAttempts = summaries.reduce((sum, item) => sum + item.total_attempted, 0);
   const totalPassed = summaries.reduce((sum, item) => sum + item.total_passed, 0);
@@ -888,28 +1146,19 @@ export default async function InstituteResultsPage({
         selectedSummary.total_failed,
       )
     : 0;
-  const filteredAttempts = attempts.filter((attempt) => {
-    if (attemptFilter === "low_performers") {
-      return Number(attempt.percentage) < 40;
-    }
-
-    if (attemptFilter === "skipped_heavy") {
-      return attempt.skipped_questions >= 2;
-    }
-
-    return true;
-  });
-  const filteredQuestionAnalysis = questionAnalysis.filter((row) => {
-    if (questionFilter === "hard_questions") {
-      return row.total_attempts > 0 && (row.wrong_count / row.total_attempts) * 100 >= 50;
-    }
-
-    if (questionFilter === "skipped_often") {
-      return row.skipped_count >= 2;
-    }
-
-    return true;
-  });
+  const attempts = attemptsPageData.results;
+  const safeAttemptPage = Math.max(attemptPage, 1);
+  const attemptTotalPages = Math.max(Math.ceil(attemptsPageData.count / attemptPageSize), 1);
+  const groupedAttempts = groupInstituteAttempts(attempts, attemptGroup);
+  const safeLeaderboardPage = Math.max(leaderboardPage, 1);
+  const leaderboardTotalPages = Math.max(Math.ceil(leaderboardPageData.count / leaderboardPageSize), 1);
+  const pagedLeaderboard = leaderboardPageData.results;
+  const safeTopicPage = Math.max(topicPage, 1);
+  const topicTotalPages = Math.max(Math.ceil(topicPerformancePageData.count / topicPageSize), 1);
+  const pagedTopicPerformance = topicPerformancePageData.results;
+  const safeQuestionPage = Math.max(questionPage, 1);
+  const questionTotalPages = Math.max(Math.ceil(questionAnalysisPageData.count / questionPageSize), 1);
+  const pagedQuestionAnalysis = questionAnalysisPageData.results;
   const examLifecycleStatus = selectedExam.status || monitor?.exam_status || "unknown";
   const canPublishResults = examLifecycleStatus === "completed";
   const canRefreshLifecycle =
@@ -917,12 +1166,11 @@ export default async function InstituteResultsPage({
   const canMarkCompleted = examLifecycleStatus === "live" || examLifecycleStatus === "scheduled";
   const resultsPublished =
     selectedSummary?.results_published ??
-    (leaderboard.length > 0 && leaderboard.every((row) => row.is_published));
+    leaderboardPageData.summary.published_results;
   const evaluatedResults = selectedSummary
     ? evaluatedCount(selectedSummary.total_passed, selectedSummary.total_failed)
     : 0;
-  const rankedLeaderboardReady =
-    leaderboard.length > 0 && leaderboard.every((row) => row.rank !== null);
+  const rankedLeaderboardReady = leaderboardPageData.summary.all_ranked;
   const readiness = resultReadinessState({
     selectedSummary,
     resultsPublished,
@@ -935,31 +1183,20 @@ export default async function InstituteResultsPage({
     canMarkCompleted,
     canPublishResults,
     resultsPublished,
-    attemptsCount: attempts.length,
+    attemptsCount: attemptsPageData.summary.total_attempts,
     evaluatedResults,
     rankedLeaderboardReady,
   });
   const recommendedWorkflowStep = nextWorkflowStep(workflowSteps);
   const latestPublishLog = selectedExam.publish_logs[0] ?? null;
-  const integrityWarningAttempts = attempts.filter(
-    (attempt) => attempt.integrity_summary.violation_count > 0,
-  ).length;
-  const integrityWarningsTotal = attempts.reduce(
-    (sum, attempt) => sum + attempt.integrity_summary.violation_count,
-    0,
-  );
-  const thresholdReachedAttempts = attempts.filter(
-    (attempt) => attempt.integrity_summary.threshold_reached,
-  ).length;
-  const attemptsByHealth = attempts.reduce(
-    (counts, attempt) => {
-      const health = attemptHealth(attempt);
-      counts[health] += 1;
-      return counts;
-    },
-    { critical: 0, watch: 0, stable: 0 } as Record<AttemptHealth, number>,
-  );
-  const interventionQueue = [...attempts]
+  const integrityWarningAttempts = monitor?.integrity_warning_attempts ?? 0;
+  const integrityWarningsTotal = monitor?.integrity_warnings_total ?? 0;
+  const thresholdReachedAttempts = monitor?.threshold_reached_attempts ?? 0;
+  const attemptsByHealth = monitor?.attempts_by_health ?? ({ critical: 0, watch: 0, stable: 0 } as Record<
+    AttemptHealth,
+    number
+  >);
+  const interventionQueue = [...(monitor?.recent_attempts ?? [])]
     .sort((left, right) => healthPriorityScore(right) - healthPriorityScore(left))
     .filter((attempt) => attemptHealth(attempt) !== "stable")
     .slice(0, 5);
@@ -970,9 +1207,10 @@ export default async function InstituteResultsPage({
     (attempt) => attemptHealth(attempt) === "watch",
   );
   const selectedAttempt =
+    attemptsPageData.selected_attempt ??
     attempts.find((attempt) => attempt.id === selectedAttemptId) ??
-    filteredAttempts[0] ??
     attempts[0] ??
+    monitor?.recent_attempts[0] ??
     null;
   const selectedAttemptInterventions = selectedAttempt
     ? await fetchTeacherAttemptInterventions(selectedAttempt.id).catch(() => [])
@@ -983,21 +1221,17 @@ export default async function InstituteResultsPage({
       <InstitutePageHeader
         title="Results"
         description="Monitor live attempt behavior, generate summaries, publish ranks, and review leaderboard outcomes across institute-scoped exams."
-        statusLabel={`${teacherExams.length} exam${teacherExams.length === 1 ? "" : "s"} visible`}
+        statusLabel={`${visibleExamCards.length} exam${visibleExamCards.length === 1 ? "" : "s"} visible`}
         statusTone="live"
       />
 
       {message ? <p className="feedbackBanner feedbackBannerSuccess">{decodeURIComponent(message)}</p> : null}
       {error ? <p className="feedbackBanner feedbackBannerError">{decodeURIComponent(error)}</p> : null}
 
-      <section className="studentInsightHeroCard">
+      <section className="studentInsightHeroCard studentInsightHeroCardCompact">
         <div className="studentInsightHeroCopy">
           <span className="studentDashboardTag">Outcome Control</span>
-          <strong>Handle result generation, publication, and live intervention from one institute workspace</strong>
-          <p>
-            This surface combines exam-level result lifecycle work with live attempt monitoring so institute admins can move
-            from summary generation into intervention decisions without losing operational context.
-          </p>
+          <strong>Institute result operations</strong>
           <small>
             {totalAttempts} attempts · {attemptsByHealth.critical} critical · {attemptsByHealth.watch} watch-list
           </small>
@@ -1015,7 +1249,7 @@ export default async function InstituteResultsPage({
       <section className="resultsSummaryGrid">
         <article className="metricCard metricCardPrimary dashboardHeroCard">
           <span>Visible Exams</span>
-          <strong>{teacherExams.length}</strong>
+          <strong>{visibleExamCards.length}</strong>
           <small>Institute-scoped exams available in this results workspace</small>
         </article>
         <article className="metricCard dashboardHeroCard">
@@ -1034,49 +1268,375 @@ export default async function InstituteResultsPage({
         <article className="contentCard teacherResultsSidebar">
           <div className="sectionHeading">
             <strong>Exams</strong>
-            <span>{teacherExams.length} available</span>
+            <span>{visibleExamCards.length} visible</span>
           </div>
+
+          <form className="workspaceFiltersForm" method="GET">
+            <input name="attempt_filter" type="hidden" value={attemptFilter} />
+            <input name="attempt_sort" type="hidden" value={attemptSort} />
+            <input name="attempt_group" type="hidden" value={attemptGroup} />
+            <input name="attempt_page" type="hidden" value={String(safeAttemptPage)} />
+            <input name="attempt_page_size" type="hidden" value={String(attemptPageSize)} />
+            <input name="question_filter" type="hidden" value={questionFilter} />
+            <input name="exam_page" type="hidden" value="1" />
+            <label className="workspaceFilterField">
+              <span>Exam state</span>
+              <select defaultValue={examListFilter} name="exam_list_filter">
+                <option value="all">All exams</option>
+                <option value="published">Published</option>
+                <option value="ready">Ready to publish</option>
+                <option value="live">Live exams</option>
+                <option value="draft">Draft exams</option>
+              </select>
+            </label>
+            <label className="workspaceFilterField">
+              <span>Sort by</span>
+              <select defaultValue={examListSort} name="exam_list_sort">
+                <option value="latest">Latest activity</option>
+                <option value="attempts">Most attempts</option>
+                <option value="average">Highest average</option>
+                <option value="title">Title A-Z</option>
+              </select>
+            </label>
+            <label className="workspaceFilterField">
+              <span>Group by</span>
+              <select defaultValue={examListGroup} name="exam_list_group">
+                <option value="none">No grouping</option>
+                <option value="publication">Publication state</option>
+                <option value="status">Exam status</option>
+              </select>
+            </label>
+            <label className="workspaceFilterField">
+              <span>Page size</span>
+              <select defaultValue={String(examPageSize)} name="exam_page_size">
+                <option value="10">10</option>
+                <option value="14">14</option>
+                <option value="20">20</option>
+              </select>
+            </label>
+            <div className="workspaceFilterActions">
+              <button className="button buttonPrimary" type="submit">
+                Apply filters
+              </button>
+              <Link
+                className="button buttonSecondary"
+                href={buildInstituteResultsHref({
+                  examId: selectedExam.id,
+                  attemptFilter,
+                  attemptSort,
+                  attemptGroup,
+                    attemptPage: safeAttemptPage,
+                    attemptPageSize,
+                    questionFilter,
+                    leaderboardPage: safeLeaderboardPage,
+                    leaderboardPageSize,
+                    topicPage: safeTopicPage,
+                    topicPageSize,
+                    questionPage: safeQuestionPage,
+                    questionPageSize,
+                  })}
+              >
+                Reset exam filters
+              </Link>
+            </div>
+          </form>
+
+          <div className="workspaceFilterQuickRow">
+            <span className="workspaceFilterQuickLabel">Quick filters</span>
+            <div className="workspaceFilterQuickChips">
+              {[
+                {
+                  label: "All",
+                  href: buildInstituteResultsHref({
+                    examId: selectedExam.id,
+                    attemptFilter,
+                    attemptSort,
+                    attemptGroup,
+                    attemptPage: safeAttemptPage,
+                    attemptPageSize,
+                    questionFilter,
+                    examListSort,
+                    examListGroup,
+                    leaderboardPage: safeLeaderboardPage,
+                    leaderboardPageSize,
+                    topicPage: safeTopicPage,
+                    topicPageSize,
+                    questionPage: safeQuestionPage,
+                    questionPageSize,
+                  }),
+                  active:
+                    examListFilter === "all" &&
+                    examListSort === "latest" &&
+                    examListGroup === "none",
+                },
+                {
+                  label: "Published",
+                  href: buildInstituteResultsHref({
+                    examId: selectedExam.id,
+                    attemptFilter,
+                    attemptSort,
+                    attemptGroup,
+                    attemptPage: safeAttemptPage,
+                    attemptPageSize,
+                    questionFilter,
+                    examListFilter: "published",
+                    examListSort,
+                    examListGroup,
+                    leaderboardPage: safeLeaderboardPage,
+                    leaderboardPageSize,
+                    topicPage: safeTopicPage,
+                    topicPageSize,
+                    questionPage: safeQuestionPage,
+                    questionPageSize,
+                  }),
+                  active: examListFilter === "published",
+                },
+                {
+                  label: "Ready to Publish",
+                  href: buildInstituteResultsHref({
+                    examId: selectedExam.id,
+                    attemptFilter,
+                    attemptSort,
+                    attemptGroup,
+                    attemptPage: safeAttemptPage,
+                    attemptPageSize,
+                    questionFilter,
+                    examListFilter: "ready",
+                    examListSort,
+                    examListGroup,
+                    leaderboardPage: safeLeaderboardPage,
+                    leaderboardPageSize,
+                    topicPage: safeTopicPage,
+                    topicPageSize,
+                    questionPage: safeQuestionPage,
+                    questionPageSize,
+                  }),
+                  active: examListFilter === "ready",
+                },
+                {
+                  label: "Live",
+                  href: buildInstituteResultsHref({
+                    examId: selectedExam.id,
+                    attemptFilter,
+                    attemptSort,
+                    attemptGroup,
+                    attemptPage: safeAttemptPage,
+                    attemptPageSize,
+                    questionFilter,
+                    examListFilter: "live",
+                    examListSort,
+                    examListGroup,
+                    leaderboardPage: safeLeaderboardPage,
+                    leaderboardPageSize,
+                    topicPage: safeTopicPage,
+                    topicPageSize,
+                    questionPage: safeQuestionPage,
+                    questionPageSize,
+                  }),
+                  active: examListFilter === "live",
+                },
+                {
+                  label: "Most Attempts",
+                  href: buildInstituteResultsHref({
+                    examId: selectedExam.id,
+                    attemptFilter,
+                    attemptSort,
+                    attemptGroup,
+                    attemptPage: safeAttemptPage,
+                    attemptPageSize,
+                    questionFilter,
+                    examListFilter,
+                    examListSort: "attempts",
+                    examListGroup,
+                    leaderboardPage: safeLeaderboardPage,
+                    leaderboardPageSize,
+                    topicPage: safeTopicPage,
+                    topicPageSize,
+                    questionPage: safeQuestionPage,
+                    questionPageSize,
+                  }),
+                  active: examListSort === "attempts",
+                },
+                {
+                  label: "Group by Publish State",
+                  href: buildInstituteResultsHref({
+                    examId: selectedExam.id,
+                    attemptFilter,
+                    attemptSort,
+                    attemptGroup,
+                    attemptPage: safeAttemptPage,
+                    attemptPageSize,
+                    questionFilter,
+                    examListFilter,
+                    examListSort,
+                    examListGroup: "publication",
+                    leaderboardPage: safeLeaderboardPage,
+                    leaderboardPageSize,
+                    topicPage: safeTopicPage,
+                    topicPageSize,
+                    questionPage: safeQuestionPage,
+                    questionPageSize,
+                  }),
+                  active: examListGroup === "publication",
+                },
+              ].map((chip) => (
+                <Link
+                  key={chip.label}
+                  className={`workspaceQuickChip${chip.active ? " workspaceQuickChipActive" : ""}`}
+                  href={chip.href}
+                >
+                  {chip.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          <FilterSummaryPills
+            items={[
+              { label: "Exam state", value: formatFilterValue(examListFilter) },
+              { label: "Sort", value: formatFilterValue(examListSort) },
+              { label: "Group", value: formatFilterValue(examListGroup) },
+              { label: "Page", value: `${safeExamPage}/${examTotalPages}` },
+            ]}
+          />
 
           <div className="resultsList">
-            {resultExamCards.map(({ exam, summary }) => {
-              const isActive = exam.id === selectedExam.id;
-              const publication = examPublicationState(summary);
-              return (
-                <Link
-                  className={`resultCard ${isActive ? "teacherResultsCardActive" : ""}`}
-                  href={`/institute/results?exam=${exam.id}`}
-                  key={exam.id}
-                >
-                  <div className="resultCardTop">
-                    <div>
-                      <strong>{exam.title}</strong>
-                      <span>{exam.code}</span>
+            {visibleExamCards.length === 0 ? (
+              <p className="emptyText">No exams match the current result filters.</p>
+            ) : (
+              groupedExamCards.map((group) => (
+                <section className="workspaceResultsGroup" key={group.label}>
+                  {examListGroup !== "none" ? (
+                    <div className="sectionHeading">
+                      <strong>{group.label}</strong>
+                      <span>{group.items.length} exams</span>
                     </div>
-                    <span className={`statusPill ${publication.tone}`}>{publication.label}</span>
-                  </div>
+                  ) : null}
+                  <div className="resultsList">
+                    {group.items.map(({ exam, summary }) => {
+                      const isActive = exam.id === selectedExam.id;
+                      const publication = examPublicationState(summary);
+                      return (
+                        <Link
+                          className={`resultCard ${isActive ? "teacherResultsCardActive" : ""}`}
+                          href={buildInstituteResultsHref({
+                            examId: exam.id,
+                            attemptFilter,
+                            attemptSort,
+                            attemptGroup,
+                            attemptPage: safeAttemptPage,
+                            attemptPageSize,
+                            questionFilter,
+                            examListFilter,
+                            examListSort,
+                            examListGroup,
+                            examPage: safeExamPage,
+                            examPageSize,
+                            leaderboardPage: safeLeaderboardPage,
+                            leaderboardPageSize,
+                            topicPage: safeTopicPage,
+                            topicPageSize,
+                            questionPage: safeQuestionPage,
+                            questionPageSize,
+                          })}
+                          key={exam.id}
+                        >
+                          <div className="resultCardTop">
+                            <div>
+                              <strong>{exam.title}</strong>
+                              <span>{exam.code}</span>
+                            </div>
+                            <span className={`statusPill ${publication.tone}`}>{publication.label}</span>
+                          </div>
 
-                  <div className="resultKpiGrid">
-                    <div>
-                      <span>Attempts</span>
-                      <strong>{summary?.total_attempted ?? 0}</strong>
-                    </div>
-                    <div>
-                      <span>Passed</span>
-                      <strong>{summary?.total_passed ?? 0}</strong>
-                    </div>
-                    <div>
-                      <span>Failed</span>
-                      <strong>{summary?.total_failed ?? 0}</strong>
-                    </div>
-                    <div>
-                      <span>Highest</span>
-                      <strong>{summary?.highest_score ?? "N/A"}</strong>
-                    </div>
+                          <div className="resultKpiGrid">
+                            <div>
+                              <span>Attempts</span>
+                              <strong>{summary?.total_attempted ?? 0}</strong>
+                            </div>
+                            <div>
+                              <span>Passed</span>
+                              <strong>{summary?.total_passed ?? 0}</strong>
+                            </div>
+                            <div>
+                              <span>Failed</span>
+                              <strong>{summary?.total_failed ?? 0}</strong>
+                            </div>
+                            <div>
+                              <span>Highest</span>
+                              <strong>{summary?.highest_score ?? "N/A"}</strong>
+                            </div>
+                          </div>
+                        </Link>
+                      );
+                    })}
                   </div>
-                </Link>
-              );
-            })}
+                </section>
+              ))
+            )}
           </div>
+          {visibleExamCards.length > examPageSize ? (
+            <div className="workspaceFilterActions">
+              <Link
+                className="button buttonSecondary"
+                href={
+                  safeExamPage <= 1
+                    ? "#"
+                    : buildInstituteResultsHref({
+                        examId: selectedExam.id,
+                        attemptFilter,
+                        attemptSort,
+                        attemptGroup,
+                        attemptPage: safeAttemptPage,
+                        attemptPageSize,
+                        questionFilter,
+                        examListFilter,
+                        examListSort,
+                        examListGroup,
+                        examPage: safeExamPage - 1,
+                        examPageSize,
+                        leaderboardPage: safeLeaderboardPage,
+                        leaderboardPageSize,
+                        topicPage: safeTopicPage,
+                        topicPageSize,
+                        questionPage: safeQuestionPage,
+                        questionPageSize,
+                      })
+                }
+              >
+                Previous
+              </Link>
+              <Link
+                className="button buttonSecondary"
+                href={
+                  safeExamPage >= examTotalPages
+                    ? "#"
+                    : buildInstituteResultsHref({
+                        examId: selectedExam.id,
+                        attemptFilter,
+                        attemptSort,
+                        attemptGroup,
+                        attemptPage: safeAttemptPage,
+                        attemptPageSize,
+                        questionFilter,
+                        examListFilter,
+                        examListSort,
+                        examListGroup,
+                        examPage: safeExamPage + 1,
+                        examPageSize,
+                        leaderboardPage: safeLeaderboardPage,
+                        leaderboardPageSize,
+                        topicPage: safeTopicPage,
+                        topicPageSize,
+                        questionPage: safeQuestionPage,
+                        questionPageSize,
+                      })
+                }
+              >
+                Next
+              </Link>
+            </div>
+          ) : null}
         </article>
 
         <div className="teacherResultsMain">
@@ -1123,7 +1683,9 @@ export default async function InstituteResultsPage({
               </div>
               <div className="resultStatusGroup">
                 <span className={`statusPill ${readiness.tone}`}>{readiness.label}</span>
-                <span className="statusPill statusDemo">{attempts.length} attempts returned</span>
+                <span className="statusPill statusDemo">
+                  {attemptsPageData.summary.total_attempts} attempts total
+                </span>
                 <span className="statusPill statusLive">{evaluatedResults} evaluated</span>
               </div>
             </div>
@@ -1391,7 +1953,17 @@ export default async function InstituteResultsPage({
                           <div className="resultCardActions">
                             <Link
                               className="button buttonSecondary"
-                              href={`/institute/results?exam=${selectedExam.id}&attempt=${attempt.id}&attempt_filter=${attemptFilter}&question_filter=${questionFilter}`}
+                              href={buildInstituteResultsHref({
+                                examId: selectedExam.id,
+                                attemptId: attempt.id,
+                                attemptFilter,
+                                attemptSort,
+                                attemptGroup,
+                                questionFilter,
+                                examListFilter,
+                                examListSort,
+                                examListGroup,
+                              })}
                             >
                               Inspect Attempt
                             </Link>
@@ -1433,7 +2005,17 @@ export default async function InstituteResultsPage({
                             </div>
                             <Link
                               className="button buttonGhost"
-                              href={`/institute/results?exam=${selectedExam.id}&attempt=${attempt.id}&attempt_filter=${attemptFilter}&question_filter=${questionFilter}`}
+                              href={buildInstituteResultsHref({
+                                examId: selectedExam.id,
+                                attemptId: attempt.id,
+                                attemptFilter,
+                                attemptSort,
+                                attemptGroup,
+                                questionFilter,
+                                examListFilter,
+                                examListSort,
+                                examListGroup,
+                              })}
                             >
                               Review
                             </Link>
@@ -1460,7 +2042,17 @@ export default async function InstituteResultsPage({
                             </div>
                             <Link
                               className="button buttonGhost"
-                              href={`/institute/results?exam=${selectedExam.id}&attempt=${attempt.id}&attempt_filter=${attemptFilter}&question_filter=${questionFilter}`}
+                              href={buildInstituteResultsHref({
+                                examId: selectedExam.id,
+                                attemptId: attempt.id,
+                                attemptFilter,
+                                attemptSort,
+                                attemptGroup,
+                                questionFilter,
+                                examListFilter,
+                                examListSort,
+                                examListGroup,
+                              })}
                             >
                               Inspect
                             </Link>
@@ -1772,30 +2364,198 @@ export default async function InstituteResultsPage({
           ) : null}
 
           <section className="contentCard">
-            <div className="sectionHeading">
+              <div className="sectionHeading">
               <strong>Recent attempts</strong>
-              <span>{filteredAttempts.length} shown</span>
+              <span>{attemptsPageData.count} matching</span>
+            </div>
+            <form className="workspaceFiltersForm" method="GET">
+              <input name="exam" type="hidden" value={selectedExam.id} />
+              <input name="question_filter" type="hidden" value={questionFilter} />
+              <input name="exam_list_filter" type="hidden" value={examListFilter} />
+              <input name="exam_list_sort" type="hidden" value={examListSort} />
+              <input name="exam_list_group" type="hidden" value={examListGroup} />
+              <input name="exam_page" type="hidden" value={String(safeExamPage)} />
+              <input name="exam_page_size" type="hidden" value={String(examPageSize)} />
+              <input name="attempt_page" type="hidden" value="1" />
+              <label className="workspaceFilterField">
+                <span>Review filter</span>
+                <select defaultValue={attemptFilter} name="attempt_filter">
+                  <option value="all">All attempts</option>
+                  <option value="low_performers">Low performers</option>
+                  <option value="skipped_heavy">Skipped heavy</option>
+                  <option value="critical">Critical only</option>
+                  <option value="watch">Watch only</option>
+                  <option value="in_progress">In progress</option>
+                  <option value="auto_submitted">Auto-submitted</option>
+                </select>
+              </label>
+              <label className="workspaceFilterField">
+                <span>Sort by</span>
+                <select defaultValue={attemptSort} name="attempt_sort">
+                  <option value="latest">Latest activity</option>
+                  <option value="score_low">Lowest score</option>
+                  <option value="warnings_high">Most warnings</option>
+                  <option value="time_long">Longest duration</option>
+                </select>
+              </label>
+              <label className="workspaceFilterField">
+                <span>Group by</span>
+                <select defaultValue={attemptGroup} name="attempt_group">
+                  <option value="none">No grouping</option>
+                  <option value="health">Institute health</option>
+                  <option value="status">Attempt status</option>
+                </select>
+              </label>
+              <label className="workspaceFilterField">
+                <span>Page size</span>
+                <select defaultValue={String(attemptPageSize)} name="attempt_page_size">
+                  <option value="12">12</option>
+                  <option value="18">18</option>
+                  <option value="24">24</option>
+                </select>
+              </label>
+              <div className="workspaceFilterActions">
+                <button className="button buttonPrimary" type="submit">
+                  Apply filters
+                </button>
+                <Link
+                  className="button buttonSecondary"
+                  href={buildInstituteResultsHref({
+                    examId: selectedExam.id,
+                    questionFilter,
+                    examListFilter,
+                    examListSort,
+                    examListGroup,
+                    examPage: safeExamPage,
+                    examPageSize,
+                    leaderboardPage: safeLeaderboardPage,
+                    leaderboardPageSize,
+                    topicPage: safeTopicPage,
+                    topicPageSize,
+                    questionPage: safeQuestionPage,
+                    questionPageSize,
+                  })}
+                >
+                  Reset attempt filters
+                </Link>
+              </div>
+            </form>
+
+            <div className="workspaceFilterQuickRow">
+              <span className="workspaceFilterQuickLabel">Quick filters</span>
+              <div className="workspaceFilterQuickChips">
+                {[
+                  { label: "All", filter: "all" as const, active: attemptFilter === "all" && attemptSort === "latest" && attemptGroup === "none" },
+                  { label: "Low Performers", filter: "low_performers" as const, active: attemptFilter === "low_performers" },
+                  { label: "Skipped Heavy", filter: "skipped_heavy" as const, active: attemptFilter === "skipped_heavy" },
+                  { label: "Critical", filter: "critical" as const, active: attemptFilter === "critical" },
+                  { label: "Watch", filter: "watch" as const, active: attemptFilter === "watch" },
+                  { label: "Auto-Submitted", filter: "auto_submitted" as const, active: attemptFilter === "auto_submitted" },
+                ].map((chip) => (
+                  <Link
+                    key={chip.label}
+                    className={`workspaceQuickChip${chip.active ? " workspaceQuickChipActive" : ""}`}
+                    href={buildInstituteResultsHref({
+                      examId: selectedExam.id,
+                      attemptFilter: chip.filter,
+                      attemptSort,
+                      attemptGroup,
+                      attemptPage: 1,
+                      attemptPageSize,
+                      questionFilter,
+                      examListFilter,
+                      examListSort,
+                      examListGroup,
+                      examPage: safeExamPage,
+                      examPageSize,
+                      leaderboardPage: safeLeaderboardPage,
+                      leaderboardPageSize,
+                      topicPage: safeTopicPage,
+                      topicPageSize,
+                      questionPage: safeQuestionPage,
+                      questionPageSize,
+                    })}
+                  >
+                    {chip.label}
+                  </Link>
+                ))}
+                <Link
+                  className={`workspaceQuickChip${attemptSort === "warnings_high" ? " workspaceQuickChipActive" : ""}`}
+                  href={buildInstituteResultsHref({
+                    examId: selectedExam.id,
+                    attemptFilter,
+                    attemptSort: "warnings_high",
+                    attemptGroup,
+                    attemptPage: 1,
+                    attemptPageSize,
+                    questionFilter,
+                    examListFilter,
+                    examListSort,
+                    examListGroup,
+                    examPage: safeExamPage,
+                    examPageSize,
+                    leaderboardPage: safeLeaderboardPage,
+                    leaderboardPageSize,
+                    topicPage: safeTopicPage,
+                    topicPageSize,
+                    questionPage: safeQuestionPage,
+                    questionPageSize,
+                  })}
+                >
+                  Most Warnings
+                </Link>
+                <Link
+                  className={`workspaceQuickChip${attemptGroup === "health" ? " workspaceQuickChipActive" : ""}`}
+                  href={buildInstituteResultsHref({
+                    examId: selectedExam.id,
+                    attemptFilter,
+                    attemptSort,
+                    attemptGroup: "health",
+                    attemptPage: 1,
+                    attemptPageSize,
+                    questionFilter,
+                    examListFilter,
+                    examListSort,
+                    examListGroup,
+                    examPage: safeExamPage,
+                    examPageSize,
+                    leaderboardPage: safeLeaderboardPage,
+                    leaderboardPageSize,
+                    topicPage: safeTopicPage,
+                    topicPageSize,
+                    questionPage: safeQuestionPage,
+                    questionPageSize,
+                  })}
+                >
+                  Group by Health
+                </Link>
+              </div>
             </div>
 
-            <div className="questionBankButtonRow">
-              <Link className={`button ${attemptFilter === "all" ? "buttonPrimary" : "buttonGhost"}`} href={`/institute/results?exam=${selectedExam.id}&attempt_filter=all&question_filter=${questionFilter}`}>
-                All
-              </Link>
-              <Link className={`button ${attemptFilter === "low_performers" ? "buttonPrimary" : "buttonGhost"}`} href={`/institute/results?exam=${selectedExam.id}&attempt_filter=low_performers&question_filter=${questionFilter}`}>
-                Low Performers
-              </Link>
-              <Link className={`button ${attemptFilter === "skipped_heavy" ? "buttonPrimary" : "buttonGhost"}`} href={`/institute/results?exam=${selectedExam.id}&attempt_filter=skipped_heavy&question_filter=${questionFilter}`}>
-                Skipped Heavy
-              </Link>
-            </div>
+            <FilterSummaryPills
+              items={[
+                { label: "Review", value: formatFilterValue(attemptFilter) },
+                { label: "Sort", value: formatFilterValue(attemptSort) },
+                { label: "Group", value: formatFilterValue(attemptGroup) },
+                { label: "Page", value: `${safeAttemptPage}/${attemptTotalPages}` },
+              ]}
+            />
 
-            {!attempts.length ? (
+            {!attemptsPageData.summary.total_attempts ? (
               <p className="emptyText">No attempt records were returned for the selected exam.</p>
-            ) : !filteredAttempts.length ? (
+            ) : !attempts.length ? (
               <p className="emptyText">No students match this review filter right now.</p>
             ) : (
+              groupedAttempts.map((group) => (
+              <div className="workspaceResultsGroup" key={group.label}>
+                {attemptGroup !== "none" ? (
+                  <div className="sectionHeading">
+                    <strong>{group.label}</strong>
+                    <span>{group.items.length} attempts</span>
+                  </div>
+                ) : null}
               <div className="resultsList">
-                {filteredAttempts.slice(0, 8).map((attempt) => {
+                {group.items.map((attempt) => {
                   const topAlert = attempt.alerts[0];
                   const health = attemptHealth(attempt);
                   return (
@@ -1882,7 +2642,21 @@ export default async function InstituteResultsPage({
                         <div className="resultCardActions">
                           <Link
                             className="button buttonSecondary"
-                            href={`/institute/results?exam=${selectedExam.id}&attempt=${attempt.id}&attempt_filter=${attemptFilter}&question_filter=${questionFilter}`}
+                            href={buildInstituteResultsHref({
+                              examId: selectedExam.id,
+                              attemptId: attempt.id,
+                              attemptFilter,
+                              attemptSort,
+                              attemptGroup,
+                              attemptPage: safeAttemptPage,
+                              attemptPageSize,
+                              questionFilter,
+                              examListFilter,
+                              examListSort,
+                              examListGroup,
+                              examPage: safeExamPage,
+                              examPageSize,
+                            })}
                           >
                             Inspect Attempt
                           </Link>
@@ -1903,21 +2677,85 @@ export default async function InstituteResultsPage({
                   );
                 })}
               </div>
+              </div>
+              ))
             )}
+            {attemptsPageData.count > attemptPageSize ? (
+              <div className="workspaceFilterActions">
+                <Link
+                  className="button buttonSecondary"
+                  href={
+                    safeAttemptPage <= 1
+                      ? "#"
+                      : buildInstituteResultsHref({
+                          examId: selectedExam.id,
+                          attemptFilter,
+                          attemptSort,
+                          attemptGroup,
+                          attemptPage: safeAttemptPage - 1,
+                          attemptPageSize,
+                          questionFilter,
+                          examListFilter,
+                          examListSort,
+                          examListGroup,
+                          examPage: safeExamPage,
+                          examPageSize,
+                          leaderboardPage: safeLeaderboardPage,
+                          leaderboardPageSize,
+                          topicPage: safeTopicPage,
+                          topicPageSize,
+                          questionPage: safeQuestionPage,
+                          questionPageSize,
+                        })
+                  }
+                >
+                  Previous
+                </Link>
+                <Link
+                  className="button buttonSecondary"
+                  href={
+                    safeAttemptPage >= attemptTotalPages
+                      ? "#"
+                      : buildInstituteResultsHref({
+                          examId: selectedExam.id,
+                          attemptFilter,
+                          attemptSort,
+                          attemptGroup,
+                          attemptPage: safeAttemptPage + 1,
+                          attemptPageSize,
+                          questionFilter,
+                          examListFilter,
+                          examListSort,
+                          examListGroup,
+                          examPage: safeExamPage,
+                          examPageSize,
+                          leaderboardPage: safeLeaderboardPage,
+                          leaderboardPageSize,
+                          topicPage: safeTopicPage,
+                          topicPageSize,
+                          questionPage: safeQuestionPage,
+                          questionPageSize,
+                        })
+                  }
+                >
+                  Next
+                </Link>
+              </div>
+            ) : null}
           </section>
 
           <section className="resultsList teacherResultsSplit">
             <article className="contentCard">
               <div className="sectionHeading">
                 <strong>Leaderboard</strong>
-                <span>{leaderboard.length} ranked entries</span>
+                <span>{leaderboardPageData.count} ranked entries</span>
               </div>
 
-              {!leaderboard.length ? (
+              {!leaderboardPageData.count ? (
                 <p className="emptyText">No leaderboard rows are available yet for this exam.</p>
               ) : (
                 <div className="resultsList">
-                  {leaderboard.slice(0, 6).map((row) => (
+                  {pagedLeaderboard.map((row) => (
                     <article className="resultCard" key={row.id}>
                       <div className="resultCardTop">
                         <div>
@@ -1945,19 +2783,81 @@ export default async function InstituteResultsPage({
                   ))}
                 </div>
               )}
+              {leaderboardPageData.count > leaderboardPageSize ? (
+                <div className="workspaceFilterActions">
+                  <Link
+                    className="button buttonSecondary"
+                    href={
+                      safeLeaderboardPage <= 1
+                        ? "#"
+                        : buildInstituteResultsHref({
+                            examId: selectedExam.id,
+                            attemptFilter,
+                            attemptSort,
+                            attemptGroup,
+                            attemptPage: safeAttemptPage,
+                            attemptPageSize,
+                            questionFilter,
+                            examListFilter,
+                            examListSort,
+                            examListGroup,
+                            examPage: safeExamPage,
+                            examPageSize,
+                            leaderboardPage: safeLeaderboardPage - 1,
+                            leaderboardPageSize,
+                            topicPage: safeTopicPage,
+                            topicPageSize,
+                            questionPage: safeQuestionPage,
+                            questionPageSize,
+                          })
+                    }
+                  >
+                    Previous
+                  </Link>
+                  <Link
+                    className="button buttonSecondary"
+                    href={
+                      safeLeaderboardPage >= leaderboardTotalPages
+                        ? "#"
+                        : buildInstituteResultsHref({
+                            examId: selectedExam.id,
+                            attemptFilter,
+                            attemptSort,
+                            attemptGroup,
+                            attemptPage: safeAttemptPage,
+                            attemptPageSize,
+                            questionFilter,
+                            examListFilter,
+                            examListSort,
+                            examListGroup,
+                            examPage: safeExamPage,
+                            examPageSize,
+                            leaderboardPage: safeLeaderboardPage + 1,
+                            leaderboardPageSize,
+                            topicPage: safeTopicPage,
+                            topicPageSize,
+                            questionPage: safeQuestionPage,
+                            questionPageSize,
+                          })
+                    }
+                  >
+                    Next
+                  </Link>
+                </div>
+              ) : null}
             </article>
 
             <article className="contentCard">
               <div className="sectionHeading">
                 <strong>Topic performance</strong>
-                <span>{topicPerformance.length} topic rows</span>
+                <span>{topicPerformancePageData.count} topic rows</span>
               </div>
 
-              {!topicPerformance.length ? (
+              {!topicPerformancePageData.count ? (
                 <p className="emptyText">No topic performance rows are available for this exam.</p>
               ) : (
                 <div className="resultsList">
-                  {topicPerformance.slice(0, 6).map((row) => (
+                  {pagedTopicPerformance.map((row) => (
                     <article className="resultCard" key={row.id}>
                       <div className="resultCardTop">
                         <div>
@@ -1987,33 +2887,93 @@ export default async function InstituteResultsPage({
                   ))}
                 </div>
               )}
+              {topicPerformancePageData.count > topicPageSize ? (
+                <div className="workspaceFilterActions">
+                  <Link
+                    className="button buttonSecondary"
+                    href={
+                      safeTopicPage <= 1
+                        ? "#"
+                        : buildInstituteResultsHref({
+                            examId: selectedExam.id,
+                            attemptFilter,
+                            attemptSort,
+                            attemptGroup,
+                            attemptPage: safeAttemptPage,
+                            attemptPageSize,
+                            questionFilter,
+                            examListFilter,
+                            examListSort,
+                            examListGroup,
+                            examPage: safeExamPage,
+                            examPageSize,
+                            leaderboardPage: safeLeaderboardPage,
+                            leaderboardPageSize,
+                            topicPage: safeTopicPage - 1,
+                            topicPageSize,
+                            questionPage: safeQuestionPage,
+                            questionPageSize,
+                          })
+                    }
+                  >
+                    Previous
+                  </Link>
+                  <Link
+                    className="button buttonSecondary"
+                    href={
+                      safeTopicPage >= topicTotalPages
+                        ? "#"
+                        : buildInstituteResultsHref({
+                            examId: selectedExam.id,
+                            attemptFilter,
+                            attemptSort,
+                            attemptGroup,
+                            attemptPage: safeAttemptPage,
+                            attemptPageSize,
+                            questionFilter,
+                            examListFilter,
+                            examListSort,
+                            examListGroup,
+                            examPage: safeExamPage,
+                            examPageSize,
+                            leaderboardPage: safeLeaderboardPage,
+                            leaderboardPageSize,
+                            topicPage: safeTopicPage + 1,
+                            topicPageSize,
+                            questionPage: safeQuestionPage,
+                            questionPageSize,
+                          })
+                    }
+                  >
+                    Next
+                  </Link>
+                </div>
+              ) : null}
             </article>
 
             <article className="contentCard">
               <div className="sectionHeading">
                 <strong>Question analysis</strong>
-                <span>{filteredQuestionAnalysis.length} shown</span>
+                <span>{questionAnalysisPageData.count} shown</span>
               </div>
 
               <div className="questionBankButtonRow">
-                <Link className={`button ${questionFilter === "all" ? "buttonPrimary" : "buttonGhost"}`} href={`/institute/results?exam=${selectedExam.id}&attempt_filter=${attemptFilter}&question_filter=all`}>
+                <Link className={`button ${questionFilter === "all" ? "buttonPrimary" : "buttonGhost"}`} href={buildInstituteResultsHref({ examId: selectedExam.id, attemptFilter, attemptSort, attemptGroup, attemptPage: safeAttemptPage, attemptPageSize, questionFilter: "all", examListFilter, examListSort, examListGroup, examPage: safeExamPage, examPageSize, leaderboardPage: safeLeaderboardPage, leaderboardPageSize, topicPage: safeTopicPage, topicPageSize, questionPage: 1, questionPageSize })}>
                   All
                 </Link>
-                <Link className={`button ${questionFilter === "hard_questions" ? "buttonPrimary" : "buttonGhost"}`} href={`/institute/results?exam=${selectedExam.id}&attempt_filter=${attemptFilter}&question_filter=hard_questions`}>
+                <Link className={`button ${questionFilter === "hard_questions" ? "buttonPrimary" : "buttonGhost"}`} href={buildInstituteResultsHref({ examId: selectedExam.id, attemptFilter, attemptSort, attemptGroup, attemptPage: safeAttemptPage, attemptPageSize, questionFilter: "hard_questions", examListFilter, examListSort, examListGroup, examPage: safeExamPage, examPageSize, leaderboardPage: safeLeaderboardPage, leaderboardPageSize, topicPage: safeTopicPage, topicPageSize, questionPage: 1, questionPageSize })}>
                   Hard
                 </Link>
-                <Link className={`button ${questionFilter === "skipped_often" ? "buttonPrimary" : "buttonGhost"}`} href={`/institute/results?exam=${selectedExam.id}&attempt_filter=${attemptFilter}&question_filter=skipped_often`}>
+                <Link className={`button ${questionFilter === "skipped_often" ? "buttonPrimary" : "buttonGhost"}`} href={buildInstituteResultsHref({ examId: selectedExam.id, attemptFilter, attemptSort, attemptGroup, attemptPage: safeAttemptPage, attemptPageSize, questionFilter: "skipped_often", examListFilter, examListSort, examListGroup, examPage: safeExamPage, examPageSize, leaderboardPage: safeLeaderboardPage, leaderboardPageSize, topicPage: safeTopicPage, topicPageSize, questionPage: 1, questionPageSize })}>
                   Skipped Often
                 </Link>
               </div>
 
-              {!questionAnalysis.length ? (
+              {!questionAnalysisPageData.count ? (
                 <p className="emptyText">No question analysis records are available for this exam yet.</p>
-              ) : !filteredQuestionAnalysis.length ? (
-                <p className="emptyText">No question insights match this filter right now.</p>
               ) : (
                 <div className="resultsList">
-                  {filteredQuestionAnalysis.slice(0, 6).map((row) => (
+                  {pagedQuestionAnalysis.map((row) => (
                     <article className="resultCard" key={row.question_id}>
                       <div className="resultCardTop">
                         <div>
@@ -2046,6 +3006,68 @@ export default async function InstituteResultsPage({
                   ))}
                 </div>
               )}
+              {questionAnalysisPageData.count > questionPageSize ? (
+                <div className="workspaceFilterActions">
+                  <Link
+                    className="button buttonSecondary"
+                    href={
+                      safeQuestionPage <= 1
+                        ? "#"
+                        : buildInstituteResultsHref({
+                            examId: selectedExam.id,
+                            attemptFilter,
+                            attemptSort,
+                            attemptGroup,
+                            attemptPage: safeAttemptPage,
+                            attemptPageSize,
+                            questionFilter,
+                            examListFilter,
+                            examListSort,
+                            examListGroup,
+                            examPage: safeExamPage,
+                            examPageSize,
+                            leaderboardPage: safeLeaderboardPage,
+                            leaderboardPageSize,
+                            topicPage: safeTopicPage,
+                            topicPageSize,
+                            questionPage: safeQuestionPage - 1,
+                            questionPageSize,
+                          })
+                    }
+                  >
+                    Previous
+                  </Link>
+                  <Link
+                    className="button buttonSecondary"
+                    href={
+                      safeQuestionPage >= questionTotalPages
+                        ? "#"
+                        : buildInstituteResultsHref({
+                            examId: selectedExam.id,
+                            attemptFilter,
+                            attemptSort,
+                            attemptGroup,
+                            attemptPage: safeAttemptPage,
+                            attemptPageSize,
+                            questionFilter,
+                            examListFilter,
+                            examListSort,
+                            examListGroup,
+                            examPage: safeExamPage,
+                            examPageSize,
+                            leaderboardPage: safeLeaderboardPage,
+                            leaderboardPageSize,
+                            topicPage: safeTopicPage,
+                            topicPageSize,
+                            questionPage: safeQuestionPage + 1,
+                            questionPageSize,
+                          })
+                    }
+                  >
+                    Next
+                  </Link>
+                </div>
+              ) : null}
             </article>
           </section>
         </div>

@@ -70,7 +70,13 @@ type TeacherRosterRow = {
   account_user_id: number | null;
 };
 
-type RosterStatusFilter = "all" | "login-ready" | "no-login";
+type RosterStatusFilter =
+  | "all"
+  | "login-ready"
+  | "no-login"
+  | "login-disabled"
+  | "active"
+  | "inactive";
 type RosterNameSort = "name-asc" | "name-desc";
 
 type RosterBrowserProps = {
@@ -138,7 +144,15 @@ export function RosterBrowser({
         const matchesSearch = searchTerm.length === 0 || haystack.includes(searchTerm);
         const matchesStatus =
           statusFilter === "all" ||
-          (statusFilter === "login-ready" ? row.has_login : !row.has_login);
+          (statusFilter === "login-ready"
+            ? row.has_login
+            : statusFilter === "no-login"
+              ? !row.has_login
+              : statusFilter === "login-disabled"
+                ? row.has_login && !row.login_is_active
+                : statusFilter === "active"
+                  ? row.is_active
+                  : !row.is_active);
 
         return matchesSearch && matchesStatus;
       })
@@ -226,6 +240,9 @@ export function RosterBrowser({
             <option value="all">All records</option>
             <option value="login-ready">Login ready</option>
             <option value="no-login">No login</option>
+            <option value="login-disabled">Login disabled</option>
+            <option value="active">Active only</option>
+            <option value="inactive">Inactive only</option>
           </select>
 
           <select
@@ -244,6 +261,31 @@ export function RosterBrowser({
             </span>
             Export CSV
           </button>
+        </div>
+      </div>
+
+      <div className="workspaceFilterQuickRow">
+        <span className="workspaceFilterQuickLabel">Quick filters</span>
+        <div className="workspaceFilterQuickChips">
+          {[
+            { label: "All", value: "all" as const },
+            { label: "Login Ready", value: "login-ready" as const },
+            { label: "No Login", value: "no-login" as const },
+            { label: "Login Disabled", value: "login-disabled" as const },
+            { label: "Active", value: "active" as const },
+            { label: "Inactive", value: "inactive" as const },
+          ].map((chip) => (
+            <button
+              key={chip.value}
+              className={`workspaceQuickChip${
+                statusFilter === chip.value ? " workspaceQuickChipActive" : ""
+              }`}
+              onClick={() => setStatusFilter(chip.value)}
+              type="button"
+            >
+              {chip.label}
+            </button>
+          ))}
         </div>
       </div>
 

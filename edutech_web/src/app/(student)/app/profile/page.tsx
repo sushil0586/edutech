@@ -24,13 +24,10 @@ export default async function ProfilePage() {
         statusTone={profile.is_active ? "live" : "warning"}
       />
 
-      <section className="studentInsightHeroCard">
+      <section className="studentInsightHeroCard studentInsightHeroCardCompact">
         <div className="studentInsightHeroCopy">
           <span className="studentDashboardTag">Student Identity</span>
           <strong>{profile.display_name || profile.username}</strong>
-          <p>
-            This profile view reflects the currently authenticated student account and the academic registration context attached to it.
-          </p>
           <small>
             {profile.email || "Email not available"} · {instituteName}
           </small>

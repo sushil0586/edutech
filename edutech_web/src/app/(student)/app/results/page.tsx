@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { ActionSubmitButton } from "@/components/ui/action-submit-button";
+import { FilterSummaryPills } from "@/components/ui/filter-summary-pills";
 import { fetchCurrentAccountProfile } from "@/lib/auth/session";
 import { StudentKpiGrid } from "@/components/ui/student-kpi-grid";
 import { StudentPageHeader } from "@/components/ui/student-page-header";
@@ -37,6 +38,17 @@ import {
   STUDENT_SUBJECT_CONTEXT_COOKIE,
 } from "@/lib/student/subject-context";
 import { resolvePracticeFollowUpAction } from "@/lib/student/practice";
+import { buildFilterHref, formatFilterValue } from "@/lib/workspace/filter-utils";
+
+type ResultStatusFilter =
+  | "all"
+  | "published"
+  | "pending"
+  | "pass"
+  | "fail"
+  | "review_ready";
+type ResultSortOption = "latest" | "highest" | "lowest" | "fastest" | "rank";
+type ResultGroupOption = "none" | "source" | "outcome" | "review";
 
 function resultTone(result: StudentResult) {
   if (!result.is_published) return "statusDemo";
@@ -95,6 +107,123 @@ function resultStateCopy(result: StudentResult) {
     practiceCta:
       result.result_status === "fail" ? "Practice Weak Areas" : "Practice Again",
   };
+}
+
+function resolveResultStatusFilter(value?: string): ResultStatusFilter {
+  switch (value) {
+    case "published":
+    case "pending":
+    case "pass":
+    case "fail":
+    case "review_ready":
+      return value;
+    default:
+      return "all";
+  }
+}
+
+function resolveResultSortOption(value?: string): ResultSortOption {
+  switch (value) {
+    case "highest":
+    case "lowest":
+    case "fastest":
+    case "rank":
+      return value;
+    default:
+      return "latest";
+  }
+}
+
+function resolveResultGroupOption(value?: string): ResultGroupOption {
+  switch (value) {
+    case "source":
+    case "outcome":
+    case "review":
+      return value;
+    default:
+      return "none";
+  }
+}
+
+function buildResultGroupLabel(result: StudentResult, groupBy: ResultGroupOption) {
+  if (groupBy === "source") {
+    return resultSourceDescriptor(result);
+  }
+  if (groupBy === "outcome") {
+    if (!result.is_published) return "Awaiting publication";
+    return titleCaseState(result.result_status);
+  }
+  if (groupBy === "review") {
+    if (!result.is_published) return "Pending release";
+    return result.review_available ? "Review ready" : "Summary only";
+  }
+  return "Results";
+}
+
+function applyResultStatusFilter(results: StudentResult[], filter: ResultStatusFilter) {
+  switch (filter) {
+    case "published":
+      return results.filter((result) => result.is_published);
+    case "pending":
+      return results.filter((result) => !result.is_published);
+    case "pass":
+      return results.filter((result) => result.is_published && result.result_status === "pass");
+    case "fail":
+      return results.filter((result) => result.is_published && result.result_status === "fail");
+    case "review_ready":
+      return results.filter((result) => result.is_published && result.review_available);
+    default:
+      return results;
+  }
+}
+
+function sortResults(results: StudentResult[], sortBy: ResultSortOption) {
+  const sortable = [...results];
+  sortable.sort((left, right) => {
+    switch (sortBy) {
+      case "highest":
+        return Number(right.percentage) - Number(left.percentage);
+      case "lowest":
+        return Number(left.percentage) - Number(right.percentage);
+      case "fastest":
+        return left.time_taken_seconds - right.time_taken_seconds;
+      case "rank":
+        return (left.rank ?? Number.MAX_SAFE_INTEGER) - (right.rank ?? Number.MAX_SAFE_INTEGER);
+      case "latest":
+      default: {
+        const leftTime = left.published_at ? Date.parse(left.published_at) : Date.parse(left.created_at);
+        const rightTime = right.published_at ? Date.parse(right.published_at) : Date.parse(right.created_at);
+        return rightTime - leftTime;
+      }
+    }
+  });
+  return sortable;
+}
+
+function groupResults(results: StudentResult[], groupBy: ResultGroupOption) {
+  if (groupBy === "none") {
+    return [{ label: "All results", items: results }];
+  }
+
+  const buckets = new Map<string, StudentResult[]>();
+  for (const result of results) {
+    const label = buildResultGroupLabel(result, groupBy);
+    buckets.set(label, [...(buckets.get(label) ?? []), result]);
+  }
+
+  return Array.from(buckets.entries()).map(([label, items]) => ({ label, items }));
+}
+
+function buildResultsFilterHref(args: {
+  status?: ResultStatusFilter;
+  sort?: ResultSortOption;
+  group?: ResultGroupOption;
+}) {
+  return buildFilterHref("/app/results", [
+    ["result_status", args.status, "all"],
+    ["result_sort", args.sort, "latest"],
+    ["result_group", args.group, "none"],
+  ]);
 }
 
 async function loadResults() {
@@ -181,9 +310,14 @@ async function unlockPracticeAction(formData: FormData) {
 export default async function ResultsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    result_status?: string;
+    result_sort?: string;
+    result_group?: string;
+  }>;
 }) {
-  const { error } = await searchParams;
+  const { error, result_status, result_sort, result_group } = await searchParams;
   const profile = await fetchCurrentAccountProfile();
   const registrationContext = profile?.registration_context ?? {};
   const subjectOptions = getStudentSubjectOptions(profile ?? registrationContext);
@@ -213,7 +347,15 @@ export default async function ResultsPage({
     filterStudentRecordsBySource(practiceExams, selectedSource, selectedTeacherId),
     selectedSubject,
   );
-  const publishedResults = scopedResults.filter((result) => result.is_published);
+  const statusFilter = resolveResultStatusFilter(result_status);
+  const sortOption = resolveResultSortOption(result_sort);
+  const groupOption = resolveResultGroupOption(result_group);
+  const visibleResults = sortResults(
+    applyResultStatusFilter(scopedResults, statusFilter),
+    sortOption,
+  );
+  const groupedResults = groupResults(visibleResults, groupOption);
+  const publishedResults = visibleResults.filter((result) => result.is_published);
   const averagePercentage =
     publishedResults.length > 0
       ? Math.round(
@@ -229,8 +371,8 @@ export default async function ResultsPage({
           Number(result.percentage) > Number(best.percentage) ? result : best,
         )
       : null;
-  const latestResult = scopedResults[0] ?? null;
-  const pendingResults = scopedResults.filter((result) => !result.is_published).length;
+  const latestResult = visibleResults[0] ?? scopedResults[0] ?? null;
+  const pendingResults = visibleResults.filter((result) => !result.is_published).length;
   const practiceFollowUp = resolvePracticeFollowUpAction({
     exams: scopedPracticeExams,
     subjectName: selectedSubject === ALL_SUBJECTS_CONTEXT ? null : selectedSubject,
@@ -318,17 +460,12 @@ export default async function ResultsPage({
         />
       ) : (
         <>
-          <section className="studentInsightHeroCard">
+          <section className="studentInsightHeroCard studentInsightHeroCardCompact">
             <div className="studentInsightHeroCopy">
               <span className="studentDashboardTag">Result Overview</span>
               <strong>
                 {latestResult?.exam_title ?? "Latest result"}
               </strong>
-              <p>
-                {latestResult?.is_published
-                  ? `Most recent visible score: ${percentageLabel(latestResult.percentage)}.`
-                  : "Your latest submitted attempt is still waiting to be published."}
-              </p>
               <small>
                 {latestResult
                   ? `${latestResult.exam_code} · ${resultSourceDescriptor(latestResult)} · ${
@@ -382,8 +519,132 @@ export default async function ResultsPage({
             ]}
           />
 
-          <section className="studentResultsGrid">
-            {scopedResults.map((result) => {
+          <section className="contentCard studentWorkspaceFiltersCard">
+            <div className="sectionHeading">
+              <strong>Result Controls</strong>
+              <span>
+                {visibleResults.length} shown
+                {visibleResults.length !== scopedResults.length ? ` of ${scopedResults.length}` : ""}
+              </span>
+            </div>
+            <form className="studentWorkspaceFiltersForm" method="GET">
+              <label className="studentWorkspaceFilterField">
+                <span>Status filter</span>
+                <select defaultValue={statusFilter} name="result_status">
+                  <option value="all">All results</option>
+                  <option value="published">Published only</option>
+                  <option value="pending">Pending only</option>
+                  <option value="pass">Pass only</option>
+                  <option value="fail">Fail only</option>
+                  <option value="review_ready">Review ready</option>
+                </select>
+              </label>
+              <label className="studentWorkspaceFilterField">
+                <span>Sort by</span>
+                <select defaultValue={sortOption} name="result_sort">
+                  <option value="latest">Latest first</option>
+                  <option value="highest">Highest score</option>
+                  <option value="lowest">Lowest score</option>
+                  <option value="fastest">Fastest completion</option>
+                  <option value="rank">Best rank</option>
+                </select>
+              </label>
+              <label className="studentWorkspaceFilterField">
+                <span>Group by</span>
+                <select defaultValue={groupOption} name="result_group">
+                  <option value="none">No grouping</option>
+                  <option value="source">Source</option>
+                  <option value="outcome">Outcome</option>
+                  <option value="review">Review access</option>
+                </select>
+              </label>
+              <div className="studentWorkspaceFilterActions">
+                <button className="button buttonPrimary" type="submit">
+                  Apply filters
+                </button>
+                <Link className="button buttonSecondary" href="/app/results">
+                  Reset filters
+                </Link>
+              </div>
+            </form>
+            <div className="studentWorkspaceFilterQuickRow">
+              <span className="studentWorkspaceFilterQuickLabel">Quick filters</span>
+              <div className="studentWorkspaceFilterQuickChips">
+                <Link
+                  className={`studentWorkspaceQuickChip ${statusFilter === "all" ? "studentWorkspaceQuickChipActive" : ""}`}
+                  href={buildResultsFilterHref({ sort: sortOption, group: groupOption })}
+                >
+                  All
+                </Link>
+                <Link
+                  className={`studentWorkspaceQuickChip ${statusFilter === "published" ? "studentWorkspaceQuickChipActive" : ""}`}
+                  href={buildResultsFilterHref({ status: "published", sort: sortOption, group: groupOption })}
+                >
+                  Published
+                </Link>
+                <Link
+                  className={`studentWorkspaceQuickChip ${statusFilter === "review_ready" ? "studentWorkspaceQuickChipActive" : ""}`}
+                  href={buildResultsFilterHref({ status: "review_ready", sort: sortOption, group: groupOption })}
+                >
+                  Review Ready
+                </Link>
+                <Link
+                  className={`studentWorkspaceQuickChip ${statusFilter === "fail" ? "studentWorkspaceQuickChipActive" : ""}`}
+                  href={buildResultsFilterHref({ status: "fail", sort: sortOption, group: groupOption })}
+                >
+                  Needs Work
+                </Link>
+                <Link
+                  className={`studentWorkspaceQuickChip ${sortOption === "highest" ? "studentWorkspaceQuickChipActive" : ""}`}
+                  href={buildResultsFilterHref({ status: statusFilter, sort: "highest", group: groupOption })}
+                >
+                  Top Score
+                </Link>
+                <Link
+                  className={`studentWorkspaceQuickChip ${sortOption === "fastest" ? "studentWorkspaceQuickChipActive" : ""}`}
+                  href={buildResultsFilterHref({ status: statusFilter, sort: "fastest", group: groupOption })}
+                >
+                  Fastest
+                </Link>
+                <Link
+                  className={`studentWorkspaceQuickChip ${groupOption === "source" ? "studentWorkspaceQuickChipActive" : ""}`}
+                  href={buildResultsFilterHref({ status: statusFilter, sort: sortOption, group: "source" })}
+                >
+                  Group by Source
+                </Link>
+              </div>
+            </div>
+            <FilterSummaryPills
+              className="studentWorkspaceFilterChips"
+              items={[
+                { label: "Status", value: formatFilterValue(statusFilter) },
+                { label: "Sort", value: formatFilterValue(sortOption) },
+                { label: "Group", value: formatFilterValue(groupOption) },
+              ]}
+            />
+          </section>
+
+          {visibleResults.length === 0 ? (
+            <StudentStatePanel
+              eyebrow="No matching results"
+              title="No results match these filters"
+              description="Try a broader status filter, a different sort order, or reset the current result controls."
+              ctaHref="/app/results"
+              ctaLabel="Reset result filters"
+              statusLabel="Filter returned zero results"
+            />
+          ) : null}
+
+          {visibleResults.length > 0 ? groupedResults.map((group) => (
+            <section className="studentResultsGroupedSection" key={group.label}>
+              {groupOption !== "none" ? (
+                <div className="sectionHeading sectionHeadingCompact">
+                  <strong>{group.label}</strong>
+                  <span>{group.items.length} results</span>
+                </div>
+              ) : null}
+              <div className="studentResultsGrid">
+            {group.items.map((result) => {
               const stateCopy = resultStateCopy(result);
 
               return (
@@ -517,7 +778,9 @@ export default async function ResultsPage({
                 </article>
               );
             })}
-          </section>
+              </div>
+            </section>
+          )) : null}
 
           <section className="contentCard">
             <div className="sectionHeading">

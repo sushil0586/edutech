@@ -1,45 +1,142 @@
 import Link from "next/link";
+import { FilterSummaryPills } from "@/components/ui/filter-summary-pills";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { InstitutePageHeader } from "@/components/ui/institute-page-header";
-import { fetchTeacherExams, getTeacherApiState } from "@/lib/api/teacher";
+import type { TeacherExamListItem } from "@/features/dashboard/types";
+import { fetchTeacherExamPage, getTeacherApiState } from "@/lib/api/teacher";
 import { requireInstituteAdminSession } from "@/lib/auth/session";
+import { buildFilterHref, formatFilterValue, resolveFilterValue } from "@/lib/workspace/filter-utils";
+
+type InstituteExam = TeacherExamListItem;
+type InstituteExamStatusFilter = "all" | "live" | "scheduled" | "draft";
+type InstituteExamSortOption =
+  | "recommended"
+  | "start_soon"
+  | "duration_short"
+  | "learners_high"
+  | "marks_high"
+  | "title";
+type InstituteExamGroupOption = "none" | "status" | "type" | "subject";
 
 function titleCase(value: string) {
-  return value.replaceAll("_", " ");
+  return formatFilterValue(value);
 }
 
-async function loadInstituteExams() {
+function resolveInstituteExamStatusFilter(value?: string): InstituteExamStatusFilter {
+  return resolveFilterValue(value, ["live", "scheduled", "draft"], "all");
+}
+
+function resolveInstituteExamSortOption(value?: string): InstituteExamSortOption {
+  return resolveFilterValue(value, ["start_soon", "duration_short", "learners_high", "marks_high", "title"], "recommended");
+}
+
+function resolveInstituteExamGroupOption(value?: string): InstituteExamGroupOption {
+  return resolveFilterValue(value, ["status", "type", "subject"], "none");
+}
+
+function buildInstituteExamGroupLabel(exam: InstituteExam, groupBy: InstituteExamGroupOption) {
+  if (groupBy === "status") return titleCase(exam.status);
+  if (groupBy === "type") return titleCase(exam.exam_type);
+  if (groupBy === "subject") return exam.subject_name || "Unassigned subject";
+  return "Exams";
+}
+
+function groupInstituteExams(exams: InstituteExam[], groupBy: InstituteExamGroupOption) {
+  if (groupBy === "none") {
+    return [{ label: "All exams", items: exams }];
+  }
+
+  const buckets = new Map<string, InstituteExam[]>();
+  for (const exam of exams) {
+    const label = buildInstituteExamGroupLabel(exam, groupBy);
+    buckets.set(label, [...(buckets.get(label) ?? []), exam]);
+  }
+
+  return Array.from(buckets.entries()).map(([label, items]) => ({ label, items }));
+}
+
+function buildInstituteExamFilterHref(args: {
+  status?: InstituteExamStatusFilter;
+  sort?: InstituteExamSortOption;
+  group?: InstituteExamGroupOption;
+  page?: number;
+  pageSize?: number;
+}) {
+  return buildFilterHref("/institute/exams", [
+    ["exam_status", args.status, "all"],
+    ["exam_sort", args.sort, "recommended"],
+    ["exam_group", args.group, "none"],
+    ["exam_page", args.page ? String(args.page) : undefined, "1"],
+    ["exam_page_size", args.pageSize ? String(args.pageSize) : undefined, "12"],
+  ]);
+}
+
+async function loadInstituteExams(
+  statusFilter: InstituteExamStatusFilter,
+  sortOption: InstituteExamSortOption,
+  page: number,
+  pageSize: number,
+) {
   const state = getTeacherApiState();
 
   if (!state.apiConfigured) {
     return {
       source: "unconfigured" as const,
-      exams: [],
+      examsPage: null,
     };
   }
 
   try {
-    const exams = await fetchTeacherExams();
+    const examsPage = await fetchTeacherExamPage({
+      page,
+      pageSize,
+      filter: statusFilter,
+      sort: sortOption,
+    });
 
     return {
       source: "live" as const,
-      exams,
+      examsPage,
     };
   } catch {
     return {
       source: "error" as const,
-      exams: [],
+      examsPage: null,
     };
   }
 }
 
-export default async function InstituteExamsPage() {
+export default async function InstituteExamsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{
+    exam_status?: string;
+    exam_sort?: string;
+    exam_group?: string;
+    exam_page?: string;
+    exam_page_size?: string;
+  }>;
+}) {
   await requireInstituteAdminSession();
-
-  const { source, exams } = await loadInstituteExams();
+  const params = (await searchParams) ?? {};
+  const statusFilter = resolveInstituteExamStatusFilter(params.exam_status);
+  const sortOption = resolveInstituteExamSortOption(params.exam_sort);
+  const groupOption = resolveInstituteExamGroupOption(params.exam_group);
+  const examPage = Number.parseInt(params.exam_page ?? "1", 10) > 0 ? Number.parseInt(params.exam_page ?? "1", 10) : 1;
+  const examPageSize =
+    Number.parseInt(params.exam_page_size ?? "12", 10) > 0
+      ? Number.parseInt(params.exam_page_size ?? "12", 10)
+      : 12;
+  const { source, examsPage } = await loadInstituteExams(statusFilter, sortOption, examPage, examPageSize);
+  const exams = examsPage?.results ?? [];
+  const visibleExams = exams;
+  const groupedExams = groupInstituteExams(visibleExams, groupOption);
   const liveCount = exams.filter((exam) => exam.status === "live").length;
   const scheduledCount = exams.filter((exam) => exam.status === "scheduled").length;
   const draftCount = exams.filter((exam) => exam.status === "draft").length;
+  const totalExams = examsPage?.count ?? 0;
+  const examTotalPages = Math.max(Math.ceil(totalExams / examPageSize), 1);
+  const safeExamPage = Math.min(examPage, examTotalPages);
 
   return (
     <div className="studentPage studentDashboardModern">
@@ -69,7 +166,7 @@ export default async function InstituteExamsPage() {
           }`}
         >
           {source === "live"
-            ? `${exams.length} exams loaded`
+            ? `${totalExams} exams loaded`
             : source === "unconfigured"
               ? "Backend not configured"
               : "Unable to load exams"}
@@ -98,7 +195,7 @@ export default async function InstituteExamsPage() {
           ctaLabel="Back to Dashboard"
           statusLabel={source === "unconfigured" ? "Configuration required" : "Retry after backend check"}
         />
-      ) : exams.length === 0 ? (
+      ) : totalExams === 0 ? (
         <StudentStatePanel
           eyebrow="No exams in scope"
           title="Your institute exam list is empty right now"
@@ -112,11 +209,7 @@ export default async function InstituteExamsPage() {
           <section className="studentInsightHeroCard studentInsightHeroCardCompact">
             <div className="studentInsightHeroCopy">
               <span className="studentDashboardTag">Exam Operations</span>
-              <strong>Move from draft setup to delivery control without leaving the institute workspace</strong>
-              <p>
-                Use this workspace to review institutional scope, jump into linking and builder setup, and keep lifecycle
-                status visible before learners enter the exam.
-              </p>
+              <strong>Institute exam operations</strong>
               <small>
                 {liveCount} live · {scheduledCount} scheduled · {draftCount} draft
               </small>
@@ -137,7 +230,7 @@ export default async function InstituteExamsPage() {
           <section className="resultsSummaryGrid">
             <article className="metricCard metricCardPrimary dashboardHeroCard">
               <span>Total Exams</span>
-              <strong>{exams.length}</strong>
+              <strong>{visibleExams.length}</strong>
               <small>{draftCount} draft and {scheduledCount} scheduled</small>
             </article>
 
@@ -154,77 +247,252 @@ export default async function InstituteExamsPage() {
             </article>
           </section>
 
-          <section className="examGrid">
-            {exams.map((exam) => (
-              <article className="examCard" key={exam.id}>
-                <div className="examCardTop">
-                  <div>
-                    <strong>{exam.title}</strong>
-                    <span>
-                      {exam.code}
-                      {exam.subject_name ? ` · ${exam.subject_name}` : ""}
-                    </span>
-                  </div>
-                  <span className={`statusPill ${
-                    exam.status === "live"
-                      ? "statusLive"
-                      : exam.status === "scheduled"
-                        ? "statusWarning"
-                        : exam.status === "draft"
-                          ? "statusDemo"
-                          : "statusDanger"
-                  }`}
+          <section className="contentCard workspaceFiltersCard">
+            <div className="sectionHeading">
+              <strong>Exam Controls</strong>
+              <span>
+                {visibleExams.length} shown
+                {totalExams !== visibleExams.length ? ` of ${totalExams}` : ""}
+              </span>
+            </div>
+            <form className="workspaceFiltersForm" method="GET">
+              <input name="exam_page" type="hidden" value="1" />
+              <label className="workspaceFilterField">
+                <span>Status</span>
+                <select defaultValue={statusFilter} name="exam_status">
+                  <option value="all">All exams</option>
+                  <option value="live">Live</option>
+                  <option value="scheduled">Scheduled</option>
+                  <option value="draft">Draft</option>
+                </select>
+              </label>
+              <label className="workspaceFilterField">
+                <span>Sort by</span>
+                <select defaultValue={sortOption} name="exam_sort">
+                  <option value="recommended">Recommended order</option>
+                  <option value="start_soon">Starts soonest</option>
+                  <option value="duration_short">Shortest duration</option>
+                  <option value="learners_high">Highest learner count</option>
+                  <option value="marks_high">Highest marks</option>
+                  <option value="title">Title A-Z</option>
+                </select>
+              </label>
+              <label className="workspaceFilterField">
+                <span>Group by</span>
+                <select defaultValue={groupOption} name="exam_group">
+                  <option value="none">No grouping</option>
+                  <option value="status">Status</option>
+                  <option value="type">Exam type</option>
+                  <option value="subject">Subject</option>
+                </select>
+              </label>
+              <label className="workspaceFilterField">
+                <span>Page size</span>
+                <select defaultValue={String(examPageSize)} name="exam_page_size">
+                  <option value="12">12</option>
+                  <option value="18">18</option>
+                  <option value="24">24</option>
+                </select>
+              </label>
+              <div className="workspaceFilterActions">
+                <button className="button buttonPrimary" type="submit">
+                  Apply filters
+                </button>
+                <Link className="button buttonSecondary" href="/institute/exams">
+                  Reset filters
+                </Link>
+              </div>
+            </form>
+            <div className="workspaceFilterQuickRow">
+              <span className="workspaceFilterQuickLabel">Quick filters</span>
+              <div className="workspaceFilterQuickChips">
+                {[
+                  {
+                    label: "All",
+                    href: buildInstituteExamFilterHref({ pageSize: examPageSize }),
+                    active: statusFilter === "all" && sortOption === "recommended" && groupOption === "none",
+                  },
+                  {
+                    label: "Live",
+                    href: buildInstituteExamFilterHref({ status: "live", sort: sortOption, group: groupOption, pageSize: examPageSize }),
+                    active: statusFilter === "live",
+                  },
+                  {
+                    label: "Scheduled",
+                    href: buildInstituteExamFilterHref({ status: "scheduled", sort: sortOption, group: groupOption, pageSize: examPageSize }),
+                    active: statusFilter === "scheduled",
+                  },
+                  {
+                    label: "Drafts",
+                    href: buildInstituteExamFilterHref({ status: "draft", sort: sortOption, group: groupOption, pageSize: examPageSize }),
+                    active: statusFilter === "draft",
+                  },
+                  {
+                    label: "Starts Soon",
+                    href: buildInstituteExamFilterHref({ status: statusFilter, sort: "start_soon", group: groupOption, pageSize: examPageSize }),
+                    active: sortOption === "start_soon",
+                  },
+                  {
+                    label: "Highest Marks",
+                    href: buildInstituteExamFilterHref({ status: statusFilter, sort: "marks_high", group: groupOption, pageSize: examPageSize }),
+                    active: sortOption === "marks_high",
+                  },
+                  {
+                    label: "Group by Subject",
+                    href: buildInstituteExamFilterHref({ status: statusFilter, sort: sortOption, group: "subject", pageSize: examPageSize }),
+                    active: groupOption === "subject",
+                  },
+                ].map((chip) => (
+                  <Link
+                    key={chip.label}
+                    className={`workspaceQuickChip${chip.active ? " workspaceQuickChipActive" : ""}`}
+                    href={chip.href}
                   >
-                    {titleCase(exam.status)}
-                  </span>
-                </div>
-
-                <div className="examMetaGrid">
-                  <div>
-                    <span>Duration</span>
-                    <strong>{exam.duration_minutes} min</strong>
-                  </div>
-                  <div>
-                    <span>Questions</span>
-                    <strong>{exam.active_questions_count}</strong>
-                  </div>
-                  <div>
-                    <span>Students</span>
-                    <strong>{exam.assigned_student_count}</strong>
-                  </div>
-                  <div>
-                    <span>Marks</span>
-                    <strong>{exam.total_marks}</strong>
-                  </div>
-                </div>
-
-                <p className="examInstructions">
-                  {exam.description || exam.instructions || "No additional institute-facing exam notes were provided."}
-                </p>
-
-                <div className="examCardFooter">
-                  <div className="examStateSummary">
-                    <strong>{titleCase(exam.exam_type)}</strong>
-                    <span>
-                      {exam.start_at ? `Starts ${new Date(exam.start_at).toLocaleString("en-IN")}` : "Schedule pending"}
-                    </span>
-                  </div>
-
-                  <div className="resultCardActions">
-                    <Link className="button buttonSecondary" href={`/institute/exams/${exam.id}/builder?tab=questions`}>
-                      Link Questions
-                    </Link>
-                    <Link className="button buttonGhost" href={`/institute/exams/${exam.id}/builder`}>
-                      Setup
-                    </Link>
-                    <Link className="button buttonPrimary" href={`/institute/exams/${exam.id}`}>
-                      Open Exam
-                    </Link>
-                  </div>
-                </div>
-              </article>
-            ))}
+                    {chip.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+            <FilterSummaryPills
+              items={[
+                { label: "Status", value: formatFilterValue(statusFilter) },
+                { label: "Sort", value: formatFilterValue(sortOption) },
+                { label: "Group", value: formatFilterValue(groupOption) },
+                { label: "Page", value: `${safeExamPage}/${examTotalPages}` },
+              ]}
+            />
           </section>
+
+          {visibleExams.length === 0 ? (
+            <StudentStatePanel
+              eyebrow="No matching exams"
+              title="No institute exams match these controls"
+              description="Try a broader status filter, change the grouping, or reset the controls to return to the full institute list."
+              ctaHref="/institute/exams"
+              ctaLabel="Reset exam filters"
+              statusLabel="Filter returned zero exams"
+            />
+          ) : null}
+
+          {visibleExams.length > 0
+            ? groupedExams.map((group) => (
+                <section className="workspaceResultsGroup" key={group.label}>
+                  {groupOption !== "none" ? (
+                    <div className="sectionHeading">
+                      <strong>{group.label}</strong>
+                      <span>{group.items.length} exams</span>
+                    </div>
+                  ) : null}
+                  <div className="examGrid">
+                    {group.items.map((exam) => (
+                      <article className="examCard" key={exam.id}>
+                        <div className="examCardTop">
+                          <div>
+                            <strong>{exam.title}</strong>
+                            <span>
+                              {exam.code}
+                              {exam.subject_name ? ` · ${exam.subject_name}` : ""}
+                            </span>
+                          </div>
+                          <span className={`statusPill ${
+                            exam.status === "live"
+                              ? "statusLive"
+                              : exam.status === "scheduled"
+                                ? "statusWarning"
+                                : exam.status === "draft"
+                                  ? "statusDemo"
+                                  : "statusDanger"
+                          }`}
+                          >
+                            {titleCase(exam.status)}
+                          </span>
+                        </div>
+
+                        <div className="examMetaGrid">
+                          <div>
+                            <span>Duration</span>
+                            <strong>{exam.duration_minutes} min</strong>
+                          </div>
+                          <div>
+                            <span>Questions</span>
+                            <strong>{exam.active_questions_count}</strong>
+                          </div>
+                          <div>
+                            <span>Students</span>
+                            <strong>{exam.assigned_student_count}</strong>
+                          </div>
+                          <div>
+                            <span>Marks</span>
+                            <strong>{exam.total_marks}</strong>
+                          </div>
+                        </div>
+
+                        <p className="examInstructions">
+                          {exam.description || exam.instructions || "No additional institute-facing exam notes were provided."}
+                        </p>
+
+                        <div className="examCardFooter">
+                          <div className="examStateSummary">
+                            <strong>{titleCase(exam.exam_type)}</strong>
+                            <span>
+                              {exam.start_at ? `Starts ${new Date(exam.start_at).toLocaleString("en-IN")}` : "Schedule pending"}
+                            </span>
+                          </div>
+
+                          <div className="resultCardActions">
+                            <Link className="button buttonSecondary" href={`/institute/exams/${exam.id}/builder?tab=questions`}>
+                              Link Questions
+                            </Link>
+                            <Link className="button buttonGhost" href={`/institute/exams/${exam.id}/builder`}>
+                              Setup
+                            </Link>
+                            <Link className="button buttonPrimary" href={`/institute/exams/${exam.id}`}>
+                              Open Exam
+                            </Link>
+                          </div>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              ))
+            : null}
+          {totalExams > examPageSize ? (
+            <div className="workspaceFilterActions">
+              <Link
+                className="button buttonSecondary"
+                href={
+                  safeExamPage <= 1
+                    ? "#"
+                    : buildInstituteExamFilterHref({
+                        status: statusFilter,
+                        sort: sortOption,
+                        group: groupOption,
+                        page: safeExamPage - 1,
+                        pageSize: examPageSize,
+                      })
+                }
+              >
+                Previous
+              </Link>
+              <Link
+                className="button buttonSecondary"
+                href={
+                  safeExamPage >= examTotalPages
+                    ? "#"
+                    : buildInstituteExamFilterHref({
+                        status: statusFilter,
+                        sort: sortOption,
+                        group: groupOption,
+                        page: safeExamPage + 1,
+                        pageSize: examPageSize,
+                      })
+                }
+              >
+                Next
+              </Link>
+            </div>
+          ) : null}
         </>
       )}
     </div>

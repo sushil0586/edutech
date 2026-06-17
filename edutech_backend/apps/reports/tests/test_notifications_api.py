@@ -75,6 +75,8 @@ class NotificationApiTestCase(APITestCase):
         items = self._list_data(response)
         self.assertEqual(len(items), 1)
         self.assertEqual(str(items[0]["recipient_user"]), str(self.other_student_user.id))
+        self.assertIn("summary", response.data)
+        self.assertIn("available_notification_types", response.data)
 
     def test_mark_read_and_unread_count_work(self):
         notification = InAppNotification.objects.filter(recipient_user=self.student_user).first()
@@ -140,3 +142,59 @@ class NotificationApiTestCase(APITestCase):
                 notification_type=NotificationType.RESULT_PUBLISHED,
             ).exists()
         )
+
+    def test_notification_list_supports_filters_and_pagination(self):
+        InAppNotification.objects.create(
+            recipient_user=self.student_user,
+            institute=self.context["institute"],
+            notification_type=NotificationType.EXAM_LIVE,
+            title="Live exam reminder",
+            message="An exam is now live.",
+            related_object_type="exam",
+            related_object_id=str(self.exam.id),
+        )
+        read_notification = InAppNotification.objects.create(
+            recipient_user=self.student_user,
+            institute=self.context["institute"],
+            notification_type=NotificationType.RESULT_PUBLISHED,
+            title="Result ready",
+            message="Result is published.",
+            related_object_type="result",
+            related_object_id="result-1",
+            is_read=True,
+        )
+
+        self.client.force_authenticate(self.student_user)
+        response = self.client.get(
+            "/api/v1/notifications/",
+            {
+                "status": "unread",
+                "notification_type": NotificationType.EXAM_LIVE,
+                "page_size": 1,
+                "ordering": "oldest",
+            },
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(len(self._list_data(response)), 1)
+        self.assertEqual(
+            self._list_data(response)[0]["notification_type"],
+            NotificationType.EXAM_LIVE,
+        )
+        self.assertEqual(response.data["summary"]["total"], 3)
+        self.assertEqual(response.data["summary"]["read"], 1)
+        self.assertEqual(response.data["summary"]["unread"], 2)
+        self.assertEqual(response.data["applied_filters"]["status"], "unread")
+        self.assertEqual(
+            response.data["applied_filters"]["notification_type"],
+            NotificationType.EXAM_LIVE,
+        )
+        self.assertTrue(
+            any(
+                item["value"] == NotificationType.RESULT_PUBLISHED
+                for item in response.data["available_notification_types"]
+            )
+        )
+        read_notification.refresh_from_db()
+        self.assertTrue(read_notification.is_read)

@@ -1146,14 +1146,10 @@ export default async function PlatformAdminExamBuilderPage({
       {message ? <p className="feedbackBanner feedbackBannerSuccess">{decodeURIComponent(message)}</p> : null}
       {error ? <p className="feedbackBanner feedbackBannerError">{decodeURIComponent(error)}</p> : null}
 
-      <section className="studentInsightHeroCard">
+      <section className="studentInsightHeroCard studentInsightHeroCardCompact">
         <div className="studentInsightHeroCopy">
           <span className="studentDashboardTag">Unified Builder</span>
-          <strong>Shape structure, question mapping, and audience rules without leaving the same authoring flow</strong>
-          <p>
-            The builder is the central platform-admin workflow for exam authoring. Keep settings, sections,
-            linked questions, and assignment decisions together so publishing never depends on hidden steps.
-          </p>
+          <strong>Exam builder workflow</strong>
           <small>
             {activeSections.length} sections · {activeExamQuestions.length} linked questions · {activeAssignedStudents.length} learners
           </small>

@@ -116,7 +116,7 @@ export function TeacherCreateDialog({
     setFieldErrors({});
 
     try {
-      const response = await fetch("/api/v1/teachers/", {
+      const response = await fetch("/api/admin/people/teachers", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

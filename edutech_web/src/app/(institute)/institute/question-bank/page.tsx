@@ -338,14 +338,10 @@ export default async function InstituteQuestionBankPage({
       {message ? <p className="feedbackBanner feedbackBannerSuccess">{decodeURIComponent(message)}</p> : null}
       {error ? <p className="feedbackBanner feedbackBannerError">{decodeURIComponent(error)}</p> : null}
 
-      <section className="studentInsightHeroCard">
+      <section className="studentInsightHeroCard studentInsightHeroCardCompact">
         <div className="studentInsightHeroCopy">
           <span className="studentDashboardTag">Reusable Content</span>
-          <strong>Maintain institute-level question quality before those items flow into exams</strong>
-          <p>
-            This workspace is the reusable content layer for institute authoring. Search, refine, tag, and import
-            items so future exam creation stays fast and accurate across subjects and programs.
-          </p>
+          <strong>Institute question bank</strong>
           <small>
             {questionPage.count} filtered items · {verifiedCount} verified · {missingExplanationCount} need explanation work
           </small>

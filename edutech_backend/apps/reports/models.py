@@ -49,8 +49,10 @@ class InAppNotification(BaseModel):
     class Meta:
         ordering = ["-created_at"]
         indexes = [
-            models.Index(fields=["recipient_user", "is_read"]),
-            models.Index(fields=["recipient_user", "created_at"]),
+            models.Index(fields=["recipient_user", "is_active", "is_read", "created_at"]),
+            models.Index(fields=["recipient_user", "is_active", "created_at"]),
+            models.Index(fields=["recipient_user", "is_active", "notification_type", "created_at"]),
+            models.Index(fields=["recipient_user", "is_active", "related_object_type", "created_at"]),
             models.Index(fields=["notification_type", "is_read"]),
             models.Index(fields=["institute", "created_at"]),
             models.Index(fields=["related_object_type", "related_object_id"]),

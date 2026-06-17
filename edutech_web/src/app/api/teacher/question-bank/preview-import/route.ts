@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { previewTeacherQuestionImport } from "@/lib/api/teacher-builder";
 import { fetchCurrentAccountProfile } from "@/lib/auth/session";
+import { validateCsvUpload } from "@/lib/http/upload-validation";
 
 export async function POST(request: Request) {
   const profile = await fetchCurrentAccountProfile();
@@ -15,6 +16,11 @@ export async function POST(request: Request) {
 
     if (!(file instanceof File)) {
       return NextResponse.json({ error: "Choose a CSV file before previewing." }, { status: 400 });
+    }
+
+    const fileError = validateCsvUpload(file);
+    if (fileError) {
+      return NextResponse.json({ error: fileError }, { status: 400 });
     }
 
     const preview = await previewTeacherQuestionImport({

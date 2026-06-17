@@ -206,11 +206,10 @@ export default async function AttemptReviewPage({
         <p className="feedbackBanner feedbackBannerError">{decodeURIComponent(error)}</p>
       ) : null}
 
-      <section className="studentInsightHeroCard">
+      <section className="studentInsightHeroCard studentInsightHeroCardCompact">
         <div className="studentInsightHeroCopy">
           <span className="studentDashboardTag">Review Mode</span>
           <strong>{stateCopy.nextStep}</strong>
-          <p>{stateCopy.helper}</p>
           <small>
             {review.show_explanations
               ? "Explanations visible"
@@ -294,15 +293,11 @@ export default async function AttemptReviewPage({
           <div className="studentInsightMessageStack">
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
-              <p>Use this review as a learning pass, not just a score check.</p>
+              <p>Use review as a learning pass, not just a score check.</p>
             </div>
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
-              <p>Move into practice with a focused topic path after inspecting weak responses.</p>
-            </div>
-            <div className="studentInsightMessage">
-              <span className="placeholderDot" aria-hidden="true" />
-              <p>Analytics becomes more useful after review when you turn patterns into follow-up action.</p>
+              <p>Move into practice after inspecting weak responses.</p>
             </div>
           </div>
           <div className="studentInsightHeroActions">

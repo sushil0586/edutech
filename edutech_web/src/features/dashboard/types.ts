@@ -512,9 +512,27 @@ export type StudentNotification = {
   created_at: string;
 };
 
-export type StudentNotificationListResponse = {
+export type StudentNotificationFacetOption = {
+  value: string;
+  label: string;
   count: number;
-  results: StudentNotification[];
+};
+
+export type StudentNotificationListResponse = PaginatedResponse<StudentNotification> & {
+  summary: {
+    total: number;
+    unread: number;
+    read: number;
+  };
+  available_notification_types: StudentNotificationFacetOption[];
+  available_related_object_types: StudentNotificationFacetOption[];
+  applied_filters: {
+    status: string;
+    notification_type: string;
+    related_object_type: string;
+    ordering: string;
+    search: string;
+  };
 };
 
 export type NotificationUnreadCount = {
@@ -1049,6 +1067,76 @@ export type TeacherExam = {
   is_active: boolean;
 };
 
+export type TeacherExamListItem = {
+  id: string;
+  institute: string;
+  academic_year: string;
+  program: string;
+  program_name: string | null;
+  cohort: string | null;
+  cohort_name: string | null;
+  subject: string | null;
+  subject_name: string | null;
+  title: string;
+  code: string;
+  description: string;
+  exam_type: string;
+  delivery_mode: string;
+  status: string;
+  duration_minutes: number;
+  total_marks: string;
+  passing_marks: string;
+  start_at: string | null;
+  end_at: string | null;
+  instructions: string;
+  allow_late_submit: boolean;
+  randomize_questions: boolean;
+  randomize_options: boolean;
+  show_result_immediately: boolean;
+  allow_review_after_submit: boolean;
+  max_attempts: number;
+  timer_mode: string;
+  navigation_mode: string;
+  attempt_policy: string;
+  result_publish_mode: string;
+  review_mode: string;
+  security_mode: string;
+  access_key: string;
+  access_key_enabled: boolean;
+  source_type: string;
+  source_label: string;
+  source_name: string;
+  source_teacher_name: string | null;
+  assignment_mode: string;
+  allow_resume: boolean;
+  allow_section_switching: boolean;
+  allow_return_to_previous_section: boolean;
+  result_publish_at: string | null;
+  review_available_from: string | null;
+  review_available_until: string | null;
+  rank_visibility_mode: string;
+  percentile_visibility_mode: string;
+  benchmark_visibility_mode: string;
+  rank_freeze_policy: string;
+  metadata: Record<string, unknown>;
+  assigned_student_count: number;
+  active_questions_count: number;
+  security_policy: StudentSecurityPolicy;
+  economy_policy: TeacherExamEconomyPolicy | null;
+  created_at: string;
+  updated_at: string;
+  is_active: boolean;
+};
+
+export type TeacherExamPage = PaginatedResponse<TeacherExamListItem> & {
+  applied_filter: string;
+  applied_sort: string;
+  applied_search: string;
+  summary?: {
+    total_star_cost: number;
+  };
+};
+
 export type TeacherResultSummary = {
   id: string;
   institute: string;
@@ -1183,6 +1271,26 @@ export type TeacherQuestionAnalysis = {
   marked_for_review_count: number;
 };
 
+export type TeacherLeaderboardPage = PaginatedResponse<TeacherLeaderboardRow> & {
+  summary: {
+    total: number;
+    ranked_count: number;
+    published_count: number;
+    all_ranked: boolean;
+    published_results: boolean;
+  };
+};
+
+export type TeacherExamAttemptPage = PaginatedResponse<TeacherExamAttempt> & {
+  summary: {
+    total_attempts: number;
+  };
+  applied_filter: string;
+  applied_sort: string;
+  applied_search: string;
+  selected_attempt: TeacherExamAttempt | null;
+};
+
 export type TeacherLiveExamMonitor = {
   exam_id: string;
   exam_title: string;
@@ -1199,6 +1307,14 @@ export type TeacherLiveExamMonitor = {
   high_alert_attempts: number;
   medium_alert_attempts: number;
   stalled_attempts: number;
+  integrity_warning_attempts: number;
+  integrity_warnings_total: number;
+  threshold_reached_attempts: number;
+  attempts_by_health: {
+    critical: number;
+    watch: number;
+    stable: number;
+  };
   completion_percentage: number;
   submission_percentage: number;
   last_activity_at: string | null;

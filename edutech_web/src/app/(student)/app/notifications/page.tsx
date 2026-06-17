@@ -1,154 +1,122 @@
-import { revalidatePath } from "next/cache";
 import Link from "next/link";
-import {
-  fetchStudentNotifications,
-  fetchStudentUnreadCount,
-  getStudentApiState,
-  markAllStudentNotificationsRead,
-  markStudentNotificationRead,
-} from "@/lib/api/student";
-import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import { StudentKpiGrid } from "@/components/ui/student-kpi-grid";
+import { StudentNotificationFilters } from "@/components/ui/student-notification-filters";
+import { StudentNotificationsInbox } from "@/components/ui/student-notifications-inbox";
 import { StudentPageHeader } from "@/components/ui/student-page-header";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
+import {
+  fetchStudentNotifications,
+  getStudentApiState,
+} from "@/lib/api/student";
+import {
+  NOTIFICATION_GROUP_VALUES,
+  NOTIFICATION_ORDERING_VALUES,
+  NOTIFICATION_PAGE_SIZE_VALUES,
+  NOTIFICATION_STATUS_VALUES,
+  parsePositiveInt,
+} from "@/lib/student/notifications";
+import { resolveFilterValue } from "@/lib/workspace/filter-utils";
 
-function notificationTone(type: string) {
-  if (type.includes("result")) return "statusLive";
-  if (type.includes("starting") || type.includes("live")) return "statusWarning";
-  return "statusDemo";
-}
+type NotificationSearchParams = {
+  page?: string;
+  page_size?: string;
+  status?: string;
+  notification_type?: string;
+  related_object_type?: string;
+  ordering?: string;
+  group_by?: string;
+  search?: string;
+};
 
-function formatNotificationType(value: string) {
-  return value.replaceAll("_", " ");
-}
-
-function notificationHref(notification: {
-  related_object_type: string;
-  related_object_id: string;
-  metadata: Record<string, unknown>;
+async function loadNotifications(filters: {
+  page: number;
+  pageSize: number;
+  status: string;
+  notificationType: string;
+  relatedObjectType: string;
+  ordering: string;
+  search: string;
 }) {
-  const route =
-    typeof notification.metadata.route === "string" ? notification.metadata.route : "";
-  const examId =
-    typeof notification.metadata.exam_id === "string"
-      ? notification.metadata.exam_id
-      : "";
-  const attemptId =
-    typeof notification.metadata.attempt_id === "string"
-      ? notification.metadata.attempt_id
-      : "";
-
-  if (route === "student_exam_detail" && examId) {
-    return `/app/exams/${examId}`;
-  }
-
-  if (route === "student_attempt_summary" && attemptId) {
-    return `/app/attempts/${attemptId}/summary`;
-  }
-
-  if (notification.related_object_type === "exam" && notification.related_object_id) {
-    return `/app/exams/${notification.related_object_id}`;
-  }
-
-  if (notification.related_object_type === "attempt" && notification.related_object_id) {
-    return `/app/attempts/${notification.related_object_id}/summary`;
-  }
-
-  return "/app/notifications";
-}
-
-function relativeTimeLabel(isoDate: string) {
-  const createdAt = new Date(isoDate).getTime();
-  const now = Date.now();
-  const diffMinutes = Math.max(Math.round((now - createdAt) / 60000), 0);
-
-  if (diffMinutes < 1) return "Just now";
-  if (diffMinutes < 60) return `${diffMinutes}m ago`;
-
-  const diffHours = Math.round(diffMinutes / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-
-  const diffDays = Math.round(diffHours / 24);
-  return `${diffDays}d ago`;
-}
-
-async function markReadAction(formData: FormData) {
-  "use server";
-
-  const notificationId = String(formData.get("notification_id") ?? "");
-  if (!notificationId) return;
-
-  await markStudentNotificationRead(notificationId);
-  revalidatePath("/app/notifications");
-}
-
-async function markAllReadAction() {
-  "use server";
-
-  await markAllStudentNotificationsRead();
-  revalidatePath("/app/notifications");
-}
-
-async function loadNotifications() {
   const state = getStudentApiState();
 
   if (!state.apiConfigured) {
     return {
       source: "unconfigured" as const,
-      count: 0,
-      unreadCount: 0,
-      notifications: [],
+      notificationsPage: null,
     };
   }
 
   try {
-    const [list, unread] = await Promise.all([
-      fetchStudentNotifications(),
-      fetchStudentUnreadCount(),
-    ]);
+    const notificationsPage = await fetchStudentNotifications({
+      page: filters.page,
+      page_size: filters.pageSize,
+      status: filters.status,
+      notification_type: filters.notificationType || null,
+      related_object_type: filters.relatedObjectType || null,
+      ordering: filters.ordering,
+      search: filters.search || null,
+    });
 
     return {
       source: "live" as const,
-      count: list.count,
-      unreadCount: unread.unread_count,
-      notifications: list.results,
+      notificationsPage,
     };
   } catch {
     return {
       source: "error" as const,
-      count: 0,
-      unreadCount: 0,
-      notifications: [],
+      notificationsPage: null,
     };
   }
 }
 
-export default async function NotificationsPage() {
-  const { source, count, unreadCount, notifications } = await loadNotifications();
-  const readCount = Math.max(count - unreadCount, 0);
+export default async function NotificationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<NotificationSearchParams>;
+}) {
+  const params = await searchParams;
+  const page = parsePositiveInt(params.page, 1);
+  const pageSizeCandidate = parsePositiveInt(params.page_size, 24);
+  const pageSize = NOTIFICATION_PAGE_SIZE_VALUES.includes(
+    pageSizeCandidate as (typeof NOTIFICATION_PAGE_SIZE_VALUES)[number],
+  )
+    ? pageSizeCandidate
+    : 24;
+  const status = resolveFilterValue(params.status, NOTIFICATION_STATUS_VALUES, "all");
+  const ordering = resolveFilterValue(
+    params.ordering,
+    NOTIFICATION_ORDERING_VALUES,
+    "newest",
+  );
+  const groupBy = resolveFilterValue(params.group_by, NOTIFICATION_GROUP_VALUES, "day");
+  const notificationType = (params.notification_type ?? "").trim();
+  const relatedObjectType = (params.related_object_type ?? "").trim();
+  const search = (params.search ?? "").trim();
 
-  return (
-    <div className="studentPage studentDashboardModern">
-      <StudentPageHeader
-        title="Notifications"
-        description="A live notification center backed by the in-app notifications API, including unread counts and mark-read actions."
-        statusLabel={
-          source === "live"
-            ? `${unreadCount} unread`
-            : source === "unconfigured"
+  const { source, notificationsPage } = await loadNotifications({
+    page,
+    pageSize,
+    status,
+    notificationType,
+    relatedObjectType,
+    ordering,
+    search,
+  });
+
+  if (source !== "live" || !notificationsPage) {
+    return (
+      <div className="studentPage studentDashboardModern">
+        <StudentPageHeader
+          title="Notifications"
+          description="A live notification center backed by the in-app notifications API, including inbox filters and mark-read actions."
+          statusLabel={
+            source === "unconfigured"
               ? "Backend not configured"
               : "Unable to load notifications"
-        }
-        statusTone={
-          source === "live"
-            ? "live"
-            : source === "unconfigured"
-              ? "warning"
-              : "demo"
-        }
-      />
+          }
+          statusTone={source === "unconfigured" ? "warning" : "demo"}
+        />
 
-      {source !== "live" ? (
         <StudentStatePanel
           eyebrow={source === "unconfigured" ? "Setup required" : "Load issue"}
           title={
@@ -158,17 +126,17 @@ export default async function NotificationsPage() {
           }
           description={
             source === "unconfigured"
-              ? "This page only renders real in-app notifications. Configure the API base URL and sign in with an active student account to load the student-specific notification feed."
+              ? "This page depends on the live inbox API contract for filtering, sorting, and grouping."
               : "The notification center is connected to live backend APIs, but the current request did not complete successfully."
           }
           bullets={
             source === "unconfigured"
               ? [
-                  "Notifications feed endpoint",
-                  "Unread count endpoint",
+                  "Notifications list endpoint",
+                  "Notification unread count summary",
                   "Active student web session",
                 ]
-              : ["Backend connectivity", "Notification feed endpoints"]
+              : ["Backend connectivity", "Notification inbox endpoints"]
           }
           ctaHref="/app/dashboard"
           ctaLabel="Back to Dashboard"
@@ -178,7 +146,22 @@ export default async function NotificationsPage() {
               : "Retry after backend check"
           }
         />
-      ) : count === 0 ? (
+      </div>
+    );
+  }
+
+  const summary = notificationsPage.summary;
+
+  return (
+    <div className="studentPage studentDashboardModern">
+      <StudentPageHeader
+        title="Notifications"
+        description="Search, sort, group, and review student alerts from one lighter-weight inbox backed by a paged API feed."
+        statusLabel={`${summary.unread} unread`}
+        statusTone="live"
+      />
+
+      {summary.total === 0 ? (
         <StudentStatePanel
           eyebrow="No notifications yet"
           title="Your notification center is empty right now"
@@ -189,24 +172,16 @@ export default async function NotificationsPage() {
         />
       ) : (
         <>
-          <section className="studentInsightHeroCard">
+          <section className="studentInsightHeroCard studentInsightHeroCardCompact">
             <div className="studentInsightHeroCopy">
               <span className="studentDashboardTag">Inbox Overview</span>
-              <strong>{unreadCount} unread alerts</strong>
-              <p>
-                This inbox stays connected to the same student session and helps the learner move quickly into exams, attempts, and results.
-              </p>
-              <small>{count} total notifications loaded from the backend feed.</small>
+              <strong>{summary.unread} unread alerts</strong>
+              <small>
+                {notificationsPage.count} matching notifications in the current view · {summary.total} total in
+                your inbox.
+              </small>
             </div>
             <div className="studentInsightHeroActions">
-              <form action={markAllReadAction}>
-                <ActionSubmitButton
-                  className="button buttonPrimary"
-                  disabled={unreadCount === 0}
-                  idleLabel="Mark All Read"
-                  pendingLabel="Updating Inbox..."
-                />
-              </form>
               <Link className="button buttonSecondary" href="/app/dashboard">
                 Back to Dashboard
               </Link>
@@ -216,80 +191,63 @@ export default async function NotificationsPage() {
           <StudentKpiGrid
             items={[
               {
-                label: "Total Notifications",
-                value: count,
-                note: "All student-facing alerts returned by the backend",
+                label: "Inbox Total",
+                value: summary.total,
+                note: "All student-facing alerts currently stored in the inbox",
                 tone: "primary",
               },
               {
+                label: "Filtered Results",
+                value: notificationsPage.count,
+                note: "Notifications matching the active search, sort, and filter state",
+              },
+              {
                 label: "Unread Alerts",
-                value: unreadCount,
+                value: summary.unread,
                 note: "Unread reminders and activity updates",
               },
               {
                 label: "Read Alerts",
-                value: readCount,
-                note: "Notifications already acknowledged in this session",
+                value: summary.read,
+                note: "Notifications already acknowledged by the learner",
               },
             ]}
           />
 
-          <section className="studentNotificationGrid">
-            {notifications.map((notification) => (
-              <article
-                className={`contentCard studentNotificationSurface ${
-                  notification.is_read ? "studentNotificationRead" : "studentNotificationUnread"
-                }`}
-                key={notification.id}
-              >
-                <div className="studentResultSurfaceHead">
-                  <div>
-                    <strong>{notification.title}</strong>
-                    <span>{relativeTimeLabel(notification.created_at)}</span>
-                  </div>
-                  <span className={`statusPill ${notificationTone(notification.notification_type)}`}>
-                    {formatNotificationType(notification.notification_type)}
-                  </span>
-                </div>
+          <StudentNotificationFilters
+            groupBy={groupBy}
+            notificationType={notificationType}
+            notificationTypes={notificationsPage.available_notification_types}
+            ordering={ordering}
+            pageSize={pageSize}
+            relatedObjectType={relatedObjectType}
+            relatedObjectTypes={notificationsPage.available_related_object_types}
+            search={search}
+            status={status}
+          />
 
-                <p className="studentNotificationMessage">{notification.message}</p>
-
-                <div className="studentResultFooter">
-                  <div className="studentResultHelper">
-                    <span>Related object</span>
-                    <strong>
-                      {notification.related_object_type || "General"}
-                      {notification.related_object_id
-                        ? ` · ${notification.related_object_id}`
-                        : ""}
-                    </strong>
-                    <small>{notification.is_read ? "Already acknowledged in this session." : "Unread and waiting for learner action."}</small>
-                  </div>
-                  <div className="studentInsightHeroActions">
-                    <span
-                      className={`statusPill ${
-                        notification.is_read ? "statusLive" : "statusWarning"
-                      }`}
-                    >
-                      {notification.is_read ? "Read" : "Unread"}
-                    </span>
-                    <form action={markReadAction}>
-                      <input name="notification_id" type="hidden" value={notification.id} />
-                      <ActionSubmitButton
-                        className="button buttonGhost"
-                        disabled={notification.is_read}
-                        idleLabel="Mark Read"
-                        pendingLabel="Marking..."
-                      />
-                    </form>
-                    <Link className="button buttonSecondary" href={notificationHref(notification)}>
-                      Open
-                    </Link>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </section>
+          {!notificationsPage.results.length ? (
+            <StudentStatePanel
+              eyebrow="No matches"
+              title="No notifications match the current filters"
+              description="Try widening the status, object, or category filters to bring more notifications back into view."
+              ctaHref="/app/notifications"
+              ctaLabel="Clear filters"
+              statusLabel="Adjust the inbox view"
+            />
+          ) : (
+            <StudentNotificationsInbox
+              initialGroupBy={groupBy}
+              initialPage={notificationsPage}
+              notificationType={notificationType}
+              ordering={ordering}
+              page={page}
+              pageSize={pageSize}
+              relatedObjectType={relatedObjectType}
+              search={search}
+              status={status}
+            />
+          )}
         </>
       )}
     </div>

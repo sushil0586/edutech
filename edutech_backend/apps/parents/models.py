@@ -253,6 +253,10 @@ class ParentAlert(BaseModel):
             models.Index(fields=["parent_profile", "status"]),
             models.Index(fields=["student", "alert_type"]),
             models.Index(fields=["severity", "created_at"]),
+            models.Index(fields=["parent_profile", "is_active", "created_at"]),
+            models.Index(fields=["parent_profile", "is_active", "status", "created_at"]),
+            models.Index(fields=["parent_profile", "is_active", "severity", "created_at"]),
+            models.Index(fields=["parent_profile", "is_active", "alert_type", "created_at"]),
         ]
 
     def clean(self):

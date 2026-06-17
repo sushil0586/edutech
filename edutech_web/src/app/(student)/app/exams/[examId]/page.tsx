@@ -243,11 +243,10 @@ export default async function ExamDetailPage({
         <p className="feedbackBanner feedbackBannerError">{feedbackMessage(error)}</p>
       ) : null}
 
-      <section className="studentInsightHeroCard">
+      <section className="studentInsightHeroCard studentInsightHeroCardCompact">
         <div className="studentInsightHeroCopy">
           <span className="studentDashboardTag">Exam Readiness</span>
           <strong>{primaryActionLabel}</strong>
-          <p>{actionGuidance}</p>
           <small>
             {detail.code} · {examSourceDescriptor(detail)} · {detail.subject_name ?? "Subject pending"} ·{" "}
             {detail.start_at ? studentDateTimeLabel(detail.start_at) : "Backend scheduled"}
@@ -373,10 +372,6 @@ export default async function ExamDetailPage({
                 {detail.review_available ? "currently open" : "still locked by policy"}.
               </p>
             </div>
-            <div className="studentInsightMessage">
-              <span className="placeholderDot" aria-hidden="true" />
-              <p>{detail.security_policy.student_warning_copy}</p>
-            </div>
             {detail.economy_access.requires_unlock ? (
               <div className="studentInsightMessage">
                 <span className="placeholderDot" aria-hidden="true" />
@@ -406,10 +401,6 @@ export default async function ExamDetailPage({
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
               <p>Resume always takes priority over creating a duplicate active attempt.</p>
-            </div>
-            <div className="studentInsightMessage">
-              <span className="placeholderDot" aria-hidden="true" />
-              <p>Summary and review are both controlled by backend lifecycle visibility.</p>
             </div>
           </div>
 

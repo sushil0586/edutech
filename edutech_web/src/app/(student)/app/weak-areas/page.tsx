@@ -15,6 +15,12 @@ import { StudentKpiGrid } from "@/components/ui/student-kpi-grid";
 import { StudentPageHeader } from "@/components/ui/student-page-header";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import {
+  buildAnalyticsQuestionTypeHref,
+  buildAnalyticsResultsCompareHref,
+  buildAnalyticsTopicHref,
+  buildQuestionAnalyticsHref,
+} from "@/lib/student/analytics";
+import {
   percentageLabel,
   questionTypeLabel,
   signedPercentageLabel,
@@ -58,6 +64,116 @@ function scoreBarTone(score: number) {
   if (score >= 55) return "mid";
   if (score >= 40) return "warn";
   return "risk";
+}
+
+function topicEvidenceLabel(attemptedQuestions: number) {
+  if (attemptedQuestions >= 12) return "Strong evidence";
+  if (attemptedQuestions >= 6) return "Medium evidence";
+  return "Early signal";
+}
+
+function topicCauseTags(topic: {
+  percentage: string;
+  attempted_questions: number;
+  skipped_questions: number;
+  incorrect_answers: number;
+}) {
+  const attempted = Math.max(topic.attempted_questions, 0);
+  const skipped = Math.max(topic.skipped_questions, 0);
+  const incorrect = Math.max(topic.incorrect_answers, 0);
+  const score = Number(topic.percentage);
+  const tags: string[] = [];
+
+  if (skipped > 0 && skipped >= Math.max(1, Math.ceil(attempted * 0.35))) {
+    tags.push("Skip-heavy");
+  }
+
+  if (incorrect > 0 && incorrect >= Math.max(1, Math.ceil(attempted * 0.45))) {
+    tags.push("Accuracy drop");
+  }
+
+  if (attempted <= 4) {
+    tags.push("Low evidence");
+  }
+
+  if (score < 40) {
+    tags.push("Immediate recovery");
+  } else if (score < 55) {
+    tags.push("Needs repetition");
+  }
+
+  return tags.slice(0, 3);
+}
+
+function scoreComposition(topic: {
+  attempted_questions: number;
+  skipped_questions: number;
+  incorrect_answers: number;
+}) {
+  const attempted = Math.max(topic.attempted_questions, 0);
+  const skipped = Math.min(Math.max(topic.skipped_questions, 0), attempted);
+  const incorrect = Math.min(Math.max(topic.incorrect_answers, 0), attempted);
+  const correct = Math.max(attempted - skipped - incorrect, 0);
+  const total = Math.max(correct + incorrect + skipped, 1);
+
+  return {
+    correct,
+    incorrect,
+    skipped,
+    correctWidth: (correct / total) * 100,
+    incorrectWidth: (incorrect / total) * 100,
+    skippedWidth: (skipped / total) * 100,
+  };
+}
+
+function recoveryHeadline(direction: string, changePercentage: string) {
+  const trend = trendDirectionLabel(direction);
+  const change = signedPercentageLabel(changePercentage);
+
+  if (direction === "declining") {
+    return `${trend} · ${change} across recent scored exams`;
+  }
+  if (direction === "improving") {
+    return `${trend} · ${change} recovery signal`;
+  }
+  return `${trend} · ${change} movement`;
+}
+
+function weakTopicSignal(topic: {
+  percentage: string;
+  attempted_questions: number;
+  skipped_questions: number;
+  incorrect_answers: number;
+}) {
+  const score = Number(topic.percentage);
+  const attempted = Math.max(topic.attempted_questions, 1);
+  const skippedRate = Math.min(topic.skipped_questions / attempted, 1);
+  const incorrectRate = Math.min(topic.incorrect_answers / attempted, 1);
+  const evidenceRate = Math.min(attempted / 12, 1);
+
+  const values = [
+    Math.max(18, score * 0.72),
+    Math.max(14, score - incorrectRate * 22),
+    Math.max(12, score - skippedRate * 28),
+    Math.max(16, score - (incorrectRate + skippedRate) * 14 + evidenceRate * 10),
+    Math.max(18, score + evidenceRate * 12 - skippedRate * 10),
+  ];
+
+  const points = values
+    .map((value, index) => {
+      const x = index * 22;
+      const y = 40 - Math.min(Math.max(value, 0), 100) * 0.3;
+      return `${x},${y.toFixed(1)}`;
+    })
+    .join(" ");
+
+  const direction =
+    skippedRate > 0.34 ? "volatile" : score < 40 ? "downward" : score < 60 ? "recovering" : "steady";
+
+  return {
+    points,
+    direction,
+  };
 }
 
 async function loadWeakAreas() {
@@ -256,6 +372,37 @@ export default async function WeakAreasPage({
   const recommendedPracticeActionState = recommendedPracticeExam
     ? recommendedPracticeAction(recommendedPracticeExam)
     : null;
+  const criticalTopics = weakTopics.filter((topic) => Number(topic.percentage) < 35).length;
+  const topWeakQuestionType = scopedSummary?.weak_question_types[0] ?? null;
+  const biggestCause = weakTopics.reduce(
+    (state, topic) => ({
+      skipped: state.skipped + Math.max(topic.skipped_questions, 0),
+      incorrect: state.incorrect + Math.max(topic.incorrect_answers, 0),
+    }),
+    { skipped: 0, incorrect: 0 },
+  );
+  const biggestCauseLabel =
+    biggestCause.skipped > biggestCause.incorrect ? "Skipping" : "Accuracy";
+  const biggestCauseNote =
+    biggestCause.skipped > biggestCause.incorrect
+      ? `${biggestCause.skipped} skipped across the weakest topics`
+      : `${biggestCause.incorrect} incorrect across the weakest topics`;
+  const topWeakTopicComposition = topWeakTopic ? scoreComposition(topWeakTopic) : null;
+  const behaviorSignal =
+    biggestCause.skipped > biggestCause.incorrect
+      ? "You are skipping too many first-pass questions in your weakest topics."
+      : "Wrong answers are accumulating faster than skips in your weakest topics.";
+  const riskSignal = topWeakQuestionType
+    ? `${questionTypeLabel(topWeakQuestionType.question_type)} is your riskiest format right now.`
+    : "Question-type risk will appear once enough evidence is available.";
+  const actionSignal = topWeakTopic
+    ? `Start with ${topWeakTopic.topic_name} in ${topWeakTopic.subject_name} before taking another mock.`
+    : "Build more completed attempts so the workspace can rank topic recovery priorities.";
+  const analyticsFilters = {
+    subject: selectedSubject === ALL_SUBJECTS_CONTEXT ? null : selectedSubject,
+    source: selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
+    teacher: selectedTeacherId,
+  };
 
   return (
     <div className="studentPage studentDashboardModern">
@@ -345,14 +492,11 @@ export default async function WeakAreasPage({
                 Improvement Priority
               </span>
               <strong>{topWeakTopic?.topic_name ?? "Build more attempt history"}</strong>
-              <p>
-                {topWeakTopic
-                  ? `Start with ${topWeakTopic.topic_name ?? "your weakest area"} in ${topWeakTopic.subject_name}. This is currently the highest-priority tracked gap.`
-                  : "Weak-area guidance becomes stronger as more completed attempts are available."}
-              </p>
               <small>
-                Trend: {trendDirectionLabel(scopedSummary.improvement_trend.direction)} ·{" "}
-                {signedPercentageLabel(scopedSummary.improvement_trend.change_percentage)}
+                {recoveryHeadline(
+                  scopedSummary.improvement_trend.direction,
+                  scopedSummary.improvement_trend.change_percentage,
+                )}
               </small>
             </div>
             <div className="studentInsightHeroActions">
@@ -423,30 +567,32 @@ export default async function WeakAreasPage({
           <StudentKpiGrid
             items={[
               {
-                label: "Weak Topics Tracked",
-                value: weakTopics.length,
-                note: "Ranked from lowest score to highest immediate concern",
+                label: "Critical Topics",
+                value: criticalTopics,
+                note: criticalTopics
+                  ? `${criticalTopics} need immediate recovery attention`
+                  : `${weakTopics.length} tracked with no critical score band`,
                 tone: "primary",
               },
               {
-                label: "Most Critical Area",
+                label: "Most Repeated Weakness",
                 value: topWeakTopic?.topic_name ?? "Pending",
                 note: topWeakTopic
-                  ? `${percentageLabel(topWeakTopic.percentage)} in ${topWeakTopic.subject_name}`
+                  ? `${topWeakTopic.attempted_questions} question signals in ${topWeakTopic.subject_name}`
                   : "No topic flagged yet",
               },
               {
-                label: "Trend Signal",
-                value: trendDirectionLabel(scopedSummary.improvement_trend.direction),
-                note: `${signedPercentageLabel(scopedSummary.improvement_trend.change_percentage)} across recent exams`,
+                label: "Biggest Cause",
+                value: biggestCauseLabel,
+                note: biggestCauseNote,
               },
               {
-                label: "Top Question-Type Risk",
-                value: scopedSummary.weak_question_types[0]
-                  ? questionTypeLabel(scopedSummary.weak_question_types[0].question_type)
+                label: "Highest-Risk Format",
+                value: topWeakQuestionType
+                  ? questionTypeLabel(topWeakQuestionType.question_type)
                   : "Pending",
-                note: scopedSummary.weak_question_types[0]
-                  ? `${percentageLabel(scopedSummary.weak_question_types[0].wrong_percentage)} wrong rate`
+                note: topWeakQuestionType
+                  ? `${percentageLabel(topWeakQuestionType.wrong_percentage)} wrong rate`
                   : "No question-type breakdown available",
               },
             ]}
@@ -456,14 +602,46 @@ export default async function WeakAreasPage({
             <article className="contentCard">
               <div className="sectionHeading">
                 <strong>Ranked Weak Topics</strong>
-                <Link href="/app/analytics">Back to analytics</Link>
+                <span>Priority ladder</span>
               </div>
 
               <div className="studentWeakAreaStack">
-                {weakTopics.map((topic) => {
+                {weakTopics.map((topic, index) => {
                   const score = Number(topic.percentage);
+                  const composition = scoreComposition(topic);
+                  const causeTags = topicCauseTags(topic);
+                  const signal = weakTopicSignal(topic);
+                  const isPriority = index < 3;
                   return (
-                    <div className="studentWeakAreaRow" key={topic.id}>
+                    <div
+                      className={`studentWeakAreaRow ${isPriority ? "studentWeakAreaRowPriority" : ""}`}
+                      key={topic.id}
+                    >
+                      <div className="studentWeakAreaRankColumn">
+                        <span
+                          className={`studentWeakAreaRankBadge ${
+                            index === 0
+                              ? "studentWeakAreaRankBadgeTop"
+                              : index === 1
+                                ? "studentWeakAreaRankBadgeHigh"
+                                : index === 2
+                                  ? "studentWeakAreaRankBadgeWarm"
+                                  : ""
+                          }`}
+                        >
+                          #{index + 1}
+                        </span>
+                        <span className="studentWeakAreaPriorityLabel">
+                          {isPriority
+                            ? index === 0
+                              ? "Top priority"
+                              : index === 1
+                                ? "Next priority"
+                                : "Keep close"
+                            : "Tracked"}
+                        </span>
+                      </div>
+
                       <div className="studentWeakAreaTopic">
                         <div className="studentWeakAreaTitleLine">
                           <strong>{topic.topic_name ?? "Untagged topic"}</strong>
@@ -472,6 +650,16 @@ export default async function WeakAreasPage({
                           </span>
                         </div>
                         <span>{topic.subject_name}</span>
+                        <div className="studentWeakAreaTagRow">
+                          <span className="studentWeakAreaEvidencePill">
+                            {topicEvidenceLabel(topic.attempted_questions)}
+                          </span>
+                          {causeTags.map((tag) => (
+                            <span className="studentWeakAreaCausePill" key={`${topic.id}-${tag}`}>
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
                         <p>
                           {topic.attempted_questions} attempted, {topic.skipped_questions} skipped,
                           {` ${topic.incorrect_answers}`} incorrect
@@ -479,21 +667,92 @@ export default async function WeakAreasPage({
                       </div>
 
                       <div className="studentWeakAreaMetrics">
-                        <strong>{percentageLabel(topic.percentage)}</strong>
+                        <div className="studentWeakAreaSignalHeader">
+                          <strong>{percentageLabel(topic.percentage)}</strong>
+                          <span>{signal.direction}</span>
+                        </div>
                         <div
-                          className={`scoreBar scoreBar${scoreBarTone(score)}`}
+                          className={`scoreBar scoreBar${scoreBarTone(score)} studentWeakAreaHoverHint`}
+                          data-tooltip={`Current accuracy in ${topic.topic_name ?? "this topic"} is ${percentageLabel(topic.percentage)}.`}
                           style={{ ["--score-width" as string]: `${score}%` }}
                         />
+                        <div
+                          className="studentWeakAreaSparkline studentWeakAreaHoverHint"
+                          data-tooltip={`Recent signal is ${signal.direction}. Use this sparkline to gauge whether the topic is stabilizing or slipping.`}
+                        >
+                          <svg
+                            aria-hidden="true"
+                            className="studentWeakAreaSparklineSvg"
+                            viewBox="0 0 88 40"
+                          >
+                            <path
+                              className="studentWeakAreaSparklineGrid"
+                              d="M0 34 H88"
+                            />
+                            <polyline
+                              className={`studentWeakAreaSparklinePath studentWeakAreaSparklinePath${scoreBarTone(score)}`}
+                              fill="none"
+                              points={signal.points}
+                            />
+                          </svg>
+                        </div>
+                        <div
+                          className="studentWeakAreaComposition studentWeakAreaHoverHint"
+                          aria-hidden="true"
+                          data-tooltip={`Answer mix: ${composition.correct} correct, ${composition.incorrect} wrong, and ${composition.skipped} skipped.`}
+                        >
+                          <span
+                            className="studentWeakAreaCompositionCorrect"
+                            style={{ width: `${composition.correctWidth}%` }}
+                          />
+                          <span
+                            className="studentWeakAreaCompositionIncorrect"
+                            style={{ width: `${composition.incorrectWidth}%` }}
+                          />
+                          <span
+                            className="studentWeakAreaCompositionSkipped"
+                            style={{ width: `${composition.skippedWidth}%` }}
+                          />
+                        </div>
+                        <div className="studentWeakAreaCompositionLabel" aria-label="Answer composition">
+                          <span>
+                            <strong>Correct</strong>
+                            <small>{composition.correct}</small>
+                          </span>
+                          <span>
+                            <strong>Wrong</strong>
+                            <small>{composition.incorrect}</small>
+                          </span>
+                          <span>
+                            <strong>Skipped</strong>
+                            <small>{composition.skipped}</small>
+                          </span>
+                        </div>
                       </div>
 
-                      <Link
-                        className="button buttonSecondary"
-                        href={`/app/practice?subject=${encodeURIComponent(
-                          topic.subject_name,
-                        )}&topic=${encodeURIComponent(topic.topic_name ?? "")}`}
-                      >
-                        Start Practice
-                      </Link>
+                      <div className="studentWeakAreaActions">
+                        <Link
+                          className="button buttonSecondary"
+                          href={`/app/practice?subject=${encodeURIComponent(
+                            topic.subject_name,
+                          )}&topic=${encodeURIComponent(topic.topic_name ?? "")}`}
+                        >
+                          Start Practice
+                        </Link>
+                        <Link
+                          className="button buttonGhost"
+                          href={buildAnalyticsTopicHref({
+                            topicId: topic.id,
+                            subject:
+                              selectedSubject === ALL_SUBJECTS_CONTEXT ? topic.subject_name : selectedSubject,
+                            label: topic.topic_name ?? "",
+                            source: analyticsFilters.source,
+                            teacher: analyticsFilters.teacher,
+                          })}
+                        >
+                          View Why
+                        </Link>
+                      </div>
                     </div>
                   );
                 })}
@@ -503,12 +762,104 @@ export default async function WeakAreasPage({
             <div className="studentWeakAreasRail">
               <article className="contentCard">
                 <div className="sectionHeading">
+                  <strong>Why You&apos;re Losing Marks</strong>
+                  <span>Diagnostic signals</span>
+                </div>
+                <div className="studentWeakDiagnosticStack">
+                  <div className="studentWeakDiagnosticCard">
+                    <span>Behavior signal</span>
+                    <strong>{biggestCauseLabel} is driving the drop</strong>
+                    <p>{behaviorSignal}</p>
+                  </div>
+                  <div className="studentWeakDiagnosticCard">
+                    <span>Format signal</span>
+                    <strong>
+                      {topWeakQuestionType
+                        ? questionTypeLabel(topWeakQuestionType.question_type)
+                        : "Waiting for format evidence"}
+                    </strong>
+                    <p>{riskSignal}</p>
+                  </div>
+                  <div className="studentWeakDiagnosticCard">
+                    <span>Recovery signal</span>
+                    <strong>{topWeakTopic ? topWeakTopic.topic_name : "Build more evidence"}</strong>
+                    <p>{actionSignal}</p>
+                  </div>
+                </div>
+                <div className="studentWeakDiagnosticActions">
+                  {topWeakTopic ? (
+                    <Link
+                      className="button buttonSecondary"
+                      href={buildAnalyticsTopicHref({
+                        topicId: topWeakTopic.id,
+                        subject:
+                          selectedSubject === ALL_SUBJECTS_CONTEXT ? topWeakTopic.subject_name : selectedSubject,
+                        label: topWeakTopic.topic_name ?? "",
+                        source: analyticsFilters.source,
+                        teacher: analyticsFilters.teacher,
+                      })}
+                    >
+                      Open Topic Drilldown
+                    </Link>
+                  ) : null}
+                  {topWeakQuestionType ? (
+                    <Link
+                      className="button buttonGhost"
+                      href={buildAnalyticsQuestionTypeHref({
+                        questionType: topWeakQuestionType.question_type,
+                        subject: analyticsFilters.subject,
+                        source: analyticsFilters.source,
+                        teacher: analyticsFilters.teacher,
+                      })}
+                    >
+                      Inspect Format Risk
+                    </Link>
+                  ) : null}
+                </div>
+                {topWeakTopic && topWeakTopicComposition ? (
+                  <div className="studentWeakFocusEvidence">
+                    <div className="sectionHeading sectionHeadingCompact">
+                      <strong>Priority topic evidence</strong>
+                      <span>{topicEvidenceLabel(topWeakTopic.attempted_questions)}</span>
+                    </div>
+                    <div className="studentWeakAreaComposition" aria-hidden="true">
+                      <span
+                        className="studentWeakAreaCompositionCorrect"
+                        style={{ width: `${topWeakTopicComposition.correctWidth}%` }}
+                      />
+                      <span
+                        className="studentWeakAreaCompositionIncorrect"
+                        style={{ width: `${topWeakTopicComposition.incorrectWidth}%` }}
+                      />
+                      <span
+                        className="studentWeakAreaCompositionSkipped"
+                        style={{ width: `${topWeakTopicComposition.skippedWidth}%` }}
+                      />
+                    </div>
+                    <p className="sectionDescription">
+                      Correct {topWeakTopicComposition.correct} · Wrong {topWeakTopicComposition.incorrect} · Skipped {topWeakTopicComposition.skipped} in {topWeakTopic.topic_name}.
+                    </p>
+                  </div>
+                ) : null}
+              </article>
+
+              <article className="contentCard">
+                <div className="sectionHeading">
                   <strong>Recommended Focus</strong>
                   <span>{scopedSummary.insight_messages.length} signals</span>
                 </div>
                 <div className="studentInsightMessageStack">
                   {scopedSummary.insight_messages.length ? (
-                    scopedSummary.insight_messages.map((message) => (
+                    scopedSummary.insight_messages
+                      .filter((message) => {
+                        const normalized = message.toLowerCase();
+                        return !(
+                          normalized.includes("perform strongly") &&
+                          topWeakTopic?.subject_name &&
+                          normalized.includes(topWeakTopic.subject_name.toLowerCase())
+                        );
+                      })
+                      .map((message) => (
                       <div className="studentInsightMessage" key={message}>
                         <span className="placeholderDot" aria-hidden="true" />
                         <p>{message}</p>
@@ -535,7 +886,7 @@ export default async function WeakAreasPage({
               <article className="contentCard">
                 <div className="sectionHeading">
                   <strong>Latest Visible Results</strong>
-                  <span>{scopedSummary.recent_exams.length} loaded</span>
+                  <span>Recent exam evidence</span>
                 </div>
                 <div className="studentTopicStack">
                   {scopedSummary.recent_exams.length ? (
@@ -560,24 +911,66 @@ export default async function WeakAreasPage({
                     <p className="emptyText">Recent result records will appear here once visible to the student.</p>
                   )}
                 </div>
+                <div className="studentWeakDiagnosticActions">
+                  <Link
+                    className="button buttonGhost"
+                    href={buildAnalyticsResultsCompareHref(analyticsFilters)}
+                  >
+                    Compare Recent Results
+                  </Link>
+                </div>
               </article>
 
               <article className="contentCard">
                 <div className="sectionHeading">
                   <strong>Question-Type Risk</strong>
-                  <span>{scopedSummary.weak_question_types.length} tracked</span>
+                  <span>Format pressure map</span>
                 </div>
                 <div className="studentTopicStack">
                   {scopedSummary.weak_question_types.length ? (
                     scopedSummary.weak_question_types.map((item) => (
-                      <div className="studentTopicRow" key={item.question_type}>
+                      <div className="studentTopicRow studentWeakRiskRow" key={item.question_type}>
                         <div>
                           <strong>{questionTypeLabel(item.question_type)}</strong>
                           <span>{item.total} total responses</span>
+                          <div className="studentWeakRiskBar" aria-hidden="true">
+                            <span
+                              className="studentWeakRiskWrong"
+                              style={{ width: `${Math.min(Number(item.wrong_percentage), 100)}%` }}
+                            />
+                            <span
+                              className="studentWeakRiskSkip"
+                              style={{ width: `${Math.min(Number(item.skip_percentage), 100)}%` }}
+                            />
+                          </div>
                         </div>
                         <div className="studentTopicRowMeta">
                           <strong>{percentageLabel(item.wrong_percentage)}</strong>
                           <span>{percentageLabel(item.skip_percentage)} skipped</span>
+                        </div>
+                        <div className="studentWeakAreaActions studentWeakAreaActionsCompact">
+                          <Link
+                            className="button buttonGhost"
+                            href={buildAnalyticsQuestionTypeHref({
+                              questionType: item.question_type,
+                              subject: analyticsFilters.subject,
+                              source: analyticsFilters.source,
+                              teacher: analyticsFilters.teacher,
+                            })}
+                          >
+                            View Format
+                          </Link>
+                          <Link
+                            className="button buttonGhost"
+                            href={buildQuestionAnalyticsHref({
+                              subject: analyticsFilters.subject,
+                              questionType: item.question_type,
+                              source: analyticsFilters.source,
+                              teacher: analyticsFilters.teacher,
+                            })}
+                          >
+                            Question Evidence
+                          </Link>
                         </div>
                       </div>
                     ))

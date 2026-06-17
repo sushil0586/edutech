@@ -4,6 +4,7 @@ import { redirect, unstable_rethrow } from "next/navigation";
 import type { StudentAvailableExam } from "@/features/dashboard/types";
 import { fetchCurrentAccountProfile } from "@/lib/auth/session";
 import { ActionSubmitButton } from "@/components/ui/action-submit-button";
+import { FilterSummaryPills } from "@/components/ui/filter-summary-pills";
 import { StudentKpiGrid } from "@/components/ui/student-kpi-grid";
 import { StudentPageHeader } from "@/components/ui/student-page-header";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
@@ -27,8 +28,18 @@ import {
   STUDENT_SOURCE_TEACHER_CONTEXT_COOKIE,
   STUDENT_SUBJECT_CONTEXT_COOKIE,
 } from "@/lib/student/subject-context";
+import { buildFilterHref, formatFilterValue } from "@/lib/workspace/filter-utils";
 
 type SourceFilterValue = "all" | "platform" | "institute" | "teacher";
+type ExamAvailabilityFilter =
+  | "all"
+  | "ready"
+  | "resume"
+  | "upcoming"
+  | "completed"
+  | "locked";
+type ExamSortOption = "recommended" | "start_soon" | "duration_short" | "duration_long" | "title";
+type ExamGroupOption = "none" | "availability" | "source" | "security";
 
 function formatExamState(state: string) {
   switch (state) {
@@ -45,7 +56,7 @@ function formatExamState(state: string) {
     case "not_assigned":
       return "Not assigned";
     default:
-      return state.replaceAll("_", " ");
+      return formatFilterValue(state);
   }
 }
 
@@ -176,6 +187,132 @@ function examAvailabilityGuidance(exam: {
   return "Open the detail page to review rules, visibility policy, and your next valid action.";
 }
 
+function resolveExamAvailabilityFilter(value?: string): ExamAvailabilityFilter {
+  switch (value) {
+    case "ready":
+    case "resume":
+    case "upcoming":
+    case "completed":
+    case "locked":
+      return value;
+    default:
+      return "all";
+  }
+}
+
+function resolveExamSortOption(value?: string): ExamSortOption {
+  switch (value) {
+    case "start_soon":
+    case "duration_short":
+    case "duration_long":
+    case "title":
+      return value;
+    default:
+      return "recommended";
+  }
+}
+
+function resolveExamGroupOption(value?: string): ExamGroupOption {
+  switch (value) {
+    case "availability":
+    case "source":
+    case "security":
+      return value;
+    default:
+      return "none";
+  }
+}
+
+function applyExamAvailabilityFilter(exams: StudentAvailableExam[], filter: ExamAvailabilityFilter) {
+  switch (filter) {
+    case "ready":
+      return exams.filter((exam) => exam.can_start);
+    case "resume":
+      return exams.filter((exam) => exam.can_resume);
+    case "upcoming":
+      return exams.filter((exam) => exam.availability_state === "upcoming");
+    case "completed":
+      return exams.filter((exam) => exam.availability_state === "completed");
+    case "locked":
+      return exams.filter((exam) => exam.economy_access.is_locked || exam.availability_state === "locked");
+    default:
+      return exams;
+  }
+}
+
+function sortExams(exams: StudentAvailableExam[], sortBy: ExamSortOption) {
+  const sortable = [...exams];
+  const recommendedRank = (exam: StudentAvailableExam) => {
+    if (exam.can_resume) return 0;
+    if (exam.can_start) return 1;
+    if (exam.availability_state === "upcoming") return 2;
+    if (exam.result_published) return 3;
+    return 4;
+  };
+
+  sortable.sort((left, right) => {
+    switch (sortBy) {
+      case "start_soon": {
+        const leftTime = left.start_at ? Date.parse(left.start_at) : Number.MAX_SAFE_INTEGER;
+        const rightTime = right.start_at ? Date.parse(right.start_at) : Number.MAX_SAFE_INTEGER;
+        return leftTime - rightTime;
+      }
+      case "duration_short":
+        return left.duration_minutes - right.duration_minutes;
+      case "duration_long":
+        return right.duration_minutes - left.duration_minutes;
+      case "title":
+        return left.title.localeCompare(right.title);
+      case "recommended":
+      default: {
+        const rankDiff = recommendedRank(left) - recommendedRank(right);
+        if (rankDiff !== 0) return rankDiff;
+        return left.title.localeCompare(right.title);
+      }
+    }
+  });
+
+  return sortable;
+}
+
+function buildExamGroupLabel(exam: StudentAvailableExam, groupBy: ExamGroupOption) {
+  if (groupBy === "availability") {
+    return formatExamState(exam.availability_state);
+  }
+  if (groupBy === "source") {
+    return examSourceDescriptor(exam);
+  }
+  if (groupBy === "security") {
+    return securityModeLabel(exam);
+  }
+  return "Mock tests";
+}
+
+function groupExams(exams: StudentAvailableExam[], groupBy: ExamGroupOption) {
+  if (groupBy === "none") {
+    return [{ label: "All mock tests", items: exams }];
+  }
+
+  const buckets = new Map<string, StudentAvailableExam[]>();
+  for (const exam of exams) {
+    const label = buildExamGroupLabel(exam, groupBy);
+    buckets.set(label, [...(buckets.get(label) ?? []), exam]);
+  }
+  return Array.from(buckets.entries()).map(([label, items]) => ({ label, items }));
+}
+
+function buildExamFilterHref(args: {
+  availability?: ExamAvailabilityFilter;
+  sort?: ExamSortOption;
+  group?: ExamGroupOption;
+}) {
+  return buildFilterHref("/app/exams", [
+    ["exam_availability", args.availability, "all"],
+    ["exam_sort", args.sort, "recommended"],
+    ["exam_group", args.group, "none"],
+  ]);
+}
+
 async function unlockExamAction(formData: FormData) {
   "use server";
 
@@ -278,9 +415,21 @@ export default async function ExamsPage({
     source?: string;
     teacher?: string;
     subject?: string;
+    exam_availability?: string;
+    exam_sort?: string;
+    exam_group?: string;
   }>;
 }) {
-  const { error, message, source: sourceParam, teacher: teacherParam, subject: subjectParam } =
+  const {
+    error,
+    message,
+    source: sourceParam,
+    teacher: teacherParam,
+    subject: subjectParam,
+    exam_availability,
+    exam_sort,
+    exam_group,
+  } =
     await searchParams;
   const profile = await fetchCurrentAccountProfile();
   const registrationContext = profile?.registration_context ?? {};
@@ -312,14 +461,22 @@ export default async function ExamsPage({
     exams.filter((exam) => exam.exam_type !== "practice"),
     selectedSubject,
   );
-  const readyCount = mockExams.filter((exam) => exam.can_start).length;
-  const resumeCount = mockExams.filter((exam) => exam.can_resume).length;
-  const publishedCount = mockExams.filter((exam) => exam.result_published).length;
+  const availabilityFilter = resolveExamAvailabilityFilter(exam_availability);
+  const sortOption = resolveExamSortOption(exam_sort);
+  const groupOption = resolveExamGroupOption(exam_group);
+  const visibleMockExams = sortExams(
+    applyExamAvailabilityFilter(mockExams, availabilityFilter),
+    sortOption,
+  );
+  const groupedMockExams = groupExams(visibleMockExams, groupOption);
+  const readyCount = visibleMockExams.filter((exam) => exam.can_start).length;
+  const resumeCount = visibleMockExams.filter((exam) => exam.can_resume).length;
+  const publishedCount = visibleMockExams.filter((exam) => exam.result_published).length;
   const featuredExam =
-    mockExams.find((exam) => exam.can_resume) ??
-    mockExams.find((exam) => exam.can_start) ??
-    mockExams.find((exam) => exam.availability_state === "upcoming") ??
-    mockExams[0] ??
+    visibleMockExams.find((exam) => exam.can_resume) ??
+    visibleMockExams.find((exam) => exam.can_start) ??
+    visibleMockExams.find((exam) => exam.availability_state === "upcoming") ??
+    visibleMockExams[0] ??
     null;
 
   return (
@@ -470,6 +627,122 @@ export default async function ExamsPage({
             ]}
           />
 
+          <section className="contentCard studentWorkspaceFiltersCard">
+            <div className="sectionHeading">
+              <strong>Mock Test Controls</strong>
+              <span>
+                {visibleMockExams.length} shown
+                {visibleMockExams.length !== mockExams.length ? ` of ${mockExams.length}` : ""}
+              </span>
+            </div>
+            <form className="studentWorkspaceFiltersForm" method="GET">
+              <label className="studentWorkspaceFilterField">
+                <span>Availability</span>
+                <select defaultValue={availabilityFilter} name="exam_availability">
+                  <option value="all">All mock tests</option>
+                  <option value="ready">Ready now</option>
+                  <option value="resume">Resume active</option>
+                  <option value="upcoming">Upcoming</option>
+                  <option value="completed">Completed</option>
+                  <option value="locked">Locked / gated</option>
+                </select>
+              </label>
+              <label className="studentWorkspaceFilterField">
+                <span>Sort by</span>
+                <select defaultValue={sortOption} name="exam_sort">
+                  <option value="recommended">Recommended order</option>
+                  <option value="start_soon">Starts soonest</option>
+                  <option value="duration_short">Shortest duration</option>
+                  <option value="duration_long">Longest duration</option>
+                  <option value="title">Title A-Z</option>
+                </select>
+              </label>
+              <label className="studentWorkspaceFilterField">
+                <span>Group by</span>
+                <select defaultValue={groupOption} name="exam_group">
+                  <option value="none">No grouping</option>
+                  <option value="availability">Availability</option>
+                  <option value="source">Source</option>
+                  <option value="security">Security mode</option>
+                </select>
+              </label>
+              <div className="studentWorkspaceFilterActions">
+                <button className="button buttonPrimary" type="submit">
+                  Apply filters
+                </button>
+                <Link className="button buttonSecondary" href="/app/exams">
+                  Reset filters
+                </Link>
+              </div>
+            </form>
+            <div className="studentWorkspaceFilterQuickRow">
+              <span className="studentWorkspaceFilterQuickLabel">Quick filters</span>
+              <div className="studentWorkspaceFilterQuickChips">
+                <Link
+                  className={`studentWorkspaceQuickChip ${availabilityFilter === "all" ? "studentWorkspaceQuickChipActive" : ""}`}
+                  href={buildExamFilterHref({ sort: sortOption, group: groupOption })}
+                >
+                  All
+                </Link>
+                <Link
+                  className={`studentWorkspaceQuickChip ${availabilityFilter === "ready" ? "studentWorkspaceQuickChipActive" : ""}`}
+                  href={buildExamFilterHref({ availability: "ready", sort: sortOption, group: groupOption })}
+                >
+                  Ready Now
+                </Link>
+                <Link
+                  className={`studentWorkspaceQuickChip ${availabilityFilter === "resume" ? "studentWorkspaceQuickChipActive" : ""}`}
+                  href={buildExamFilterHref({ availability: "resume", sort: sortOption, group: groupOption })}
+                >
+                  Resume
+                </Link>
+                <Link
+                  className={`studentWorkspaceQuickChip ${availabilityFilter === "locked" ? "studentWorkspaceQuickChipActive" : ""}`}
+                  href={buildExamFilterHref({ availability: "locked", sort: sortOption, group: groupOption })}
+                >
+                  Locked
+                </Link>
+                <Link
+                  className={`studentWorkspaceQuickChip ${sortOption === "start_soon" ? "studentWorkspaceQuickChipActive" : ""}`}
+                  href={buildExamFilterHref({ availability: availabilityFilter, sort: "start_soon", group: groupOption })}
+                >
+                  Starts Soon
+                </Link>
+                <Link
+                  className={`studentWorkspaceQuickChip ${sortOption === "duration_short" ? "studentWorkspaceQuickChipActive" : ""}`}
+                  href={buildExamFilterHref({ availability: availabilityFilter, sort: "duration_short", group: groupOption })}
+                >
+                  Shortest
+                </Link>
+                <Link
+                  className={`studentWorkspaceQuickChip ${groupOption === "availability" ? "studentWorkspaceQuickChipActive" : ""}`}
+                  href={buildExamFilterHref({ availability: availabilityFilter, sort: sortOption, group: "availability" })}
+                >
+                  Group by Availability
+                </Link>
+              </div>
+            </div>
+            <FilterSummaryPills
+              className="studentWorkspaceFilterChips"
+              items={[
+                { label: "Availability", value: formatFilterValue(availabilityFilter) },
+                { label: "Sort", value: formatFilterValue(sortOption) },
+                { label: "Group", value: formatFilterValue(groupOption) },
+              ]}
+            />
+          </section>
+
+          {visibleMockExams.length === 0 ? (
+            <StudentStatePanel
+              eyebrow="No matching mock tests"
+              title="No mock tests match these controls"
+              description="Broaden the availability filter, change the grouping, or reset the controls to return to the full mock-test list."
+              ctaHref="/app/exams"
+              ctaLabel="Reset mock-test filters"
+              statusLabel="Filter returned zero mock tests"
+            />
+          ) : null}
+
           {featuredExam ? (
             <section className="studentInsightsTwoColumn">
               <article className="contentCard">
@@ -573,8 +846,16 @@ export default async function ExamsPage({
             </section>
           ) : null}
 
-          <section className="studentResultsGrid">
-            {mockExams.map((exam) => {
+          {visibleMockExams.length > 0 ? groupedMockExams.map((group) => (
+            <section className="studentResultsGroupedSection" key={group.label}>
+              {groupOption !== "none" ? (
+                <div className="sectionHeading sectionHeadingCompact">
+                  <strong>{group.label}</strong>
+                  <span>{group.items.length} mock tests</span>
+                </div>
+              ) : null}
+              <div className="studentResultsGrid">
+            {group.items.map((exam) => {
               const latestAttempt = attempts.find((attempt) => attempt.exam === exam.id) ?? null;
               const primaryLabel = actionLabel(
                 exam.can_resume,
@@ -712,7 +993,9 @@ export default async function ExamsPage({
                 </article>
               );
             })}
-          </section>
+              </div>
+            </section>
+          )) : null}
         </>
       )}
     </div>

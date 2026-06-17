@@ -4,10 +4,18 @@ import { loadWorkspaceLiveSearchEntries } from "@/lib/workspace/live-search";
 export default async function AdminWorkspaceSearchPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; section?: string; source?: string; sort?: string; group?: string }>;
 }) {
-  const { q = "" } = await searchParams;
+  const { q = "", section, source, sort, group } = await searchParams;
   const liveResults = await loadWorkspaceLiveSearchEntries("admin", q);
 
-  return <WorkspaceSearchResults role="admin" query={q} baseHref="/admin" liveResults={liveResults} />;
+  return (
+    <WorkspaceSearchResults
+      role="admin"
+      query={q}
+      baseHref="/admin"
+      liveResults={liveResults}
+      searchParams={{ section, source, sort, group }}
+    />
+  );
 }

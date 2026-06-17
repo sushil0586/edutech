@@ -2,7 +2,7 @@ from decimal import Decimal
 from django.utils import timezone
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db.models import Count
+from django.db.models import Case, Count, IntegerField, Q, Value, When
 
 from apps.accounts.models import AccountRole
 from apps.results.services import build_student_insight_summary
@@ -202,14 +202,52 @@ def build_parent_progress_summary(parent_profile, student):
     }
 
 
-def build_parent_alerts(parent_profile, *, student=None):
+def build_parent_alerts(
+    parent_profile,
+    *,
+    student=None,
+    status_filter=None,
+    severity_filter=None,
+    alert_type=None,
+    search=None,
+    ordering="latest",
+):
     queryset = ParentAlert.objects.select_related("student", "relationship").filter(
         parent_profile=parent_profile,
         is_active=True,
     )
     if student is not None:
         queryset = queryset.filter(student=student)
-    return queryset.order_by("-created_at")
+    if status_filter:
+        queryset = queryset.filter(status=status_filter)
+    if severity_filter:
+        queryset = queryset.filter(severity=severity_filter)
+    if alert_type:
+        queryset = queryset.filter(alert_type=alert_type)
+    if search:
+        queryset = queryset.filter(
+            Q(title__icontains=search)
+            | Q(message__icontains=search)
+            | Q(student__first_name__icontains=search)
+            | Q(student__last_name__icontains=search)
+            | Q(student__admission_no__icontains=search)
+        )
+
+    order_by = "-created_at"
+    if ordering == "oldest":
+        order_by = "created_at"
+    elif ordering == "severity":
+        queryset = queryset.annotate(
+            severity_rank=Case(
+                When(severity="high", then=Value(0)),
+                When(severity="warning", then=Value(1)),
+                default=Value(2),
+                output_field=IntegerField(),
+            )
+        )
+        return queryset.order_by("severity_rank", "-created_at")
+
+    return queryset.order_by(order_by)
 
 
 def update_parent_preferences(parent_profile, payload):
@@ -257,3 +295,31 @@ def update_parent_alert_status(user, alert_id, status):
 
     alert.save(update_fields=["status", "read_at", "resolved_at", "updated_at"])
     return alert
+
+
+def mark_all_parent_alerts_as_read(
+    parent_profile,
+    *,
+    student=None,
+    severity_filter=None,
+    alert_type=None,
+    search=None,
+    alert_ids=None,
+):
+    queryset = build_parent_alerts(
+        parent_profile,
+        student=student,
+        severity_filter=severity_filter,
+        alert_type=alert_type,
+        search=search,
+    ).filter(status=ParentAlertStatus.NEW)
+    if alert_ids:
+        queryset = queryset.filter(id__in=alert_ids)
+
+    now = timezone.now()
+    return queryset.update(
+        status=ParentAlertStatus.READ,
+        read_at=now,
+        resolved_at=None,
+        updated_at=now,
+    )

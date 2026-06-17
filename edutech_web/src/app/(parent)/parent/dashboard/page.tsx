@@ -125,16 +125,10 @@ export default async function ParentDashboardPage({
             currentChildId={activeChild.student_id}
           />
 
-          <section className="studentInsightHeroCard">
+          <section className="studentInsightHeroCard studentInsightHeroCardCompact">
             <div className="studentInsightHeroCopy">
               <span className="studentDashboardTag">Family Overview</span>
-              <strong>
-                {activeChild.student_name} is currently the active child in focus
-              </strong>
-              <p>
-                Track recent result movement, alert intensity, and the next academic attention area
-                without switching into separate reports or support tools.
-              </p>
+              <strong>{activeChild.student_name} in focus</strong>
               <small>
                 {activeChild.program_name} · {activeChild.academic_year_name}
                 {activeChild.cohort_name ? ` · ${activeChild.cohort_name}` : ""}

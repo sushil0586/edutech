@@ -115,17 +115,16 @@ export default async function AdminPeoplePage({
   const rosterQuery = selectedInstituteId
     ? `?institute=${selectedInstituteId}&page_size=8`
     : "?page_size=8";
-  const studentCountPath = selectedInstituteId
-    ? `/api/v1/students/?institute=${selectedInstituteId}`
-    : "/api/v1/students/";
-  const teacherCountPath = selectedInstituteId
-    ? `/api/v1/teachers/?institute=${selectedInstituteId}`
-    : "/api/v1/teachers/";
-  const [students, teachers, studentCount, teacherCount] = await Promise.all([
-    fetchPortalList<StudentRosterRow>(`/api/v1/students/${rosterQuery}`),
-    fetchPortalList<TeacherRosterRow>(`/api/v1/teachers/${rosterQuery}`),
-    loadCount(studentCountPath),
-    loadCount(teacherCountPath),
+  const activeResourcePath =
+    activeView === "students" ? "/api/v1/students/" : "/api/v1/teachers/";
+  const activeCountPath = selectedInstituteId
+    ? `${activeResourcePath}?institute=${selectedInstituteId}`
+    : activeResourcePath;
+  const [visibleRows, visibleCount] = await Promise.all([
+    activeView === "students"
+      ? fetchPortalList<StudentRosterRow>(`${activeResourcePath}${rosterQuery}`)
+      : fetchPortalList<TeacherRosterRow>(`${activeResourcePath}${rosterQuery}`),
+    loadCount(activeCountPath),
   ]);
 
   return (
@@ -167,7 +166,7 @@ export default async function AdminPeoplePage({
             <strong>{activeView === "students" ? "Students" : "Teachers"}</strong>
             <span>
               {selectedInstitute
-                ? `${selectedInstitute.name} · ${activeView === "students" ? studentCount : teacherCount} records`
+                ? `${selectedInstitute.name} · ${visibleCount} records`
                 : "Select an institute to begin."}
             </span>
           </div>
@@ -203,7 +202,7 @@ export default async function AdminPeoplePage({
             }
             programs={programs}
             resource={activeView}
-            rows={activeView === "students" ? students : teachers}
+            rows={visibleRows}
             title={
               activeView === "students"
                 ? "Student roster and login management"

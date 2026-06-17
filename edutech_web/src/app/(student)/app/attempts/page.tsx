@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import { fetchCurrentAccountProfile } from "@/lib/auth/session";
+import { FilterSummaryPills } from "@/components/ui/filter-summary-pills";
 import { StudentKpiGrid } from "@/components/ui/student-kpi-grid";
 import { StudentPageHeader } from "@/components/ui/student-page-header";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
@@ -37,6 +38,11 @@ import {
   STUDENT_SOURCE_TEACHER_CONTEXT_COOKIE,
   STUDENT_SUBJECT_CONTEXT_COOKIE,
 } from "@/lib/student/subject-context";
+import { buildFilterHref, formatFilterValue } from "@/lib/workspace/filter-utils";
+
+type AttemptStatusFilter = "all" | "in_progress" | "submitted" | "practice" | "mock";
+type AttemptSortOption = "latest" | "oldest" | "highest" | "lowest" | "longest";
+type AttemptGroupOption = "none" | "status" | "source" | "type";
 
 function attemptTone(status: string) {
   if (status === "submitted") return "statusLive";
@@ -70,6 +76,127 @@ function submittedAttemptCopy() {
     secondaryCta: "Open Results",
     practiceCta: "Open Practice",
   };
+}
+
+function resolveAttemptStatusFilter(value?: string): AttemptStatusFilter {
+  switch (value) {
+    case "in_progress":
+    case "submitted":
+    case "practice":
+    case "mock":
+      return value;
+    default:
+      return "all";
+  }
+}
+
+function resolveAttemptSortOption(value?: string): AttemptSortOption {
+  switch (value) {
+    case "oldest":
+    case "highest":
+    case "lowest":
+    case "longest":
+      return value;
+    default:
+      return "latest";
+  }
+}
+
+function resolveAttemptGroupOption(value?: string): AttemptGroupOption {
+  switch (value) {
+    case "status":
+    case "source":
+    case "type":
+      return value;
+    default:
+      return "none";
+  }
+}
+
+function applyAttemptStatusFilter(
+  attempts: Awaited<ReturnType<typeof fetchStudentAttempts>>,
+  filter: AttemptStatusFilter,
+) {
+  switch (filter) {
+    case "in_progress":
+      return attempts.filter((attempt) => attempt.status === "in_progress");
+    case "submitted":
+      return attempts.filter((attempt) => attempt.status === "submitted");
+    case "practice":
+      return attempts.filter((attempt) => attempt.exam_type === "practice");
+    case "mock":
+      return attempts.filter((attempt) => attempt.exam_type !== "practice");
+    default:
+      return attempts;
+  }
+}
+
+function sortAttempts(
+  attempts: Awaited<ReturnType<typeof fetchStudentAttempts>>,
+  sortBy: AttemptSortOption,
+) {
+  const sortable = [...attempts];
+  sortable.sort((left, right) => {
+    switch (sortBy) {
+      case "oldest":
+        return Date.parse(left.updated_at) - Date.parse(right.updated_at);
+      case "highest":
+        return Number(right.percentage) - Number(left.percentage);
+      case "lowest":
+        return Number(left.percentage) - Number(right.percentage);
+      case "longest":
+        return right.time_taken_seconds - left.time_taken_seconds;
+      case "latest":
+      default:
+        return Date.parse(right.updated_at) - Date.parse(left.updated_at);
+    }
+  });
+  return sortable;
+}
+
+function buildAttemptGroupLabel(
+  attempt: Awaited<ReturnType<typeof fetchStudentAttempts>>[number],
+  groupBy: AttemptGroupOption,
+) {
+  if (groupBy === "status") {
+    return titleCaseState(attempt.status);
+  }
+  if (groupBy === "source") {
+    return attemptSourceDescriptor(attempt);
+  }
+  if (groupBy === "type") {
+    return attempt.exam_type === "practice" ? "Practice attempts" : "Mock tests";
+  }
+  return "Attempts";
+}
+
+function groupAttempts(
+  attempts: Awaited<ReturnType<typeof fetchStudentAttempts>>,
+  groupBy: AttemptGroupOption,
+) {
+  if (groupBy === "none") {
+    return [{ label: "All attempts", items: attempts }];
+  }
+
+  const buckets = new Map<string, Awaited<ReturnType<typeof fetchStudentAttempts>>>();
+  for (const attempt of attempts) {
+    const label = buildAttemptGroupLabel(attempt, groupBy);
+    buckets.set(label, [...(buckets.get(label) ?? []), attempt]);
+  }
+
+  return Array.from(buckets.entries()).map(([label, items]) => ({ label, items }));
+}
+
+function buildAttemptFilterHref(args: {
+  status?: AttemptStatusFilter;
+  sort?: AttemptSortOption;
+  group?: AttemptGroupOption;
+}) {
+  return buildFilterHref("/app/attempts", [
+    ["attempt_filter", args.status, "all"],
+    ["attempt_sort", args.sort, "latest"],
+    ["attempt_group", args.group, "none"],
+  ]);
 }
 
 async function loadAttempts() {
@@ -157,9 +284,14 @@ async function unlockPracticeAction(formData: FormData) {
 export default async function AttemptsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    attempt_filter?: string;
+    attempt_sort?: string;
+    attempt_group?: string;
+  }>;
 }) {
-  const { error } = await searchParams;
+  const { error, attempt_filter, attempt_sort, attempt_group } = await searchParams;
   const profile = await fetchCurrentAccountProfile();
   const registrationContext = profile?.registration_context ?? {};
   const subjectOptions = getStudentSubjectOptions(profile ?? registrationContext);
@@ -189,6 +321,14 @@ export default async function AttemptsPage({
     filterStudentRecordsBySource(practiceExams, selectedSource, selectedTeacherId),
     selectedSubject,
   );
+  const statusFilter = resolveAttemptStatusFilter(attempt_filter);
+  const sortOption = resolveAttemptSortOption(attempt_sort);
+  const groupOption = resolveAttemptGroupOption(attempt_group);
+  const filteredAttempts = sortAttempts(
+    applyAttemptStatusFilter(scopedAttempts, statusFilter),
+    sortOption,
+  );
+  const groupedAttempts = groupAttempts(filteredAttempts, groupOption);
   const inProgressCount = scopedAttempts.filter(
     (attempt) => attempt.status === "in_progress",
   ).length;
@@ -224,7 +364,7 @@ export default async function AttemptsPage({
         }
         statusLabel={
           source === "live"
-            ? `${scopedAttempts.length} attempts loaded`
+            ? `${filteredAttempts.length} attempts loaded`
             : source === "unconfigured"
               ? "Backend not configured"
               : "Unable to load attempts"
@@ -279,15 +419,101 @@ export default async function AttemptsPage({
         />
       ) : (
         <>
-          <section className="studentInsightHeroCard">
+          <section className="contentCard studentWorkspaceFiltersCard">
+            <div className="sectionHeading">
+              <strong>Attempt Controls</strong>
+              <span>Refine active and completed history</span>
+            </div>
+            <form className="studentWorkspaceFiltersForm" method="GET">
+              <label className="studentWorkspaceFilterField">
+                <span>Status</span>
+                <select defaultValue={statusFilter} name="attempt_filter">
+                  <option value="all">All attempts</option>
+                  <option value="in_progress">In progress</option>
+                  <option value="submitted">Submitted</option>
+                  <option value="practice">Practice only</option>
+                  <option value="mock">Mock tests only</option>
+                </select>
+              </label>
+              <label className="studentWorkspaceFilterField">
+                <span>Sort by</span>
+                <select defaultValue={sortOption} name="attempt_sort">
+                  <option value="latest">Latest first</option>
+                  <option value="oldest">Oldest first</option>
+                  <option value="highest">Highest score</option>
+                  <option value="lowest">Lowest score</option>
+                  <option value="longest">Longest time taken</option>
+                </select>
+              </label>
+              <label className="studentWorkspaceFilterField">
+                <span>Group by</span>
+                <select defaultValue={groupOption} name="attempt_group">
+                  <option value="none">No grouping</option>
+                  <option value="status">Attempt status</option>
+                  <option value="source">Source</option>
+                  <option value="type">Attempt type</option>
+                </select>
+              </label>
+              <div className="studentWorkspaceFilterActions">
+                <button className="button buttonPrimary" type="submit">
+                  Apply filters
+                </button>
+                <Link className="button buttonSecondary" href="/app/attempts">
+                  Reset filters
+                </Link>
+              </div>
+            </form>
+            <div className="studentWorkspaceFilterQuickRow">
+              <span className="studentWorkspaceFilterQuickLabel">Quick filters</span>
+              <div className="studentWorkspaceFilterQuickChips">
+                {[
+                  { label: "All", href: buildAttemptFilterHref({}), active: statusFilter === "all" && sortOption === "latest" && groupOption === "none" },
+                  { label: "In Progress", href: buildAttemptFilterHref({ status: "in_progress", sort: sortOption, group: groupOption }), active: statusFilter === "in_progress" },
+                  { label: "Submitted", href: buildAttemptFilterHref({ status: "submitted", sort: sortOption, group: groupOption }), active: statusFilter === "submitted" },
+                  { label: "Practice", href: buildAttemptFilterHref({ status: "practice", sort: sortOption, group: groupOption }), active: statusFilter === "practice" },
+                  { label: "Mock Tests", href: buildAttemptFilterHref({ status: "mock", sort: sortOption, group: groupOption }), active: statusFilter === "mock" },
+                  { label: "Highest Score", href: buildAttemptFilterHref({ status: statusFilter, sort: "highest", group: groupOption }), active: sortOption === "highest" },
+                  { label: "Group by Status", href: buildAttemptFilterHref({ status: statusFilter, sort: sortOption, group: "status" }), active: groupOption === "status" },
+                ].map((chip) => (
+                  <Link
+                    key={chip.label}
+                    className={`studentWorkspaceQuickChip${
+                      chip.active ? " studentWorkspaceQuickChipActive" : ""
+                    }`}
+                    href={chip.href}
+                  >
+                    {chip.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+            <FilterSummaryPills
+              className="studentWorkspaceFilterChips"
+              items={[
+                { label: "Status", value: formatFilterValue(statusFilter) },
+                { label: "Sort", value: formatFilterValue(sortOption) },
+                { label: "Group", value: formatFilterValue(groupOption) },
+              ]}
+            />
+          </section>
+
+          {filteredAttempts.length === 0 ? (
+            <StudentStatePanel
+              eyebrow="No matching attempts"
+              title="No attempts match these controls"
+              description="Try a broader status filter, a different sort order, or reset the controls to return to the full attempt history."
+              ctaHref="/app/attempts"
+              ctaLabel="Reset attempt filters"
+              statusLabel="Filter returned zero attempts"
+            />
+          ) : null}
+
+          {filteredAttempts.length > 0 ? (
+            <>
+          <section className="studentInsightHeroCard studentInsightHeroCardCompact">
             <div className="studentInsightHeroCopy">
               <span className="studentDashboardTag">Attempt Timeline</span>
               <strong>{latestAttempt?.exam_title ?? "Latest attempt"}</strong>
-              <p>
-                {latestAttempt?.status === "in_progress"
-                  ? "You still have an active attempt in progress. Resume it directly from here."
-                  : "Submitted attempts stay here so you can move from summary to results, review, and follow-up practice without losing context."}
-              </p>
               <small>
                 {latestAttempt
                   ? `${latestAttempt.exam_code} · ${attemptSourceDescriptor(latestAttempt)} · Updated ${studentDateTimeLabel(
@@ -310,7 +536,7 @@ export default async function AttemptsPage({
             items={[
               {
                 label: "Total Attempts",
-                value: scopedAttempts.length,
+                value: filteredAttempts.length,
                 note: "All attempt records visible to the student",
                 tone: "primary",
               },
@@ -329,8 +555,16 @@ export default async function AttemptsPage({
             ]}
           />
 
-          <section className="studentResultsGrid">
-            {scopedAttempts.map((attempt) => {
+          {groupedAttempts.map((group) => (
+            <section className="studentResultsGroupedSection" key={group.label}>
+              {groupOption !== "none" ? (
+                <div className="sectionHeading">
+                  <strong>{group.label}</strong>
+                  <span>{group.items.length} attempts</span>
+                </div>
+              ) : null}
+              <div className="studentResultsGrid">
+                {group.items.map((attempt) => {
               const isInProgress = attempt.status === "in_progress";
               const currentSectionName = attempt.section_runtime.current_section_name;
               const submittedCopy = submittedAttemptCopy();
@@ -487,8 +721,10 @@ export default async function AttemptsPage({
                   </div>
                 </article>
               );
-            })}
-          </section>
+                })}
+              </div>
+            </section>
+          ))}
 
           <section className="contentCard">
             <div className="sectionHeading">
@@ -499,6 +735,8 @@ export default async function AttemptsPage({
               review flows, and some premium practice sets may first need stars before you continue.
             </p>
           </section>
+            </>
+          ) : null}
         </>
       )}
     </div>

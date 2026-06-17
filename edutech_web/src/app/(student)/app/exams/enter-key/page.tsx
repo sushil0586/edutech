@@ -58,13 +58,10 @@ export default async function EnterExamKeyPage({
         <p className="feedbackBanner feedbackBannerError">{feedbackMessage(error)}</p>
       ) : null}
 
-      <section className="studentInsightHeroCard">
+      <section className="studentInsightHeroCard studentInsightHeroCardCompact">
         <div className="studentInsightHeroCopy">
           <span className="studentDashboardTag">Quick Exam Lookup</span>
           <strong>Jump directly to the right exam</strong>
-          <p>
-            Enter the key exactly as shared by your teacher. The platform will still validate assignment, timing, and attempt eligibility before routing you forward.
-          </p>
           <small>Access key routing still respects the same backend rules as the full exam catalog.</small>
         </div>
         <form action={resolveExamKeyAction} className="studentInsightHeroActions">
@@ -95,10 +92,6 @@ export default async function EnterExamKeyPage({
               <span className="placeholderDot" aria-hidden="true" />
               <p>The exam opens only if your profile is eligible and the timing rules allow it.</p>
             </div>
-            <div className="studentInsightMessage">
-              <span className="placeholderDot" aria-hidden="true" />
-              <p>If you already have an active attempt, you will be taken back into it directly.</p>
-            </div>
           </div>
         </article>
 
@@ -107,9 +100,6 @@ export default async function EnterExamKeyPage({
             <strong>Need the full list instead?</strong>
             <span>Use the standard workspace</span>
           </div>
-          <p className="sectionDescription">
-            You can always go back to the full mock test workspace if you want to browse all assigned exams and their availability states.
-          </p>
           <div className="studentInsightHeroActions">
             <Link className="button buttonSecondary" href="/app/exams">
               Open Mock Tests

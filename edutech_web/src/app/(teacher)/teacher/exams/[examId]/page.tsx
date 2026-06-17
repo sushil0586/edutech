@@ -222,11 +222,7 @@ export default async function TeacherExamDetailPage({
       <section className="studentInsightHeroCard studentInsightHeroCardCompact">
         <div className="studentInsightHeroCopy">
           <span className="studentDashboardTag">Delivery Control</span>
-          <strong>Manage lifecycle, access, and assigned learners from one live exam view</strong>
-          <p>
-            This screen is the operational control surface for one exam. Use it to move the paper through
-            backend lifecycle states and verify whether questions, students, and access settings are ready.
-          </p>
+          <strong>Exam delivery and access</strong>
           <small>
             {detail.active_questions_count} active questions · {detail.assigned_student_count} assigned learners
           </small>

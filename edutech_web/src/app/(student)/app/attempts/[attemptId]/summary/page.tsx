@@ -248,11 +248,10 @@ export default async function AttemptSummaryPage({
         <p className="feedbackBanner feedbackBannerSuccess">{feedbackMessage(notice)}</p>
       ) : null}
 
-      <section className="studentInsightHeroCard">
+      <section className="studentInsightHeroCard studentInsightHeroCardCompact">
         <div className="studentInsightHeroCopy">
           <span className="studentDashboardTag">Post-Submit State</span>
           <strong>{stateCopy.nextStep}</strong>
-          <p>{stateCopy.helper}</p>
           <small>
             {examSourceDescriptor(summary)} · {summary.result_visible ? "Result visible" : "Result pending"} ·{" "}
             {summary.review_available ? "Review available" : "Review locked"}
@@ -346,15 +345,11 @@ export default async function AttemptSummaryPage({
           <div className="studentInsightMessageStack">
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
-              <p>Summary is the safe checkpoint after submission before deeper review or results.</p>
+              <p>Use summary first, then move into review or results.</p>
             </div>
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
-              <p>Result visibility and review access still depend on backend publication and exam policy.</p>
-            </div>
-            <div className="studentInsightMessage">
-              <span className="placeholderDot" aria-hidden="true" />
-              <p>Use practice or weak-area flows next when detailed review is not yet available.</p>
+              <p>Review and result visibility still depend on backend policy.</p>
             </div>
           </div>
           <div className="studentInsightHeroActions">

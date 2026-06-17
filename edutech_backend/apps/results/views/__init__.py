@@ -40,23 +40,28 @@ from apps.results.serializers import (
 )
 from apps.reports.models import AuditLog
 from apps.results.services import (
-    attempt_monitor_alerts,
     calculate_exam_performance_summary,
     calculate_exam_ranks,
     ensure_attempt_can_be_force_submitted,
     calculate_student_topic_performance,
+    filter_teacher_attempt_monitor_payloads,
     generate_result_from_attempt,
     generate_results_for_exam,
     hydrate_teacher_attempt_monitor_payloads,
     publish_exam_results,
+    search_teacher_attempt_monitor_payloads,
+    sort_teacher_attempt_monitor_payloads,
+    summarize_teacher_attempt_monitor_payloads,
 )
 from apps.reports.services import create_audit_log
+from common.pagination import StandardResultsSetPagination
 from common.responses import action_response
 
 
 class ExamResultViewSet(ModelViewSet):
     serializer_class = ExamResultSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
     filterset_fields = ["institute", "exam", "student", "result_status", "is_published", "is_active"]
     search_fields = ["exam__title", "exam__code", "student__full_name", "student__admission_no"]
     ordering_fields = ["rank", "final_score", "percentage", "time_taken_seconds", "published_at"]
@@ -208,7 +213,25 @@ class ExamResultViewSet(ModelViewSet):
         queryset = self.get_queryset().filter(exam_id=exam_id, is_active=True).order_by(
             "rank", "-final_score", "time_taken_seconds"
         )
-        return Response(ExamLeaderboardSerializer(queryset, many=True).data, status=status.HTTP_200_OK)
+        summary = queryset.aggregate(
+            total=Count("id"),
+            ranked=Count("id", filter=Q(rank__isnull=False)),
+            published=Count("id", filter=Q(is_published=True)),
+        )
+        page = self.paginate_queryset(queryset)
+        serializer = ExamLeaderboardSerializer(page, many=True)
+        response = self.get_paginated_response(serializer.data)
+        total = summary["total"] or 0
+        ranked = summary["ranked"] or 0
+        published = summary["published"] or 0
+        response.data["summary"] = {
+            "total": total,
+            "ranked_count": ranked,
+            "published_count": published,
+            "all_ranked": total > 0 and ranked == total,
+            "published_results": total > 0 and published == total,
+        }
+        return response
 
     @action(detail=False, methods=["get"], url_path=r"student/(?P<student_id>[^/.]+)/performance")
     def student_performance(self, request, student_id=None):
@@ -233,11 +256,55 @@ class ExamResultViewSet(ModelViewSet):
             StudentExamAttempt.objects.select_related("exam", "student", "institute"),
             request.user,
         ).filter(exam_id=exam_id, is_active=True)
+        if not any(
+            key in request.query_params
+            for key in ("page", "page_size", "filter", "sort", "search", "attempt_id")
+        ):
+            attempts = hydrate_teacher_attempt_monitor_payloads(queryset.order_by("-started_at"))
+            return Response(
+                TeacherExamAttemptSerializer(attempts, many=True).data,
+                status=status.HTTP_200_OK,
+            )
+
+        attempt_filter = (request.query_params.get("filter") or "all").strip()
+        attempt_sort = (request.query_params.get("sort") or "latest").strip()
+        search_value = (request.query_params.get("search") or "").strip()
+        selected_attempt_id = (request.query_params.get("attempt_id") or "").strip()
+
         attempts = hydrate_teacher_attempt_monitor_payloads(queryset.order_by("-started_at"))
-        return Response(
-            TeacherExamAttemptSerializer(attempts, many=True).data,
-            status=status.HTTP_200_OK,
+        total_attempts = len(attempts)
+        filtered_attempts = filter_teacher_attempt_monitor_payloads(attempts, attempt_filter)
+        searched_attempts = search_teacher_attempt_monitor_payloads(filtered_attempts, search_value)
+        sorted_attempts = sort_teacher_attempt_monitor_payloads(searched_attempts, attempt_sort)
+        selected_attempt = next(
+            (attempt for attempt in attempts if str(attempt.id) == selected_attempt_id),
+            None,
         )
+
+        page = self.paginate_queryset(sorted_attempts)
+        serializer = TeacherExamAttemptSerializer(page if page is not None else sorted_attempts, many=True)
+        if page is not None:
+            response = self.get_paginated_response(serializer.data)
+        else:
+            response = Response(
+                {
+                    "count": len(sorted_attempts),
+                    "next": None,
+                    "previous": None,
+                    "results": serializer.data,
+                },
+                status=status.HTTP_200_OK,
+            )
+        response.data["summary"] = {
+            "total_attempts": total_attempts,
+        }
+        response.data["applied_filter"] = attempt_filter
+        response.data["applied_sort"] = attempt_sort
+        response.data["applied_search"] = search_value
+        response.data["selected_attempt"] = (
+            TeacherExamAttemptSerializer(selected_attempt).data if selected_attempt else None
+        )
+        return response
 
     @action(detail=False, methods=["post"], url_path="force-submit-attempt")
     def force_submit_attempt(self, request):
@@ -421,40 +488,7 @@ class ExamResultViewSet(ModelViewSet):
         )
 
         attempt_rows = hydrate_teacher_attempt_monitor_payloads(list(attempt_queryset))
-        alerted_attempts = 0
-        stalled_attempts = 0
-        high_alert_attempts = 0
-        medium_alert_attempts = 0
-        for attempt in attempt_rows:
-            alerts = attempt_monitor_alerts(attempt)
-            if alerts:
-                alerted_attempts += 1
-            if any(alert["code"] == "stalled_activity" for alert in alerts):
-                stalled_attempts += 1
-            if any(alert["severity"] == "high" for alert in alerts):
-                high_alert_attempts += 1
-            elif any(alert["severity"] == "medium" for alert in alerts):
-                medium_alert_attempts += 1
-
-        recent_attempts = list(
-            sorted(
-                attempt_rows,
-                key=lambda attempt: (
-                    max(
-                        (
-                            3 if alert["severity"] == "high"
-                            else 2 if alert["severity"] == "medium"
-                            else 1
-                            for alert in attempt_monitor_alerts(attempt)
-                        ),
-                        default=0,
-                    ),
-                    attempt.updated_at or attempt.started_at,
-                    attempt.started_at,
-                ),
-                reverse=True,
-            )[:8]
-        )
+        monitor_summary = summarize_teacher_attempt_monitor_payloads(attempt_rows, recent_limit=8)
         payload = {
             "exam_id": exam.id,
             "exam_title": exam.title,
@@ -467,14 +501,20 @@ class ExamResultViewSet(ModelViewSet):
             "submitted_students": submitted_students,
             "auto_submitted_students": auto_submitted_students,
             "completed_students": completed_students,
-            "alerted_attempts": alerted_attempts,
-            "high_alert_attempts": high_alert_attempts,
-            "medium_alert_attempts": medium_alert_attempts,
-            "stalled_attempts": stalled_attempts,
+            "alerted_attempts": monitor_summary["alerted_attempts"],
+            "high_alert_attempts": monitor_summary["high_alert_attempts"],
+            "medium_alert_attempts": monitor_summary["medium_alert_attempts"],
+            "stalled_attempts": monitor_summary["stalled_attempts"],
+            "integrity_warning_attempts": monitor_summary["integrity_warning_attempts"],
+            "integrity_warnings_total": monitor_summary["integrity_warnings_total"],
+            "threshold_reached_attempts": monitor_summary["threshold_reached_attempts"],
+            "attempts_by_health": monitor_summary["attempts_by_health"],
             "completion_percentage": completion_percentage,
             "submission_percentage": submission_percentage,
             "last_activity_at": student_rollup["last_activity_at"],
-            "recent_attempts": TeacherExamAttemptSerializer(recent_attempts, many=True).data,
+            "recent_attempts": TeacherExamAttemptSerializer(
+                monitor_summary["recent_attempts"], many=True
+            ).data,
         }
         return Response(
             LiveExamMonitorSerializer(payload).data,
@@ -483,6 +523,48 @@ class ExamResultViewSet(ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path=r"exam/(?P<exam_id>[^/.]+)/question-analysis")
     def question_analysis(self, request, exam_id=None):
+        if not any(key in request.query_params for key in ("page", "page_size", "filter")):
+            attempt_queryset = scope_teacher_queryset(
+                StudentExamAttempt.objects.select_related("exam", "student", "institute"),
+                request.user,
+            ).filter(exam_id=exam_id, is_active=True)
+
+            analysis_queryset = (
+                StudentAnswer.objects.filter(attempt__in=attempt_queryset, is_active=True)
+                .select_related("question", "question__subject", "question__topic")
+                .values(
+                    "question_id",
+                    "question__question_text",
+                    "question__subject__name",
+                    "question__topic__name",
+                )
+                .annotate(
+                    total_attempts=Count("id"),
+                    correct_count=Count("id", filter=Q(is_correct=True)),
+                    wrong_count=Count("id", filter=Q(is_correct=False)),
+                    skipped_count=Count("id", filter=Q(selected_option__isnull=True, answer_text="")),
+                    marked_for_review_count=Count("id", filter=Q(is_marked_for_review=True)),
+                )
+                .order_by("-wrong_count", "-skipped_count", "question__question_text")
+            )
+            question_rows = [
+                {
+                    "question_id": row["question_id"],
+                    "question_text_summary": (row["question__question_text"] or "")[:140],
+                    "subject_name": row["question__subject__name"],
+                    "topic_name": row["question__topic__name"],
+                    "total_attempts": row["total_attempts"],
+                    "correct_count": row["correct_count"],
+                    "wrong_count": row["wrong_count"],
+                    "skipped_count": row["skipped_count"],
+                    "marked_for_review_count": row["marked_for_review_count"],
+                }
+                for row in analysis_queryset
+            ]
+            serializer = TeacherQuestionAnalysisSerializer(question_rows, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        question_filter = (request.query_params.get("filter") or "all").strip()
         attempt_queryset = scope_teacher_queryset(
             StudentExamAttempt.objects.select_related("exam", "student", "institute"),
             request.user,
@@ -504,7 +586,19 @@ class ExamResultViewSet(ModelViewSet):
                 skipped_count=Count("id", filter=Q(selected_option__isnull=True)),
                 marked_for_review_count=Count("id", filter=Q(is_marked_for_review=True)),
             )
-            .order_by("-wrong_count", "-marked_for_review_count", "question__question_text")
+        )
+        if question_filter == "hard_questions":
+            analysis_queryset = analysis_queryset.filter(
+                total_attempts__gt=0,
+                wrong_count__gte=1,
+            )
+        elif question_filter == "skipped_often":
+            analysis_queryset = analysis_queryset.filter(skipped_count__gte=2)
+        else:
+            question_filter = "all"
+
+        analysis_queryset = analysis_queryset.order_by(
+            "-wrong_count", "-marked_for_review_count", "question__question_text"
         )
 
         payload = [
@@ -524,10 +618,11 @@ class ExamResultViewSet(ModelViewSet):
             }
             for row in analysis_queryset
         ]
-        return Response(
-            TeacherQuestionAnalysisSerializer(payload, many=True).data,
-            status=status.HTTP_200_OK,
-        )
+        page = self.paginate_queryset(payload)
+        serializer = TeacherQuestionAnalysisSerializer(page, many=True)
+        response = self.get_paginated_response(serializer.data)
+        response.data["applied_filter"] = question_filter
+        return response
 
 
 class StudentTopicPerformanceViewSet(ReadOnlyModelViewSet):

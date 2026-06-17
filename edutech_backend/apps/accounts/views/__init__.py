@@ -1,8 +1,9 @@
 import logging
+from decimal import Decimal
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.contrib.auth import get_user_model
-from django.db.models import Prefetch
+from django.db.models import Case, Count, IntegerField, Prefetch, Q, Value, When
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 from rest_framework import status
@@ -46,8 +47,10 @@ from apps.accounts.serializers import (
     StudentExamAccessKeySerializer,
 )
 from apps.attempts.models import StudentExamAttempt
+from apps.academics.models import AcademicYear, Cohort, Program, Subject, Topic
 from apps.exams.models import Exam
 from apps.exams.serializers import (
+    ExamListSerializer,
     ExamReadSerializer,
     StudentExamAvailabilitySerializer,
     StudentExamReadinessSerializer,
@@ -67,14 +70,69 @@ from apps.results.services import (
     build_teacher_insight_summary,
     build_teacher_question_performance_summary,
 )
+from apps.institutes.models import Institute
+from apps.students.models import StudentProfile
+from apps.teachers.models import TeacherProfile
 from common.throttles import LoginRateThrottle
 from common.throttles import RegistrationRateThrottle
 from common.throttles import TokenRefreshRateThrottle
 from common.throttles import AdminProvisionRateThrottle
+from common.pagination import StandardResultsSetPagination
 
 
 auth_logger = logging.getLogger("nexora.auth")
 User = get_user_model()
+
+
+def _hydrate_exam_access_policies(exams):
+    if not exams:
+        return {}
+
+    from apps.economy.models import ContentAccessPolicy
+    from apps.exams.services import EXAM_CONTENT_TYPE
+
+    institute_ids = {exam.institute_id for exam in exams if getattr(exam, "institute_id", None)}
+    content_keys = {str(exam.id) for exam in exams}
+    if not institute_ids or not content_keys:
+        return {}
+
+    policies = list(
+        ContentAccessPolicy.objects.filter(
+            institute_id__in=institute_ids,
+            content_type=EXAM_CONTENT_TYPE,
+            content_key__in=content_keys,
+            is_active=True,
+        )
+        .select_related("subject")
+        .order_by("priority", "created_at")
+    )
+
+    policy_by_target = {}
+    for policy in policies:
+        target_key = (policy.institute_id, policy.content_key)
+        current = policy_by_target.get(target_key)
+        if current is None:
+            policy_by_target[target_key] = {"subjects": {}, "fallback": None}
+            current = policy_by_target[target_key]
+        if policy.subject_id is not None:
+            current["subjects"].setdefault(policy.subject_id, policy)
+        elif current["fallback"] is None:
+            current["fallback"] = policy
+
+    resolved_by_exam_id = {}
+    for exam in exams:
+        resolved = policy_by_target.get((exam.institute_id, str(exam.id)))
+        if resolved is None:
+            exam._resolved_access_policy = None
+            resolved_by_exam_id[exam.id] = None
+            continue
+        subject_policy = resolved["subjects"].get(exam.subject_id)
+        fallback_policy = resolved["fallback"]
+        selected_policy = subject_policy if subject_policy is not None else fallback_policy
+        exam._resolved_access_policy = selected_policy
+        resolved_by_exam_id[exam.id] = selected_policy
+
+    return resolved_by_exam_id
 
 
 class LoginView(APIView):
@@ -574,7 +632,120 @@ class TeacherExamListView(APIView):
             Exam.objects.select_related("institute", "academic_year", "program", "cohort", "subject"),
             request.user,
         ).filter(is_active=True)
-        return Response(ExamReadSerializer(queryset, many=True).data)
+        if not any(
+            key in request.query_params
+            for key in ("page", "page_size", "filter", "sort", "search")
+        ):
+            return Response(ExamReadSerializer(queryset, many=True).data)
+
+        exam_filter = (request.query_params.get("filter") or "all").strip()
+        exam_sort = (request.query_params.get("sort") or "recommended").strip()
+        search = (request.query_params.get("search") or "").strip()
+        economy_summary = None
+
+        queryset = queryset.annotate(
+            assigned_student_count=Count(
+                "student_assignments",
+                filter=Q(student_assignments__is_active=True),
+                distinct=True,
+            ),
+            active_questions_count=Count(
+                "exam_questions",
+                filter=Q(exam_questions__is_active=True),
+                distinct=True,
+            ),
+        )
+
+        if exam_filter == "live":
+            queryset = queryset.filter(status="live")
+        elif exam_filter == "scheduled":
+            queryset = queryset.filter(status="scheduled")
+        elif exam_filter == "draft":
+            queryset = queryset.filter(status="draft")
+        elif exam_filter == "completed":
+            queryset = queryset.filter(status="completed")
+        elif exam_filter == "elevated":
+            queryset = queryset.exclude(security_mode="normal")
+        elif exam_filter == "access_key":
+            queryset = queryset.filter(access_key_enabled=True)
+
+        if search:
+            queryset = queryset.filter(
+                Q(title__icontains=search)
+                | Q(code__icontains=search)
+                | Q(status__icontains=search)
+                | Q(exam_type__icontains=search)
+                | Q(subject__name__icontains=search)
+            )
+
+        if exam_filter in {"economy_gated", "stars_gated", "entitlement_gated"}:
+            scoped_exams = list(queryset)
+            resolved_policies = _hydrate_exam_access_policies(scoped_exams)
+
+            def matches_policy(policy):
+                if policy is None:
+                    return False
+                if exam_filter == "economy_gated":
+                    return True
+                if exam_filter == "stars_gated":
+                    return policy.policy_type in {"stars_only", "stars_or_entitlement"}
+                return policy.policy_type in {"entitlement_only", "stars_or_entitlement"}
+
+            matching_exam_ids = [exam.id for exam in scoped_exams if matches_policy(resolved_policies.get(exam.id))]
+            total_star_cost = sum(
+                int(getattr(resolved_policies.get(exam_id), "star_cost", 0) or 0)
+                for exam_id in matching_exam_ids
+            )
+            queryset = queryset.filter(id__in=matching_exam_ids)
+            economy_summary = {
+                "total_star_cost": total_star_cost,
+            }
+
+        if exam_sort == "start_soon":
+            queryset = queryset.order_by("start_at", "title")
+        elif exam_sort == "duration_short":
+            queryset = queryset.order_by("duration_minutes", "title")
+        elif exam_sort in {"learners_high", "students"}:
+            queryset = queryset.order_by("-assigned_student_count", "title")
+        elif exam_sort == "marks_high":
+            queryset = queryset.order_by("-total_marks", "title")
+        elif exam_sort == "title":
+            queryset = queryset.order_by("title")
+        elif exam_sort == "latest":
+            queryset = queryset.order_by("-updated_at", "-created_at")
+        elif exam_sort == "risk_high":
+            queryset = queryset.annotate(
+                risk_rank=Case(
+                    When(status="live", then=Value(0)),
+                    When(access_key_enabled=True, then=Value(1)),
+                    When(security_mode="fullscreen", then=Value(2)),
+                    When(security_mode="focus", then=Value(3)),
+                    default=Value(4),
+                    output_field=IntegerField(),
+                )
+            ).order_by("risk_rank", "-updated_at", "title")
+        else:
+            queryset = queryset.annotate(
+                recommended_rank=Case(
+                    When(status="live", then=Value(0)),
+                    When(status="scheduled", then=Value(1)),
+                    When(status="draft", then=Value(2)),
+                    default=Value(3),
+                    output_field=IntegerField(),
+                )
+            ).order_by("recommended_rank", "title")
+
+        paginator = StandardResultsSetPagination()
+        page = paginator.paginate_queryset(queryset, request, view=self)
+        _hydrate_exam_access_policies(page)
+        serializer = ExamListSerializer(page, many=True, context={"request": request})
+        response = paginator.get_paginated_response(serializer.data)
+        response.data["applied_filter"] = exam_filter
+        response.data["applied_sort"] = exam_sort
+        response.data["applied_search"] = search
+        if economy_summary is not None:
+            response.data["summary"] = economy_summary
+        return response
 
 
 class TeacherQuestionListView(APIView):
@@ -616,6 +787,91 @@ class TeacherInsightSummaryView(APIView):
 
     def get(self, request):
         return Response(build_teacher_insight_summary(request.user))
+
+
+class InstituteDashboardSummaryView(APIView):
+    permission_classes = [IsAuthenticated, IsPlatformOrInstituteAdmin]
+
+    def get(self, request):
+        profile = getattr(request.user, "account_profile", None)
+        institute_id = getattr(profile, "institute_id", None)
+        if not institute_id:
+            return Response(
+                {"detail": "Institute dashboard summary is not available for this account."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        institute = (
+            Institute.objects.filter(id=institute_id, is_active=True)
+            .values("id", "name", "code", "is_active", "metadata")
+            .first()
+        )
+        if institute is None:
+            return Response(
+                {"detail": "Institute not found in your scope."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        institute_filter = Q(institute_id=institute_id)
+        academic_year_count = AcademicYear.objects.filter(institute_filter, is_active=True).count()
+        program_count = Program.objects.filter(institute_filter, is_active=True).count()
+        cohort_count = Cohort.objects.filter(institute_filter, is_active=True).count()
+        subject_count = Subject.objects.filter(institute_filter, is_active=True).count()
+        topic_count = Topic.objects.filter(institute_filter, is_active=True).count()
+        student_count = StudentProfile.objects.filter(institute_filter, is_active=True).count()
+        teacher_count = TeacherProfile.objects.filter(institute_filter, is_active=True).count()
+        exam_count = Exam.objects.filter(institute_filter, is_active=True).count()
+        result_count = ExamResult.objects.filter(institute_filter, is_active=True).count()
+        metadata = institute.get("metadata") if isinstance(institute, dict) else {}
+        exam_defaults = metadata.get("exam_defaults", {}) if isinstance(metadata, dict) else {}
+        exam_default_count = len(exam_defaults) if isinstance(exam_defaults, dict) else 0
+        people_count = student_count + teacher_count
+        academic_structure_count = (
+            academic_year_count + program_count + cohort_count + subject_count + topic_count
+        )
+        active_coverage_signals = len(
+            [
+                value
+                for value in (
+                    people_count,
+                    academic_structure_count,
+                    exam_count,
+                    result_count,
+                    exam_default_count,
+                )
+                if value > 0
+            ]
+        )
+        readiness_score = round((active_coverage_signals / 5) * 100)
+
+        return Response(
+            {
+                "institute": {
+                    "id": str(institute["id"]),
+                    "name": institute["name"],
+                    "code": institute["code"],
+                    "is_active": institute["is_active"],
+                    "exam_default_count": exam_default_count,
+                },
+                "counts": {
+                    "academic_years": academic_year_count,
+                    "programs": program_count,
+                    "cohorts": cohort_count,
+                    "subjects": subject_count,
+                    "topics": topic_count,
+                    "students": student_count,
+                    "teachers": teacher_count,
+                    "exams": exam_count,
+                    "results": result_count,
+                },
+                "derived": {
+                    "people_count": people_count,
+                    "academic_structure_count": academic_structure_count,
+                    "active_coverage_signals": active_coverage_signals,
+                    "readiness_score": readiness_score,
+                },
+            }
+        )
 
 
 class TeacherQuestionPerformanceView(APIView):

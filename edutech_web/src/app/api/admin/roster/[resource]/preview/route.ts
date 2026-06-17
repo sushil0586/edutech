@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getSessionAccessToken } from "@/lib/auth/session";
+import { getAuthenticatedSession, hasRequiredRole } from "@/lib/auth/session";
+import { validateCsvUpload } from "@/lib/http/upload-validation";
 
 const API_BASE_URL = (
   process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? ""
@@ -34,8 +35,8 @@ export async function POST(
     );
   }
 
-  const accessToken = await getSessionAccessToken();
-  if (!accessToken) {
+  const session = await getAuthenticatedSession();
+  if (!session || !hasRequiredRole(session.profile, ["platform_admin"])) {
     return NextResponse.json(
       { detail: "Portal session is not available." },
       { status: 401 },
@@ -53,6 +54,11 @@ export async function POST(
     );
   }
 
+  const fileError = validateCsvUpload(file);
+  if (fileError) {
+    return NextResponse.json({ detail: fileError }, { status: 400 });
+  }
+
   const upstreamForm = new FormData();
   upstreamForm.set("file", file);
   if (typeof institute === "string" && institute.trim()) {
@@ -62,7 +68,7 @@ export async function POST(
   const response = await fetch(`${API_BASE_URL}${backendPath}`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${accessToken}`,
+      Authorization: `Bearer ${session.accessToken}`,
     },
     body: upstreamForm,
     cache: "no-store",

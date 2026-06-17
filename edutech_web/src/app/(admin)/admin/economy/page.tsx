@@ -3,9 +3,9 @@ import { EconomySeedScreen } from "@/components/admin/economy-seed-screen";
 import { InstituteEconomyWorkspace } from "@/components/admin/institute-economy-workspace";
 import { PlatformAdminPageHeader } from "@/components/ui/platform-admin-page-header";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
+import type { TeacherExamListItem } from "@/features/dashboard/types";
 import { fetchPortalList } from "@/lib/api/portal";
-import { fetchTeacherExams, getTeacherApiState } from "@/lib/api/teacher";
-import type { TeacherExam } from "@/features/dashboard/types";
+import { fetchTeacherExamPage, getTeacherApiState } from "@/lib/api/teacher";
 
 type StudentRecord = {
   id: string;
@@ -20,19 +20,33 @@ async function loadPlatformEconomy() {
   if (!state.apiConfigured) {
     return {
       source: "unconfigured" as const,
-      exams: [] as TeacherExam[],
+      gatedExams: [] as TeacherExamListItem[],
+      starLockedCount: 0,
+      entitlementCount: 0,
+      totalStarCost: 0,
     };
   }
 
   try {
+    const [gatedExamsPage, starLockedPage, entitlementPage] = await Promise.all([
+      fetchTeacherExamPage({ page: 1, pageSize: 10, filter: "economy_gated", sort: "recommended" }),
+      fetchTeacherExamPage({ page: 1, pageSize: 1, filter: "stars_gated", sort: "recommended" }),
+      fetchTeacherExamPage({ page: 1, pageSize: 1, filter: "entitlement_gated", sort: "recommended" }),
+    ]);
     return {
       source: "live" as const,
-      exams: await fetchTeacherExams(),
+      gatedExams: gatedExamsPage.results,
+      starLockedCount: starLockedPage.count,
+      entitlementCount: entitlementPage.count,
+      totalStarCost: gatedExamsPage.summary?.total_star_cost ?? 0,
     };
   } catch {
     return {
       source: "error" as const,
-      exams: [] as TeacherExam[],
+      gatedExams: [] as TeacherExamListItem[],
+      starLockedCount: 0,
+      entitlementCount: 0,
+      totalStarCost: 0,
     };
   }
 }
@@ -43,22 +57,11 @@ function policyLabel(value: string | null | undefined) {
 }
 
 export default async function AdminEconomyPage() {
-  const [{ source, exams }, students] = await Promise.all([
+  const [{ source, gatedExams, starLockedCount, entitlementCount, totalStarCost }, students] =
+    await Promise.all([
     loadPlatformEconomy(),
     fetchPortalList<StudentRecord>("/api/v1/students/?page_size=100"),
-  ]);
-
-  const gatedExams = exams.filter((exam) => exam.economy_policy !== null);
-  const starLockedExams = gatedExams.filter((exam) =>
-    ["stars_only", "stars_or_entitlement"].includes(exam.economy_policy?.policy_type ?? ""),
-  );
-  const entitlementExams = gatedExams.filter((exam) =>
-    ["entitlement_only", "stars_or_entitlement"].includes(exam.economy_policy?.policy_type ?? ""),
-  );
-  const totalStarCost = starLockedExams.reduce(
-    (sum, exam) => sum + (exam.economy_policy?.star_cost ?? 0),
-    0,
-  );
+    ]);
 
   return (
     <section className="studentPage studentPageTight studentDashboardModern">
@@ -84,14 +87,9 @@ export default async function AdminEconomyPage() {
       <section className="studentInsightHeroCard studentInsightHeroCardCompact">
         <div className="studentInsightHeroCopy">
           <span className="studentDashboardTag">Economy Governance</span>
-          <strong>Keep access policy visibility and student support actions inside one platform-admin control lane</strong>
-          <p>
-            This workspace stays grounded in the backend contracts that already exist today. It surfaces
-            economy-policy coverage and reuses the controlled wallet-support actions already exposed through
-            admin proxy routes.
-          </p>
+          <strong>Economy and access overview</strong>
           <small>
-            {students.length} students in scope · {starLockedExams.length} star-gated exams
+            {students.length} students in scope · {starLockedCount} star-gated exams
           </small>
         </div>
         <div className="studentInsightHeroActions">
@@ -138,12 +136,12 @@ export default async function AdminEconomyPage() {
             </article>
             <article className="metricCard dashboardHeroCard">
               <span>Star-gated exams</span>
-              <strong>{starLockedExams.length}</strong>
+              <strong>{starLockedCount}</strong>
               <small>Policies requiring stars directly or conditionally.</small>
             </article>
             <article className="metricCard dashboardHeroCard">
               <span>Entitlement-linked exams</span>
-              <strong>{entitlementExams.length}</strong>
+              <strong>{entitlementCount}</strong>
               <small>Policies using entitlement-based bypass or gating.</small>
             </article>
             <article className="metricCard dashboardHeroCard">

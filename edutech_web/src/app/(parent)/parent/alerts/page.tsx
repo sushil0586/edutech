@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ParentAlertsFeed } from "@/components/parent/parent-alerts-feed";
 import { ParentChildSwitcher } from "@/components/parent/parent-child-switcher";
+import { FilterSummaryPills } from "@/components/ui/filter-summary-pills";
 import { ParentPageHeader } from "@/components/ui/parent-page-header";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import {
@@ -9,24 +10,66 @@ import {
   getParentApiState,
 } from "@/lib/api/parent";
 import {
+  buildParentAlertsHref,
+  parentAlertTypeOptions,
+  resolveParentAlertFilters,
+} from "@/lib/parent/alerts";
+import {
   titleCaseLabel,
 } from "@/lib/parent/formatters";
 
-async function loadParentAlerts(childId?: string) {
+function emptyAlertsPage() {
+  return {
+    count: 0,
+    next: null,
+    previous: null,
+    results: [],
+    summary: {
+      total: 0,
+      unread: 0,
+      read: 0,
+      resolved: 0,
+      dismissed: 0,
+      high: 0,
+      warning: 0,
+      info: 0,
+    },
+    available_alert_types: [],
+    applied_filters: {
+      child_id: null,
+      status: "all",
+      severity: "all",
+      alert_type: "",
+      ordering: "latest",
+      search: "",
+    },
+  };
+}
+
+async function loadParentAlerts(filters: ReturnType<typeof resolveParentAlertFilters>) {
   const state = getParentApiState();
 
   if (!state.apiConfigured) {
     return {
       source: "unconfigured" as const,
       children: [],
-      alerts: [],
+      alerts: emptyAlertsPage(),
     };
   }
 
   try {
     const [children, alerts] = await Promise.all([
       fetchParentChildren(),
-      fetchParentAlerts(childId),
+      fetchParentAlerts({
+        childId: filters.childId,
+        status: filters.status,
+        severity: filters.severity,
+        alertType: filters.alertType,
+        ordering: filters.ordering,
+        search: filters.search,
+        page: filters.page,
+        pageSize: filters.pageSize,
+      }),
     ]);
 
     return {
@@ -38,7 +81,7 @@ async function loadParentAlerts(childId?: string) {
     return {
       source: "error" as const,
       children: [],
-      alerts: [],
+      alerts: emptyAlertsPage(),
     };
   }
 }
@@ -46,14 +89,37 @@ async function loadParentAlerts(childId?: string) {
 export default async function ParentAlertsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ child_id?: string }>;
+  searchParams: Promise<{
+    child_id?: string;
+    status?: string;
+    severity?: string;
+    alert_type?: string;
+    ordering?: string;
+    group?: string;
+    search?: string;
+    page?: string;
+    page_size?: string;
+  }>;
 }) {
-  const { child_id: childId } = await searchParams;
-  const { source, children, alerts } = await loadParentAlerts(childId);
+  const filters = resolveParentAlertFilters(await searchParams);
+  const { source, children, alerts } = await loadParentAlerts(filters);
+  const childId = filters.childId;
   const selectedChild = childId ? children.find((child) => child.student_id === childId) : null;
-  const unreadCount = alerts.filter((alert) => alert.status === "new").length;
-  const highCount = alerts.filter((alert) => alert.severity === "high").length;
-  const warningCount = alerts.filter((alert) => alert.severity === "warning").length;
+  const unreadCount = alerts.summary.unread;
+  const highCount = alerts.summary.high;
+  const warningCount = alerts.summary.warning;
+  const alertTypes = parentAlertTypeOptions(alerts.available_alert_types);
+  const totalPages = Math.max(Math.ceil(alerts.count / filters.pageSize), 1);
+  const resetHref = buildParentAlertsHref("/parent/alerts", {
+    ...filters,
+    status: "all",
+    severity: "all",
+    alertType: "all",
+    ordering: "latest",
+    groupBy: "none",
+    search: "",
+    page: 1,
+  });
 
   return (
     <div className="studentPage studentDashboardModern">
@@ -63,7 +129,7 @@ export default async function ParentAlertsPage({
         contextLabel={selectedChild?.student_name}
         statusLabel={
           source === "live"
-            ? `${alerts.length} alerts`
+            ? `${alerts.summary.total} alerts`
             : source === "unconfigured"
               ? "Backend not configured"
               : "Unable to load alerts"
@@ -121,14 +187,10 @@ export default async function ParentAlertsPage({
             currentChildId={selectedChild?.student_id}
           />
 
-          <section className="studentInsightHeroCard">
+          <section className="studentInsightHeroCard studentInsightHeroCardCompact">
             <div className="studentInsightHeroCopy">
               <span className="studentDashboardTag">Alert Center</span>
-              <strong>Keep risk, results, inactivity, and milestones visible from one family queue</strong>
-              <p>
-                Alerts stay relationship-aware, so the parent account only receives the academic and
-                integrity signals that are explicitly allowed for each linked child.
-              </p>
+              <strong>Family alert queue</strong>
               <small>{unreadCount} unread alerts · {highCount} high severity</small>
             </div>
             <div className="studentInsightHeroActions">
@@ -144,7 +206,7 @@ export default async function ParentAlertsPage({
           <section className="resultsSummaryGrid">
             <article className="metricCard metricCardPrimary dashboardHeroCard">
               <span>Total Alerts</span>
-              <strong>{alerts.length}</strong>
+              <strong>{alerts.summary.total}</strong>
               <small>Alert records in the current scope</small>
             </article>
             <article className="metricCard dashboardHeroCard">
@@ -162,6 +224,135 @@ export default async function ParentAlertsPage({
               <strong>{warningCount}</strong>
               <small>Medium-priority academic signals</small>
             </article>
+          </section>
+
+          <section className="contentCard workspaceFiltersCard">
+            <div className="sectionHeading">
+              <strong>Alert Controls</strong>
+              <span>{alerts.count} matching alerts · page {filters.page} of {totalPages}</span>
+            </div>
+            <form className="workspaceFiltersForm" method="GET">
+              {filters.childId ? <input name="child_id" type="hidden" value={filters.childId} /> : null}
+              <input name="page" type="hidden" value="1" />
+              <label className="workspaceFilterField workspaceFilterFieldWide">
+                <span>Search alerts</span>
+                <input
+                  defaultValue={filters.search}
+                  name="search"
+                  placeholder="Title, message, learner, or admission no"
+                  type="search"
+                />
+              </label>
+              <label className="workspaceFilterField">
+                <span>Status</span>
+                <select defaultValue={filters.status} name="status">
+                  <option value="all">All statuses</option>
+                  <option value="new">Unread</option>
+                  <option value="read">Read</option>
+                  <option value="resolved">Resolved</option>
+                  <option value="dismissed">Dismissed</option>
+                </select>
+              </label>
+              <label className="workspaceFilterField">
+                <span>Severity</span>
+                <select defaultValue={filters.severity} name="severity">
+                  <option value="all">All severities</option>
+                  <option value="high">High</option>
+                  <option value="warning">Warning</option>
+                  <option value="info">Info</option>
+                </select>
+              </label>
+              <label className="workspaceFilterField">
+                <span>Alert type</span>
+                <select defaultValue={filters.alertType} name="alert_type">
+                  <option value="all">All types</option>
+                  {alertTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {titleCaseLabel(type)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="workspaceFilterField">
+                <span>Sort</span>
+                <select defaultValue={filters.ordering} name="ordering">
+                  <option value="latest">Newest first</option>
+                  <option value="oldest">Oldest first</option>
+                  <option value="severity">Highest severity first</option>
+                </select>
+              </label>
+              <label className="workspaceFilterField">
+                <span>Group</span>
+                <select defaultValue={filters.groupBy} name="group">
+                  <option value="none">No grouping</option>
+                  <option value="severity">Severity</option>
+                  <option value="status">Status</option>
+                  <option value="child">Child</option>
+                </select>
+              </label>
+              <label className="workspaceFilterField">
+                <span>Page size</span>
+                <select defaultValue={String(filters.pageSize)} name="page_size">
+                  <option value="10">10</option>
+                  <option value="20">20</option>
+                  <option value="40">40</option>
+                </select>
+              </label>
+              <div className="workspaceFilterActions">
+                <button className="button buttonPrimary" type="submit">
+                  Apply filters
+                </button>
+                <Link className="button buttonSecondary" href={resetHref}>
+                  Reset filters
+                </Link>
+              </div>
+            </form>
+            <div className="workspaceFilterQuickRow">
+              <span className="workspaceFilterQuickLabel">Quick filters</span>
+              <div className="workspaceFilterQuickChips">
+                {[
+                  {
+                    label: "Unread",
+                    href: buildParentAlertsHref("/parent/alerts", { ...filters, status: "new", page: 1 }),
+                    active: filters.status === "new",
+                  },
+                  {
+                    label: "High Severity",
+                    href: buildParentAlertsHref("/parent/alerts", { ...filters, severity: "high", page: 1 }),
+                    active: filters.severity === "high",
+                  },
+                  {
+                    label: "Exam Risk",
+                    href: buildParentAlertsHref("/parent/alerts", { ...filters, alertType: "exam_risk", page: 1 }),
+                    active: filters.alertType === "exam_risk",
+                  },
+                  {
+                    label: "Group by Status",
+                    href: buildParentAlertsHref("/parent/alerts", { ...filters, groupBy: "status", page: 1 }),
+                    active: filters.groupBy === "status",
+                  },
+                ].map((chip) => (
+                  <Link
+                    key={chip.label}
+                    className={`workspaceQuickChip${chip.active ? " workspaceQuickChipActive" : ""}`}
+                    href={chip.href}
+                  >
+                    {chip.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+            <FilterSummaryPills
+              items={[
+                { label: "Status", value: titleCaseLabel(filters.status) },
+                { label: "Severity", value: titleCaseLabel(filters.severity) },
+                { label: "Type", value: filters.alertType === "all" ? "All" : titleCaseLabel(filters.alertType) },
+                { label: "Sort", value: titleCaseLabel(filters.ordering) },
+                { label: "Group", value: titleCaseLabel(filters.groupBy) },
+                { label: "Page size", value: filters.pageSize },
+                { label: "Search", value: filters.search },
+              ]}
+            />
           </section>
 
           <section className="dashboardGrid">
@@ -189,9 +380,43 @@ export default async function ParentAlertsPage({
             <article className="dashboardPanel weakTopicsPanel">
               <div className="sectionHeading">
                 <strong>Alert Feed</strong>
-                <span>{alerts.length} records</span>
+                <span>{alerts.results.length} records on this page</span>
               </div>
-              <ParentAlertsFeed initialAlerts={alerts} />
+              <ParentAlertsFeed
+                alertType={filters.alertType}
+                childId={filters.childId}
+                groupBy={filters.groupBy}
+                initialAlerts={alerts.results}
+                search={filters.search}
+                severity={filters.severity}
+                statusFilter={filters.status}
+              />
+              {alerts.count > filters.pageSize ? (
+                <div className="workspaceFilterActions">
+                  <Link
+                    aria-disabled={filters.page <= 1}
+                    className="button buttonSecondary"
+                    href={
+                      filters.page <= 1
+                        ? "#"
+                        : buildParentAlertsHref("/parent/alerts", { ...filters, page: filters.page - 1 })
+                    }
+                  >
+                    Previous
+                  </Link>
+                  <Link
+                    aria-disabled={filters.page >= totalPages}
+                    className="button buttonSecondary"
+                    href={
+                      filters.page >= totalPages
+                        ? "#"
+                        : buildParentAlertsHref("/parent/alerts", { ...filters, page: filters.page + 1 })
+                    }
+                  >
+                    Next
+                  </Link>
+                </div>
+              ) : null}
             </article>
           </section>
         </>

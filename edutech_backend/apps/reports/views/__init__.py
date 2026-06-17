@@ -1,3 +1,4 @@
+from django.db.models import Count, Q
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -14,20 +15,123 @@ from apps.reports.services import (
     mark_notification_as_read,
     unread_notification_count,
 )
+from common.pagination import StandardResultsSetPagination
 from common.responses import action_response
+
+
+def _notification_type_label(value):
+    return str(value).replace("_", " ").strip().title()
+
+
+def _notification_group_options(queryset, field_name):
+    rows = queryset.values(field_name).annotate(count=Count("id")).order_by("-count", field_name)
+    options = []
+    for row in rows:
+        value = row[field_name]
+        if not value:
+            continue
+        options.append(
+            {
+                "value": value,
+                "label": _notification_type_label(value),
+                "count": row["count"],
+            }
+        )
+    return options
 
 
 class NotificationListView(APIView):
     permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
 
     def get(self, request):
-        queryset = (
+        base_queryset = (
             InAppNotification.objects.select_related("institute", "recipient_user")
+            .only(
+                "id",
+                "institute_id",
+                "recipient_user_id",
+                "notification_type",
+                "title",
+                "message",
+                "related_object_type",
+                "related_object_id",
+                "is_read",
+                "read_at",
+                "metadata",
+                "created_at",
+                "is_active",
+            )
             .filter(recipient_user=request.user, is_active=True)
-            .order_by("-created_at")
         )
-        data = InAppNotificationSerializer(queryset, many=True).data
-        return Response({"count": len(data), "results": data}, status=status.HTTP_200_OK)
+        queryset = base_queryset
+
+        status_filter = (request.query_params.get("status") or "all").strip().lower()
+        if status_filter == "read":
+            queryset = queryset.filter(is_read=True)
+        elif status_filter == "unread":
+            queryset = queryset.filter(is_read=False)
+        else:
+            status_filter = "all"
+
+        notification_type = (request.query_params.get("notification_type") or "").strip()
+        if notification_type:
+            queryset = queryset.filter(notification_type=notification_type)
+
+        related_object_type = (request.query_params.get("related_object_type") or "").strip()
+        if related_object_type:
+            queryset = queryset.filter(related_object_type=related_object_type)
+
+        search = (request.query_params.get("search") or "").strip()
+        if search:
+            queryset = queryset.filter(
+                Q(title__icontains=search)
+                | Q(message__icontains=search)
+                | Q(notification_type__icontains=search)
+                | Q(related_object_type__icontains=search)
+            )
+
+        ordering = (request.query_params.get("ordering") or "newest").strip().lower()
+        if ordering == "oldest":
+            queryset = queryset.order_by("created_at", "id")
+        elif ordering == "unread_first":
+            queryset = queryset.order_by("is_read", "-created_at", "-id")
+        elif ordering == "type":
+            queryset = queryset.order_by("notification_type", "is_read", "-created_at", "-id")
+        else:
+            ordering = "newest"
+            queryset = queryset.order_by("-created_at", "-id")
+
+        summary = base_queryset.aggregate(
+            total=Count("id"),
+            unread=Count("id", filter=Q(is_read=False)),
+            read=Count("id", filter=Q(is_read=True)),
+        )
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(queryset, request, view=self)
+        serializer = InAppNotificationSerializer(page, many=True)
+        response = paginator.get_paginated_response(serializer.data)
+        response.data["summary"] = {
+            "total": summary["total"] or 0,
+            "unread": summary["unread"] or 0,
+            "read": summary["read"] or 0,
+        }
+        response.data["available_notification_types"] = _notification_group_options(
+            base_queryset,
+            "notification_type",
+        )
+        response.data["available_related_object_types"] = _notification_group_options(
+            base_queryset,
+            "related_object_type",
+        )
+        response.data["applied_filters"] = {
+            "status": status_filter,
+            "notification_type": notification_type,
+            "related_object_type": related_object_type,
+            "ordering": ordering,
+            "search": search,
+        }
+        return response
 
 
 class NotificationMarkReadView(APIView):

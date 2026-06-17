@@ -164,7 +164,7 @@ export function StudentCreateDialog({
     setFieldErrors({});
 
     try {
-      const response = await fetch("/api/v1/students/", {
+      const response = await fetch("/api/admin/people/students", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

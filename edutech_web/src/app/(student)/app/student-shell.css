@@ -415,8 +415,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
-  padding: 16px 18px;
+  gap: 12px;
+  padding: 14px 16px;
   border: 1px solid var(--color-border-default);
   border-radius: 22px;
   background:
@@ -433,14 +433,14 @@
 }
 
 .studentInsightHeroCardCompact {
-  gap: 12px;
-  padding: 14px 16px;
+  gap: 10px;
+  padding: 12px 14px;
   border-radius: 20px;
 }
 
 .studentInsightHeroCopy {
   display: grid;
-  gap: 6px;
+  gap: 4px;
   flex: 1 1 360px;
 }
 
@@ -455,7 +455,9 @@
 }
 
 .studentInsightHeroCardCompact .studentInsightHeroCopy strong {
-  font-size: clamp(1.2rem, 2vw, 1.55rem);
+  font-size: var(--text-xl);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
 }
 
 .studentInsightHeroCopy p,
@@ -471,13 +473,14 @@
 .studentResultStat span,
 .studentResultBreakdown span {
   color: var(--color-text-secondary);
-  line-height: 1.55;
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
 }
 
 .studentInsightHeroActions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
   flex: 1 1 280px;
   justify-content: flex-end;
@@ -502,7 +505,7 @@
 }
 
 .studentResultsGrid {
-  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
 }
 
 .studentInsightsTwoColumn,
@@ -517,7 +520,8 @@
 .studentWeakAreasRail,
 .studentWeakAreaStack,
 .studentTopicStack,
-.studentInsightMessageStack {
+.studentInsightMessageStack,
+.studentResultsGroupedSection {
   display: grid;
   gap: 14px;
 }
@@ -530,12 +534,18 @@
 
 .studentResultSurfaceHead,
 .studentResultFooter,
-.studentWeakAreaRow,
 .studentTopicRow {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 14px;
+}
+
+.studentWeakAreaRow {
+  display: grid;
+  grid-template-columns: 108px minmax(0, 1fr) minmax(212px, 228px) minmax(148px, 164px);
+  align-items: start;
+  gap: 16px;
 }
 
 .studentResultSurfaceStatus {
@@ -589,7 +599,8 @@
 .studentResultBreakdown strong,
 .studentWeakAreaMetrics strong,
 .studentTopicRowMeta strong {
-  font-size: 1.05rem;
+  font-size: var(--text-md);
+  line-height: var(--leading-snug);
 }
 
 .studentResultFooter {
@@ -672,6 +683,94 @@
   background: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
 }
 
+.studentNotificationFiltersCard {
+  padding: 20px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 24px;
+  background: #ffffff;
+  box-shadow: var(--shadow-xs);
+}
+
+.studentNotificationFiltersHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.studentNotificationFiltersHeader small {
+  color: var(--color-text-secondary);
+}
+
+.studentNotificationToolbar,
+.studentNotificationGroupHeader,
+.studentNotificationPagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.studentNotificationToolbar small,
+.studentNotificationGroupHeader span,
+.studentNotificationPagination span {
+  color: var(--color-text-secondary);
+}
+
+.studentNotificationToolbarActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.studentNotificationGroupingControl {
+  display: grid;
+  gap: 6px;
+  min-width: 160px;
+}
+
+.studentNotificationGroupingControl span {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-label);
+  line-height: var(--leading-normal);
+  text-transform: uppercase;
+}
+
+.studentNotificationGroupingControl select {
+  min-height: 40px;
+  width: 100%;
+  padding: 0 14px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 14px;
+  background: #f8fafd;
+  color: var(--color-text-primary);
+}
+
+.studentNotificationGroup {
+  display: grid;
+  gap: 14px;
+}
+
+.studentNotificationGroupHeader {
+  padding-inline: 2px;
+}
+
+.studentNotificationGroupHeader strong,
+.studentNotificationToolbar strong {
+  font-size: var(--text-md);
+  line-height: var(--leading-snug);
+}
+
+.studentNotificationPagination {
+  padding-top: 6px;
+}
+
 .studentTopicRowMeta {
   justify-items: flex-end;
   text-align: right;
@@ -681,6 +780,151 @@
 .studentInsightMessage {
   grid-template-columns: auto 1fr;
   align-items: flex-start;
+}
+
+.studentWorkspaceFiltersCard {
+  gap: 16px;
+  min-width: 0;
+}
+
+.studentWorkspaceFiltersForm {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+  align-items: end;
+  min-width: 0;
+}
+
+.studentWorkspaceFilterField {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.studentWorkspaceFilterField span {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-label);
+  line-height: var(--leading-normal);
+  text-transform: uppercase;
+}
+
+.studentWorkspaceFilterField select {
+  min-height: 44px;
+  width: 100%;
+  padding: 0 14px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 14px;
+  background: #f8fafd;
+  color: var(--color-text-primary);
+}
+
+.studentWorkspaceFilterActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.studentWorkspaceFilterActions > .button {
+  flex: 0 0 auto;
+}
+
+.studentWorkspaceFilterChips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.studentWorkspaceFilterQuickRow {
+  display: grid;
+  gap: 10px;
+}
+
+.studentWorkspaceFilterQuickLabel {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-label);
+  line-height: var(--leading-normal);
+  text-transform: uppercase;
+}
+
+.studentWorkspaceFilterQuickChips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.studentWorkspaceQuickChip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 12px;
+  max-width: 100%;
+  border-radius: 999px;
+  border: 1px solid var(--color-border-default);
+  background: #ffffff;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-snug);
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.studentWorkspaceQuickChip:hover {
+  border-color: #dce8fb;
+  color: var(--color-brand-primary-700);
+}
+
+.studentWorkspaceQuickChipActive {
+  border-color: rgba(31, 95, 214, 0.18);
+  background: linear-gradient(180deg, rgba(31, 95, 214, 0.12), rgba(255, 255, 255, 0.96));
+  color: var(--color-brand-primary-700);
+  box-shadow: var(--shadow-xs);
+}
+
+@media (max-width: 1180px) {
+  .studentWorkspaceFiltersForm {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+
+  .studentWeakAreaRow {
+    grid-template-columns: 92px minmax(0, 1fr) minmax(180px, 210px) minmax(132px, 152px);
+  }
+}
+
+@media (max-width: 900px) {
+  .studentWorkspaceFilterActions {
+    justify-content: stretch;
+  }
+
+  .studentWorkspaceFilterActions > .button {
+    flex: 1 1 160px;
+    justify-content: center;
+  }
+
+  .studentWeakAreaRow {
+    grid-template-columns: 1fr;
+  }
+
+  .studentTopicRowMeta,
+  .studentWeakAreaMetrics {
+    justify-items: flex-start;
+    text-align: left;
+    min-width: 0;
+  }
 }
 
 .builderInlineQuestionEditor {
@@ -720,22 +964,388 @@
   align-content: start;
 }
 
+.studentWeakAreaRankColumn {
+  display: grid;
+  grid-template-rows: minmax(34px, auto) minmax(34px, auto);
+  gap: 8px;
+  align-content: start;
+  justify-items: start;
+}
+
 .studentWeakAreaTopic {
   display: grid;
-  gap: 6px;
-  flex: 1 1 250px;
+  grid-template-rows:
+    minmax(40px, auto)
+    minmax(24px, auto)
+    minmax(72px, auto)
+    minmax(28px, auto);
+  gap: 8px;
+  min-width: 0;
+  align-content: start;
+}
+
+.studentWeakAreaPriorityLine {
+  display: none;
+}
+
+.studentWeakAreaRankBadge,
+.studentWeakAreaPriorityLabel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.studentWeakAreaRankBadge {
+  min-width: 52px;
+  padding: 5px 10px;
+  color: #1d4ed8;
+  background: rgba(219, 234, 254, 0.96);
+  border: 1px solid rgba(96, 165, 250, 0.26);
+}
+
+.studentWeakAreaRankBadgeTop {
+  color: #9a3412;
+  background: rgba(255, 237, 213, 0.98);
+  border-color: rgba(249, 115, 22, 0.24);
+}
+
+.studentWeakAreaRankBadgeHigh {
+  color: #9a3412;
+  background: rgba(254, 243, 199, 0.98);
+  border-color: rgba(245, 158, 11, 0.24);
+}
+
+.studentWeakAreaRankBadgeWarm {
+  color: #7c3aed;
+  background: rgba(237, 233, 254, 0.96);
+  border-color: rgba(139, 92, 246, 0.2);
+}
+
+.studentWeakAreaPriorityLabel {
+  min-width: 92px;
+  padding: 5px 10px;
+  color: #475569;
+  background: rgba(248, 250, 252, 0.98);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.studentWeakAreaTagRow {
+  display: flex;
+  align-items: center;
+  align-content: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-height: 72px;
+}
+
+.studentWeakAreaEvidencePill,
+.studentWeakAreaCausePill {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.studentWeakAreaEvidencePill {
+  color: #475569;
+  background: rgba(226, 232, 240, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.studentWeakAreaCausePill {
+  color: #6d4c07;
+  background: rgba(255, 247, 214, 0.95);
+  border: 1px solid rgba(220, 165, 74, 0.22);
 }
 
 .studentWeakAreaTitleLine {
   display: flex;
   align-items: center;
+  align-content: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-height: 40px;
+}
+
+.studentWeakAreaTitleLine strong {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.studentWeakAreaMetrics {
+  min-width: 0;
+  width: 100%;
+  grid-template-rows: minmax(24px, auto) 8px 40px 8px auto;
+  gap: 8px;
+  min-height: 128px;
+  align-items: flex-end;
+  align-content: start;
+  justify-self: stretch;
+}
+
+.studentWeakAreaSignalHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+}
+
+.studentWeakAreaSignalHeader strong {
+  white-space: nowrap;
+}
+
+.studentWeakAreaSignalHeader span {
+  color: var(--color-text-secondary);
+  font-size: 0.76rem;
+  text-transform: capitalize;
+  font-weight: 700;
+  text-align: right;
+}
+
+.studentWeakAreaActions {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  justify-items: stretch;
+  min-width: 0;
+  width: 100%;
+  justify-self: stretch;
+}
+
+.studentWeakAreaActionsCompact {
+  min-width: 0;
+}
+
+.studentWeakAreaActions > .button,
+.studentWeakAreaActions > form,
+.studentWeakAreaActions > a {
+  width: 100%;
+}
+
+.studentWeakAreaActions > form .button {
+  width: 100%;
+}
+
+.studentWeakAreaComposition {
+  width: 100%;
+  min-width: 0;
+  height: 8px;
+  display: flex;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(226, 232, 240, 0.9);
+}
+
+.studentWeakAreaSparkline {
+  width: 100%;
+  min-width: 0;
+  padding: 2px 0 0;
+}
+
+.studentWeakAreaSparklineSvg {
+  width: 100%;
+  height: 40px;
+  overflow: visible;
+}
+
+.studentWeakAreaSparklineGrid {
+  stroke: rgba(148, 163, 184, 0.24);
+  stroke-width: 1;
+}
+
+.studentWeakAreaSparklinePath {
+  stroke-width: 2.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.studentWeakAreaSparklinePathrisk {
+  stroke: rgba(239, 68, 68, 0.92);
+}
+
+.studentWeakAreaSparklinePathwarn {
+  stroke: rgba(245, 158, 11, 0.92);
+}
+
+.studentWeakAreaSparklinePathmid {
+  stroke: rgba(59, 130, 246, 0.9);
+}
+
+.studentWeakAreaSparklinePathgood {
+  stroke: rgba(34, 197, 94, 0.9);
+}
+
+.studentWeakAreaCompositionCorrect {
+  background: linear-gradient(90deg, rgba(34, 197, 94, 0.88), rgba(74, 222, 128, 0.78));
+}
+
+.studentWeakAreaCompositionIncorrect {
+  background: linear-gradient(90deg, rgba(248, 113, 113, 0.92), rgba(239, 68, 68, 0.82));
+}
+
+.studentWeakAreaCompositionSkipped {
+  background: linear-gradient(90deg, rgba(251, 191, 36, 0.95), rgba(245, 158, 11, 0.82));
+}
+
+.studentWeakAreaCompositionLabel {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  color: var(--color-text-secondary);
+  text-align: center;
+  min-height: 34px;
+  align-items: start;
+}
+
+.studentWeakAreaCompositionLabel span {
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  min-width: 0;
+  padding: 2px 0;
+  white-space: nowrap;
+}
+
+.studentWeakAreaCompositionLabel strong {
+  font-size: 0.68rem;
+  line-height: 1;
+  font-weight: var(--weight-bold);
+  color: var(--color-text-secondary);
+  letter-spacing: 0;
+}
+
+.studentWeakAreaCompositionLabel small {
+  font-size: var(--text-xs);
+  line-height: 1;
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.studentWeakAreaHoverHint {
+  position: relative;
+  cursor: help;
+}
+
+.studentWeakAreaHoverHint::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 10px);
+  transform: translateX(-50%) translateY(4px);
+  width: max-content;
+  max-width: min(240px, 80vw);
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.94);
+  color: #ffffff;
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  text-align: left;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.18);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease;
+  z-index: 6;
+}
+
+.studentWeakAreaHoverHint:hover::after,
+.studentWeakAreaHoverHint:focus-visible::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.studentWeakDiagnosticStack {
+  display: grid;
+  gap: 12px;
+}
+
+.studentWeakDiagnosticCard {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(220, 165, 74, 0.18);
+  background:
+    radial-gradient(circle at top right, rgba(220, 165, 74, 0.08), transparent 38%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(255, 250, 241, 0.9));
+}
+
+.studentWeakDiagnosticCard span {
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.studentWeakDiagnosticCard strong {
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.studentWeakDiagnosticCard p,
+.studentWeakFocusEvidence p {
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+.studentWeakDiagnosticActions {
+  display: flex;
   gap: 10px;
   flex-wrap: wrap;
 }
 
-.studentWeakAreaMetrics {
-  flex: 0 0 120px;
-  align-items: flex-end;
+.studentWeakFocusEvidence {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(248, 250, 252, 0.82);
+  border: 1px solid rgba(160, 174, 208, 0.18);
+}
+
+.studentWeakAreasRail > .contentCard:nth-child(2),
+.studentWeakAreasRail > .contentCard:nth-child(3) {
+  background:
+    radial-gradient(circle at top right, rgba(86, 121, 235, 0.05), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 251, 255, 0.9));
+}
+
+.studentWeakRiskRow {
+  align-items: stretch;
+}
+
+.studentWeakRiskBar {
+  width: min(220px, 100%);
+  height: 8px;
+  display: flex;
+  overflow: hidden;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: rgba(226, 232, 240, 0.9);
+}
+
+.studentWeakRiskWrong {
+  background: linear-gradient(90deg, rgba(248, 113, 113, 0.92), rgba(239, 68, 68, 0.82));
+}
+
+.studentWeakRiskSkip {
+  background: linear-gradient(90deg, rgba(251, 191, 36, 0.95), rgba(245, 158, 11, 0.82));
+}
+
+.studentWeakAreaRowPriority {
+  border-color: rgba(220, 165, 74, 0.22);
+  background:
+    radial-gradient(circle at top right, rgba(255, 244, 212, 0.72), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 251, 242, 0.92));
+  box-shadow: 0 18px 34px rgba(220, 165, 74, 0.08);
 }
 
 .analyticsLandingHero,
@@ -2023,12 +2633,23 @@
   .studentInsightHeroCard,
   .studentResultSurfaceHead,
   .studentResultFooter,
-  .studentWeakAreaRow,
   .studentTopicRow,
   .analyticsTimelineHeader,
   .analyticsQuestionSummary {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .studentWeakAreaRow {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .studentWeakAreaRankColumn {
+    grid-template-rows: none;
+    grid-template-columns: auto auto;
+    align-items: center;
+    gap: 8px;
   }
 
   .studentResultBreakdown {
@@ -2051,6 +2672,19 @@
   .studentTopicRowMeta,
   .studentWeakAreaMetrics {
     justify-items: flex-start;
+    text-align: left;
+  }
+
+  .studentWeakAreaSignalHeader {
+    justify-content: flex-start;
+  }
+
+  .studentWeakAreaActions {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .studentWeakAreaCompositionLabel {
     text-align: left;
   }
 

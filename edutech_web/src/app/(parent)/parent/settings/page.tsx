@@ -27,14 +27,10 @@ export default async function ParentSettingsPage() {
         statusTone={apiState.apiConfigured ? "live" : "warning"}
       />
 
-      <section className="studentInsightHeroCard">
+      <section className="studentInsightHeroCard studentInsightHeroCardCompact">
         <div className="studentInsightHeroCopy">
           <span className="studentDashboardTag">Parent Profile</span>
-          <strong>Keep family communication preferences consistent across every linked child</strong>
-          <p>
-            Parent settings live at the profile layer, while visibility and permissions stay associated
-            with each child relationship. That keeps the model scalable without hardcoded exceptions.
-          </p>
+          <strong>Family communication settings</strong>
           <small>{profile.email || profile.username} · {linkedChildrenCount} linked children</small>
         </div>
       </section>

@@ -29,13 +29,10 @@ export default async function SettingsPage() {
         description="Review your active student account, understand how this portal works, and manage your current web session."
       />
 
-      <section className="studentInsightHeroCard">
+      <section className="studentInsightHeroCard studentInsightHeroCardCompact">
         <div className="studentInsightHeroCopy">
           <span className="studentDashboardTag">Account Controls</span>
           <strong>{profile.is_active ? "Active student session" : "Inactive student session"}</strong>
-          <p>
-            This settings space is intentionally simple: it explains how the student portal behaves and gives quick access to session-safe actions.
-          </p>
           <small>
             {hasStudentProfile ? "Student profile linked" : "Student profile pending"} ·{" "}
             {instituteName}
@@ -111,24 +108,20 @@ export default async function SettingsPage() {
           </div>
         </section>
 
-        <section className="contentCard">
-          <div className="sectionHeading">
-            <strong>Workspace guidance</strong>
+      <section className="contentCard">
+        <div className="sectionHeading">
+          <strong>Workspace guidance</strong>
+        </div>
+        <div className="studentInsightMessageStack">
+          <div className="studentInsightMessage">
+            <span className="placeholderDot" aria-hidden="true" />
+            <p>Mock tests depend on live availability and attempt state.</p>
           </div>
-          <div className="studentInsightMessageStack">
-            <div className="studentInsightMessage">
-              <span className="placeholderDot" aria-hidden="true" />
-              <p>Mock tests come from live availability and attempt state, not hardcoded screen assumptions.</p>
-            </div>
-            <div className="studentInsightMessage">
-              <span className="placeholderDot" aria-hidden="true" />
-              <p>Results and review may still look incomplete until publication and policy lifecycles move forward.</p>
-            </div>
-            <div className="studentInsightMessage">
-              <span className="placeholderDot" aria-hidden="true" />
-              <p>Analytics becomes more useful as completed attempts and topic-performance records increase.</p>
-            </div>
+          <div className="studentInsightMessage">
+            <span className="placeholderDot" aria-hidden="true" />
+            <p>Results and review unlock only when backend policy allows them.</p>
           </div>
+        </div>
           <div className="studentInsightHeroActions">
             <Link className="button buttonSecondary" href="/app/exams">
               Open Mock Tests
@@ -144,9 +137,6 @@ export default async function SettingsPage() {
         <div className="sectionHeading">
           <strong>Quick access</strong>
         </div>
-        <p className="sectionDescription">
-          Use these shortcuts to move through the student workflow without hunting through the sidebar.
-        </p>
         <div className="studentInsightHeroActions">
           <Link className="button buttonSecondary" href="/app/dashboard">
             Dashboard
@@ -174,25 +164,18 @@ export default async function SettingsPage() {
           <div className="sectionHeading">
             <strong>Session controls</strong>
           </div>
-          <p className="sectionDescription">
-            This web portal uses secure session cookies backed by the backend login and refresh endpoints. Use logout when you are done on a shared device.
-          </p>
           <div className="studentInsightMessageStack">
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
-              <p>Your active access depends on the current authenticated browser session.</p>
+              <p>Your access depends on the current browser session.</p>
             </div>
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
-              <p>Session refresh is handled by the live backend auth flow while the session remains valid.</p>
+              <p>Use logout when you finish on a shared device.</p>
             </div>
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
               <p>Password and account-governance changes remain controlled outside this student workspace.</p>
-            </div>
-            <div className="studentInsightMessage">
-              <span className="placeholderDot" aria-hidden="true" />
-              <p>On a shared device, always log out when you are finished.</p>
             </div>
           </div>
           <form action={logoutAction}>
@@ -213,15 +196,11 @@ export default async function SettingsPage() {
           <div className="studentInsightMessageStack">
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
-              <p>Notification preferences are currently backend-driven through live student events.</p>
+              <p>Notifications are backend-driven through live student events.</p>
             </div>
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
               <p>Check attempt summary and results first before assuming a result or review problem.</p>
-            </div>
-            <div className="studentInsightMessage">
-              <span className="placeholderDot" aria-hidden="true" />
-              <p>For missing access or data issues, escalate to your institute or platform admin.</p>
             </div>
           </div>
           <div className="studentInsightHeroActions">

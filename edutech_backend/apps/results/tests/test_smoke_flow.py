@@ -117,9 +117,11 @@ class AcademicAssessmentSmokeTestCase(TestCase):
 
         leaderboard_response = self.client.get(f"/api/v1/results/exam/{exam.id}/leaderboard/")
         self.assertEqual(leaderboard_response.status_code, 200)
-        self.assertEqual(len(leaderboard_response.data), 1)
-        self.assertEqual(leaderboard_response.data[0]["rank"], 1)
-        self.assertEqual(leaderboard_response.data[0]["final_score"], "2.00")
+        self.assertEqual(leaderboard_response.data["count"], 1)
+        self.assertEqual(len(leaderboard_response.data["results"]), 1)
+        self.assertEqual(leaderboard_response.data["results"][0]["rank"], 1)
+        self.assertEqual(leaderboard_response.data["results"][0]["final_score"], "2.00")
+        self.assertTrue(leaderboard_response.data["summary"]["all_ranked"])
 
         live_monitor_response = self.client.get(
             f"/api/v1/results/exam/{exam.id}/live-monitor/"
@@ -127,7 +129,17 @@ class AcademicAssessmentSmokeTestCase(TestCase):
         self.assertEqual(live_monitor_response.status_code, 200)
         self.assertEqual(live_monitor_response.data["total_students"], 1)
         self.assertEqual(live_monitor_response.data["completed_students"], 1)
+        self.assertEqual(live_monitor_response.data["attempts_by_health"]["stable"], 1)
         self.assertEqual(len(live_monitor_response.data["recent_attempts"]), 1)
+
+        attempts_response = self.client.get(
+            f"/api/v1/results/exam/{exam.id}/attempts/?page=1&page_size=10&filter=all&sort=latest&attempt_id={attempt_id}"
+        )
+        self.assertEqual(attempts_response.status_code, 200)
+        self.assertEqual(attempts_response.data["count"], 1)
+        self.assertEqual(attempts_response.data["summary"]["total_attempts"], 1)
+        self.assertEqual(attempts_response.data["selected_attempt"]["id"], str(attempt_id))
+        self.assertEqual(attempts_response.data["results"][0]["id"], str(attempt_id))
 
         intervention_note_response = self.client.post(
             "/api/v1/results/attempt-intervention-note/",
@@ -360,4 +372,8 @@ class AcademicAssessmentSmokeTestCase(TestCase):
         self.assertEqual(response.data["high_alert_attempts"], 1)
         self.assertEqual(response.data["medium_alert_attempts"], 0)
         self.assertEqual(response.data["stalled_attempts"], 1)
+        self.assertEqual(response.data["integrity_warning_attempts"], 0)
+        self.assertEqual(response.data["integrity_warnings_total"], 0)
+        self.assertEqual(response.data["threshold_reached_attempts"], 0)
+        self.assertEqual(response.data["attempts_by_health"]["critical"], 1)
         self.assertEqual(response.data["recent_attempts"][0]["alerts"][0]["code"], "stalled_activity")

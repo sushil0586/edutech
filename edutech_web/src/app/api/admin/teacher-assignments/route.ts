@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionAccessToken } from "@/lib/auth/session";
+import { getAuthenticatedSession, hasRequiredRole } from "@/lib/auth/session";
 
 const API_BASE_URL = (
   process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? ""
@@ -13,8 +13,8 @@ async function proxyRequest(request: NextRequest, method: "POST") {
     );
   }
 
-  const accessToken = await getSessionAccessToken();
-  if (!accessToken) {
+  const session = await getAuthenticatedSession();
+  if (!session || !hasRequiredRole(session.profile, ["platform_admin"])) {
     return NextResponse.json(
       { detail: "Portal session is not available." },
       { status: 401 },
@@ -25,7 +25,7 @@ async function proxyRequest(request: NextRequest, method: "POST") {
   const response = await fetch(`${API_BASE_URL}/api/v1/teachers/assignments/`, {
     method,
     headers: {
-      Authorization: `Bearer ${accessToken}`,
+      Authorization: `Bearer ${session.accessToken}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),

@@ -311,14 +311,10 @@ export default async function InstituteQuestionDetailPage({
       />
 
       <section className="studentPage studentPageTight studentDashboardModern">
-        <section className="studentInsightHeroCard">
+        <section className="studentInsightHeroCard studentInsightHeroCardCompact">
           <div className="studentInsightHeroCopy">
             <span className="studentDashboardTag">Question Enrichment</span>
-            <strong>Refine discovery metadata and supporting media after the main question is saved</strong>
-            <p>
-              Tags and attachments make this question easier to discover, review, and reuse later inside institute exam
-              builders, without crowding the core editor with secondary content.
-            </p>
+            <strong>Question metadata and attachments</strong>
             <small>
               {question.tag_maps.length} tags · {question.attachments.length} attachments linked
             </small>

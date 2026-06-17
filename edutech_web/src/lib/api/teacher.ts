@@ -1,8 +1,12 @@
+import { cache } from "react";
 import {
   TeacherExam,
+  TeacherExamPage,
   TeacherExamAttempt,
+  TeacherExamAttemptPage,
   TeacherAttemptIntervention,
   TeacherInsightSummary,
+  TeacherLeaderboardPage,
   TeacherLeaderboardRow,
   TeacherLiveExamMonitor,
   TeacherQuestionAnalysis,
@@ -28,19 +32,15 @@ export function getTeacherApiState(): TeacherApiState {
   };
 }
 
-async function requestTeacherJson<T>(
+async function performTeacherRequest<T>(
   path: string,
+  accessToken: string,
   init?: RequestInit,
 ): Promise<T> {
   const state = getTeacherApiState();
 
   if (!state.apiConfigured) {
     throw new Error("Teacher API is not configured.");
-  }
-
-  const accessToken = await getSessionAccessToken();
-  if (!accessToken) {
-    throw new Error("Teacher session is not available.");
   }
 
   const response = await fetch(`${state.apiBaseUrl}${path}`, {
@@ -91,8 +91,69 @@ async function requestTeacherJson<T>(
   return (await response.json()) as T;
 }
 
+const requestTeacherJsonCached = cache(async <T>(path: string, accessToken: string) => {
+  return performTeacherRequest<T>(path, accessToken);
+});
+
+async function requestTeacherJson<T>(
+  path: string,
+  init?: RequestInit,
+): Promise<T> {
+  const accessToken = await getSessionAccessToken();
+  if (!accessToken) {
+    throw new Error("Teacher session is not available.");
+  }
+
+  const method = init?.method ?? "GET";
+  const shouldUseCachedRead = method === "GET" && !init?.body && !init?.headers;
+
+  if (shouldUseCachedRead) {
+    return requestTeacherJsonCached<T>(path, accessToken);
+  }
+
+  return performTeacherRequest<T>(path, accessToken, init);
+}
+
 export async function fetchTeacherExams() {
   return requestTeacherJson<TeacherExam[]>("/api/v1/teacher/exams/");
+}
+
+export async function fetchTeacherExamPage(
+  options?: {
+    page?: number;
+    pageSize?: number;
+    filter?:
+      | "all"
+      | "live"
+      | "scheduled"
+      | "draft"
+      | "completed"
+      | "elevated"
+      | "access_key"
+      | "economy_gated"
+      | "stars_gated"
+      | "entitlement_gated";
+    sort?:
+      | "recommended"
+      | "latest"
+      | "title"
+      | "risk_high"
+      | "students"
+      | "start_soon"
+      | "duration_short"
+      | "learners_high"
+      | "marks_high";
+    search?: string;
+  },
+) {
+  const params = new URLSearchParams();
+  if (options?.page && options.page > 1) params.set("page", String(options.page));
+  if (options?.pageSize) params.set("page_size", String(options.pageSize));
+  if (options?.filter && options.filter !== "all") params.set("filter", options.filter);
+  if (options?.sort && options.sort !== "recommended") params.set("sort", options.sort);
+  if (options?.search?.trim()) params.set("search", options.search.trim());
+  const query = params.toString();
+  return requestTeacherJson<TeacherExamPage>(`/api/v1/teacher/exams/${query ? `?${query}` : ""}`);
 }
 
 export async function fetchTeacherExamDetail(examId: string) {
@@ -113,9 +174,16 @@ export async function fetchTeacherLiveExamMonitor(examId: string) {
   );
 }
 
-export async function fetchTeacherExamLeaderboard(examId: string) {
-  return requestTeacherJson<TeacherLeaderboardRow[]>(
-    `/api/v1/results/exam/${examId}/leaderboard/`,
+export async function fetchTeacherExamLeaderboard(
+  examId: string,
+  options?: { page?: number; pageSize?: number },
+) {
+  const params = new URLSearchParams();
+  if (options?.page && options.page > 1) params.set("page", String(options.page));
+  if (options?.pageSize) params.set("page_size", String(options.pageSize));
+  const query = params.toString();
+  return requestTeacherJson<TeacherLeaderboardPage>(
+    `/api/v1/results/exam/${examId}/leaderboard/${query ? `?${query}` : ""}`,
   );
 }
 
@@ -125,15 +193,47 @@ export async function fetchTeacherExamAttempts(examId: string) {
   );
 }
 
+export async function fetchTeacherExamAttemptPage(
+  examId: string,
+  options?: {
+    page?: number;
+    pageSize?: number;
+    filter?: "all" | "low_performers" | "skipped_heavy" | "critical" | "watch" | "stable" | "in_progress" | "auto_submitted";
+    sort?: "risk_high" | "latest" | "name" | "alerts_high" | "score_low" | "warnings_high" | "time_long";
+    attemptId?: string | null;
+    search?: string;
+  },
+) {
+  const params = new URLSearchParams();
+  if (options?.page && options.page > 1) params.set("page", String(options.page));
+  if (options?.pageSize) params.set("page_size", String(options.pageSize));
+  if (options?.filter && options.filter !== "all") params.set("filter", options.filter);
+  if (options?.sort && options.sort !== "latest") params.set("sort", options.sort);
+  if (options?.attemptId) params.set("attempt_id", options.attemptId);
+  if (options?.search?.trim()) params.set("search", options.search.trim());
+  const query = params.toString();
+  return requestTeacherJson<TeacherExamAttemptPage>(
+    `/api/v1/results/exam/${examId}/attempts/${query ? `?${query}` : ""}`,
+  );
+}
+
 export async function fetchTeacherAttemptInterventions(attemptId: string) {
   return requestTeacherJson<TeacherAttemptIntervention[]>(
     `/api/v1/results/attempt/${attemptId}/interventions/`,
   );
 }
 
-export async function fetchTeacherQuestionAnalysis(examId: string) {
-  return requestTeacherJson<TeacherQuestionAnalysis[]>(
-    `/api/v1/results/exam/${examId}/question-analysis/`,
+export async function fetchTeacherQuestionAnalysis(
+  examId: string,
+  options?: { page?: number; pageSize?: number; filter?: "all" | "hard_questions" | "skipped_often" },
+) {
+  const params = new URLSearchParams();
+  if (options?.page && options.page > 1) params.set("page", String(options.page));
+  if (options?.pageSize) params.set("page_size", String(options.pageSize));
+  if (options?.filter && options.filter !== "all") params.set("filter", options.filter);
+  const query = params.toString();
+  return requestTeacherJson<PaginatedResponse<TeacherQuestionAnalysis>>(
+    `/api/v1/results/exam/${examId}/question-analysis/${query ? `?${query}` : ""}`,
   );
 }
 
@@ -186,9 +286,16 @@ export async function createTeacherAttemptInterventionNote(payload: {
   });
 }
 
-export async function fetchTeacherTopicPerformance(examId: string) {
+export async function fetchTeacherTopicPerformance(
+  examId: string,
+  options?: { page?: number; pageSize?: number },
+) {
+  const params = new URLSearchParams();
+  params.set("exam", examId);
+  if (options?.page && options.page > 1) params.set("page", String(options.page));
+  if (options?.pageSize) params.set("page_size", String(options.pageSize));
   return requestTeacherJson<PaginatedResponse<StudentTopicPerformance>>(
-    `/api/v1/results/topic-performance/?exam=${encodeURIComponent(examId)}`,
+    `/api/v1/results/topic-performance/?${params.toString()}`,
   );
 }
 

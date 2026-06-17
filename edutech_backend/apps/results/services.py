@@ -170,6 +170,210 @@ def hydrate_teacher_attempt_monitor_payloads(attempts, *, at_time=None):
     return attempts
 
 
+def attempt_monitor_metadata(attempt):
+    cached = getattr(attempt, "_monitor_metadata_cache", None)
+    if cached is not None:
+        return cached
+
+    alerts = attempt_monitor_alerts(attempt)
+    summary = attempt_integrity_summary(attempt)
+
+    if (
+        attempt.is_auto_submitted
+        or summary["threshold_reached"]
+        or any(alert["severity"] == "high" for alert in alerts)
+    ):
+        health = "critical"
+    elif (
+        summary["violation_count"] > 0
+        or any(alert["severity"] == "medium" for alert in alerts)
+        or attempt.status == "in_progress"
+    ):
+        health = "watch"
+    else:
+        health = "stable"
+
+    priority_score = 0
+    if attempt.is_auto_submitted:
+        priority_score += 100
+    if summary["threshold_reached"]:
+        priority_score += 80
+    if any(alert["severity"] == "high" for alert in alerts):
+        priority_score += 60
+    if any(alert["severity"] == "medium" for alert in alerts):
+        priority_score += 30
+    priority_score += min(summary["violation_count"], 10) * 5
+    if attempt.status == "in_progress":
+        priority_score += 10
+
+    cached = {
+        "alerts": alerts,
+        "integrity_summary": summary,
+        "health": health,
+        "priority_score": priority_score,
+    }
+    attempt._monitor_metadata_cache = cached
+    return cached
+
+
+def attempt_monitor_health(attempt):
+    return attempt_monitor_metadata(attempt)["health"]
+
+
+def attempt_monitor_priority_score(attempt):
+    return attempt_monitor_metadata(attempt)["priority_score"]
+
+
+def filter_teacher_attempt_monitor_payloads(attempts, filter_value):
+    if filter_value == "low_performers":
+        return [attempt for attempt in attempts if float(attempt.percentage or 0) < 40]
+    if filter_value == "skipped_heavy":
+        return [attempt for attempt in attempts if attempt.skipped_questions >= 3]
+    if filter_value == "critical":
+        return [attempt for attempt in attempts if attempt_monitor_health(attempt) == "critical"]
+    if filter_value == "watch":
+        return [attempt for attempt in attempts if attempt_monitor_health(attempt) == "watch"]
+    if filter_value == "stable":
+        return [attempt for attempt in attempts if attempt_monitor_health(attempt) == "stable"]
+    if filter_value == "in_progress":
+        return [attempt for attempt in attempts if attempt.status == "in_progress"]
+    if filter_value == "auto_submitted":
+        return [attempt for attempt in attempts if attempt.is_auto_submitted]
+    return list(attempts)
+
+
+def search_teacher_attempt_monitor_payloads(attempts, search_value):
+    query = str(search_value or "").strip().lower()
+    if not query:
+        return list(attempts)
+
+    def haystack(attempt):
+        return " ".join(
+            [
+                str(attempt.student_name or ""),
+                str(attempt.student_admission_no or ""),
+                str(attempt.status or ""),
+                str(attempt.exam_title or ""),
+                " ".join(str(alert.get("label", "")) for alert in attempt_monitor_alerts(attempt)),
+            ]
+        ).lower()
+
+    return [attempt for attempt in attempts if query in haystack(attempt)]
+
+
+def summarize_teacher_attempt_monitor_payloads(attempts, *, recent_limit=8):
+    attempts = list(attempts)
+    summary = {
+        "alerted_attempts": 0,
+        "high_alert_attempts": 0,
+        "medium_alert_attempts": 0,
+        "stalled_attempts": 0,
+        "integrity_warning_attempts": 0,
+        "integrity_warnings_total": 0,
+        "threshold_reached_attempts": 0,
+        "attempts_by_health": {"critical": 0, "watch": 0, "stable": 0},
+        "recent_attempts": [],
+    }
+    if not attempts:
+        return summary
+
+    for attempt in attempts:
+        metadata = attempt_monitor_metadata(attempt)
+        alerts = metadata["alerts"]
+        integrity_summary = metadata["integrity_summary"]
+        summary["attempts_by_health"][metadata["health"]] += 1
+        if alerts:
+            summary["alerted_attempts"] += 1
+        if any(alert["code"] == "stalled_activity" for alert in alerts):
+            summary["stalled_attempts"] += 1
+        if any(alert["severity"] == "high" for alert in alerts):
+            summary["high_alert_attempts"] += 1
+        elif any(alert["severity"] == "medium" for alert in alerts):
+            summary["medium_alert_attempts"] += 1
+        if integrity_summary["violation_count"] > 0:
+            summary["integrity_warning_attempts"] += 1
+            summary["integrity_warnings_total"] += integrity_summary["violation_count"]
+        if integrity_summary["threshold_reached"]:
+            summary["threshold_reached_attempts"] += 1
+
+    summary["recent_attempts"] = list(
+        sorted(
+            attempts,
+            key=lambda attempt: (
+                attempt_monitor_metadata(attempt)["priority_score"],
+                attempt.updated_at or attempt.started_at or timezone.now(),
+            ),
+            reverse=True,
+        )[:recent_limit]
+    )
+    return summary
+
+
+def sort_teacher_attempt_monitor_payloads(attempts, sort_value):
+    attempts = list(attempts)
+
+    def activity_time(attempt):
+        return attempt.submitted_at or attempt.started_at or timezone.now()
+
+    if sort_value == "name":
+        attempts.sort(
+            key=lambda attempt: (
+                str(attempt.student_name or "").lower(),
+                -attempt_monitor_priority_score(attempt),
+                -activity_time(attempt).timestamp(),
+            )
+        )
+        return attempts
+
+    if sort_value == "alerts_high":
+        attempts.sort(
+            key=lambda attempt: (
+                -len(attempt_monitor_alerts(attempt)),
+                -attempt_monitor_priority_score(attempt),
+                -activity_time(attempt).timestamp(),
+            )
+        )
+        return attempts
+
+    if sort_value == "score_low":
+        attempts.sort(
+            key=lambda attempt: (
+                float(attempt.percentage or 0),
+                -attempt_monitor_priority_score(attempt),
+                -activity_time(attempt).timestamp(),
+            )
+        )
+        return attempts
+
+    if sort_value in {"warnings_high", "risk_high"}:
+        attempts.sort(
+            key=lambda attempt: (
+                -attempt_integrity_summary(attempt)["violation_count"],
+                -attempt_monitor_priority_score(attempt),
+                -activity_time(attempt).timestamp(),
+            )
+        )
+        return attempts
+
+    if sort_value == "time_long":
+        attempts.sort(
+            key=lambda attempt: (
+                -(attempt.time_taken_seconds or 0),
+                -attempt_monitor_priority_score(attempt),
+                -activity_time(attempt).timestamp(),
+            )
+        )
+        return attempts
+
+    attempts.sort(
+        key=lambda attempt: (
+            -activity_time(attempt).timestamp(),
+            -attempt_monitor_priority_score(attempt),
+        )
+    )
+    return attempts
+
+
 def ensure_attempt_can_be_force_submitted(attempt):
     eligibility = force_submit_eligibility(attempt)
     if not eligibility["allowed"]:
@@ -1212,32 +1416,42 @@ def build_teacher_insight_summary(user):
     )
     avg_time = attempt_qs.aggregate(value=Avg("time_taken_seconds"))["value"] or 0
 
-    student_summary = list(
+    high_students = list(
         result_qs.values(
             "student_id",
             "student__full_name",
             "student__admission_no",
         ).annotate(
             average_percentage=Avg("percentage"),
-        )
+        ).order_by("-average_percentage", "student__full_name")[:5]
     )
-    normalized_student_summary = [
+    low_students = list(
+        result_qs.values(
+            "student_id",
+            "student__full_name",
+            "student__admission_no",
+        ).annotate(
+            average_percentage=Avg("percentage"),
+        ).order_by("average_percentage", "student__full_name")[:5]
+    )
+    normalized_high_students = [
         {
             "student_id": str(item["student_id"]),
             "student_name": item["student__full_name"],
             "admission_no": item["student__admission_no"],
             "average_percentage": item["average_percentage"] or Decimal("0.00"),
         }
-        for item in student_summary
+        for item in high_students
     ]
-    high_students = sorted(
-        normalized_student_summary,
-        key=lambda item: (-item["average_percentage"], item["student_name"] or ""),
-    )[:5]
-    low_students = sorted(
-        normalized_student_summary,
-        key=lambda item: (item["average_percentage"], item["student_name"] or ""),
-    )[:5]
+    normalized_low_students = [
+        {
+            "student_id": str(item["student_id"]),
+            "student_name": item["student__full_name"],
+            "admission_no": item["student__admission_no"],
+            "average_percentage": item["average_percentage"] or Decimal("0.00"),
+        }
+        for item in low_students
+    ]
 
     weak_topics = [
         {
@@ -1254,14 +1468,10 @@ def build_teacher_insight_summary(user):
         ).annotate(
             average_percentage=Avg("percentage"),
             attempted_questions=Sum("attempted_questions"),
-        )
+        ).order_by("average_percentage", "-attempted_questions", "subject__name", "topic__name")[:5]
     ]
-    weak_topics = sorted(
-        weak_topics,
-        key=lambda item: (item["average_percentage"], -item["attempted_questions"]),
-    )[:5]
 
-    answer_rows = list(
+    answer_rows = (
         StudentAnswer.objects.filter(attempt__in=attempt_qs, is_active=True)
         .values(
             "question_id",
@@ -1275,8 +1485,8 @@ def build_teacher_insight_summary(user):
             skipped_count=Count("id", filter=Q(selected_option__isnull=True)),
         )
     )
-    most_wrong = sorted(answer_rows, key=lambda item: item["wrong_count"], reverse=True)[:5]
-    most_skipped = sorted(answer_rows, key=lambda item: item["skipped_count"], reverse=True)[:5]
+    most_wrong = list(answer_rows.order_by("-wrong_count", "-total_attempts", "question_id")[:5])
+    most_skipped = list(answer_rows.order_by("-skipped_count", "-total_attempts", "question_id")[:5])
 
     return {
         "overview": {
@@ -1302,11 +1512,11 @@ def build_teacher_insight_summary(user):
         ],
         "high_performing_students": [
             {**item, "average_percentage": _decimal_string(item["average_percentage"])}
-            for item in high_students
+            for item in normalized_high_students
         ],
         "low_performing_students": [
             {**item, "average_percentage": _decimal_string(item["average_percentage"])}
-            for item in low_students
+            for item in normalized_low_students
         ],
         "weak_topics": [
             {**item, "average_percentage": _decimal_string(item["average_percentage"])}
@@ -1341,10 +1551,20 @@ def build_teacher_insight_summary(user):
 
 def build_teacher_question_performance_summary(user):
     from apps.accounts.scopes import scope_question_queryset, scope_teacher_queryset
-    from apps.attempts.models import StudentAnswer, StudentExamAttempt
+    from apps.attempts.models import StudentExamAttempt
     from apps.question_bank.models import Question
 
-    questions = list(
+    attempt_qs = scope_teacher_queryset(
+        StudentExamAttempt.objects.select_related("exam", "student"),
+        user,
+    ).filter(is_active=True)
+    question_answer_scope = Q(student_answers__attempt__in=attempt_qs, student_answers__is_active=True)
+    answered_filter = (
+        Q(student_answers__selected_option__isnull=False)
+        | ~Q(student_answers__answer_text="")
+        | ~Q(student_answers__selected_option_ids=[])
+    )
+    questions = (
         scope_question_queryset(
             Question.objects.select_related("subject", "topic"),
             user,
@@ -1358,34 +1578,34 @@ def build_teacher_question_performance_summary(user):
             "explanation",
             "is_verified",
             "subject_id",
-            "subject__name",
             "topic_id",
-            "topic__name",
         )
-    )
-    attempt_qs = scope_teacher_queryset(
-        StudentExamAttempt.objects.select_related("exam", "student"),
-        user,
-    ).filter(is_active=True)
-    answered_filter = _answered_filter()
-    performance_rows = (
-        StudentAnswer.objects.filter(attempt__in=attempt_qs, is_active=True)
-        .values("question_id")
         .annotate(
-            usage_count=Count("id"),
-            correct_count=Count("id", filter=answered_filter & Q(is_correct=True)),
-            wrong_count=Count("id", filter=answered_filter & Q(is_correct=False)),
-            skipped_count=Count("id", filter=~answered_filter),
+            usage_count=Count(
+                "student_answers",
+                filter=question_answer_scope,
+            ),
+            correct_count=Count(
+                "student_answers",
+                filter=question_answer_scope & answered_filter & Q(student_answers__is_correct=True),
+            ),
+            wrong_count=Count(
+                "student_answers",
+                filter=question_answer_scope & answered_filter & Q(student_answers__is_correct=False),
+            ),
+            skipped_count=Count(
+                "student_answers",
+                filter=question_answer_scope & ~answered_filter,
+            ),
         )
+        .order_by("-wrong_count", "-skipped_count", "id")
     )
-    performance_map = {row["question_id"]: row for row in performance_rows}
     payload = []
     for question in questions:
-        stats = performance_map.get(question.id, {})
-        usage_count = stats.get("usage_count", 0)
-        correct_count = stats.get("correct_count", 0)
-        wrong_count = stats.get("wrong_count", 0)
-        skipped_count = stats.get("skipped_count", 0)
+        usage_count = question.usage_count or 0
+        correct_count = question.correct_count or 0
+        wrong_count = question.wrong_count or 0
+        skipped_count = question.skipped_count or 0
         payload.append(
             {
                 "question_id": str(question.id),
@@ -1418,8 +1638,4 @@ def build_teacher_question_performance_summary(user):
                 "skipped_count": skipped_count,
             }
         )
-    payload.sort(
-        key=lambda item: (Decimal(item["wrong_attempt_percentage"]), Decimal(item["skip_percentage"])),
-        reverse=True,
-    )
     return payload

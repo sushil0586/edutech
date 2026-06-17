@@ -101,8 +101,9 @@ class ParentApiTestCase(TestCase):
         response = self.client.get(f"/api/v1/parent/alerts/?child_id={self.context['student'].id}")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]["alert_type"], "score_drop")
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(len(response.data["results"]), 1)
+        self.assertEqual(response.data["results"][0]["alert_type"], "score_drop")
 
     def test_parent_can_mark_alert_as_read(self):
         alert = ParentAlert.objects.create(
@@ -147,3 +148,133 @@ class ParentApiTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["status"], "resolved")
         self.assertIsNotNone(response.data["resolved_at"])
+
+    def test_parent_alert_filters_apply_status_severity_search_and_ordering(self):
+        ParentAlert.objects.create(
+            institute=self.context["institute"],
+            parent_profile=self.parent_profile,
+            student=self.context["student"],
+            relationship=self.relationship,
+            alert_type="score_drop",
+            severity="warning",
+            status="new",
+            title="Math score dropped",
+            message="Recent performance dipped below the prior average.",
+        )
+        ParentAlert.objects.create(
+            institute=self.context["institute"],
+            parent_profile=self.parent_profile,
+            student=self.context["student"],
+            relationship=self.relationship,
+            alert_type="exam_risk",
+            severity="high",
+            status="resolved",
+            title="Integrity concern",
+            message="Exam monitoring flagged this learner.",
+        )
+
+        response = self.client.get(
+            "/api/v1/parent/alerts/",
+            {
+                "status": "resolved",
+                "severity": "high",
+                "search": "integrity",
+                "ordering": "severity",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["alert_type"], "exam_risk")
+        self.assertEqual(response.data["summary"]["total"], 2)
+        self.assertEqual(response.data["summary"]["high"], 1)
+
+    def test_parent_alert_rejects_invalid_filter_values(self):
+        response = self.client.get("/api/v1/parent/alerts/?ordering=invalid")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("ordering", response.data)
+
+    def test_parent_can_mark_all_visible_alerts_as_read(self):
+        first = ParentAlert.objects.create(
+            institute=self.context["institute"],
+            parent_profile=self.parent_profile,
+            student=self.context["student"],
+            relationship=self.relationship,
+            alert_type="score_drop",
+            severity="warning",
+            status="new",
+            title="Score dropped",
+            message="Alert one.",
+        )
+        second = ParentAlert.objects.create(
+            institute=self.context["institute"],
+            parent_profile=self.parent_profile,
+            student=self.context["student"],
+            relationship=self.relationship,
+            alert_type="exam_risk",
+            severity="high",
+            status="new",
+            title="Risk alert",
+            message="Alert two.",
+        )
+
+        response = self.client.post(
+            "/api/v1/parent/alerts/mark-all-read/",
+            {"severity": "high"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["updated_count"], 1)
+        self.assertEqual(
+            ParentAlert.objects.filter(parent_profile=self.parent_profile, status="read").count(),
+            1,
+        )
+        self.assertEqual(
+            ParentAlert.objects.filter(parent_profile=self.parent_profile, status="new").count(),
+            1,
+        )
+        self.assertEqual(
+            ParentAlert.objects.get(id=first.id).status,
+            "new",
+        )
+        self.assertEqual(
+            ParentAlert.objects.get(id=second.id).status,
+            "read",
+        )
+
+    def test_parent_can_mark_current_page_alerts_as_read(self):
+        first = ParentAlert.objects.create(
+            institute=self.context["institute"],
+            parent_profile=self.parent_profile,
+            student=self.context["student"],
+            relationship=self.relationship,
+            alert_type="score_drop",
+            severity="warning",
+            status="new",
+            title="Score dropped",
+            message="Alert one.",
+        )
+        second = ParentAlert.objects.create(
+            institute=self.context["institute"],
+            parent_profile=self.parent_profile,
+            student=self.context["student"],
+            relationship=self.relationship,
+            alert_type="exam_risk",
+            severity="high",
+            status="new",
+            title="Risk alert",
+            message="Alert two.",
+        )
+
+        response = self.client.post(
+            "/api/v1/parent/alerts/mark-all-read/",
+            {"scope": "page", "alert_ids": [str(first.id)]},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["updated_count"], 1)
+        self.assertEqual(ParentAlert.objects.get(id=first.id).status, "read")
+        self.assertEqual(ParentAlert.objects.get(id=second.id).status, "new")

@@ -71,13 +71,18 @@ export default async function InstitutePeoplePage({
   const profile = await requireInstituteAdminSession();
   const instituteQuery = profile.institute ? `?institute=${profile.institute}&page_size=100` : "?page_size=100";
   const rosterQuery = profile.institute ? `?institute=${profile.institute}&page_size=8` : "?page_size=8";
+  const activeResourcePath =
+    activeView === "students" ? "/api/v1/students/" : "/api/v1/teachers/";
+  const activeCountPath = profile.institute
+    ? `${activeResourcePath}?institute=${profile.institute}`
+    : activeResourcePath;
 
-  const [students, teachers, studentCount, teacherCount, academicYears, programs, cohorts, institute] =
+  const [visibleRows, visibleCount, academicYears, programs, cohorts, institute] =
     await Promise.all([
-      fetchPortalList<StudentRosterRow>(`/api/v1/students/${rosterQuery}`),
-      fetchPortalList<TeacherRosterRow>(`/api/v1/teachers/${rosterQuery}`),
-      loadCount(profile.institute ? `/api/v1/students/?institute=${profile.institute}` : "/api/v1/students/"),
-      loadCount(profile.institute ? `/api/v1/teachers/?institute=${profile.institute}` : "/api/v1/teachers/"),
+      activeView === "students"
+        ? fetchPortalList<StudentRosterRow>(`${activeResourcePath}${rosterQuery}`)
+        : fetchPortalList<TeacherRosterRow>(`${activeResourcePath}${rosterQuery}`),
+      loadCount(activeCountPath),
       fetchPortalList<AcademicYearRecord>(`/api/v1/academics/academic-years/${instituteQuery}`),
       fetchPortalList<ProgramRecord>(`/api/v1/academics/programs/${instituteQuery}`),
       fetchPortalList<CohortRecord>(`/api/v1/academics/cohorts/${instituteQuery}`),
@@ -118,8 +123,8 @@ export default async function InstitutePeoplePage({
             <strong>{activeView === "students" ? "Students" : "Teachers"}</strong>
             <span>
               {institute
-                ? `${institute.name} · ${activeView === "students" ? studentCount : teacherCount} records`
-                : `${activeView === "students" ? studentCount : teacherCount} records`}
+                ? `${institute.name} · ${visibleCount} records`
+                : `${visibleCount} records`}
             </span>
           </div>
           <div className="adminPeopleActionBarButtons">
@@ -154,7 +159,7 @@ export default async function InstitutePeoplePage({
             }
             programs={programs}
             resource={activeView}
-            rows={activeView === "students" ? students : teachers}
+            rows={visibleRows}
             title={activeView === "students" ? "Student roster" : "Teacher roster"}
           />
         </article>

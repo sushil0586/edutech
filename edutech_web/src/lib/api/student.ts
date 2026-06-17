@@ -1,3 +1,4 @@
+import { cache } from "react";
 import {
   DashboardData,
   NotificationUnreadCount,
@@ -42,19 +43,15 @@ export function getStudentApiState(): StudentApiState {
   };
 }
 
-async function requestStudentJson<T>(
+async function performStudentRequest<T>(
   path: string,
+  accessToken: string,
   init?: RequestInit,
 ): Promise<T> {
   const state = getStudentApiState();
 
   if (!state.apiConfigured) {
     throw new Error("Student API is not configured.");
-  }
-
-  const accessToken = await getSessionAccessToken();
-  if (!accessToken) {
-    throw new Error("Student session is not available.");
   }
 
   const response = await fetch(`${state.apiBaseUrl}${path}`, {
@@ -103,6 +100,29 @@ async function requestStudentJson<T>(
   }
 
   return (await response.json()) as T;
+}
+
+const requestStudentJsonCached = cache(async <T>(path: string, accessToken: string) => {
+  return performStudentRequest<T>(path, accessToken);
+});
+
+async function requestStudentJson<T>(
+  path: string,
+  init?: RequestInit,
+): Promise<T> {
+  const accessToken = await getSessionAccessToken();
+  if (!accessToken) {
+    throw new Error("Student session is not available.");
+  }
+
+  const method = init?.method ?? "GET";
+  const shouldUseCachedRead = method === "GET" && !init?.body && !init?.headers;
+
+  if (shouldUseCachedRead) {
+    return requestStudentJsonCached<T>(path, accessToken);
+  }
+
+  return performStudentRequest<T>(path, accessToken, init);
 }
 
 async function fetchStudentJson<T>(path: string): Promise<T> {
@@ -261,8 +281,41 @@ export async function fetchStudentQuestionAnalytics(filters?: {
   );
 }
 
-export async function fetchStudentNotifications() {
-  return fetchStudentJson<StudentNotificationListResponse>("/api/v1/notifications/");
+export async function fetchStudentNotifications(filters?: {
+  page?: number;
+  page_size?: number;
+  status?: string | null;
+  notification_type?: string | null;
+  related_object_type?: string | null;
+  ordering?: string | null;
+  search?: string | null;
+}) {
+  const query = new URLSearchParams();
+  if (filters?.page && filters.page > 1) {
+    query.set("page", String(filters.page));
+  }
+  if (filters?.page_size) {
+    query.set("page_size", String(filters.page_size));
+  }
+  if (filters?.status && filters.status !== "all") {
+    query.set("status", filters.status);
+  }
+  if (filters?.notification_type) {
+    query.set("notification_type", filters.notification_type);
+  }
+  if (filters?.related_object_type) {
+    query.set("related_object_type", filters.related_object_type);
+  }
+  if (filters?.ordering && filters.ordering !== "newest") {
+    query.set("ordering", filters.ordering);
+  }
+  if (filters?.search) {
+    query.set("search", filters.search);
+  }
+  const queryString = query.toString();
+  return fetchStudentJson<StudentNotificationListResponse>(
+    `/api/v1/notifications/${queryString ? `?${queryString}` : ""}`,
+  );
 }
 
 export async function fetchStudentUnreadCount() {

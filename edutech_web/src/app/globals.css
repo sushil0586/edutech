@@ -52,6 +52,33 @@
   --font-heading-family: var(--font-heading), sans-serif;
   --font-body-family: var(--font-body), sans-serif;
 
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-md: 1.125rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 1.875rem;
+  --text-3xl: clamp(2.1rem, 3vw, 3rem);
+  --text-display-sm: clamp(1.45rem, 1.95vw, 1.78rem);
+  --text-display-md: clamp(1.75rem, 3.5vw, 2.45rem);
+  --text-display-lg: clamp(2.1rem, 3vw, 3rem);
+
+  --leading-tight: 1.05;
+  --leading-snug: 1.2;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.65;
+  --leading-loose: 1.75;
+
+  --tracking-tight: -0.045em;
+  --tracking-heading: -0.02em;
+  --tracking-label: 0.03em;
+
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --weight-extrabold: 800;
+
   --shadow-xs: 0 5px 12px rgba(99, 102, 241, 0.045);
   --shadow-sm: 0 10px 22px rgba(79, 70, 229, 0.06);
   --shadow-md: 0 16px 36px rgba(79, 70, 229, 0.08);
@@ -101,6 +128,8 @@ body {
     var(--gradient-hero-soft),
     linear-gradient(180deg, #fdfdff 0%, #f8f9ff 48%, #f3f5ff 100%);
   font-family: var(--font-body-family);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -150,7 +179,8 @@ h4,
 h5,
 h6 {
   font-family: var(--font-heading-family);
-  letter-spacing: -0.02em;
+  letter-spacing: var(--tracking-heading);
+  line-height: var(--leading-tight);
 }
 
 button,
@@ -263,7 +293,7 @@ button {
   gap: 6px;
   font-size: clamp(3.1rem, 6.5vw, 5.4rem);
   line-height: 0.94;
-  letter-spacing: -0.06em;
+  letter-spacing: var(--tracking-tight);
   max-width: 9ch;
 }
 
@@ -277,8 +307,8 @@ button {
 .marketingHeroCopy p {
   max-width: 58ch;
   color: var(--color-text-secondary);
-  font-size: 1.05rem;
-  line-height: 1.8;
+  font-size: var(--text-md);
+  line-height: var(--leading-loose);
 }
 
 .marketingBenefitRow,
@@ -299,8 +329,9 @@ button {
   background: rgba(255, 255, 255, 0.78);
   color: var(--color-text-secondary);
   box-shadow: var(--shadow-xs);
-  font-size: 0.85rem;
-  font-weight: 600;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-snug);
 }
 
 .marketingTrustPoints span::before {
@@ -366,7 +397,7 @@ button {
   width: 38px;
   height: 38px;
   border-radius: 12px;
-  font-size: 0.95rem;
+  font-size: var(--text-base);
 }
 
 .marketingAppNav {
@@ -379,7 +410,8 @@ button {
   padding: 0 14px;
   border-radius: 12px;
   color: var(--color-text-secondary);
-  font-size: 0.86rem;
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
   display: inline-flex;
   align-items: center;
 }
@@ -422,7 +454,8 @@ button {
 .marketingTestimonialFooter span,
 .marketingFinalCtaAction span {
   color: var(--color-text-muted);
-  font-size: 0.84rem;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
 }
 
 .marketingAppUser {
@@ -437,8 +470,8 @@ button {
   place-items: center;
   background: linear-gradient(135deg, rgba(79, 70, 229, 0.88), rgba(37, 99, 235, 0.88));
   color: var(--color-text-on-dark);
-  font-size: 0.82rem;
-  font-weight: 800;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-extrabold);
   box-shadow: var(--shadow-xs);
 }
 
@@ -459,8 +492,9 @@ button {
 }
 
 .marketingAppStatCard strong {
-  font-size: clamp(1.4rem, 2vw, 2rem);
-  line-height: 1;
+  font-size: var(--text-3xl);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
 }
 
 .marketingAppContent {
@@ -521,8 +555,9 @@ button {
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  font-size: 0.74rem;
-  font-weight: 700;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-snug);
 }
 
 .marketingTaskStatusdone {
@@ -541,12 +576,14 @@ button {
 }
 
 .marketingUpcomingTitle {
-  font-size: 1rem;
+  font-size: var(--text-base);
+  line-height: var(--leading-snug);
 }
 
 .marketingUpcomingTime {
   color: var(--color-text-secondary);
-  font-size: 0.88rem;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
 }
 
 .marketingProgressRow {
@@ -595,8 +632,9 @@ button {
 
 .marketingStatBandItem strong {
   display: block;
-  font-size: 1.6rem;
-  line-height: 1;
+  font-size: var(--text-2xl);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
 }
 
 .marketingStatBandIcon {
@@ -671,7 +709,8 @@ button {
 .advancedBuilderSummaryEmpty p,
 .advancedBuilderToggleCard span {
   color: var(--color-text-muted);
-  font-size: 0.82rem;
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
 }
 
 .advancedBuilderStageChip strong,
@@ -724,16 +763,17 @@ button {
 }
 
 .advancedBuilderPanelHero h2 {
-  font-size: clamp(1.7rem, 2.4vw, 2.35rem);
-  line-height: 1.04;
-  letter-spacing: -0.04em;
+  font-size: var(--text-display-md);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
 }
 
 .advancedBuilderPanelHero p,
 .advancedBuilderSummaryEmpty p {
   max-width: 62ch;
   color: var(--color-text-secondary);
-  line-height: 1.7;
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
 }
 
 .advancedBuilderHeroStats {
@@ -754,8 +794,9 @@ button {
 
 .advancedBuilderHeroStats strong,
 .advancedBuilderSummaryStats strong {
-  font-size: 1.2rem;
-  line-height: 1;
+  font-size: var(--text-lg);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-heading);
 }
 
 .advancedBuilderSectionHeader {
@@ -775,7 +816,9 @@ button {
 }
 
 .advancedBuilderSectionHeader h3 {
-  font-size: 1.1rem;
+  font-size: var(--text-md);
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-heading);
 }
 
 .advancedBuilderGrid {
@@ -826,14 +869,17 @@ button {
 
 .advancedBuilderSavedTemplateLibrarySummary strong {
   display: block;
-  font-size: 1.1rem;
+  font-size: var(--text-md);
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-heading);
 }
 
 .advancedBuilderSavedTemplateLibrarySummary span {
   display: block;
   margin-top: 4px;
-  font-size: 0.84rem;
+  font-size: var(--text-sm);
   color: var(--color-text-muted);
+  line-height: var(--leading-normal);
 }
 
 .advancedBuilderSavedTemplateBulkBar {
@@ -852,8 +898,9 @@ button {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-normal);
   color: var(--color-text-secondary);
 }
 
@@ -866,9 +913,10 @@ button {
 }
 
 .advancedBuilderSavedTemplateBulkCount {
-  font-size: 0.84rem;
-  font-weight: 600;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
   color: var(--color-text-muted);
+  line-height: var(--leading-normal);
 }
 
 .advancedBuilderHiddenInput {
@@ -887,8 +935,9 @@ button {
   background: rgba(255, 255, 255, 0.88);
   color: var(--color-text-muted);
   padding: 10px 14px;
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-normal);
   transition:
     border-color 180ms ease,
     background 180ms ease,
@@ -937,9 +986,10 @@ button {
   align-items: center;
   border-radius: 999px;
   padding: 5px 10px;
-  font-size: 0.74rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-label);
+  line-height: var(--leading-snug);
 }
 
 .advancedBuilderSavedTemplateBadgeManage {
@@ -953,9 +1003,10 @@ button {
 }
 
 .advancedBuilderSavedTemplateMetaText {
-  font-size: 0.82rem;
-  font-weight: 600;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
   color: var(--color-text-muted);
+  line-height: var(--leading-normal);
 }
 
 .advancedBuilderSavedTemplateEditor {
@@ -999,7 +1050,8 @@ button {
 
 .advancedBuilderTemplateCard small {
   color: var(--color-text-secondary);
-  line-height: 1.55;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
 }
 
 .advancedBuilderTemplateChip {
@@ -1012,8 +1064,9 @@ button {
   border-radius: 999px;
   background: rgba(79, 70, 229, 0.08);
   color: var(--color-brand-primary-600);
-  font-size: 0.76rem;
-  font-weight: 700;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-snug);
 }
 
 .advancedBuilderGridTwo {
@@ -1027,8 +1080,9 @@ button {
 
 .advancedBuilderField span {
   color: var(--color-text-secondary);
-  font-size: 0.85rem;
-  font-weight: 600;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-normal);
 }
 
 .advancedBuilderField input,
@@ -1319,7 +1373,8 @@ button {
 .marketingCommunityCard,
 .marketingFinalCtaCopy p {
   color: var(--color-text-secondary);
-  line-height: 1.7;
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
 }
 
 .marketingPreviewGrid {
@@ -1412,9 +1467,9 @@ button {
 
 .marketingQuoteMark {
   color: var(--color-brand-primary-500);
-  font-size: 2rem;
-  font-weight: 900;
-  line-height: 1;
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-extrabold);
+  line-height: var(--leading-tight);
 }
 
 .marketingTestimonialFooter {
@@ -1562,14 +1617,16 @@ button {
 }
 
 .brandText strong {
-  font-size: 1.1rem;
+  font-size: var(--text-md);
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-heading);
 }
 
 .brandText small {
   color: var(--color-text-muted);
-  font-size: 0.74rem;
+  font-size: var(--text-xs);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--tracking-label);
 }
 
 .navLinks,
@@ -1622,8 +1679,10 @@ button {
   padding: 0 var(--space-6);
   border-radius: 15px;
   border: 1px solid transparent;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-heading);
+  line-height: var(--leading-snug);
   transition:
     transform 180ms ease,
     background-color 180ms ease,
@@ -1675,8 +1734,10 @@ button {
   background: rgba(255, 255, 255, 0.78);
   border: 1px solid rgba(109, 94, 252, 0.14);
   color: var(--color-brand-primary-600);
-  font-size: 0.85rem;
-  font-weight: 700;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-label);
+  line-height: var(--leading-snug);
   box-shadow: var(--shadow-xs);
 }
 
@@ -1696,8 +1757,8 @@ button {
 .hero p {
   max-width: 60ch;
   color: var(--color-text-secondary);
-  font-size: 1.08rem;
-  line-height: 1.75;
+  font-size: var(--text-md);
+  line-height: var(--leading-loose);
 }
 
 .heroList {
@@ -1749,12 +1810,14 @@ button {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 0.95rem;
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
 }
 
 .socialProof span {
   color: var(--color-text-muted);
-  font-size: 0.84rem;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
 }
 
 .heroPanel {
@@ -1828,7 +1891,10 @@ button {
   background: rgba(255, 255, 255, 0.72);
   border: 1px solid rgba(129, 140, 170, 0.18);
   color: var(--color-brand-primary-600);
-  font-weight: 700;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-label);
   box-shadow: var(--shadow-xs);
 }
 
@@ -1865,13 +1931,14 @@ button {
 }
 
 .metricCard strong {
-  font-size: clamp(1.35rem, 2.8vw, 1.95rem);
-  line-height: 0.98;
+  font-size: var(--text-xl);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
 }
 
 .metricCard small {
-  font-size: 0.78rem;
-  line-height: 1.5;
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
 }
 
 .metricCardPrimary {
@@ -1879,7 +1946,7 @@ button {
 }
 
 .metricCard.compact strong {
-  font-size: 1.35rem;
+  font-size: var(--text-xl);
 }
 
 .metricsGrid .metricCard:nth-child(2) {
@@ -2475,13 +2542,16 @@ button {
 }
 
 .registrationLaunchStats strong {
-  font-size: 1.4rem;
+  font-size: var(--text-xl);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
   font-family: var(--font-heading-family);
 }
 
 .registrationLaunchStats span {
   color: var(--color-text-muted);
-  font-size: 0.82rem;
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
 }
 
 .registrationLaunchStory {
@@ -2504,21 +2574,22 @@ button {
 
 .registrationLaunchStory span {
   color: var(--color-text-muted);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
 }
 
 .registrationLaunchStory strong {
   color: var(--color-text-primary);
-  font-size: 0.98rem;
+  font-size: var(--text-base);
+  line-height: var(--leading-snug);
 }
 
 .registrationLaunchStory p {
   color: var(--color-text-secondary);
-  line-height: 1.6;
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
 }
 
 .registrationChecklist {
@@ -2573,19 +2644,22 @@ button {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.72);
   color: var(--color-text-secondary);
-  font-size: 0.8rem;
-  font-weight: 700;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-snug);
 }
 
 .registrationWorkflowHeader h2 {
-  font-size: clamp(1.4rem, 2.1vw, 1.8rem);
+  font-size: var(--text-2xl);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
 }
 
 .registrationWorkflowHeader p {
   color: var(--color-text-secondary);
-  line-height: 1.7;
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
   max-width: 58ch;
-  font-size: 0.92rem;
 }
 
 .registrationLaneSelector {
@@ -2619,16 +2693,16 @@ button {
 
 .registrationLaneTab span {
   color: var(--color-text-muted);
-  font-size: 0.76rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
 }
 
 .registrationLaneTab strong {
   color: var(--color-text-primary);
-  font-size: 0.94rem;
-  line-height: 1.2;
+  font-size: var(--text-base);
+  line-height: var(--leading-snug);
 }
 
 .registrationLaneTabActive {
@@ -2879,8 +2953,8 @@ button {
 }
 
 .registrationModeCard h3 {
-  font-size: 1rem;
-  line-height: 1.4;
+  font-size: var(--text-base);
+  line-height: var(--leading-snug);
 }
 
 .registrationFormStack {
@@ -2904,13 +2978,14 @@ button {
 }
 
 .registrationSectionHeader strong {
-  font-size: 1rem;
+  font-size: var(--text-base);
+  line-height: var(--leading-snug);
 }
 
 .registrationSectionHeader p {
   color: var(--color-text-secondary);
-  line-height: 1.6;
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
 }
 
 .registrationField {
@@ -2920,14 +2995,15 @@ button {
 
 .registrationField span {
   color: var(--color-text-secondary);
-  font-size: 0.84rem;
-  font-weight: 700;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-snug);
 }
 
 .registrationFieldHint {
   color: var(--color-text-muted);
-  font-size: 0.8rem;
-  line-height: 1.5;
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
 }
 
 .registrationField select {
@@ -2974,8 +3050,8 @@ button {
 
 .registrationChoiceHeader p {
   color: var(--color-text-secondary);
-  line-height: 1.55;
-  font-size: 0.88rem;
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
 }
 
 .registrationTagSelector {
@@ -2991,8 +3067,9 @@ button {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.82);
   color: var(--color-text-secondary);
-  font-size: 0.84rem;
-  font-weight: 600;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-snug);
   transition:
     transform 180ms ease,
     border-color 180ms ease,
@@ -3024,8 +3101,9 @@ button {
   border: 1px solid rgba(109, 94, 252, 0.12);
   background: rgba(255, 255, 255, 0.74);
   color: var(--color-text-secondary);
-  font-size: 0.8rem;
-  font-weight: 600;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-snug);
 }
 
 .registrationErrorBanner {
@@ -3275,9 +3353,9 @@ button {
   border-radius: 10px;
   background: #f0f4fb;
   color: var(--color-brand-primary-600);
-  font-size: 0.78rem;
-  font-weight: 700;
-  line-height: 1;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
 }
 
 .appSidebarLink:hover {
@@ -3324,7 +3402,8 @@ button {
 
 .sidebarProfile span {
   color: var(--color-text-muted);
-  font-size: 0.84rem;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
 }
 
 .studentAppMain {
@@ -3371,14 +3450,16 @@ button {
 
 .appTopbarLabel {
   color: var(--color-text-muted);
-  font-size: 0.82rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-label);
+  line-height: var(--leading-snug);
   text-transform: uppercase;
 }
 
 .appTopbarIntro strong {
-  font-size: 1rem;
+  font-size: var(--text-base);
+  line-height: var(--leading-snug);
 }
 
 .appSearch {
@@ -3412,8 +3493,8 @@ button {
 
 .appSearchText {
   color: var(--color-text-secondary);
-  font-size: 0.92rem;
-  line-height: 1.35;
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3443,7 +3524,8 @@ button {
   height: 30px;
   border-radius: 12px;
   background: #f1f5fb;
-  font-size: 0.76rem;
+  font-size: var(--text-xs);
+  line-height: var(--leading-snug);
 }
 
 .appSearchSubmit {
@@ -3486,9 +3568,9 @@ button {
 
 .appTopbarSubjectLabel {
   color: var(--color-text-muted);
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
 }
 
@@ -3504,7 +3586,7 @@ button {
   right: 8px;
   color: rgba(74, 85, 104, 0.72);
   pointer-events: none;
-  font-size: 0.68rem;
+  font-size: var(--text-xs);
 }
 
 .appTopbarSubjectSelector select {
@@ -3516,8 +3598,8 @@ button {
   border-radius: 10px;
   padding: 6px 22px 6px 9px;
   color: var(--color-text-primary);
-  font-weight: 700;
-  font-size: 0.95rem;
+  font-weight: var(--weight-bold);
+  font-size: var(--text-sm);
   min-width: 0;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.76);
 }
@@ -3534,8 +3616,9 @@ button {
   border-radius: 16px;
   background: #edf4ff;
   color: var(--color-brand-primary-600);
-  font-size: 0.82rem;
-  font-weight: 700;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-snug);
   border: 1px solid #dce8fb;
 }
 
@@ -3548,9 +3631,10 @@ button {
   border-radius: 999px;
   background: rgba(109, 94, 252, 0.08);
   color: var(--color-accent);
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-label);
+  line-height: var(--leading-snug);
 }
 
 .appTopbarAction {
@@ -3563,7 +3647,9 @@ button {
   border-radius: 16px;
   background: #ffffff;
   color: var(--color-text-secondary);
-  font-weight: 700;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-snug);
   box-shadow: none;
   transition:
     transform 180ms ease,
@@ -3928,6 +4014,7 @@ button {
 }
 
 .sectionDescription {
+  font-size: var(--text-sm);
   line-height: 1.75;
   max-width: 68ch;
 }
@@ -4369,7 +4456,8 @@ button {
 
 .emptyText {
   color: var(--color-text-muted);
-  line-height: 1.7;
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
 }
 
 .insightPanel,
@@ -4466,16 +4554,16 @@ button {
 }
 
 .pageHeaderCopy h1 {
-  font-size: clamp(1.45rem, 1.95vw, 1.78rem);
-  line-height: 1.02;
-  letter-spacing: -0.045em;
+  font-size: var(--text-display-sm);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
   max-width: none;
 }
 
 .pageHeaderCopy p {
   color: var(--color-text-secondary);
-  line-height: 1.5;
-  font-size: 0.84rem;
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
   max-width: 50ch;
 }
 
@@ -4484,15 +4572,40 @@ button {
 }
 
 .pageHeaderCompact .pageHeaderCopy h1 {
-  font-size: clamp(1.4rem, 1.9vw, 1.7rem);
-  line-height: 1.02;
+  font-size: var(--text-display-sm);
+  line-height: var(--leading-tight);
   max-width: none;
 }
 
 .pageHeaderCompact .pageHeaderCopy p {
-  font-size: 0.85rem;
-  line-height: 1.5;
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
   max-width: 48ch;
+}
+
+.pageHeaderSlim {
+  gap: 10px;
+  padding-bottom: 4px;
+  border-bottom-color: rgba(15, 23, 42, 0.05);
+}
+
+.pageHeaderSlim .pageHeaderCopy {
+  gap: 4px;
+  max-width: none;
+}
+
+.pageHeaderSlim .pageHeaderCopy h1 {
+  font-size: clamp(1.9rem, 2vw, 2.35rem);
+  line-height: 1.08;
+}
+
+.pageHeaderSlim .pageHeaderContext {
+  font-size: var(--text-xs);
+}
+
+.pageHeaderSlim .pageHeaderAction {
+  min-height: 32px;
+  align-self: flex-start;
 }
 
 .pageHeaderAction {
@@ -5576,12 +5689,23 @@ button {
 }
 
 .sectionHeading strong {
-  font-size: 1rem;
-  letter-spacing: -0.02em;
+  font-size: var(--text-md);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-heading);
+  line-height: var(--leading-snug);
 }
 
 .sectionHeading a {
-  font-weight: 700;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+}
+
+.sectionHeading span {
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-label);
+  line-height: var(--leading-snug);
 }
 
 .activityRow {
@@ -5658,12 +5782,14 @@ button {
 
 .notificationCardTop span {
   color: var(--color-text-muted);
-  font-size: 0.84rem;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
 }
 
 .notificationMessage {
   color: var(--color-text-secondary);
-  line-height: 1.75;
+  font-size: var(--text-sm);
+  line-height: var(--leading-loose);
 }
 
 .notificationActions {
@@ -5743,13 +5869,15 @@ button {
 }
 
 .attemptWorkspaceHeaderCopy strong {
-  font-size: 1.9rem;
-  line-height: 1.1;
-  letter-spacing: -0.03em;
+  font-size: var(--text-2xl);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
 }
 
 .attemptWorkspaceHeaderCopy small {
   color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
 }
 
 .attemptWorkspaceHeaderMeta {
@@ -5837,9 +5965,9 @@ button {
 
 .attemptHeroTimerLabel {
   color: var(--color-text-muted);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
 }
 
@@ -5904,15 +6032,16 @@ button {
 
 .attemptSecurityOverlayEyebrow {
   color: var(--color-brand-primary-700);
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.14em;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-extrabold);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
 }
 
 .attemptSecurityOverlayCard p {
   color: var(--color-text-secondary);
-  line-height: 1.7;
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
 }
 
 .attemptSecurityOverlayChecklist {
@@ -6110,12 +6239,13 @@ button {
 
 .attemptStatusTile span {
   color: var(--color-text-muted);
-  font-size: 0.8rem;
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
 }
 
 .attemptStatusTile strong {
-  font-size: 1rem;
-  line-height: 1.4;
+  font-size: var(--text-base);
+  line-height: var(--leading-snug);
 }
 
 .attemptSubmitChecklist {
@@ -6176,12 +6306,14 @@ button {
 .attemptQuestionMetaLine,
 .attemptFooterHint {
   color: var(--color-text-muted);
-  font-size: 0.84rem;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
 }
 
 .attemptQuestionHeader span {
   color: var(--color-text-muted);
-  font-size: 0.84rem;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
 }
 
 .attemptOptionList {
@@ -6240,8 +6372,8 @@ button {
 .attemptDraftNotice {
   margin: 0;
   color: var(--color-text-muted);
-  font-size: 0.84rem;
-  line-height: 1.6;
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
 }
 
 .attemptDraftNoticeVisible {
@@ -7030,13 +7162,14 @@ button {
 }
 
 .builderQuickAttachBody strong {
-  font-size: 0.96rem;
-  line-height: 1.55;
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
 }
 
 .builderQuickAttachBody p {
   color: var(--color-text-muted);
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
 }
 
 .builderFlowRailInner {
@@ -7055,21 +7188,22 @@ button {
 
 .builderFlowLabel {
   color: var(--color-brand-primary-600);
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-extrabold);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
 }
 
 .builderFlowRailInner > strong {
-  font-size: 1.35rem;
-  line-height: 1.1;
-  letter-spacing: -0.03em;
+  font-size: var(--text-xl);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
 }
 
 .builderFlowRailInner > p {
   color: var(--color-text-secondary);
-  line-height: 1.7;
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
 }
 
 .builderStepNav {
@@ -7108,8 +7242,10 @@ button {
   border-radius: 14px;
   background: linear-gradient(135deg, rgba(109, 94, 252, 0.16), rgba(19, 180, 255, 0.12));
   color: var(--color-brand-primary-700);
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-extrabold);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-heading);
 }
 
 .builderStepLink div {
@@ -7118,13 +7254,15 @@ button {
 }
 
 .builderStepLink strong {
-  font-size: 0.95rem;
-  letter-spacing: -0.02em;
+  font-size: var(--text-base);
+  letter-spacing: var(--tracking-heading);
+  line-height: var(--leading-snug);
 }
 
 .builderStepLink small {
   color: var(--color-text-muted);
-  line-height: 1.45;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
 }
 
 .builderSummaryCard {
@@ -7145,11 +7283,12 @@ button {
 }
 
 .createExamPage .builderSummaryCard strong {
-  font-size: 1.2rem;
+  font-size: var(--text-lg);
 }
 
 .createExamPage .builderSummaryCard small {
-  line-height: 1.45;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
 }
 
 .builderSummaryCard span,
@@ -7158,13 +7297,15 @@ button {
 }
 
 .builderSummaryCard strong {
-  font-size: 1.4rem;
-  letter-spacing: -0.03em;
+  font-size: var(--text-xl);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
 }
 
 .builderSummaryCard small {
   color: var(--color-text-secondary);
-  line-height: 1.5;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
 }
 
 .builderSectionCard {
@@ -7194,13 +7335,15 @@ button {
 
 .builderSectionHeader strong,
 .builderSaveBar strong {
-  font-size: 1.05rem;
-  letter-spacing: -0.02em;
+  font-size: var(--text-md);
+  letter-spacing: var(--tracking-heading);
+  line-height: var(--leading-snug);
 }
 
 .builderSectionHeader p {
   color: var(--color-text-secondary);
-  line-height: 1.52;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
   max-width: 58ch;
 }
 
@@ -7221,9 +7364,9 @@ button {
 
 .fieldStack span {
   color: #42506a;
-  font-size: 0.84rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
 }
 
@@ -7329,13 +7472,15 @@ button {
 }
 
 .builderHeroCard strong {
-  font-size: clamp(1.45rem, 2.3vw, 2.05rem);
-  letter-spacing: -0.05em;
+  font-size: var(--text-display-sm);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
 }
 
 .builderHeroCard p {
   color: var(--color-text-secondary);
-  line-height: 1.7;
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
   max-width: 56ch;
 }
 
@@ -7354,13 +7499,15 @@ button {
 }
 
 .builderPanelHeader strong {
-  font-size: 1.15rem;
-  letter-spacing: -0.03em;
+  font-size: var(--text-lg);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-snug);
 }
 
 .builderPanelHeader p {
   color: var(--color-text-secondary);
-  line-height: 1.7;
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
 }
 
 .builderListMetaActions {
@@ -8420,23 +8567,25 @@ button {
 }
 
 .wizardProgress strong {
-  font-size: clamp(1.4rem, 2.2vw, 2rem);
-  letter-spacing: -0.04em;
+  font-size: var(--text-display-sm);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
 }
 
 .wizardProgress p {
   color: var(--color-text-secondary);
-  line-height: 1.7;
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
   max-width: 56ch;
 }
 
 .createExamPage .wizardProgress strong {
-  font-size: clamp(1.15rem, 1.8vw, 1.45rem);
+  font-size: var(--text-lg);
 }
 
 .createExamPage .wizardProgress p {
-  font-size: 0.94rem;
-  line-height: 1.6;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
 }
 
 .wizardProgressBar {
@@ -8511,16 +8660,17 @@ button {
   border-radius: 18px;
   background: linear-gradient(135deg, rgba(109, 94, 252, 0.14), rgba(58, 167, 255, 0.12));
   color: var(--color-brand-primary-700);
-  font-size: 1rem;
-  font-weight: 800;
-  letter-spacing: -0.03em;
+  font-size: var(--text-base);
+  font-weight: var(--weight-extrabold);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-heading);
 }
 
 .createExamPage .wizardStepChip > span {
   width: 42px;
   height: 42px;
   border-radius: 14px;
-  font-size: 0.94rem;
+  font-size: var(--text-sm);
 }
 
 .wizardStepChip div {
@@ -8529,22 +8679,24 @@ button {
 }
 
 .wizardStepChip strong {
-  font-size: 1rem;
-  letter-spacing: -0.02em;
+  font-size: var(--text-base);
+  letter-spacing: var(--tracking-heading);
+  line-height: var(--leading-snug);
 }
 
 .wizardStepChip small {
   color: var(--color-text-muted);
-  line-height: 1.5;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
 }
 
 .createExamPage .wizardStepChip strong {
-  font-size: 0.95rem;
+  font-size: var(--text-sm);
 }
 
 .createExamPage .wizardStepChip small {
-  font-size: 0.82rem;
-  line-height: 1.4;
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
 }
 
 .wizardStepChipActive {
@@ -8583,18 +8735,20 @@ button {
 }
 
 .wizardSectionIntro strong {
-  font-size: clamp(1.5rem, 2.5vw, 2.25rem);
-  letter-spacing: -0.05em;
+  font-size: var(--text-display-sm);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
 }
 
 .createExamPage .wizardSectionIntro strong {
-  font-size: clamp(1.25rem, 2vw, 1.8rem);
+  font-size: var(--text-xl);
 }
 
 .wizardSectionIntro p {
   color: var(--color-text-secondary);
   max-width: 48ch;
-  line-height: 1.7;
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
 }
 
 .wizardFeatureGrid {
@@ -8625,20 +8779,22 @@ button {
 
 .wizardFeatureCard span {
   color: var(--color-text-muted);
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
 }
 
 .wizardFeatureCard strong {
-  font-size: 1.05rem;
-  letter-spacing: -0.02em;
+  font-size: var(--text-md);
+  letter-spacing: var(--tracking-heading);
+  line-height: var(--leading-snug);
 }
 
 .wizardFeatureCard small {
   color: var(--color-text-secondary);
-  line-height: 1.6;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
 }
 
 .wizardSectionHidden {
@@ -9307,8 +9463,8 @@ body::after {
 .sidebarSupportCard p,
 .sidebarProfile span {
   color: var(--color-text-muted);
-  font-size: 0.84rem;
-  line-height: 1.5;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
 }
 
 .sidebarSupportIcon {
@@ -9324,8 +9480,9 @@ body::after {
 
 .sidebarSupportLink {
   color: var(--color-brand-primary-600);
-  font-weight: 700;
-  font-size: 0.92rem;
+  font-weight: var(--weight-bold);
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
 }
 
 .studentAppMain {
@@ -9345,12 +9502,14 @@ body::after {
 
 .appTopbarWalletPill strong {
   display: block;
-  font-size: 1rem;
+  font-size: var(--text-base);
+  line-height: var(--leading-snug);
 }
 
 .appTopbarWalletPill span {
   color: var(--color-text-muted);
-  font-size: 0.8rem;
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
 }
 
 .appTopbarWalletIcon {
@@ -9388,9 +9547,9 @@ body::after {
   border-radius: 999px;
   background: #1f5fd6;
   color: #ffffff;
-  font-size: 0.7rem;
+  font-size: var(--text-xs);
   font-style: normal;
-  font-weight: 700;
+  font-weight: var(--weight-bold);
 }
 
 .appTopbarSubjectBadge {
@@ -9486,8 +9645,9 @@ body::after {
 }
 
 .instituteConsolePage .pageHeaderCopy h1 {
-  font-size: clamp(1.32rem, 1.7vw, 1.62rem);
-  letter-spacing: -0.05em;
+  font-size: var(--text-2xl);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
 }
 
 .instituteConsolePage .pageHeaderContext {
@@ -9496,8 +9656,8 @@ body::after {
   border: 1px solid rgba(160, 174, 208, 0.18);
   background: rgba(245, 248, 255, 0.92);
   color: var(--color-brand-primary-700);
-  font-size: 0.72rem;
-  letter-spacing: 0.05em;
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
 }
 
@@ -9526,7 +9686,7 @@ body::after {
   min-height: 40px;
   padding: 0 12px;
   border-radius: 14px;
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
 }
 
 .instituteConsolePage .appTopbarActionIcon {
@@ -9538,7 +9698,7 @@ body::after {
 .instituteConsolePage .setupFieldMeta {
   min-height: 30px;
   padding: 0 10px;
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
 }
 
 .instituteConsoleActions {
@@ -9575,16 +9735,17 @@ body::after {
 }
 
 .adminCommandDeckHero h2 {
-  font-size: clamp(1.8rem, 2.5vw, 2.45rem);
-  line-height: 0.98;
-  letter-spacing: -0.05em;
+  font-size: var(--text-display-sm);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
   max-width: 14ch;
 }
 
 .adminCommandDeckHero p {
   max-width: 64ch;
   color: var(--color-text-secondary);
-  line-height: 1.7;
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
 }
 
 .adminHeroMetaRow {
@@ -9603,8 +9764,9 @@ body::after {
   background: #f5f8ff;
   border: 1px solid #e2ebfa;
   color: var(--color-text-secondary);
-  font-size: 0.84rem;
-  font-weight: 600;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-snug);
 }
 
 .adminCommandDeckAside {
@@ -9637,14 +9799,15 @@ body::after {
 }
 
 .adminExecutiveStat strong {
-  font-size: clamp(1.5rem, 2.4vw, 2rem);
-  line-height: 1;
-  letter-spacing: -0.04em;
+  font-size: var(--text-3xl);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
 }
 
 .adminExecutiveStat small {
   color: var(--color-text-secondary);
-  line-height: 1.6;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
 }
 
 .adminMetricsGrid {
@@ -9668,15 +9831,15 @@ body::after {
 }
 
 .adminSignalCard strong {
-  font-size: clamp(1.3rem, 2.1vw, 1.8rem);
-  line-height: 1;
-  letter-spacing: -0.04em;
+  font-size: var(--text-2xl);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
 }
 
 .adminSignalCard p {
   color: var(--color-text-secondary);
-  line-height: 1.6;
-  font-size: 0.92rem;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
 }
 
 .adminSignalCardlive {
@@ -9743,7 +9906,9 @@ body::after {
 .adminPriorityCardHeader strong,
 .adminActionCard strong {
   display: block;
-  font-size: 1rem;
+  font-size: var(--text-base);
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-heading);
 }
 
 .adminPriorityCardMetric {
@@ -9754,9 +9919,9 @@ body::after {
 }
 
 .adminPriorityCardMetric strong {
-  font-size: 1.35rem;
-  line-height: 1;
-  letter-spacing: -0.04em;
+  font-size: var(--text-xl);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
 }
 
 .adminStructureGrid {
@@ -9765,6 +9930,12 @@ body::after {
 
 .adminDashboardLowerGrid {
   grid-template-columns: minmax(0, 1.15fr) minmax(360px, 0.85fr);
+}
+
+.dashboardPanel,
+.adminPriorityCard,
+.adminActionCard {
+  min-width: 0;
 }
 
 @media (max-width: 1200px) {
@@ -9776,6 +9947,18 @@ body::after {
   .adminWorkspaceGrid,
   .adminDashboardLowerGrid,
   .adminCommandDeck {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1180px) {
+  .dashboardGrid,
+  .dashboardLowerGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .adminPriorityGrid,
+  .adminActionGrid {
     grid-template-columns: 1fr;
   }
 }
@@ -9891,8 +10074,9 @@ body::after {
   border: 1px solid rgba(160, 174, 208, 0.24);
   background: rgba(245, 248, 255, 0.96);
   color: var(--color-text-secondary);
-  font-size: 0.83rem;
-  font-weight: 700;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-snug);
 }
 
 .adminInstituteHeroAside {
@@ -9926,8 +10110,9 @@ body::after {
 }
 
 .adminInstituteHeroAsideCard strong {
-  font-size: 1.08rem;
-  letter-spacing: -0.02em;
+  font-size: var(--text-md);
+  letter-spacing: var(--tracking-heading);
+  line-height: var(--leading-snug);
 }
 
 .adminInstituteHeroMiniStats {
@@ -9949,9 +10134,9 @@ body::after {
 }
 
 .adminInstituteHeroMiniStat strong {
-  font-size: 1.3rem;
-  line-height: 1;
-  letter-spacing: -0.04em;
+  font-size: var(--text-xl);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
 }
 
 .adminInstituteHeroActions {
@@ -10015,8 +10200,9 @@ body::after {
   background: rgba(238, 244, 255, 0.92);
   border: 1px solid rgba(31, 95, 214, 0.12);
   color: var(--color-brand-primary-700);
-  font-size: 0.8rem;
-  font-weight: 700;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-snug);
 }
 
 .adminInstituteSearch {
@@ -10072,9 +10258,9 @@ body::after {
 .adminInstituteTable thead th {
   padding: 12px 14px;
   text-align: left;
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-extrabold);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--color-text-muted);
   background: linear-gradient(180deg, rgba(248, 250, 255, 0.98), rgba(242, 247, 255, 0.94));
@@ -10113,13 +10299,15 @@ body::after {
 }
 
 .adminInstituteTable td strong {
-  font-size: 0.98rem;
+  font-size: var(--text-base);
+  line-height: var(--leading-snug);
 }
 
 .adminInstituteTable td small {
   margin-top: 4px;
   color: var(--color-text-muted);
-  line-height: 1.5;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
 }
 
 .adminInstituteRowActions {
@@ -10164,15 +10352,16 @@ body::after {
 
 .adminInstituteDetailHero h4 {
   margin: 0;
-  font-size: 1.08rem;
-  letter-spacing: -0.03em;
+  font-size: var(--text-md);
+  letter-spacing: var(--tracking-heading);
+  line-height: var(--leading-snug);
 }
 
 .adminInstituteDetailHero p {
   margin: 0;
   color: var(--color-text-secondary);
-  line-height: 1.58;
-  font-size: 0.93rem;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
 }
 
 .adminInstituteInfoList {
@@ -10223,15 +10412,16 @@ body::after {
 
 .adminInstituteModalHeader h3 {
   margin: 0;
-  font-size: 1.55rem;
-  line-height: 1.15;
-  letter-spacing: -0.03em;
+  font-size: var(--text-xl);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
 }
 
 .adminInstituteModalHeader p {
   margin: 0;
   color: var(--color-text-secondary);
-  line-height: 1.65;
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
   max-width: 60ch;
 }
 
@@ -10348,16 +10538,17 @@ body::after {
 }
 
 .adminPeopleHeroCopy strong {
-  font-size: clamp(1.7rem, 2vw, 2.35rem);
-  line-height: 1.08;
-  letter-spacing: -0.04em;
+  font-size: var(--text-display-md);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
 }
 
 .adminPeopleHeroCopy p {
   margin: 0;
   max-width: 72ch;
   color: var(--color-text-secondary);
-  line-height: 1.75;
+  font-size: var(--text-base);
+  line-height: var(--leading-loose);
 }
 
 .adminPeopleHeroMeta,
@@ -10378,7 +10569,9 @@ body::after {
   border: 1px solid rgba(160, 174, 208, 0.24);
   background: rgba(255, 255, 255, 0.86);
   color: var(--color-text-secondary);
-  font-weight: 700;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-snug);
 }
 
 .adminPeopleScopeCard {
@@ -10397,8 +10590,9 @@ body::after {
 }
 
 .adminPeopleScopeCard strong {
-  font-size: 1.15rem;
-  letter-spacing: -0.02em;
+  font-size: var(--text-lg);
+  letter-spacing: var(--tracking-heading);
+  line-height: var(--leading-snug);
 }
 
 .adminPeopleScopeMiniGrid {
@@ -10417,8 +10611,9 @@ body::after {
 }
 
 .adminPeopleScopeMiniCard strong {
-  font-size: 1.35rem;
-  letter-spacing: -0.03em;
+  font-size: var(--text-xl);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
 }
 
 .adminPeopleKpiGrid {
@@ -10456,9 +10651,9 @@ body::after {
 
 .adminPeoplePanelHeader h3 {
   margin: 0;
-  font-size: 1.45rem;
-  line-height: 1.12;
-  letter-spacing: -0.03em;
+  font-size: var(--text-xl);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
 }
 
 .adminPeopleInstituteSelector {
@@ -10510,7 +10705,8 @@ body::after {
 .adminPeopleNoteCard p {
   margin: 0;
   color: var(--color-text-secondary);
-  line-height: 1.65;
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
 }
 
 .adminPeopleRosterGrid {
@@ -10618,8 +10814,9 @@ body::after {
 
 .adminPeopleInstituteSelectField span {
   color: var(--color-text-muted);
-  font-size: 0.84rem;
-  font-weight: 700;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-normal);
 }
 
 .adminPeopleInstituteSelectRow {
@@ -10674,13 +10871,15 @@ body::after {
 }
 
 .instituteConsolePage .adminPeopleActionBarCopy strong {
-  font-size: 1.02rem;
+  font-size: var(--text-base);
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-heading);
 }
 
 .instituteConsolePage .adminPeopleActionBarCopy span:first-child {
-  font-size: 0.8rem;
+  font-size: var(--text-xs);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--tracking-label);
   color: var(--color-text-muted);
 }
 
@@ -10739,9 +10938,9 @@ body::after {
 .adminPeopleRosterTable thead th {
   padding: 12px 14px;
   text-align: left;
-  font-size: 0.76rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-extrabold);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--color-text-muted);
   background: linear-gradient(180deg, rgba(248, 250, 255, 0.98), rgba(242, 247, 255, 0.94));
@@ -10756,7 +10955,7 @@ body::after {
 
 .instituteConsolePage .adminPeopleRosterTable thead th {
   padding: 10px 12px;
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
 }
 
 .instituteConsolePage .adminPeopleRosterTable tbody td {
@@ -10764,12 +10963,13 @@ body::after {
 }
 
 .instituteConsolePage .adminPeopleRosterTable td strong {
-  font-size: 0.92rem;
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
 }
 
 .instituteConsolePage .adminPeopleRosterTable td small {
-  font-size: 0.78rem;
-  line-height: 1.35;
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
 }
 
 .adminPeopleRosterTable tbody tr:last-child td {
@@ -10782,13 +10982,15 @@ body::after {
 }
 
 .adminPeopleRosterTable td strong {
-  font-size: 0.95rem;
+  font-size: var(--text-base);
+  line-height: var(--leading-snug);
 }
 
 .adminPeopleRosterTable td small {
   margin-top: 4px;
   color: var(--color-text-muted);
-  line-height: 1.45;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
 }
 
 .adminPeopleRosterStatusStack {
@@ -10885,9 +11087,9 @@ body::after {
 }
 
 .adminAcademicModalHeader h3 {
-  font-size: 1.6rem;
-  line-height: 1.05;
-  letter-spacing: -0.04em;
+  font-size: var(--text-2xl);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
 }
 
 .adminAcademicModalBody {
@@ -10927,7 +11129,8 @@ body::after {
 
 .adminAcademicCompactForm span,
 .adminAcademicCompactTextarea span {
-  font-size: 0.82rem;
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
 }
 
 .adminAcademicCompactForm input,
@@ -10946,8 +11149,8 @@ body::after {
 
 .adminAcademicCompactForm small,
 .adminAcademicCompactTextarea small {
-  font-size: 0.78rem;
-  line-height: 1.4;
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
 }
 
 .adminAcademicCompactToggleGrid {
@@ -11080,5 +11283,142 @@ body::after {
 
   .adminPeopleRosterMetaPills {
     margin-top: 10px;
+  }
+}
+.workspaceFiltersCard {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.workspaceFiltersForm {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+  align-items: end;
+  min-width: 0;
+}
+
+.workspaceFilterField {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.workspaceFilterField span,
+.workspaceFilterQuickLabel {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-label);
+  line-height: var(--leading-normal);
+  text-transform: uppercase;
+}
+
+.workspaceFilterFieldWide {
+  grid-column: span 2;
+}
+
+.workspaceFilterField input,
+.workspaceFilterField select {
+  min-height: 44px;
+  width: 100%;
+  padding: 0 14px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 14px;
+  background: #f8fafd;
+  color: var(--color-text-primary);
+  min-width: 0;
+}
+
+.workspaceFilterField input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.workspaceFilterActions,
+.workspaceFilterChips,
+.workspaceFilterQuickChips {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.workspaceFilterActions {
+  justify-content: flex-end;
+}
+
+.workspaceFilterActions > .button {
+  flex: 0 0 auto;
+}
+
+.workspaceFilterQuickRow {
+  display: grid;
+  gap: 10px;
+}
+
+.workspaceFilterQuickChips,
+.workspaceFilterChips {
+  min-width: 0;
+}
+
+.workspaceQuickChip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 12px;
+  max-width: 100%;
+  border: 1px solid var(--color-border-default);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+  transition:
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.workspaceQuickChip:hover {
+  border-color: rgba(31, 95, 214, 0.28);
+  color: var(--color-brand-primary-600);
+  box-shadow: 0 8px 24px rgba(31, 95, 214, 0.08);
+  transform: translateY(-1px);
+}
+
+.workspaceQuickChipActive {
+  border-color: rgba(31, 95, 214, 0.24);
+  background: rgba(237, 244, 255, 0.92);
+  color: var(--color-brand-primary-600);
+}
+
+.workspaceResultsGroup {
+  display: grid;
+  gap: 14px;
+}
+
+@media (max-width: 1180px) {
+  .workspaceFiltersForm {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .workspaceFilterFieldWide {
+    grid-column: auto;
+  }
+
+  .workspaceFilterActions {
+    justify-content: stretch;
+  }
+
+  .workspaceFilterActions > .button {
+    flex: 1 1 160px;
+    justify-content: center;
   }
 }

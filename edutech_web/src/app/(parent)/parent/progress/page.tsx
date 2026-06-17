@@ -118,14 +118,10 @@ export default async function ParentProgressPage({
             currentChildId={progress.child.student_id}
           />
 
-          <section className="studentInsightHeroCard">
+          <section className="studentInsightHeroCard studentInsightHeroCardCompact">
             <div className="studentInsightHeroCopy">
               <span className="studentDashboardTag">Academic Snapshot</span>
-              <strong>{progress.child.student_name} is showing the current published performance trend</strong>
-              <p>
-                This page summarizes trend movement, subject distribution, and recent result behavior so
-                family interventions can happen with the same academic signal base used inside the platform.
-              </p>
+              <strong>{progress.child.student_name} performance trend</strong>
               <small>{trendDirectionLabel(progress.improvement_trend.direction, progress.improvement_trend.change_percentage)}</small>
             </div>
             <div className="studentInsightHeroActions">

@@ -9,6 +9,7 @@ import type {
   LookupSubject,
   LookupTopic,
   TeacherQuestion,
+  TeacherQuestionSummary,
 } from "@/lib/api/teacher-builder";
 import type { CatalogSelectOption } from "@/lib/teacher/option-catalog";
 
@@ -31,7 +32,7 @@ function normalizeLookupRelationId(
   return typeof relation.id === "string" ? relation.id : "";
 }
 
-function getStatus(question: TeacherQuestion) {
+function getStatus(question: TeacherQuestionSummary | TeacherQuestion) {
   if (question.metadata?.is_draft === true) {
     return "draft";
   }
@@ -41,14 +42,14 @@ function getStatus(question: TeacherQuestion) {
   return question.is_active ? "active" : "inactive";
 }
 
-function isReadOnlyLibraryQuestion(question: TeacherQuestion) {
+function isReadOnlyLibraryQuestion(question: TeacherQuestionSummary | TeacherQuestion) {
   return (
     question.metadata?.link_mode === "source_materialization" ||
     typeof question.metadata?.linked_from_master === "string"
   );
 }
 
-function getQuestionEditorHref(question: TeacherQuestion, basePath: string) {
+function getQuestionEditorHref(question: TeacherQuestionSummary | TeacherQuestion, basePath: string) {
   if (isReadOnlyLibraryQuestion(question)) {
     return `${basePath}/new?duplicate=${question.id}`;
   }
@@ -56,7 +57,11 @@ function getQuestionEditorHref(question: TeacherQuestion, basePath: string) {
   return `${basePath}/${question.id}`;
 }
 
-function isQualityReady(question: TeacherQuestion) {
+function isQualityReady(question: TeacherQuestionSummary | TeacherQuestion) {
+  if ("is_quality_ready" in question) {
+    return question.is_quality_ready;
+  }
+
   const hasCorrectOption = question.options.some((option) => option.is_correct);
   const hasMinimumOptions =
     question.question_type === "true_false"
@@ -73,7 +78,13 @@ function buildPageHref(
   filters: Record<string, string>,
   basePath: string,
 ) {
-  const params = new URLSearchParams(filters);
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    if (!value) {
+      return;
+    }
+    params.set(key, value);
+  });
   params.set("page", String(page));
   return `${basePath}?${params.toString()}`;
 }
@@ -154,7 +165,7 @@ export function TeacherQuestionBankWorkspace({
   storageKeyPrefix?: string;
   tags: QuestionTagLite[];
   topics: LookupTopic[];
-  questions: TeacherQuestion[];
+  questions: TeacherQuestionSummary[];
   totalCount: number;
   page: number;
   hasPreviousPage: boolean;
@@ -186,7 +197,10 @@ export function TeacherQuestionBankWorkspace({
     readStoredArray(`${storageKeyPrefix}-recent-topics`),
   );
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [previewQuestion, setPreviewQuestion] = useState<TeacherQuestion | null>(null);
+  const [previewQuestionId, setPreviewQuestionId] = useState<string | null>(null);
+  const [questionDetailsById, setQuestionDetailsById] = useState<Record<string, TeacherQuestion>>({});
+  const [loadingQuestionIds, setLoadingQuestionIds] = useState<string[]>([]);
+  const [detailErrors, setDetailErrors] = useState<Record<string, string>>({});
   const [favoriteIds, setFavoriteIds] = useState<string[]>(() =>
     readStoredArray(`${storageKeyPrefix}-favorites`),
   );
@@ -213,7 +227,7 @@ export function TeacherQuestionBankWorkspace({
   }, [favoriteIds, isBrowser, storageKeyPrefix]);
 
   useEffect(() => {
-    if (!previewQuestion) {
+    if (!previewQuestionId) {
       return;
     }
 
@@ -222,7 +236,7 @@ export function TeacherQuestionBankWorkspace({
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        setPreviewQuestion(null);
+        setPreviewQuestionId(null);
       }
     }
 
@@ -231,7 +245,7 @@ export function TeacherQuestionBankWorkspace({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [previewQuestion]);
+  }, [previewQuestionId]);
 
   useEffect(() => {
     if (!isBrowser) {
@@ -405,6 +419,15 @@ export function TeacherQuestionBankWorkspace({
         .filter((topic): topic is LookupTopic => Boolean(topic)),
     [mergedRecentTopicIds, topicInventory],
   );
+  const quickFilterHref = (overrides: Record<string, string>) =>
+    buildPageHref(
+      1,
+      {
+        ...filters,
+        ...overrides,
+      },
+      basePath,
+    );
 
   const questionIdsOnPage = questions.map((question) => question.id);
   const selectedIdsOnPage = selectedIds.filter((id) => questionIdsOnPage.includes(id));
@@ -412,6 +435,63 @@ export function TeacherQuestionBankWorkspace({
   const allVisibleSelected =
     visibleQuestionIds.length > 0 &&
     visibleQuestionIds.every((id) => selectedIdsOnPage.includes(id));
+  const previewQuestionSummary = previewQuestionId
+    ? questions.find((question) => question.id === previewQuestionId) ?? null
+    : null;
+  const previewQuestionDetail = previewQuestionId
+    ? questionDetailsById[previewQuestionId] ?? null
+    : null;
+  const previewQuestion = previewQuestionDetail ?? previewQuestionSummary;
+
+  async function ensureQuestionDetail(questionId: string) {
+    if (questionDetailsById[questionId]) {
+      return questionDetailsById[questionId];
+    }
+
+    if (loadingQuestionIds.includes(questionId)) {
+      return null;
+    }
+
+    setLoadingQuestionIds((current) => [...current, questionId]);
+    setDetailErrors((current) => {
+      const next = { ...current };
+      delete next[questionId];
+      return next;
+    });
+
+    try {
+      const response = await fetch(`/api/teacher/question-bank/questions/${questionId}`, {
+        method: "GET",
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        throw new Error("Unable to load full question details right now.");
+      }
+
+      const payload = (await response.json()) as TeacherQuestion;
+      setQuestionDetailsById((current) => ({
+        ...current,
+        [questionId]: payload,
+      }));
+      return payload;
+    } catch (error) {
+      setDetailErrors((current) => ({
+        ...current,
+        [questionId]:
+          error instanceof Error && error.message
+            ? error.message
+            : "Unable to load full question details right now.",
+      }));
+      return null;
+    } finally {
+      setLoadingQuestionIds((current) => current.filter((id) => id !== questionId));
+    }
+  }
+
+  function isLoadingQuestionDetail(questionId: string) {
+    return loadingQuestionIds.includes(questionId);
+  }
 
   function toggleFavorite(questionId: string) {
     setFavoriteIds((current) =>
@@ -596,6 +676,99 @@ export function TeacherQuestionBankWorkspace({
             </div>
           </div>
         </form>
+
+        <div className="workspaceFilterQuickRow">
+          <span className="workspaceFilterQuickLabel">Quick filters</span>
+          <div className="workspaceFilterQuickChips">
+            <Link
+              className={`workspaceQuickChip${
+                !filters.search &&
+                !filters.program &&
+                !filters.subject &&
+                !filters.topic &&
+                !filters.tag &&
+                !filters.question_type &&
+                !filters.difficulty_level &&
+                filters.ordering === "-created_at" &&
+                filters.missing_explanation !== "true"
+                  ? " workspaceQuickChipActive"
+                  : ""
+              }`}
+              href={basePath}
+            >
+              All
+            </Link>
+            <Link
+              className={`workspaceQuickChip${
+                filters.missing_explanation === "true" ? " workspaceQuickChipActive" : ""
+              }`}
+              href={quickFilterHref({ missing_explanation: "true" })}
+            >
+              Missing Explanation
+            </Link>
+            <button
+              className={`workspaceQuickChip${statusFilter === "draft" ? " workspaceQuickChipActive" : ""}`}
+              onClick={() => setStatusFilter("draft")}
+              type="button"
+            >
+              Draft
+            </button>
+            <button
+              className={`workspaceQuickChip${statusFilter === "published" ? " workspaceQuickChipActive" : ""}`}
+              onClick={() => setStatusFilter("published")}
+              type="button"
+            >
+              Verified
+            </button>
+            <Link
+              className={`workspaceQuickChip${
+                filters.question_type === "single_choice" ? " workspaceQuickChipActive" : ""
+              }`}
+              href={quickFilterHref({ question_type: "single_choice" })}
+            >
+              MCQ
+            </Link>
+            <Link
+              className={`workspaceQuickChip${
+                filters.question_type === "short_answer" ? " workspaceQuickChipActive" : ""
+              }`}
+              href={quickFilterHref({ question_type: "short_answer" })}
+            >
+              Short Answer
+            </Link>
+            <Link
+              className={`workspaceQuickChip${
+                filters.difficulty_level === "hard" ? " workspaceQuickChipActive" : ""
+              }`}
+              href={quickFilterHref({ difficulty_level: "hard" })}
+            >
+              Hard
+            </Link>
+            <Link
+              className={`workspaceQuickChip${
+                filters.ordering === "-usage_count" ? " workspaceQuickChipActive" : ""
+              }`}
+              href={quickFilterHref({ ordering: "-usage_count" })}
+            >
+              Most Used
+            </Link>
+          </div>
+        </div>
+
+        <div className="workspaceFilterChips">
+          <span className="statusPill statusDefault">
+            Search: {filters.search ? "active" : "all"}
+          </span>
+          <span className="statusPill statusDefault">
+            Type: {filters.question_type || "all"}
+          </span>
+          <span className="statusPill statusDefault">
+            Difficulty: {filters.difficulty_level || "all"}
+          </span>
+          <span className="statusPill statusDefault">
+            Local status: {statusFilter || "all"}
+          </span>
+        </div>
 
         <div className="questionBankInlineControls">
           <div className="questionBankInlineToggles">
@@ -817,10 +990,10 @@ export function TeacherQuestionBankWorkspace({
                         <span className={`questionBankQualityPill ${isQualityReady(question) ? "questionBankQualityPillGood" : "questionBankQualityPillWarn"}`}>
                           {isQualityReady(question) ? "Quality ready" : "Needs cleanup"}
                         </span>
-                        {question.attachments.length ? (
+                        {question.attachment_count > 0 ? (
                           <span className="questionBankQualityPill questionBankQualityPillGood">
-                            {question.attachments.length} attachment
-                            {question.attachments.length === 1 ? "" : "s"}
+                            {question.attachment_count} attachment
+                            {question.attachment_count === 1 ? "" : "s"}
                           </span>
                         ) : null}
                         <span className="statusPill statusDemo">
@@ -861,21 +1034,11 @@ export function TeacherQuestionBankWorkspace({
                     </div>
                   </div>
 
-                  {question.tag_maps.length ? (
-                    <div className="questionBankTagRow">
-                      {question.tag_maps.map((tagMap) => (
-                        <span className="questionBankTagChip" key={tagMap.id}>
-                          {tagMap.tag_detail.name}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
-
                   <div className="questionBankCardFooter">
                     <div className="questionBankCardMetaNote">
                       <span>
-                        {question.attachments.length > 0
-                          ? `${question.attachments.length} attachment${question.attachments.length === 1 ? "" : "s"} linked`
+                        {question.attachment_count > 0
+                          ? `${question.attachment_count} attachment${question.attachment_count === 1 ? "" : "s"} linked`
                           : "No attachments linked"}
                       </span>
                       <span>
@@ -883,12 +1046,20 @@ export function TeacherQuestionBankWorkspace({
                           ? "Explanation present"
                           : "Explanation still missing"}
                       </span>
+                      <span>
+                        {question.tag_count > 0
+                          ? `${question.tag_count} tag${question.tag_count === 1 ? "" : "s"} attached`
+                          : "No tags attached"}
+                      </span>
                     </div>
 
                     <div className="questionBankCardActions">
                       <button
                         className="button buttonPrimary"
-                        onClick={() => setPreviewQuestion(question)}
+                        onClick={() => {
+                          setPreviewQuestionId(question.id);
+                          void ensureQuestionDetail(question.id);
+                        }}
                         type="button"
                       >
                         Preview
@@ -904,34 +1075,52 @@ export function TeacherQuestionBankWorkspace({
 
                   {!isCompact ? (
                     <details className="questionBankDetails">
-                      <summary>Preview details</summary>
+                      <summary
+                        onClick={() => {
+                          if (!questionDetailsById[question.id] && !isLoadingQuestionDetail(question.id)) {
+                            void ensureQuestionDetail(question.id);
+                          }
+                        }}
+                      >
+                        Preview details
+                      </summary>
                       <div className="questionBankDetailsBody">
-                        <div className="questionBankRichBlock">
-                          <strong>Explanation</strong>
-                          <p>
-                            {question.explanation.trim() || "No teacher explanation added yet."}
-                          </p>
-                        </div>
+                        {isLoadingQuestionDetail(question.id) ? (
+                          <p className="emptyText">Loading full question details...</p>
+                        ) : questionDetailsById[question.id] ? (
+                          <>
+                            <div className="questionBankRichBlock">
+                              <strong>Explanation</strong>
+                              <p>
+                                {questionDetailsById[question.id].explanation.trim() || "No teacher explanation added yet."}
+                              </p>
+                            </div>
 
-                        {question.options.length ? (
-                          <div className="questionBankOptionsList">
-                            {question.options.map((option) => (
-                              <div className="questionBankOptionRow" key={option.id ?? `${question.id}-${option.option_order}`}>
-                                <span>{option.is_correct ? "✓" : "○"}</span>
-                                <p>{option.option_text}</p>
+                            {questionDetailsById[question.id].options.length ? (
+                              <div className="questionBankOptionsList">
+                                {questionDetailsById[question.id].options.map((option) => (
+                                  <div className="questionBankOptionRow" key={option.id ?? `${question.id}-${option.option_order}`}>
+                                    <span>{option.is_correct ? "✓" : "○"}</span>
+                                    <p>{option.option_text}</p>
+                                  </div>
+                                ))}
                               </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="emptyText">No options were returned for this question.</p>
-                        )}
+                            ) : (
+                              <p className="emptyText">No options were returned for this question.</p>
+                            )}
 
-                        {question.attachments.length ? (
-                          <div className="questionBankAttachmentNotice">
-                            {question.attachments.length} attachment
-                            {question.attachments.length === 1 ? "" : "s"} linked
-                          </div>
-                        ) : null}
+                            {questionDetailsById[question.id].attachments.length ? (
+                              <div className="questionBankAttachmentNotice">
+                                {questionDetailsById[question.id].attachments.length} attachment
+                                {questionDetailsById[question.id].attachments.length === 1 ? "" : "s"} linked
+                              </div>
+                            ) : null}
+                          </>
+                        ) : detailErrors[question.id] ? (
+                          <p className="emptyText">{detailErrors[question.id]}</p>
+                        ) : (
+                          <p className="emptyText">Open this panel to load full options, tags, and attachment details.</p>
+                        )}
                       </div>
                     </details>
                   ) : null}
@@ -966,7 +1155,7 @@ export function TeacherQuestionBankWorkspace({
         ? createPortal(
             <div
               className="questionPreviewOverlay"
-              onClick={() => setPreviewQuestion(null)}
+              onClick={() => setPreviewQuestionId(null)}
               role="presentation"
             >
               <div
@@ -985,7 +1174,7 @@ export function TeacherQuestionBankWorkspace({
                   </div>
                   <button
                     className="button buttonGhost"
-                    onClick={() => setPreviewQuestion(null)}
+                    onClick={() => setPreviewQuestionId(null)}
                     type="button"
                   >
                     Close
@@ -1009,13 +1198,19 @@ export function TeacherQuestionBankWorkspace({
                     <span className="statusPill statusDemo">{getStatus(previewQuestion)}</span>
                   </div>
 
-                  {previewQuestion.tag_maps.length ? (
+                  {"tag_maps" in previewQuestion && previewQuestion.tag_maps.length ? (
                     <div className="questionBankTagRow">
                       {previewQuestion.tag_maps.map((tagMap) => (
                         <span className="questionBankTagChip" key={tagMap.id}>
                           {tagMap.tag_detail.name}
                         </span>
                       ))}
+                    </div>
+                  ) : "tag_count" in previewQuestion && previewQuestion.tag_count > 0 ? (
+                    <div className="questionBankTagRow">
+                      <span className="questionBankTagChip">
+                        {previewQuestion.tag_count} tag{previewQuestion.tag_count === 1 ? "" : "s"} attached
+                      </span>
                     </div>
                   ) : null}
 
@@ -1031,24 +1226,38 @@ export function TeacherQuestionBankWorkspace({
                     </p>
                   </section>
 
-                  {previewQuestion.options.length ? (
+                  {"options" in previewQuestion ? (
                     <section className="questionPreviewSection">
                       <strong>Answer options</strong>
-                      <div className="questionBankOptionsList">
-                        {previewQuestion.options.map((option) => (
-                          <div
-                            className="questionBankOptionRow"
-                            key={option.id ?? `${previewQuestion.id}-${option.option_order}`}
-                          >
-                            <span>{option.is_correct ? "✓" : "○"}</span>
-                            <p>{option.option_text}</p>
-                          </div>
-                        ))}
-                      </div>
+                      {previewQuestion.options.length ? (
+                        <div className="questionBankOptionsList">
+                          {previewQuestion.options.map((option) => (
+                            <div
+                              className="questionBankOptionRow"
+                              key={option.id ?? `${previewQuestion.id}-${option.option_order}`}
+                            >
+                              <span>{option.is_correct ? "✓" : "○"}</span>
+                              <p>{option.option_text}</p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="emptyText">No options were returned for this question.</p>
+                      )}
+                    </section>
+                  ) : isLoadingQuestionDetail(previewQuestion.id) ? (
+                    <section className="questionPreviewSection">
+                      <strong>Answer options</strong>
+                      <p className="emptyText">Loading full question details...</p>
+                    </section>
+                  ) : detailErrors[previewQuestion.id] ? (
+                    <section className="questionPreviewSection">
+                      <strong>Answer options</strong>
+                      <p className="emptyText">{detailErrors[previewQuestion.id]}</p>
                     </section>
                   ) : null}
 
-                  {previewQuestion.attachments.length ? (
+                  {"attachments" in previewQuestion && previewQuestion.attachments.length ? (
                     <section className="questionPreviewSection">
                       <strong>Attachments</strong>
                       <div className="questionPreviewAttachmentGrid">
@@ -1078,6 +1287,11 @@ export function TeacherQuestionBankWorkspace({
                           </article>
                         ))}
                       </div>
+                    </section>
+                  ) : "attachments" in previewQuestion ? null : isLoadingQuestionDetail(previewQuestion.id) ? (
+                    <section className="questionPreviewSection">
+                      <strong>Attachments</strong>
+                      <p className="emptyText">Loading attachment details...</p>
                     </section>
                   ) : null}
                 </div>

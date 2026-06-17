@@ -6,13 +6,13 @@ const ACCESS_TOKEN_KEY = "nexora.mobile.access";
 const REFRESH_TOKEN_KEY = "nexora.mobile.refresh";
 const PROFILE_KEY = "nexora.mobile.profile";
 
-function canUseWebStorage() {
-  return Platform.OS === "web" && typeof window !== "undefined" && !!window.localStorage;
+function isWebPlatform() {
+  return Platform.OS === "web";
 }
 
 async function setItem(key: string, value: string) {
-  if (canUseWebStorage()) {
-    window.localStorage.setItem(key, value);
+  if (isWebPlatform()) {
+    // Avoid persisting bearer tokens in browser storage where XSS can read them.
     return;
   }
 
@@ -20,16 +20,15 @@ async function setItem(key: string, value: string) {
 }
 
 async function getItem(key: string) {
-  if (canUseWebStorage()) {
-    return window.localStorage.getItem(key);
+  if (isWebPlatform()) {
+    return null;
   }
 
   return SecureStore.getItemAsync(key);
 }
 
 async function removeItem(key: string) {
-  if (canUseWebStorage()) {
-    window.localStorage.removeItem(key);
+  if (isWebPlatform()) {
     return;
   }
 

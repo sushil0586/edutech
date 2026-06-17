@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionAccessToken } from "@/lib/auth/session";
+import { getAuthenticatedSession, hasRequiredRole } from "@/lib/auth/session";
 
 const API_BASE_URL = (
   process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? ""
@@ -8,6 +8,7 @@ const API_BASE_URL = (
 async function proxyToBackend(
   path: string,
   method: "POST",
+  allowedRoles: readonly string[],
   body: Record<string, unknown> = {},
 ) {
   if (!API_BASE_URL) {
@@ -17,8 +18,8 @@ async function proxyToBackend(
     );
   }
 
-  const accessToken = await getSessionAccessToken();
-  if (!accessToken) {
+  const session = await getAuthenticatedSession();
+  if (!session || !hasRequiredRole(session.profile, allowedRoles)) {
     return NextResponse.json(
       { detail: "Portal session is not available." },
       { status: 401 },
@@ -28,7 +29,7 @@ async function proxyToBackend(
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method,
     headers: {
-      Authorization: `Bearer ${accessToken}`,
+      Authorization: `Bearer ${session.accessToken}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
@@ -56,23 +57,48 @@ export async function POST(
   const body = request.body ? await request.json().catch(() => ({})) : {};
 
   if (resource === "students" && action === "create-login") {
-    return proxyToBackend(`/api/v1/accounts/students/${entityId}/create-login/`, "POST", body);
+    return proxyToBackend(
+      `/api/v1/accounts/students/${entityId}/create-login/`,
+      "POST",
+      ["platform_admin", "institute_admin"],
+      body,
+    );
   }
 
   if (resource === "teachers" && action === "create-login") {
-    return proxyToBackend(`/api/v1/accounts/teachers/${entityId}/create-login/`, "POST", body);
+    return proxyToBackend(
+      `/api/v1/accounts/teachers/${entityId}/create-login/`,
+      "POST",
+      ["platform_admin", "institute_admin"],
+      body,
+    );
   }
 
   if (resource === "users" && action === "reset-password") {
-    return proxyToBackend(`/api/v1/accounts/users/${entityId}/reset-password/`, "POST", body);
+    return proxyToBackend(
+      `/api/v1/accounts/users/${entityId}/reset-password/`,
+      "POST",
+      ["platform_admin"],
+      body,
+    );
   }
 
   if (resource === "users" && action === "enable") {
-    return proxyToBackend(`/api/v1/accounts/users/${entityId}/enable/`, "POST", body);
+    return proxyToBackend(
+      `/api/v1/accounts/users/${entityId}/enable/`,
+      "POST",
+      ["platform_admin"],
+      body,
+    );
   }
 
   if (resource === "users" && action === "disable") {
-    return proxyToBackend(`/api/v1/accounts/users/${entityId}/disable/`, "POST", body);
+    return proxyToBackend(
+      `/api/v1/accounts/users/${entityId}/disable/`,
+      "POST",
+      ["platform_admin"],
+      body,
+    );
   }
 
   return NextResponse.json(
@@ -80,4 +106,3 @@ export async function POST(
     { status: 400 },
   );
 }
-
