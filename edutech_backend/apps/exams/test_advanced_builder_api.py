@@ -209,3 +209,24 @@ class AdvancedExamBuilderApiTests(APITestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertIn("composition", response.data)
+
+    def test_section_topic_count_mismatch_returns_clear_section_message(self):
+        self.client.force_authenticate(user=self.teacher_user)
+        payload = self._payload()
+        payload["exam"]["code"] = "ADV-BUILDER-03"
+        payload["composition"]["sections"][0]["question_count"] = 18
+        payload["composition"]["sections"][0]["topics"] = [
+            {"topic_code": self.topic_algebra.code, "count": 9},
+        ]
+
+        response = self.client.post(
+            "/api/v1/exams/advanced-builder/create/",
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.data["composition"]["sections"][0]["topics"][0],
+            "Section A has 9 topic slot(s), but needs 18 question(s). Topic counts must add up to the section question count.",
+        )

@@ -85,6 +85,39 @@ class SeedCurriculumQuestionsCommandTestCase(TestCase):
 
         self.assertEqual(first_count, second_count)
 
+    def test_reactivates_inactive_subject_and_topic_scope_before_seeding(self):
+        topic = Topic.objects.filter(
+            institute=self.institute,
+            subject__code="CLS7-MATH",
+            parent_topic__isnull=False,
+        ).order_by("sort_order", "name").first()
+        topic.is_active = False
+        topic.save(update_fields=["is_active", "updated_at"])
+
+        topic.subject.is_active = False
+        topic.subject.save(update_fields=["is_active", "updated_at"])
+
+        call_command(
+            "seed_curriculum_questions",
+            "SCH001",
+            subjects=["math"],
+            questions_per_topic=1,
+        )
+
+        topic.refresh_from_db()
+        topic.subject.refresh_from_db()
+        self.assertTrue(topic.is_active)
+        self.assertTrue(topic.subject.is_active)
+        self.assertTrue(
+            Question.objects.filter(
+                institute=self.institute,
+                subject__code="CLS7-MATH",
+                topic=topic,
+                metadata__seed_batch="curriculum_questions_v1",
+                metadata__seed_sequence=1,
+            ).exists()
+        )
+
     def test_rerun_updates_old_seeded_question_text_in_place(self):
         call_command(
             "seed_curriculum_questions",

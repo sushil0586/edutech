@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { formatTopicOptionLabel, sortTopicOptions } from "@/lib/academics/topic-options";
 import type {
   LookupProgram,
   QuestionTagLite,
@@ -368,7 +369,7 @@ export function TeacherQuestionBankWorkspace({
       return [];
     }
 
-    return topicsBySubject.get(selectedSubjectFilter) ?? [];
+    return sortTopicOptions(topicsBySubject.get(selectedSubjectFilter) ?? []);
   }, [selectedSubjectFilter, topicsBySubject]);
 
   const selectedTopicFilter =
@@ -591,7 +592,7 @@ export function TeacherQuestionBankWorkspace({
               <option value="">All topics</option>
               {topicOptions.map((topic) => (
                 <option key={topic.id} value={topic.id}>
-                  {topic.name}
+                  {formatTopicOptionLabel(topic)}
                 </option>
               ))}
             </select>
@@ -810,7 +811,7 @@ export function TeacherQuestionBankWorkspace({
 
                 return (
                   <Link className="questionBankRecentTopicChip" href={href} key={topic.id}>
-                    {topic.name}
+                    {formatTopicOptionLabel(topic)}
                   </Link>
                 );
               })}
@@ -873,7 +874,7 @@ export function TeacherQuestionBankWorkspace({
                   <option value="">Choose topic</option>
                   {topicOptions.map((topic) => (
                     <option key={topic.id} value={topic.id}>
-                      {topic.name}
+                      {formatTopicOptionLabel(topic)}
                     </option>
                   ))}
                 </select>

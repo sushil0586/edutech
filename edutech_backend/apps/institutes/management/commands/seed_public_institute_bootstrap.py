@@ -88,6 +88,9 @@ class Command(BaseCommand):
             include_future_templates=options["include_future_economy_templates"],
             stdout=self.stdout,
         )
+        self.stdout.write(
+            f"Next: python manage.py seed_public_academics --institute-code {institute.code}"
+        )
 
     def _upsert_public_institute(self, options):
         code = options["code"].strip()

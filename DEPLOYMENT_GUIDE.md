@@ -41,6 +41,28 @@ Recommended private runtime ports:
 
 This avoids collisions with other apps on the machine and keeps public traffic on the Nginx entrypoint.
 
+## Required API Routing Split
+
+Production Nginx should route requests like this:
+
+- `/` -> Next.js frontend
+- `/api/v1/` -> Django backend
+- `/api/` -> Next.js route handlers
+- `/django-admin/` -> Django admin
+
+Important:
+
+Do not proxy all `/api/` traffic to Django.
+
+The frontend uses internal Next route handlers under `edutech_web/src/app/api` for browser-side actions such as:
+
+- `/api/exams/advanced-templates`
+- `/api/exams/advanced-builder/create`
+- `/api/admin/institutes`
+- `/api/teacher/question-bank/preview-import`
+
+If `/api/` is sent directly to Django, these routes fail with `404` in production even though the frontend code is correct.
+
 ## Backend Environment
 
 Use [edutech_backend/.env.production.example](/Users/ansh/Documents/Eductech/edutech_backend/.env.production.example:1) as the production template.

@@ -5,9 +5,9 @@ After=network.target
 [Service]
 User=ubuntu
 Group=www-data
-WorkingDirectory=/var/www/nexora-learn/edutech_backend
-EnvironmentFile=/var/www/nexora-learn/edutech_backend/.env.production
-ExecStart=/var/www/nexora-learn/edutech_backend/.venv/bin/gunicorn config.wsgi:application \
+WorkingDirectory=/var/www/nexora-learn/edutech/edutech_backend
+EnvironmentFile=/var/www/nexora-learn/edutech/edutech_backend/.env.production
+ExecStart=/var/www/nexora-learn/edutech/edutech_backend/.venv/bin/gunicorn config.wsgi:application \
   --bind 127.0.0.1:8010 \
   --workers 3 \
   --timeout 120

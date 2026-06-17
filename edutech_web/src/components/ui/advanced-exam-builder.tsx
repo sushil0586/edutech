@@ -2,6 +2,7 @@
 
 import { startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { formatTopicOptionLabel, sortTopicOptions } from "@/lib/academics/topic-options";
 
 type Option = {
   value: string;
@@ -32,6 +33,7 @@ type TopicOption = {
   name: string;
   code: string;
   difficulty_level: string;
+  sort_order: number;
 };
 
 type DifficultyMix = {
@@ -383,6 +385,38 @@ function titleCase(value: string) {
     .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
+function resolveSectionLabel(section: Pick<SectionDraft, "name">, index: number) {
+  return section.name.trim() || `Section ${String.fromCharCode(65 + index)}`;
+}
+
+function getAssignedTopicCount(section: Pick<SectionDraft, "topics">) {
+  return section.topics
+    .filter((topicRow) => topicRow.topicCode)
+    .reduce((total, topicRow) => total + Number(topicRow.count || 0), 0);
+}
+
+function getSectionTopicCountError(section: SectionDraft, index: number) {
+  const requestedQuestionCount = Number(section.questionCount || 0);
+  const assignedTopicCount = getAssignedTopicCount(section);
+
+  if (assignedTopicCount === requestedQuestionCount) {
+    return "";
+  }
+
+  return `${resolveSectionLabel(section, index)} has ${assignedTopicCount} topic slot(s), but needs ${requestedQuestionCount} question(s). Adjust the topic counts so they match the section question count.`;
+}
+
+function getBuilderCompositionError(sections: SectionDraft[]) {
+  for (const [index, section] of sections.entries()) {
+    const sectionError = getSectionTopicCountError(section, index);
+    if (sectionError) {
+      return sectionError;
+    }
+  }
+
+  return "";
+}
+
 function parseApiError(payload: unknown) {
   if (!payload || typeof payload !== "object") {
     return "Something went wrong while talking to the builder.";
@@ -391,6 +425,25 @@ function parseApiError(payload: unknown) {
   const record = payload as Record<string, unknown>;
   if (typeof record.detail === "string" && record.detail.trim()) {
     return record.detail;
+  }
+
+  const composition = record.composition;
+  if (composition && typeof composition === "object") {
+    const compositionRecord = composition as Record<string, unknown>;
+    if (Array.isArray(compositionRecord.sections)) {
+      for (const sectionEntry of compositionRecord.sections) {
+        if (!sectionEntry || typeof sectionEntry !== "object") {
+          continue;
+        }
+        const sectionRecord = sectionEntry as Record<string, unknown>;
+        if (Array.isArray(sectionRecord.topics) && sectionRecord.topics.length > 0) {
+          return String(sectionRecord.topics[0]);
+        }
+        if (Array.isArray(sectionRecord.duration_minutes) && sectionRecord.duration_minutes.length > 0) {
+          return String(sectionRecord.duration_minutes[0]);
+        }
+      }
+    }
   }
 
   for (const value of Object.values(record)) {
@@ -563,7 +616,7 @@ export function AdvancedExamBuilder({
   const [selectedSubject, setSelectedSubject] = useState(initialSubjects[0]?.id ?? "");
   const [cohortOptions, setCohortOptions] = useState(initialCohorts);
   const [subjectOptions, setSubjectOptions] = useState(initialSubjects);
-  const [topicOptions, setTopicOptions] = useState(initialTopics);
+  const [topicOptions, setTopicOptions] = useState(sortTopicOptions(initialTopics));
 
   const [exam, setExam] = useState({
     title: "",
@@ -621,6 +674,7 @@ export function AdvancedExamBuilder({
     createSectionDraft(0, initialTopics[0]?.code ?? ""),
   ]);
   const deferredSections = useDeferredValue(sections);
+  const sortedTopicOptions = useMemo(() => sortTopicOptions(topicOptions), [topicOptions]);
   const deliveryOptionsByKey = {
     timerMode: timerModeOptions,
     navigationMode: navigationModeOptions,
@@ -800,7 +854,7 @@ export function AdvancedExamBuilder({
           return;
         }
 
-        setTopicOptions(nextTopics);
+        setTopicOptions(sortTopicOptions(nextTopics));
         const allowedCodes = new Set(nextTopics.map((topic) => topic.code));
         setSections((currentSections) =>
           currentSections.map((section, sectionIndex) => ({
@@ -885,16 +939,16 @@ export function AdvancedExamBuilder({
     selectedSubjectRecord,
   ]);
   const selectedTemplateTopicCodes = useMemo(() => {
-    const firstTwo = topicOptions.slice(0, Math.min(2, topicOptions.length)).map((topic) => topic.code);
-    const firstThree = topicOptions.slice(0, Math.min(3, topicOptions.length)).map((topic) => topic.code);
-    const allTopicCodes = topicOptions.map((topic) => topic.code);
+    const firstTwo = sortedTopicOptions.slice(0, Math.min(2, sortedTopicOptions.length)).map((topic) => topic.code);
+    const firstThree = sortedTopicOptions.slice(0, Math.min(3, sortedTopicOptions.length)).map((topic) => topic.code);
+    const allTopicCodes = sortedTopicOptions.map((topic) => topic.code);
 
     return {
       firstTwo: firstTwo.length > 0 ? firstTwo : allTopicCodes,
       firstThree: firstThree.length > 0 ? firstThree : allTopicCodes,
       all: allTopicCodes,
     };
-  }, [topicOptions]);
+  }, [sortedTopicOptions]);
 
   const requestedQuestionCount = deferredSections.reduce(
     (total, section) => total + Number(section.questionCount || 0),
@@ -938,7 +992,7 @@ export function AdvancedExamBuilder({
   }
 
   function addSection() {
-    setSections((current) => [...current, createSectionDraft(current.length, topicOptions[0]?.code ?? "")]);
+    setSections((current) => [...current, createSectionDraft(current.length, sortedTopicOptions[0]?.code ?? "")]);
   }
 
   function removeSection(sectionId: string) {
@@ -1378,7 +1432,7 @@ export function AdvancedExamBuilder({
   }
 
   function loadSavedTemplate(template: SavedBuilderTemplate) {
-    const availableTopicCodes = new Set(topicOptions.map((topic) => topic.code));
+    const availableTopicCodes = new Set(sortedTopicOptions.map((topic) => topic.code));
     setExam({ ...template.blueprint.exam });
     setDelivery({ ...template.blueprint.delivery });
     setEconomy({ ...template.blueprint.economy });
@@ -1734,6 +1788,14 @@ export function AdvancedExamBuilder({
   }
 
   async function runPreview() {
+    const compositionError = getBuilderCompositionError(sections);
+    if (compositionError) {
+      setPreview(null);
+      setError(compositionError);
+      setMessage("");
+      return;
+    }
+
     setIsPreviewPending(true);
     setError("");
     setMessage("");
@@ -1761,6 +1823,13 @@ export function AdvancedExamBuilder({
   }
 
   async function runCreate() {
+    const compositionError = getBuilderCompositionError(sections);
+    if (compositionError) {
+      setError(compositionError);
+      setMessage("");
+      return;
+    }
+
     setIsCreatePending(true);
     setError("");
     setMessage("");
@@ -2392,7 +2461,7 @@ export function AdvancedExamBuilder({
                     <article className="advancedBuilderSectionCard" key={section.id}>
                       <div className="advancedBuilderSectionCardTop">
                         <div>
-                          <strong>{section.name || `Section ${sectionIndex + 1}`}</strong>
+                          <strong>{resolveSectionLabel(section, sectionIndex)}</strong>
                           <span>{section.questionCount} requested question(s)</span>
                         </div>
                         {sections.length > 1 ? (
@@ -2494,6 +2563,9 @@ export function AdvancedExamBuilder({
                       <div className="advancedBuilderTopicBlock">
                         <div className="advancedBuilderTopicHeader">
                           <strong>Topics</strong>
+                          <span>
+                            {getAssignedTopicCount(section)} of {section.questionCount} question slot(s) assigned
+                          </span>
                           <button className="button buttonGhost" onClick={() => addTopicRow(section.id)} type="button">
                             Add Topic
                           </button>
@@ -2515,9 +2587,9 @@ export function AdvancedExamBuilder({
                               }
                             >
                               <option value="">Choose topic</option>
-                              {topicOptions.map((topic) => (
+                              {sortedTopicOptions.map((topic) => (
                                 <option key={topic.id} value={topic.code}>
-                                  {topic.name}
+                                  {formatTopicOptionLabel(topic)}
                                 </option>
                               ))}
                             </select>
@@ -2547,6 +2619,12 @@ export function AdvancedExamBuilder({
                             ) : null}
                           </div>
                         ))}
+
+                        {getSectionTopicCountError(section, sectionIndex) ? (
+                          <p className="feedbackBanner feedbackBannerError">
+                            {getSectionTopicCountError(section, sectionIndex)}
+                          </p>
+                        ) : null}
                       </div>
 
                       <div className="advancedBuilderToggleGrid">

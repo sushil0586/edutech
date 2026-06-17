@@ -234,6 +234,45 @@ What it does:
 - seeds the selected institute with the Class 7 academic year, program, subjects, and topic tree
 - rejects the public institute so the public and tenant flows stay clearly separated
 
+## Canonical Seed Order
+
+Use this order so the catalog, question bank, and exam builder all stay in sync.
+
+Public platform flow:
+
+1. `python manage.py seed_public_institute_bootstrap`
+2. `python manage.py seed_public_academics`
+3. Seed canonical shared questions with one path:
+   `python manage.py seed_master_question_library PUB001 --subjects math science --questions-per-topic 100`
+   or
+   `python manage.py seed_curated_math_science_questions PUB001 --subjects math science --questions-per-topic 50`
+4. Optional cleanup after the target subjects are populated:
+   `python manage.py deactivate_empty_topics --institute-code PUB001`
+5. Final verification:
+   `python manage.py audit_academic_catalog --institute-code PUB001 --fail-on-empty-active-topics --fail-on-findings`
+
+Regular institute flow:
+
+1. `python manage.py seed_institute_bootstrap SCH001 --name "Springfield School"`
+2. `python manage.py seed_institute_academics SCH001`
+3. Seed institute-operational questions with one path:
+   `python manage.py seed_curriculum_questions SCH001 --subjects math science --questions-per-topic 100`
+   or
+   `python manage.py seed_curated_math_science_questions SCH001 --subjects math science --questions-per-topic 50`
+   or
+   `python manage.py seed_class7_math_standalone_bank SCH001 --file path/to/bank.md --replace-existing`
+4. Optional cleanup after the target subjects are populated:
+   `python manage.py deactivate_empty_topics --institute-code SCH001`
+5. Final verification:
+   `python manage.py audit_academic_catalog --institute-code SCH001 --fail-on-empty-active-topics --fail-on-findings`
+
+Operational rules:
+
+- always seed academics before any question seed command
+- if you already deactivated empty topics, rerunning the question seed is safe because the commands now reactivate the target subject/topic scope automatically
+- only run `deactivate_empty_topics` after you finish populating the subjects you want visible in the UI
+- use the public flow for canonical shared content and the institute flow for tenant-owned working questions
+
 ## Question Ownership Model
 
 Question sharing now follows a controlled two-layer model:
@@ -337,6 +376,7 @@ Notes:
 - it uses its own batch name: `curated_math_science_v2`
 - it does not reuse the old `seed_curriculum_questions` path
 - it will fail fast for any topic that does not yet have an explicit curated JSON pack
+- it reactivates the targeted subject/topic scope if those rows were previously deactivated by cleanup
 
 Use this command for the public institute when you want to seed canonical shared questions:
 
@@ -351,6 +391,7 @@ What it does:
 - does not create private institute question copies
 - does not auto-link those questions to any private institute
 - defaults visibility to `shared_by_request`
+- validates the academic catalog scope before seeding and reactivates the targeted topic path when needed
 
 ## Institute Question Seed
 
@@ -365,6 +406,7 @@ What it does:
 - creates institute `Question` rows
 - automatically syncs a canonical `MasterQuestion` for each institute-authored question
 - rejects the public content hub so the public and private question flows stay separate
+- validates the academic catalog scope before seeding and reactivates the targeted topic path when needed
 
 ## Link Master Questions To Institute
 

@@ -32,7 +32,8 @@ Important path split:
 
 - platform admin frontend: `/admin`
 - Django admin: `/django-admin/`
-- API: `/api/`
+- Django REST API: `/api/v1/`
+- Next internal route handlers: `/api/...` except `/api/v1/...`
 
 This avoids the routing conflict between Django admin and the Next.js platform admin UI.
 
@@ -352,12 +353,23 @@ server {
         proxy_set_header Connection "upgrade";
     }
 
-    location /api/ {
+    location /api/v1/ {
         proxy_pass http://127.0.0.1:8010;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
     }
 
     location /django-admin/ {
@@ -420,7 +432,14 @@ Expected:
 
 - `/` serves Next.js
 - `/django-admin/` serves Django admin
-- `/api/` serves Django API
+- `/api/v1/` serves Django API
+- `/api/` serves Next.js route handlers
+
+Why this split matters:
+
+- the frontend uses browser requests like `/api/exams/advanced-templates`
+- those requests are implemented by Next.js route handlers in `edutech_web/src/app/api`
+- if Nginx forwards all `/api/` traffic to Django, these endpoints return `404`
 
 ## Stage Seed Order
 

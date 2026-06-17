@@ -9,6 +9,11 @@ from apps.question_bank.management.curriculum_seed_support import (
     SUBJECT_CODE_MAP,
     build_payload,
 )
+from apps.question_bank.management.seed_guardrails import (
+    assert_catalog_scope_is_consistent,
+    ensure_subject_seed_scope_is_active,
+    ensure_topic_seed_scope_is_active,
+)
 from apps.question_bank.models import (
     MasterQuestion,
     MasterQuestionOption,
@@ -75,8 +80,13 @@ class Command(BaseCommand):
 
         for subject_alias in options["subjects"]:
             subject = self._resolve_subject(institute=institute, code=SUBJECT_CODE_MAP[subject_alias])
+            assert_catalog_scope_is_consistent(
+                institute_code=institute.code,
+                subject_code=subject.code,
+            )
+            ensure_subject_seed_scope_is_active(subject)
             leaf_topics = list(
-                Topic.objects.filter(subject=subject, parent_topic__isnull=False, is_active=True).order_by(
+                Topic.objects.filter(subject=subject, parent_topic__isnull=False).order_by(
                     "sort_order", "name"
                 )
             )
@@ -87,6 +97,7 @@ class Command(BaseCommand):
 
             subject_counts = {"created": 0, "updated": 0, "topics": len(leaf_topics)}
             for topic in leaf_topics:
+                ensure_topic_seed_scope_is_active(topic)
                 for sequence_number in range(1, questions_per_topic + 1):
                     difficulty_level = DIFFICULTY_SEQUENCE[(sequence_number - 1) % len(DIFFICULTY_SEQUENCE)]
                     question_type, payload = build_payload(

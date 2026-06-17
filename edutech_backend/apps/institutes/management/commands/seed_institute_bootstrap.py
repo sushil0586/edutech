@@ -84,6 +84,10 @@ class Command(BaseCommand):
                 preset=options["academic_preset"],
                 stdout=self.stdout,
             )
+        else:
+            self.stdout.write(
+                f"Next: python manage.py seed_institute_academics {institute.code}"
+            )
 
     def _upsert_institute(self, options):
         code = options["code"].strip()

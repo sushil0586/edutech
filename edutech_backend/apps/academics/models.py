@@ -2,7 +2,11 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
 
-from apps.academics.services import validate_academic_year_overlap
+from apps.academics.services import (
+    normalize_academic_code,
+    normalize_academic_name,
+    validate_academic_year_overlap,
+)
 from apps.institutes.models import Institute
 from common.models import BaseModel
 
@@ -44,6 +48,7 @@ class AcademicYear(BaseModel):
             validate_academic_year_overlap(self)
 
     def save(self, *args, **kwargs):
+        self.name = normalize_academic_name(self.name)
         self.full_clean()
         return super().save(*args, **kwargs)
 
@@ -79,6 +84,14 @@ class Program(BaseModel):
 
     def __str__(self):
         return f"{self.name} ({self.code})"
+
+    def save(self, *args, **kwargs):
+        self.name = normalize_academic_name(self.name)
+        self.code = normalize_academic_code(self.code)
+        self.category = normalize_academic_name(self.category)
+        self.description = self.description.strip()
+        self.full_clean()
+        return super().save(*args, **kwargs)
 
 
 class Cohort(BaseModel):
@@ -133,6 +146,8 @@ class Cohort(BaseModel):
             )
 
     def save(self, *args, **kwargs):
+        self.name = normalize_academic_name(self.name)
+        self.code = normalize_academic_code(self.code)
         self.full_clean()
         return super().save(*args, **kwargs)
 
@@ -178,6 +193,9 @@ class Subject(BaseModel):
             raise ValidationError({"program": "Program must belong to the same institute."})
 
     def save(self, *args, **kwargs):
+        self.name = normalize_academic_name(self.name)
+        self.code = normalize_academic_code(self.code)
+        self.description = self.description.strip()
         self.full_clean()
         return super().save(*args, **kwargs)
 
@@ -290,6 +308,9 @@ class Topic(BaseModel):
                 )
 
     def save(self, *args, **kwargs):
+        self.name = normalize_academic_name(self.name)
+        self.code = normalize_academic_code(self.code)
+        self.description = self.description.strip()
         self.full_clean()
         return super().save(*args, **kwargs)
 

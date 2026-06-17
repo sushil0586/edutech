@@ -1,5 +1,6 @@
 from datetime import date
 
+from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
@@ -98,6 +99,19 @@ class Command(BaseCommand):
         )
         for label, counts in summary.items():
             self.stdout.write(f"- {label}: created={counts['created']} updated={counts['updated']}")
+
+        call_command(
+            "audit_academic_catalog",
+            institute_code=institute.code,
+            fail_on_findings=True,
+            stdout=self.stdout,
+        )
+        self.stdout.write(
+            "Next: seed shared questions with either "
+            f"`python manage.py seed_master_question_library {institute.code} --subjects math science --questions-per-topic 100` "
+            "or `python manage.py seed_curated_math_science_questions "
+            f"{institute.code} --subjects math science --questions-per-topic 50`."
+        )
 
     def _resolve_public_institute(self, *, institute_code):
         if institute_code:

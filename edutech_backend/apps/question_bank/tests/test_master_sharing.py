@@ -307,6 +307,43 @@ class MasterQuestionSharingTestCase(TestCase):
             1,
         )
 
+    def test_seed_master_question_library_reactivates_inactive_subject_and_topic_scope(self):
+        call_command("seed_public_academics", institute_code="PUB001")
+
+        parent_topic = self.public_subject.topics.filter(parent_topic__isnull=True).first()
+        leaf_topic = self.public_subject.topics.filter(parent_topic__isnull=False).first()
+        leaf_topic.is_active = False
+        leaf_topic.save(update_fields=["is_active", "updated_at"])
+        if parent_topic is not None:
+            parent_topic.is_active = False
+            parent_topic.save(update_fields=["is_active", "updated_at"])
+        self.public_subject.is_active = False
+        self.public_subject.save(update_fields=["is_active", "updated_at"])
+
+        call_command(
+            "seed_master_question_library",
+            "PUB001",
+            subjects=["science"],
+            questions_per_topic=1,
+        )
+
+        self.public_subject.refresh_from_db()
+        leaf_topic.refresh_from_db()
+        self.assertTrue(self.public_subject.is_active)
+        self.assertTrue(leaf_topic.is_active)
+        if parent_topic is not None:
+            parent_topic.refresh_from_db()
+            self.assertTrue(parent_topic.is_active)
+        self.assertTrue(
+            MasterQuestion.objects.filter(
+                source_institute=self.public_institute,
+                source_subject=self.public_subject,
+                source_topic=leaf_topic,
+                metadata__seed_batch="master_question_library_v1",
+                metadata__seed_sequence=1,
+            ).exists()
+        )
+
     def test_link_master_questions_to_institute_request_mode_creates_requests_only(self):
         question = Question.objects.create(
             institute=self.public_institute,

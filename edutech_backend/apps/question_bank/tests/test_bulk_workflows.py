@@ -21,6 +21,49 @@ class QuestionBankBulkWorkflowTestCase(TestCase):
         self.client = APIClient()
         self.client.force_authenticate(user=self.teacher_user)
 
+    def test_compact_question_list_loads_for_teacher_scope(self):
+        response = self.client.get(
+            "/api/v1/question-bank/questions/",
+            {
+                "compact": "true",
+                "page_size": 20,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertGreaterEqual(response.data["count"], 1)
+        self.assertTrue(response.data["results"])
+        self.assertEqual(
+            response.data["results"][0]["question_text"],
+            self.context["question"].question_text,
+        )
+
+    def test_compact_question_list_loads_for_institute_admin_scope(self):
+        institute_admin_user, _ = self.builder.create_institute_admin_account(
+            institute=self.context["institute"],
+            username="institute-question-bank",
+            password="Institute@123",
+            email="institute-question-bank@example.com",
+        )
+        institute_client = APIClient()
+        institute_client.force_authenticate(user=institute_admin_user)
+
+        response = institute_client.get(
+            "/api/v1/question-bank/questions/",
+            {
+                "compact": "true",
+                "page_size": 20,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertGreaterEqual(response.data["count"], 1)
+        self.assertTrue(response.data["results"])
+        self.assertEqual(
+            response.data["results"][0]["question_text"],
+            self.context["question"].question_text,
+        )
+
     def _csv_file(self, content, name="question_import.csv"):
         return SimpleUploadedFile(name, content.encode("utf-8"), content_type="text/csv")
 

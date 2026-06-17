@@ -8,6 +8,11 @@ from django.db import transaction
 from apps.academics.management.seed_presets import PRESETS
 from apps.academics.models import Program, Subject, Topic
 from apps.institutes.models import Institute
+from apps.question_bank.management.seed_guardrails import (
+    assert_catalog_scope_is_consistent,
+    ensure_subject_seed_scope_is_active,
+    ensure_topic_seed_scope_is_active,
+)
 from apps.question_bank.management.standalone_bank_seed_support import (
     STANDALONE_BATCH,
     build_topic_code,
@@ -68,6 +73,11 @@ class Command(BaseCommand):
         institute = self._resolve_institute(options["institute_code"].strip())
         program = self._resolve_program(institute=institute, preset=options["preset"])
         subject = self._resolve_subject(institute=institute, code=options["subject_code"].strip())
+        assert_catalog_scope_is_consistent(
+            institute_code=institute.code,
+            subject_code=subject.code,
+        )
+        ensure_subject_seed_scope_is_active(subject)
         payload = parse_standalone_question_bank(
             options["file"],
             expected_count=options["expected_count"],
@@ -81,6 +91,7 @@ class Command(BaseCommand):
             topic_name=topic_name,
             topic_code=topic_code,
         )
+        ensure_topic_seed_scope_is_active(topic)
 
         if options["replace_existing"]:
             deleted_count, _ = Question.objects.filter(

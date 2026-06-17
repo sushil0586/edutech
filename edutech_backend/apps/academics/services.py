@@ -1,4 +1,5 @@
 from django.core.exceptions import ValidationError
+from django.db.models import Count, F, Q
 
 EXAM_TYPE_NAMESPACE = "exam_type"
 EXAM_DELIVERY_MODE_NAMESPACE = "exam_delivery_mode"
@@ -14,6 +15,14 @@ QUESTION_TYPE_NAMESPACE = "question_type"
 QUESTION_DIFFICULTY_NAMESPACE = "question_difficulty"
 QUESTION_CONTENT_FORMAT_NAMESPACE = "question_content_format"
 QUESTION_ATTACHMENT_TYPE_NAMESPACE = "question_attachment_type"
+
+
+def normalize_academic_code(value):
+    return (value or "").strip().upper()
+
+
+def normalize_academic_name(value):
+    return (value or "").strip()
 
 
 def validate_academic_year_overlap(instance):
@@ -81,3 +90,98 @@ def validate_option_catalog_code(namespace, value, field_name):
             }
         )
     return normalized
+
+
+def audit_academic_catalog(
+    *,
+    institute_code=None,
+    subject_code=None,
+    fail_on_empty_active_topics=False,
+):
+    from apps.academics.models import Subject, Topic
+    from apps.question_bank.models import Question
+
+    subject_filters = Q()
+    if institute_code:
+        subject_filters &= Q(institute__code=normalize_academic_code(institute_code))
+    if subject_code:
+        subject_filters &= Q(code=normalize_academic_code(subject_code))
+
+    findings = []
+
+    duplicate_subjects = list(
+        Subject.objects.filter(subject_filters)
+        .values("institute__code", "program__code", "code")
+        .annotate(total=Count("id"))
+        .filter(total__gt=1)
+        .order_by("institute__code", "program__code", "code")
+    )
+    if duplicate_subjects:
+        findings.append({"code": "duplicate_subject_codes", "records": duplicate_subjects})
+
+    duplicate_topics = list(
+        Topic.objects.filter(subject__in=Subject.objects.filter(subject_filters))
+        .values("subject__code", "subject__institute__code", "code")
+        .annotate(total=Count("id"))
+        .filter(total__gt=1)
+        .order_by("subject__institute__code", "subject__code", "code")
+    )
+    if duplicate_topics:
+        findings.append({"code": "duplicate_topic_codes", "records": duplicate_topics})
+
+    invalid_subject_program_links = list(
+        Subject.objects.filter(subject_filters, program__isnull=False)
+        .exclude(program__institute_id=F("institute_id"))
+        .values("id", "code", "institute__code", "program__code")
+    )
+    if invalid_subject_program_links:
+        findings.append(
+            {"code": "invalid_subject_program_links", "records": invalid_subject_program_links}
+        )
+
+    scoped_topics = Topic.objects.filter(subject__in=Subject.objects.filter(subject_filters))
+
+    invalid_topic_subject_links = list(
+        scoped_topics.exclude(subject__institute_id=F("institute_id")).values(
+            "id",
+            "code",
+            "institute__code",
+            "subject__code",
+            "subject__institute__code",
+        )
+    )
+    if invalid_topic_subject_links:
+        findings.append(
+            {"code": "invalid_topic_subject_links", "records": invalid_topic_subject_links}
+        )
+
+    invalid_parent_topic_links = list(
+        scoped_topics.filter(parent_topic__isnull=False)
+        .exclude(parent_topic__subject_id=F("subject_id"))
+        .values("id", "code", "subject__code", "parent_topic__code", "parent_topic__subject__code")
+    )
+    if invalid_parent_topic_links:
+        findings.append(
+            {"code": "invalid_parent_topic_links", "records": invalid_parent_topic_links}
+        )
+
+    mismatched_questions = list(
+        Question.objects.filter(subject__in=Subject.objects.filter(subject_filters), topic__isnull=False)
+        .exclude(topic__subject_id=F("subject_id"))
+        .values("id", "subject__code", "topic__code", "topic__subject__code")
+    )
+    if mismatched_questions:
+        findings.append({"code": "mismatched_question_topics", "records": mismatched_questions})
+
+    if fail_on_empty_active_topics:
+        empty_active_topics = list(
+            scoped_topics.filter(is_active=True)
+            .annotate(active_question_count=Count("questions", filter=Q(questions__is_active=True)))
+            .filter(active_question_count=0)
+            .values("id", "code", "name", "subject__code", "subject__institute__code")
+            .order_by("subject__institute__code", "subject__code", "code")
+        )
+        if empty_active_topics:
+            findings.append({"code": "empty_active_topics", "records": empty_active_topics})
+
+    return findings

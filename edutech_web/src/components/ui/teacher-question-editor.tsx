@@ -10,6 +10,7 @@ import type {
   TeacherQuestionOption,
 } from "@/lib/api/teacher-builder";
 import { ActionSubmitButton } from "@/components/ui/action-submit-button";
+import { formatTopicOptionLabel, sortTopicOptions } from "@/lib/academics/topic-options";
 import type { CatalogSelectOption } from "@/lib/teacher/option-catalog";
 
 type EditableOption = {
@@ -119,10 +120,10 @@ export function TeacherQuestionEditor({
 
   const topicOptions = useMemo(() => {
     if (!selectedSubjectId) {
-      return topics;
+      return sortTopicOptions(topics);
     }
 
-    return topics.filter((topic) => topic.subject === selectedSubjectId);
+    return sortTopicOptions(topics.filter((topic) => topic.subject === selectedSubjectId));
   }, [selectedSubjectId, topics]);
 
   const selectedTopicId =
@@ -300,7 +301,7 @@ export function TeacherQuestionEditor({
                   <option value="">No topic</option>
                   {topicOptions.map((topic) => (
                     <option key={topic.id} value={topic.id}>
-                      {topic.name}
+                      {formatTopicOptionLabel(topic)}
                     </option>
                   ))}
                 </select>

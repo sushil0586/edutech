@@ -390,9 +390,17 @@ class AdvancedExamSectionBlueprintSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
-        if sum(topic_row["count"] for topic_row in attrs["topics"]) != attrs["question_count"]:
+        assigned_topic_count = sum(topic_row["count"] for topic_row in attrs["topics"])
+        if assigned_topic_count != attrs["question_count"]:
+            section_name = attrs.get("name", "This section")
             raise serializers.ValidationError(
-                {"topics": "Topic counts must add up to the section question count."}
+                {
+                    "topics": (
+                        f'{section_name} has {assigned_topic_count} topic slot(s), '
+                        f'but needs {attrs["question_count"]} question(s). '
+                        "Topic counts must add up to the section question count."
+                    )
+                }
             )
         if attrs.get("timer_enabled") and not attrs.get("duration_minutes"):
             raise serializers.ValidationError(

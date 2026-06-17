@@ -63,6 +63,7 @@ export type LookupTopic = {
   name: string;
   code: string;
   difficulty_level: string;
+  sort_order: number;
   is_active: boolean;
 };
 

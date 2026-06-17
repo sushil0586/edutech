@@ -12,6 +12,11 @@ from apps.question_bank.management.curated_topic_seed_support import (
     available_topic_codes,
     load_curated_topic_pack,
 )
+from apps.question_bank.management.seed_guardrails import (
+    assert_catalog_scope_is_consistent,
+    ensure_subject_seed_scope_is_active,
+    ensure_topic_seed_scope_is_active,
+)
 from apps.question_bank.models import Question, QuestionOption
 from apps.question_bank.services import sync_master_question_from_institute_question
 
@@ -75,10 +80,14 @@ class Command(BaseCommand):
 
         for subject_alias in options["subjects"]:
             subject = self._resolve_subject(institute=institute, code=SUBJECT_CODE_MAP[subject_alias])
+            assert_catalog_scope_is_consistent(
+                institute_code=institute.code,
+                subject_code=subject.code,
+            )
+            ensure_subject_seed_scope_is_active(subject)
             topic_queryset = Topic.objects.filter(
                 subject=subject,
                 parent_topic__isnull=False,
-                is_active=True,
             ).order_by("sort_order", "name")
             if selected_topic_codes:
                 topic_queryset = topic_queryset.filter(code__in=selected_topic_codes)
@@ -91,6 +100,7 @@ class Command(BaseCommand):
 
             subject_counts = {"topics": 0, "created": 0, "replaced": 0}
             for topic in leaf_topics:
+                ensure_topic_seed_scope_is_active(topic)
                 if topic.code not in discovered_pack_codes:
                     raise CommandError(
                         f"No curated pack exists yet for topic {topic.code}. "
