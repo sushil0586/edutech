@@ -9,6 +9,7 @@ from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.accounts.permissions import (
@@ -40,6 +41,7 @@ from apps.accounts.serializers import (
     LoginSerializer,
     OnboardingProfileSerializer,
     PublicRegistrationSerializer,
+    RefreshTokenSerializer,
     ResetPasswordSerializer,
     StudentExamAccessKeySerializer,
 )
@@ -67,6 +69,8 @@ from apps.results.services import (
 )
 from common.throttles import LoginRateThrottle
 from common.throttles import RegistrationRateThrottle
+from common.throttles import TokenRefreshRateThrottle
+from common.throttles import AdminProvisionRateThrottle
 
 
 auth_logger = logging.getLogger("nexora.auth")
@@ -180,8 +184,15 @@ class OnboardingProfileView(APIView):
         return Response(AccountProfileSerializer(account_profile).data, status=status.HTTP_200_OK)
 
 
+class RefreshSessionView(TokenRefreshView):
+    permission_classes = [AllowAny]
+    throttle_classes = [TokenRefreshRateThrottle]
+    serializer_class = RefreshTokenSerializer
+
+
 class StudentCreateLoginView(APIView):
     permission_classes = [IsAuthenticated, IsPlatformOrInstituteAdmin]
+    throttle_classes = [AdminProvisionRateThrottle]
 
     def post(self, request, student_id):
         admin_profile = request.user.account_profile
@@ -228,6 +239,7 @@ class StudentCreateLoginView(APIView):
 
 class TeacherCreateLoginView(APIView):
     permission_classes = [IsAuthenticated, IsPlatformOrInstituteAdmin]
+    throttle_classes = [AdminProvisionRateThrottle]
 
     def post(self, request, teacher_id):
         admin_profile = request.user.account_profile

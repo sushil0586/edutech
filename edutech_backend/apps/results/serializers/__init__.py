@@ -45,6 +45,77 @@ class ExamResultSerializer(serializers.ModelSerializer):
         return resolve_exam_source_metadata(obj.exam)["teacher_name"]
 
 
+class ExamResultListSerializer(serializers.ModelSerializer):
+    exam_title = serializers.CharField(source="exam.title", read_only=True)
+    exam_code = serializers.CharField(source="exam.code", read_only=True)
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+    student_admission_no = serializers.CharField(source="student.admission_no", read_only=True)
+    review_available = serializers.SerializerMethodField()
+    source_type = serializers.SerializerMethodField()
+    source_label = serializers.SerializerMethodField()
+    source_name = serializers.SerializerMethodField()
+    source_teacher_id = serializers.SerializerMethodField()
+    source_teacher_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ExamResult
+        fields = (
+            "id",
+            "institute",
+            "exam",
+            "exam_title",
+            "exam_code",
+            "student",
+            "student_name",
+            "student_admission_no",
+            "attempt",
+            "result_status",
+            "rank",
+            "total_marks",
+            "score",
+            "negative_score",
+            "final_score",
+            "percentage",
+            "correct_answers",
+            "incorrect_answers",
+            "skipped_questions",
+            "time_taken_seconds",
+            "published_at",
+            "is_published",
+            "metadata",
+            "review_available",
+            "source_type",
+            "source_label",
+            "source_name",
+            "source_teacher_id",
+            "source_teacher_name",
+            "is_active",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = fields
+
+    def get_review_available(self, obj):
+        if not obj.attempt_id:
+            return False
+        return is_review_available_for_attempt(obj.exam, obj.attempt, result=obj)
+
+    def get_source_type(self, obj):
+        return resolve_exam_source_metadata(obj.exam)["source_type"]
+
+    def get_source_label(self, obj):
+        return resolve_exam_source_metadata(obj.exam)["source_label"]
+
+    def get_source_name(self, obj):
+        return resolve_exam_source_metadata(obj.exam)["source_name"]
+
+    def get_source_teacher_id(self, obj):
+        return resolve_exam_source_metadata(obj.exam)["teacher_id"]
+
+    def get_source_teacher_name(self, obj):
+        return resolve_exam_source_metadata(obj.exam)["teacher_name"]
+
+
 class StudentTopicPerformanceSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source="student.full_name", read_only=True)
     subject_name = serializers.CharField(source="subject.name", read_only=True)

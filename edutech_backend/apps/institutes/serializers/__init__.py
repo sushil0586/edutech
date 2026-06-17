@@ -173,3 +173,20 @@ class InstituteSerializer(serializers.ModelSerializer):
             return
         if value <= 0:
             raise serializers.ValidationError({key: "Value must be greater than zero."})
+
+
+class InstituteListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Institute
+        fields = (
+            "id",
+            "name",
+            "code",
+            "email",
+            "phone",
+            "city",
+            "state",
+            "country",
+            "is_active",
+        )
+        read_only_fields = fields

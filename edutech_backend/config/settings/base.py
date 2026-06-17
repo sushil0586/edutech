@@ -1,6 +1,7 @@
 from datetime import timedelta
 from pathlib import Path
 
+from django.core.exceptions import ImproperlyConfigured
 from decouple import Csv, config
 
 
@@ -11,6 +12,8 @@ SECRET_KEY = config(
     default="change-me-change-me-change-me-change-me",
 )
 DEBUG = config("DJANGO_DEBUG", cast=bool, default=False)
+if not DEBUG and SECRET_KEY == "change-me-change-me-change-me-change-me":
+    raise ImproperlyConfigured("DJANGO_SECRET_KEY must be set when DJANGO_DEBUG is false.")
 APP_VERSION = config("APP_VERSION", default="1.0.0")
 APP_BUILD = config("APP_BUILD", default="local")
 ALLOWED_HOSTS = config("DJANGO_ALLOWED_HOSTS", cast=Csv(), default="127.0.0.1,localhost")
@@ -133,7 +136,10 @@ REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {
     "login": config("THROTTLE_LOGIN", default="10/minute"),
     "registration": config("THROTTLE_REGISTRATION", default="20/hour"),
     "attempt_save_answer": config("THROTTLE_ATTEMPT_SAVE", default="120/minute"),
+    "attempt_lifecycle": config("THROTTLE_ATTEMPT_LIFECYCLE", default="30/minute"),
     "bulk_import": config("THROTTLE_BULK_IMPORT", default="10/hour"),
+    "token_refresh": config("THROTTLE_TOKEN_REFRESH", default="60/hour"),
+    "admin_provision": config("THROTTLE_ADMIN_PROVISION", default="30/hour"),
 }
 
 SIMPLE_JWT = {
@@ -156,6 +162,26 @@ SPECTACULAR_SETTINGS = {
 CORS_ALLOW_ALL_ORIGINS = config("CORS_ALLOW_ALL_ORIGINS", cast=bool, default=False)
 CORS_ALLOWED_ORIGINS = config("CORS_ALLOWED_ORIGINS", cast=Csv(), default="")
 CSRF_TRUSTED_ORIGINS = config("CSRF_TRUSTED_ORIGINS", cast=Csv(), default="")
+USE_X_FORWARDED_HOST = config("USE_X_FORWARDED_HOST", cast=bool, default=False)
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SECURE_SSL_REDIRECT = config("SECURE_SSL_REDIRECT", cast=bool, default=not DEBUG)
+SECURE_HSTS_SECONDS = config("SECURE_HSTS_SECONDS", cast=int, default=31536000 if not DEBUG else 0)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = config(
+    "SECURE_HSTS_INCLUDE_SUBDOMAINS",
+    cast=bool,
+    default=not DEBUG,
+)
+SECURE_HSTS_PRELOAD = config("SECURE_HSTS_PRELOAD", cast=bool, default=not DEBUG)
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = "DENY"
+SECURE_REFERRER_POLICY = config(
+    "SECURE_REFERRER_POLICY",
+    default="strict-origin-when-cross-origin",
+)
+SESSION_COOKIE_SECURE = config("SESSION_COOKIE_SECURE", cast=bool, default=not DEBUG)
+SESSION_COOKIE_SAMESITE = config("SESSION_COOKIE_SAMESITE", default="Lax")
+CSRF_COOKIE_SECURE = config("CSRF_COOKIE_SECURE", cast=bool, default=not DEBUG)
+CSRF_COOKIE_SAMESITE = config("CSRF_COOKIE_SAMESITE", default="Lax")
 
 LOGGING = {
     "version": 1,

@@ -64,6 +64,9 @@ class ExamResult(BaseModel):
         ]
         indexes = [
             models.Index(fields=["institute", "exam", "student"]),
+            models.Index(fields=["exam", "is_active", "final_score", "time_taken_seconds", "created_at"]),
+            models.Index(fields=["student", "is_active", "published_at", "created_at"]),
+            models.Index(fields=["student", "is_published", "is_active"]),
             models.Index(fields=["result_status", "is_published"]),
             models.Index(fields=["rank", "final_score", "percentage"]),
             models.Index(fields=["published_at"]),
@@ -136,6 +139,8 @@ class StudentTopicPerformance(BaseModel):
         ]
         indexes = [
             models.Index(fields=["institute", "exam", "student"]),
+            models.Index(fields=["exam", "student", "is_active"]),
+            models.Index(fields=["student", "is_active", "subject", "topic"]),
             models.Index(fields=["subject", "topic"]),
             models.Index(fields=["percentage"]),
         ]

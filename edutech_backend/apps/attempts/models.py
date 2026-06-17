@@ -68,6 +68,9 @@ class StudentExamAttempt(BaseModel):
         indexes = [
             models.Index(fields=["institute", "exam", "student"]),
             models.Index(fields=["status", "is_active"]),
+            models.Index(fields=["exam", "status", "is_active"]),
+            models.Index(fields=["student", "is_active", "started_at"]),
+            models.Index(fields=["exam", "student", "status", "is_active", "attempt_no", "created_at"]),
             models.Index(fields=["started_at", "submitted_at"]),
             models.Index(fields=["final_score", "percentage"]),
         ]
@@ -143,6 +146,7 @@ class AttemptIntegrityEvent(BaseModel):
         ordering = ["-event_at", "-created_at"]
         indexes = [
             models.Index(fields=["attempt", "event_type", "event_at"]),
+            models.Index(fields=["attempt", "counts_as_violation", "event_at"]),
             models.Index(fields=["exam", "student", "event_at"]),
             models.Index(fields=["severity", "counts_as_violation"]),
         ]
@@ -206,6 +210,7 @@ class StudentAnswer(BaseModel):
         indexes = [
             models.Index(fields=["attempt", "question"]),
             models.Index(fields=["attempt", "is_active"]),
+            models.Index(fields=["question", "is_active", "answered_at", "created_at"]),
         ]
 
     def clean(self):

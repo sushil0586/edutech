@@ -30,6 +30,7 @@ from apps.exams.serializers import (
     AdvancedExamTemplateSerializer,
     ExamActionSerializer,
     ExamEconomyPolicyUpdateSerializer,
+    ExamListSerializer,
     ExamPublishLogSerializer,
     ExamQuestionSerializer,
     ExamReadSerializer,
@@ -40,6 +41,7 @@ from apps.exams.serializers import (
     ExamWriteSerializer,
 )
 from apps.exams.services import (
+    EXAM_CONTENT_TYPE,
     create_advanced_exam_from_blueprint,
     cancel_exam,
     default_exam_source_for_profile,
@@ -77,32 +79,100 @@ class ExamViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
     ordering = ["-start_at", "-created_at"]
 
     def get_queryset(self):
-        queryset = (
-            Exam.objects.select_related(
-                "institute",
-                "academic_year",
-                "program",
-                "cohort",
-                "subject",
-                "source_teacher",
+        queryset = Exam.objects.select_related(
+            "institute",
+            "academic_year",
+            "program",
+            "cohort",
+            "subject",
+            "source_teacher",
+        )
+        if self.action == "list":
+            queryset = queryset.annotate(
+                assigned_student_count=models.Count(
+                    "student_assignments",
+                    filter=models.Q(student_assignments__is_active=True),
+                    distinct=True,
+                ),
+                active_questions_count=models.Count(
+                    "exam_questions",
+                    filter=models.Q(exam_questions__is_active=True),
+                    distinct=True,
+                ),
             )
-            .prefetch_related(
+        else:
+            queryset = queryset.prefetch_related(
                 "sections",
                 "student_assignments__student__cohort",
                 "exam_questions__question",
                 "exam_questions__section",
                 "publish_logs__changed_by",
             )
-            .all()
-        )
         return scope_exam_queryset(queryset, self.request.user)
 
     def get_serializer_class(self):
-        if self.action in {"list", "retrieve"}:
+        if self.action == "list":
+            return ExamListSerializer
+        if self.action == "retrieve":
             return ExamReadSerializer
         if self.action == "sync_marks":
             return ExamSyncMarksResponseSerializer
         return ExamWriteSerializer
+
+    def _hydrate_economy_policies(self, exams):
+        if not exams:
+            return
+
+        from apps.economy.models import ContentAccessPolicy
+
+        institute_ids = {exam.institute_id for exam in exams if exam.institute_id}
+        content_keys = {str(exam.id) for exam in exams}
+        if not institute_ids or not content_keys:
+            return
+
+        policies = list(
+            ContentAccessPolicy.objects.filter(
+                institute_id__in=institute_ids,
+                content_type=EXAM_CONTENT_TYPE,
+                content_key__in=content_keys,
+                is_active=True,
+            )
+            .select_related("subject")
+            .order_by("priority", "created_at")
+        )
+
+        policy_by_target = {}
+        for policy in policies:
+            target_key = (policy.institute_id, policy.content_key)
+            current = policy_by_target.get(target_key)
+            if current is None:
+                policy_by_target[target_key] = {"subjects": {}, "fallback": None}
+                current = policy_by_target[target_key]
+            if policy.subject_id is not None:
+                current["subjects"].setdefault(policy.subject_id, policy)
+            elif policy.subject_id is None and current["fallback"] is None:
+                current["fallback"] = policy
+
+        for exam in exams:
+            resolved = policy_by_target.get((exam.institute_id, str(exam.id)))
+            if resolved is None:
+                exam._resolved_access_policy = None
+                continue
+            subject_policy = resolved["subjects"].get(exam.subject_id)
+            fallback_policy = resolved["fallback"]
+            exam._resolved_access_policy = subject_policy if subject_policy is not None else fallback_policy
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            self._hydrate_economy_policies(page)
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        self._hydrate_economy_policies(queryset)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
     def _resolve_changed_by(self, serializer):
         changed_by = serializer.validated_data.get("changed_by")

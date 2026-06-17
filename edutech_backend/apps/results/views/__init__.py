@@ -26,6 +26,7 @@ from apps.students.models import StudentProfile
 from apps.results.serializers import (
     ExamLeaderboardSerializer,
     ExamPerformanceSummarySerializer,
+    ExamResultListSerializer,
     ExamResultSerializer,
     GenerateForExamSerializer,
     LiveExamMonitorSerializer,
@@ -46,6 +47,7 @@ from apps.results.services import (
     calculate_student_topic_performance,
     generate_result_from_attempt,
     generate_results_for_exam,
+    hydrate_teacher_attempt_monitor_payloads,
     publish_exam_results,
 )
 from apps.reports.services import create_audit_log
@@ -72,8 +74,20 @@ class ExamResultViewSet(ModelViewSet):
         return [IsAuthenticated(), CanViewAnalytics()]
 
     def get_queryset(self):
-        queryset = ExamResult.objects.select_related("institute", "exam", "student", "attempt").all()
+        queryset = ExamResult.objects.select_related(
+            "institute",
+            "exam",
+            "exam__institute",
+            "exam__source_teacher",
+            "student",
+            "attempt",
+        )
         return scope_result_queryset(queryset, self.request.user)
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return ExamResultListSerializer
+        return super().get_serializer_class()
 
     @action(detail=False, methods=["post"], url_path="generate-from-attempt")
     def generate_from_attempt(self, request):
@@ -211,7 +225,7 @@ class ExamResultViewSet(ModelViewSet):
         queryset = self.get_queryset().filter(student_id=student_id, is_active=True).order_by(
             "-published_at", "-created_at"
         )
-        return Response(ExamResultSerializer(queryset, many=True).data, status=status.HTTP_200_OK)
+        return Response(ExamResultListSerializer(queryset, many=True).data, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=["get"], url_path=r"exam/(?P<exam_id>[^/.]+)/attempts")
     def exam_attempts(self, request, exam_id=None):
@@ -219,8 +233,9 @@ class ExamResultViewSet(ModelViewSet):
             StudentExamAttempt.objects.select_related("exam", "student", "institute"),
             request.user,
         ).filter(exam_id=exam_id, is_active=True)
+        attempts = hydrate_teacher_attempt_monitor_payloads(queryset.order_by("-started_at"))
         return Response(
-            TeacherExamAttemptSerializer(queryset.order_by("-started_at"), many=True).data,
+            TeacherExamAttemptSerializer(attempts, many=True).data,
             status=status.HTTP_200_OK,
         )
 
@@ -405,7 +420,7 @@ class ExamResultViewSet(ModelViewSet):
             else 0.0
         )
 
-        attempt_rows = list(attempt_queryset)
+        attempt_rows = hydrate_teacher_attempt_monitor_payloads(list(attempt_queryset))
         alerted_attempts = 0
         stalled_attempts = 0
         high_alert_attempts = 0

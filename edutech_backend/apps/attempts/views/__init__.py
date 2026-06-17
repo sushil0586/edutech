@@ -42,7 +42,7 @@ from apps.attempts.services import (
     switch_section,
 )
 from apps.reports.services import create_audit_log
-from common.throttles import AttemptSaveAnswerRateThrottle
+from common.throttles import AttemptLifecycleRateThrottle, AttemptSaveAnswerRateThrottle
 from common.responses import action_response
 
 
@@ -68,6 +68,8 @@ class StudentExamAttemptViewSet(ReadOnlyModelViewSet):
     def get_throttles(self):
         if self.action == "save_answer_action":
             return [AttemptSaveAnswerRateThrottle()]
+        if self.action in {"start", "submit", "integrity_event_action"}:
+            return [AttemptLifecycleRateThrottle()]
         return super().get_throttles()
 
     def get_queryset(self):

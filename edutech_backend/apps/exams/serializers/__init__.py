@@ -773,6 +773,147 @@ class ExamReadSerializer(serializers.ModelSerializer):
         return resolve_exam_result_visibility_policy(obj)["rank_freeze_policy"]
 
 
+class ExamListSerializer(serializers.ModelSerializer):
+    program_name = serializers.CharField(source="program.name", read_only=True)
+    cohort_name = serializers.CharField(source="cohort.name", read_only=True)
+    subject_name = serializers.CharField(source="subject.name", read_only=True)
+    assigned_student_count = serializers.SerializerMethodField()
+    active_questions_count = serializers.SerializerMethodField()
+    security_policy = serializers.SerializerMethodField()
+    economy_policy = serializers.SerializerMethodField()
+    source_label = serializers.SerializerMethodField()
+    source_name = serializers.SerializerMethodField()
+    source_teacher_name = serializers.CharField(source="source_teacher.full_name", read_only=True)
+    rank_visibility_mode = serializers.SerializerMethodField()
+    percentile_visibility_mode = serializers.SerializerMethodField()
+    benchmark_visibility_mode = serializers.SerializerMethodField()
+    rank_freeze_policy = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Exam
+        fields = (
+            "id",
+            "institute",
+            "academic_year",
+            "program",
+            "program_name",
+            "cohort",
+            "cohort_name",
+            "subject",
+            "subject_name",
+            "title",
+            "code",
+            "description",
+            "exam_type",
+            "delivery_mode",
+            "status",
+            "duration_minutes",
+            "total_marks",
+            "passing_marks",
+            "start_at",
+            "end_at",
+            "instructions",
+            "allow_late_submit",
+            "randomize_questions",
+            "randomize_options",
+            "show_result_immediately",
+            "allow_review_after_submit",
+            "max_attempts",
+            "timer_mode",
+            "navigation_mode",
+            "attempt_policy",
+            "result_publish_mode",
+            "review_mode",
+            "security_mode",
+            "access_key",
+            "access_key_enabled",
+            "source_type",
+            "source_label",
+            "source_name",
+            "source_teacher_name",
+            "assignment_mode",
+            "allow_resume",
+            "allow_section_switching",
+            "allow_return_to_previous_section",
+            "result_publish_at",
+            "review_available_from",
+            "review_available_until",
+            "rank_visibility_mode",
+            "percentile_visibility_mode",
+            "benchmark_visibility_mode",
+            "rank_freeze_policy",
+            "metadata",
+            "assigned_student_count",
+            "active_questions_count",
+            "security_policy",
+            "economy_policy",
+            "is_active",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = fields
+
+    def get_active_questions_count(self, obj):
+        annotated = getattr(obj, "active_questions_count", None)
+        if annotated is not None:
+            return annotated
+        return obj.exam_questions.filter(is_active=True).count()
+
+    def get_assigned_student_count(self, obj):
+        annotated = getattr(obj, "assigned_student_count", None)
+        if annotated is not None:
+            return annotated
+        return obj.student_assignments.filter(is_active=True).count()
+
+    def get_security_policy(self, obj):
+        return resolve_security_policy(obj)
+
+    def _serialize_economy_policy(self, policy):
+        return ExamEconomyPolicySerializer(
+            {
+                "id": policy.id,
+                "content_type": policy.content_type,
+                "content_key": policy.content_key,
+                "content_label": policy.content_label,
+                "policy_type": policy.policy_type,
+                "star_cost": int(policy.star_cost or 0),
+                "entitlement_code": policy.entitlement_code,
+                "priority": policy.priority,
+                "subject": policy.subject_id,
+                "subject_name": getattr(policy.subject, "name", None),
+                "is_active": policy.is_active,
+                "created_at": policy.created_at,
+                "updated_at": policy.updated_at,
+            }
+        ).data
+
+    def get_economy_policy(self, obj):
+        policy = getattr(obj, "_resolved_access_policy", None)
+        if policy is None:
+            policy = get_exam_access_policy(obj)
+        if policy is None:
+            return None
+        return self._serialize_economy_policy(policy)
+
+    def get_source_label(self, obj):
+        return resolve_exam_source_metadata(obj)["source_label"]
+
+    def get_source_name(self, obj):
+        return resolve_exam_source_metadata(obj)["source_name"]
+
+    def get_rank_visibility_mode(self, obj):
+        return resolve_exam_result_visibility_policy(obj)["rank_visibility_mode"]
+
+    def get_percentile_visibility_mode(self, obj):
+        return resolve_exam_result_visibility_policy(obj)["percentile_visibility_mode"]
+
+    def get_benchmark_visibility_mode(self, obj):
+        return resolve_exam_result_visibility_policy(obj)["benchmark_visibility_mode"]
+
+    def get_rank_freeze_policy(self, obj):
+        return resolve_exam_result_visibility_policy(obj)["rank_freeze_policy"]
+
+
 class StudentExamQuestionOptionSerializer(serializers.ModelSerializer):
     class Meta:
         model = QuestionOption

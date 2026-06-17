@@ -209,6 +209,80 @@ class QuestionSerializer(serializers.ModelSerializer):
             question.options.filter(id__in=stale_option_ids).update(is_active=False)
 
 
+class QuestionListSerializer(serializers.ModelSerializer):
+    usage_count = serializers.IntegerField(read_only=True, default=0)
+    correct_count = serializers.IntegerField(read_only=True, default=0)
+    wrong_count = serializers.IntegerField(read_only=True, default=0)
+    skipped_count = serializers.IntegerField(read_only=True, default=0)
+    option_count = serializers.IntegerField(read_only=True, default=0)
+    correct_option_count = serializers.IntegerField(read_only=True, default=0)
+    attachment_count = serializers.IntegerField(read_only=True, default=0)
+    tag_count = serializers.IntegerField(read_only=True, default=0)
+    has_explanation = serializers.SerializerMethodField()
+    wrong_attempt_percentage = serializers.SerializerMethodField()
+    skip_percentage = serializers.SerializerMethodField()
+    is_quality_ready = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Question
+        fields = (
+            "id",
+            "institute",
+            "program",
+            "subject",
+            "topic",
+            "question_type",
+            "difficulty_level",
+            "content_format",
+            "question_text",
+            "explanation",
+            "default_marks",
+            "negative_marks",
+            "is_active",
+            "is_verified",
+            "metadata",
+            "usage_count",
+            "correct_count",
+            "wrong_count",
+            "skipped_count",
+            "option_count",
+            "correct_option_count",
+            "attachment_count",
+            "tag_count",
+            "has_explanation",
+            "wrong_attempt_percentage",
+            "skip_percentage",
+            "is_quality_ready",
+        )
+        read_only_fields = fields
+
+    def get_has_explanation(self, obj):
+        return bool((obj.explanation or "").strip())
+
+    def get_wrong_attempt_percentage(self, obj):
+        usage = getattr(obj, "usage_count", 0) or 0
+        if not usage:
+            return "0.00"
+        return f"{(getattr(obj, 'wrong_count', 0) / usage) * 100:.2f}"
+
+    def get_skip_percentage(self, obj):
+        usage = getattr(obj, "usage_count", 0) or 0
+        if not usage:
+            return "0.00"
+        return f"{(getattr(obj, 'skipped_count', 0) / usage) * 100:.2f}"
+
+    def get_is_quality_ready(self, obj):
+        has_explanation = self.get_has_explanation(obj)
+        correct_option_count = getattr(obj, "correct_option_count", 0) or 0
+        option_count = getattr(obj, "option_count", 0) or 0
+
+        if obj.question_type == "short_answer":
+            return has_explanation
+        if obj.question_type == "true_false":
+            return has_explanation and correct_option_count > 0 and option_count == 2
+        return has_explanation and correct_option_count > 0 and option_count >= 2
+
+
 class QuestionImportPreviewRowSerializer(serializers.Serializer):
     row_number = serializers.IntegerField()
     status = serializers.CharField()

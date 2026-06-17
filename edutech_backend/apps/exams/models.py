@@ -213,6 +213,8 @@ class Exam(BaseModel):
             models.Index(fields=["institute", "academic_year"]),
             models.Index(fields=["program", "cohort", "subject"]),
             models.Index(fields=["exam_type", "delivery_mode", "status"]),
+            models.Index(fields=["institute", "source_type", "source_teacher"]),
+            models.Index(fields=["access_key", "access_key_enabled", "is_active"]),
             models.Index(fields=["source_type"]),
             models.Index(fields=["source_teacher"]),
             models.Index(fields=["start_at", "end_at"]),
@@ -531,6 +533,7 @@ class ExamStudentAssignment(BaseModel):
         ]
         indexes = [
             models.Index(fields=["exam", "student"]),
+            models.Index(fields=["exam", "is_active", "student"]),
             models.Index(fields=["student", "is_active"]),
         ]
 

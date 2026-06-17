@@ -5,6 +5,8 @@ from decimal import Decimal
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Count, F, Window
+from django.db.models.functions import RowNumber
 from django.utils import timezone
 
 from apps.attempts.models import (
@@ -378,15 +380,7 @@ def _delivery_snapshot(attempt):
     return delivery_snapshot if isinstance(delivery_snapshot, dict) else {}
 
 
-def attempt_integrity_summary(attempt):
-    policy = resolve_attempt_security_policy(attempt)
-    events = list(
-        attempt.integrity_events.filter(is_active=True).order_by("-event_at", "-created_at")[:5]
-    )
-    violation_count = attempt.integrity_events.filter(
-        is_active=True,
-        counts_as_violation=True,
-    ).count()
+def _serialize_integrity_summary(*, violation_count, policy, events):
     violation_limit = policy.get("violation_limit")
     remaining_before_action = None
     threshold_reached = False
@@ -422,6 +416,77 @@ def attempt_integrity_summary(attempt):
             for event in events
         ],
     }
+
+
+def hydrate_attempt_integrity_summaries(attempts):
+    attempts = list(attempts)
+    if not attempts:
+        return attempts
+
+    attempt_ids = [attempt.id for attempt in attempts]
+    violation_counts = {
+        row["attempt_id"]: row["violation_count"]
+        for row in AttemptIntegrityEvent.objects.filter(
+            attempt_id__in=attempt_ids,
+            is_active=True,
+            counts_as_violation=True,
+        )
+        .values("attempt_id")
+        .annotate(violation_count=Count("id"))
+    }
+    recent_events = (
+        AttemptIntegrityEvent.objects.filter(
+            attempt_id__in=attempt_ids,
+            is_active=True,
+        )
+        .annotate(
+            event_rank=Window(
+                expression=RowNumber(),
+                partition_by=[F("attempt_id")],
+                order_by=[F("event_at").desc(), F("created_at").desc()],
+            )
+        )
+        .filter(event_rank__lte=5)
+        .order_by("attempt_id", "-event_at", "-created_at")
+    )
+
+    events_by_attempt = {}
+    for event in recent_events:
+        events_by_attempt.setdefault(event.attempt_id, []).append(event)
+
+    for attempt in attempts:
+        if hasattr(attempt, "_integrity_summary_cache"):
+            continue
+        policy = resolve_attempt_security_policy(attempt)
+        attempt._integrity_summary_cache = _serialize_integrity_summary(
+            violation_count=violation_counts.get(attempt.id, 0),
+            policy=policy,
+            events=events_by_attempt.get(attempt.id, []),
+        )
+
+    return attempts
+
+
+def attempt_integrity_summary(attempt):
+    cached = getattr(attempt, "_integrity_summary_cache", None)
+    if cached is not None:
+        return cached
+
+    policy = resolve_attempt_security_policy(attempt)
+    events = list(
+        attempt.integrity_events.filter(is_active=True).order_by("-event_at", "-created_at")[:5]
+    )
+    violation_count = attempt.integrity_events.filter(
+        is_active=True,
+        counts_as_violation=True,
+    ).count()
+    summary = _serialize_integrity_summary(
+        violation_count=violation_count,
+        policy=policy,
+        events=events,
+    )
+    attempt._integrity_summary_cache = summary
+    return summary
 
 
 @transaction.atomic

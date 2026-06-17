@@ -7,11 +7,17 @@ from apps.accounts.scopes import scope_teacher_queryset
 from apps.academics.models import AcademicYear, Cohort, OptionCatalogEntry, Program, Subject, Topic
 from apps.academics.serializers import (
     AcademicYearSerializer,
+    AcademicYearListSerializer,
     CohortSerializer,
+    CohortListSerializer,
     OptionCatalogEntrySerializer,
+    OptionCatalogEntryListSerializer,
     ProgramSerializer,
+    ProgramListSerializer,
     SubjectSerializer,
+    SubjectListSerializer,
     TopicSerializer,
+    TopicListSerializer,
 )
 from common.viewsets import SoftDeleteModelViewSetMixin
 
@@ -29,8 +35,23 @@ class AcademicYearViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
             return [IsAuthenticated(), CanViewAcademics()]
         return [IsAuthenticated(), CanManageAcademics()]
 
+    def get_serializer_class(self):
+        if self.action == "list":
+            return AcademicYearListSerializer
+        return super().get_serializer_class()
+
     def get_queryset(self):
-        queryset = AcademicYear.objects.select_related("institute").all()
+        queryset = AcademicYear.objects.select_related("institute")
+        if self.action == "list":
+            queryset = queryset.only(
+                "id",
+                "institute_id",
+                "name",
+                "start_date",
+                "end_date",
+                "is_current",
+                "is_active",
+            )
         return scope_teacher_queryset(queryset, self.request.user)
 
 
@@ -47,8 +68,23 @@ class ProgramViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
             return [IsAuthenticated(), CanViewAcademics()]
         return [IsAuthenticated(), CanManageAcademics()]
 
+    def get_serializer_class(self):
+        if self.action == "list":
+            return ProgramListSerializer
+        return super().get_serializer_class()
+
     def get_queryset(self):
-        queryset = Program.objects.select_related("institute").all()
+        queryset = Program.objects.select_related("institute")
+        if self.action == "list":
+            queryset = queryset.only(
+                "id",
+                "institute_id",
+                "name",
+                "code",
+                "category",
+                "sort_order",
+                "is_active",
+            )
         return scope_teacher_queryset(queryset, self.request.user)
 
 
@@ -65,8 +101,24 @@ class CohortViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
             return [IsAuthenticated(), CanViewAcademics()]
         return [IsAuthenticated(), CanManageAcademics()]
 
+    def get_serializer_class(self):
+        if self.action == "list":
+            return CohortListSerializer
+        return super().get_serializer_class()
+
     def get_queryset(self):
-        queryset = Cohort.objects.select_related("institute", "program", "academic_year").all()
+        queryset = Cohort.objects.select_related("institute", "program", "academic_year")
+        if self.action == "list":
+            queryset = queryset.only(
+                "id",
+                "institute_id",
+                "program_id",
+                "academic_year_id",
+                "name",
+                "code",
+                "capacity",
+                "is_active",
+            )
         return scope_teacher_queryset(queryset, self.request.user)
 
 
@@ -83,8 +135,23 @@ class SubjectViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
             return [IsAuthenticated(), CanViewAcademics()]
         return [IsAuthenticated(), CanManageAcademics()]
 
+    def get_serializer_class(self):
+        if self.action == "list":
+            return SubjectListSerializer
+        return super().get_serializer_class()
+
     def get_queryset(self):
-        queryset = Subject.objects.select_related("institute", "program").all()
+        queryset = Subject.objects.select_related("institute", "program")
+        if self.action == "list":
+            queryset = queryset.only(
+                "id",
+                "institute_id",
+                "program_id",
+                "name",
+                "code",
+                "sort_order",
+                "is_active",
+            )
         return scope_teacher_queryset(queryset, self.request.user)
 
 
@@ -101,8 +168,25 @@ class TopicViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
             return [IsAuthenticated(), CanViewAcademics()]
         return [IsAuthenticated(), CanManageAcademics()]
 
+    def get_serializer_class(self):
+        if self.action == "list":
+            return TopicListSerializer
+        return super().get_serializer_class()
+
     def get_queryset(self):
-        queryset = Topic.objects.select_related("institute", "subject", "parent_topic").all()
+        queryset = Topic.objects.select_related("institute", "subject", "parent_topic")
+        if self.action == "list":
+            queryset = queryset.only(
+                "id",
+                "institute_id",
+                "subject_id",
+                "parent_topic_id",
+                "name",
+                "code",
+                "difficulty_level",
+                "sort_order",
+                "is_active",
+            )
         return scope_teacher_queryset(queryset, self.request.user)
 
 
@@ -119,5 +203,25 @@ class OptionCatalogEntryViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
             return [IsAuthenticated(), CanViewAcademics()]
         return [IsAuthenticated(), CanManageAcademics()]
 
+    def get_serializer_class(self):
+        if self.action == "list":
+            return OptionCatalogEntryListSerializer
+        return super().get_serializer_class()
+
     def get_queryset(self):
-        return OptionCatalogEntry.objects.all()
+        queryset = OptionCatalogEntry.objects.all()
+        if self.action == "list":
+            queryset = queryset.only(
+                "id",
+                "namespace",
+                "code",
+                "label",
+                "description",
+                "sort_order",
+                "is_default",
+                "metadata",
+                "is_active",
+                "created_at",
+                "updated_at",
+            )
+        return queryset

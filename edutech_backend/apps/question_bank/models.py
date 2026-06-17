@@ -266,6 +266,7 @@ class Question(BaseModel):
         ordering = ["-created_at"]
         indexes = [
             models.Index(fields=["institute", "subject"]),
+            models.Index(fields=["institute", "is_active", "subject", "topic"]),
             models.Index(fields=["program", "topic"]),
             models.Index(fields=["question_type", "difficulty_level"]),
             models.Index(fields=["is_verified", "is_active"]),

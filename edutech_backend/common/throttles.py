@@ -30,5 +30,17 @@ class AttemptSaveAnswerRateThrottle(_UserOrIpThrottle):
     scope = "attempt_save_answer"
 
 
+class AttemptLifecycleRateThrottle(_UserOrIpThrottle):
+    scope = "attempt_lifecycle"
+
+
 class BulkImportRateThrottle(_UserOrIpThrottle):
     scope = "bulk_import"
+
+
+class TokenRefreshRateThrottle(_UserOrIpThrottle):
+    scope = "token_refresh"
+
+
+class AdminProvisionRateThrottle(_UserOrIpThrottle):
+    scope = "admin_provision"

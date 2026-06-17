@@ -21,8 +21,13 @@ from apps.accounts.services import (
 from apps.institutes.models import Institute
 from apps.reports.services import create_audit_log
 from apps.teachers.models import TeacherAssignment, TeacherProfile
-from apps.teachers.serializers import TeacherAssignmentSerializer, TeacherProfileSerializer
+from apps.teachers.serializers import (
+    TeacherAssignmentSerializer,
+    TeacherProfileListSerializer,
+    TeacherProfileSerializer,
+)
 from common.viewsets import SoftDeleteModelViewSetMixin
+from common.throttles import BulkImportRateThrottle
 
 
 import_logger = logging.getLogger("nexora.imports")
@@ -45,18 +50,47 @@ class TeacherProfileViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
     ordering_fields = ["full_name", "employee_code", "joined_at", "created_at"]
     ordering = ["full_name"]
 
+    def get_serializer_class(self):
+        if self.action == "list":
+            return TeacherProfileListSerializer
+        return super().get_serializer_class()
+
     def get_queryset(self):
         queryset = TeacherProfile.objects.select_related(
             "institute",
             "account_profile",
             "account_profile__user",
-        ).all()
+        )
+        if self.action == "list":
+            queryset = queryset.only(
+                "id",
+                "institute_id",
+                "employee_code",
+                "first_name",
+                "last_name",
+                "full_name",
+                "email",
+                "phone",
+                "qualification",
+                "specialization",
+                "bio",
+                "joined_at",
+                "is_active",
+                "account_profile__user__id",
+                "account_profile__user__username",
+                "account_profile__user__is_active",
+            )
         return scope_teacher_queryset(queryset, self.request.user)
 
     def get_permissions(self):
         if self.action in {"import_template", "preview_import", "finalize_import"}:
             return [IsAuthenticated(), IsPlatformOrInstituteAdmin()]
         return super().get_permissions()
+
+    def get_throttles(self):
+        if self.action in {"preview_import", "finalize_import"}:
+            return [BulkImportRateThrottle()]
+        return super().get_throttles()
 
     @action(detail=False, methods=["get"], url_path="import-template")
     def import_template(self, request):

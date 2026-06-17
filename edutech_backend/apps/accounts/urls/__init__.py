@@ -1,5 +1,4 @@
 from django.urls import path
-from rest_framework_simplejwt.views import TokenRefreshView
 
 from apps.accounts.views import (
     LoginView,
@@ -7,6 +6,7 @@ from apps.accounts.views import (
     OnboardingProfileView,
     PublicRegisterView,
     PublicRegistrationOptionsView,
+    RefreshSessionView,
     StudentAttemptListView,
     StudentAvailableExamView,
     StudentExamAccessKeyResolveView,
@@ -26,7 +26,7 @@ urlpatterns = [
     path("auth/login/", LoginView.as_view(), name="login"),
     path("auth/register/", PublicRegisterView.as_view(), name="register"),
     path("auth/register/options/", PublicRegistrationOptionsView.as_view(), name="register-options"),
-    path("auth/refresh/", TokenRefreshView.as_view(), name="refresh"),
+    path("auth/refresh/", RefreshSessionView.as_view(), name="refresh"),
     path("auth/me/", MeView.as_view(), name="me"),
     path("onboarding/profile/", OnboardingProfileView.as_view(), name="onboarding-profile"),
     path("student/exams/available/", StudentAvailableExamView.as_view(), name="student-available-exams"),

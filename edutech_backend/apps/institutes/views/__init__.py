@@ -4,7 +4,7 @@ from rest_framework.viewsets import ModelViewSet
 from apps.accounts.permissions import CanManageAcademics
 from apps.accounts.scopes import get_account_profile
 from apps.institutes.models import Institute
-from apps.institutes.serializers import InstituteSerializer
+from apps.institutes.serializers import InstituteListSerializer, InstituteSerializer
 from common.viewsets import SoftDeleteModelViewSetMixin
 
 
@@ -17,8 +17,25 @@ class InstituteViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
     ordering = ["name"]
     archive_message = "Institute archived successfully."
 
+    def get_serializer_class(self):
+        if self.action == "list":
+            return InstituteListSerializer
+        return super().get_serializer_class()
+
     def get_queryset(self):
         queryset = Institute.objects.all()
+        if self.action == "list":
+            queryset = queryset.only(
+                "id",
+                "name",
+                "code",
+                "email",
+                "phone",
+                "city",
+                "state",
+                "country",
+                "is_active",
+            )
         profile = get_account_profile(self.request.user)
         if profile is None or not profile.is_active:
             return queryset.none()

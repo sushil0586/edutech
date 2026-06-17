@@ -27,6 +27,7 @@ from apps.question_bank.serializers import (
     QuestionImportFinalizeSerializer,
     QuestionImportPreviewResponseSerializer,
     QuestionImportTemplateSerializer,
+    QuestionListSerializer,
     QuestionOptionSerializer,
     QuestionSerializer,
     QuestionTagMapSerializer,
@@ -65,6 +66,17 @@ class QuestionViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
         "skipped_count",
     ]
     ordering = ["-created_at"]
+
+    def _is_compact_list_request(self):
+        if self.action != "list":
+            return False
+        compact = str(self.request.query_params.get("compact", "") or "").strip().lower()
+        return compact in {"1", "true", "yes"}
+
+    def get_serializer_class(self):
+        if self._is_compact_list_request():
+            return QuestionListSerializer
+        return super().get_serializer_class()
 
     def perform_create(self, serializer):
         question = serializer.save()
@@ -109,50 +121,74 @@ class QuestionViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
         instance.save(update_fields=["is_active", "updated_at"])
 
     def get_queryset(self):
-        queryset = (
-            Question.objects.select_related(
-                "institute",
-                "program",
-                "subject",
-                "topic",
-                "created_by_teacher",
+        queryset = Question.objects.select_related(
+            "institute",
+            "program",
+            "subject",
+            "topic",
+            "created_by_teacher",
+        ).annotate(
+            usage_count=Count("student_answers", filter=Q(student_answers__is_active=True), distinct=True),
+            correct_count=Count(
+                "student_answers",
+                filter=Q(
+                    student_answers__is_active=True,
+                    student_answers__selected_option__isnull=False,
+                    student_answers__is_correct=True,
+                ),
+                distinct=True,
+            ),
+            wrong_count=Count(
+                "student_answers",
+                filter=Q(
+                    student_answers__is_active=True,
+                    student_answers__selected_option__isnull=False,
+                    student_answers__is_correct=False,
+                ),
+                distinct=True,
+            ),
+            skipped_count=Count(
+                "student_answers",
+                filter=Q(
+                    student_answers__is_active=True,
+                    student_answers__selected_option__isnull=True,
+                ),
+                distinct=True,
+            ),
+            option_count=Count("options", filter=Q(options__is_active=True), distinct=True),
+            correct_option_count=Count(
+                "options",
+                filter=Q(options__is_active=True, options__is_correct=True),
+                distinct=True,
+            ),
+            attachment_count=Count("attachments", filter=Q(attachments__is_active=True), distinct=True),
+            tag_count=Count("tag_maps", filter=Q(tag_maps__is_active=True), distinct=True),
+        )
+        if self._is_compact_list_request():
+            queryset = queryset.only(
+                "id",
+                "institute_id",
+                "program_id",
+                "subject_id",
+                "topic_id",
+                "question_type",
+                "difficulty_level",
+                "content_format",
+                "question_text",
+                "explanation",
+                "default_marks",
+                "negative_marks",
+                "is_active",
+                "is_verified",
+                "metadata",
             )
-            .prefetch_related(
+        else:
+            queryset = queryset.prefetch_related(
                 Prefetch("options", queryset=QuestionOption.objects.filter(is_active=True).order_by("option_order")),
                 "attachments",
                 "tag_maps__tag",
             )
-            .annotate(
-                usage_count=Count("student_answers", filter=Q(student_answers__is_active=True), distinct=True),
-                correct_count=Count(
-                    "student_answers",
-                    filter=Q(
-                        student_answers__is_active=True,
-                        student_answers__selected_option__isnull=False,
-                        student_answers__is_correct=True,
-                    ),
-                    distinct=True,
-                ),
-                wrong_count=Count(
-                    "student_answers",
-                    filter=Q(
-                        student_answers__is_active=True,
-                        student_answers__selected_option__isnull=False,
-                        student_answers__is_correct=False,
-                    ),
-                    distinct=True,
-                ),
-                skipped_count=Count(
-                    "student_answers",
-                    filter=Q(
-                        student_answers__is_active=True,
-                        student_answers__selected_option__isnull=True,
-                    ),
-                    distinct=True,
-                ),
-            )
-            .distinct()
-        )
+        queryset = queryset.distinct()
         return scope_question_queryset(queryset, self.request.user)
 
     @action(detail=False, methods=["get"], url_path="import-template")
