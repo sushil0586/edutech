@@ -170,7 +170,7 @@ export default async function InstituteExamsPage({
   const safeExamPage = Math.min(examPage, examTotalPages);
 
   return (
-    <div className="studentPage studentDashboardModern">
+    <div className="studentPage studentDashboardModern instituteConsolePage instituteExamsPageVivid">
       <InstitutePageHeader
         title="Exam Management"
         description="Review institute-scoped exams, inspect sections and assigned learners, and open each exam to manage setup and delivery state."

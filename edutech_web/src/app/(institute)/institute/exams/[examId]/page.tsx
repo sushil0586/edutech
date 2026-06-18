@@ -156,7 +156,7 @@ export default async function InstituteExamDetailPage({
 
   if (!detail) {
     return (
-      <div className="studentPage">
+      <div className="studentPage instituteConsolePage instituteExamsPageVivid">
         <InstitutePageHeader
           title="Exam Detail"
           description="This route renders live institute-scoped exam management data from the backend."
@@ -201,7 +201,7 @@ export default async function InstituteExamDetailPage({
           : [];
 
   return (
-    <div className="studentPage studentDashboardModern">
+    <div className="studentPage studentDashboardModern instituteConsolePage instituteExamsPageVivid">
       <InstitutePageHeader
         title={detail.title}
         description="Institute-side exam setup, assignment, and state management backed by live exam APIs."

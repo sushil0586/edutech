@@ -24,14 +24,14 @@ export default async function InstituteLayout({
   const profile = await requireInstituteAdminSession();
 
   return (
-    <div className="studentAppShell">
+    <div className="studentAppShell instituteAppShell">
       <WorkspaceSidebar
         profile={profile}
         portalLabel="Institute Admin Portal"
         ariaLabel="Institute admin navigation"
         navItems={instituteNavItems}
       />
-      <main className="studentAppMain">
+      <main className="studentAppMain instituteAppMain">
         <WorkspaceTopbar
           profile={profile}
           workspaceLabel="Institute admin workspace"

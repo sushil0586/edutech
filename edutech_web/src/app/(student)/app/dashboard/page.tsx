@@ -297,7 +297,7 @@ export default async function DashboardPage({
   );
 
   return (
-    <div className="studentPage studentDashboardPage studentDashboardModern">
+    <div className="studentPage studentDashboardPage studentDashboardModern studentLearnerPage studentLearnerDashboardPage">
       {message ? (
         <p className="feedbackBanner feedbackBannerSuccess">{decodeURIComponent(message)}</p>
       ) : null}

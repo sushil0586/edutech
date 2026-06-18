@@ -86,6 +86,14 @@ export function WorkspaceSearchResults({
     group?: string;
   };
 }) {
+  const pageClassName =
+    role === "institute"
+      ? "studentPage studentDashboardModern instituteConsolePage instituteSearchPageVivid"
+      : role === "teacher"
+        ? "studentPage studentDashboardModern teacherConsolePage teacherSearchPageVivid"
+        : role === "admin"
+          ? "studentPage studentDashboardModern instituteConsolePage instituteSearchPageVivid"
+      : "studentPage studentDashboardModern";
   const trimmedQuery = query.trim();
   const liveHrefSet = new Set(liveResults.map((entry) => entry.href));
   const mergedResults = [...liveResults, ...searchWorkspaceEntries(role, trimmedQuery)].filter(
@@ -149,7 +157,7 @@ export function WorkspaceSearchResults({
         ).map(([label, items]) => ({ label, items }));
 
   return (
-    <div className="studentPage studentDashboardModern">
+    <div className={pageClassName}>
       <PageHeader
         eyebrow={workspaceLabels[role]}
         title="Search"

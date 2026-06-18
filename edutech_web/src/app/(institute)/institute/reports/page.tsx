@@ -161,7 +161,7 @@ export default async function InstituteReportsPage({
   );
 
   return (
-    <section className="studentPage studentPageTight studentDashboardModern">
+    <section className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteSupportPageVivid">
       <InstitutePageHeader
         title="Reports"
         description="Review institute-wide reporting health across tracked exams, attempt volume, publication backlog, and academic weak spots."

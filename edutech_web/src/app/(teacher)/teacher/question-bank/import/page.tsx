@@ -34,7 +34,7 @@ export default async function TeacherQuestionImportPage() {
   }
 
   return (
-    <div className="studentPage studentPageTight studentDashboardModern">
+    <div className="studentPage studentPageTight studentDashboardModern teacherConsolePage teacherQuestionImportPageVivid">
       <TeacherPageHeader
         title="Import Questions"
         description="Bring structured CSV question sets into the teacher bank with a preview-first workflow backed by the live backend validators."
@@ -55,6 +55,7 @@ export default async function TeacherQuestionImportPage() {
       <TeacherQuestionImportWorkspace
         csvContent={template.csv_content}
         templateColumns={template.columns}
+        workspaceClassName="teacherQuestionImportWorkspaceVivid"
       />
     </div>
   );

@@ -24,14 +24,14 @@ export default async function AdminLayout({
   const profile = await requirePlatformAdminSession();
 
   return (
-    <div className="studentAppShell">
+    <div className="studentAppShell instituteAppShell adminAppShell">
       <WorkspaceSidebar
         profile={profile}
         portalLabel="Platform Admin Portal"
         ariaLabel="Platform admin navigation"
         navItems={adminNavItems}
       />
-      <main className="studentAppMain">
+      <main className="studentAppMain adminAppMain">
         <WorkspaceTopbar
           profile={profile}
           workspaceLabel="Platform admin workspace"

@@ -155,7 +155,7 @@ export default async function TeacherExamDetailPage({
 
   if (!detail) {
     return (
-      <div className="studentPage">
+      <div className="studentPage teacherConsolePage teacherExamsPageVivid">
         <TeacherPageHeader
           title="Exam Detail"
           description="This route renders live teacher-scoped exam management data from the backend."
@@ -200,7 +200,7 @@ export default async function TeacherExamDetailPage({
           : [];
 
   return (
-    <div className="studentPage studentDashboardModern">
+    <div className="studentPage studentDashboardModern teacherConsolePage teacherExamsPageVivid">
       <TeacherPageHeader
         title={detail.title}
         description="Teacher-side exam setup, assignment, and state management backed by live exam APIs."

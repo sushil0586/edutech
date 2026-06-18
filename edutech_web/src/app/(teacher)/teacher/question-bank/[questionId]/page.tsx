@@ -302,13 +302,14 @@ export default async function TeacherQuestionDetailPage({
         initialQuestion={question}
         pageDescription="Review the question wording, explanation, answer structure, and academic mapping before reusing it in exams."
         pageTitle="Edit Question"
+        pageClassName="teacherConsolePage teacherQuestionEditorPageVivid"
         programs={programs}
         questionTypeOptions={optionCatalog.selectOptions("question_type")}
         subjects={subjects}
         topics={topics}
       />
 
-      <section className="studentPage studentPageTight studentDashboardModern">
+      <section className="studentPage studentPageTight studentDashboardModern teacherConsolePage teacherQuestionEditorPageVivid">
         <section className="studentInsightHeroCard studentInsightHeroCardCompact">
           <div className="studentInsightHeroCopy">
             <span className="studentDashboardTag">Question Enrichment</span>

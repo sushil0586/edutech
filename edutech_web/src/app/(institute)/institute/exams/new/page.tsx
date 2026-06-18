@@ -134,7 +134,7 @@ export default async function NewInstituteExamPage({
   const optionCatalog = groupTeacherOptionCatalog(optionCatalogEntries);
 
   return (
-    <div className="studentPage studentPageTight createExamPage">
+    <div className="studentPage studentPageTight createExamPage instituteConsolePage instituteExamBuilderPageVivid">
       <InstitutePageHeader
         title="Create Exam"
         description="Start a new institute exam shell with live academic scope data, then continue into builder, question linking, and learner assignment."

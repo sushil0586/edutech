@@ -221,7 +221,7 @@ export default async function AdminSecurityPage({
   const groupedAttempts = groupSecurityAttempts(attempts, attemptGroup);
 
   return (
-    <section className="studentPage studentPageTight studentDashboardModern">
+    <section className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteSecurityPageVivid">
       <PlatformAdminPageHeader
         title="Security"
         description="Review exam security posture, access-key usage, and live integrity pressure from one platform-admin governance screen."

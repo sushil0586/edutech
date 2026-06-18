@@ -135,7 +135,7 @@ export default async function SubscriptionsPage({
   );
 
   return (
-    <div className="studentPage">
+    <div className="studentPage studentDashboardModern studentLearnerPage studentLearnerAccountPage studentLearnerSubscriptionsPage">
       <StudentPageHeader
         title="Subscriptions"
         description="Compare recurring plans, track active subscriptions, and choose when a subscription is better than a one-time star purchase."

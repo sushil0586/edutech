@@ -138,22 +138,83 @@ export default async function InstituteDashboardPage({
         className="pageHeaderCompact"
       />
 
-      <section className="adminCommandDeck">
-        <div className="adminCommandDeckHero">
+      <section className="adminInstituteHero">
+        <div className="adminInstituteHeroCopy">
           <span className="studentDashboardTag">Institute control</span>
-          <h2>Run daily institute operations from one compact surface</h2>
-          <div className="adminHeroMetaRow">
+          <strong>Run daily institute operations from one clearer command surface</strong>
+          <p>
+            Keep people setup, academic structure, assessments, and policy defaults visible in one place so
+            the team can see what is ready and what still needs attention.
+          </p>
+          <div className="adminInstituteHeroMeta">
             <span>{peopleCount} people in scope</span>
             <span>{academicStructureCount} academic units tracked</span>
             <span>{examCount} exams and {resultCount} results</span>
+            <span>{activeCoverageSignals} active readiness signals</span>
           </div>
-          <div className="instituteConsoleActions">
+          <div className="instituteConsoleActions adminInstituteHeroActions">
             <Link className="button buttonPrimary" href="/institute/people">
               Open people
             </Link>
             <Link className="button buttonSecondary" href="/institute/academic-setup">
               Open academic setup
             </Link>
+            <Link className="button buttonGhost" href="/institute/exams">
+              Open exams
+            </Link>
+          </div>
+        </div>
+
+        <div className="adminInstituteHeroAside">
+          <div className="adminInstituteHeroAsideStack">
+            <article className="adminInstituteHeroAsideCard adminInstituteHeroAsideCardPrimary">
+              <span>Readiness score</span>
+              <strong>{readinessScore}%</strong>
+              <small>{activeCoverageSignals} of 5 core institute signals currently reporting non-zero data.</small>
+            </article>
+            <article className="adminInstituteHeroAsideCard">
+              <span>Institute status</span>
+              <strong>{institute?.code ?? "Unlinked"}</strong>
+              <small>{institute?.is_active ? "Active institute record in scope." : "Institute record needs review."}</small>
+            </article>
+          </div>
+          <div className="adminInstituteHeroMiniStats">
+            <article className="adminInstituteHeroMiniStat">
+              <span>Students</span>
+              <strong>{studentCount}</strong>
+              <small>Learners in institute scope.</small>
+            </article>
+            <article className="adminInstituteHeroMiniStat">
+              <span>Teachers</span>
+              <strong>{teacherCount}</strong>
+              <small>Faculty records available.</small>
+            </article>
+            <article className="adminInstituteHeroMiniStat">
+              <span>Results</span>
+              <strong>{resultCount}</strong>
+              <small>Outcome rows currently stored.</small>
+            </article>
+            <article className="adminInstituteHeroMiniStat">
+              <span>Defaults</span>
+              <strong>{examDefaultCount}</strong>
+              <small>Exam policy fields configured.</small>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section className="adminCommandDeck">
+        <div className="adminCommandDeckHero">
+          <span className="studentDashboardTag">Operational pulse</span>
+          <h2>Track readiness, inventory, and action lanes at a glance</h2>
+          <p>
+            Use these summary cards to spot missing setup before it blocks exams, results, or staff workflows.
+          </p>
+          <div className="adminHeroMetaRow">
+            <span>{programCount} programs</span>
+            <span>{cohortCount} cohorts</span>
+            <span>{subjectCount} subjects</span>
+            <span>{topicCount} topics</span>
           </div>
         </div>
 
@@ -164,9 +225,9 @@ export default async function InstituteDashboardPage({
             <small>{activeCoverageSignals} of 5 core institute signals currently reporting non-zero data.</small>
           </article>
           <article className="adminExecutiveStat">
-            <span>Institute</span>
-            <strong>{institute?.code ?? "Unlinked"}</strong>
-            <small>{institute?.is_active ? "Active institute record in scope." : "Institute record needs review."}</small>
+            <span>Assessment coverage</span>
+            <strong>{examCount + resultCount}</strong>
+            <small>Combined exam and result records currently visible.</small>
           </article>
           <article className="adminExecutiveStat">
             <span>Defaults</span>

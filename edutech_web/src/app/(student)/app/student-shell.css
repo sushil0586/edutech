@@ -1,3 +1,165 @@
+.studentAppShell {
+  --student-surface: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(246, 249, 255, 0.92));
+  --student-surface-strong: linear-gradient(180deg, rgba(255, 255, 255, 0.985), rgba(244, 248, 255, 0.96));
+  --student-surface-soft: linear-gradient(180deg, rgba(248, 251, 255, 0.96), rgba(242, 247, 255, 0.92));
+  --student-border: rgba(157, 176, 220, 0.24);
+  --student-shadow:
+    0 14px 30px rgba(76, 101, 161, 0.07),
+    0 2px 0 rgba(255, 255, 255, 0.72) inset;
+  --student-shadow-hover:
+    0 18px 36px rgba(76, 101, 161, 0.1),
+    0 2px 0 rgba(255, 255, 255, 0.78) inset;
+  --student-button-shadow: 0 8px 20px rgba(76, 92, 160, 0.1);
+  --student-button-shadow-hover: 0 12px 24px rgba(73, 90, 153, 0.12);
+}
+
+.studentAppShell .appSidebar {
+  border-color: rgba(203, 216, 243, 0.72);
+  background:
+    radial-gradient(circle at top left, rgba(205, 230, 255, 0.42), transparent 24%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(247, 250, 255, 0.92));
+  box-shadow:
+    0 16px 34px rgba(86, 112, 175, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(18px);
+}
+
+.studentAppShell .appSidebarLink {
+  border-radius: 18px;
+}
+
+.studentAppShell .appSidebarLink:hover {
+  background: linear-gradient(180deg, rgba(241, 246, 255, 0.96), rgba(234, 242, 255, 0.9));
+}
+
+.studentAppShell .appSidebarLinkActive {
+  background: linear-gradient(135deg, rgba(221, 234, 255, 0.98), rgba(236, 243, 255, 0.94));
+  box-shadow:
+    0 10px 24px rgba(93, 120, 189, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.86);
+}
+
+.studentAppShell .appTopbar {
+  border-color: rgba(203, 216, 243, 0.72);
+  background:
+    radial-gradient(circle at top right, rgba(232, 224, 255, 0.28), transparent 26%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(247, 250, 255, 0.92));
+  box-shadow:
+    0 14px 28px rgba(86, 112, 175, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(18px);
+}
+
+.studentAppShell .appTopbarIntro strong,
+.studentAppShell .appTopbarProfile strong,
+.studentAppMain .pageHeaderCopy h1,
+.studentAppMain h3,
+.studentAppMain h4,
+.studentAppMain .studentResultSurfaceHead strong,
+.studentAppMain .studentWeakAreaTitleLine strong,
+.studentAppMain .studentInsightColumnHeading strong {
+  color: #16233f;
+}
+
+.studentAppShell .appTopbarLabel,
+.studentAppShell .appTopbarProfile span,
+.studentAppMain .pageHeaderCopy p,
+.studentAppMain .studentInsightHeroCopy p,
+.studentAppMain .studentInsightHeroCopy small,
+.studentAppMain .studentDashboardWelcomeCopy p,
+.studentAppMain .studentDashboardWelcomeCopy small,
+.studentAppMain .studentResultSurfaceHead span,
+.studentAppMain .studentResultHelper small,
+.studentAppMain .studentNotificationMessage,
+.studentAppMain .studentTopicRow span,
+.studentAppMain .studentWeakAreaTopic span,
+.studentAppMain .studentWeakAreaTopic p,
+.studentAppMain .studentInsightMessage p,
+.studentAppMain .studentInsightColumnHeading span,
+.studentAppMain .studentResultStat span,
+.studentAppMain .studentResultBreakdown span,
+.studentAppMain .studentWorkspaceFilterField span,
+.studentAppMain .studentWorkspaceFilterQuickLabel {
+  color: #617393;
+}
+
+.studentAppShell .appSearch,
+.studentAppShell .appTopbarSubjectSelector select,
+.studentAppMain input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+.studentAppMain select,
+.studentAppMain textarea,
+.studentAppMain .studentWorkspaceFilterField select,
+.studentAppMain .studentNotificationGroupingControl select {
+  border-radius: 15px;
+  border: 1px solid rgba(188, 202, 236, 0.78);
+  background: rgba(255, 255, 255, 0.92);
+  color: #1c2946;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.82),
+    0 4px 12px rgba(129, 148, 198, 0.08);
+}
+
+.studentAppMain input::placeholder,
+.studentAppMain textarea::placeholder {
+  color: #8a99b3;
+}
+
+.studentAppShell .appSearch:focus,
+.studentAppShell .appTopbarSubjectSelector select:focus,
+.studentAppMain input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus,
+.studentAppMain select:focus,
+.studentAppMain textarea:focus,
+.studentAppMain .studentWorkspaceFilterField select:focus,
+.studentAppMain .studentNotificationGroupingControl select:focus {
+  outline: none;
+  border-color: rgba(100, 123, 255, 0.72);
+  box-shadow:
+    0 0 0 4px rgba(101, 123, 255, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.86);
+}
+
+.studentAppShell .appTopbarAction,
+.studentAppShell .appTopbarProfile,
+.studentAppMain .buttonPrimary,
+.studentAppMain .buttonSecondary,
+.studentAppMain .buttonGhost {
+  border-radius: 16px;
+  box-shadow: var(--student-button-shadow);
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease;
+}
+
+.studentAppShell .appTopbarAction,
+.studentAppShell .appTopbarProfile,
+.studentAppMain .buttonSecondary {
+  border: 1px solid rgba(185, 199, 245, 0.56);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(241, 246, 255, 0.9));
+}
+
+.studentAppMain .buttonPrimary {
+  border: 1px solid rgba(118, 126, 255, 0.28);
+  background: linear-gradient(135deg, #4d82ff, #6a5df6);
+}
+
+.studentAppMain .buttonGhost {
+  border: 1px solid rgba(195, 207, 239, 0.56);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(246, 249, 255, 0.84));
+  color: #385178;
+}
+
+.studentAppShell .appTopbarAction:hover,
+.studentAppShell .appTopbarProfile:hover,
+.studentAppMain .buttonPrimary:hover,
+.studentAppMain .buttonSecondary:hover,
+.studentAppMain .buttonGhost:hover,
+.studentAppMain .studentWorkspaceQuickChip:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--student-button-shadow-hover);
+}
+
 .studentAppFooter {
   padding: 0 6px 10px;
 }
@@ -33,10 +195,13 @@
 .studentPage {
   gap: 18px;
   padding: 22px;
-  border: 1px solid var(--color-border-default);
+  border: 1px solid var(--student-border);
   border-radius: 28px;
-  background: rgba(255, 255, 255, 0.86);
-  box-shadow: var(--shadow-sm);
+  background:
+    radial-gradient(circle at top left, rgba(209, 232, 255, 0.26), transparent 20%),
+    radial-gradient(circle at top right, rgba(233, 224, 255, 0.18), transparent 18%),
+    var(--student-surface-strong);
+  box-shadow: var(--student-shadow);
 }
 
 .studentPage::before,
@@ -51,6 +216,455 @@
 
 .studentDashboardModern {
   gap: 16px;
+}
+
+.studentAppMain .pageHeader {
+  padding: 12px 16px 11px;
+  border-radius: 24px;
+  border: 1px solid rgba(206, 218, 247, 0.34);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(247, 250, 255, 0.82));
+  box-shadow: 0 10px 22px rgba(94, 118, 173, 0.07);
+  backdrop-filter: blur(18px);
+}
+
+.studentAppMain .pageHeaderCopy {
+  gap: 3px;
+}
+
+.studentAppMain .contentCard,
+.studentAppMain .metricCard {
+  border: 1px solid var(--student-border);
+  background: var(--student-surface);
+  box-shadow: var(--student-shadow);
+  backdrop-filter: blur(16px);
+}
+
+.studentAppMain .contentCard {
+  border-radius: 22px;
+}
+
+.studentAppMain .metricCard {
+  position: relative;
+  overflow: hidden;
+  border-radius: 20px;
+}
+
+.studentAppMain .metricCard::after {
+  display: none;
+}
+
+.studentAppMain .resultsSummaryGrid .metricCard:nth-child(1) {
+  background: linear-gradient(135deg, rgba(237, 244, 255, 0.98), rgba(255, 255, 255, 0.94));
+}
+
+.studentAppMain .resultsSummaryGrid .metricCard:nth-child(2) {
+  background: linear-gradient(135deg, rgba(245, 239, 255, 0.96), rgba(255, 255, 255, 0.94));
+}
+
+.studentAppMain .resultsSummaryGrid .metricCard:nth-child(3) {
+  background: linear-gradient(135deg, rgba(236, 251, 247, 0.98), rgba(255, 255, 255, 0.94));
+}
+
+.studentAppMain .resultsSummaryGrid .metricCard:nth-child(4) {
+  background: linear-gradient(135deg, rgba(255, 246, 235, 0.98), rgba(255, 255, 255, 0.94));
+}
+
+.studentLearnerPage {
+  gap: 14px;
+}
+
+.studentLearnerDashboardPage .studentDashboardHeroRow {
+  display: none;
+}
+
+.studentLearnerDashboardPage .studentDashboardPrimaryGrid,
+.studentLearnerDashboardPage .studentDashboardBottomGrid {
+  align-items: stretch;
+}
+
+.studentLearnerDashboardPage .studentDashboardRecommendation,
+.studentLearnerDashboardPage .studentDashboardWalletCard {
+  min-height: 220px;
+  align-content: start;
+  position: relative;
+  overflow: hidden;
+}
+
+.studentLearnerDashboardPage .studentDashboardRecommendation::before,
+.studentLearnerDashboardPage .studentDashboardWalletCard::before {
+  content: "";
+  position: absolute;
+  inset: -30% auto auto -12%;
+  width: 180px;
+  height: 180px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(129, 140, 248, 0.18), transparent 68%);
+  pointer-events: none;
+}
+
+.studentLearnerDashboardPage .studentDashboardRecommendation::after,
+.studentLearnerDashboardPage .studentDashboardWalletCard::after {
+  content: "";
+  position: absolute;
+  inset: auto -10% -34% auto;
+  width: 210px;
+  height: 210px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(96, 165, 250, 0.14), transparent 70%);
+  pointer-events: none;
+}
+
+.studentLearnerDashboardPage .studentDashboardRecommendation > *,
+.studentLearnerDashboardPage .studentDashboardWalletCard > * {
+  position: relative;
+  z-index: 1;
+}
+
+.studentLearnerDashboardPage .studentDashboardRecommendation strong {
+  font-size: clamp(1.8rem, 1.45rem + 1.1vw, 2.45rem);
+  line-height: 0.98;
+}
+
+.studentLearnerDashboardPage .studentDashboardChipRow {
+  gap: 8px;
+  padding: 2px 4px 0;
+}
+
+.studentLearnerDashboardPage .studentDashboardChip {
+  border: 1px solid rgba(194, 207, 241, 0.66);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(240, 245, 255, 0.88));
+  color: #577093;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
+}
+
+.studentLearnerDashboardPage .studentDashboardChipActive {
+  border-color: rgba(123, 134, 255, 0.32);
+  background: linear-gradient(135deg, rgba(90, 121, 255, 0.16), rgba(255, 255, 255, 0.94));
+  color: #2046a8;
+}
+
+.studentLearnerDashboardPage .studentDashboardExamCard,
+.studentLearnerDashboardPage .dashboardRailRow {
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease;
+}
+
+.studentLearnerDashboardPage .studentDashboardExamCard:hover,
+.studentLearnerDashboardPage .dashboardRailRow:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 30px rgba(90, 112, 170, 0.12);
+  border-color: rgba(128, 144, 244, 0.3);
+}
+
+.studentLearnerExamsPage .studentInsightHeroCardCompact,
+.studentLearnerResultsPage .studentInsightHeroCardCompact,
+.studentLearnerExamDetailPage .studentInsightHeroCardCompact,
+.studentLearnerAttemptSummaryPage .studentInsightHeroCardCompact,
+.studentLearnerAttemptReviewPage .studentInsightHeroCardCompact {
+  padding: 10px 12px;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top right, rgba(31, 95, 214, 0.1), transparent 30%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(247, 250, 255, 0.88));
+}
+
+.studentLearnerExamsPage .studentInsightHeroCopy strong,
+.studentLearnerResultsPage .studentInsightHeroCopy strong,
+.studentLearnerExamDetailPage .studentInsightHeroCopy strong,
+.studentLearnerAttemptSummaryPage .studentInsightHeroCopy strong,
+.studentLearnerAttemptReviewPage .studentInsightHeroCopy strong {
+  font-size: clamp(1.05rem, 1rem + 0.45vw, 1.35rem);
+}
+
+.studentLearnerExamsPage .studentInsightsTwoColumn,
+.studentLearnerResultsPage .studentResultsGrid,
+.studentLearnerExamDetailPage .studentInsightsTwoColumn,
+.studentLearnerAttemptSummaryPage .studentInsightsTwoColumn,
+.studentLearnerAttemptReviewPage .studentInsightsTwoColumn {
+  align-items: start;
+}
+
+.studentLearnerExamsPage .contentCard,
+.studentLearnerResultsPage .contentCard,
+.studentLearnerExamDetailPage .contentCard,
+.studentLearnerAttemptSummaryPage .contentCard,
+.studentLearnerAttemptReviewPage .contentCard {
+  overflow: hidden;
+}
+
+.studentLearnerResultsPage .studentResultSurface,
+.studentLearnerExamsPage .contentCard article,
+.studentLearnerExamDetailPage .studentResultStat,
+.studentLearnerAttemptSummaryPage .studentResultStat,
+.studentLearnerAttemptReviewPage .studentResultStat {
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease;
+}
+
+.studentLearnerResultsPage .studentResultSurface:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 34px rgba(90, 112, 170, 0.11);
+  border-color: rgba(128, 144, 244, 0.3);
+}
+
+.studentLearnerAttemptPage .attemptWorkspaceHeader,
+.studentLearnerAttemptPage .attemptToolbarConsole,
+.studentLearnerAttemptPage .attemptQuestionCard,
+.studentLearnerAttemptPage .attemptLockedStateCard,
+.studentLearnerAttemptPage .attemptConsoleSummaryCard,
+.studentLearnerAttemptPage .attemptRailPanel {
+  border-color: rgba(188, 211, 245, 0.36);
+  box-shadow:
+    0 14px 28px rgba(86, 113, 173, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.studentLearnerAttemptPage .attemptWorkspaceHeader {
+  padding: 14px 16px;
+  border-radius: 24px;
+}
+
+.studentLearnerAttemptPage .attemptToolbarConsole {
+  padding: 14px 16px;
+}
+
+.studentLearnerAttemptPage .attemptQuestionCard {
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top right, rgba(191, 219, 254, 0.12), transparent 22%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.965), rgba(245, 249, 255, 0.92));
+}
+
+.studentLearnerAttemptPage .attemptQuestionHeader strong,
+.studentLearnerAttemptPage .attemptLockedStateCopy strong,
+.studentLearnerAttemptPage .examStateSummary strong {
+  color: #15223d;
+}
+
+.studentLearnerAttemptPage .attemptQuestionHeader span,
+.studentLearnerAttemptPage .attemptQuestionMetaLine,
+.studentLearnerAttemptPage .examStateSummary span {
+  color: #64738f;
+}
+
+.studentLearnerAttemptPage .attemptOptionRow {
+  border-color: rgba(197, 209, 238, 0.44);
+  background: var(--student-surface-soft);
+}
+
+.studentLearnerAttemptPage .attemptOptionSelected {
+  border-color: rgba(123, 134, 255, 0.34);
+  background: linear-gradient(135deg, rgba(230, 239, 255, 0.98), rgba(245, 241, 255, 0.96));
+}
+
+.studentLearnerAnalyticsPage .analyticsLandingHeroMain,
+.studentLearnerWeakAreasPage .studentInsightHeroCardWarm,
+.studentLearnerPracticePage .studentInsightHeroCardWarm,
+.studentLearnerNotificationsPage .studentInsightHeroCardCompact {
+  border-radius: 20px;
+  box-shadow: var(--student-shadow);
+}
+
+.studentLearnerAnalyticsPage .analyticsLandingHeroMain {
+  padding: 16px;
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.96), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(86, 121, 235, 0.1), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(246, 249, 255, 0.92));
+}
+
+.studentLearnerAnalyticsPage .analyticsLandingHeroCopy strong {
+  font-size: clamp(1.55rem, 1.2rem + 1vw, 2.15rem);
+}
+
+.studentLearnerAnalyticsPage .analyticsHeroMetaGrid,
+.studentLearnerAnalyticsPage .analyticsShowcaseGrid,
+.studentLearnerAnalyticsPage .analyticsBenchmarkStack,
+.studentLearnerAnalyticsPage .analyticsTopicMiniGrid {
+  gap: 14px;
+}
+
+.studentLearnerAnalyticsPage .analyticsHeroMetaCard,
+.studentLearnerAnalyticsPage .analyticsShowcaseCard,
+.studentLearnerAnalyticsPage .analyticsBenchmarkRow,
+.studentLearnerAnalyticsPage .analyticsTopicMiniCard,
+.studentLearnerAnalyticsPage .analyticsHeroInsightCard {
+  border-color: rgba(197, 209, 238, 0.44);
+  background: var(--student-surface);
+  box-shadow: 0 10px 22px rgba(90, 112, 170, 0.07);
+}
+
+.studentLearnerAnalyticsPage .analyticsShowcaseCard,
+.studentLearnerAnalyticsPage .analyticsHeroInsightCard {
+  border-radius: 22px;
+}
+
+.studentLearnerAnalyticsPage .analyticsShowcaseCard strong,
+.studentLearnerAnalyticsPage .analyticsHeroMetaCard strong,
+.studentLearnerAnalyticsPage .analyticsTopicMiniCard strong {
+  color: #15223d;
+}
+
+.studentLearnerAnalyticsPage .analyticsShowcaseCard span,
+.studentLearnerAnalyticsPage .analyticsHeroMetaCard span,
+.studentLearnerAnalyticsPage .analyticsTopicMiniCard span,
+.studentLearnerAnalyticsPage .analyticsBenchmarkMeta span {
+  color: #617393;
+}
+
+.studentLearnerWeakAreasPage .studentWeakAreaRow,
+.studentLearnerPracticePage .studentResultStat,
+.studentLearnerNotificationsPage .studentNotificationFiltersCard,
+.studentLearnerNotificationsPage .studentNotificationSurface {
+  box-shadow: var(--student-shadow);
+}
+
+.studentLearnerWeakAreasPage .studentWeakAreaRow {
+  border-radius: 22px;
+}
+
+.studentLearnerWeakAreasPage .studentWeakAreaRowPriority {
+  border-color: rgba(220, 165, 74, 0.24);
+  background:
+    radial-gradient(circle at top right, rgba(255, 244, 212, 0.78), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 251, 242, 0.92));
+}
+
+.studentLearnerWeakAreasPage .studentWeakDiagnosticCard,
+.studentLearnerWeakAreasPage .studentWeakFocusEvidence {
+  box-shadow: 0 10px 22px rgba(90, 112, 170, 0.07);
+}
+
+.studentLearnerPracticePage .studentWorkspaceFiltersCard,
+.studentLearnerPracticePage .studentInsightHeroCardWarm,
+.studentLearnerPracticePage .studentResultStat,
+.studentLearnerPracticePage .studentResultBreakdown > div {
+  overflow: hidden;
+}
+
+.studentLearnerPracticePage .studentResultStatGrid,
+.studentLearnerPracticePage .studentInsightsTwoColumn {
+  align-items: start;
+}
+
+.studentLearnerPracticePage .studentResultStat,
+.studentLearnerPracticePage .studentResultBreakdown > div {
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease;
+}
+
+.studentLearnerPracticePage .studentResultStat:hover,
+.studentLearnerPracticePage .studentResultBreakdown > div:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px rgba(90, 112, 170, 0.1);
+  border-color: rgba(128, 144, 244, 0.28);
+}
+
+.studentLearnerNotificationsPage .studentNotificationFiltersCard,
+.studentLearnerNotificationsPage .studentNotificationSurface {
+  border-color: rgba(197, 209, 238, 0.44);
+  background: var(--student-surface-strong);
+}
+
+.studentLearnerNotificationsPage .studentNotificationUnread {
+  border-color: rgba(123, 134, 255, 0.22);
+  box-shadow: 0 18px 36px rgba(93, 110, 186, 0.1);
+}
+
+.studentLearnerNotificationsPage .studentNotificationRead {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(249, 251, 255, 0.92));
+}
+
+.studentLearnerNotificationsPage .studentNotificationToolbar,
+.studentLearnerNotificationsPage .studentNotificationGroupHeader,
+.studentLearnerNotificationsPage .studentNotificationPagination {
+  gap: 12px;
+}
+
+.studentLearnerAccountPage .studentInsightsTwoColumn,
+.studentLearnerAccountPage .dashboardWorkspaceGrid {
+  align-items: start;
+}
+
+.studentLearnerAccountPage .studentInsightHeroCardCompact {
+  padding: 10px 12px;
+  border-radius: 18px;
+}
+
+.studentLearnerAccountPage .detailCard,
+.studentLearnerAccountPage .dashboardOfferCard,
+.studentLearnerAccountPage .dashboardRailRow {
+  border: 1px solid rgba(197, 209, 238, 0.44);
+  background: var(--student-surface-soft);
+  box-shadow: 0 10px 22px rgba(90, 112, 170, 0.07);
+}
+
+.studentLearnerAccountPage .detailCard {
+  border-radius: 18px;
+}
+
+.studentLearnerAccountPage .detailCard span,
+.studentLearnerAccountPage .sectionDescription,
+.studentLearnerAccountPage .dashboardOfferCard span,
+.studentLearnerAccountPage .dashboardOfferCard small,
+.studentLearnerAccountPage .dashboardRailRow span {
+  color: #617393;
+}
+
+.studentLearnerAccountPage .detailCard strong,
+.studentLearnerAccountPage .dashboardOfferCard strong,
+.studentLearnerAccountPage .dashboardRailRow strong {
+  color: #15223d;
+}
+
+.studentLearnerAccountPage .dashboardOfferCard,
+.studentLearnerAccountPage .dashboardRailRow {
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease;
+}
+
+.studentLearnerAccountPage .dashboardOfferCard:hover,
+.studentLearnerAccountPage .dashboardRailRow:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px rgba(90, 112, 170, 0.1);
+  border-color: rgba(128, 144, 244, 0.28);
+}
+
+.studentLearnerProfilePage .detailGrid,
+.studentLearnerSettingsPage .detailGrid {
+  gap: 14px;
+}
+
+.studentLearnerWalletPage .dashboardWorkspaceMain > .contentCard,
+.studentLearnerSubscriptionsPage .dashboardWorkspaceMain > .contentCard,
+.studentLearnerWalletPage .dashboardWorkspaceRail > .contentCard,
+.studentLearnerSubscriptionsPage .dashboardWorkspaceRail > .contentCard {
+  overflow: hidden;
+}
+
+.studentLearnerWalletPage .dashboardOfferCard,
+.studentLearnerSubscriptionsPage .dashboardOfferCard {
+  border-radius: 20px;
+  background: var(--student-surface);
+}
+
+.studentLearnerWalletPage .dashboardLedgerRow,
+.studentLearnerSubscriptionsPage .dashboardRailRow {
+  border-radius: 18px;
+}
+
+.studentLearnerWalletPage .buttonRow,
+.studentLearnerSettingsPage .studentInsightHeroActions,
+.studentLearnerSubscriptionsPage .studentInsightHeroActions {
+  gap: 10px;
 }
 
 .studentDashboardWelcome {
@@ -201,15 +815,17 @@
   display: grid;
   gap: 14px;
   padding: 22px;
-  border: 1px solid var(--color-border-default);
+  border: 1px solid var(--student-border);
   border-radius: 28px;
-  background: #ffffff;
-  box-shadow: var(--shadow-xs);
+  background: var(--student-surface-strong);
+  box-shadow: var(--student-shadow);
 }
 
 .studentDashboardWalletCard {
-  background: linear-gradient(180deg, #fffdf8 0%, #fff8ee 100%);
-  border-color: #f0dfc1;
+  background:
+    radial-gradient(circle at top right, rgba(255, 236, 184, 0.42), transparent 28%),
+    linear-gradient(180deg, rgba(255, 253, 248, 0.98), rgba(255, 248, 238, 0.94));
+  border-color: rgba(240, 223, 193, 0.78);
 }
 
 .studentDashboardCard strong {
@@ -274,9 +890,10 @@
   display: grid;
   gap: 12px;
   padding: 18px;
-  border: 1px solid var(--color-border-default);
+  border: 1px solid var(--student-border);
   border-radius: 22px;
-  background: #ffffff;
+  background: var(--student-surface);
+  box-shadow: 0 10px 22px rgba(90, 112, 170, 0.07);
 }
 
 .studentDashboardExamCard strong,
@@ -417,24 +1034,25 @@
   justify-content: space-between;
   gap: 12px;
   padding: 14px 16px;
-  border: 1px solid var(--color-border-default);
+  border: 1px solid var(--student-border);
   border-radius: 22px;
   background:
-    radial-gradient(circle at top right, rgba(31, 95, 214, 0.08), transparent 34%),
-    #ffffff;
-  box-shadow: var(--shadow-xs);
+    radial-gradient(circle at top right, rgba(31, 95, 214, 0.12), transparent 34%),
+    radial-gradient(circle at bottom left, rgba(129, 140, 248, 0.1), transparent 22%),
+    var(--student-surface-strong);
+  box-shadow: var(--student-shadow);
 }
 
 .studentInsightHeroCardWarm {
   background:
-    radial-gradient(circle at top right, rgba(210, 162, 74, 0.12), transparent 36%),
-    linear-gradient(180deg, #fffdf8 0%, #fff8ef 100%);
-  border-color: #f0dfc1;
+    radial-gradient(circle at top right, rgba(210, 162, 74, 0.16), transparent 36%),
+    linear-gradient(180deg, rgba(255, 253, 248, 0.98), rgba(255, 248, 239, 0.94));
+  border-color: rgba(240, 223, 193, 0.82);
 }
 
 .studentInsightHeroCardCompact {
   gap: 10px;
-  padding: 12px 14px;
+  padding: 10px 14px;
   border-radius: 20px;
 }
 
@@ -590,9 +1208,9 @@
 .studentResultStat,
 .studentResultBreakdown > div {
   padding: 14px;
-  border: 1px solid var(--color-border-default);
+  border: 1px solid rgba(197, 209, 238, 0.44);
   border-radius: 18px;
-  background: #f8fafd;
+  background: var(--student-surface-soft);
 }
 
 .studentResultStat strong,
@@ -656,18 +1274,19 @@
   display: grid;
   gap: 10px;
   padding: 14px;
-  border: 1px solid var(--color-border-default);
+  border: 1px solid rgba(197, 209, 238, 0.44);
   border-radius: 18px;
-  background: #f8fafd;
+  background: var(--student-surface-soft);
 }
 
 .studentTopicRow,
 .studentWeakAreaRow,
 .studentInsightMessage {
   padding: 14px;
-  border: 1px solid var(--color-border-default);
+  border: 1px solid rgba(197, 209, 238, 0.44);
   border-radius: 18px;
-  background: #f8fafd;
+  background: var(--student-surface-soft);
+  box-shadow: 0 8px 18px rgba(113, 128, 177, 0.07);
 }
 
 .studentNotificationMessage {
@@ -685,10 +1304,10 @@
 
 .studentNotificationFiltersCard {
   padding: 20px;
-  border: 1px solid var(--color-border-default);
+  border: 1px solid var(--student-border);
   border-radius: 24px;
-  background: #ffffff;
-  box-shadow: var(--shadow-xs);
+  background: var(--student-surface-strong);
+  box-shadow: var(--student-shadow);
 }
 
 .studentNotificationFiltersHeader {
@@ -870,9 +1489,9 @@
   padding: 0 12px;
   max-width: 100%;
   border-radius: 999px;
-  border: 1px solid var(--color-border-default);
-  background: #ffffff;
-  color: var(--color-text-secondary);
+  border: 1px solid rgba(194, 207, 241, 0.66);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(240, 245, 255, 0.88));
+  color: #35527d;
   font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
   line-height: var(--leading-snug);
@@ -884,15 +1503,15 @@
 }
 
 .studentWorkspaceQuickChip:hover {
-  border-color: #dce8fb;
-  color: var(--color-brand-primary-700);
+  border-color: rgba(123, 134, 255, 0.32);
+  color: #2046a8;
 }
 
 .studentWorkspaceQuickChipActive {
-  border-color: rgba(31, 95, 214, 0.18);
-  background: linear-gradient(180deg, rgba(31, 95, 214, 0.12), rgba(255, 255, 255, 0.96));
-  color: var(--color-brand-primary-700);
-  box-shadow: var(--shadow-xs);
+  border-color: rgba(123, 134, 255, 0.32);
+  background: linear-gradient(135deg, rgba(90, 121, 255, 0.16), rgba(255, 255, 255, 0.94));
+  color: #2046a8;
+  box-shadow: 0 8px 18px rgba(111, 132, 191, 0.08);
 }
 
 @media (max-width: 1180px) {

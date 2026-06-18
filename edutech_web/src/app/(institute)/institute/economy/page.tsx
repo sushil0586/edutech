@@ -69,7 +69,7 @@ export default async function InstituteEconomyPage() {
     ]);
 
   return (
-    <section className="studentPage studentPageTight studentDashboardModern">
+    <section className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteSupportPageVivid">
       <InstitutePageHeader
         title="Economy Oversight"
         description="Review how star-based access is attached to institute exams and support student wallets with controlled administrative actions."

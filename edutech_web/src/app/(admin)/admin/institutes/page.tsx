@@ -58,7 +58,7 @@ export default async function AdminInstitutesPage({
   );
 
   return (
-    <section className="studentPage studentPageTight studentDashboardModern adminInstitutePage">
+    <section className="studentPage studentPageTight studentDashboardModern adminInstitutePage instituteConsolePage">
       <PlatformAdminPageHeader
         title="Institutes"
         description=""

@@ -1226,7 +1226,7 @@ export default async function TeacherResultsPage({
     : [];
 
   return (
-    <div className="studentPage studentPageTight studentDashboardModern">
+    <div className="studentPage studentPageTight studentDashboardModern teacherConsolePage teacherResultsPageVivid">
       <TeacherPageHeader
         title="Results"
         description="Monitor live attempt behavior, generate summaries, publish ranks, and review leaderboard outcomes across teacher-scoped exams."
@@ -1323,7 +1323,7 @@ export default async function TeacherResultsPage({
                 <option value="20">20</option>
               </select>
             </label>
-            <div className="workspaceFilterActions">
+            <div className="workspaceFilterActions workspaceFilterActionsFullRow">
               <button className="button buttonPrimary" type="submit">
                 Apply filters
               </button>

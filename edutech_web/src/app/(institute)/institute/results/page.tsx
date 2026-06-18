@@ -1217,7 +1217,7 @@ export default async function InstituteResultsPage({
     : [];
 
   return (
-    <div className="studentPage studentPageTight studentDashboardModern">
+    <div className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteResultsPageVivid">
       <InstitutePageHeader
         title="Results"
         description="Monitor live attempt behavior, generate summaries, publish ranks, and review leaderboard outcomes across institute-scoped exams."
@@ -1314,7 +1314,7 @@ export default async function InstituteResultsPage({
                 <option value="20">20</option>
               </select>
             </label>
-            <div className="workspaceFilterActions">
+            <div className="workspaceFilterActions workspaceFilterActionsFullRow">
               <button className="button buttonPrimary" type="submit">
                 Apply filters
               </button>
@@ -1640,7 +1640,7 @@ export default async function InstituteResultsPage({
         </article>
 
         <div className="teacherResultsMain">
-          <section className="contentCard">
+          <section className="contentCard teacherResultsOverviewCard">
             <div className="resultCardTop">
               <div>
                 <strong>{selectedExam.title}</strong>
@@ -1755,7 +1755,7 @@ export default async function InstituteResultsPage({
             </div>
           </section>
 
-          <section className="resultsSummaryGrid">
+          <section className="resultsSummaryGrid teacherResultsStatsGrid teacherResultsStatsGridFive">
             <article className="metricCard metricCardPrimary dashboardHeroCard">
               <span>Lifecycle readiness</span>
               <strong>{readiness.label}</strong>
@@ -1827,7 +1827,7 @@ export default async function InstituteResultsPage({
             </div>
           </section>
 
-          <section className="resultsSummaryGrid">
+          <section className="resultsSummaryGrid teacherResultsStatsGrid teacherResultsStatsGridFour">
             <article className="metricCard">
               <span>Average</span>
               <strong>{selectedSummary ? percentage(selectedSummary.average_percentage) : "N/A"}</strong>
@@ -1851,7 +1851,7 @@ export default async function InstituteResultsPage({
           </section>
 
           {monitor ? (
-            <section className="contentCard">
+            <section className="contentCard teacherResultsMonitorCard">
               <div className="sectionHeading">
                 <strong>Live monitor</strong>
                 <span>{monitor.exam_status.replaceAll("_", " ")}</span>
@@ -2363,7 +2363,7 @@ export default async function InstituteResultsPage({
             </section>
           ) : null}
 
-          <section className="contentCard">
+          <section className="contentCard teacherResultsAttemptsCard">
               <div className="sectionHeading">
               <strong>Recent attempts</strong>
               <span>{attemptsPageData.count} matching</span>
@@ -2744,7 +2744,7 @@ export default async function InstituteResultsPage({
             ) : null}
           </section>
 
-          <section className="resultsList teacherResultsSplit">
+          <section className="resultsList teacherResultsSplit teacherResultsAnalyticsGrid">
             <article className="contentCard">
               <div className="sectionHeading">
                 <strong>Leaderboard</strong>

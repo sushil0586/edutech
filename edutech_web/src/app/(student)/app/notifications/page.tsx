@@ -105,7 +105,7 @@ export default async function NotificationsPage({
 
   if (source !== "live" || !notificationsPage) {
     return (
-      <div className="studentPage studentDashboardModern">
+      <div className="studentPage studentDashboardModern studentLearnerPage studentLearnerNotificationsPage">
         <StudentPageHeader
           title="Notifications"
           description="A live notification center backed by the in-app notifications API, including inbox filters and mark-read actions."
@@ -153,7 +153,7 @@ export default async function NotificationsPage({
   const summary = notificationsPage.summary;
 
   return (
-    <div className="studentPage studentDashboardModern">
+    <div className="studentPage studentDashboardModern studentLearnerPage studentLearnerNotificationsPage">
       <StudentPageHeader
         title="Notifications"
         description="Search, sort, group, and review student alerts from one lighter-weight inbox backed by a paged API feed."

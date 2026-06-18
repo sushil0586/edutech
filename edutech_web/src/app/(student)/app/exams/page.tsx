@@ -480,7 +480,7 @@ export default async function ExamsPage({
     null;
 
   return (
-    <div className="studentPage studentDashboardModern">
+    <div className="studentPage studentDashboardModern studentLearnerPage studentLearnerExamsPage">
       <StudentPageHeader
         title={
           selectedSubject === ALL_SUBJECTS_CONTEXT

@@ -225,7 +225,7 @@ export default async function InstituteSecurityPage({
   const groupedAttempts = groupSecurityAttempts(attempts, attemptGroup);
 
   return (
-    <section className="studentPage studentPageTight studentDashboardModern">
+    <section className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteSecurityPageVivid">
       <InstitutePageHeader
         title="Security Oversight"
         description="Review exam security posture, access-key usage, and live integrity pressure from one institute-wide operational screen."

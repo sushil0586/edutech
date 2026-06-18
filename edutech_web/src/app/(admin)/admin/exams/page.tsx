@@ -219,7 +219,7 @@ export default async function PlatformAdminExamsPage({
   const draftCount = exams.filter((exam) => exam.status === "draft").length;
 
   return (
-    <div className="studentPage studentDashboardModern">
+    <div className="studentPage studentDashboardModern instituteConsolePage instituteExamsPageVivid">
       <PlatformAdminPageHeader
         title="Exam Management"
         description="Review platform-wide exam coverage and create platform-owned or institute-owned exam shells from one governance workspace."

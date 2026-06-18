@@ -44,7 +44,7 @@ export default async function PlatformAdminAdvancedExamBuilderPage() {
   const optionCatalog = groupTeacherOptionCatalog(optionCatalogEntries);
 
   return (
-    <div className="studentPage studentPageTight createExamPage">
+    <div className="studentPage studentPageTight createExamPage instituteConsolePage instituteExamBuilderPageVivid">
       <PlatformAdminPageHeader
         title="Advanced Exam Builder"
         description="Build platform-governed exams with explicit sections, topic quotas, delivery controls, and access rules from one platform-admin workflow."

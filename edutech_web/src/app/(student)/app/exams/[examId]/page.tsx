@@ -229,7 +229,7 @@ export default async function ExamDetailPage({
               : `This ${examExperienceLabel(detail.exam_type)} is not startable right now under the current backend state.`;
 
   return (
-    <div className="studentPage studentDashboardModern">
+    <div className="studentPage studentDashboardModern studentLearnerPage studentLearnerExamDetailPage">
       <StudentPageHeader
         title={detail.title}
         description={`${titleCaseState(detail.exam_type)} detail backed by the student exam detail endpoint, with runtime rules and next actions surfaced clearly.`}

@@ -267,7 +267,7 @@ export default async function TeacherQuestionBankPage({
   ).length;
 
   return (
-    <div className="studentPage studentPageTight studentDashboardModern">
+    <div className="studentPage studentPageTight studentDashboardModern teacherConsolePage questionBankPageVivid">
       <TeacherPageHeader
         action={
           <div className="questionBankButtonRow">

@@ -491,7 +491,7 @@ export default async function PlatformAdminExamBuilderPage({
 
   if (!builderData) {
     return (
-      <div className="studentPage">
+      <div className="studentPage instituteConsolePage instituteExamBuilderPageVivid">
         <PlatformAdminPageHeader
           title="Exam Builder"
           description="This route depends on live platform-admin exam builder data from the backend."
@@ -988,7 +988,7 @@ export default async function PlatformAdminExamBuilderPage({
   ];
 
   return (
-    <div className="studentPage studentDashboardModern">
+    <div className="studentPage studentDashboardModern instituteConsolePage instituteExamBuilderPageVivid">
       <PlatformAdminPageHeader
         title={`${detail.title} Builder`}
         description="Edit the exam configuration, shape sections, attach questions, and control the student audience from one platform-admin workflow."

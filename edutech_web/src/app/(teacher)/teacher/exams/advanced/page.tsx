@@ -48,7 +48,7 @@ export default async function TeacherAdvancedExamBuilderPage() {
   const optionCatalog = groupTeacherOptionCatalog(optionCatalogEntries);
 
   return (
-    <div className="studentPage studentPageTight createExamPage">
+    <div className="studentPage studentPageTight createExamPage teacherConsolePage teacherExamBuilderPageVivid">
       <TeacherPageHeader
         title="Advanced Exam Builder"
         description="Compose multi-section exams with explicit topic counts, difficulty mix, and premium access settings from one calm teacher workspace."

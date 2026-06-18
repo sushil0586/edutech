@@ -998,7 +998,7 @@ export default async function TeacherExamBuilderPage({
   ];
 
   return (
-    <div className="studentPage studentDashboardModern">
+    <div className="studentPage studentDashboardModern teacherConsolePage teacherExamBuilderPageVivid">
       <TeacherPageHeader
         title={`${detail.title} Builder`}
         description="Edit the exam configuration, shape sections, attach questions, and control the student audience from one teacher workflow."

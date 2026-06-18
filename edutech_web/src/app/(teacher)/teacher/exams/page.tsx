@@ -136,7 +136,7 @@ export default async function TeacherExamsPage({
   const safeExamPage = Math.min(examPage, examTotalPages);
 
   return (
-    <div className="studentPage studentDashboardModern">
+    <div className="studentPage studentDashboardModern teacherConsolePage teacherExamsPageVivid">
       <TeacherPageHeader
         title="Exam Management"
         description="Review the exams in your scope, inspect sections and assigned learners, and open each exam to manage its current delivery state."

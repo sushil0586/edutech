@@ -104,6 +104,7 @@ export default async function TeacherQuestionCreatePage({
             : "Author a reusable assessment question with clear scoring, explanation, and answer structure."
         }
         pageTitle={duplicateQuestion ? "Duplicate Question" : "Create Question"}
+        pageClassName="teacherConsolePage teacherQuestionEditorPageVivid"
         programs={programs}
         questionTypeOptions={optionCatalog.selectOptions("question_type")}
         subjects={subjects}

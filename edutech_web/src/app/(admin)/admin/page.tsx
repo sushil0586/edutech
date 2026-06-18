@@ -193,7 +193,7 @@ export default async function AdminDashboardPage({
     .sort((left, right) => (sortOption === "title" ? left.title.localeCompare(right.title) : 0));
 
   return (
-    <section className="studentPage studentPageTight studentDashboardModern adminDashboardPage">
+    <section className="studentPage studentPageTight studentDashboardModern adminDashboardPage instituteConsolePage">
       <PlatformAdminPageHeader
         title={`Platform Control for ${profile.display_name || profile.username}`}
         description="Track institute readiness, academic backbone health, people provisioning, and assessment coverage from one shared governance workspace."

@@ -21,9 +21,15 @@ export function StudentStatePanel({
 }: StudentStatePanelProps) {
   return (
     <section className="featurePlaceholder statePanel">
-      <span className="eyebrow">{eyebrow}</span>
-      <h2>{title}</h2>
-      <p>{description}</p>
+      <div className="statePanelHeader">
+        <span className="eyebrow">{eyebrow}</span>
+        <span className="statusPill">{statusLabel}</span>
+      </div>
+
+      <div className="statePanelCopy">
+        <h2>{title}</h2>
+        <p>{description}</p>
+      </div>
 
       {bullets.length ? (
         <div className="placeholderPanel">
@@ -39,14 +45,12 @@ export function StudentStatePanel({
         </div>
       ) : null}
 
-      {statusLabel || (ctaHref && ctaLabel) ? (
+      {ctaHref && ctaLabel ? (
         <div className="placeholderFooter">
-          {statusLabel ? <span className="statusPill">{statusLabel}</span> : <span />}
-          {ctaHref && ctaLabel ? (
-            <Link className="button buttonSecondary" href={ctaHref}>
-              {ctaLabel}
-            </Link>
-          ) : null}
+          <span className="statePanelFootnote">Returned from the current live app flow and ready once configuration is restored.</span>
+          <Link className="button buttonSecondary" href={ctaHref}>
+            {ctaLabel}
+          </Link>
         </div>
       ) : null}
     </section>

@@ -516,7 +516,7 @@ export default async function PracticePage({
     : null;
 
   return (
-    <div className="studentPage studentDashboardModern">
+    <div className="studentPage studentDashboardModern studentLearnerPage studentLearnerPracticePage">
       <StudentPageHeader
         title={
           selectedSubject === ALL_SUBJECTS_CONTEXT

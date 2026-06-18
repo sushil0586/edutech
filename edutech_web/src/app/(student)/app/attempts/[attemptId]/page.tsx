@@ -445,7 +445,7 @@ export default async function AttemptDetailPage({
   }
 
   return (
-    <div className="studentPage studentDashboardModern attemptPageFocusMode">
+    <div className="studentPage studentDashboardModern attemptPageFocusMode studentLearnerPage studentLearnerAttemptPage">
       <AttemptTimerAutoSubmit
         submitFormId="attempt-submit-form"
         questionFormId="attempt-question-form"

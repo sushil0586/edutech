@@ -37,7 +37,7 @@ export default async function AdminSettingsPage() {
   ]);
 
   return (
-    <section className="studentPage studentPageTight studentDashboardModern">
+    <section className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteSupportPageVivid">
       <PlatformAdminPageHeader
         title="Settings"
         description="Review the current platform-governance scope, confirm what is already configurable, and keep the admin role aligned with truthful backend-backed controls."

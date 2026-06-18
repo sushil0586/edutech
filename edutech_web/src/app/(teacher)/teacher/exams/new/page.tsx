@@ -134,7 +134,7 @@ export default async function NewTeacherExamPage({
   const optionCatalog = groupTeacherOptionCatalog(optionCatalogEntries);
 
   return (
-    <div className="studentPage studentPageTight createExamPage">
+    <div className="studentPage studentPageTight createExamPage teacherConsolePage teacherExamBuilderPageVivid">
       <TeacherPageHeader
         title="Create Exam"
         description="Start a new exam shell with live academic scope data, then continue into sections, linked questions, and learner assignment."

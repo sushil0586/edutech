@@ -64,7 +64,7 @@ export default async function AdminEconomyPage() {
     ]);
 
   return (
-    <section className="studentPage studentPageTight studentDashboardModern">
+    <section className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteSupportPageVivid">
       <PlatformAdminPageHeader
         title="Economy"
         description="Review platform-visible exam access policy coverage and use controlled admin actions for student wallet support without hardcoded pricing assumptions."

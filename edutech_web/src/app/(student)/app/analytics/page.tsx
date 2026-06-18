@@ -330,7 +330,7 @@ export default async function AnalyticsPage({
     recentTrendBars.every((item) => Math.round(item.value) === Math.round(recentTrendBars[0]?.value ?? 0));
 
   return (
-    <div className="studentPage studentDashboardModern">
+    <div className="studentPage studentDashboardModern studentLearnerPage studentLearnerAnalyticsPage">
       <StudentPageHeader
         title={
           selectedSubject === ALL_SUBJECTS_CONTEXT

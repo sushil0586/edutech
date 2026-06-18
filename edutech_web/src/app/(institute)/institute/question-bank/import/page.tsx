@@ -34,7 +34,7 @@ export default async function InstituteQuestionImportPage() {
   }
 
   return (
-    <div className="studentPage studentPageTight studentDashboardModern">
+    <div className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteQuestionImportPageVivid">
       <InstitutePageHeader
         title="Import Questions"
         description="Bring structured CSV question sets into the institute bank with a preview-first workflow backed by the live backend validators."
@@ -57,6 +57,7 @@ export default async function InstituteQuestionImportPage() {
         csvContent={template.csv_content}
         formId="institute-question-import-form"
         templateColumns={template.columns}
+        workspaceClassName="instituteQuestionImportWorkspaceVivid"
       />
     </div>
   );

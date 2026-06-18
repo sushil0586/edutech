@@ -10,9 +10,9 @@ export default async function TeacherAppLayout({
   const profile = await requireTeacherSession();
 
   return (
-    <div className="studentAppShell">
+    <div className="studentAppShell teacherAppShell">
       <TeacherSidebar profile={profile} />
-      <main className="studentAppMain">
+      <main className="studentAppMain teacherAppMain">
         <WorkspaceTopbar
           profile={profile}
           workspaceLabel="Teacher workspace"

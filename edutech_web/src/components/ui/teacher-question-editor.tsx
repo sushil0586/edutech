@@ -79,6 +79,7 @@ export function TeacherQuestionEditor({
   topics,
   initialQuestion,
   duplicateMode = false,
+  pageClassName = "",
 }: {
   action: (formData: FormData) => void | Promise<void>;
   headerEyebrow?: string;
@@ -93,6 +94,7 @@ export function TeacherQuestionEditor({
   topics: LookupTopic[];
   initialQuestion?: TeacherQuestion | null;
   duplicateMode?: boolean;
+  pageClassName?: string;
 }) {
   const initialQuestionType = initialQuestion?.question_type ?? questionTypeOptions[0]?.value ?? "";
   const initialContentFormat = initialQuestion?.content_format ?? contentFormatOptions[0]?.value ?? "";
@@ -214,7 +216,7 @@ export function TeacherQuestionEditor({
   );
 
   return (
-    <div className="studentPage studentPageTight studentDashboardModern">
+    <div className={`studentPage studentPageTight studentDashboardModern ${pageClassName}`.trim()}>
       <StudentPageHeader
         eyebrow={headerEyebrow}
         title={pageTitle}

@@ -48,7 +48,7 @@ export default async function InstituteAdvancedExamBuilderPage() {
   const optionCatalog = groupTeacherOptionCatalog(optionCatalogEntries);
 
   return (
-    <div className="studentPage studentPageTight createExamPage">
+    <div className="studentPage studentPageTight createExamPage instituteConsolePage instituteExamBuilderPageVivid">
       <InstitutePageHeader
         title="Advanced Exam Builder"
         description="Build institute-grade custom exams with topic quotas, structured sections, and premium access rules in a single restrained workflow."

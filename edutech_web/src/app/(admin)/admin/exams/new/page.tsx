@@ -203,7 +203,7 @@ export default async function PlatformAdminNewExamPage({
   const optionCatalog = groupTeacherOptionCatalog(optionCatalogEntries);
 
   return (
-    <div className="studentPage studentPageTight createExamPage">
+    <div className="studentPage studentPageTight createExamPage instituteConsolePage instituteExamBuilderPageVivid">
       <PlatformAdminPageHeader
         title="Create Exam"
         description="Create a platform-owned or institute-owned exam shell inside a selected institute scope, then continue into downstream builder work."

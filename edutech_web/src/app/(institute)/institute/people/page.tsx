@@ -101,6 +101,76 @@ export default async function InstitutePeoplePage({
         className="pageHeaderCompact"
       />
 
+      <section className="adminInstituteHero">
+        <div className="adminInstituteHeroCopy">
+          <span className="studentDashboardTag">People operations</span>
+          <strong>
+            Manage {activeView === "students" ? "student enrollment" : "teacher staffing"} from one institute-scoped roster
+          </strong>
+          <p>
+            Review active records, create new entries, and import roster updates without leaving the institute workspace.
+          </p>
+          <div className="adminInstituteHeroMeta">
+            <span>{visibleCount} visible {activeView}</span>
+            <span>{academicYears.length} academic years</span>
+            <span>{programs.length} programs</span>
+            <span>{cohorts.length} cohorts</span>
+          </div>
+          <div className="instituteConsoleActions adminInstituteHeroActions">
+            <Link className="button buttonPrimary" href="/institute/people?view=students">
+              Open students
+            </Link>
+            <Link className="button buttonSecondary" href="/institute/people?view=teachers">
+              Open teachers
+            </Link>
+            <Link className="button buttonGhost" href="/institute/academic-setup">
+              Academic setup
+            </Link>
+          </div>
+        </div>
+
+        <div className="adminInstituteHeroAside">
+          <div className="adminInstituteHeroAsideStack">
+            <article className="adminInstituteHeroAsideCard adminInstituteHeroAsideCardPrimary">
+              <span>Current roster view</span>
+              <strong>{activeView === "students" ? "Students" : "Teachers"}</strong>
+              <small>
+                {institute
+                  ? `${institute.name} · ${visibleCount} records available`
+                  : `${visibleCount} records available`}
+              </small>
+            </article>
+            <article className="adminInstituteHeroAsideCard">
+              <span>Institute scope</span>
+              <strong>{institute?.code ?? "Unlinked"}</strong>
+              <small>{institute?.is_active ? "Active institute record in scope." : "Institute record needs review."}</small>
+            </article>
+          </div>
+          <div className="adminInstituteHeroMiniStats">
+            <article className="adminInstituteHeroMiniStat">
+              <span>Students</span>
+              <strong>{activeView === "students" ? visibleCount : "View"}</strong>
+              <small>{activeView === "students" ? "Rows in current student roster." : "Switch to inspect learner rows."}</small>
+            </article>
+            <article className="adminInstituteHeroMiniStat">
+              <span>Teachers</span>
+              <strong>{activeView === "teachers" ? visibleCount : "View"}</strong>
+              <small>{activeView === "teachers" ? "Rows in current teacher roster." : "Switch to inspect faculty rows."}</small>
+            </article>
+            <article className="adminInstituteHeroMiniStat">
+              <span>Academic years</span>
+              <strong>{academicYears.length}</strong>
+              <small>Enrollment windows available.</small>
+            </article>
+            <article className="adminInstituteHeroMiniStat">
+              <span>Cohorts</span>
+              <strong>{cohorts.length}</strong>
+              <small>Grouping lanes for student allocation.</small>
+            </article>
+          </div>
+        </div>
+      </section>
+
       <section className="contentCard adminPeopleControlPanel">
         <div className="adminPeopleViewTabs">
           <Link

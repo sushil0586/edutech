@@ -138,6 +138,74 @@ export default async function InstituteAcademicSetupPage({
         className="pageHeaderCompact"
       />
 
+      <section className="adminInstituteHero">
+        <div className="adminInstituteHeroCopy">
+          <span className="studentDashboardTag">Academic control</span>
+          <strong>Shape the institute structure that powers rosters, exams, and assignment scope</strong>
+          <p>
+            Keep academic years, programs, cohorts, subjects, topics, assignments, and exam defaults aligned from one workspace.
+          </p>
+          <div className="adminInstituteHeroMeta">
+            <span>{academicYears.length} academic years</span>
+            <span>{programs.length} programs</span>
+            <span>{subjects.length} subjects</span>
+            <span>{topics.length} topics</span>
+          </div>
+          <div className="instituteConsoleActions adminInstituteHeroActions">
+            <Link className="button buttonPrimary" href="/institute/academic-setup?section=academic-years">
+              Open structure
+            </Link>
+            <Link className="button buttonSecondary" href="/institute/academic-setup?section=teacher-assignments">
+              Teacher assignments
+            </Link>
+            <Link className="button buttonGhost" href="/institute/academic-setup?section=exam-defaults">
+              Exam defaults
+            </Link>
+          </div>
+        </div>
+
+        <div className="adminInstituteHeroAside">
+          <div className="adminInstituteHeroAsideStack">
+            <article className="adminInstituteHeroAsideCard adminInstituteHeroAsideCardPrimary">
+              <span>Active section</span>
+              <strong>{activeSectionLabel}</strong>
+              <small>
+                {institute
+                  ? `${institute.name} · ${sectionCounts[activeSection]} in view`
+                  : `${sectionCounts[activeSection]} in view`}
+              </small>
+            </article>
+            <article className="adminInstituteHeroAsideCard">
+              <span>Institute scope</span>
+              <strong>{institute?.code ?? "Unlinked"}</strong>
+              <small>{institute?.is_active ? "Active institute record in scope." : "Institute record needs review."}</small>
+            </article>
+          </div>
+          <div className="adminInstituteHeroMiniStats">
+            <article className="adminInstituteHeroMiniStat">
+              <span>Teachers</span>
+              <strong>{teacherCount}</strong>
+              <small>Faculty records available for assignment.</small>
+            </article>
+            <article className="adminInstituteHeroMiniStat">
+              <span>Students</span>
+              <strong>{studentCount}</strong>
+              <small>Learners relying on this structure.</small>
+            </article>
+            <article className="adminInstituteHeroMiniStat">
+              <span>Assignments</span>
+              <strong>{assignments.length}</strong>
+              <small>Teacher-subject scope mappings.</small>
+            </article>
+            <article className="adminInstituteHeroMiniStat">
+              <span>Exam defaults</span>
+              <strong>{Object.keys(selectedInstituteDefaults).length}</strong>
+              <small>Policy fields currently populated.</small>
+            </article>
+          </div>
+        </div>
+      </section>
+
       <section className="contentCard adminPeopleControlPanel adminAcademicControlPanel">
         <div className="adminPeopleViewTabs">
           {academicSections.map((section) => (

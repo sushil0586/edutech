@@ -155,7 +155,7 @@ export default async function PlatformAdminExamDetailPage({
 
   if (!detail) {
     return (
-      <div className="studentPage">
+      <div className="studentPage instituteConsolePage instituteExamsPageVivid">
         <PlatformAdminPageHeader
           title="Exam Detail"
           description="This route renders live platform-admin exam management data from the backend."
@@ -200,7 +200,7 @@ export default async function PlatformAdminExamDetailPage({
           : [];
 
   return (
-    <div className="studentPage studentDashboardModern">
+    <div className="studentPage studentDashboardModern instituteConsolePage instituteExamsPageVivid">
       <PlatformAdminPageHeader
         title={detail.title}
         description="Platform-admin exam setup, assignment, source governance, and lifecycle control backed by live exam APIs."

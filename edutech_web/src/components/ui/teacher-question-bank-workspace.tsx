@@ -158,6 +158,7 @@ export function TeacherQuestionBankWorkspace({
   page,
   hasPreviousPage,
   hasNextPage,
+  previewThemeClass = "",
 }: {
   academicsApiBasePath?: string;
   attachmentTypeLabelMap: Record<string, string>;
@@ -179,6 +180,7 @@ export function TeacherQuestionBankWorkspace({
   page: number;
   hasPreviousPage: boolean;
   hasNextPage: boolean;
+  previewThemeClass?: string;
 }) {
   const portalTarget = typeof document === "undefined" ? null : document.body;
   const isBrowser = typeof window !== "undefined";
@@ -210,18 +212,11 @@ export function TeacherQuestionBankWorkspace({
   const [questionDetailsById, setQuestionDetailsById] = useState<Record<string, TeacherQuestion>>({});
   const [loadingQuestionIds, setLoadingQuestionIds] = useState<string[]>([]);
   const [detailErrors, setDetailErrors] = useState<Record<string, string>>({});
-  const [favoriteIds, setFavoriteIds] = useState<string[]>(() =>
-    readStoredArray(`${storageKeyPrefix}-favorites`),
-  );
-  const [showFavoritesOnly, setShowFavoritesOnly] = useState(
-    () => isBrowser && window.localStorage.getItem(`${storageKeyPrefix}-favorites-only`) === "true",
-  );
-  const [statusFilter, setStatusFilter] = useState(
-    () => (isBrowser ? window.localStorage.getItem(`${storageKeyPrefix}-status`) ?? "" : ""),
-  );
-  const [isCompact, setIsCompact] = useState(
-    () => isBrowser && window.localStorage.getItem(`${storageKeyPrefix}-compact`) === "true",
-  );
+  const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("");
+  const [isCompact, setIsCompact] = useState(false);
+  const [hasLoadedPreferences, setHasLoadedPreferences] = useState(false);
   const topicInventory = loadedTopicInventory ?? topics;
 
   useEffect(() => {
@@ -229,11 +224,25 @@ export function TeacherQuestionBankWorkspace({
       return;
     }
 
+    setFavoriteIds(readStoredArray(`${storageKeyPrefix}-favorites`));
+    setShowFavoritesOnly(
+      window.localStorage.getItem(`${storageKeyPrefix}-favorites-only`) === "true",
+    );
+    setStatusFilter(window.localStorage.getItem(`${storageKeyPrefix}-status`) ?? "");
+    setIsCompact(window.localStorage.getItem(`${storageKeyPrefix}-compact`) === "true");
+    setHasLoadedPreferences(true);
+  }, [isBrowser, storageKeyPrefix]);
+
+  useEffect(() => {
+    if (!isBrowser || !hasLoadedPreferences) {
+      return;
+    }
+
     window.localStorage.setItem(
       `${storageKeyPrefix}-favorites`,
       JSON.stringify(favoriteIds),
     );
-  }, [favoriteIds, isBrowser, storageKeyPrefix]);
+  }, [favoriteIds, hasLoadedPreferences, isBrowser, storageKeyPrefix]);
 
   useEffect(() => {
     if (!previewQuestionId) {
@@ -257,15 +266,15 @@ export function TeacherQuestionBankWorkspace({
   }, [previewQuestionId]);
 
   useEffect(() => {
-    if (!isBrowser) {
+    if (!isBrowser || !hasLoadedPreferences) {
       return;
     }
 
     window.localStorage.setItem(`${storageKeyPrefix}-compact`, String(isCompact));
-  }, [isBrowser, isCompact, storageKeyPrefix]);
+  }, [hasLoadedPreferences, isBrowser, isCompact, storageKeyPrefix]);
 
   useEffect(() => {
-    if (!isBrowser) {
+    if (!isBrowser || !hasLoadedPreferences) {
       return;
     }
 
@@ -273,15 +282,15 @@ export function TeacherQuestionBankWorkspace({
       `${storageKeyPrefix}-favorites-only`,
       String(showFavoritesOnly),
     );
-  }, [isBrowser, showFavoritesOnly, storageKeyPrefix]);
+  }, [hasLoadedPreferences, isBrowser, showFavoritesOnly, storageKeyPrefix]);
 
   useEffect(() => {
-    if (!isBrowser) {
+    if (!isBrowser || !hasLoadedPreferences) {
       return;
     }
 
     window.localStorage.setItem(`${storageKeyPrefix}-status`, statusFilter);
-  }, [isBrowser, statusFilter, storageKeyPrefix]);
+  }, [hasLoadedPreferences, isBrowser, statusFilter, storageKeyPrefix]);
 
   const subjectOptions = useMemo(() => {
     if (!programFilter) {
@@ -1179,12 +1188,12 @@ export function TeacherQuestionBankWorkspace({
       {portalTarget && previewQuestion
         ? createPortal(
             <div
-              className="questionPreviewOverlay"
+              className={`questionPreviewOverlay ${previewThemeClass}`.trim()}
               onClick={() => setPreviewQuestionId(null)}
               role="presentation"
             >
               <div
-                className="questionPreviewDialog"
+                className={`questionPreviewDialog ${previewThemeClass}`.trim()}
                 onClick={(event) => event.stopPropagation()}
                 role="dialog"
                 aria-modal="true"

@@ -237,7 +237,7 @@ export default async function AttemptSummaryPage({
   });
 
   return (
-    <div className="studentPage studentDashboardModern">
+    <div className="studentPage studentDashboardModern studentLearnerPage studentLearnerAttemptSummaryPage">
       <StudentPageHeader
         title={`${summary.exam_title} Summary`}
         description={`Post-submit ${attemptExperienceLabel(summary.exam_type)} summary powered by the backend attempt summary endpoint.`}

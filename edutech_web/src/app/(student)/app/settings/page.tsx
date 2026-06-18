@@ -23,7 +23,7 @@ export default async function SettingsPage() {
     "Institute not assigned";
 
   return (
-    <div className="studentPage studentDashboardModern">
+    <div className="studentPage studentDashboardModern studentLearnerPage studentLearnerAccountPage studentLearnerSettingsPage">
       <StudentPageHeader
         title="Settings"
         description="Review your active student account, understand how this portal works, and manage your current web session."

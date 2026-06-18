@@ -988,7 +988,7 @@ export default async function InstituteExamBuilderPage({
   ];
 
   return (
-    <div className="studentPage studentDashboardModern">
+    <div className="studentPage studentDashboardModern instituteConsolePage instituteExamBuilderPageVivid">
       <InstitutePageHeader
         title={`${detail.title} Builder`}
         description="Edit the exam configuration, shape sections, attach questions, and control the student audience from one institute workflow."

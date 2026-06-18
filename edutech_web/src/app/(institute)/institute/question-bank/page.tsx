@@ -291,7 +291,7 @@ export default async function InstituteQuestionBankPage({
   ).length;
 
   return (
-    <div className="studentPage studentPageTight studentDashboardModern">
+    <div className="studentPage studentPageTight studentDashboardModern instituteConsolePage questionBankPageVivid">
       <InstitutePageHeader
         action={
           <div className="questionBankButtonRow">
@@ -310,25 +310,7 @@ export default async function InstituteQuestionBankPage({
       {message ? <p className="feedbackBanner feedbackBannerSuccess">{decodeURIComponent(message)}</p> : null}
       {error ? <p className="feedbackBanner feedbackBannerError">{decodeURIComponent(error)}</p> : null}
 
-      <section className="studentInsightHeroCard studentInsightHeroCardCompact">
-        <div className="studentInsightHeroCopy">
-          <span className="studentDashboardTag">Reusable Content</span>
-          <strong>Institute question bank</strong>
-          <small>
-            {questionPage.count} filtered items · {verifiedCount} verified · {missingExplanationCount} need explanation work
-          </small>
-        </div>
-        <div className="studentInsightHeroActions">
-          <Link className="button buttonPrimary" href="/institute/question-bank/new">
-            Create Question
-          </Link>
-          <Link className="button buttonSecondary" href="/institute/question-bank/import">
-            Import CSV
-          </Link>
-        </div>
-      </section>
-
-      <section className="builderSummaryGrid">
+      <section className="builderSummaryGrid questionBankSummaryGridCompact">
         <article className="builderSummaryCard">
           <span>Total questions</span>
           <strong>{questionPage.count}</strong>
@@ -374,6 +356,7 @@ export default async function InstituteQuestionBankPage({
         hasPreviousPage={Boolean(questionPage.previous)}
         page={page}
         programs={programs}
+        previewThemeClass="questionPreviewGlossy"
         questionTypeLabelMap={optionCatalog.labelMap("question_type")}
         questionTypeOptions={optionCatalog.selectOptions("question_type")}
         questions={questionPage.results}

@@ -405,7 +405,7 @@ export default async function WeakAreasPage({
   };
 
   return (
-    <div className="studentPage studentDashboardModern">
+    <div className="studentPage studentDashboardModern studentLearnerPage studentLearnerWeakAreasPage">
       <StudentPageHeader
         title={
           selectedSubject === ALL_SUBJECTS_CONTEXT

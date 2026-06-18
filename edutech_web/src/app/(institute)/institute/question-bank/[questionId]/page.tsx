@@ -304,13 +304,14 @@ export default async function InstituteQuestionDetailPage({
         initialQuestion={question}
         pageDescription="Review the question wording, explanation, answer structure, and academic mapping before reusing it in institute exams."
         pageTitle="Edit Question"
+        pageClassName="instituteConsolePage instituteQuestionEditorPageVivid"
         programs={programs}
         questionTypeOptions={optionCatalog.selectOptions("question_type")}
         subjects={subjects}
         topics={topics}
       />
 
-      <section className="studentPage studentPageTight studentDashboardModern">
+      <section className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteQuestionEditorPageVivid">
         <section className="studentInsightHeroCard studentInsightHeroCardCompact">
           <div className="studentInsightHeroCopy">
             <span className="studentDashboardTag">Question Enrichment</span>

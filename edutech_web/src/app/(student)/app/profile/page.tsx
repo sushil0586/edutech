@@ -16,7 +16,7 @@ export default async function ProfilePage() {
     "Institute not assigned";
 
   return (
-    <div className="studentPage studentDashboardModern">
+    <div className="studentPage studentDashboardModern studentLearnerPage studentLearnerAccountPage studentLearnerProfilePage">
       <StudentPageHeader
         title="Profile"
         description="Review the current student account identity and the academic context captured in the live registration and account profile."

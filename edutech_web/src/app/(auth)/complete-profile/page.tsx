@@ -24,7 +24,7 @@ export default async function CompleteProfilePage() {
   const registrationOptions = await fetchRegistrationOptions().catch(() => null);
   if (!registrationOptions) {
     return (
-      <div className="signupPage">
+      <div className="signupPage authPage">
         <header className="signupHeader">
           <Link className="brand" href="/">
             <span className="brandMark">N</span>
@@ -71,7 +71,7 @@ export default async function CompleteProfilePage() {
   }
 
   return (
-    <div className="signupPage">
+    <div className="signupPage authPage">
       <header className="signupHeader">
         <Link className="brand" href="/">
           <span className="brandMark">N</span>
@@ -91,28 +91,51 @@ export default async function CompleteProfilePage() {
         </div>
       </header>
 
-      <section className="signupPageIntro">
-        <PageHeader
-          eyebrow="Complete your profile"
-          title="One last step before your dashboard"
-          description="We already created the login. Now we’ll confirm the role-specific details needed for the right workspace."
-          className="pageHeaderCompact"
-        />
+      <section className="signupPageIntro authIntroHero">
+        <div className="authIntroMain">
+          <PageHeader
+            eyebrow="Complete your profile"
+            title="One last step before your dashboard"
+            description="We already created the login. Now we’ll confirm the role-specific details needed for the right workspace."
+            className="pageHeaderCompact"
+          />
 
-        <div className="signupInlineLaneStrip">
-          <div className="signupInlineLanePill">
-            <strong>Account already created</strong>
-            <span>Only the guided role details are left</span>
-          </div>
-          <div className="signupInlineLanePill">
-            <strong>Detected location retained</strong>
-            <span>Country, state, city, and pincode can be confirmed here</span>
-          </div>
-          <div className="signupInlineLanePill">
-            <strong>Dashboard opens next</strong>
-            <span>This step routes the user to the correct workspace</span>
+          <div className="signupInlineLaneStrip">
+            <div className="signupInlineLanePill">
+              <strong>Account already created</strong>
+              <span>Only the guided role details are left</span>
+            </div>
+            <div className="signupInlineLanePill">
+              <strong>Detected location retained</strong>
+              <span>Country, state, city, and pincode can be confirmed here</span>
+            </div>
+            <div className="signupInlineLanePill">
+              <strong>Dashboard opens next</strong>
+              <span>This step routes the user to the correct workspace</span>
+            </div>
           </div>
         </div>
+
+        <aside className="authIntroPanel">
+          <span className="eyebrow">Completion path</span>
+          <strong>Role details, location, and final routing in one guided step.</strong>
+          <p>
+            This screen bridges the shared account to the exact workspace, so the
+            user lands in the right dashboard with the right academic or role context.
+          </p>
+          <div className="authIntroMetrics">
+            <article className="authInlineStat">
+              <span>Profile</span>
+              <strong>Role-aware fields</strong>
+              <small>Students, parents, and teachers see only what matters.</small>
+            </article>
+            <article className="authInlineStat">
+              <span>Outcome</span>
+              <strong>Correct dashboard</strong>
+              <small>Completion routes the account into the right workspace.</small>
+            </article>
+          </div>
+        </aside>
       </section>
 
       <div className="authCard authCardWide signupWorkspace">

@@ -379,7 +379,7 @@ export default async function ResultsPage({
   });
 
   return (
-    <div className="studentPage studentDashboardModern">
+    <div className="studentPage studentDashboardModern studentLearnerPage studentLearnerResultsPage">
       <StudentPageHeader
         title={
           selectedSubject === ALL_SUBJECTS_CONTEXT

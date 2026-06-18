@@ -22,7 +22,7 @@ export default async function InstituteSettingsPage() {
   const examDefaultCount = institute?.exam_defaults ? Object.keys(institute.exam_defaults).length : 0;
 
   return (
-    <section className="studentPage studentPageTight studentDashboardModern">
+    <section className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteSupportPageVivid">
       <InstitutePageHeader
         title="Settings"
         description="Review institute identity, exam defaults, and the control lanes that are already backed by institute data."

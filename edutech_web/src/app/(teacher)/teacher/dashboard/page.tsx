@@ -148,7 +148,7 @@ export default async function TeacherDashboardPage({
     });
 
   return (
-    <div className="studentPage studentDashboardModern">
+    <div className="studentPage studentDashboardModern teacherConsolePage teacherDashboardPageVivid">
       <TeacherPageHeader
         title="Delivery Dashboard"
         description="Track the current exam pipeline, student attempt activity, and weak learning signals from your scoped backend data."

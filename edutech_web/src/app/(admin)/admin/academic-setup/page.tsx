@@ -147,7 +147,7 @@ export default async function AdminAcademicSetupPage({
     academicSections.find((section) => section.id === activeSection)?.label ?? "Academic years";
 
   return (
-    <section className="studentPage studentPageTight studentDashboardModern adminPeoplePage adminPeoplePageCompact adminAcademicPage">
+    <section className="studentPage studentPageTight studentDashboardModern adminPeoplePage adminPeoplePageCompact adminAcademicPage instituteConsolePage">
       <PageHeader
         eyebrow="Platform admin workspace"
         title="Academic setup"

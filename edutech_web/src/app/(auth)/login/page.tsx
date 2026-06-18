@@ -40,33 +40,97 @@ export default async function LoginPage({
     : "Sign in to continue to your workspace.";
 
   return (
-    <div className="authCard">
-      <PageHeader
-        eyebrow={pageEyebrow}
-        title={pageTitle}
-        description={pageDescription}
-        className="pageHeaderCompact"
-      />
+    <div className="authPage">
+      <header className="signupHeader authHeader">
+        <Link className="brand" href="/">
+          <span className="brandMark">N</span>
+          <span className="brandText">
+            <strong>Nexora</strong>
+            <small>Secure workspace access</small>
+          </span>
+        </Link>
 
-      {selectedLane ? (
-        <div className="authLaneHint">
-          <span className="eyebrow">Matched lane</span>
-          <p>{selectedLane.title} is ready for sign-in.</p>
-          {classLevel || board || focus ? (
-            <div className="registrationTagCloud">
-              {classLevel ? <span>Class {classLevel}</span> : null}
-              {board ? <span>{board}</span> : null}
-              {focus ? <span>{focus}</span> : null}
-            </div>
-          ) : null}
+        <div className="navActions">
+          <Link className="button buttonGhost" href="/">
+            Home
+          </Link>
+          <Link className="button buttonSecondary" href="/signup">
+            Create account
+          </Link>
         </div>
-      ) : null}
+      </header>
 
-      <LoginForm />
+      <section className="authLandingShell">
+        <aside className="authLandingIntro">
+          <div className="authLandingBadgeRow">
+            <span className="eyebrow">{pageEyebrow}</span>
+            <span className="statusPill">Live workspace access</span>
+          </div>
 
-      <p className="authMeta">
-        Need a different lane? <Link href="/signup">See access options</Link>
-      </p>
+          <h1>{pageTitle}</h1>
+          <p>{pageDescription}</p>
+
+          <div className="registrationTagCloud authLandingTags">
+            <span>Fast sign-in</span>
+            <span>Role-aware routing</span>
+            <span>Secure session cookies</span>
+          </div>
+
+          {selectedLane ? (
+            <div className="authLandingStory">
+              <div className="authLaneHint authLaneHintStrong">
+                <span className="eyebrow">Matched lane</span>
+                <p>{selectedLane.title} is ready for sign-in.</p>
+                {classLevel || board || focus ? (
+                  <div className="registrationTagCloud">
+                    {classLevel ? <span>Class {classLevel}</span> : null}
+                    {board ? <span>{board}</span> : null}
+                    {focus ? <span>{focus}</span> : null}
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="authStoryGrid">
+                {selectedLane.highlights.map((highlight, index) => (
+                  <article className="authStoryCard" key={highlight}>
+                    <span>0{index + 1}</span>
+                    <strong>{highlight}</strong>
+                    <p>Continue into the matching workflow without switching product context.</p>
+                  </article>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="authStoryGrid">
+              <article className="authStoryCard">
+                <span>01</span>
+                <strong>Student and parent access</strong>
+                <p>Resume practice, reports, and guided learning activity from the right workspace.</p>
+              </article>
+              <article className="authStoryCard">
+                <span>02</span>
+                <strong>Teacher and institute access</strong>
+                <p>Return to exam operations, question workflows, and review tasks with less friction.</p>
+              </article>
+            </div>
+          )}
+        </aside>
+
+        <div className="authCard authCardTall authLoginCard">
+          <PageHeader
+            eyebrow={pageEyebrow}
+            title={pageTitle}
+            description={pageDescription}
+            className="pageHeaderCompact authPageHeader"
+          />
+
+          <LoginForm />
+
+          <p className="authMeta">
+            Need a different lane? <Link href="/signup">See access options</Link>
+          </p>
+        </div>
+      </section>
     </div>
   );
 }

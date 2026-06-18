@@ -158,7 +158,7 @@ export default async function AdminReportsPage({
   );
 
   return (
-    <section className="studentPage studentPageTight studentDashboardModern">
+    <section className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteSupportPageVivid">
       <PlatformAdminPageHeader
         title="Reports"
         description="Review platform-wide reporting health across tracked exams, attempt volume, publication backlog, and academic weak spots."

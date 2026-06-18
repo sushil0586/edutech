@@ -128,7 +128,7 @@ export default async function AdminPeoplePage({
   ]);
 
   return (
-    <section className="studentPage studentPageTight studentDashboardModern adminPeoplePage adminPeoplePageCompact">
+    <section className="studentPage studentPageTight studentDashboardModern adminPeoplePage adminPeoplePageCompact instituteConsolePage">
       <section className="contentCard adminPeopleControlPanel">
         <div className="adminPeopleViewTabs">
           <Link

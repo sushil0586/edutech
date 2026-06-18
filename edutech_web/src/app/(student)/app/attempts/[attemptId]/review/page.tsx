@@ -195,7 +195,7 @@ export default async function AttemptReviewPage({
   });
 
   return (
-    <div className="studentPage studentDashboardModern">
+    <div className="studentPage studentDashboardModern studentLearnerPage studentLearnerAttemptReviewPage">
       <StudentPageHeader
         title={`${review.exam_title} Review`}
         description="Post-attempt review powered by the backend review endpoint."

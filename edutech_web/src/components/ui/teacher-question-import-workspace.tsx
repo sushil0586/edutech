@@ -44,6 +44,7 @@ export function TeacherQuestionImportWorkspace({
   formId = "teacher-question-import-form",
   previewApiPath = "/api/question-bank/preview-import",
   templateColumns,
+  workspaceClassName = "",
 }: {
   backHref?: string;
   csvContent: string;
@@ -51,6 +52,7 @@ export function TeacherQuestionImportWorkspace({
   formId?: string;
   previewApiPath?: string;
   templateColumns: string[];
+  workspaceClassName?: string;
 }) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<QuestionImportPreview | null>(null);
@@ -197,7 +199,7 @@ export function TeacherQuestionImportWorkspace({
   }
 
   return (
-    <div className="questionImportShell">
+    <div className={`questionImportShell ${workspaceClassName}`.trim()}>
       {message ? <p className="feedbackBanner feedbackBannerSuccess">{message}</p> : null}
       {error ? <p className="feedbackBanner feedbackBannerError">{error}</p> : null}
 

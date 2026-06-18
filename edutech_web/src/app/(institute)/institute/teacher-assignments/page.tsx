@@ -49,7 +49,7 @@ export default async function InstituteTeacherAssignmentsPage() {
   const cohortOptionalAssignments = assignments.filter((assignment) => assignment.cohort === null).length;
 
   return (
-    <section className="studentPage studentPageTight studentDashboardModern">
+    <section className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteSupportPageVivid">
       <InstitutePageHeader
         title="Teacher Assignments"
         description="Manage institute-scoped teacher ownership across years, programs, cohorts, and subjects from one operational screen."

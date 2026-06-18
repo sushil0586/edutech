@@ -19,7 +19,10 @@ export function PendingButton({
 
   return (
     <button className={className} disabled={disabled || pending} type="submit">
-      {pending ? pendingLabel : idleLabel}
+      <span className="pendingButtonContent">
+        {pending ? <span aria-hidden="true" className="pendingButtonSpinner" /> : null}
+        <span>{pending ? pendingLabel : idleLabel}</span>
+      </span>
     </button>
   );
 }

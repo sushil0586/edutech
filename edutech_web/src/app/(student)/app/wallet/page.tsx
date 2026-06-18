@@ -220,7 +220,7 @@ export default async function WalletPage({
   );
 
   return (
-    <div className="studentPage studentWalletPage">
+    <div className="studentPage studentDashboardModern studentWalletPage studentLearnerPage studentLearnerAccountPage studentLearnerWalletPage">
       <StudentPageHeader
         title="Wallet"
         description="Track your stars, understand how they move, and choose the best way to unlock premium content."
