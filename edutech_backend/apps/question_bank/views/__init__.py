@@ -171,6 +171,7 @@ class QuestionViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
                 "program_id",
                 "subject_id",
                 "topic_id",
+                "created_by_teacher_id",
                 "question_type",
                 "difficulty_level",
                 "content_format",
@@ -181,6 +182,7 @@ class QuestionViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
                 "is_active",
                 "is_verified",
                 "metadata",
+                "created_by_teacher__full_name",
             )
         else:
             queryset = queryset.prefetch_related(

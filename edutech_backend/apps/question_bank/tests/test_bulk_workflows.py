@@ -45,6 +45,15 @@ class QuestionBankBulkWorkflowTestCase(TestCase):
             password="Institute@123",
             email="institute-question-bank@example.com",
         )
+        self.builder.create_question_with_options(
+            self.context["institute"],
+            self.context["program"],
+            self.context["subject"],
+            self.context["topic"],
+            None,
+            question_text="Institute-owned question without teacher profile",
+            explanation="Created without a linked teacher.",
+        )
         institute_client = APIClient()
         institute_client.force_authenticate(user=institute_admin_user)
 
@@ -59,9 +68,18 @@ class QuestionBankBulkWorkflowTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertGreaterEqual(response.data["count"], 1)
         self.assertTrue(response.data["results"])
-        self.assertEqual(
-            response.data["results"][0]["question_text"],
-            self.context["question"].question_text,
+        self.assertTrue(
+            any(
+                item["question_text"] == self.context["question"].question_text
+                for item in response.data["results"]
+            )
+        )
+        self.assertTrue(
+            any(
+                item["question_text"] == "Institute-owned question without teacher profile"
+                and item["created_by_teacher_name"] == ""
+                for item in response.data["results"]
+            )
         )
 
     def _csv_file(self, content, name="question_import.csv"):

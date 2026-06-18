@@ -210,11 +210,7 @@ class QuestionSerializer(serializers.ModelSerializer):
 
 
 class QuestionListSerializer(serializers.ModelSerializer):
-    created_by_teacher_name = serializers.CharField(
-        source="created_by_teacher.full_name",
-        read_only=True,
-        default="",
-    )
+    created_by_teacher_name = serializers.SerializerMethodField()
     usage_count = serializers.IntegerField(read_only=True, default=0)
     correct_count = serializers.IntegerField(read_only=True, default=0)
     wrong_count = serializers.IntegerField(read_only=True, default=0)
@@ -265,6 +261,10 @@ class QuestionListSerializer(serializers.ModelSerializer):
 
     def get_has_explanation(self, obj):
         return bool((obj.explanation or "").strip())
+
+    def get_created_by_teacher_name(self, obj):
+        teacher = getattr(obj, "created_by_teacher", None)
+        return getattr(teacher, "full_name", "") or ""
 
     def get_wrong_attempt_percentage(self, obj):
         usage = getattr(obj, "usage_count", 0) or 0

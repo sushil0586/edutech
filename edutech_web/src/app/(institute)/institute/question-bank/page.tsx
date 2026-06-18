@@ -50,6 +50,13 @@ function buildQuestionBankQuery(params: Record<string, string | number | boolean
   return query ? `?${query}` : "";
 }
 
+function readLoadError(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message.trim();
+  }
+  return fallback;
+}
+
 async function applyQuestionBulkAction(formData: FormData) {
   "use server";
 
@@ -171,99 +178,36 @@ export default async function InstituteQuestionBankPage({
   const error = readSingle(resolvedSearchParams.error);
   const message = readSingle(resolvedSearchParams.message);
 
-  const bootstrapData = await Promise.all([
+  const bootstrapResults = await Promise.allSettled([
     fetchTeacherOptionCatalog(),
     fetchTeacherPrograms(),
     fetchTeacherQuestionTags(),
     fetchPortalList<TeacherOption>(
       `/api/v1/teachers/${profile.institute ? `?institute=${profile.institute}&page_size=100` : "?page_size=100"}`,
-    ).catch(() => []),
-  ]).catch(() => null);
+    ),
+  ]);
 
-  if (!bootstrapData) {
-    return (
-      <div className="studentPage">
-        <InstitutePageHeader
-          title="Question Bank"
-          description="This route depends on the live institute-scoped question bank, academic lookup, and bulk action endpoints."
-        />
-        <StudentStatePanel
-          eyebrow="Load issue"
-          title="Question bank could not be loaded"
-          description="The institute question bank workspace needs live question-bank and academic lookup endpoints, and the current request did not complete successfully."
-          bullets={[
-            "Institute question bank endpoint",
-            "Programs, subjects, and topics lookups",
-            "Bulk question action support",
-          ]}
-          ctaHref="/institute/dashboard"
-          ctaLabel="Back to Dashboard"
-          statusLabel="Retry after backend check"
-        />
-      </div>
-    );
-  }
+  const optionCatalogResult = bootstrapResults[0];
+  const programsResult = bootstrapResults[1];
+  const tagsResult = bootstrapResults[2];
+  const teachersResult = bootstrapResults[3];
 
-  const [optionCatalogEntries, programs, tags, teachers] = bootstrapData;
+  const optionCatalogEntries =
+    optionCatalogResult.status === "fulfilled" ? optionCatalogResult.value : [];
+  const programs = programsResult.status === "fulfilled" ? programsResult.value : [];
+  const tags = tagsResult.status === "fulfilled" ? tagsResult.value : [];
+  const teachers = teachersResult.status === "fulfilled" ? teachersResult.value : [];
   const validTeacher = teachers.some((entry) => entry.id === teacher) ? teacher : "";
   const validProgram = programs.some((entry) => entry.id === program) ? program : "";
   const subjects = await fetchTeacherSubjects({
     program: validProgram || undefined,
-  }).catch(() => null);
-
-  if (!subjects) {
-    return (
-      <div className="studentPage">
-        <InstitutePageHeader
-          title="Question Bank"
-          description="This route depends on the live institute-scoped question bank, academic lookup, and bulk action endpoints."
-        />
-        <StudentStatePanel
-          eyebrow="Load issue"
-          title="Question bank could not be loaded"
-          description="The institute question bank workspace needs live question-bank and academic lookup endpoints, and the current request did not complete successfully."
-          bullets={[
-            "Institute question bank endpoint",
-            "Programs, subjects, and topics lookups",
-            "Bulk question action support",
-          ]}
-          ctaHref="/institute/dashboard"
-          ctaLabel="Back to Dashboard"
-          statusLabel="Retry after backend check"
-        />
-      </div>
-    );
-  }
+  }).catch(() => []);
 
   const validSubject =
     validProgram && subjects.some((entry) => entry.id === subject) ? subject : "";
   const topics = await fetchTeacherTopics({
     subject: validSubject || undefined,
-  }).catch(() => null);
-
-  if (!topics) {
-    return (
-      <div className="studentPage">
-        <InstitutePageHeader
-          title="Question Bank"
-          description="This route depends on the live institute-scoped question bank, academic lookup, and bulk action endpoints."
-        />
-        <StudentStatePanel
-          eyebrow="Load issue"
-          title="Question bank could not be loaded"
-          description="The institute question bank workspace needs live question-bank and academic lookup endpoints, and the current request did not complete successfully."
-          bullets={[
-            "Institute question bank endpoint",
-            "Programs, subjects, and topics lookups",
-            "Bulk question action support",
-          ]}
-          ctaHref="/institute/dashboard"
-          ctaLabel="Back to Dashboard"
-          statusLabel="Retry after backend check"
-        />
-      </div>
-    );
-  }
+  }).catch(() => []);
 
   const validTopic =
     validSubject && topics.some((entry) => entry.id === topic) ? topic : "";
@@ -293,6 +237,7 @@ export default async function InstituteQuestionBankPage({
     );
   }
 
+  let loadIssue = "";
   const questionPage = await fetchTeacherQuestionPage({
     page,
     page_size: 20,
@@ -306,7 +251,13 @@ export default async function InstituteQuestionBankPage({
     difficulty_level: difficultyLevel || undefined,
     ordering,
     missing_explanation: missingExplanation,
-  }).catch(() => null);
+  }).catch((caughtError) => {
+    loadIssue = readLoadError(
+      caughtError,
+      "Institute question bank request failed before results could load.",
+    );
+    return null;
+  });
 
   if (!questionPage) {
     return (
@@ -315,6 +266,7 @@ export default async function InstituteQuestionBankPage({
           title="Question Bank"
           description="This route depends on the live institute-scoped question bank, academic lookup, and bulk action endpoints."
         />
+        {loadIssue ? <p className="feedbackBanner feedbackBannerError">{loadIssue}</p> : null}
         <StudentStatePanel
           eyebrow="Load issue"
           title="Question bank could not be loaded"
