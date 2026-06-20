@@ -103,6 +103,9 @@ export function TeacherAssignmentWorkspace({
   const [isActive, setIsActive] = useState(true);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [archivingId, setArchivingId] = useState<string | null>(null);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<AssignmentFieldErrors>({});
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -121,6 +124,9 @@ export function TeacherAssignmentWorkspace({
   const subjectOptions = subjects.filter(
     (item) => !programId || item.program === null || item.program === programId,
   );
+  const visibleAssignments = showArchived
+    ? assignments
+    : assignments.filter((item) => item.is_active);
 
   const resetForm = useCallback(() => {
     setEditingId(null);
@@ -257,6 +263,79 @@ export function TeacherAssignmentWorkspace({
     }
   }
 
+  async function archiveAssignment(item: TeacherAssignmentRecord) {
+    if (
+      !window.confirm(
+        `Archive assignment for ${lookup.teacherNames.get(item.teacher) ?? "this teacher"}? This will mark the assignment inactive.`,
+      )
+    ) {
+      return;
+    }
+
+    setArchivingId(item.id);
+    setMessage("");
+    setFieldErrors({});
+
+    try {
+      const response = await fetch(`/api/admin/teacher-assignments/${item.id}`, {
+        method: "DELETE",
+      });
+      const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+      if (!response.ok) {
+        throw new Error(
+          typeof body.detail === "string"
+            ? body.detail
+            : "Assignment could not be archived right now.",
+        );
+      }
+      setMessage("Assignment archived successfully.");
+      router.refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Archive failed.");
+    } finally {
+      setArchivingId(null);
+    }
+  }
+
+  async function restoreAssignment(item: TeacherAssignmentRecord) {
+    setRestoringId(item.id);
+    setMessage("");
+    setFieldErrors({});
+
+    try {
+      const response = await fetch(`/api/admin/teacher-assignments/${item.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          teacher: item.teacher,
+          academic_year: item.academic_year,
+          program: item.program,
+          cohort: item.cohort,
+          subject: item.subject,
+          assignment_role: item.assignment_role,
+          is_primary: item.is_primary,
+          is_active: true,
+        }),
+      });
+      const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+      if (!response.ok) {
+        throw new Error(
+          typeof body.detail === "string"
+            ? body.detail
+            : "Assignment could not be restored right now.",
+        );
+      }
+      setMessage("Assignment restored successfully.");
+      router.refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Restore failed.");
+    } finally {
+      setRestoringId(null);
+    }
+  }
+
   if (!instituteId) {
     return (
       <article className="dashboardPanel academicSectionPanel">
@@ -279,7 +358,15 @@ export function TeacherAssignmentWorkspace({
         <div className="academicSectionHeader">
           <strong>Teacher assignments</strong>
           <div className="academicSectionHeaderActions">
-            <span className="setupFieldMeta">{assignments.length} records</span>
+            <span className="setupFieldMeta">{visibleAssignments.length} visible</span>
+            <label className="setupToggle">
+              <input
+                checked={showArchived}
+                onChange={(event) => setShowArchived(event.target.checked)}
+                type="checkbox"
+              />
+              <span>Show archived</span>
+            </label>
             <button className="appTopbarAction" onClick={openCreateDialog} type="button">
               <span className="appTopbarActionIcon" aria-hidden="true">
                 +
@@ -292,7 +379,7 @@ export function TeacherAssignmentWorkspace({
         {message ? <p className="authMeta">{message}</p> : null}
 
         <div className="academicRecordList">
-          {assignments.length > 0 ? (
+          {visibleAssignments.length > 0 ? (
             <div className="adminPeopleRosterTableWrap academicRecordTableWrap">
               <table className="adminPeopleRosterTable academicRecordTable">
                 <thead>
@@ -305,7 +392,7 @@ export function TeacherAssignmentWorkspace({
                   </tr>
                 </thead>
                 <tbody>
-                  {assignments.map((item) => (
+                  {visibleAssignments.map((item) => (
                     <tr key={item.id}>
                       <td>
                         <strong>{lookup.teacherNames.get(item.teacher) ?? "Unknown teacher"}</strong>
@@ -322,7 +409,9 @@ export function TeacherAssignmentWorkspace({
                       </td>
                       <td>
                         <span className="setupFieldMeta">
-                          {item.assignment_role.replaceAll("_", " ")}
+                          {item.is_active
+                            ? item.assignment_role.replaceAll("_", " ")
+                            : `Archived • ${item.assignment_role.replaceAll("_", " ")}`}
                         </span>
                       </td>
                       <td>
@@ -333,6 +422,28 @@ export function TeacherAssignmentWorkspace({
                             </span>
                             Edit
                           </button>
+                          <button
+                            className="appTopbarAction setupSecondaryAction"
+                            disabled={archivingId === item.id || !item.is_active}
+                            onClick={() => void archiveAssignment(item)}
+                            type="button"
+                          >
+                            <span className="appTopbarActionIcon" aria-hidden="true">
+                              ⊖
+                            </span>
+                            {archivingId === item.id ? "Archiving..." : "Archive"}
+                          </button>
+                          <button
+                            className="appTopbarAction"
+                            disabled={restoringId === item.id || item.is_active}
+                            onClick={() => void restoreAssignment(item)}
+                            type="button"
+                          >
+                            <span className="appTopbarActionIcon" aria-hidden="true">
+                              ⊕
+                            </span>
+                            {restoringId === item.id ? "Restoring..." : "Restore"}
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -342,7 +453,7 @@ export function TeacherAssignmentWorkspace({
             </div>
           ) : (
             <div className="featurePlaceholder">
-              <p>No teacher assignments exist yet.</p>
+              <p>{showArchived ? "No teacher assignments exist yet." : "No active teacher assignments are visible."}</p>
             </div>
           )}
         </div>

@@ -5,7 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
-from django.db.models import Count, Max, Q
+from django.db.models import Count, Max, Q, Prefetch
 
 from apps.accounts.permissions import CanPublishResults
 from apps.accounts.permissions import CanViewAnalytics
@@ -19,7 +19,7 @@ from apps.accounts.scopes import (
     scope_teacher_queryset,
 )
 from apps.attempts.models import StudentAnswer, StudentExamAttempt
-from apps.attempts.services import submit_attempt
+from apps.attempts.services import ordered_exam_questions_for_attempt, submit_attempt
 from apps.exams.models import Exam
 from apps.results.models import ExamPerformanceSummary, ExamResult, StudentTopicPerformance
 from apps.students.models import StudentProfile
@@ -36,6 +36,7 @@ from apps.results.serializers import (
     TeacherExamAttemptSerializer,
     TeacherAttemptInterventionCreateSerializer,
     TeacherAttemptInterventionSerializer,
+    TeacherAttemptQuestionAnalysisResponseSerializer,
     TeacherQuestionAnalysisSerializer,
 )
 from apps.reports.models import AuditLog
@@ -623,6 +624,151 @@ class ExamResultViewSet(ModelViewSet):
         response = self.get_paginated_response(serializer.data)
         response.data["applied_filter"] = question_filter
         return response
+
+    @action(detail=False, methods=["get"], url_path=r"exam/(?P<exam_id>[^/.]+)/attempt-question-analysis")
+    def attempt_question_analysis(self, request, exam_id=None):
+        attempt_id = (request.query_params.get("attempt_id") or "").strip()
+        answer_filter = (request.query_params.get("filter") or "all").strip()
+        search_value = (request.query_params.get("search") or "").strip().lower()
+
+        attempts_queryset = scope_teacher_queryset(
+            StudentExamAttempt.objects.select_related("exam", "student", "institute"),
+            request.user,
+        ).filter(exam_id=exam_id, is_active=True)
+
+        if not attempts_queryset.exists():
+            payload = {
+                "selected_attempt": None,
+                "summary": {
+                    "total_questions": 0,
+                    "attempted_questions": 0,
+                    "correct_count": 0,
+                    "wrong_count": 0,
+                    "skipped_count": 0,
+                    "marked_count": 0,
+                    "total_time_seconds": 0,
+                    "average_time_seconds": 0,
+                },
+                "applied_filter": "all",
+                "results": [],
+            }
+            serializer = TeacherAttemptQuestionAnalysisResponseSerializer(payload)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        selected_attempt = (
+            attempts_queryset.filter(pk=attempt_id).first()
+            if attempt_id
+            else attempts_queryset.order_by("-submitted_at", "-updated_at", "-created_at").first()
+        )
+        if selected_attempt is None:
+            return Response(
+                {"detail": "Attempt not found in the selected exam scope."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        exam_questions = list(
+            selected_attempt.exam.exam_questions.select_related(
+                "question",
+                "question__subject",
+                "question__topic",
+            ).prefetch_related(
+                Prefetch("question__options")
+            )
+        )
+        ordered_exam_questions = ordered_exam_questions_for_attempt(selected_attempt, exam_questions)
+        answers = list(
+            StudentAnswer.objects.filter(attempt=selected_attempt, is_active=True)
+            .select_related("question", "question__subject", "question__topic", "selected_option")
+        )
+        answer_map = {str(answer.question_id): answer for answer in answers}
+
+        rows = []
+        for index, exam_question in enumerate(ordered_exam_questions, start=1):
+            question = exam_question.question
+            answer = answer_map.get(str(question.id))
+            question_text = (question.question_text or "").strip()
+            selected_option_ids = [str(item) for item in (getattr(answer, "selected_option_ids", []) or []) if str(item).strip()] if answer else []
+            option_text_map = {str(option.id): option.option_text for option in question.options.all()}
+            selected_option_texts = [option_text_map[item] for item in selected_option_ids if item in option_text_map]
+            selected_option_text = answer.selected_option.option_text if answer and answer.selected_option_id else None
+            answer_text = (answer.answer_text or "").strip() if answer else ""
+            has_response = bool(
+                answer
+                and (
+                    answer.selected_option_id
+                    or selected_option_ids
+                    or answer_text
+                )
+            )
+            was_skipped = not has_response
+            is_correct = answer.is_correct if answer and has_response else None
+            outcome = "skipped" if was_skipped else "correct" if answer and answer.is_correct else "wrong"
+            row = {
+                "answer_id": answer.id if answer else None,
+                "question_id": question.id,
+                "question_order": index,
+                "question_text_summary": question_text[:180] + ("..." if len(question_text) > 180 else ""),
+                "question_type": question.question_type,
+                "subject_name": question.subject.name if question.subject_id else None,
+                "topic_name": question.topic.name if question.topic_id else None,
+                "selected_option": answer.selected_option_id if answer else None,
+                "selected_option_text": selected_option_text,
+                "selected_option_ids": selected_option_ids,
+                "selected_option_texts": selected_option_texts,
+                "answer_text": answer_text,
+                "outcome": outcome,
+                "is_correct": is_correct,
+                "was_skipped": was_skipped,
+                "is_marked_for_review": answer.is_marked_for_review if answer else False,
+                "marks_awarded": answer.marks_awarded if answer else None,
+                "negative_marks_applied": answer.negative_marks_applied if answer else None,
+                "time_spent_seconds": answer.time_spent_seconds if answer else None,
+                "answered_at": answer.answered_at if answer else None,
+            }
+            rows.append(row)
+
+        if answer_filter == "wrong":
+            rows = [row for row in rows if row["outcome"] == "wrong"]
+        elif answer_filter == "skipped":
+            rows = [row for row in rows if row["outcome"] == "skipped"]
+        elif answer_filter == "marked":
+            rows = [row for row in rows if row["is_marked_for_review"]]
+        elif answer_filter == "correct":
+            rows = [row for row in rows if row["outcome"] == "correct"]
+        elif answer_filter == "slow":
+            rows = [row for row in rows if (row["time_spent_seconds"] or 0) >= 90]
+        else:
+            answer_filter = "all"
+
+        if search_value:
+            rows = [
+                row
+                for row in rows
+                if search_value in row["question_text_summary"].lower()
+                or search_value in (row["subject_name"] or "").lower()
+                or search_value in (row["topic_name"] or "").lower()
+            ]
+
+        total_time_seconds = sum((row["time_spent_seconds"] or 0) for row in rows)
+        attempted_questions = sum(1 for row in rows if row["outcome"] != "skipped")
+        summary = {
+            "total_questions": len(rows),
+            "attempted_questions": attempted_questions,
+            "correct_count": sum(1 for row in rows if row["outcome"] == "correct"),
+            "wrong_count": sum(1 for row in rows if row["outcome"] == "wrong"),
+            "skipped_count": sum(1 for row in rows if row["outcome"] == "skipped"),
+            "marked_count": sum(1 for row in rows if row["is_marked_for_review"]),
+            "total_time_seconds": total_time_seconds,
+            "average_time_seconds": round(total_time_seconds / len(rows)) if rows else 0,
+        }
+        payload = {
+            "selected_attempt": selected_attempt,
+            "summary": summary,
+            "applied_filter": answer_filter,
+            "results": rows,
+        }
+        serializer = TeacherAttemptQuestionAnalysisResponseSerializer(payload)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class StudentTopicPerformanceViewSet(ReadOnlyModelViewSet):

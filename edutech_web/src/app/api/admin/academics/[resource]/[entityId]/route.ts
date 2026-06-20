@@ -17,7 +17,7 @@ async function proxyAcademicRequest(
   resource: string,
   entityId: string,
   request: NextRequest,
-  method: "PATCH",
+  method: "PATCH" | "DELETE",
 ) {
   const backendPath = RESOURCE_PATHS[resource];
   if (!backendPath) {
@@ -42,14 +42,15 @@ async function proxyAcademicRequest(
     );
   }
 
-  const body = request.body ? await request.json().catch(() => ({})) : {};
+  const body =
+    method === "PATCH" && request.body ? await request.json().catch(() => ({})) : undefined;
   const response = await fetch(`${API_BASE_URL}${backendPath}${entityId}/`, {
     method,
     headers: {
       Authorization: `Bearer ${session.accessToken}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(body),
+    body: method === "PATCH" ? JSON.stringify(body ?? {}) : undefined,
     cache: "no-store",
   });
 
@@ -72,4 +73,16 @@ export async function PATCH(
 ) {
   const { resource, entityId } = await params;
   return proxyAcademicRequest(resource, entityId, request, "PATCH");
+}
+
+export async function DELETE(
+  request: NextRequest,
+  {
+    params,
+  }: {
+    params: Promise<{ resource: string; entityId: string }>;
+  },
+) {
+  const { resource, entityId } = await params;
+  return proxyAcademicRequest(resource, entityId, request, "DELETE");
 }

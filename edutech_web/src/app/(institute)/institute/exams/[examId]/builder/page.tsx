@@ -443,10 +443,11 @@ async function loadBuilderData(examId: string) {
           program: detail.program,
         })
       : Promise.resolve([]),
-    fetchTeacherQuestions({
-      program: detail.program,
-      subject: detail.subject,
-    }),
+    detail.subject
+      ? fetchTeacherQuestions({
+          subject: detail.subject,
+        })
+      : fetchTeacherQuestions(),
     detail.subject
       ? fetchTeacherTopics({
           subject: detail.subject,

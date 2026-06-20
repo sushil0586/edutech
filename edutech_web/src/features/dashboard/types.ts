@@ -1278,6 +1278,45 @@ export type TeacherQuestionAnalysis = {
   marked_for_review_count: number;
 };
 
+export type TeacherAttemptQuestionAnalysisRow = {
+  answer_id: string | null;
+  question_id: string;
+  question_order: number;
+  question_text_summary: string;
+  question_type: string;
+  subject_name: string | null;
+  topic_name: string | null;
+  selected_option: string | null;
+  selected_option_text: string | null;
+  selected_option_ids: string[];
+  selected_option_texts: string[];
+  answer_text: string;
+  outcome: "correct" | "wrong" | "skipped";
+  is_correct: boolean | null;
+  was_skipped: boolean;
+  is_marked_for_review: boolean;
+  marks_awarded: string | null;
+  negative_marks_applied: string | null;
+  time_spent_seconds: number | null;
+  answered_at: string | null;
+};
+
+export type TeacherAttemptQuestionAnalysis = {
+  selected_attempt: TeacherExamAttempt | null;
+  summary: {
+    total_questions: number;
+    attempted_questions: number;
+    correct_count: number;
+    wrong_count: number;
+    skipped_count: number;
+    marked_count: number;
+    total_time_seconds: number;
+    average_time_seconds: number;
+  };
+  applied_filter: "all" | "correct" | "wrong" | "skipped" | "marked" | "slow";
+  results: TeacherAttemptQuestionAnalysisRow[];
+};
+
 export type TeacherLeaderboardPage = PaginatedResponse<TeacherLeaderboardRow> & {
   summary: {
     total: number;

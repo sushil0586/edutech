@@ -68,6 +68,21 @@ class CohortListSerializer(serializers.ModelSerializer):
 
 
 class SubjectSerializer(serializers.ModelSerializer):
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        instance = getattr(self, "instance", None)
+        program = attrs.get("program", getattr(instance, "program", None))
+        if program is None:
+            raise serializers.ValidationError(
+                {
+                    "program": (
+                        "Program is required for subjects. "
+                        "Questions imported or created under this subject inherit the subject program."
+                    )
+                }
+            )
+        return attrs
+
     class Meta:
         model = Subject
         fields = "__all__"

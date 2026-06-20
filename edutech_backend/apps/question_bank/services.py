@@ -509,7 +509,14 @@ def _resolve_subject(institute, subject_value):
     )
     if subject:
         return subject
-    raise ValidationError({"subject": f"Subject '{value}' was not found."})
+    raise ValidationError(
+        {
+            "subject": (
+                f"Subject '{value}' was not found in institute '{institute.code}'. "
+                "Create it in Academic Setup > Subjects, or use an existing active subject name/code."
+            )
+        }
+    )
 
 
 def _resolve_topic(institute, subject, topic_value):
@@ -530,7 +537,27 @@ def _resolve_topic(institute, subject, topic_value):
     )
     if topic:
         return topic
-    raise ValidationError({"topic": f"Topic '{value}' was not found under {subject.name}."})
+    raise ValidationError(
+        {
+            "topic": (
+                f"Topic '{value}' was not found under subject '{subject.name}' in institute '{institute.code}'. "
+                "Create it in Academic Setup > Topics, or leave the topic column blank."
+            )
+        }
+    )
+
+
+def _flatten_import_errors(error_dict):
+    flattened = []
+    for key, value in (error_dict or {}).items():
+        if isinstance(value, (list, tuple)):
+            messages = [str(item) for item in value if str(item).strip()]
+        else:
+            messages = [str(value)] if str(value).strip() else []
+        label = key.replace("_", " ").title()
+        for message in messages:
+            flattened.append(f"{label}: {message}")
+    return flattened
 
 
 def _build_options_from_row(question_type, row):
@@ -603,6 +630,15 @@ def preview_bulk_question_import(*, institute, rows, created_by=None):
             if subject is None:
                 subject = _resolve_subject(institute, row.get("subject"))
                 subject_cache[subject_key] = subject
+            if subject.program_id is None:
+                raise ValidationError(
+                    {
+                        "program": (
+                            f"Subject '{subject.name}' is not linked to a program in institute '{institute.code}'. "
+                            "Assign a program in Academic Setup > Subjects before bulk import."
+                        )
+                    }
+                )
 
             topic_key = (subject.id, (row.get("topic") or "").strip().lower())
             topic = topic_cache.get(topic_key)
@@ -665,13 +701,16 @@ def preview_bulk_question_import(*, institute, rows, created_by=None):
                 {
                     "row_number": index,
                     "status": "valid",
+                    "is_valid": True,
                     "question_text": question_text,
+                    "subject_code": subject.name,
                     "subject_name": subject.name,
+                    "topic_code": topic.name if topic else "",
                     "topic_name": topic.name if topic else "",
                     "question_type": question_type,
                     "difficulty_level": difficulty_level,
                     "tag_values": tag_values,
-                    "errors": errors,
+                    "errors": [],
                 }
             )
             valid_rows.append(payload)
@@ -684,8 +723,11 @@ def preview_bulk_question_import(*, institute, rows, created_by=None):
                 {
                     "row_number": index,
                     "status": "invalid",
+                    "is_valid": False,
                     "question_text": (row.get("question_text") or "").strip(),
+                    "subject_code": (row.get("subject") or "").strip(),
                     "subject_name": (row.get("subject") or "").strip(),
+                    "topic_code": (row.get("topic") or "").strip(),
                     "topic_name": (row.get("topic") or "").strip(),
                     "question_type": _normalize_question_type(row.get("question_type")),
                     "difficulty_level": _normalize_difficulty(row.get("difficulty_level")),
@@ -694,7 +736,8 @@ def preview_bulk_question_import(*, institute, rows, created_by=None):
                         for item in (row.get("tags") or "").replace(",", "|").split("|")
                         if item.strip()
                     ],
-                    "errors": errors,
+                    "errors": _flatten_import_errors(errors),
+                    "error_map": errors,
                 }
             )
 

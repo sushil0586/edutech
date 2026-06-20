@@ -1,5 +1,5 @@
-from apps.attempts.models import StudentExamAttempt
-from apps.attempts.serializers import attempt_accommodation_snapshot
+from apps.attempts.models import StudentAnswer, StudentExamAttempt
+from apps.attempts.serializers import StudentAnswerSerializer, attempt_accommodation_snapshot
 from apps.attempts.services import attempt_integrity_summary
 from apps.exams.services import is_review_available_for_attempt, resolve_exam_source_metadata
 from apps.results.models import ExamPerformanceSummary, ExamResult, StudentTopicPerformance
@@ -300,3 +300,44 @@ class TeacherAttemptInterventionCreateSerializer(serializers.Serializer):
             ("resolved", "Resolved"),
         ]
     )
+
+
+class TeacherAttemptQuestionAnalysisRowSerializer(serializers.Serializer):
+    answer_id = serializers.UUIDField(allow_null=True)
+    question_id = serializers.UUIDField()
+    question_order = serializers.IntegerField()
+    question_text_summary = serializers.CharField()
+    question_type = serializers.CharField()
+    subject_name = serializers.CharField(allow_null=True)
+    topic_name = serializers.CharField(allow_null=True)
+    selected_option = serializers.UUIDField(allow_null=True)
+    selected_option_text = serializers.CharField(allow_null=True)
+    selected_option_ids = serializers.ListField(child=serializers.CharField(), default=list)
+    selected_option_texts = serializers.ListField(child=serializers.CharField(), default=list)
+    answer_text = serializers.CharField(allow_blank=True)
+    outcome = serializers.ChoiceField(choices=["correct", "wrong", "skipped"])
+    is_correct = serializers.BooleanField(allow_null=True)
+    was_skipped = serializers.BooleanField()
+    is_marked_for_review = serializers.BooleanField()
+    marks_awarded = serializers.DecimalField(max_digits=8, decimal_places=2, allow_null=True)
+    negative_marks_applied = serializers.DecimalField(max_digits=8, decimal_places=2, allow_null=True)
+    time_spent_seconds = serializers.IntegerField(allow_null=True)
+    answered_at = serializers.DateTimeField(allow_null=True)
+
+
+class TeacherAttemptQuestionAnalysisSummarySerializer(serializers.Serializer):
+    total_questions = serializers.IntegerField()
+    attempted_questions = serializers.IntegerField()
+    correct_count = serializers.IntegerField()
+    wrong_count = serializers.IntegerField()
+    skipped_count = serializers.IntegerField()
+    marked_count = serializers.IntegerField()
+    total_time_seconds = serializers.IntegerField()
+    average_time_seconds = serializers.IntegerField()
+
+
+class TeacherAttemptQuestionAnalysisResponseSerializer(serializers.Serializer):
+    selected_attempt = TeacherExamAttemptSerializer(allow_null=True)
+    summary = TeacherAttemptQuestionAnalysisSummarySerializer()
+    applied_filter = serializers.CharField()
+    results = TeacherAttemptQuestionAnalysisRowSerializer(many=True)

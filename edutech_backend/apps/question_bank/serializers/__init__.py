@@ -292,14 +292,18 @@ class QuestionListSerializer(serializers.ModelSerializer):
 
 class QuestionImportPreviewRowSerializer(serializers.Serializer):
     row_number = serializers.IntegerField()
-    status = serializers.CharField()
+    status = serializers.CharField(required=False)
+    is_valid = serializers.BooleanField(required=False)
     question_text = serializers.CharField(allow_blank=True)
-    subject_name = serializers.CharField(allow_blank=True)
-    topic_name = serializers.CharField(allow_blank=True)
+    subject_name = serializers.CharField(allow_blank=True, required=False)
+    topic_name = serializers.CharField(allow_blank=True, required=False)
+    subject_code = serializers.CharField(allow_blank=True, required=False)
+    topic_code = serializers.CharField(allow_blank=True, required=False)
     question_type = serializers.CharField()
     difficulty_level = serializers.CharField()
     tag_values = serializers.ListField(child=serializers.CharField(), required=False)
-    errors = serializers.DictField(required=False)
+    errors = serializers.ListField(child=serializers.CharField(), required=False)
+    error_map = serializers.DictField(required=False)
 
 
 class QuestionImportPreviewResponseSerializer(serializers.Serializer):

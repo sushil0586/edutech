@@ -15,8 +15,9 @@ const RESOURCE_PATHS: Record<string, string> = {
 
 async function proxyAcademicRequest(
   resource: string,
+  entityId: string,
   request: NextRequest,
-  method: "GET" | "POST",
+  method: "PATCH" | "DELETE",
 ) {
   const backendPath = RESOURCE_PATHS[resource];
 
@@ -42,22 +43,17 @@ async function proxyAcademicRequest(
     );
   }
 
-  const query = request.nextUrl.searchParams.toString();
   const body =
-    method === "POST" && request.body ? await request.json().catch(() => ({})) : undefined;
-
-  const response = await fetch(
-    `${API_BASE_URL}${backendPath}${query ? `?${query}` : ""}`,
-    {
-      method,
-      headers: {
-        Authorization: `Bearer ${session.accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: method === "POST" ? JSON.stringify(body ?? {}) : undefined,
-      cache: "no-store",
+    method === "PATCH" && request.body ? await request.json().catch(() => ({})) : undefined;
+  const response = await fetch(`${API_BASE_URL}${backendPath}${entityId}/`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${session.accessToken}`,
+      "Content-Type": "application/json",
     },
-  );
+    body: method === "PATCH" ? JSON.stringify(body ?? {}) : undefined,
+    cache: "no-store",
+  });
 
   const text = await response.text();
   return new NextResponse(text, {
@@ -68,26 +64,26 @@ async function proxyAcademicRequest(
   });
 }
 
-export async function GET(
+export async function PATCH(
   request: NextRequest,
   {
     params,
   }: {
-    params: Promise<{ resource: string }>;
+    params: Promise<{ resource: string; entityId: string }>;
   },
 ) {
-  const { resource } = await params;
-  return proxyAcademicRequest(resource, request, "GET");
+  const { resource, entityId } = await params;
+  return proxyAcademicRequest(resource, entityId, request, "PATCH");
 }
 
-export async function POST(
+export async function DELETE(
   request: NextRequest,
   {
     params,
   }: {
-    params: Promise<{ resource: string }>;
+    params: Promise<{ resource: string; entityId: string }>;
   },
 ) {
-  const { resource } = await params;
-  return proxyAcademicRequest(resource, request, "POST");
+  const { resource, entityId } = await params;
+  return proxyAcademicRequest(resource, entityId, request, "DELETE");
 }

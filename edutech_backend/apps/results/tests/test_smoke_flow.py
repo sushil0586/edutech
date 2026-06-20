@@ -141,6 +141,22 @@ class AcademicAssessmentSmokeTestCase(TestCase):
         self.assertEqual(attempts_response.data["selected_attempt"]["id"], str(attempt_id))
         self.assertEqual(attempts_response.data["results"][0]["id"], str(attempt_id))
 
+        attempt_question_analysis_response = self.client.get(
+            f"/api/v1/results/exam/{exam.id}/attempt-question-analysis/?attempt_id={attempt_id}&filter=all"
+        )
+        self.assertEqual(attempt_question_analysis_response.status_code, 200)
+        self.assertEqual(
+            attempt_question_analysis_response.data["selected_attempt"]["id"],
+            str(attempt_id),
+        )
+        self.assertEqual(attempt_question_analysis_response.data["summary"]["total_questions"], 1)
+        self.assertEqual(attempt_question_analysis_response.data["summary"]["correct_count"], 1)
+        self.assertEqual(len(attempt_question_analysis_response.data["results"]), 1)
+        self.assertEqual(
+            attempt_question_analysis_response.data["results"][0]["outcome"],
+            "correct",
+        )
+
         intervention_note_response = self.client.post(
             "/api/v1/results/attempt-intervention-note/",
             {

@@ -302,6 +302,7 @@ export default async function InstituteAcademicSetupPage({
           <AcademicSetupWorkspace
             activeTab={activeSection as AcademicSetupTabId}
             academicYears={academicYears}
+            academicsApiBasePath="/api/teacher/academics"
             assignments={assignments}
             cohorts={cohorts}
             instituteId={profile.institute ?? null}

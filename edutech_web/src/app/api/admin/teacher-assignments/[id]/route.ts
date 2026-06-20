@@ -5,7 +5,7 @@ const API_BASE_URL = (
   process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? ""
 ).replace(/\/$/, "");
 
-async function proxyRequest(request: NextRequest, id: string, method: "PATCH") {
+async function proxyRequest(request: NextRequest, id: string, method: "PATCH" | "DELETE") {
   if (!API_BASE_URL) {
     return NextResponse.json(
       { detail: "Portal API is not configured." },
@@ -21,14 +21,15 @@ async function proxyRequest(request: NextRequest, id: string, method: "PATCH") {
     );
   }
 
-  const body = request.body ? await request.json().catch(() => ({})) : {};
+  const body =
+    method === "PATCH" && request.body ? await request.json().catch(() => ({})) : undefined;
   const response = await fetch(`${API_BASE_URL}/api/v1/teachers/assignments/${id}/`, {
     method,
     headers: {
       Authorization: `Bearer ${session.accessToken}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(body),
+    body: method === "PATCH" ? JSON.stringify(body ?? {}) : undefined,
     cache: "no-store",
   });
 
@@ -51,4 +52,16 @@ export async function PATCH(
 ) {
   const { id } = await params;
   return proxyRequest(request, id, "PATCH");
+}
+
+export async function DELETE(
+  request: NextRequest,
+  {
+    params,
+  }: {
+    params: Promise<{ id: string }>;
+  },
+) {
+  const { id } = await params;
+  return proxyRequest(request, id, "DELETE");
 }

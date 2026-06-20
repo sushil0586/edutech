@@ -135,11 +135,13 @@ function toNumberOrNull(value: DraftValue | undefined) {
 }
 
 export function AcademicEntitySection<TItem>({
+  academicsApiBasePath,
   instituteId,
   items,
   lookup,
   config,
 }: {
+  academicsApiBasePath: string;
   instituteId: string | null;
   items: TItem[];
   lookup: LookupMaps;
@@ -150,8 +152,13 @@ export function AcademicEntitySection<TItem>({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [archivingId, setArchivingId] = useState<string | null>(null);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<AcademicFieldErrors>({});
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  const visibleItems = showArchived ? items : items.filter((item) => getItemIsActive(item));
 
   function updateField(key: string, value: DraftValue) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -230,8 +237,8 @@ export function AcademicEntitySection<TItem>({
     try {
       const response = await fetch(
         editingId === null
-          ? `/api/admin/academics/${config.resource}`
-          : `/api/admin/academics/${config.resource}/${editingId}`,
+          ? `${academicsApiBasePath}/${config.resource}`
+          : `${academicsApiBasePath}/${config.resource}/${editingId}`,
         {
           method: editingId === null ? "POST" : "PATCH",
           headers: {
@@ -270,6 +277,70 @@ export function AcademicEntitySection<TItem>({
     }
   }
 
+  async function archiveItem(itemId: string, itemTitle: string) {
+    if (!window.confirm(`Archive ${itemTitle}? This will mark the record inactive.`)) {
+      return;
+    }
+
+    setArchivingId(itemId);
+    setMessage("");
+    setFieldErrors({});
+
+    try {
+      const response = await fetch(`${academicsApiBasePath}/${config.resource}/${itemId}`, {
+        method: "DELETE",
+      });
+      const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+      if (!response.ok) {
+        throw new Error(
+          typeof body.detail === "string"
+            ? body.detail
+            : `${config.title} could not be archived right now.`,
+        );
+      }
+      setMessage(`${itemTitle} archived successfully.`);
+      router.refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Archive failed.");
+    } finally {
+      setArchivingId(null);
+    }
+  }
+
+  async function restoreItem(item: TItem, itemId: string, itemTitle: string) {
+    setRestoringId(itemId);
+    setMessage("");
+    setFieldErrors({});
+
+    try {
+      const restoredDraft = {
+        ...config.fromItem(item),
+        is_active: true,
+      };
+      const response = await fetch(`${academicsApiBasePath}/${config.resource}/${itemId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(config.buildUpdatePayload(restoredDraft, item, instituteId)),
+      });
+      const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+      if (!response.ok) {
+        throw new Error(
+          typeof body.detail === "string"
+            ? body.detail
+            : `${config.title} could not be restored right now.`,
+        );
+      }
+      setMessage(`${itemTitle} restored successfully.`);
+      router.refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Restore failed.");
+    } finally {
+      setRestoringId(null);
+    }
+  }
+
   const isDisabled = !instituteId;
 
   return (
@@ -278,7 +349,17 @@ export function AcademicEntitySection<TItem>({
         <div className="academicSectionHeader">
           <strong>{config.title}</strong>
           <div className="academicSectionHeaderActions">
-            <span className="setupFieldMeta">{items.length} records</span>
+            <span className="setupFieldMeta">{visibleItems.length} visible</span>
+            <label className="setupToggle">
+              <input
+                checked={showArchived}
+                onChange={(event) => setShowArchived(event.target.checked)}
+                type="checkbox"
+              />
+              <span>
+                Show archived
+              </span>
+            </label>
             <button
               className="appTopbarAction"
               disabled={isDisabled}
@@ -302,7 +383,7 @@ export function AcademicEntitySection<TItem>({
         {message ? <p className="authMeta">{message}</p> : null}
 
         <div className="academicRecordList">
-          {items.length > 0 ? (
+          {visibleItems.length > 0 ? (
             <div className="adminPeopleRosterTableWrap academicRecordTableWrap">
               <table className="adminPeopleRosterTable academicRecordTable">
                 <thead>
@@ -315,9 +396,10 @@ export function AcademicEntitySection<TItem>({
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((item) => {
+                  {visibleItems.map((item) => {
                     const itemId = getItemId(item);
                     const summary = config.renderItem(item, lookup);
+                    const isActive = getItemIsActive(item);
                     return (
                       <tr key={itemId}>
                         <td>
@@ -349,6 +431,28 @@ export function AcademicEntitySection<TItem>({
                               </span>
                               Edit
                             </button>
+                            <button
+                              className="appTopbarAction setupSecondaryAction"
+                              disabled={archivingId === itemId || !isActive}
+                              onClick={() => void archiveItem(itemId, summary.title)}
+                              type="button"
+                            >
+                              <span className="appTopbarActionIcon" aria-hidden="true">
+                                ⊖
+                              </span>
+                              {archivingId === itemId ? "Archiving..." : "Archive"}
+                            </button>
+                            <button
+                              className="appTopbarAction"
+                              disabled={restoringId === itemId || isActive}
+                              onClick={() => void restoreItem(item, itemId, summary.title)}
+                              type="button"
+                            >
+                              <span className="appTopbarActionIcon" aria-hidden="true">
+                                ⊕
+                              </span>
+                              {restoringId === itemId ? "Restoring..." : "Restore"}
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -359,7 +463,7 @@ export function AcademicEntitySection<TItem>({
             </div>
           ) : (
             <div className="featurePlaceholder">
-              <p>No records exist yet for this section.</p>
+              <p>{showArchived ? "No records exist yet for this section." : "No active records are visible in this section."}</p>
             </div>
           )}
         </div>
@@ -490,6 +594,10 @@ function getItemId(item: unknown) {
   return (item as { id?: string }).id ?? "";
 }
 
+function getItemIsActive(item: unknown) {
+  return Boolean((item as { is_active?: boolean }).is_active);
+}
+
 function buildLookupMaps({
   academicYears,
   programs,
@@ -517,6 +625,7 @@ function formatDateRange(startDate: string, endDate: string) {
 }
 
 export function AcademicSetupWorkspace({
+  academicsApiBasePath = "/api/admin/academics",
   instituteId,
   academicYears,
   programs,
@@ -527,6 +636,7 @@ export function AcademicSetupWorkspace({
   assignments,
   activeTab,
 }: {
+  academicsApiBasePath?: string;
   instituteId: string | null;
   academicYears: AcademicYearRecord[];
   programs: ProgramRecord[];
@@ -865,6 +975,7 @@ export function AcademicSetupWorkspace({
         count: academicYears.length,
         content: (
           <AcademicEntitySection
+            academicsApiBasePath={academicsApiBasePath}
             config={academicYearConfig}
             instituteId={instituteId}
             items={academicYears}
@@ -878,6 +989,7 @@ export function AcademicSetupWorkspace({
         count: programs.length,
         content: (
           <AcademicEntitySection
+            academicsApiBasePath={academicsApiBasePath}
             config={programConfig}
             instituteId={instituteId}
             items={programs}
@@ -891,6 +1003,7 @@ export function AcademicSetupWorkspace({
         count: cohorts.length,
         content: (
           <AcademicEntitySection
+            academicsApiBasePath={academicsApiBasePath}
             config={cohortConfig}
             instituteId={instituteId}
             items={cohorts}
@@ -904,6 +1017,7 @@ export function AcademicSetupWorkspace({
         count: subjects.length,
         content: (
           <AcademicEntitySection
+            academicsApiBasePath={academicsApiBasePath}
             config={subjectConfig}
             instituteId={instituteId}
             items={subjects}
@@ -917,6 +1031,7 @@ export function AcademicSetupWorkspace({
         count: topics.length,
         content: (
           <AcademicEntitySection
+            academicsApiBasePath={academicsApiBasePath}
             config={topicConfig}
             instituteId={instituteId}
             items={topics}

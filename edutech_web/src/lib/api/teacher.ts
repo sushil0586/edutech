@@ -9,6 +9,7 @@ import {
   TeacherLeaderboardPage,
   TeacherLeaderboardRow,
   TeacherLiveExamMonitor,
+  TeacherAttemptQuestionAnalysis,
   TeacherQuestionAnalysis,
   TeacherResultSummary,
   StudentTopicPerformance,
@@ -236,6 +237,24 @@ export async function fetchTeacherQuestionAnalysis(
   const query = params.toString();
   return requestTeacherJson<PaginatedResponse<TeacherQuestionAnalysis>>(
     `/api/v1/results/exam/${examId}/question-analysis/${query ? `?${query}` : ""}`,
+  );
+}
+
+export async function fetchTeacherAttemptQuestionAnalysis(
+  examId: string,
+  options?: {
+    attemptId?: string | null;
+    filter?: "all" | "correct" | "wrong" | "skipped" | "marked" | "slow";
+    search?: string;
+  },
+) {
+  const params = new URLSearchParams();
+  if (options?.attemptId) params.set("attempt_id", options.attemptId);
+  if (options?.filter && options.filter !== "all") params.set("filter", options.filter);
+  if (options?.search?.trim()) params.set("search", options.search.trim());
+  const query = params.toString();
+  return requestTeacherJson<TeacherAttemptQuestionAnalysis>(
+    `/api/v1/results/exam/${examId}/attempt-question-analysis/${query ? `?${query}` : ""}`,
   );
 }
 

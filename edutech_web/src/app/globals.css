@@ -15111,3 +15111,261 @@ body::after {
     justify-content: center;
   }
 }
+
+.analyticsResultHero {
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top right, rgba(125, 211, 252, 0.24), transparent 36%),
+    radial-gradient(circle at left center, rgba(99, 102, 241, 0.18), transparent 34%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(245, 248, 255, 0.92));
+}
+
+.analyticsResultHeroMain {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(340px, 0.9fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.analyticsResultHeroCopy,
+.analyticsResultHeroMetaGrid,
+.analyticsResultGaugeMeta,
+.analyticsResultStudentCanvas {
+  display: grid;
+  gap: 16px;
+}
+
+.analyticsResultHeroCopy strong {
+  font-size: clamp(1.8rem, 2vw, 2.7rem);
+  line-height: 1.05;
+  color: #172554;
+}
+
+.analyticsResultHeroCopy p,
+.analyticsResultHeroMetaCard small,
+.analyticsResultGaugeMeta span,
+.analyticsResultBarMeta span,
+.analyticsResultRiskLegend span,
+.analyticsResultStudentMeta span,
+.analyticsResultQuestionStats span {
+  color: #607095;
+}
+
+.analyticsResultHeroMetaGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.analyticsResultHeroMetaCard,
+.analyticsResultStudentCard,
+.analyticsResultQuestionCard,
+.analyticsResultRiskCard {
+  border-radius: 24px;
+  border: 1px solid rgba(213, 223, 245, 0.95);
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 18px 40px rgba(91, 108, 255, 0.08);
+}
+
+.analyticsResultHeroMetaCard {
+  padding: 18px;
+  display: grid;
+  gap: 8px;
+}
+
+.analyticsResultHeroMetaCard strong,
+.analyticsResultBarRow > strong,
+.analyticsResultQuestionStats strong {
+  color: #172554;
+}
+
+.analyticsResultShowcaseGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.analyticsResultShowcaseCard,
+.analyticsResultStudentSummary,
+.analyticsResultQuestionEvidence,
+.analyticsResultStudentRail {
+  display: grid;
+  gap: 16px;
+}
+
+.analyticsResultGaugeRow {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr);
+  gap: 18px;
+  align-items: center;
+}
+
+.analyticsResultGauge {
+  width: 170px;
+  height: 170px;
+  padding: 14px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+}
+
+.analyticsResultGauge > div {
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.96);
+  text-align: center;
+}
+
+.analyticsResultGauge > div strong {
+  display: block;
+  font-size: 2rem;
+  color: #172554;
+}
+
+.analyticsResultGauge > div span {
+  color: #607095;
+  font-size: 0.92rem;
+}
+
+.analyticsResultBarStack,
+.analyticsResultRiskList,
+.analyticsResultQuestionList,
+.analyticsResultStudentList {
+  display: grid;
+  gap: 12px;
+}
+
+.analyticsResultBarRow {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(0, 1.5fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.analyticsResultBarMeta {
+  display: grid;
+  gap: 4px;
+}
+
+.analyticsResultBarTrack,
+.analyticsResultRiskBar {
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(226, 232, 240, 0.8);
+}
+
+.analyticsResultBarTrack {
+  height: 12px;
+}
+
+.analyticsResultBarFill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #2563eb, #60a5fa);
+}
+
+.analyticsResultRiskBar {
+  display: flex;
+  height: 10px;
+}
+
+.analyticsResultRiskBarCorrect {
+  background: linear-gradient(90deg, #22c55e, #4ade80);
+}
+
+.analyticsResultRiskBarWrong {
+  background: linear-gradient(90deg, #f97316, #fb7185);
+}
+
+.analyticsResultRiskBarSkipped {
+  background: linear-gradient(90deg, #94a3b8, #cbd5e1);
+}
+
+.analyticsResultRiskLegend,
+.analyticsResultQuestionStats,
+.analyticsResultStudentMeta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.analyticsResultExplorerLayout {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.5fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.analyticsResultStudentCard {
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease;
+}
+
+.analyticsResultStudentCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 22px 48px rgba(91, 108, 255, 0.12);
+}
+
+.analyticsResultStudentCardActive {
+  border-color: rgba(99, 102, 241, 0.55);
+  background:
+    linear-gradient(135deg, rgba(238, 242, 255, 0.96), rgba(255, 255, 255, 0.98));
+}
+
+.analyticsResultQuestionToolbar {
+  display: grid;
+  gap: 16px;
+}
+
+.analyticsResultSearchForm {
+  display: flex;
+  gap: 12px;
+  align-items: end;
+  flex-wrap: wrap;
+}
+
+.analyticsResultSearchField {
+  flex: 1 1 280px;
+}
+
+.analyticsResultQuestionCard {
+  padding: 18px;
+  display: grid;
+  gap: 14px;
+}
+
+.analyticsResultQuestionStats {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@media (max-width: 1180px) {
+  .analyticsResultHeroMain,
+  .analyticsResultShowcaseGrid,
+  .analyticsResultExplorerLayout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .analyticsResultGaugeRow {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: start;
+  }
+}
+
+@media (max-width: 720px) {
+  .analyticsResultHeroMetaGrid,
+  .analyticsResultQuestionStats,
+  .analyticsResultRiskLegend,
+  .analyticsResultStudentMeta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .analyticsResultBarRow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
