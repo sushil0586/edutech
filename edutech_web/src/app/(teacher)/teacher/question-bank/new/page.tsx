@@ -5,14 +5,20 @@ import { TeacherPageHeader } from "@/components/ui/teacher-page-header";
 import {
   createTeacherQuestion,
   fetchTeacherOptionCatalog,
+  fetchTeacherQuestionPassages,
   fetchTeacherPrograms,
   fetchTeacherQuestionDetail,
+  fetchTeacherQuestionTypeRegistry,
   fetchTeacherSubjects,
   fetchTeacherTopics,
 } from "@/lib/api/teacher-builder";
 import { requireTeacherSession } from "@/lib/auth/session";
 import { groupTeacherOptionCatalog } from "@/lib/teacher/option-catalog";
 import { buildTeacherQuestionPayload } from "@/lib/teacher/question-bank-form";
+import {
+  buildQuestionBankErrorSearch,
+  parseQuestionBankValidationErrors,
+} from "@/lib/teacher/question-bank-validation";
 
 async function createQuestionAction(formData: FormData) {
   "use server";
@@ -32,11 +38,12 @@ async function createQuestionAction(formData: FormData) {
     redirect(`/teacher/question-bank/${question.id}?message=${encodeURIComponent("Question created successfully.")}`);
   } catch (error) {
     unstable_rethrow(error);
-    const message =
-      error instanceof Error && error.message
-        ? error.message
-        : "Unable to create the question right now.";
-    redirect(`/teacher/question-bank/new?error=${encodeURIComponent(message)}`);
+    redirect(
+      `/teacher/question-bank/new?${buildQuestionBankErrorSearch(
+        error,
+        "Unable to create the question right now.",
+      )}`,
+    );
   }
 }
 
@@ -53,12 +60,15 @@ export default async function TeacherQuestionCreatePage({
   const error = Array.isArray(resolvedSearchParams.error)
     ? resolvedSearchParams.error[0] ?? ""
     : resolvedSearchParams.error ?? "";
+  const validationErrors = parseQuestionBankValidationErrors(resolvedSearchParams.validation);
 
   const data = await Promise.all([
     fetchTeacherOptionCatalog(),
+    fetchTeacherQuestionTypeRegistry(),
     fetchTeacherPrograms(),
     fetchTeacherSubjects(),
     fetchTeacherTopics(),
+    fetchTeacherQuestionPassages(),
     duplicateId ? fetchTeacherQuestionDetail(duplicateId) : Promise.resolve(null),
   ]).catch(() => null);
 
@@ -86,12 +96,11 @@ export default async function TeacherQuestionCreatePage({
     );
   }
 
-  const [optionCatalogEntries, programs, subjects, topics, duplicateQuestion] = data;
+  const [optionCatalogEntries, questionTypeDefinitions, programs, subjects, topics, passages, duplicateQuestion] = data;
   const optionCatalog = groupTeacherOptionCatalog(optionCatalogEntries);
 
   return (
     <>
-      {error ? <p className="feedbackBanner feedbackBannerError">{decodeURIComponent(error)}</p> : null}
       <TeacherQuestionEditor
         action={createQuestionAction}
         duplicateMode={Boolean(duplicateQuestion)}
@@ -105,10 +114,14 @@ export default async function TeacherQuestionCreatePage({
         }
         pageTitle={duplicateQuestion ? "Duplicate Question" : "Create Question"}
         pageClassName="teacherConsolePage teacherQuestionEditorPageVivid"
+        passages={passages}
         programs={programs}
+        questionTypeDefinitions={questionTypeDefinitions}
         questionTypeOptions={optionCatalog.selectOptions("question_type")}
         subjects={subjects}
         topics={topics}
+        validationErrors={validationErrors}
+        validationMessage={error ? decodeURIComponent(error) : ""}
       />
     </>
   );

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import { BuilderQuestionPreviewTrigger } from "@/components/ui/builder-question-preview-trigger";
 import { BuilderRapidAttach } from "@/components/ui/builder-rapid-attach";
+import { RichContentRenderer } from "@/components/ui/rich-content-renderer";
 import type { TeacherExamSection, TeacherExamQuestion } from "@/features/dashboard/types";
 import type { LookupQuestion, LookupTopic } from "@/lib/api/teacher-builder";
 import type { CatalogSelectOption } from "@/lib/teacher/option-catalog";
@@ -37,6 +38,39 @@ type BuilderQuestionMappingProps = {
 
 function titleCase(value: string) {
   return value.replaceAll("_", " ");
+}
+
+function qualityTone(signal: LookupQuestion["quality_signal"]) {
+  if (signal === "ambiguous" || signal === "revision_candidate") return "statusDemo";
+  if (signal === "skip_risk" || signal === "hard" || signal === "watch") return "statusWarning";
+  if (signal === "healthy") return "statusLive";
+  return "statusNeutral";
+}
+
+function questionPriorityScore(question: LookupQuestion) {
+  const revisionWeightMap: Record<LookupQuestion["revision_priority"], number> = {
+    urgent: 80,
+    high: 60,
+    medium: 35,
+    watch: 15,
+    none: 0,
+  };
+  const qualityWeightMap: Record<LookupQuestion["quality_signal"], number> = {
+    ambiguous: 50,
+    revision_candidate: 45,
+    skip_risk: 30,
+    hard: 20,
+    watch: 12,
+    emerging: 8,
+    healthy: -20,
+  };
+
+  let score = 0;
+  score += revisionWeightMap[question.revision_priority];
+  score += qualityWeightMap[question.quality_signal];
+  if (!question.is_verified) score += 12;
+  if (!question.has_explanation) score += 18;
+  return score;
 }
 
 function compactText(value: string, limit = 220) {
@@ -81,7 +115,15 @@ export function BuilderQuestionMapping({
 }: BuilderQuestionMappingProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 6;
-  const questionLookupMap = new Map(allQuestions.map((question) => [question.id, question]));
+  const sortedAllQuestions = useMemo(
+    () => [...allQuestions].sort((left, right) => questionPriorityScore(left) - questionPriorityScore(right)),
+    [allQuestions],
+  );
+  const sortedAvailableQuestions = useMemo(
+    () => [...availableQuestions].sort((left, right) => questionPriorityScore(left) - questionPriorityScore(right)),
+    [availableQuestions],
+  );
+  const questionLookupMap = new Map(sortedAllQuestions.map((question) => [question.id, question]));
   const topicNameMap = new Map(topics.map((topic) => [topic.id, topic.name]));
   const orderedLinkedQuestions = [...activeExamQuestions].sort((left, right) => left.question_order - right.question_order);
   const linkedQuestionDetails = orderedLinkedQuestions.map((question) => {
@@ -118,6 +160,9 @@ export function BuilderQuestionMapping({
           : "Unknown difficulty",
       defaultMarks: lookup?.default_marks ?? null,
       hasExplanation: question.has_explanation ?? lookup?.has_explanation ?? false,
+      passageTitle: question.passage_title ?? lookup?.passage_title ?? "",
+      passageText: question.passage_text ?? "",
+      passageContentFormat: question.passage_content_format ?? null,
     };
   });
 
@@ -125,6 +170,15 @@ export function BuilderQuestionMapping({
   const mandatoryCount = linkedQuestionDetails.filter((question) => question.is_mandatory).length;
   const optionalCount = linkedQuestionDetails.length - mandatoryCount;
   const unplacedCount = linkedQuestionDetails.length - mappedToSectionsCount;
+  const availableHealthyCount = sortedAvailableQuestions.filter(
+    (question) => question.quality_signal === "healthy" && question.is_verified && question.has_explanation,
+  ).length;
+  const availableRevisionQueueCount = sortedAvailableQuestions.filter(
+    (question) => question.revision_priority === "urgent" || question.revision_priority === "high",
+  ).length;
+  const availableSkipRiskCount = sortedAvailableQuestions.filter(
+    (question) => question.quality_signal === "skip_risk",
+  ).length;
   const totalPages = Math.max(1, Math.ceil(linkedQuestionDetails.length / pageSize));
   const currentPageQuestions = useMemo(
     () => linkedQuestionDetails.slice((currentPage - 1) * pageSize, currentPage * pageSize),
@@ -444,6 +498,18 @@ export function BuilderQuestionMapping({
             <span>Available in bank</span>
             <strong>{availableQuestions.length}</strong>
           </article>
+          <article className="builderMetricChip">
+            <span>Healthy</span>
+            <strong>{availableHealthyCount}</strong>
+          </article>
+          <article className="builderMetricChip">
+            <span>Revision queue</span>
+            <strong>{availableRevisionQueueCount}</strong>
+          </article>
+          <article className="builderMetricChip">
+            <span>Skip risk</span>
+            <strong>{availableSkipRiskCount}</strong>
+          </article>
         </div>
       </div>
 
@@ -511,6 +577,9 @@ export function BuilderQuestionMapping({
                   <span className="statusPill statusLive">Q{question.question_order}</span>
                   <span className="statusPill statusDemo">{question.typeLabel}</span>
                   <span className="statusPill">{question.topicLabel}</span>
+                  {question.passageTitle ? (
+                    <span className="statusPill statusDemo">Comprehension</span>
+                  ) : null}
                 </div>
                 <strong>{question.question_text_summary}</strong>
                 <p>{question.previewText}</p>
@@ -536,10 +605,26 @@ export function BuilderQuestionMapping({
                 <strong>{question.hasExplanation ? "Available" : "Missing"}</strong>
               </div>
               <div>
+                <span>Passage</span>
+                <strong>{question.passageTitle || "Standalone"}</strong>
+              </div>
+              <div>
                 <span>Linked on</span>
                 <strong>{new Date(question.created_at).toLocaleDateString("en-IN")}</strong>
               </div>
             </div>
+
+            {question.passageTitle ? (
+              <details className="builderQuestionPreviewPanel">
+                <summary>Preview shared passage</summary>
+                <strong>{question.passageTitle}</strong>
+                <RichContentRenderer
+                  emptyFallback={<p>Passage text will load from the linked comprehension set.</p>}
+                  format={question.passageContentFormat}
+                  text={question.passageText || ""}
+                />
+              </details>
+            ) : null}
 
             {question.explanation ? (
               <details className="builderQuestionPreviewPanel">
@@ -684,14 +769,15 @@ export function BuilderQuestionMapping({
             <span>Question</span>
             <select name="question" required>
               <option value="">Select a question</option>
-              {availableQuestions.map((question) => {
+              {sortedAvailableQuestions.map((question) => {
                 const topicLabel = question.topic ? topicNameMap.get(question.topic) ?? "Unmapped topic" : "No topic";
                 const typeLabel = questionTypeLabelMap[question.question_type] ?? titleCase(question.question_type);
                 const difficultyLabel = difficultyLabelMap[question.difficulty_level] ?? titleCase(question.difficulty_level);
 
                 return (
                   <option key={question.id} value={question.id}>
-                    {topicLabel} · {typeLabel} · {difficultyLabel} · {compactText(question.question_text, 90)}
+                    {topicLabel} · {typeLabel} · {difficultyLabel} · {titleCase(question.quality_signal)} · {titleCase(question.revision_priority)} · {compactText(question.question_text, 90)}
+                    {question.passage_title ? ` · Comprehension: ${question.passage_title}` : ""}
                   </option>
                 );
               })}
@@ -728,6 +814,13 @@ export function BuilderQuestionMapping({
 
         <div className="toggleGrid">
           <label><input defaultChecked name="is_mandatory" type="checkbox" /> Mandatory question</label>
+        </div>
+
+        <div className="builderAttachQualityGuide">
+          <span className="statusPill statusLive">Healthy</span>
+          <span className="statusPill statusWarning">Watch / Hard / Skip risk</span>
+          <span className="statusPill statusDemo">Ambiguous / Revision candidate</span>
+          <small>The attach list is ordered with the safest reusable questions first.</small>
         </div>
 
         <div className="settingsActionRow">

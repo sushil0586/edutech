@@ -3,9 +3,11 @@ import { redirect, unstable_rethrow } from "next/navigation";
 import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { TeacherPageHeader } from "@/components/ui/teacher-page-header";
+import type { TeacherResultSummary } from "@/features/dashboard/types";
 import {
   configureTeacherExamEconomyAccess,
   fetchTeacherExamDetail,
+  fetchTeacherResultSummary,
   getTeacherApiState,
   runTeacherExamAction,
 } from "@/lib/api/teacher";
@@ -122,19 +124,25 @@ async function loadTeacherExamDetail(examId: string) {
     return {
       source: "unconfigured" as const,
       detail: null,
+      resultSummary: null as TeacherResultSummary | null,
     };
   }
 
   try {
-    const detail = await fetchTeacherExamDetail(examId);
+    const [detail, allResultSummaries] = await Promise.all([
+      fetchTeacherExamDetail(examId),
+      fetchTeacherResultSummary(),
+    ]);
     return {
       source: "live" as const,
       detail,
+      resultSummary: allResultSummaries.find((summary) => summary.exam === examId) ?? null,
     };
   } catch {
     return {
       source: "error" as const,
       detail: null,
+      resultSummary: null as TeacherResultSummary | null,
     };
   }
 }
@@ -148,7 +156,7 @@ export default async function TeacherExamDetailPage({
 }) {
   const { examId } = await params;
   const { error, message } = await searchParams;
-  const { source, detail } = await loadTeacherExamDetail(examId);
+  const { source, detail, resultSummary } = await loadTeacherExamDetail(examId);
   const optionCatalog = groupTeacherOptionCatalog(await fetchTeacherOptionCatalog().catch(() => []));
   const economyAccessPolicyOptions = optionCatalog.selectOptions("exam_economy_access_policy");
   const economyAccessPolicyLabels = optionCatalog.labelMap("exam_economy_access_policy");
@@ -225,6 +233,13 @@ export default async function TeacherExamDetailPage({
           <strong>Exam delivery and access</strong>
           <small>
             {detail.active_questions_count} active questions · {detail.assigned_student_count} assigned learners
+            {resultSummary?.review_blocked
+              ? ` · ${resultSummary.pending_review_tasks_count} review blocker${resultSummary.pending_review_tasks_count === 1 ? "" : "s"}`
+              : resultSummary?.results_published
+                ? " · results published"
+                : resultSummary
+                  ? " · results in progress"
+                  : " · no result summary yet"}
           </small>
         </div>
         <div className="studentInsightHeroActions">
@@ -233,6 +248,9 @@ export default async function TeacherExamDetailPage({
           </Link>
           <Link className="button buttonSecondary" href={`/teacher/results?exam=${detail.id}`}>
             Open Results
+          </Link>
+          <Link className="button buttonGhost" href={`/teacher/reviews?exam=${detail.id}`}>
+            Open Reviews
           </Link>
         </div>
       </section>
@@ -260,6 +278,26 @@ export default async function TeacherExamDetailPage({
           <span>Exam Access Key</span>
           <strong>{detail.access_key}</strong>
           <small>{detail.access_key_enabled ? "Quick entry enabled" : "Quick entry disabled"}</small>
+        </article>
+
+        <article className="metricCard dashboardHeroCard">
+          <span>Result Status</span>
+          <strong>
+            {resultSummary?.results_published
+              ? "Published"
+              : resultSummary?.review_blocked
+                ? "Review blocked"
+                : resultSummary
+                  ? "In progress"
+                  : "No summary"}
+          </strong>
+          <small>
+            {resultSummary?.review_blocked
+              ? `${resultSummary.pending_review_tasks_count} review blocker(s) and ${resultSummary.recheck_review_tasks_count} recheck task(s)`
+              : resultSummary
+                ? `${resultSummary.total_attempted} attempts · ${resultSummary.total_passed + resultSummary.total_failed} evaluated`
+                : "Generate results after learner submissions are ready"}
+          </small>
         </article>
       </section>
 

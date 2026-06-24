@@ -5,6 +5,7 @@ import string
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Count, Q
 from django.utils import timezone
 
 from apps.accounts.models import AccountRole
@@ -78,6 +79,194 @@ ADVANCED_EXAM_SELECTION_MODES = {
     QUESTION_SELECTION_MODE_RELAXED,
     QUESTION_SELECTION_MODE_SUBJECT_FALLBACK,
 }
+EXAM_EXPERIENCE_MEDIA_FLOW_CHOICES = {
+    "free_reference": "Free reference media",
+    "light_reference": "Light reference media",
+    "guided_section_media": "Section-guided media",
+    "controlled_exam_media": "Controlled exam media",
+}
+EXAM_EXPERIENCE_PROFILE_BY_TYPE = {
+    "practice": {
+        "assessment_family": "skill_builder",
+        "assessment_family_label": "Skill Builder",
+        "experience_mode": "self_paced_practice",
+        "experience_label": "Self-paced practice",
+        "recommended_media_flow": "free_reference",
+        "recommended_media_flow_label": "Free reference media",
+        "recommended_timer_mode": "global",
+        "recommended_navigation_mode": "free_exam",
+        "section_strategy": "single_block",
+        "section_strategy_label": "Single or flexible section flow",
+        "delivery_emphasis": "accuracy_building",
+        "supports_section_media_guidance": False,
+        "learner_summary": "Best for drills, revision loops, and low-pressure concept practice.",
+        "creator_summary": "Prefer flexible navigation, light timing, and optional reference media.",
+    },
+    "quiz": {
+        "assessment_family": "checkpoint",
+        "assessment_family_label": "Checkpoint",
+        "experience_mode": "fast_feedback",
+        "experience_label": "Fast feedback",
+        "recommended_media_flow": "light_reference",
+        "recommended_media_flow_label": "Light reference media",
+        "recommended_timer_mode": "global",
+        "recommended_navigation_mode": "free_section",
+        "section_strategy": "compact_sections",
+        "section_strategy_label": "Compact checkpoint sections",
+        "delivery_emphasis": "speed_check",
+        "supports_section_media_guidance": False,
+        "learner_summary": "Short checks designed to confirm recall quickly.",
+        "creator_summary": "Keep the flow tight, use shorter sections, and avoid heavy media dependence.",
+    },
+    "test": {
+        "assessment_family": "benchmark",
+        "assessment_family_label": "Benchmark",
+        "experience_mode": "balanced_assessment",
+        "experience_label": "Balanced assessment",
+        "recommended_media_flow": "guided_section_media",
+        "recommended_media_flow_label": "Section-guided media",
+        "recommended_timer_mode": "hybrid",
+        "recommended_navigation_mode": "hybrid",
+        "section_strategy": "structured_sections",
+        "section_strategy_label": "Structured section flow",
+        "delivery_emphasis": "coverage_balance",
+        "supports_section_media_guidance": True,
+        "learner_summary": "Balanced testing flow with enough structure for unit tests and term assessments.",
+        "creator_summary": "Use sections to separate topics or skills and introduce media only where needed.",
+    },
+    "assessment": {
+        "assessment_family": "benchmark",
+        "assessment_family_label": "Benchmark",
+        "experience_mode": "balanced_assessment",
+        "experience_label": "Balanced assessment",
+        "recommended_media_flow": "guided_section_media",
+        "recommended_media_flow_label": "Section-guided media",
+        "recommended_timer_mode": "hybrid",
+        "recommended_navigation_mode": "hybrid",
+        "section_strategy": "structured_sections",
+        "section_strategy_label": "Structured section flow",
+        "delivery_emphasis": "coverage_balance",
+        "supports_section_media_guidance": True,
+        "learner_summary": "Designed for broader syllabus checks with clearer section boundaries.",
+        "creator_summary": "Blend objective and constructed-response blocks with explicit section instructions.",
+    },
+    "mock_exam": {
+        "assessment_family": "exam_simulation",
+        "assessment_family_label": "Exam Simulation",
+        "experience_mode": "high_stakes_simulation",
+        "experience_label": "High-stakes simulation",
+        "recommended_media_flow": "controlled_exam_media",
+        "recommended_media_flow_label": "Controlled exam media",
+        "recommended_timer_mode": "section",
+        "recommended_navigation_mode": "sequential",
+        "section_strategy": "timed_sections",
+        "section_strategy_label": "Timed sequential sections",
+        "delivery_emphasis": "exam_readiness",
+        "supports_section_media_guidance": True,
+        "learner_summary": "Mirrors an exam-day sequence with stricter pacing and controlled transitions.",
+        "creator_summary": "Use sequential sections, stronger timing discipline, and section-specific prompt guidance.",
+    },
+    "final_exam": {
+        "assessment_family": "exam_simulation",
+        "assessment_family_label": "Exam Simulation",
+        "experience_mode": "formal_evaluation",
+        "experience_label": "Formal evaluation",
+        "recommended_media_flow": "controlled_exam_media",
+        "recommended_media_flow_label": "Controlled exam media",
+        "recommended_timer_mode": "section",
+        "recommended_navigation_mode": "sequential",
+        "section_strategy": "timed_sections",
+        "section_strategy_label": "Timed sequential sections",
+        "delivery_emphasis": "formal_grading",
+        "supports_section_media_guidance": True,
+        "learner_summary": "Formal evaluation flow intended for final scoring and stronger policy controls.",
+        "creator_summary": "Prefer clear section contracts, locked pacing, and explicit instructions per skill block.",
+    },
+}
+
+ASSESSMENT_FAMILY_EXPERIENCE_DEFAULTS = {
+    "school": {
+        "recommended_media_flow": "guided_section_media",
+        "recommended_media_flow_label": "Section-guided media",
+        "recommended_timer_mode": "hybrid",
+        "recommended_navigation_mode": "hybrid",
+        "section_strategy": "structured_sections",
+        "section_strategy_label": "Structured section flow",
+        "delivery_emphasis": "coverage_balance",
+        "supports_section_media_guidance": True,
+    },
+    "competitive": {
+        "recommended_media_flow": "controlled_exam_media",
+        "recommended_media_flow_label": "Controlled exam media",
+        "recommended_timer_mode": "section",
+        "recommended_navigation_mode": "sequential",
+        "section_strategy": "timed_sections",
+        "section_strategy_label": "Timed sequential sections",
+        "delivery_emphasis": "exam_readiness",
+        "supports_section_media_guidance": True,
+    },
+    "certification": {
+        "recommended_media_flow": "guided_section_media",
+        "recommended_media_flow_label": "Section-guided media",
+        "recommended_timer_mode": "hybrid",
+        "recommended_navigation_mode": "free_section",
+        "section_strategy": "structured_sections",
+        "section_strategy_label": "Structured section flow",
+        "delivery_emphasis": "domain_mastery",
+        "supports_section_media_guidance": True,
+    },
+    "language_proficiency": {
+        "recommended_media_flow": "controlled_exam_media",
+        "recommended_media_flow_label": "Controlled exam media",
+        "recommended_timer_mode": "section",
+        "recommended_navigation_mode": "sequential",
+        "section_strategy": "skill_block_sections",
+        "section_strategy_label": "Skill-block section flow",
+        "delivery_emphasis": "skill_band_progression",
+        "supports_section_media_guidance": True,
+    },
+}
+
+
+def resolve_program_assessment_family_profile(program):
+    assessment_family = getattr(program, "assessment_family", None)
+    if assessment_family is None:
+        return None
+
+    delivery_defaults = (
+        assessment_family.delivery_defaults
+        if isinstance(getattr(assessment_family, "delivery_defaults", {}), dict)
+        else {}
+    )
+    analytics_preset = (
+        assessment_family.analytics_preset
+        if isinstance(getattr(assessment_family, "analytics_preset", {}), dict)
+        else {}
+    )
+    authoring_hints = (
+        assessment_family.authoring_hints
+        if isinstance(getattr(assessment_family, "authoring_hints", {}), dict)
+        else {}
+    )
+    baseline_delivery = ASSESSMENT_FAMILY_EXPERIENCE_DEFAULTS.get(
+        assessment_family.code,
+        {},
+    )
+
+    return {
+        "code": assessment_family.code,
+        "label": assessment_family.label,
+        "delivery_defaults": {
+            **baseline_delivery,
+            **{
+                key: value
+                for key, value in delivery_defaults.items()
+                if value not in (None, "")
+            },
+        },
+        "analytics_preset": analytics_preset,
+        "authoring_hints": authoring_hints,
+    }
 
 
 def validate_exam_scope(exam):
@@ -221,6 +410,70 @@ def default_exam_source_for_profile(profile):
         return EXAM_SOURCE_INSTITUTE
 
     return None
+
+
+def resolve_exam_experience_profile_from_values(
+    *,
+    exam_type,
+    delivery_mode,
+    timer_mode,
+    navigation_mode,
+    program_assessment_family=None,
+    overrides=None,
+):
+    normalized_exam_type = str(exam_type or "").strip().lower() or "test"
+    defaults = EXAM_EXPERIENCE_PROFILE_BY_TYPE.get(
+        normalized_exam_type,
+        EXAM_EXPERIENCE_PROFILE_BY_TYPE["test"],
+    )
+    family_profile = program_assessment_family if isinstance(program_assessment_family, dict) else None
+    family_delivery_defaults = (
+        family_profile.get("delivery_defaults", {})
+        if family_profile is not None and isinstance(family_profile.get("delivery_defaults", {}), dict)
+        else {}
+    )
+    normalized_overrides = overrides if isinstance(overrides, dict) else {}
+    profile = {
+        **defaults,
+        **{
+            key: value
+            for key, value in family_delivery_defaults.items()
+            if value not in (None, "")
+        },
+        **{
+            key: value
+            for key, value in normalized_overrides.items()
+            if value not in (None, "")
+        },
+        "exam_type": normalized_exam_type,
+        "delivery_mode": str(delivery_mode or ""),
+        "actual_timer_mode": str(timer_mode or ""),
+        "actual_navigation_mode": str(navigation_mode or ""),
+    }
+    if family_profile is not None:
+        profile["assessment_family"] = family_profile["code"]
+        profile["assessment_family_label"] = family_profile["label"]
+        profile["analytics_preset"] = family_profile.get("analytics_preset", {})
+        profile["authoring_hints"] = family_profile.get("authoring_hints", {})
+    profile["runtime_alignment"] = (
+        profile["actual_timer_mode"] == profile["recommended_timer_mode"]
+        and profile["actual_navigation_mode"] == profile["recommended_navigation_mode"]
+    )
+    return profile
+
+
+def resolve_exam_experience_profile(exam):
+    metadata = getattr(exam, "metadata", {}) if isinstance(getattr(exam, "metadata", {}), dict) else {}
+    overrides = metadata.get("experience_profile", {})
+    program_family = resolve_program_assessment_family_profile(getattr(exam, "program", None))
+    return resolve_exam_experience_profile_from_values(
+        exam_type=getattr(exam, "exam_type", ""),
+        delivery_mode=getattr(exam, "delivery_mode", ""),
+        timer_mode=getattr(exam, "timer_mode", ""),
+        navigation_mode=getattr(exam, "navigation_mode", ""),
+        program_assessment_family=program_family,
+        overrides=overrides,
+    )
 
 
 def build_exam_content_target(exam):
@@ -626,18 +879,119 @@ def _build_question_buckets(*, institute, program, subject, topic_ids):
         subject=subject,
         is_active=True,
         topic_id__in=topic_ids,
+    ).annotate(
+        usage_count=Count("student_answers", filter=Q(student_answers__is_active=True), distinct=True),
+        correct_count=Count(
+            "student_answers",
+            filter=Q(
+                student_answers__is_active=True,
+                student_answers__selected_option__isnull=False,
+                student_answers__is_correct=True,
+            ),
+            distinct=True,
+        ),
+        wrong_count=Count(
+            "student_answers",
+            filter=Q(
+                student_answers__is_active=True,
+                student_answers__selected_option__isnull=False,
+                student_answers__is_correct=False,
+            ),
+            distinct=True,
+        ),
+        skipped_count=Count(
+            "student_answers",
+            filter=Q(student_answers__is_active=True, student_answers__selected_option__isnull=True),
+            distinct=True,
+        ),
     ).order_by("created_at", "id")
 
     if program is not None:
         queryset = queryset.filter(program=program)
 
+    def attempt_rate(question, count):
+        usage = int(getattr(question, "usage_count", 0) or 0)
+        if usage <= 0:
+            return 0.0
+        return round((int(count or 0) / usage) * 100, 2)
+
+    def quality_signal(question):
+        usage_count = int(getattr(question, "usage_count", 0) or 0)
+        wrong_rate = attempt_rate(question, getattr(question, "wrong_count", 0) or 0)
+        skip_rate = attempt_rate(question, getattr(question, "skipped_count", 0) or 0)
+        if usage_count < 3:
+            return "emerging", "watch"
+        if wrong_rate >= 60 and skip_rate >= 20:
+            return "ambiguous", "urgent"
+        if wrong_rate >= 70:
+            return "revision_candidate", "high"
+        if skip_rate >= 45:
+            return "skip_risk", "high"
+        if wrong_rate >= 45:
+            return "hard", "medium"
+        if wrong_rate >= 30 or skip_rate >= 25:
+            return "watch", "watch"
+        return "healthy", "none"
+
+    quality_weight = {
+        "healthy": 0,
+        "watch": 1,
+        "emerging": 2,
+        "hard": 3,
+        "skip_risk": 4,
+        "revision_candidate": 5,
+        "ambiguous": 6,
+    }
+    revision_weight = {
+        "none": 0,
+        "watch": 1,
+        "medium": 2,
+        "high": 3,
+        "urgent": 4,
+    }
+
     by_topic = {}
     for question in queryset:
+        signal, priority = quality_signal(question)
+        question.preview_quality_signal = signal
+        question.preview_revision_priority = priority
         topic_bucket = by_topic.setdefault(question.topic_id, {})
         difficulty_bucket = topic_bucket.setdefault(question.difficulty_level, [])
         difficulty_bucket.append(question)
 
+    for topic_bucket in by_topic.values():
+        for difficulty_key, difficulty_bucket in topic_bucket.items():
+            difficulty_bucket.sort(
+                key=lambda question: (
+                    quality_weight.get(getattr(question, "preview_quality_signal", "healthy"), 0),
+                    revision_weight.get(getattr(question, "preview_revision_priority", "none"), 0),
+                    0 if question.is_verified else 1,
+                    0 if bool((question.explanation or "").strip()) else 1,
+                    question.created_at,
+                    question.id,
+                )
+            )
+
     return by_topic
+
+
+def _summarize_question_quality(questions):
+    summary = {
+        "healthy": 0,
+        "watch": 0,
+        "hard": 0,
+        "skip_risk": 0,
+        "ambiguous": 0,
+        "revision_candidate": 0,
+        "emerging": 0,
+        "high_priority": 0,
+    }
+    for question in questions:
+        signal = getattr(question, "preview_quality_signal", "emerging")
+        summary[signal] = summary.get(signal, 0) + 1
+        if getattr(question, "preview_revision_priority", "watch") in {"urgent", "high"}:
+            summary["high_priority"] += 1
+    return summary
 
 
 def _pick_questions_from_pool(
@@ -652,6 +1006,7 @@ def _pick_questions_from_pool(
 ):
     available_for_topic = question_buckets.get(topic.id, {})
     chosen = []
+    fallback_messages = []
     shortage_messages = []
     topic_selection = {
         "topic_code": topic.code,
@@ -659,6 +1014,7 @@ def _pick_questions_from_pool(
         "requested": requested_count,
         "resolved": 0,
         "difficulty_breakup": {},
+        "quality_breakup": {},
     }
 
     def consume_exact(difficulty_key, count_needed):
@@ -697,6 +1053,10 @@ def _pick_questions_from_pool(
                 topic_selection["difficulty_breakup"][fallback_key] = (
                     topic_selection["difficulty_breakup"].get(fallback_key, 0) + len(fallback_matches)
                 )
+                fallback_messages.append(
+                    f"{section_name}: {topic.name} used {len(fallback_matches)} {fallback_key} question(s) "
+                    f"to cover the {difficulty_key} target."
+                )
                 remaining -= len(fallback_matches)
             if remaining <= 0:
                 break
@@ -713,7 +1073,8 @@ def _pick_questions_from_pool(
         unique_chosen.append(question)
 
     topic_selection["resolved"] = len(unique_chosen)
-    return unique_chosen, topic_selection, shortage_messages
+    topic_selection["quality_breakup"] = _summarize_question_quality(unique_chosen)
+    return unique_chosen, topic_selection, fallback_messages, shortage_messages
 
 
 def _resolve_section_blueprint(
@@ -728,7 +1089,9 @@ def _resolve_section_blueprint(
     requested_total = int(section_payload["question_count"])
     resolved_topic_rows = []
     section_questions = []
+    blockers = []
     warnings = []
+    topic_fallbacks = []
     topic_shortages = []
 
     for topic_row in section_payload["topics"]:
@@ -739,7 +1102,7 @@ def _resolve_section_blueprint(
             )
         topic_count = int(topic_row["count"])
         difficulty_targets = _allocate_counts(topic_count, difficulty_mix)
-        chosen, selection_summary, shortage_messages = _pick_questions_from_pool(
+        chosen, selection_summary, fallback_messages, shortage_messages = _pick_questions_from_pool(
             section_name=section_payload["name"],
             topic=topic,
             requested_count=topic_count,
@@ -750,6 +1113,7 @@ def _resolve_section_blueprint(
         )
         section_questions.extend(chosen)
         resolved_topic_rows.append(selection_summary)
+        topic_fallbacks.extend(fallback_messages)
         topic_shortages.extend(shortage_messages)
 
     if topic_shortages and selection_mode == QUESTION_SELECTION_MODE_STRICT:
@@ -789,6 +1153,32 @@ def _resolve_section_blueprint(
     actual_difficulty = {"foundation": 0, "intermediate": 0, "advanced": 0}
     for question in section_questions:
         actual_difficulty[question.difficulty_level] = actual_difficulty.get(question.difficulty_level, 0) + 1
+    quality_summary = _summarize_question_quality(section_questions)
+
+    if section_payload.get("marks_per_question") is None:
+        warnings.append(
+            f"{section_payload['name']}: marks per question is blank, so preview is using each question's default marks."
+        )
+
+    if len(section_payload["topics"]) == 1:
+        warnings.append(
+            f"{section_payload['name']}: all questions come from a single topic. Add another topic if you want broader coverage."
+        )
+
+    if quality_summary["high_priority"] > 0:
+        warnings.append(
+            f"{section_payload['name']}: {quality_summary['high_priority']} resolved question(s) are already in the revision queue."
+        )
+    if quality_summary["ambiguous"] > 0:
+        warnings.append(
+            f"{section_payload['name']}: {quality_summary['ambiguous']} question(s) show ambiguous performance patterns."
+        )
+    if quality_summary["emerging"] == resolved_total and resolved_total > 0:
+        warnings.append(
+            f"{section_payload['name']}: all resolved questions are still emerging and do not yet have enough live attempt history."
+        )
+
+    warnings.extend(topic_fallbacks)
 
     return {
         "name": section_payload["name"],
@@ -799,6 +1189,7 @@ def _resolve_section_blueprint(
         "resolved": resolved_total,
         "difficulty_mix": difficulty_mix,
         "actual_difficulty_breakup": actual_difficulty,
+        "quality_summary": quality_summary,
         "topic_breakup": resolved_topic_rows,
         "marks_per_question": section_payload.get("marks_per_question"),
         "negative_marks_per_question": section_payload.get("negative_marks_per_question"),
@@ -807,6 +1198,7 @@ def _resolve_section_blueprint(
         "allow_skip_section": bool(section_payload.get("allow_skip_section", True)),
         "lock_after_submit": bool(section_payload.get("lock_after_submit", False)),
         "questions": section_questions,
+        "blockers": blockers,
         "warnings": warnings + topic_shortages if selection_mode != QUESTION_SELECTION_MODE_STRICT else warnings,
     }
 
@@ -848,10 +1240,12 @@ def preview_advanced_exam_blueprint(*, actor, blueprint):
         topic_ids=[topic.id for topic in topic_map.values()],
     )
     used_question_ids = set()
+    blockers = []
     section_plans = []
     warnings = []
     total_marks = Decimal("0.00")
     total_questions = 0
+    timed_section_duration_total = 0
 
     for section_payload in sorted(blueprint["composition"]["sections"], key=lambda row: row["order"]):
         section_plan = _resolve_section_blueprint(
@@ -862,14 +1256,33 @@ def preview_advanced_exam_blueprint(*, actor, blueprint):
             selection_mode=selection_mode,
         )
         section_plans.append(section_plan)
+        blockers.extend(section_plan["blockers"])
         warnings.extend(section_plan["warnings"])
         total_questions += section_plan["resolved"]
+        if section_plan["timer_enabled"] and section_plan["duration_minutes"]:
+            section_duration = int(section_plan["duration_minutes"])
+            timed_section_duration_total += section_duration
+            if section_duration > int(blueprint["exam"]["duration_minutes"]):
+                blockers.append(
+                    f"{section_plan['name']}: section timer ({section_duration} min) is longer than the full exam duration "
+                    f"({int(blueprint['exam']['duration_minutes'])} min)."
+                )
         for question in section_plan["questions"]:
             section_marks = section_plan["marks_per_question"]
             if section_marks is None:
                 total_marks += question.default_marks
             else:
                 total_marks += Decimal(str(section_marks))
+
+    preview_quality_summary = _summarize_question_quality(
+        [question for section_plan in section_plans for question in section_plan["questions"]]
+    )
+
+    if timed_section_duration_total > int(blueprint["exam"]["duration_minutes"]):
+        blockers.append(
+            f"Timed sections add up to {timed_section_duration_total} min, which is longer than the full exam duration "
+            f"of {int(blueprint['exam']['duration_minutes'])} min."
+        )
 
     return {
         "scope": scope,
@@ -884,8 +1297,23 @@ def preview_advanced_exam_blueprint(*, actor, blueprint):
             "duration_minutes": int(blueprint["exam"]["duration_minutes"]),
             "total_questions": total_questions,
             "total_marks": total_marks,
+            "question_quality": preview_quality_summary,
+            "experience_profile": resolve_exam_experience_profile_from_values(
+                exam_type=blueprint["exam"]["exam_type"],
+                delivery_mode=blueprint["exam"]["delivery_mode"],
+                timer_mode=(blueprint.get("delivery") or {}).get("timer_mode", "global"),
+                navigation_mode=(blueprint.get("delivery") or {}).get(
+                    "navigation_mode",
+                    "free_exam",
+                ),
+                program_assessment_family=resolve_program_assessment_family_profile(
+                    scope.get("program"),
+                ),
+                overrides=blueprint["exam"].get("experience_profile", {}),
+            ),
         },
         "sections": section_plans,
+        "blockers": blockers,
         "warnings": warnings,
     }
 
@@ -895,6 +1323,8 @@ def create_advanced_exam_from_blueprint(*, actor, blueprint):
     from apps.exams.models import Exam, ExamQuestion, ExamSection
 
     preview = preview_advanced_exam_blueprint(actor=actor, blueprint=blueprint)
+    if preview["blockers"]:
+        raise ValidationError({"composition": preview["blockers"]})
     scope = preview["scope"]
     resolved_exam = preview["resolved_exam"]
     exam_payload = blueprint["exam"]
@@ -970,7 +1400,9 @@ def create_advanced_exam_from_blueprint(*, actor, blueprint):
             "advanced_builder": {
                 "selection_mode": blueprint["composition"]["selection_mode"],
                 "subject_code": scope["subject"].code,
+                "preset_pack_code": exam_payload.get("preset_pack_code", ""),
             },
+            "experience_profile": exam_payload.get("experience_profile", {}) or {},
             "result_visibility_policy": {
                 "rank_visibility_mode": delivery_payload.get("rank_visibility_mode", "hidden"),
                 "percentile_visibility_mode": delivery_payload.get("percentile_visibility_mode", "hidden"),
@@ -1235,9 +1667,14 @@ def resolve_security_policy(exam):
 
 
 def is_result_visible_for_attempt(exam, attempt, result=None, at_time=None):
+    from apps.attempts.services import attempt_has_pending_manual_review
+
     current_time = at_time or timezone.now()
     result = result or getattr(attempt, "result", None)
     mode = resolve_result_publish_mode(exam)
+
+    if attempt_has_pending_manual_review(attempt):
+        return False
 
     if mode == RESULT_PUBLISH_MODE_IMMEDIATE:
         return attempt.status in {"submitted", "auto_submitted"}

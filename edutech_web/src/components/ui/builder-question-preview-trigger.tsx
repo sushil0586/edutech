@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { RichContentRenderer } from "@/components/ui/rich-content-renderer";
 import type { TeacherQuestion } from "@/lib/api/teacher-builder";
 
 type BuilderQuestionPreviewTriggerProps = {
@@ -187,6 +188,11 @@ export function BuilderQuestionPreviewTrigger({
 
             <div className="questionPreviewBody">
               <div className="questionBankChipRow">
+                {detail?.passage_detail?.title ? (
+                  <span className="questionBankMetaChip">
+                    Comprehension: {detail.passage_detail.title}
+                  </span>
+                ) : null}
                 <span className="questionBankMetaChip">{questionTypeLabel}</span>
                 <span className="questionBankMetaChip">{difficultyLabel}</span>
                 <span className="questionBankMetaChip">{marksLabel}</span>
@@ -213,6 +219,23 @@ export function BuilderQuestionPreviewTrigger({
                 <strong>Question text</strong>
                 <p>{detail?.question_text.trim() || title || "No question text was provided."}</p>
               </section>
+
+              {detail?.passage_detail?.passage_text ? (
+                <section className="questionPreviewSection">
+                  <strong>Shared passage</strong>
+                  <RichContentRenderer
+                    format={detail.passage_detail.content_format}
+                    text={detail.passage_detail.passage_text.trim()}
+                  />
+                  {detail.passage_detail.description?.trim() ? (
+                    <RichContentRenderer
+                      className="emptyText"
+                      format={detail.passage_detail.content_format}
+                      text={detail.passage_detail.description.trim()}
+                    />
+                  ) : null}
+                </section>
+              ) : null}
 
               <section className="questionPreviewSection">
                 <strong>Explanation</strong>

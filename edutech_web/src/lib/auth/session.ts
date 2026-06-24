@@ -223,9 +223,14 @@ async function requestAuthJson<T>(
 
     if (response.status === 429) {
       const retryAfter = formatRetryAfter(response.headers.get("Retry-After"));
-      message = retryAfter
-        ? `Too many registration attempts. Please wait about ${retryAfter} and try again, or use login if you already registered.`
-        : "Too many registration attempts. Please wait a bit and try again, or use login if you already registered.";
+      const isLoginRequest = path.includes("/auth/login/");
+      message = isLoginRequest
+        ? retryAfter
+          ? `Too many sign-in attempts. Please wait about ${retryAfter} and try again.`
+          : "Too many sign-in attempts. Please wait a bit and try again."
+        : retryAfter
+          ? `Too many registration attempts. Please wait about ${retryAfter} and try again, or use login if you already registered.`
+          : "Too many registration attempts. Please wait a bit and try again, or use login if you already registered.";
     }
 
     throw new AuthenticationError(message, "request_failed", fieldErrors);

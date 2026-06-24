@@ -3,9 +3,11 @@ import { redirect, unstable_rethrow } from "next/navigation";
 import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { InstitutePageHeader } from "@/components/ui/institute-page-header";
+import type { TeacherResultSummary } from "@/features/dashboard/types";
 import {
   configureTeacherExamEconomyAccess,
   fetchTeacherExamDetail,
+  fetchTeacherResultSummary,
   getTeacherApiState,
   runTeacherExamAction,
 } from "@/lib/api/teacher";
@@ -25,6 +27,69 @@ function feedbackMessage(value: string | undefined) {
 function economyPolicyLabel(value: string | null | undefined, labels: Record<string, string>) {
   if (!value) return "Open access";
   return labels[value] ?? titleCase(value);
+}
+
+function buildExamReadinessSnapshot(args: {
+  examStatus: string;
+  activeQuestionsCount: number;
+  assignedStudentCount: number;
+  resultSummary: TeacherResultSummary | null;
+}) {
+  const { examStatus, activeQuestionsCount, assignedStudentCount, resultSummary } = args;
+  const blockers: string[] = [];
+  const pending: string[] = [];
+  const ready: string[] = [];
+
+  if (activeQuestionsCount > 0) {
+    ready.push(`${activeQuestionsCount} active question${activeQuestionsCount === 1 ? "" : "s"} linked.`);
+  } else {
+    blockers.push("No active questions are linked yet.");
+  }
+
+  if (assignedStudentCount > 0) {
+    ready.push(`${assignedStudentCount} learner${assignedStudentCount === 1 ? "" : "s"} already assigned.`);
+  } else {
+    pending.push("No learners are assigned yet.");
+  }
+
+  if (examStatus === "completed") {
+    ready.push("Exam lifecycle is completed.");
+  } else if (examStatus === "live") {
+    pending.push("Exam is still live. Complete the lifecycle before publishing results.");
+  } else {
+    pending.push(`Exam lifecycle is currently ${titleCase(examStatus)}.`);
+  }
+
+  if (!resultSummary) {
+    pending.push("No result summary exists yet.");
+  } else {
+    ready.push("Result summary already exists for this exam.");
+    if (resultSummary.review_blocked) {
+      blockers.push(
+        `${resultSummary.pending_review_tasks_count} review blocker${
+          resultSummary.pending_review_tasks_count === 1 ? "" : "s"
+        } still protect publication.`,
+      );
+    } else {
+      ready.push("No review blocker is currently holding publication.");
+    }
+
+    if (resultSummary.recheck_review_tasks_count > 0) {
+      pending.push(
+        `${resultSummary.recheck_review_tasks_count} recheck task${
+          resultSummary.recheck_review_tasks_count === 1 ? "" : "s"
+        } still need closure.`,
+      );
+    }
+
+    if (resultSummary.results_published) {
+      ready.push("Results are already published to students.");
+    } else {
+      pending.push("Results are not published yet.");
+    }
+  }
+
+  return { blockers, pending, ready };
 }
 
 async function instituteExamAction(formData: FormData) {
@@ -122,19 +187,25 @@ async function loadInstituteExamDetail(examId: string) {
     return {
       source: "unconfigured" as const,
       detail: null,
+      resultSummary: null as TeacherResultSummary | null,
     };
   }
 
   try {
-    const detail = await fetchTeacherExamDetail(examId);
+    const [detail, allResultSummaries] = await Promise.all([
+      fetchTeacherExamDetail(examId),
+      fetchTeacherResultSummary(),
+    ]);
     return {
       source: "live" as const,
       detail,
+      resultSummary: allResultSummaries.find((summary) => summary.exam === examId) ?? null,
     };
   } catch {
     return {
       source: "error" as const,
       detail: null,
+      resultSummary: null as TeacherResultSummary | null,
     };
   }
 }
@@ -149,7 +220,7 @@ export default async function InstituteExamDetailPage({
   await requireInstituteAdminSession();
   const { examId } = await params;
   const { error, message } = await searchParams;
-  const { source, detail } = await loadInstituteExamDetail(examId);
+  const { source, detail, resultSummary } = await loadInstituteExamDetail(examId);
   const optionCatalog = groupTeacherOptionCatalog(await fetchTeacherOptionCatalog().catch(() => []));
   const economyAccessPolicyOptions = optionCatalog.selectOptions("exam_economy_access_policy");
   const economyAccessPolicyLabels = optionCatalog.labelMap("exam_economy_access_policy");
@@ -199,6 +270,12 @@ export default async function InstituteExamDetailPage({
         : detail.status === "live"
           ? [{ action: "mark-completed", idleLabel: "Mark Completed", pendingLabel: "Completing..." }]
           : [];
+  const readinessSnapshot = buildExamReadinessSnapshot({
+    examStatus: detail.status,
+    activeQuestionsCount: detail.active_questions_count,
+    assignedStudentCount: detail.assigned_student_count,
+    resultSummary,
+  });
 
   return (
     <div className="studentPage studentDashboardModern instituteConsolePage instituteExamsPageVivid">
@@ -226,11 +303,24 @@ export default async function InstituteExamDetailPage({
           <strong>Exam delivery and access</strong>
           <small>
             {detail.active_questions_count} active questions · {detail.assigned_student_count} assigned learners
+            {resultSummary?.review_blocked
+              ? ` · ${resultSummary.pending_review_tasks_count} review blocker${resultSummary.pending_review_tasks_count === 1 ? "" : "s"}`
+              : resultSummary?.results_published
+                ? " · results published"
+                : resultSummary
+                  ? " · results in progress"
+                  : " · no result summary yet"}
           </small>
         </div>
         <div className="studentInsightHeroActions">
           <Link className="button buttonPrimary" href={`/institute/exams/${detail.id}/builder`}>
             Open Builder
+          </Link>
+          <Link className="button buttonSecondary" href={`/institute/results?exam=${detail.id}`}>
+            Open Results
+          </Link>
+          <Link className="button buttonGhost" href={`/institute/reviews?exam=${detail.id}`}>
+            Open Reviews
           </Link>
           <Link className="button buttonSecondary" href="/institute/question-bank">
             Open Question Bank
@@ -261,6 +351,85 @@ export default async function InstituteExamDetailPage({
           <span>Exam Access Key</span>
           <strong>{detail.access_key}</strong>
           <small>{detail.access_key_enabled ? "Quick entry enabled" : "Quick entry disabled"}</small>
+        </article>
+
+        <article className="metricCard dashboardHeroCard">
+          <span>Result Status</span>
+          <strong>
+            {resultSummary?.results_published
+              ? "Published"
+              : resultSummary?.review_blocked
+                ? "Review blocked"
+                : resultSummary
+                  ? "In progress"
+                  : "No summary"}
+          </strong>
+          <small>
+            {resultSummary?.review_blocked
+              ? `${resultSummary.pending_review_tasks_count} review blocker(s) and ${resultSummary.recheck_review_tasks_count} recheck task(s)`
+              : resultSummary
+                ? `${resultSummary.total_attempted} attempts · ${resultSummary.total_passed + resultSummary.total_failed} evaluated`
+                : "Generate results after learner submissions are ready"}
+          </small>
+        </article>
+      </section>
+
+      <section className="teacherResultsReadinessBoard">
+        <article className="teacherResultsReadinessHero">
+          <span className="studentDashboardTag">Exam readiness</span>
+          <strong>
+            {resultSummary?.results_published
+              ? "Published"
+              : readinessSnapshot.blockers.length > 0
+                ? "Blocked"
+                : "Operationally clear"}
+          </strong>
+          <p>Use this page to see delivery, review, and result blockers without switching over to the results workspace.</p>
+        </article>
+        <article className="teacherResultsReadinessCard teacherResultsReadinessCardBlocked">
+          <div className="teacherResultsReadinessCardTop">
+            <strong>Hard blockers</strong>
+            <span className="statusPill statusWarning">{readinessSnapshot.blockers.length}</span>
+          </div>
+          {readinessSnapshot.blockers.length ? (
+            <ul>
+              {readinessSnapshot.blockers.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          ) : (
+            <p>No hard blocker is visible on this exam right now.</p>
+          )}
+        </article>
+        <article className="teacherResultsReadinessCard">
+          <div className="teacherResultsReadinessCardTop">
+            <strong>Still pending</strong>
+            <span className="statusPill statusDemo">{readinessSnapshot.pending.length}</span>
+          </div>
+          {readinessSnapshot.pending.length ? (
+            <ul>
+              {readinessSnapshot.pending.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          ) : (
+            <p>No additional pending step stands out here.</p>
+          )}
+        </article>
+        <article className="teacherResultsReadinessCard teacherResultsReadinessCardReady">
+          <div className="teacherResultsReadinessCardTop">
+            <strong>Already ready</strong>
+            <span className="statusPill statusLive">{readinessSnapshot.ready.length}</span>
+          </div>
+          {readinessSnapshot.ready.length ? (
+            <ul>
+              {readinessSnapshot.ready.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          ) : (
+            <p>No readiness signal has been established yet.</p>
+          )}
         </article>
       </section>
 

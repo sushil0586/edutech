@@ -64,7 +64,7 @@ from apps.question_bank.models import Question
 from apps.question_bank.serializers import QuestionSerializer
 from apps.reports.services import create_audit_log
 from apps.reports.services import ensure_exam_window_notifications
-from apps.results.models import ExamResult
+from apps.results.models import ExamPerformanceSummary, ExamResult
 from apps.results.serializers import ExamPerformanceSummarySerializer, ExamResultSerializer
 from apps.results.services import (
     build_student_insight_summary,
@@ -72,6 +72,7 @@ from apps.results.services import (
     build_teacher_insight_summary,
     build_teacher_question_performance_summary,
 )
+from apps.exams.services import resolve_exam_experience_profile
 from apps.institutes.models import Institute
 from apps.students.models import StudentProfile
 from apps.teachers.models import TeacherProfile
@@ -827,8 +828,10 @@ class TeacherResultSummaryView(APIView):
 
     def get(self, request):
         from apps.results.models import ExamPerformanceSummary
-        from django.db.models import Count, Q
+        from apps.attempts.services import REVIEW_TASK_UNRESOLVED_STATUSES
+        from django.db.models import Count, Min, Q
 
+        unresolved_statuses = tuple(REVIEW_TASK_UNRESOLVED_STATUSES)
         queryset = scope_teacher_queryset(
             ExamPerformanceSummary.objects.select_related("institute", "exam"),
             request.user,
@@ -838,6 +841,20 @@ class TeacherResultSummaryView(APIView):
                 "exam__results",
                 filter=Q(exam__results__is_published=True),
                 distinct=True,
+            ),
+            pending_review_tasks_count=Count(
+                "exam__answer_review_tasks",
+                filter=Q(exam__answer_review_tasks__status__in=unresolved_statuses),
+                distinct=True,
+            ),
+            recheck_review_tasks_count=Count(
+                "exam__answer_review_tasks",
+                filter=Q(exam__answer_review_tasks__status="recheck_requested"),
+                distinct=True,
+            ),
+            oldest_pending_review_opened_at=Min(
+                "exam__answer_review_tasks__opened_at",
+                filter=Q(exam__answer_review_tasks__status__in=unresolved_statuses),
             ),
         )
         return Response(ExamPerformanceSummarySerializer(queryset, many=True).data)
@@ -854,6 +871,8 @@ class InstituteDashboardSummaryView(APIView):
     permission_classes = [IsAuthenticated, IsPlatformOrInstituteAdmin]
 
     def get(self, request):
+        from apps.attempts.services import unresolved_review_tasks_queryset
+
         profile = getattr(request.user, "account_profile", None)
         institute_id = getattr(profile, "institute_id", None)
         if not institute_id:
@@ -883,6 +902,13 @@ class InstituteDashboardSummaryView(APIView):
         teacher_count = TeacherProfile.objects.filter(institute_filter, is_active=True).count()
         exam_count = Exam.objects.filter(institute_filter, is_active=True).count()
         result_count = ExamResult.objects.filter(institute_filter, is_active=True).count()
+        assessment_family_mix = list(
+            Program.objects.filter(institute_filter, is_active=True)
+            .values("assessment_family__code", "assessment_family__label")
+            .annotate(program_count=Count("id"))
+            .order_by("-program_count", "assessment_family__label")
+        )
+        review_task_qs = unresolved_review_tasks_queryset(institute_id=institute_id)
         metadata = institute.get("metadata") if isinstance(institute, dict) else {}
         exam_defaults = metadata.get("exam_defaults", {}) if isinstance(metadata, dict) else {}
         exam_default_count = len(exam_defaults) if isinstance(exam_defaults, dict) else 0
@@ -890,6 +916,49 @@ class InstituteDashboardSummaryView(APIView):
         academic_structure_count = (
             academic_year_count + program_count + cohort_count + subject_count + topic_count
         )
+        unresolved_review_tasks = review_task_qs.count()
+        blocked_review_exams = review_task_qs.values("exam_id").distinct().count()
+        recheck_tasks = review_task_qs.filter(status="recheck_requested").count()
+        summary_rows = list(
+            ExamPerformanceSummary.objects.filter(institute_id=institute_id, is_active=True)
+            .select_related("exam")
+            .order_by("-last_calculated_at", "-updated_at")[:5]
+        )
+        aggregate_distribution_map = {}
+        for summary in summary_rows:
+            metadata = summary.metadata if isinstance(summary.metadata, dict) else {}
+            for bucket in metadata.get("score_distribution", []):
+                label = bucket.get("label")
+                if not label:
+                    continue
+                entry = aggregate_distribution_map.setdefault(
+                    label,
+                    {
+                        "label": label,
+                        "min_percentage": bucket.get("min_percentage", 0),
+                        "max_percentage": bucket.get("max_percentage", 0),
+                        "count": 0,
+                    },
+                )
+                entry["count"] += bucket.get("count", 0) or 0
+        aggregate_distribution_total = sum(
+            item["count"] for item in aggregate_distribution_map.values()
+        )
+        aggregate_score_distribution = [
+            {
+                **bucket,
+                "percentage_share": round(
+                    (bucket["count"] / aggregate_distribution_total) * 100,
+                    2,
+                )
+                if aggregate_distribution_total > 0
+                else 0.0,
+            }
+            for bucket in sorted(
+                aggregate_distribution_map.values(),
+                key=lambda item: item["min_percentage"],
+            )
+        ]
         active_coverage_signals = len(
             [
                 value
@@ -924,13 +993,62 @@ class InstituteDashboardSummaryView(APIView):
                     "teachers": teacher_count,
                     "exams": exam_count,
                     "results": result_count,
+                    "pending_review_tasks": unresolved_review_tasks,
+                    "blocked_review_exams": blocked_review_exams,
+                    "recheck_review_tasks": recheck_tasks,
+                    "assessment_family_mix": [
+                        {
+                            "code": item["assessment_family__code"] or "unassigned",
+                            "label": item["assessment_family__label"] or "Unassigned",
+                            "program_count": item["program_count"],
+                        }
+                        for item in assessment_family_mix
+                    ],
                 },
                 "derived": {
                     "people_count": people_count,
                     "academic_structure_count": academic_structure_count,
                     "active_coverage_signals": active_coverage_signals,
                     "readiness_score": readiness_score,
+                    "review_ops_pressure": unresolved_review_tasks,
+                    "active_assessment_families": len(
+                        [item for item in assessment_family_mix if item["assessment_family__code"]]
+                    ),
+                    "analytics_ready_exams": len(summary_rows),
+                    "analytics_result_rows": aggregate_distribution_total,
                 },
+                "recent_exam_analytics": [
+                    {
+                        "exam_id": str(summary.exam_id),
+                        "exam_title": summary.exam.title,
+                        "exam_code": summary.exam.code,
+                        "average_percentage": format(
+                            summary.average_percentage or Decimal("0.00"),
+                            "f",
+                        ),
+                        "total_attempted": summary.total_attempted,
+                        "total_passed": summary.total_passed,
+                        "total_failed": summary.total_failed,
+                        "last_calculated_at": (
+                            summary.last_calculated_at.isoformat()
+                            if summary.last_calculated_at
+                            else None
+                        ),
+                        "experience_profile": resolve_exam_experience_profile(summary.exam),
+                        "score_distribution": (
+                            summary.metadata.get("score_distribution", [])
+                            if isinstance(summary.metadata, dict)
+                            else []
+                        ),
+                        "section_performance": (
+                            summary.metadata.get("section_performance", [])
+                            if isinstance(summary.metadata, dict)
+                            else []
+                        ),
+                    }
+                    for summary in summary_rows
+                ],
+                "aggregate_score_distribution": aggregate_score_distribution,
             }
         )
 

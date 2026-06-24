@@ -6,6 +6,7 @@ const instituteNavItems = [
   { href: "/institute/dashboard", label: "Dashboard", icon: "◈" },
   { href: "/institute/exams", label: "Exams", icon: "◫" },
   { href: "/institute/results", label: "Results", icon: "◎" },
+  { href: "/institute/reviews", label: "Reviews", icon: "◔" },
   { href: "/institute/question-bank", label: "Question Bank", icon: "◍" },
   { href: "/institute/people", label: "People", icon: "◫" },
   { href: "/institute/academic-setup", label: "Academic Setup", icon: "◌" },

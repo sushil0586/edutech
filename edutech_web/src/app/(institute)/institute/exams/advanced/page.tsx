@@ -1,7 +1,9 @@
+import Link from "next/link";
 import { AdvancedExamBuilder } from "@/components/ui/advanced-exam-builder";
 import { InstitutePageHeader } from "@/components/ui/institute-page-header";
 import {
   fetchTeacherAcademicYears,
+  fetchTeacherAssessmentRegistry,
   fetchTeacherCohorts,
   fetchTeacherOptionCatalog,
   fetchTeacherPrograms,
@@ -24,10 +26,11 @@ export default async function InstituteAdvancedExamBuilderPage() {
     throw new Error("Institute scope is missing.");
   }
 
-  const [academicYears, programs, optionCatalogEntries] = await Promise.all([
+  const [academicYears, programs, optionCatalogEntries, assessmentRegistry] = await Promise.all([
     fetchTeacherAcademicYears(),
     fetchTeacherPrograms(),
     fetchTeacherOptionCatalog(),
+    fetchTeacherAssessmentRegistry(),
   ]);
 
   const selectedAcademicYear = academicYears[0]?.id ?? "";
@@ -52,10 +55,18 @@ export default async function InstituteAdvancedExamBuilderPage() {
       <InstitutePageHeader
         title="Advanced Exam Builder"
         description="Build institute-grade custom exams with topic quotas, structured sections, and premium access rules in a single restrained workflow."
+        action={
+          <div className="pageHeaderActionGroup">
+            <Link className="button buttonGhost" href="/institute/exams/preset-packs">
+              Preset Library
+            </Link>
+          </div>
+        }
       />
 
       <AdvancedExamBuilder
         academicYears={academicYears}
+        assessmentRegistry={assessmentRegistry}
         assignmentModeOptions={optionCatalog.selectOptions("exam_assignment_mode")}
         audience="institute"
         defaultSource="institute"

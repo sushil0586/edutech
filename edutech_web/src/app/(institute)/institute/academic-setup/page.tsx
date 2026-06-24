@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { InstituteExamDefaultsEditor } from "@/components/admin/institute-exam-defaults-editor";
 import {
   AcademicSetupWorkspace,
+  type AssessmentFamilyRecord,
   type AcademicSetupTabId,
   type AcademicYearRecord,
   type CohortRecord,
@@ -89,6 +90,7 @@ export default async function InstituteAcademicSetupPage({
     teachers,
     assignments,
     optionCatalogEntries,
+    assessmentFamilies,
     studentCount,
     teacherCount,
   ] = await Promise.all([
@@ -100,6 +102,7 @@ export default async function InstituteAcademicSetupPage({
     fetchPortalList<TeacherRecord>(`/api/v1/teachers/${profile.institute ? `?institute=${profile.institute}&page_size=100` : "?page_size=100"}`),
     fetchPortalList<TeacherAssignmentRecord>(`/api/v1/teachers/assignments/${profile.institute ? `?institute=${profile.institute}&page_size=100` : "?page_size=100"}`),
     fetchPortalList<OptionCatalogRecord>("/api/v1/academics/option-catalog/?page_size=200&is_active=true"),
+    fetchPortalList<AssessmentFamilyRecord>("/api/v1/academics/assessment-families/?page_size=50&is_active=true").catch(() => []),
     loadCount(profile.institute ? `/api/v1/students/?institute=${profile.institute}` : "/api/v1/students/"),
     loadCount(profile.institute ? `/api/v1/teachers/?institute=${profile.institute}` : "/api/v1/teachers/"),
   ]);
@@ -244,6 +247,7 @@ export default async function InstituteAcademicSetupPage({
                 <InstituteExamDefaultsEditor
                   compact
                   instituteId={institute.id}
+                  assessmentFamilies={assessmentFamilies}
                   initialDefaults={{
                     duration_minutes:
                       typeof selectedInstituteDefaults.duration_minutes === "number"
@@ -303,6 +307,7 @@ export default async function InstituteAcademicSetupPage({
             activeTab={activeSection as AcademicSetupTabId}
             academicYears={academicYears}
             academicsApiBasePath="/api/teacher/academics"
+            assessmentFamilies={assessmentFamilies}
             assignments={assignments}
             cohorts={cohorts}
             instituteId={profile.institute ?? null}

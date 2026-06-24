@@ -5,7 +5,8 @@ import { BuilderQuestionMapping } from "@/components/ui/builder-question-mapping
 import { BuilderTabs } from "@/components/ui/builder-tabs";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { InstitutePageHeader } from "@/components/ui/institute-page-header";
-import { fetchTeacherExamDetail } from "@/lib/api/teacher";
+import type { TeacherResultSummary } from "@/features/dashboard/types";
+import { fetchTeacherExamDetail, fetchTeacherResultSummary } from "@/lib/api/teacher";
 import {
   assignTeacherExamStudents,
   createTeacherExamQuestion,
@@ -15,8 +16,8 @@ import {
   fetchTeacherAcademicYears,
   fetchTeacherCohorts,
   fetchTeacherOptionCatalog,
+  fetchTeacherQuestionPage,
   fetchTeacherPrograms,
-  fetchTeacherQuestions,
   fetchTeacherStudents,
   fetchTeacherSubjects,
   fetchTeacherTopics,
@@ -55,6 +56,114 @@ function formatDateTimeLocal(value: string | null) {
 
 function titleCase(value: string) {
   return value.replaceAll("_", " ");
+}
+
+function qualityTone(signal: string) {
+  if (signal === "ambiguous" || signal === "revision_candidate") return "statusDemo";
+  if (signal === "skip_risk" || signal === "hard" || signal === "watch") return "statusWarning";
+  if (signal === "healthy") return "statusLive";
+  return "statusNeutral";
+}
+
+function questionBankPriorityScore(question: {
+  quality_signal: string;
+  revision_priority: string;
+  is_verified: boolean;
+  has_explanation: boolean;
+}) {
+  const revisionWeightMap: Record<string, number> = {
+    urgent: 80,
+    high: 60,
+    medium: 35,
+    watch: 15,
+    none: 0,
+  };
+  const qualityWeightMap: Record<string, number> = {
+    ambiguous: 50,
+    revision_candidate: 45,
+    skip_risk: 30,
+    hard: 20,
+    watch: 12,
+    emerging: 8,
+    healthy: -20,
+  };
+
+  let score = 0;
+  score += revisionWeightMap[question.revision_priority] ?? 0;
+  score += qualityWeightMap[question.quality_signal] ?? 0;
+  if (!question.is_verified) score += 12;
+  if (!question.has_explanation) score += 18;
+  return score;
+}
+
+function buildBuilderReadinessSnapshot(args: {
+  examStatus: string;
+  activeSectionsCount: number;
+  activeQuestionCount: number;
+  assignedStudentCount: number;
+  resultSummary: TeacherResultSummary | null;
+}) {
+  const { examStatus, activeSectionsCount, activeQuestionCount, assignedStudentCount, resultSummary } = args;
+  const blockers: string[] = [];
+  const pending: string[] = [];
+  const ready: string[] = [];
+
+  if (activeSectionsCount > 0) {
+    ready.push(`${activeSectionsCount} section${activeSectionsCount === 1 ? "" : "s"} configured.`);
+  } else {
+    blockers.push("No active sections are configured yet.");
+  }
+
+  if (activeQuestionCount > 0) {
+    ready.push(`${activeQuestionCount} linked question${activeQuestionCount === 1 ? "" : "s"} mapped into the exam.`);
+  } else {
+    blockers.push("No linked questions are mapped yet.");
+  }
+
+  if (assignedStudentCount > 0) {
+    ready.push(`${assignedStudentCount} learner${assignedStudentCount === 1 ? "" : "s"} already assigned.`);
+  } else {
+    pending.push("No learners are assigned yet.");
+  }
+
+  if (examStatus === "draft") {
+    pending.push("Exam lifecycle is still draft. Publish when setup and review readiness are complete.");
+  } else if (examStatus === "completed") {
+    ready.push("Exam lifecycle is completed.");
+  } else {
+    pending.push(`Exam lifecycle is currently ${titleCase(examStatus)}.`);
+  }
+
+  if (!resultSummary) {
+    pending.push("No result summary exists yet.");
+  } else {
+    ready.push("Result summary already exists for this exam.");
+    if (resultSummary.review_blocked) {
+      blockers.push(
+        `${resultSummary.pending_review_tasks_count} review blocker${
+          resultSummary.pending_review_tasks_count === 1 ? "" : "s"
+        } still protect publication.`,
+      );
+    } else {
+      ready.push("No review blocker is currently holding publication.");
+    }
+
+    if (resultSummary.recheck_review_tasks_count > 0) {
+      pending.push(
+        `${resultSummary.recheck_review_tasks_count} recheck task${
+          resultSummary.recheck_review_tasks_count === 1 ? "" : "s"
+        } still need closure.`,
+      );
+    }
+
+    if (resultSummary.results_published) {
+      ready.push("Results are already published to students.");
+    } else {
+      pending.push("Results are not published yet.");
+    }
+  }
+
+  return { blockers, pending, ready };
 }
 
 async function upsertTeacherExamQuestionLink(payload: {
@@ -418,7 +527,10 @@ async function updateStudentAccommodationAction(formData: FormData) {
 }
 
 async function loadBuilderData(examId: string) {
-  const detail = await fetchTeacherExamDetail(examId);
+  const [detail, allResultSummaries] = await Promise.all([
+    fetchTeacherExamDetail(examId),
+    fetchTeacherResultSummary().catch(() => [] as TeacherResultSummary[]),
+  ]);
 
   const [
     academicYearsResult,
@@ -443,11 +555,12 @@ async function loadBuilderData(examId: string) {
           program: detail.program,
         })
       : Promise.resolve([]),
-    detail.subject
-      ? fetchTeacherQuestions({
-          subject: detail.subject,
-        })
-      : fetchTeacherQuestions(),
+    fetchTeacherQuestionPage({
+      page: 1,
+      page_size: 200,
+      subject: detail.subject || undefined,
+      program: detail.program || undefined,
+    }),
     detail.subject
       ? fetchTeacherTopics({
           subject: detail.subject,
@@ -465,11 +578,12 @@ async function loadBuilderData(examId: string) {
 
   return {
     detail,
+    resultSummary: allResultSummaries.find((summary) => summary.exam === examId) ?? null,
     academicYears: academicYearsResult.status === "fulfilled" ? academicYearsResult.value : [],
     programs: programsResult.status === "fulfilled" ? programsResult.value : [],
     cohorts: cohortsResult.status === "fulfilled" ? cohortsResult.value : [],
     subjects: subjectsResult.status === "fulfilled" ? subjectsResult.value : [],
-    questions: questionsResult.status === "fulfilled" ? questionsResult.value : [],
+    questionPage: questionsResult.status === "fulfilled" ? questionsResult.value : null,
     topics: topicsResult.status === "fulfilled" ? topicsResult.value : [],
     students: studentsResult.status === "fulfilled" ? studentsResult.value : [],
     optionCatalogEntries:
@@ -517,16 +631,18 @@ export default async function InstituteExamBuilderPage({
 
   const {
     detail,
+    resultSummary,
     academicYears,
     programs,
     cohorts,
     subjects,
-    questions,
+    questionPage,
     topics,
     students,
     optionCatalogEntries,
   } = builderData;
   const optionCatalog = groupTeacherOptionCatalog(optionCatalogEntries);
+  const questions = questionPage?.results ?? [];
   const assignmentModeOptions = optionCatalog.selectOptions("exam_assignment_mode");
   const attemptPolicyOptions = optionCatalog.selectOptions("exam_attempt_policy");
   const deliveryModeOptions = optionCatalog.selectOptions("exam_delivery_mode");
@@ -543,10 +659,25 @@ export default async function InstituteExamBuilderPage({
   const activeSections = detail.sections.filter((section) => section.is_active);
   const activeExamQuestions = detail.exam_questions.filter((question) => question.is_active);
   const activeAssignedStudents = detail.assigned_students.filter((student) => student.is_active);
+  const readinessSnapshot = buildBuilderReadinessSnapshot({
+    examStatus: detail.status,
+    activeSectionsCount: activeSections.length,
+    activeQuestionCount: activeExamQuestions.length,
+    assignedStudentCount: activeAssignedStudents.length,
+    resultSummary,
+  });
   const selectedStudentIds = new Set(activeAssignedStudents.map((student) => student.student));
   const availableQuestions = questions.filter(
     (question) => !activeExamQuestions.some((linked) => linked.question === question.id),
   );
+  const availableBuilderQuestions = questions
+    .slice()
+    .sort((left, right) => questionBankPriorityScore(left) - questionBankPriorityScore(right));
+  const builderRevisionQueueCount = questions.filter((question) => ["urgent", "high"].includes(question.revision_priority)).length;
+  const builderHealthyCount = questions.filter(
+    (question) => question.quality_signal === "healthy" && question.is_verified && question.has_explanation,
+  ).length;
+  const builderAmbiguousCount = questions.filter((question) => question.quality_signal === "ambiguous").length;
   const requestedTabId = tab && ["sections", "questions", "assignment", "bank"].includes(tab) ? tab : null;
   const initialWorkspaceTabId =
     requestedTabId ?? (activeExamQuestions.length === 0 && availableQuestions.length > 0 ? "questions" : "sections");
@@ -921,7 +1052,7 @@ export default async function InstituteExamBuilderPage({
     {
       id: "bank",
       label: "Question Bank",
-      description: `${questions.length} available`,
+      description: `${questionPage?.count ?? questions.length} available`,
       content: (
         <article className="dashboardPanel builderPanel">
           <div className="builderPanelHeader">
@@ -933,27 +1064,57 @@ export default async function InstituteExamBuilderPage({
             <div className="builderPanelMetrics">
               <article className="builderMetricChip">
                 <span>Total available</span>
-                <strong>{questions.length}</strong>
+                <strong>{questionPage?.count ?? questions.length}</strong>
               </article>
               <article className="builderMetricChip">
                 <span>Showing</span>
-                <strong>{Math.min(questions.length, 12)}</strong>
+                <strong>{Math.min(availableBuilderQuestions.length, 12)}</strong>
+              </article>
+              <article className="builderMetricChip">
+                <span>Ready first</span>
+                <strong>{builderHealthyCount}</strong>
+              </article>
+              <article className="builderMetricChip">
+                <span>Revision queue</span>
+                <strong>{builderRevisionQueueCount}</strong>
+              </article>
+              <article className="builderMetricChip">
+                <span>Ambiguous</span>
+                <strong>{builderAmbiguousCount}</strong>
               </article>
             </div>
           </div>
 
           <div className="builderStack">
-            {questions.slice(0, 12).map((question) => (
+            {availableBuilderQuestions.slice(0, 12).map((question) => (
               <div className="builderListRow" key={question.id}>
                 <div>
                   <strong>{question.question_text.slice(0, 120)}{question.question_text.length > 120 ? "..." : ""}</strong>
                   <span>
                     {(questionTypeLabelMap[question.question_type] ?? titleCase(question.question_type))} · {(difficultyLabelMap[question.difficulty_level] ?? titleCase(question.difficulty_level))} · {question.default_marks} marks
                   </span>
+                  <div className="builderQuestionBankChips">
+                    <span className={`statusPill ${qualityTone(question.quality_signal)}`}>
+                      {titleCase(question.quality_signal)}
+                    </span>
+                    <span className={`statusPill ${qualityTone(question.quality_signal)}`}>
+                      {titleCase(question.revision_priority)} priority
+                    </span>
+                    <span className="statusPill statusNeutral">
+                      Wrong {Math.round(question.wrong_rate)}%
+                    </span>
+                    <span className="statusPill statusNeutral">
+                      Skip {Math.round(question.skip_rate)}%
+                    </span>
+                  </div>
+                  <small className="builderQuestionBankHint">{question.quality_note}</small>
                 </div>
                 <div className="builderListMeta builderListMetaActions">
                   <span className="statusPill statusDemo">
                     {question.has_explanation ? "Explanation" : "No explanation"}
+                  </span>
+                  <span className={`statusPill ${question.is_verified ? "statusLive" : "statusWarning"}`}>
+                    {question.is_verified ? "Verified" : "Needs verification"}
                   </span>
                   {!activeExamQuestions.some((linked) => linked.question === question.id) ? (
                     <form action={addQuestionLinkAction}>
@@ -964,7 +1125,7 @@ export default async function InstituteExamBuilderPage({
                       <input name="marks" type="hidden" value="" />
                       <input name="negative_marks" type="hidden" value="" />
                       <ActionSubmitButton
-                        className="button buttonGhost"
+                        className={`button ${questionBankPriorityScore(question) <= 0 ? "buttonPrimary" : "buttonGhost"}`}
                         idleLabel="Quick Add"
                         pendingLabel="Adding..."
                       />
@@ -976,7 +1137,7 @@ export default async function InstituteExamBuilderPage({
               </div>
             ))}
 
-            {!questions.length ? (
+            {!availableBuilderQuestions.length ? (
               <div className="builderEmptyState">
                 <strong>No question bank items available</strong>
                 <p>Check the selected program and subject scope, or add verified questions in the backend first.</p>
@@ -1012,11 +1173,24 @@ export default async function InstituteExamBuilderPage({
           <strong>Exam builder workflow</strong>
           <small>
             {activeSections.length} sections · {activeExamQuestions.length} linked questions · {activeAssignedStudents.length} learners
+            {resultSummary?.review_blocked
+              ? ` · ${resultSummary.pending_review_tasks_count} review blocker${resultSummary.pending_review_tasks_count === 1 ? "" : "s"}`
+              : resultSummary?.results_published
+                ? " · results published"
+                : resultSummary
+                  ? " · results in progress"
+                  : " · no result summary yet"}
           </small>
         </div>
         <div className="studentInsightHeroActions">
           <Link className="button buttonPrimary" href={`/institute/exams/${detail.id}`}>
             Open Delivery View
+          </Link>
+          <Link className="button buttonSecondary" href={`/institute/results?exam=${detail.id}`}>
+            Open Results
+          </Link>
+          <Link className="button buttonGhost" href={`/institute/reviews?exam=${detail.id}`}>
+            Open Reviews
           </Link>
           <Link className="button buttonSecondary" href="/institute/question-bank">
             Open Question Bank
@@ -1044,6 +1218,84 @@ export default async function InstituteExamBuilderPage({
           <span>Lifecycle</span>
           <strong>{titleCase(detail.status)}</strong>
           <small>{detail.start_at ? new Date(detail.start_at).toLocaleString("en-IN") : "Schedule pending"}</small>
+        </article>
+        <article className="builderSummaryCard">
+          <span>Result status</span>
+          <strong>
+            {resultSummary?.results_published
+              ? "Published"
+              : resultSummary?.review_blocked
+                ? "Review blocked"
+                : resultSummary
+                  ? "In progress"
+                  : "No summary"}
+          </strong>
+          <small>
+            {resultSummary?.review_blocked
+              ? `${resultSummary.pending_review_tasks_count} blocker(s) · ${resultSummary.recheck_review_tasks_count} recheck`
+              : resultSummary
+                ? `${resultSummary.total_attempted} attempts · ${resultSummary.total_passed + resultSummary.total_failed} evaluated`
+                : "Results will appear after submissions are processed"}
+          </small>
+        </article>
+      </section>
+
+      <section className="teacherResultsReadinessBoard">
+        <article className="teacherResultsReadinessHero">
+          <span className="studentDashboardTag">Builder readiness</span>
+          <strong>
+            {resultSummary?.results_published
+              ? "Published"
+              : readinessSnapshot.blockers.length > 0
+                ? "Blocked"
+                : "Setup aligned"}
+          </strong>
+          <p>See which setup, review, or publication conditions still need attention before moving this exam forward.</p>
+        </article>
+        <article className="teacherResultsReadinessCard teacherResultsReadinessCardBlocked">
+          <div className="teacherResultsReadinessCardTop">
+            <strong>Hard blockers</strong>
+            <span className="statusPill statusWarning">{readinessSnapshot.blockers.length}</span>
+          </div>
+          {readinessSnapshot.blockers.length ? (
+            <ul>
+              {readinessSnapshot.blockers.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          ) : (
+            <p>No hard blocker is visible on this builder right now.</p>
+          )}
+        </article>
+        <article className="teacherResultsReadinessCard">
+          <div className="teacherResultsReadinessCardTop">
+            <strong>Still pending</strong>
+            <span className="statusPill statusDemo">{readinessSnapshot.pending.length}</span>
+          </div>
+          {readinessSnapshot.pending.length ? (
+            <ul>
+              {readinessSnapshot.pending.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          ) : (
+            <p>No extra pending step stands out here.</p>
+          )}
+        </article>
+        <article className="teacherResultsReadinessCard teacherResultsReadinessCardReady">
+          <div className="teacherResultsReadinessCardTop">
+            <strong>Already ready</strong>
+            <span className="statusPill statusLive">{readinessSnapshot.ready.length}</span>
+          </div>
+          {readinessSnapshot.ready.length ? (
+            <ul>
+              {readinessSnapshot.ready.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          ) : (
+            <p>No readiness signal has been established yet.</p>
+          )}
         </article>
       </section>
 

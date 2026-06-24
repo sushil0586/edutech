@@ -2,8 +2,8 @@ import Link from "next/link";
 import { FilterSummaryPills } from "@/components/ui/filter-summary-pills";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { TeacherPageHeader } from "@/components/ui/teacher-page-header";
-import type { TeacherExamListItem } from "@/features/dashboard/types";
-import { fetchTeacherExamPage, getTeacherApiState } from "@/lib/api/teacher";
+import type { TeacherExamListItem, TeacherResultSummary } from "@/features/dashboard/types";
+import { fetchTeacherExamPage, fetchTeacherResultSummary, getTeacherApiState } from "@/lib/api/teacher";
 import { buildFilterHref, formatFilterValue, resolveFilterValue } from "@/lib/workspace/filter-utils";
 
 type TeacherExam = TeacherExamListItem;
@@ -81,25 +81,31 @@ async function loadTeacherExams(
     return {
       source: "unconfigured" as const,
       examsPage: null,
+      resultSummary: [] as TeacherResultSummary[],
     };
   }
 
   try {
-    const examsPage = await fetchTeacherExamPage({
-      page,
-      pageSize,
-      filter: statusFilter,
-      sort: sortOption,
-    });
+    const [examsPage, resultSummary] = await Promise.all([
+      fetchTeacherExamPage({
+        page,
+        pageSize,
+        filter: statusFilter,
+        sort: sortOption,
+      }),
+      fetchTeacherResultSummary(),
+    ]);
 
     return {
       source: "live" as const,
       examsPage,
+      resultSummary,
     };
   } catch {
     return {
       source: "error" as const,
       examsPage: null,
+      resultSummary: [] as TeacherResultSummary[],
     };
   }
 }
@@ -124,13 +130,21 @@ export default async function TeacherExamsPage({
     Number.parseInt(params.exam_page_size ?? "12", 10) > 0
       ? Number.parseInt(params.exam_page_size ?? "12", 10)
       : 12;
-  const { source, examsPage } = await loadTeacherExams(statusFilter, sortOption, examPage, examPageSize);
+  const { source, examsPage, resultSummary } = await loadTeacherExams(
+    statusFilter,
+    sortOption,
+    examPage,
+    examPageSize,
+  );
   const exams = examsPage?.results ?? [];
   const visibleExams = exams;
   const groupedExams = groupTeacherExams(visibleExams, groupOption);
+  const summaryByExamId = new Map(resultSummary.map((summary) => [summary.exam, summary] as const));
   const liveCount = exams.filter((exam) => exam.status === "live").length;
   const scheduledCount = exams.filter((exam) => exam.status === "scheduled").length;
   const draftCount = exams.filter((exam) => exam.status === "draft").length;
+  const reviewBlockedCount = exams.filter((exam) => summaryByExamId.get(exam.id)?.review_blocked).length;
+  const publishedCount = exams.filter((exam) => summaryByExamId.get(exam.id)?.results_published).length;
   const totalExams = examsPage?.count ?? 0;
   const examTotalPages = Math.max(Math.ceil(totalExams / examPageSize), 1);
   const safeExamPage = Math.min(examPage, examTotalPages);
@@ -208,7 +222,7 @@ export default async function TeacherExamsPage({
               <span className="studentDashboardTag">Exam Operations</span>
               <strong>Teacher exam operations</strong>
               <small>
-                {liveCount} live · {scheduledCount} scheduled · {draftCount} draft
+                {liveCount} live · {scheduledCount} scheduled · {reviewBlockedCount} review blocked
               </small>
             </div>
             <div className="studentInsightHeroActions">
@@ -241,6 +255,12 @@ export default async function TeacherExamsPage({
               <span>Assigned Learners</span>
               <strong>{exams.reduce((total, exam) => total + exam.assigned_student_count, 0)}</strong>
               <small>Across the current teacher scope</small>
+            </article>
+
+            <article className="metricCard dashboardHeroCard">
+              <span>Review Blocked</span>
+              <strong>{reviewBlockedCount}</strong>
+              <small>{publishedCount} exam(s) already have student-visible results</small>
             </article>
           </section>
 
@@ -352,7 +372,9 @@ export default async function TeacherExamsPage({
                     </div>
                   ) : null}
                   <div className="examGrid">
-                    {group.items.map((exam) => (
+                    {group.items.map((exam) => {
+                      const summary = summaryByExamId.get(exam.id) ?? null;
+                      return (
                       <article className="examCard" key={exam.id}>
                         <div className="examCardTop">
                           <div>
@@ -374,6 +396,26 @@ export default async function TeacherExamsPage({
                           >
                             {titleCase(exam.status)}
                           </span>
+                        </div>
+
+                        <div className="questionBankTagRow">
+                          <span className="questionBankTagChip">{titleCase(exam.exam_type)}</span>
+                          {summary?.results_published ? (
+                            <span className="statusPill statusLive">Results published</span>
+                          ) : summary?.review_blocked ? (
+                            <span className="statusPill statusWarning">
+                              {summary.pending_review_tasks_count} review blocker{summary.pending_review_tasks_count === 1 ? "" : "s"}
+                            </span>
+                          ) : summary ? (
+                            <span className="statusPill statusDemo">Results in progress</span>
+                          ) : (
+                            <span className="statusPill statusDemo">No summary yet</span>
+                          )}
+                          {summary?.recheck_review_tasks_count ? (
+                            <span className="questionBankTagChip">
+                              {summary.recheck_review_tasks_count} recheck pending
+                            </span>
+                          ) : null}
                         </div>
 
                         <div className="examMetaGrid">
@@ -403,7 +445,11 @@ export default async function TeacherExamsPage({
 
                         <div className="examCardFooter">
                           <div className="examStateSummary">
-                            <strong>{titleCase(exam.exam_type)}</strong>
+                            <strong>
+                              {summary
+                                ? `${summary.total_attempted} attempts · ${summary.total_passed + summary.total_failed} evaluated`
+                                : titleCase(exam.exam_type)}
+                            </strong>
                             <span>
                               {exam.start_at
                                 ? `Starts ${new Date(exam.start_at).toLocaleString("en-IN")}`
@@ -424,7 +470,8 @@ export default async function TeacherExamsPage({
                           </div>
                         </div>
                       </article>
-                    ))}
+                    );
+                    })}
                   </div>
                 </section>
               ))

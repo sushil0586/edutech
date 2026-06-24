@@ -87,68 +87,10 @@ def scope_teacher_academic_queryset(queryset, user):
         return queryset
     if profile.role == AccountRole.INSTITUTE_ADMIN and profile.institute_id:
         return queryset.filter(institute_id=profile.institute_id).distinct()
-    if profile.role != AccountRole.TEACHER or not profile.institute_id or not profile.teacher_profile_id:
-        return queryset.none()
+    if profile.role == AccountRole.TEACHER and profile.institute_id:
+        return queryset.filter(institute_id=profile.institute_id).distinct()
 
-    from apps.academics.models import AcademicYear, Cohort, Program, Subject, Topic
-    from apps.teachers.models import TeacherAssignment
-
-    assignments = TeacherAssignment.objects.filter(
-        institute_id=profile.institute_id,
-        teacher_id=profile.teacher_profile_id,
-        is_active=True,
-    )
-
-    model = queryset.model
-
-    if model is AcademicYear:
-        return queryset.filter(
-            institute_id=profile.institute_id,
-            teacher_assignments__teacher_id=profile.teacher_profile_id,
-            teacher_assignments__is_active=True,
-        ).distinct()
-
-    if model is Program:
-        return queryset.filter(
-            institute_id=profile.institute_id,
-            teacher_assignments__teacher_id=profile.teacher_profile_id,
-            teacher_assignments__is_active=True,
-        ).distinct()
-
-    if model is Subject:
-        return queryset.filter(
-            institute_id=profile.institute_id,
-            teacher_assignments__teacher_id=profile.teacher_profile_id,
-            teacher_assignments__is_active=True,
-        ).distinct()
-
-    if model is Topic:
-        assigned_subject_ids = list(assignments.values_list("subject_id", flat=True).distinct())
-        return queryset.filter(
-            institute_id=profile.institute_id,
-            subject_id__in=assigned_subject_ids,
-        ).distinct()
-
-    if model is Cohort:
-        specific_cohort_ids = list(
-            assignments.exclude(cohort_id__isnull=True).values_list("cohort_id", flat=True).distinct()
-        )
-        open_scope_pairs = list(
-            assignments.filter(cohort_id__isnull=True)
-            .values_list("program_id", "academic_year_id")
-            .distinct()
-        )
-
-        filters = Q(institute_id=profile.institute_id, id__in=specific_cohort_ids)
-        for program_id, academic_year_id in open_scope_pairs:
-            filters |= Q(
-                institute_id=profile.institute_id,
-                program_id=program_id,
-                academic_year_id=academic_year_id,
-            )
-        return queryset.filter(filters).distinct()
-
-    return queryset.filter(institute_id=profile.institute_id).distinct()
+    return queryset.none()
 
 
 def scope_question_queryset(queryset, user):
@@ -176,12 +118,16 @@ def scope_exam_queryset(queryset, user):
     if profile.role == AccountRole.STUDENT and profile.student_profile_id:
         student = profile.student_profile
         queryset = queryset.filter(institute_id=profile.institute_id, is_active=True)
-        queryset = queryset.filter(program_id=student.program_id)
+        scope_match = Q(program_id=student.program_id)
         if student.cohort_id:
-            queryset = queryset.filter(
-                Q(cohort_id=student.cohort_id) | Q(cohort__isnull=True)
-            )
-        return queryset
+            scope_match &= Q(cohort_id=student.cohort_id) | Q(cohort__isnull=True)
+
+        selected_student_match = Q(
+            assignment_mode="selected_students",
+            student_assignments__student_id=student.id,
+            student_assignments__is_active=True,
+        )
+        return queryset.filter(scope_match | selected_student_match).distinct()
 
     return queryset.none()
 
@@ -193,7 +139,7 @@ def scope_attempt_workspace_queryset(queryset, user):
 
     if profile.role == AccountRole.PLATFORM_ADMIN:
         return queryset
-    if profile.role == AccountRole.INSTITUTE_ADMIN and profile.institute_id:
+    if profile.role in {AccountRole.INSTITUTE_ADMIN, AccountRole.TEACHER} and profile.institute_id:
         return queryset.filter(institute_id=profile.institute_id)
     if profile.role == AccountRole.STUDENT and profile.student_profile_id:
         return queryset.filter(student_id=profile.student_profile_id)

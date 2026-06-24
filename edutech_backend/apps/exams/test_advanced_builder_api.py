@@ -2,8 +2,9 @@ from decimal import Decimal
 
 from rest_framework.test import APIClient, APITestCase
 
+from apps.academics.models import AssessmentFamily
 from apps.economy.models import ContentAccessPolicy, UnlockRule
-from apps.exams.models import ExamQuestion, ExamSection, ExamSourceType
+from apps.exams.models import Exam, ExamQuestion, ExamSection, ExamSourceType
 from apps.teachers.models import TeacherAssignment
 from common.tests.builders import AcademicAssessmentBuilder
 
@@ -155,18 +156,63 @@ class AdvancedExamBuilderApiTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.data["valid"])
         self.assertEqual(response.data["resolved_exam"]["total_questions"], 18)
+        self.assertIn("question_quality", response.data["resolved_exam"])
+        self.assertIn("quality_summary", response.data["sections"][0])
+        self.assertIn("quality_breakup", response.data["sections"][0]["topic_breakup"][0])
         self.assertEqual(response.data["resolved_exam"]["source_type"], ExamSourceType.TEACHER)
         self.assertEqual(
             response.data["resolved_exam"]["end_at"].date(),
             self.context["academic_year"].end_date,
         )
 
-    def test_create_builds_exam_sections_questions_and_economy(self):
+    def test_preview_uses_program_assessment_family_profile_defaults(self):
+        family = AssessmentFamily.objects.get(code="competitive")
+        program = self.context["program"]
+        program.assessment_family = family
+        program.save(update_fields=["assessment_family"])
+
         self.client.force_authenticate(user=self.teacher_user)
 
         response = self.client.post(
-            "/api/v1/exams/advanced-builder/create/",
+            "/api/v1/exams/advanced-builder/preview/",
             self._payload(),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.data["resolved_exam"]["experience_profile"]["assessment_family"],
+            "competitive",
+        )
+        self.assertEqual(
+            response.data["resolved_exam"]["experience_profile"]["assessment_family_label"],
+            "Competitive",
+        )
+        self.assertEqual(
+            response.data["resolved_exam"]["experience_profile"]["recommended_timer_mode"],
+            "section",
+        )
+        self.assertEqual(
+            response.data["resolved_exam"]["experience_profile"]["recommended_navigation_mode"],
+            "sequential",
+        )
+
+    def test_create_builds_exam_sections_questions_and_economy(self):
+        self.client.force_authenticate(user=self.teacher_user)
+        payload = self._payload()
+        payload["exam"]["preset_pack_code"] = "gre_quant"
+        payload["exam"]["experience_profile"] = {
+            "recommended_timer_mode": "section",
+            "recommended_navigation_mode": "sequential",
+            "recommended_media_flow": "controlled_exam_media",
+            "supports_section_media_guidance": True,
+            "learner_summary": "Treat this as a full simulation with stricter pacing.",
+            "creator_summary": "Use this for premium mock delivery.",
+        }
+
+        response = self.client.post(
+            "/api/v1/exams/advanced-builder/create/",
+            payload,
             format="json",
         )
 
@@ -182,6 +228,24 @@ class AdvancedExamBuilderApiTests(APITestCase):
         policy = ContentAccessPolicy.objects.get(content_key=exam_id, is_active=True)
         self.assertEqual(policy.policy_type, "stars_or_entitlement")
         self.assertEqual(policy.star_cost, 120)
+
+        exam = Exam.objects.get(pk=exam_id)
+        self.assertEqual(
+            exam.metadata["experience_profile"]["recommended_media_flow"],
+            "controlled_exam_media",
+        )
+        self.assertEqual(
+            exam.metadata["advanced_builder"]["preset_pack_code"],
+            "gre_quant",
+        )
+        self.assertEqual(
+            exam_payload["experience_profile"]["recommended_navigation_mode"],
+            "sequential",
+        )
+        self.assertEqual(
+            exam_payload["experience_profile"]["learner_summary"],
+            "Treat this as a full simulation with stricter pacing.",
+        )
 
         unlock_rule = UnlockRule.objects.get(content_key=exam_id, is_active=True)
         self.assertEqual(unlock_rule.rule_type, "score_threshold")
@@ -252,4 +316,90 @@ class AdvancedExamBuilderApiTests(APITestCase):
                 "Choose a year, program, subject, and cohort that match one of your active teacher assignments, "
                 "or ask your institute admin to add this assignment before creating the exam."
             ),
+        )
+
+    def test_preview_warns_when_relaxed_mode_uses_difficulty_fallback(self):
+        self.client.force_authenticate(user=self.teacher_user)
+        payload = self._payload()
+        payload["exam"]["code"] = "ADV-BUILDER-05"
+        payload["composition"]["selection_mode"] = "relaxed"
+        payload["composition"]["sections"] = [
+            {
+                "name": "Section A",
+                "order": 1,
+                "question_count": 8,
+                "marks_per_question": "2.00",
+                "negative_marks_per_question": "0.25",
+                "difficulty_mix": {
+                    "foundation": 0,
+                    "intermediate": 0,
+                    "advanced": 100,
+                },
+                "topics": [
+                    {"topic_code": self.topic_algebra.code, "count": 8},
+                ],
+            }
+        ]
+
+        response = self.client.post(
+            "/api/v1/exams/advanced-builder/preview/",
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["valid"])
+        self.assertTrue(
+            any("used 2 foundation question(s) to cover the advanced target" in warning for warning in response.data["warnings"])
+        )
+        self.assertTrue(
+            any("all resolved questions are still emerging" in warning for warning in response.data["warnings"])
+        )
+
+    def test_preview_warns_when_marks_are_inherited_and_timers_exceed_exam(self):
+        self.client.force_authenticate(user=self.teacher_user)
+        payload = self._payload()
+        payload["exam"]["code"] = "ADV-BUILDER-06"
+        payload["exam"]["duration_minutes"] = 60
+        payload["composition"]["sections"][0]["marks_per_question"] = None
+        payload["composition"]["sections"][0]["timer_enabled"] = True
+        payload["composition"]["sections"][0]["duration_minutes"] = 40
+        payload["composition"]["sections"][1]["timer_enabled"] = True
+        payload["composition"]["sections"][1]["duration_minutes"] = 30
+
+        response = self.client.post(
+            "/api/v1/exams/advanced-builder/preview/",
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["valid"])
+        self.assertTrue(
+            any("Timed sections add up to 70 min" in blocker for blocker in response.data["blockers"])
+        )
+        self.assertTrue(
+            any("marks per question is blank" in warning for warning in response.data["warnings"])
+        )
+
+    def test_create_blocks_when_preview_contains_hard_stop_blockers(self):
+        self.client.force_authenticate(user=self.teacher_user)
+        payload = self._payload()
+        payload["exam"]["code"] = "ADV-BUILDER-07"
+        payload["exam"]["duration_minutes"] = 45
+        payload["composition"]["sections"][0]["timer_enabled"] = True
+        payload["composition"]["sections"][0]["duration_minutes"] = 30
+        payload["composition"]["sections"][1]["timer_enabled"] = True
+        payload["composition"]["sections"][1]["duration_minutes"] = 20
+
+        response = self.client.post(
+            "/api/v1/exams/advanced-builder/create/",
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("composition", response.data)
+        self.assertTrue(
+            any("Timed sections add up to 50 min" in item for item in response.data["composition"])
         )

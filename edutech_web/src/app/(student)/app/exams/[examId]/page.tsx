@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { ActionSubmitButton } from "@/components/ui/action-submit-button";
+import { ComprehensionPassageTrigger } from "@/components/ui/comprehension-passage-trigger";
+import { StudentExamExperiencePanel } from "@/components/ui/student-exam-experience-panel";
+import { StudentQuestionMediaPanel } from "@/components/ui/student-question-media-panel";
 import { StudentKpiGrid } from "@/components/ui/student-kpi-grid";
 import { StudentPageHeader } from "@/components/ui/student-page-header";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
@@ -59,6 +62,14 @@ function securityTone(policy: StudentSecurityPolicy) {
     return "demo" as const;
   }
   return "live" as const;
+}
+
+function compactText(value: string, limit = 180) {
+  const normalized = value.replaceAll("\n", " ").trim();
+  if (normalized.length <= limit) {
+    return normalized;
+  }
+  return `${normalized.slice(0, limit).trimEnd()}...`;
 }
 
 async function startAttemptAction(formData: FormData) {
@@ -200,6 +211,16 @@ export default async function ExamDetailPage({
     },
     {},
   );
+  const questionBlueprint = detail.exam_questions
+    .slice()
+    .sort((left, right) => {
+      const leftSection = left.section_order ?? Number.MAX_SAFE_INTEGER;
+      const rightSection = right.section_order ?? Number.MAX_SAFE_INTEGER;
+      if (leftSection !== rightSection) {
+        return leftSection - rightSection;
+      }
+      return left.question_order - right.question_order;
+    });
   const primaryActionLabel = canResume
     ? `Resume ${examExperienceLabel(detail.exam_type)}`
     : canStart
@@ -480,6 +501,10 @@ export default async function ExamDetailPage({
 
       <section className="studentInsightsTwoColumn">
         <article className="contentCard">
+          <StudentExamExperiencePanel profile={detail.experience_profile} />
+        </article>
+
+        <article className="contentCard">
           <div className="sectionHeading">
             <strong>Exam Rules</strong>
             <span>Before you begin</span>
@@ -524,9 +549,9 @@ export default async function ExamDetailPage({
               </div>
             </div>
             <div className="studentTopicRow">
-              <div>
-                <strong>Question mix</strong>
-                <span>
+                <div>
+                  <strong>Question mix</strong>
+                  <span>
                   {Object.entries(questionTypeCounts)
                     .map(([type, count]) => `${count} ${questionTypeLabel(type).toLowerCase()}`)
                     .join(", ")}
@@ -567,6 +592,80 @@ export default async function ExamDetailPage({
             ))}
           </div>
         </article>
+      </section>
+
+      <section className="contentCard">
+        <div className="sectionHeading">
+          <strong>Question Blueprint</strong>
+          <span>{questionBlueprint.length} preview items</span>
+        </div>
+        <div className="studentTopicStack">
+          {questionBlueprint.map((question, index) => {
+            const previousQuestion = questionBlueprint[index - 1];
+            const shouldShowPassageTrigger =
+              Boolean(question.passage && question.passage_detail?.passage_text) &&
+              previousQuestion?.passage !== question.passage;
+
+            return (
+              <article className="attemptQuestionCard" key={question.id}>
+                <div className="attemptQuestionHeader">
+                  <div>
+                    <strong>
+                      Q{question.question_order}. {compactText(question.question_text, 120)}
+                    </strong>
+                    <span>
+                      {question.section_title
+                        ? `${question.section_title} · ${questionTypeLabel(question.question_type, question.question_type_definition)}`
+                        : questionTypeLabel(question.question_type, question.question_type_definition)}
+                    </span>
+                  </div>
+                  <StatusPill tone="demo">
+                    {question.marks ?? "Default"} marks
+                  </StatusPill>
+                </div>
+
+                {shouldShowPassageTrigger ? (
+                  <div className="questionBankTagRow">
+                    <span className="questionBankTagChip">Shared passage</span>
+                    <ComprehensionPassageTrigger
+                      buttonClassName="button buttonGhost"
+                      buttonLabel="Open Passage"
+                      contentFormat={question.passage_detail?.content_format}
+                      description={question.passage_detail?.description}
+                      metaLabel={question.passage_detail?.title || "Comprehension"}
+                      passageText={question.passage_detail?.passage_text || ""}
+                      title={question.passage_detail?.title || "Comprehension passage"}
+                    />
+                  </div>
+                ) : null}
+
+                <p className="studentNotificationMessage">
+                  {compactText(question.question_text, 260)}
+                </p>
+                {question.media_context.has_media ? (
+                  <StudentQuestionMediaPanel
+                    attachments={question.attachments}
+                    mediaContext={question.media_context}
+                  />
+                ) : null}
+
+                <div className="questionBankTagRow">
+                  <span className="questionBankTagChip">
+                    {question.options.length} option{question.options.length === 1 ? "" : "s"}
+                  </span>
+                  {question.passage_detail?.title ? (
+                    <span className="questionBankTagChip">{question.passage_detail.title}</span>
+                  ) : null}
+                  {question.attachments.length ? (
+                    <span className="questionBankTagChip">
+                      {question.attachments.length} attachment{question.attachments.length === 1 ? "" : "s"}
+                    </span>
+                  ) : null}
+                </div>
+              </article>
+            );
+          })}
+        </div>
       </section>
     </div>
   );

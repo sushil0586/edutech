@@ -2,6 +2,7 @@ from rest_framework.routers import DefaultRouter
 
 from apps.exams.views import (
     AdvancedExamTemplateViewSet,
+    ExamPresetPackViewSet,
     ExamPublishLogViewSet,
     ExamQuestionViewSet,
     ExamSectionViewSet,
@@ -12,6 +13,7 @@ app_name = "exams"
 
 router = DefaultRouter()
 router.register("advanced-templates", AdvancedExamTemplateViewSet, basename="advanced-exam-templates")
+router.register("preset-packs", ExamPresetPackViewSet, basename="exam-preset-packs")
 router.register("sections", ExamSectionViewSet, basename="exam-sections")
 router.register("questions", ExamQuestionViewSet, basename="exam-questions")
 router.register("publish-logs", ExamPublishLogViewSet, basename="exam-publish-logs")

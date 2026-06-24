@@ -48,3 +48,44 @@ export async function PATCH(
     },
   });
 }
+
+export async function DELETE(
+  _request: NextRequest,
+  {
+    params,
+  }: {
+    params: Promise<{ id: string }>;
+  },
+) {
+  const { id } = await params;
+  if (!API_BASE_URL) {
+    return NextResponse.json(
+      { detail: "Portal API is not configured." },
+      { status: 500 },
+    );
+  }
+
+  const session = await getAuthenticatedSession();
+  if (!session || !hasRequiredRole(session.profile, ["platform_admin"])) {
+    return NextResponse.json(
+      { detail: "Portal session is not available." },
+      { status: 401 },
+    );
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/v1/institutes/${id}/`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${session.accessToken}`,
+    },
+    cache: "no-store",
+  });
+
+  const text = await response.text();
+  return new NextResponse(text, {
+    status: response.status,
+    headers: {
+      "Content-Type": response.headers.get("content-type") ?? "application/json",
+    },
+  });
+}

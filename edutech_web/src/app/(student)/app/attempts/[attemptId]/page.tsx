@@ -14,10 +14,16 @@ import { AttemptResiliencePanel } from "@/components/ui/attempt-resilience-panel
 import { AttemptQuestionShortcuts } from "@/components/ui/attempt-question-shortcuts";
 import { AttemptSecurityGuard } from "@/components/ui/attempt-security-guard";
 import { AttemptTimerAutoSubmit } from "@/components/ui/attempt-timer-auto-submit";
+import { StudentQuestionPrompt } from "@/components/ui/student-question-prompt";
+import { StudentSectionMediaPanel } from "@/components/ui/student-section-media-panel";
+import { StudentExamExperiencePanel } from "@/components/ui/student-exam-experience-panel";
 import { StudentPageHeader } from "@/components/ui/student-page-header";
+import { StudentResponseArtifactPanel } from "@/components/ui/student-response-artifact-panel";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { StatusPill } from "@/components/ui/status-pill";
-import { StudentSecurityPolicy } from "@/features/dashboard/types";
+import {
+  StudentSecurityPolicy,
+} from "@/features/dashboard/types";
 import {
   fetchStudentAttemptDetail,
   getStudentApiState,
@@ -29,6 +35,13 @@ import {
   questionTypeLabel,
   titleCaseState,
 } from "@/lib/student/formatters";
+import {
+  questionTypeAllowedResponseArtifactKinds,
+  questionTypeSupportsMultipleSelection,
+  questionTypeSupportsResponseArtifacts,
+  questionTypeSupportsTextAnswer,
+} from "@/lib/assessment/question-type";
+import { buildQuestionTypePresentationProfile } from "@/lib/assessment/question-type-presentation";
 
 const ATTEMPT_QUESTION_ANCHOR_ID = "attempt-current-question";
 
@@ -102,17 +115,45 @@ function securityTone(policy: StudentSecurityPolicy) {
   return "live" as const;
 }
 
+function parseResponseArtifacts(value: string) {
+  if (!value.trim()) {
+    return [] as Array<{
+      asset_kind: string;
+      upload_token: string;
+      file_name?: string;
+      mime_type?: string;
+      size_bytes?: number;
+      duration_seconds?: number;
+      storage_status?: string;
+      checksum?: string;
+      storage_path?: string;
+      file_url?: string;
+    }>;
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 function hasSavedResponse(answer: {
   selected_option: string | null;
   selected_option_ids: string[];
   answer_text: string;
+  answer_transcript: string;
+  response_artifacts: Array<{ upload_token: string }>;
 } | null | undefined) {
   if (!answer) return false;
 
   return Boolean(
     answer.selected_option ||
       answer.selected_option_ids.length > 0 ||
-      answer.answer_text.trim(),
+      answer.answer_text.trim() ||
+      answer.answer_transcript.trim() ||
+      answer.response_artifacts.length > 0,
   );
 }
 
@@ -255,6 +296,7 @@ export default async function AttemptDetailPage({
     detail.server_time,
   );
   const activeTimeRemaining = sectionTimeRemaining ?? overallTimeRemaining;
+  const currentSectionMediaContext = detail.current_section_media_context;
   const latestSavedAt = latestAnswerSyncAt(detail.answers);
   const questionCountInSection = visibleQuestions.length;
   const isLockedAttemptState =
@@ -276,7 +318,7 @@ export default async function AttemptDetailPage({
     "use server";
 
     const questionId = String(formData.get("question_id") ?? "");
-    const questionType = String(formData.get("question_type") ?? "");
+    const questionResponseMode = String(formData.get("question_response_mode") ?? "");
     const actionIntent = String(formData.get("action_intent") ?? "save");
     const returnQuestion = String(formData.get("return_question") ?? "");
     const nextQuestionInSection = String(formData.get("next_question_in_section") ?? "");
@@ -294,6 +336,19 @@ export default async function AttemptDetailPage({
       selected_option?: string | null;
       selected_option_ids?: string[];
       answer_text?: string;
+      answer_transcript?: string;
+      response_artifacts?: Array<{
+        asset_kind: string;
+        upload_token: string;
+        file_name?: string;
+        mime_type?: string;
+        size_bytes?: number;
+        duration_seconds?: number;
+        storage_status?: string;
+        checksum?: string;
+        storage_path?: string;
+        file_url?: string;
+      }>;
       is_marked_for_review?: boolean;
       clear_response?: boolean;
       skip?: boolean;
@@ -306,13 +361,21 @@ export default async function AttemptDetailPage({
       payload.clear_response = true;
     } else if (actionIntent === "skip") {
       payload.skip = true;
-    } else if (questionType === "mcq_multiple") {
+    } else if (questionResponseMode === "multi_choice") {
       payload.selected_option_ids = formData
         .getAll("selected_option_ids")
         .map((value) => String(value))
         .filter(Boolean);
-    } else if (questionType === "short_answer") {
+    } else if (questionResponseMode === "text" || questionResponseMode === "numeric") {
       payload.answer_text = String(formData.get("answer_text") ?? "");
+      if (formData.has("answer_transcript")) {
+        payload.answer_transcript = String(formData.get("answer_transcript") ?? "");
+      }
+      if (formData.has("response_artifacts_json")) {
+        payload.response_artifacts = parseResponseArtifacts(
+          String(formData.get("response_artifacts_json") ?? "[]"),
+        );
+      }
     } else {
       const selectedOption = String(formData.get("selected_option") ?? "");
       payload.selected_option = selectedOption || null;
@@ -674,6 +737,16 @@ export default async function AttemptDetailPage({
                 ATTEMPT_QUESTION_ANCHOR_ID,
               )
             : undefined;
+          const passageQuestions = question.passage
+            ? visibleQuestions.filter(
+                (candidate) => candidate.passage === question.passage,
+              )
+            : [];
+          const passageQuestionIndex = question.passage
+            ? passageQuestions.findIndex(
+                (candidate) => candidate.question === question.question,
+              )
+            : -1;
           const reviewQuestion =
             visibleQuestions.find((candidate) => {
               const candidateAnswer = answerMap.get(candidate.question);
@@ -706,19 +779,36 @@ export default async function AttemptDetailPage({
                   </strong>
                   <span>
                     {question.section_title
-                      ? `${question.section_title} · ${questionTypeLabel(question.question_type)}`
-                      : questionTypeLabel(question.question_type)}
+                      ? `${question.section_title} · ${questionTypeLabel(question.question_type, question.question_type_definition)}`
+                      : questionTypeLabel(question.question_type, question.question_type_definition)}
                   </span>
                   <small className="attemptQuestionMetaLine">
-                    {questionCountInSection} questions in this section
+                    {question.passage_detail?.title
+                      ? `${questionCountInSection} questions in this section · shared passage linked`
+                      : `${questionCountInSection} questions in this section`}
                   </small>
                 </div>
                 <StatusPill tone={questionStatusTone}>{questionStatusLabel}</StatusPill>
               </div>
 
-              <div className="attemptQuestionPrompt">
-                <p className="studentNotificationMessage">{question.question_text}</p>
-              </div>
+              <StudentExamExperiencePanel
+                compact
+                profile={detail.experience_profile}
+              />
+
+              {currentSectionMediaContext.has_media ? (
+                <StudentSectionMediaPanel context={currentSectionMediaContext} />
+              ) : null}
+
+              <StudentQuestionPrompt
+                passageMetaLabel={
+                  passageQuestionIndex >= 0
+                    ? `Question ${passageQuestionIndex + 1} of ${passageQuestions.length}`
+                    : "Shared context"
+                }
+                question={question}
+                showPassageTrigger={Boolean(question.passage_detail?.passage_text)}
+              />
 
               <AttemptActionForm
                 action={saveAnswerAction}
@@ -730,6 +820,11 @@ export default async function AttemptDetailPage({
               >
                 <input name="question_id" type="hidden" value={question.question} />
                 <input name="question_type" type="hidden" value={question.question_type} />
+                <input
+                  name="question_response_mode"
+                  type="hidden"
+                  value={question.question_type_definition?.response_mode ?? ""}
+                />
                 <input name="return_question" type="hidden" value={question.question} />
                 <input
                   name="next_question_in_section"
@@ -753,14 +848,58 @@ export default async function AttemptDetailPage({
                   }
                 />
 
-                {question.question_type === "short_answer" ? (
-                  <textarea
-                    className="attemptTextarea"
-                    defaultValue={answer?.answer_text ?? ""}
-                    name="answer_text"
-                    placeholder="Write your answer here"
-                    rows={5}
-                  />
+                {questionTypeSupportsTextAnswer(question.question_type_definition) ? (
+                  (() => {
+                    const presentationProfile = buildQuestionTypePresentationProfile(
+                      question.question_type_definition,
+                    );
+                    const supportsResponseArtifacts = questionTypeSupportsResponseArtifacts(
+                      question.question_type_definition,
+                    );
+                    const allowedArtifactKinds = questionTypeAllowedResponseArtifactKinds(
+                      question.question_type_definition,
+                    ).filter(
+                      (value): value is "audio_recording" | "video_recording" | "image_upload" | "document_upload" =>
+                        value === "audio_recording" ||
+                        value === "video_recording" ||
+                        value === "image_upload" ||
+                        value === "document_upload",
+                    );
+
+                    return (
+                      <>
+                        <textarea
+                          className="attemptTextarea"
+                          defaultValue={answer?.answer_text ?? ""}
+                          name="answer_text"
+                          placeholder={presentationProfile.responseInputPlaceholder}
+                          rows={presentationProfile.responseInputRows}
+                        />
+                        {presentationProfile.responseInputHelper ? (
+                          <small className="fieldHint">{presentationProfile.responseInputHelper}</small>
+                        ) : null}
+                        {question.question_type_definition?.response_mode === "text" &&
+                        supportsResponseArtifacts ? (
+                          <>
+                            <textarea
+                              className="attemptTextarea attemptTranscriptTextarea"
+                              defaultValue={answer?.answer_transcript ?? ""}
+                              name="answer_transcript"
+                              placeholder="Optional transcript or spoken-response notes"
+                              rows={3}
+                            />
+                            <StudentResponseArtifactPanel
+                              attemptId={attemptId}
+                              allowedArtifactKinds={allowedArtifactKinds}
+                              fieldName="response_artifacts_json"
+                              initialArtifacts={answer?.response_artifacts ?? []}
+                              questionId={question.question}
+                            />
+                          </>
+                        ) : null}
+                      </>
+                    );
+                  })()
                 ) : (
                   <div className="attemptOptionList">
                     {question.options.filter(Boolean).map((option) => {
@@ -775,7 +914,7 @@ export default async function AttemptDetailPage({
                           }`}
                           key={option.id}
                         >
-                          {question.question_type === "mcq_multiple" ? (
+                          {questionTypeSupportsMultipleSelection(question.question_type_definition) ? (
                             <input
                               defaultChecked={selected}
                               name="selected_option_ids"

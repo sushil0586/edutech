@@ -55,11 +55,28 @@ export type AcademicYearRecord = {
 
 export type ProgramRecord = {
   id: string;
+  assessment_family: string | null;
+  assessment_family_code: string | null;
+  assessment_family_label: string | null;
   name: string;
   code: string;
   category: string;
   description: string;
   sort_order: number;
+  is_active: boolean;
+};
+
+export type AssessmentFamilyRecord = {
+  id: string;
+  code: string;
+  label: string;
+  description: string;
+  sort_order: number;
+  allowed_question_types: string[];
+  scoring_defaults: Record<string, unknown>;
+  delivery_defaults: Record<string, unknown>;
+  analytics_preset: Record<string, unknown>;
+  authoring_hints: Record<string, unknown>;
   is_active: boolean;
 };
 
@@ -627,6 +644,7 @@ function formatDateRange(startDate: string, endDate: string) {
 export function AcademicSetupWorkspace({
   academicsApiBasePath = "/api/admin/academics",
   instituteId,
+  assessmentFamilies,
   academicYears,
   programs,
   cohorts,
@@ -638,6 +656,7 @@ export function AcademicSetupWorkspace({
 }: {
   academicsApiBasePath?: string;
   instituteId: string | null;
+  assessmentFamilies: AssessmentFamilyRecord[];
   academicYears: AcademicYearRecord[];
   programs: ProgramRecord[];
   cohorts: CohortRecord[];
@@ -652,6 +671,10 @@ export function AcademicSetupWorkspace({
   const yearOptions = academicYears.map((item) => ({ label: item.name, value: item.id }));
   const subjectOptions = subjects.map((item) => ({ label: `${item.name} (${item.code})`, value: item.id }));
   const topicOptions = topics.map((item) => ({ label: `${item.name} (${item.code})`, value: item.id }));
+  const assessmentFamilyOptions = assessmentFamilies.map((item) => ({
+    label: `${item.label} (${item.code})`,
+    value: item.id,
+  }));
 
   const academicYearConfig: SectionConfig<AcademicYearRecord> = {
     resource: "academic-years",
@@ -708,6 +731,14 @@ export function AcademicSetupWorkspace({
       { key: "name", label: "Program name", type: "text", placeholder: "JEE Foundation" },
       { key: "code", label: "Program code", type: "text", placeholder: "JEE-FOUND" },
       { key: "category", label: "Category", type: "text", placeholder: "Competitive" },
+      {
+        key: "assessment_family",
+        label: "Assessment family",
+        type: "select",
+        placeholder: "No family profile",
+        helper: "Used to drive builder defaults, templates, and analytics presets.",
+        options: assessmentFamilyOptions,
+      },
       { key: "sort_order", label: "Sort order", type: "number", placeholder: "0" },
       { key: "description", label: "Description", type: "textarea", placeholder: "Short internal description." },
       { key: "is_active", label: "Active", type: "checkbox", helper: "Show this program in setup workflows." },
@@ -716,6 +747,7 @@ export function AcademicSetupWorkspace({
       name: "",
       code: "",
       category: "",
+      assessment_family: "",
       sort_order: "0",
       description: "",
       is_active: true,
@@ -724,6 +756,7 @@ export function AcademicSetupWorkspace({
       name: item.name,
       code: item.code,
       category: item.category,
+      assessment_family: item.assessment_family ?? "",
       sort_order: String(item.sort_order),
       description: item.description,
       is_active: item.is_active,
@@ -733,6 +766,7 @@ export function AcademicSetupWorkspace({
       name: stringValue(draft.name),
       code: stringValue(draft.code),
       category: stringValue(draft.category),
+      assessment_family: stringValue(draft.assessment_family) || null,
       sort_order: toNumberOrNull(draft.sort_order) ?? 0,
       description: stringValue(draft.description),
       is_active: booleanValue(draft.is_active),
@@ -741,14 +775,23 @@ export function AcademicSetupWorkspace({
       name: stringValue(draft.name),
       code: stringValue(draft.code),
       category: stringValue(draft.category),
+      assessment_family: stringValue(draft.assessment_family) || null,
       sort_order: toNumberOrNull(draft.sort_order) ?? 0,
       description: stringValue(draft.description),
       is_active: booleanValue(draft.is_active),
     }),
     renderItem: (item) => ({
       title: `${item.name} (${item.code})`,
-      lines: [item.category || "No category", item.description || "No description"],
-      badge: item.is_active ? `Order ${item.sort_order}` : "Inactive",
+      lines: [
+        item.category || "No category",
+        item.description || "No description",
+        item.assessment_family_label ? `Family: ${item.assessment_family_label}` : "Family: Not set",
+      ],
+      badge: item.is_active
+        ? item.assessment_family_label
+          ? `${item.assessment_family_label} · Order ${item.sort_order}`
+          : `Order ${item.sort_order}`
+        : "Inactive",
     }),
   };
 

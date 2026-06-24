@@ -3,11 +3,22 @@ from rest_framework.viewsets import ModelViewSet
 
 from apps.accounts.permissions import CanManageAcademics
 from apps.accounts.permissions import CanViewAcademics
+from apps.accounts.permissions import IsPlatformAdmin
 from apps.accounts.scopes import scope_teacher_academic_queryset
-from apps.academics.models import AcademicYear, Cohort, OptionCatalogEntry, Program, Subject, Topic
+from apps.academics.models import (
+    AcademicYear,
+    AssessmentFamily,
+    Cohort,
+    OptionCatalogEntry,
+    Program,
+    Subject,
+    Topic,
+)
 from apps.academics.serializers import (
     AcademicYearSerializer,
     AcademicYearListSerializer,
+    AssessmentFamilyListSerializer,
+    AssessmentFamilySerializer,
     CohortSerializer,
     CohortListSerializer,
     OptionCatalogEntrySerializer,
@@ -55,11 +66,48 @@ class AcademicYearViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
         return scope_teacher_academic_queryset(queryset, self.request.user)
 
 
+class AssessmentFamilyViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
+    serializer_class = AssessmentFamilySerializer
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+    filterset_fields = ["code", "is_active"]
+    search_fields = ["code", "label", "description"]
+    ordering_fields = ["sort_order", "label", "created_at"]
+    ordering = ["sort_order", "label"]
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [IsAuthenticated(), CanViewAcademics()]
+        return [IsAuthenticated(), IsPlatformAdmin()]
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return AssessmentFamilyListSerializer
+        return super().get_serializer_class()
+
+    def get_queryset(self):
+        queryset = AssessmentFamily.objects.all()
+        if self.action == "list":
+            queryset = queryset.only(
+                "id",
+                "code",
+                "label",
+                "description",
+                "sort_order",
+                "allowed_question_types",
+                "scoring_defaults",
+                "delivery_defaults",
+                "analytics_preset",
+                "authoring_hints",
+                "is_active",
+            )
+        return queryset
+
+
 class ProgramViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
     serializer_class = ProgramSerializer
     permission_classes = [IsAuthenticated, CanManageAcademics]
-    filterset_fields = ["institute", "category", "is_active"]
-    search_fields = ["name", "code", "category", "institute__name"]
+    filterset_fields = ["institute", "assessment_family", "category", "is_active"]
+    search_fields = ["name", "code", "category", "institute__name", "assessment_family__label"]
     ordering_fields = ["name", "code", "sort_order", "created_at"]
     ordering = ["sort_order", "name"]
 
@@ -74,14 +122,26 @@ class ProgramViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
         return super().get_serializer_class()
 
     def get_queryset(self):
-        queryset = Program.objects.select_related("institute")
+        queryset = Program.objects.select_related("institute", "assessment_family")
         if self.action == "list":
             queryset = queryset.only(
                 "id",
                 "institute_id",
+                "assessment_family_id",
+                "assessment_family__code",
+                "assessment_family__label",
+                "assessment_family__description",
+                "assessment_family__sort_order",
+                "assessment_family__allowed_question_types",
+                "assessment_family__scoring_defaults",
+                "assessment_family__delivery_defaults",
+                "assessment_family__analytics_preset",
+                "assessment_family__authoring_hints",
+                "assessment_family__is_active",
                 "name",
                 "code",
                 "category",
+                "description",
                 "sort_order",
                 "is_active",
             )

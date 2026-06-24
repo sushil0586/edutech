@@ -1,7 +1,15 @@
 from django.contrib import admin
 from django.db.models import Count
 
-from apps.academics.models import AcademicYear, Cohort, OptionCatalogEntry, Program, Subject, Topic
+from apps.academics.models import (
+    AcademicYear,
+    AssessmentFamily,
+    Cohort,
+    OptionCatalogEntry,
+    Program,
+    Subject,
+    Topic,
+)
 from common.admin import JsonPreviewAdminMixin, RichModelAdmin, build_json_preview
 
 
@@ -49,6 +57,7 @@ class ProgramAdmin(RichModelAdmin):
     list_display = (
         "name",
         "code",
+        "assessment_family",
         "category",
         "institute",
         "sort_order",
@@ -57,10 +66,10 @@ class ProgramAdmin(RichModelAdmin):
         "student_count",
         "is_active",
     )
-    list_filter = ("institute", "category", "is_active")
-    search_fields = ("name", "code", "category", "institute__name")
+    list_filter = ("institute", "assessment_family", "category", "is_active")
+    search_fields = ("name", "code", "category", "institute__name", "assessment_family__label")
     ordering = ("sort_order", "name")
-    autocomplete_fields = ("institute",)
+    autocomplete_fields = ("institute", "assessment_family")
 
     def get_queryset(self, request):
         return super().get_queryset(request).annotate(
@@ -80,6 +89,21 @@ class ProgramAdmin(RichModelAdmin):
     @admin.display(ordering="student_total", description="Students")
     def student_count(self, obj):
         return obj.student_total
+
+
+@admin.register(AssessmentFamily)
+class AssessmentFamilyAdmin(JsonPreviewAdminMixin, RichModelAdmin):
+    json_preview_fields = (
+        "allowed_question_types",
+        "scoring_defaults",
+        "delivery_defaults",
+        "analytics_preset",
+        "authoring_hints",
+    )
+    list_display = ("label", "code", "sort_order", "is_active")
+    list_filter = ("is_active",)
+    search_fields = ("label", "code", "description")
+    ordering = ("sort_order", "label")
 
 
 @admin.register(Cohort)

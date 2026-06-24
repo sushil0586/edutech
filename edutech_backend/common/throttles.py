@@ -37,6 +37,11 @@ class AttemptLifecycleRateThrottle(_UserOrIpThrottle):
 class BulkImportRateThrottle(_UserOrIpThrottle):
     scope = "bulk_import"
 
+    def get_cache_key(self, request, view):
+        if settings.DEBUG:
+            return None
+        return super().get_cache_key(request, view)
+
 
 class TokenRefreshRateThrottle(_UserOrIpThrottle):
     scope = "token_refresh"

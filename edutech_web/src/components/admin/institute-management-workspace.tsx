@@ -154,10 +154,13 @@ function createDraft(institute: AdminInstituteRecord): InstituteDraft {
 }
 
 function sanitizePayload(draft: InstituteDraft) {
-  return {
-    ...draft,
+  const payload: Record<string, string | boolean> = {
     name: draft.name.trim(),
     code: draft.code.trim(),
+    is_active: draft.is_active,
+  };
+
+  const optionalFields = {
     email: draft.email.trim(),
     phone: draft.phone.trim(),
     address: draft.address.trim(),
@@ -168,6 +171,14 @@ function sanitizePayload(draft: InstituteDraft) {
     website: draft.website.trim(),
     description: draft.description.trim(),
   };
+
+  for (const [key, value] of Object.entries(optionalFields)) {
+    if (value) {
+      payload[key] = value;
+    }
+  }
+
+  return payload;
 }
 
 function buildFieldErrors(body: Record<string, unknown>) {

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { CatalogSelectOption } from "@/lib/teacher/option-catalog";
+import type { AssessmentFamilyRecord } from "@/components/admin/academic-setup-workspace";
 
 type InstituteExamDefaults = {
   duration_minutes: number | null;
@@ -38,6 +39,92 @@ type ExamDefaultOptionGroups = {
 
 type ExamDefaultFieldErrors = Partial<Record<keyof InstituteExamDefaults, string>>;
 
+const EXAM_DEFAULT_FAMILY_PRESETS: Record<
+  string,
+  Partial<InstituteExamDefaults> & { helper: string; duration_minutes: number }
+> = {
+  school: {
+    duration_minutes: 60,
+    allow_late_submit: true,
+    randomize_questions: false,
+    randomize_options: false,
+    show_result_immediately: false,
+    allow_review_after_submit: true,
+    max_attempts: 1,
+    timer_mode: "hybrid",
+    navigation_mode: "hybrid",
+    attempt_policy: "single",
+    result_publish_mode: "after_review",
+    review_mode: "attempted_only",
+    security_mode: "normal",
+    allow_resume: true,
+    allow_section_switching: true,
+    allow_return_to_previous_section: true,
+    helper:
+      "Balanced classroom-style defaults that keep movement flexible and preserve teacher review before publication.",
+  },
+  competitive: {
+    duration_minutes: 180,
+    allow_late_submit: false,
+    randomize_questions: true,
+    randomize_options: true,
+    show_result_immediately: false,
+    allow_review_after_submit: false,
+    max_attempts: 1,
+    timer_mode: "section",
+    navigation_mode: "sequential",
+    attempt_policy: "single",
+    result_publish_mode: "after_review",
+    review_mode: "none",
+    security_mode: "violation_limited",
+    allow_resume: false,
+    allow_section_switching: false,
+    allow_return_to_previous_section: false,
+    helper:
+      "Mock-exam defaults tuned for rank pressure, section discipline, and tighter delivery control.",
+  },
+  certification: {
+    duration_minutes: 90,
+    allow_late_submit: false,
+    randomize_questions: true,
+    randomize_options: true,
+    show_result_immediately: false,
+    allow_review_after_submit: true,
+    max_attempts: 1,
+    timer_mode: "hybrid",
+    navigation_mode: "free_section",
+    attempt_policy: "single",
+    result_publish_mode: "after_review",
+    review_mode: "attempted_only",
+    security_mode: "focus",
+    allow_resume: true,
+    allow_section_switching: true,
+    allow_return_to_previous_section: true,
+    helper:
+      "Certification-ready defaults that preserve domain realism while still allowing section-level navigation.",
+  },
+  language_proficiency: {
+    duration_minutes: 120,
+    allow_late_submit: false,
+    randomize_questions: false,
+    randomize_options: false,
+    show_result_immediately: false,
+    allow_review_after_submit: false,
+    max_attempts: 1,
+    timer_mode: "section",
+    navigation_mode: "sequential",
+    attempt_policy: "single",
+    result_publish_mode: "after_review",
+    review_mode: "none",
+    security_mode: "focus",
+    allow_resume: false,
+    allow_section_switching: false,
+    allow_return_to_previous_section: false,
+    helper:
+      "Skill-block defaults for reading, listening, writing, and speaking style flows with stronger section control.",
+  },
+};
+
 function firstError(value: unknown) {
   if (Array.isArray(value)) {
     return typeof value[0] === "string" ? value[0] : "";
@@ -49,17 +136,20 @@ export function InstituteExamDefaultsEditor({
   instituteId,
   initialDefaults,
   optionGroups,
+  assessmentFamilies,
   compact = false,
 }: {
   instituteId: string;
   initialDefaults: InstituteExamDefaults;
   optionGroups: ExamDefaultOptionGroups;
+  assessmentFamilies: AssessmentFamilyRecord[];
   compact?: boolean;
 }) {
   const [form, setForm] = useState<InstituteExamDefaults>(initialDefaults);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<ExamDefaultFieldErrors>({});
+  const [selectedTemplateCode, setSelectedTemplateCode] = useState("");
 
   function updateField<K extends keyof InstituteExamDefaults>(
     key: K,
@@ -67,6 +157,70 @@ export function InstituteExamDefaultsEditor({
   ) {
     setForm((current) => ({ ...current, [key]: value }));
     setFieldErrors((current) => ({ ...current, [key]: "" }));
+  }
+
+  function validOption(
+    options: CatalogSelectOption[],
+    preferred: string | undefined,
+    fallback: string,
+  ) {
+    if (preferred && options.some((option) => option.value === preferred)) {
+      return preferred;
+    }
+    return fallback;
+  }
+
+  function buildTemplateDefaults(family: AssessmentFamilyRecord) {
+    const profilePreset = EXAM_DEFAULT_FAMILY_PRESETS[family.code] ?? EXAM_DEFAULT_FAMILY_PRESETS.school;
+    const deliveryDefaults =
+      family.delivery_defaults && typeof family.delivery_defaults === "object"
+        ? family.delivery_defaults
+        : {};
+    const scoringDefaults =
+      family.scoring_defaults && typeof family.scoring_defaults === "object"
+        ? family.scoring_defaults
+        : {};
+    const negativeMarkingDefault = Boolean(
+      (scoringDefaults as Record<string, unknown>).negative_marking_default,
+    );
+    const timerMode = validOption(
+      optionGroups.timerModeOptions,
+      typeof (deliveryDefaults as Record<string, unknown>).recommended_timer_mode === "string"
+        ? String((deliveryDefaults as Record<string, unknown>).recommended_timer_mode)
+        : profilePreset.timer_mode,
+      form.timer_mode,
+    );
+    const navigationMode = validOption(
+      optionGroups.navigationModeOptions,
+      typeof (deliveryDefaults as Record<string, unknown>).recommended_navigation_mode === "string"
+        ? String((deliveryDefaults as Record<string, unknown>).recommended_navigation_mode)
+        : profilePreset.navigation_mode,
+      form.navigation_mode,
+    );
+    return {
+      ...form,
+      ...profilePreset,
+      timer_mode: timerMode,
+      navigation_mode: navigationMode,
+      instructions: [
+        `${family.label} assessment template.`,
+        profilePreset.helper,
+        negativeMarkingDefault
+          ? "Negative-marking expectations should be reflected clearly in learner instructions."
+          : "Marks are intended to follow a standard positive-scoring pattern unless the exam overrides it.",
+      ].join(" "),
+    };
+  }
+
+  function applyFamilyTemplate(templateCode: string) {
+    const family = assessmentFamilies.find((item) => item.code === templateCode);
+    if (!family) {
+      return;
+    }
+    setForm(buildTemplateDefaults(family));
+    setSelectedTemplateCode(templateCode);
+    setFieldErrors({});
+    setMessage(`${family.label} exam-default template applied. Review and save to keep it for the institute.`);
   }
 
   async function saveDefaults() {
@@ -162,6 +316,40 @@ export function InstituteExamDefaultsEditor({
           <span className="setupFieldMeta">Policy</span>
         </div>
       )}
+
+      {assessmentFamilies.length ? (
+        <div className="featurePlaceholder adminAcademicDefaultsPanel">
+          <div className="sectionHeading">
+            <strong>Apply an assessment-family template</strong>
+            <span>{assessmentFamilies.length} preset families</span>
+          </div>
+          <p>
+            Start from a family-aware policy pack, then fine-tune the institute defaults before saving.
+          </p>
+          <div className="questionBankButtonRow">
+            {assessmentFamilies.map((family) => (
+              <button
+                key={family.id}
+                className={selectedTemplateCode === family.code ? "button buttonPrimary" : "button buttonSecondary"}
+                onClick={() => applyFamilyTemplate(family.code)}
+                type="button"
+              >
+                {family.label}
+              </button>
+            ))}
+          </div>
+          {selectedTemplateCode ? (
+            <div className="questionBankTagRow">
+              <span className="questionBankTagChip">
+                Active template: {assessmentFamilies.find((item) => item.code === selectedTemplateCode)?.label ?? "Unknown"}
+              </span>
+              <span className="questionBankTagChip">
+                Review the values below, then save them as institute-wide defaults.
+              </span>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="setupFormGrid adminAcademicCompactForm">
         <label className="setupField">

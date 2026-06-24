@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 type StudentAttachmentPreviewTriggerProps = {
   title: string;
   href: string;
-  kind: "image" | "pdf" | "other";
+  kind: "image" | "pdf" | "audio" | "video" | "other";
   altText: string;
 };
 
@@ -96,6 +96,24 @@ export function StudentAttachmentPreviewTrigger({
                       src={href}
                       title={title}
                     />
+                  ) : kind === "audio" ? (
+                    <audio
+                      className="analyticsAttachmentPreviewAudio"
+                      controls
+                      preload="metadata"
+                      src={href}
+                    >
+                      Your browser does not support audio playback.
+                    </audio>
+                  ) : kind === "video" ? (
+                    <video
+                      className="analyticsAttachmentPreviewVideo"
+                      controls
+                      preload="metadata"
+                      src={href}
+                    >
+                      Your browser does not support video playback.
+                    </video>
                   ) : (
                     <div className="analyticsAttachmentPreviewFallback">
                       <strong>Preview is not available for this file type.</strong>

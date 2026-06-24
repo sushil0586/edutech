@@ -3,6 +3,7 @@ from decimal import Decimal
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import Q
 
 from apps.academics.models import Program, Subject, Topic, TopicDifficulty
 from apps.institutes.models import Institute
@@ -14,7 +15,12 @@ class QuestionType(models.TextChoices):
     MCQ_SINGLE = "mcq_single", "MCQ Single"
     MCQ_MULTIPLE = "mcq_multiple", "MCQ Multiple"
     TRUE_FALSE = "true_false", "True / False"
+    ASSERTION_REASON = "assertion_reason", "Assertion / Reason"
+    MATRIX_MATCH = "matrix_match", "Matrix Match"
     SHORT_ANSWER = "short_answer", "Short Answer"
+    FILL_IN_BLANKS = "fill_in_blanks", "Fill in the Blanks"
+    NUMERIC_ANSWER = "numeric_answer", "Numeric Answer"
+    ESSAY_MANUAL_REVIEW = "essay_manual_review", "Essay Manual Review"
 
 
 class AttachmentType(models.TextChoices):
@@ -29,6 +35,7 @@ class AttachmentType(models.TextChoices):
 class ContentFormat(models.TextChoices):
     PLAIN_TEXT = "plain_text", "Plain Text"
     MARKDOWN_LATEX = "markdown_latex", "Markdown + LaTeX"
+    RICH_TEXT_HTML = "rich_text_html", "Rich Text Editor"
 
 
 class MasterQuestionVisibility(models.TextChoices):
@@ -244,6 +251,14 @@ class Question(BaseModel):
         blank=True,
         null=True,
     )
+    passage = models.ForeignKey(
+        "QuestionPassage",
+        on_delete=models.SET_NULL,
+        related_name="questions",
+        blank=True,
+        null=True,
+    )
+    passage_order = models.PositiveIntegerField(blank=True, null=True)
     question_type = models.CharField(max_length=30, choices=QuestionType.choices)
     difficulty_level = models.CharField(
         max_length=20,
@@ -271,6 +286,14 @@ class Question(BaseModel):
             models.Index(fields=["question_type", "difficulty_level"]),
             models.Index(fields=["is_verified", "is_active"]),
             models.Index(fields=["master_question"]),
+            models.Index(fields=["passage", "passage_order"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["passage", "passage_order"],
+                condition=Q(passage__isnull=False, passage_order__isnull=False),
+                name="unique_question_passage_order",
+            )
         ]
 
     def clean(self):
@@ -288,6 +311,18 @@ class Question(BaseModel):
                 raise ValidationError(
                     {"master_question": "Master question type must match the institute question type."}
                 )
+        if self.passage_id:
+            from apps.question_bank.services import validate_question_passage_assignment
+
+            validate_question_passage_assignment(
+                institute=self.institute,
+                subject=self.subject,
+                program=self.program,
+                topic=self.topic,
+                passage=self.passage,
+            )
+            if self.passage_order is not None and self.passage_order < 1:
+                raise ValidationError({"passage_order": "Question order inside the comprehension set must be positive."})
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -327,6 +362,71 @@ class QuestionOption(BaseModel):
 
     def __str__(self):
         return f"{self.question_id} - Option {self.option_order}"
+
+
+class QuestionPassage(BaseModel):
+    institute = models.ForeignKey(
+        Institute,
+        on_delete=models.CASCADE,
+        related_name="question_passages",
+    )
+    program = models.ForeignKey(
+        Program,
+        on_delete=models.SET_NULL,
+        related_name="question_passages",
+        blank=True,
+        null=True,
+    )
+    subject = models.ForeignKey(
+        Subject,
+        on_delete=models.CASCADE,
+        related_name="question_passages",
+    )
+    topic = models.ForeignKey(
+        Topic,
+        on_delete=models.SET_NULL,
+        related_name="question_passages",
+        blank=True,
+        null=True,
+    )
+    created_by_teacher = models.ForeignKey(
+        TeacherProfile,
+        on_delete=models.SET_NULL,
+        related_name="question_passages_created",
+        blank=True,
+        null=True,
+    )
+    title = models.CharField(max_length=255)
+    content_format = models.CharField(
+        max_length=20,
+        choices=ContentFormat.choices,
+        default=ContentFormat.MARKDOWN_LATEX,
+    )
+    passage_text = models.TextField()
+    description = models.TextField(blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["title", "-created_at"]
+        indexes = [
+            models.Index(fields=["institute", "subject"]),
+            models.Index(fields=["institute", "is_active", "subject", "topic"]),
+            models.Index(fields=["program", "topic"]),
+            models.Index(fields=["created_by_teacher", "is_active"]),
+        ]
+
+    def clean(self):
+        super().clean()
+        from apps.question_bank.services import validate_question_passage_relationships
+
+        validate_question_passage_relationships(self)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.title
 
 
 class QuestionTag(BaseModel):

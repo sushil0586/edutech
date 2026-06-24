@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { InstituteExamDefaultsEditor } from "@/components/admin/institute-exam-defaults-editor";
 import {
   AcademicSetupWorkspace,
+  type AssessmentFamilyRecord,
   type AcademicSetupTabId,
   type AcademicYearRecord,
   type CohortRecord,
@@ -107,6 +108,7 @@ export default async function AdminAcademicSetupPage({
     teachers,
     assignments,
     optionCatalogEntries,
+    assessmentFamilies,
     studentCount,
     teacherCount,
   ] = await Promise.all([
@@ -118,6 +120,7 @@ export default async function AdminAcademicSetupPage({
     fetchPortalList<TeacherRecord>(`/api/v1/teachers/${selectedInstituteId ? `?institute=${selectedInstituteId}&page_size=100` : "?page_size=100"}`),
     fetchPortalList<TeacherAssignmentRecord>(`/api/v1/teachers/assignments/${selectedInstituteId ? `?institute=${selectedInstituteId}&page_size=100` : "?page_size=100"}`),
     fetchPortalList<OptionCatalogRecord>("/api/v1/academics/option-catalog/?page_size=200&is_active=true"),
+    fetchPortalList<AssessmentFamilyRecord>("/api/v1/academics/assessment-families/?page_size=50&is_active=true").catch(() => []),
     loadCount(selectedInstituteId ? `/api/v1/students/?institute=${selectedInstituteId}` : "/api/v1/students/"),
     loadCount(selectedInstituteId ? `/api/v1/teachers/?institute=${selectedInstituteId}` : "/api/v1/teachers/"),
   ]);
@@ -207,6 +210,7 @@ export default async function AdminAcademicSetupPage({
                 <InstituteExamDefaultsEditor
                   compact
                   instituteId={selectedInstitute.id}
+                  assessmentFamilies={assessmentFamilies}
                   initialDefaults={{
                     duration_minutes:
                       typeof selectedInstituteDefaults.duration_minutes === "number"
@@ -274,6 +278,7 @@ export default async function AdminAcademicSetupPage({
             activeTab={activeSection as AcademicSetupTabId}
             academicYears={academicYears}
             assignments={assignments}
+            assessmentFamilies={assessmentFamilies}
             cohorts={cohorts}
             instituteId={selectedInstitute?.id ?? null}
             programs={programs}

@@ -1,3 +1,6 @@
+import type { AssessmentQuestionTypeDefinition } from "@/features/dashboard/types";
+import { questionTypeLabel as sharedQuestionTypeLabel } from "@/lib/assessment/question-type";
+
 export function percentageLabel(value: string | number | null | undefined) {
   const numericValue = Number(value ?? 0);
   return `${Math.round(numericValue)}%`;
@@ -74,19 +77,11 @@ export function peerRecordLabel(count: number, noun: "records" | "results" = "re
   return `${count} peer ${suffix}`;
 }
 
-export function questionTypeLabel(value: string) {
-  switch (value) {
-    case "mcq_single":
-      return "Single choice";
-    case "mcq_multiple":
-      return "Multiple choice";
-    case "true_false":
-      return "True / False";
-    case "short_answer":
-      return "Short answer";
-    default:
-      return titleCaseState(value);
-  }
+export function questionTypeLabel(
+  value: string,
+  definition?: AssessmentQuestionTypeDefinition | null,
+) {
+  return sharedQuestionTypeLabel(value, definition);
 }
 
 export function trendDirectionLabel(value: string) {

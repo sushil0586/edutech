@@ -1,7 +1,13 @@
 from django.contrib import admin
 from django.db.models import Count
 
-from apps.attempts.models import AttemptIntegrityEvent, StudentAnswer, StudentExamAttempt
+from apps.attempts.models import (
+    AttemptIntegrityEvent,
+    StudentAnswer,
+    StudentAnswerReviewEvent,
+    StudentAnswerReviewTask,
+    StudentExamAttempt,
+)
 from common.admin import JsonPreviewAdminMixin, RichModelAdmin, RichTabularInline, build_json_preview
 
 
@@ -24,6 +30,12 @@ class AttemptIntegrityEventInline(RichTabularInline):
     model = AttemptIntegrityEvent
     readonly_fields = ("event_type", "severity", "counts_as_violation", "event_at", "metadata")
     fields = ("event_type", "severity", "counts_as_violation", "event_at", "metadata", "is_active")
+
+
+class StudentAnswerReviewEventInline(RichTabularInline):
+    model = StudentAnswerReviewEvent
+    readonly_fields = ("event_type", "from_status", "to_status", "marks_awarded", "notes", "created_at")
+    fields = ("event_type", "from_status", "to_status", "marks_awarded", "notes", "created_at", "is_active")
 
 
 @admin.register(StudentExamAttempt)
@@ -81,6 +93,76 @@ class StudentAnswerAdmin(RichModelAdmin):
     )
     ordering = ("-answered_at",)
     autocomplete_fields = ("attempt", "question", "selected_option")
+    inlines = (StudentAnswerReviewEventInline,)
+
+
+@admin.register(StudentAnswerReviewTask)
+class StudentAnswerReviewTaskAdmin(JsonPreviewAdminMixin, RichModelAdmin):
+    json_preview_fields = ("metadata",)
+    metadata_preview = build_json_preview("metadata", "Metadata")
+    list_display = (
+        "answer",
+        "status",
+        "priority",
+        "assigned_to_teacher",
+        "latest_marks_awarded",
+        "opened_at",
+        "last_reviewed_at",
+        "is_active",
+    )
+    list_filter = ("status", "priority", "is_active", "exam", "institute")
+    search_fields = (
+        "student__full_name",
+        "student__admission_no",
+        "exam__title",
+        "question__question_text",
+    )
+    ordering = ("status", "-opened_at")
+    autocomplete_fields = (
+        "answer",
+        "attempt",
+        "exam",
+        "student",
+        "question",
+        "assigned_to_teacher",
+        "last_reviewed_by_teacher",
+        "institute",
+    )
+    inlines = (StudentAnswerReviewEventInline,)
+
+
+@admin.register(StudentAnswerReviewEvent)
+class StudentAnswerReviewEventAdmin(JsonPreviewAdminMixin, RichModelAdmin):
+    json_preview_fields = ("metadata",)
+    metadata_preview = build_json_preview("metadata", "Metadata")
+    list_display = (
+        "review_task",
+        "event_type",
+        "from_status",
+        "to_status",
+        "marks_awarded",
+        "actor_teacher",
+        "created_at",
+        "is_active",
+    )
+    list_filter = ("event_type", "to_status", "is_active")
+    search_fields = (
+        "student__full_name",
+        "exam__title",
+        "question__question_text",
+        "notes",
+    )
+    ordering = ("-created_at",)
+    autocomplete_fields = (
+        "review_task",
+        "answer",
+        "attempt",
+        "exam",
+        "student",
+        "question",
+        "actor_user",
+        "actor_teacher",
+    )
 
 
 @admin.register(AttemptIntegrityEvent)

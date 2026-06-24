@@ -146,6 +146,7 @@ export type StudentAvailableExam = {
   source_teacher_id: string | null;
   source_teacher_name: string | null;
   economy_access: StudentContentEconomyAccess;
+  experience_profile: StudentExamExperienceProfile;
 };
 
 export type DashboardData = {
@@ -483,11 +484,88 @@ export type StudentQuestionAnalytics = {
   benchmark_overview: Array<{
     scope: string;
     label: string;
-    participant_count: number;
-    average_percentage: string;
-    accuracy_percentage: string;
+  participant_count: number;
+  average_percentage: string;
+  accuracy_percentage: string;
   }>;
   questions: StudentQuestionAnalyticsItem[];
+};
+
+export type AssessmentResponseModeDefinition = {
+  code: string;
+  label: string;
+  description: string;
+  input_kind: string;
+  cardinality: string;
+  requires_options: boolean;
+  allows_manual_entry: boolean;
+  allows_file_upload: boolean;
+  is_available: boolean;
+  lifecycle_stage: string;
+};
+
+export type AssessmentEvaluationModeDefinition = {
+  code: string;
+  label: string;
+  description: string;
+  scoring_kind: string;
+  is_auto_scorable: boolean;
+  requires_manual_review: boolean;
+  supports_partial_scoring: boolean;
+  supports_answer_key: boolean;
+  is_available: boolean;
+  lifecycle_stage: string;
+};
+
+export type AssessmentQuestionTypeDefinition = {
+  code: string;
+  label: string;
+  description: string;
+  family: string;
+  response_mode: string;
+  answer_mode: string;
+  evaluation_mode: string;
+  option_source: string;
+  min_active_options: number;
+  max_active_options: number | null;
+  min_correct_options: number;
+  max_correct_options: number | null;
+  supports_passage: boolean;
+  supports_rich_content: boolean;
+  supports_negative_marking: boolean;
+  supports_partial_scoring: boolean;
+  requires_manual_review: boolean;
+  is_available: boolean;
+  lifecycle_stage: string;
+  authoring_variant: string;
+  delivery_variant: string;
+  supports_attachments: boolean;
+  allowed_attachment_types: string[];
+  recommended_attachment_types: string[];
+  allowed_response_artifact_types: string[];
+  media_delivery_mode: string;
+  media_preload_strategy: string;
+  response_mode_definition: AssessmentResponseModeDefinition | null;
+  evaluation_mode_definition: AssessmentEvaluationModeDefinition | null;
+  capabilities?: {
+    supports_options: boolean;
+    supports_multiple_selection: boolean;
+    supports_text_answer: boolean;
+    is_numeric_response: boolean;
+    supports_accepted_answers: boolean;
+    supports_numeric_tolerance: boolean;
+    supports_review_guidance: boolean;
+    requires_manual_review: boolean;
+    is_auto_scorable: boolean;
+    supports_attachments: boolean;
+    supports_image_attachments: boolean;
+    supports_diagram_attachments: boolean;
+    supports_pdf_attachments: boolean;
+    supports_audio_attachments: boolean;
+    supports_video_attachments: boolean;
+    supports_response_artifacts: boolean;
+    allowed_response_artifact_types: string[];
+  } | null;
 };
 
 export type PaginatedResponse<T> = {
@@ -572,8 +650,22 @@ export type StudentExamQuestionDetail = {
   is_mandatory: boolean;
   is_active: boolean;
   question_text: string;
+  assertion_text?: string;
+  reason_text?: string;
+  matrix_left_items?: string[];
+  matrix_right_items?: string[];
   question_type: string;
+  question_type_definition: AssessmentQuestionTypeDefinition | null;
   content_format: string;
+  passage: string | null;
+  passage_order: number | null;
+  passage_detail: {
+    id: string;
+    title: string;
+    content_format: string;
+    passage_text: string;
+    description: string;
+  } | null;
   options: Array<{
     id: string;
     content_format: string;
@@ -592,6 +684,19 @@ export type StudentExamQuestionDetail = {
     is_inline: boolean;
     is_active: boolean;
   }>;
+  media_context: {
+    has_media: boolean;
+    total_attachments: number;
+    attachment_types: string[];
+    primary_attachment_type: string | null;
+    delivery_mode: string;
+    preload_strategy: string;
+    supports_audio_prompt: boolean;
+    supports_video_prompt: boolean;
+    supports_document_prompt: boolean;
+    supports_visual_prompt: boolean;
+    inline_attachment_count: number;
+  };
 };
 
 export type StudentSecurityPolicy = {
@@ -610,6 +715,28 @@ export type StudentSecurityPolicy = {
   teacher_monitoring_copy: string;
 };
 
+export type StudentExamExperienceProfile = {
+  exam_type: string;
+  assessment_family: string;
+  assessment_family_label: string;
+  experience_mode: string;
+  experience_label: string;
+  recommended_media_flow: string;
+  recommended_media_flow_label: string;
+  recommended_timer_mode: string;
+  recommended_navigation_mode: string;
+  section_strategy: string;
+  section_strategy_label: string;
+  delivery_emphasis: string;
+  supports_section_media_guidance: boolean;
+  learner_summary: string;
+  creator_summary: string;
+  delivery_mode: string;
+  actual_timer_mode: string;
+  actual_navigation_mode: string;
+  runtime_alignment: boolean;
+};
+
 export type StudentIntegrityEvent = {
   event_type: string;
   severity: string;
@@ -625,6 +752,26 @@ export type StudentIntegritySummary = {
   threshold_reached: boolean;
   latest_event: StudentIntegrityEvent | null;
   recent_events: StudentIntegrityEvent[];
+};
+
+export type StudentSectionMediaContext = {
+  has_media: boolean;
+  scope: string;
+  section_id: string | null;
+  section_name: string | null;
+  question_count: number;
+  questions_with_media: number;
+  total_attachments: number;
+  inline_attachment_count: number;
+  attachment_types: string[];
+  delivery_modes: string[];
+  preload_strategies: string[];
+  supports_audio_prompt: boolean;
+  supports_video_prompt: boolean;
+  supports_document_prompt: boolean;
+  supports_visual_prompt: boolean;
+  recommended_experience: string;
+  learner_notice: string;
 };
 
 export type StudentAccommodationSnapshot = {
@@ -701,6 +848,7 @@ export type StudentExamDetail = {
   security_mode: string;
   security_policy: StudentSecurityPolicy;
   economy_access: StudentContentEconomyAccess;
+  experience_profile: StudentExamExperienceProfile;
 };
 
 export type StudentAttemptAnswer = {
@@ -713,6 +861,19 @@ export type StudentAttemptAnswer = {
   selected_option_ids: string[];
   selected_option_texts: string[];
   answer_text: string;
+  answer_transcript: string;
+  response_artifacts: Array<{
+    asset_kind: string;
+    upload_token: string;
+    file_name?: string;
+    mime_type?: string;
+    size_bytes?: number;
+    duration_seconds?: number;
+    storage_status?: string;
+    checksum?: string;
+    storage_path?: string;
+    file_url?: string;
+  }>;
   answered_at: string | null;
   time_spent_seconds: number | null;
   is_marked_for_review: boolean;
@@ -722,6 +883,18 @@ export type StudentAttemptAnswer = {
   is_correct?: boolean;
   marks_awarded?: string;
   negative_marks_applied?: string;
+};
+
+export type StudentUploadedResponseArtifact = {
+  asset_kind: string;
+  upload_token: string;
+  file_name: string;
+  mime_type: string;
+  size_bytes: number;
+  storage_status: string;
+  checksum: string;
+  storage_path: string;
+  file_url: string;
 };
 
 export type StudentAttemptDetail = {
@@ -752,6 +925,8 @@ export type StudentAttemptDetail = {
     visited_section_ids?: string[];
     highest_section_order_reached?: number | null;
   };
+  current_section_media_context: StudentSectionMediaContext;
+  experience_profile: StudentExamExperienceProfile;
   total_questions: number;
   attempted_questions: number;
   correct_answers: number;
@@ -862,8 +1037,22 @@ export type StudentAttemptReviewQuestion = {
   section_title: string | null;
   section_order: number | null;
   question_text: string;
+  assertion_text?: string;
+  reason_text?: string;
+  matrix_left_items?: string[];
+  matrix_right_items?: string[];
   content_format: string;
   question_type: string;
+  question_type_definition: AssessmentQuestionTypeDefinition | null;
+  passage: string | null;
+  passage_order: number | null;
+  passage_detail: {
+    id: string;
+    title: string;
+    content_format: string;
+    passage_text: string;
+    description: string;
+  } | null;
   difficulty_level: string;
   subject_name: string | null;
   topic_name: string | null;
@@ -883,6 +1072,19 @@ export type StudentAttemptReviewQuestion = {
   selected_option: string | null;
   selected_option_ids: string[];
   answer_text: string;
+  answer_transcript: string;
+  response_artifacts: Array<{
+    asset_kind: string;
+    upload_token: string;
+    file_name?: string;
+    mime_type?: string;
+    size_bytes?: number;
+    duration_seconds?: number;
+    storage_status?: string;
+    checksum?: string;
+    storage_path?: string;
+    file_url?: string;
+  }>;
   is_marked_for_review: boolean;
   marks_awarded: string;
   negative_marks_applied: string;
@@ -967,6 +1169,11 @@ export type TeacherExamQuestion = {
   question_text: string;
   question_type: string;
   difficulty_level: string;
+  passage: string | null;
+  passage_order: number | null;
+  passage_title: string | null;
+  passage_content_format: string | null;
+  passage_text: string | null;
   topic: string | null;
   topic_name: string | null;
   explanation: string;
@@ -1061,6 +1268,7 @@ export type TeacherExam = {
   percentile_visibility_mode: string;
   benchmark_visibility_mode: string;
   rank_freeze_policy: string;
+  experience_profile: StudentExamExperienceProfile;
   metadata: Record<string, unknown>;
   sections: TeacherExamSection[];
   assigned_students: TeacherAssignedStudent[];
@@ -1125,6 +1333,7 @@ export type TeacherExamListItem = {
   percentile_visibility_mode: string;
   benchmark_visibility_mode: string;
   rank_freeze_policy: string;
+  experience_profile: StudentExamExperienceProfile;
   metadata: Record<string, unknown>;
   assigned_student_count: number;
   active_questions_count: number;
@@ -1159,7 +1368,41 @@ export type TeacherResultSummary = {
   exam_code: string;
   total_results_count: number;
   published_results_count: number;
+  pending_review_tasks_count: number;
+  recheck_review_tasks_count: number;
   results_published: boolean;
+  review_blocked: boolean;
+  review_release_risk: {
+    level: "none" | "low" | "medium" | "high";
+    label: string;
+    summary: string;
+    pending_review_tasks: number;
+    recheck_review_tasks: number;
+    oldest_open_hours: number;
+  };
+  experience_profile: StudentExamExperienceProfile;
+  score_distribution: Array<{
+    label: string;
+    min_percentage: number;
+    max_percentage: number;
+    count: number;
+    percentage_share: number;
+  }>;
+  section_performance: Array<{
+    section_id: string | null;
+    section_name: string;
+    section_order: number;
+    total_questions: number;
+    attempted_answers: number;
+    correct_answers: number;
+    wrong_answers: number;
+    skipped_answers: number;
+    accuracy_percentage: number;
+    skip_percentage: number;
+    marks_awarded: string;
+    negative_marks_applied: string;
+    average_time_seconds: number;
+  }>;
   created_at: string;
   updated_at: string;
   is_active: boolean;
@@ -1172,11 +1415,42 @@ export type TeacherInsightSummary = {
     average_percentage: string;
     accuracy_percentage: string;
     average_time_taken_seconds: number;
+    pending_review_tasks: number;
+  };
+  review_summary: {
+    pending_tasks: number;
+    assigned_tasks: number;
+    in_review_tasks: number;
+    recheck_requested_tasks: number;
+    blocked_exams: number;
   };
   exam_overview: Array<{
     exam_id: string;
     exam_title: string;
     exam_code: string;
+    experience_profile: StudentExamExperienceProfile;
+    score_distribution: Array<{
+      label: string;
+      min_percentage: number;
+      max_percentage: number;
+      count: number;
+      percentage_share: number;
+    }>;
+    section_performance: Array<{
+      section_id: string | null;
+      section_name: string;
+      section_order: number;
+      total_questions: number;
+      attempted_answers: number;
+      correct_answers: number;
+      wrong_answers: number;
+      skipped_answers: number;
+      accuracy_percentage: number;
+      skip_percentage: number;
+      marks_awarded: string;
+      negative_marks_applied: string;
+      average_time_seconds: number;
+    }>;
     total_attempted: number;
     total_passed: number;
     total_failed: number;
@@ -1269,6 +1543,7 @@ export type TeacherExamAttempt = {
 export type TeacherQuestionAnalysis = {
   question_id: string;
   question_text_summary: string;
+  passage_title: string;
   subject_name: string | null;
   topic_name: string | null;
   total_attempts: number;
@@ -1276,27 +1551,191 @@ export type TeacherQuestionAnalysis = {
   wrong_count: number;
   skipped_count: number;
   marked_for_review_count: number;
+  correct_rate: number;
+  wrong_rate: number;
+  skip_rate: number;
+  quality_signal: "healthy" | "watch" | "hard" | "skip_risk" | "ambiguous" | "revision_candidate" | "emerging";
+  revision_priority: "none" | "watch" | "medium" | "high" | "urgent";
+  quality_note: string;
+  distractor_insights: Array<{
+    option_id: string;
+    option_text_summary: string;
+    is_correct: boolean;
+    selected_count: number;
+    selected_correct_count: number;
+    selected_wrong_count: number;
+    selection_rate: number;
+    distractor_signal:
+      | "validated_key"
+      | "key_review"
+      | "untested_distractor"
+      | "weak_distractor"
+      | "strong_distractor"
+      | "working_distractor"
+      | "light_distractor";
+    distractor_note: string;
+  }>;
+  revision_reasons: string[];
+};
+
+type TeacherDistractorInsight = TeacherQuestionAnalysis["distractor_insights"][number];
+
+export type TeacherQuestionAnalysisPage = PaginatedResponse<TeacherQuestionAnalysis> & {
+  applied_filter?: string;
+  summary?: {
+    question_quality?: {
+      revision_candidates: number;
+      urgent_revision_candidates: number;
+      high_skip_questions: number;
+      hard_questions: number;
+      healthy_questions: number;
+      watch_questions: number;
+      ambiguous_questions: number;
+      emerging_questions: number;
+      top_revision_topics: Array<{
+        topic_name: string;
+        count: number;
+      }>;
+      top_revision_questions: Array<{
+        question_id: string;
+        question_text_summary: string;
+        topic_name: string | null;
+        revision_priority: "high" | "urgent";
+        quality_signal: "healthy" | "watch" | "hard" | "skip_risk" | "ambiguous" | "revision_candidate" | "emerging";
+      }>;
+      recommended_actions: string[];
+    };
+    distractor_quality?: {
+      weak_distractors: number;
+      untested_distractors: number;
+      strong_distractors: number;
+      key_review_options: number;
+      top_weak_distractors: TeacherDistractorInsight[];
+      top_strong_distractors: TeacherDistractorInsight[];
+    };
+    rubric?: {
+      reviewed_responses: number;
+      criteria_count: number;
+      weakest_criteria: Array<{
+        criterion_key: string;
+        criterion_label: string;
+        awarded_total: number;
+        max_total: number;
+        reviewed_count: number;
+        average_percentage: number;
+        average_awarded_score: number;
+        average_max_score: number;
+      }>;
+      strongest_criteria: Array<{
+        criterion_key: string;
+        criterion_label: string;
+        awarded_total: number;
+        max_total: number;
+        reviewed_count: number;
+        average_percentage: number;
+        average_awarded_score: number;
+        average_max_score: number;
+      }>;
+    };
+  };
 };
 
 export type TeacherAttemptQuestionAnalysisRow = {
   answer_id: string | null;
+  review_task_id?: string | null;
   question_id: string;
   question_order: number;
   question_text_summary: string;
+  question_text: string;
+  assertion_text?: string;
+  reason_text?: string;
+  matrix_left_items?: string[];
+  matrix_right_items?: string[];
   question_type: string;
+  question_type_definition: AssessmentQuestionTypeDefinition | null;
+  content_format: string;
+  question_marks: string | null;
+  passage: string | null;
+  passage_order: number | null;
+  passage_title: string;
+  passage_content_format: string;
+  passage_text: string;
+  passage_description: string;
   subject_name: string | null;
   topic_name: string | null;
+  accepted_answers: string[];
   selected_option: string | null;
   selected_option_text: string | null;
   selected_option_ids: string[];
   selected_option_texts: string[];
   answer_text: string;
+  answer_transcript: string;
+  response_artifacts: Array<{
+    asset_kind: string;
+    upload_token: string;
+    file_name?: string;
+    mime_type?: string;
+    size_bytes?: number;
+    duration_seconds?: number;
+    storage_status?: string;
+    checksum?: string;
+    storage_path?: string;
+    file_url?: string;
+  }>;
+  attachments: Array<{
+    id: string;
+    file: string;
+    file_url: string;
+    attachment_type: string;
+    title: string;
+    display_order: number;
+    alt_text: string;
+    is_inline: boolean;
+    is_active: boolean;
+  }>;
+  media_context: {
+    has_media: boolean;
+    total_attachments: number;
+    attachment_types: string[];
+    primary_attachment_type: string | null;
+    delivery_mode: string;
+    preload_strategy: string;
+    supports_audio_prompt: boolean;
+    supports_video_prompt: boolean;
+    supports_document_prompt: boolean;
+    supports_visual_prompt: boolean;
+    inline_attachment_count: number;
+  };
+  evaluation_status: string;
   outcome: "correct" | "wrong" | "skipped";
   is_correct: boolean | null;
   was_skipped: boolean;
   is_marked_for_review: boolean;
   marks_awarded: string | null;
   negative_marks_applied: string | null;
+  reviewed_at: string | null;
+  reviewed_by_teacher_name: string;
+  review_notes: string;
+  has_rubric?: boolean;
+  rubric?: {
+    mode: string;
+    criteria: Array<{
+      key: string;
+      label: string;
+      max_score: string;
+      display_order: number;
+      reviewer_hint: string;
+      band_descriptors: unknown[];
+    }>;
+  } | null;
+  rubric_scores?: Array<{
+    criterion_key: string;
+    criterion_label: string;
+    max_score: string;
+    awarded_score: string;
+    note: string;
+  }>;
+  rubric_total?: string;
   time_spent_seconds: number | null;
   answered_at: string | null;
 };

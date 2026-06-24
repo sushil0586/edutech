@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
@@ -8,6 +9,7 @@ from apps.exams.models import Exam
 from apps.institutes.models import Institute
 from apps.question_bank.models import Question, QuestionOption
 from apps.students.models import StudentProfile
+from apps.teachers.models import TeacherProfile
 from common.models import BaseModel
 
 
@@ -169,6 +171,11 @@ class AttemptIntegrityEvent(BaseModel):
 
 
 class StudentAnswer(BaseModel):
+    class EvaluationStatus(models.TextChoices):
+        AUTO_EVALUATED = "auto_evaluated", "Auto Evaluated"
+        MANUAL_PENDING = "manual_pending", "Manual Review Pending"
+        MANUAL_REVIEWED = "manual_reviewed", "Manual Review Completed"
+
     attempt = models.ForeignKey(
         StudentExamAttempt,
         on_delete=models.CASCADE,
@@ -188,6 +195,13 @@ class StudentAnswer(BaseModel):
     )
     selected_option_ids = models.JSONField(default=list, blank=True)
     answer_text = models.TextField(blank=True)
+    answer_transcript = models.TextField(blank=True)
+    response_artifacts = models.JSONField(default=list, blank=True)
+    evaluation_status = models.CharField(
+        max_length=30,
+        choices=EvaluationStatus.choices,
+        default=EvaluationStatus.AUTO_EVALUATED,
+    )
     is_correct = models.BooleanField(default=False)
     marks_awarded = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"))
     negative_marks_applied = models.DecimalField(
@@ -198,6 +212,15 @@ class StudentAnswer(BaseModel):
     answered_at = models.DateTimeField(blank=True, null=True)
     time_spent_seconds = models.PositiveIntegerField(blank=True, null=True)
     is_marked_for_review = models.BooleanField(default=False)
+    reviewed_by_teacher = models.ForeignKey(
+        TeacherProfile,
+        on_delete=models.SET_NULL,
+        related_name="reviewed_student_answers",
+        blank=True,
+        null=True,
+    )
+    reviewed_at = models.DateTimeField(blank=True, null=True)
+    review_notes = models.TextField(blank=True)
 
     class Meta:
         ordering = ["question__id", "-answered_at"]
@@ -246,6 +269,26 @@ class StudentAnswer(BaseModel):
                         )
                     }
                 )
+        if self.response_artifacts:
+            if not isinstance(self.response_artifacts, list):
+                raise ValidationError(
+                    {"response_artifacts": "Response artifacts must be stored as a list."}
+                )
+            for index, artifact in enumerate(self.response_artifacts):
+                if not isinstance(artifact, dict):
+                    raise ValidationError(
+                        {"response_artifacts": f"Artifact {index + 1} must be an object."}
+                    )
+                asset_kind = str(artifact.get("asset_kind", "") or "").strip()
+                upload_token = str(artifact.get("upload_token", "") or "").strip()
+                if not asset_kind:
+                    raise ValidationError(
+                        {"response_artifacts": f"Artifact {index + 1} must include asset_kind."}
+                    )
+                if not upload_token:
+                    raise ValidationError(
+                        {"response_artifacts": f"Artifact {index + 1} must include upload_token."}
+                    )
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -253,3 +296,221 @@ class StudentAnswer(BaseModel):
 
     def __str__(self):
         return f"{self.attempt_id} - {self.question_id}"
+
+
+class ReviewTaskStatus(models.TextChoices):
+    PENDING = "pending", "Pending"
+    ASSIGNED = "assigned", "Assigned"
+    IN_REVIEW = "in_review", "In Review"
+    REVIEWED = "reviewed", "Reviewed"
+    RECHECK_REQUESTED = "recheck_requested", "Recheck Requested"
+    MODERATED = "moderated", "Moderated"
+    CANCELLED = "cancelled", "Cancelled"
+
+
+class ReviewTaskPriority(models.TextChoices):
+    LOW = "low", "Low"
+    NORMAL = "normal", "Normal"
+    HIGH = "high", "High"
+    URGENT = "urgent", "Urgent"
+
+
+class ReviewEventType(models.TextChoices):
+    TASK_OPENED = "task_opened", "Task Opened"
+    ASSIGNED = "assigned", "Assigned"
+    UNASSIGNED = "unassigned", "Unassigned"
+    REVIEW_SAVED = "review_saved", "Review Saved"
+    REVIEW_UPDATED = "review_updated", "Review Updated"
+    RECHECK_REQUESTED = "recheck_requested", "Recheck Requested"
+    MODERATED = "moderated", "Moderated"
+
+
+class StudentAnswerReviewTask(BaseModel):
+    institute = models.ForeignKey(
+        Institute,
+        on_delete=models.CASCADE,
+        related_name="answer_review_tasks",
+    )
+    answer = models.OneToOneField(
+        StudentAnswer,
+        on_delete=models.CASCADE,
+        related_name="review_task",
+    )
+    attempt = models.ForeignKey(
+        StudentExamAttempt,
+        on_delete=models.CASCADE,
+        related_name="review_tasks",
+    )
+    exam = models.ForeignKey(
+        Exam,
+        on_delete=models.CASCADE,
+        related_name="answer_review_tasks",
+    )
+    student = models.ForeignKey(
+        StudentProfile,
+        on_delete=models.CASCADE,
+        related_name="answer_review_tasks",
+    )
+    question = models.ForeignKey(
+        Question,
+        on_delete=models.CASCADE,
+        related_name="review_tasks",
+    )
+    assigned_to_teacher = models.ForeignKey(
+        TeacherProfile,
+        on_delete=models.SET_NULL,
+        related_name="assigned_answer_review_tasks",
+        blank=True,
+        null=True,
+    )
+    assigned_by_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="assigned_answer_review_tasks",
+        blank=True,
+        null=True,
+    )
+    status = models.CharField(
+        max_length=30,
+        choices=ReviewTaskStatus.choices,
+        default=ReviewTaskStatus.PENDING,
+    )
+    priority = models.CharField(
+        max_length=20,
+        choices=ReviewTaskPriority.choices,
+        default=ReviewTaskPriority.NORMAL,
+    )
+    opened_at = models.DateTimeField(default=timezone.now)
+    assigned_at = models.DateTimeField(blank=True, null=True)
+    review_started_at = models.DateTimeField(blank=True, null=True)
+    resolved_at = models.DateTimeField(blank=True, null=True)
+    last_reviewed_at = models.DateTimeField(blank=True, null=True)
+    last_reviewed_by_teacher = models.ForeignKey(
+        TeacherProfile,
+        on_delete=models.SET_NULL,
+        related_name="completed_answer_review_tasks",
+        blank=True,
+        null=True,
+    )
+    latest_marks_awarded = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        default=Decimal("0.00"),
+    )
+    latest_review_summary = models.TextField(blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["status", "-opened_at", "-created_at"]
+        indexes = [
+            models.Index(fields=["institute", "status", "priority"]),
+            models.Index(fields=["assigned_to_teacher", "status", "opened_at"]),
+            models.Index(fields=["exam", "status", "opened_at"]),
+            models.Index(fields=["student", "status", "opened_at"]),
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.answer_id:
+            if self.attempt_id and self.answer.attempt_id != self.attempt_id:
+                raise ValidationError({"attempt": "Review task attempt must match the answer attempt."})
+            if self.question_id and self.answer.question_id != self.question_id:
+                raise ValidationError({"question": "Review task question must match the answer question."})
+        if self.attempt_id and self.exam_id and self.attempt.exam_id != self.exam_id:
+            raise ValidationError({"exam": "Review task exam must match the attempt exam."})
+        if self.attempt_id and self.student_id and self.attempt.student_id != self.student_id:
+            raise ValidationError({"student": "Review task student must match the attempt student."})
+        if self.attempt_id and self.institute_id and self.attempt.institute_id != self.institute_id:
+            raise ValidationError({"institute": "Review task institute must match the attempt institute."})
+        if self.assigned_to_teacher_id and self.institute_id:
+            if self.assigned_to_teacher.institute_id != self.institute_id:
+                raise ValidationError({"assigned_to_teacher": "Assigned teacher must belong to the same institute."})
+        if self.last_reviewed_by_teacher_id and self.institute_id:
+            if self.last_reviewed_by_teacher.institute_id != self.institute_id:
+                raise ValidationError(
+                    {"last_reviewed_by_teacher": "Reviewer must belong to the same institute."}
+                )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.answer_id} - {self.status}"
+
+
+class StudentAnswerReviewEvent(BaseModel):
+    review_task = models.ForeignKey(
+        StudentAnswerReviewTask,
+        on_delete=models.CASCADE,
+        related_name="events",
+    )
+    answer = models.ForeignKey(
+        StudentAnswer,
+        on_delete=models.CASCADE,
+        related_name="review_events",
+    )
+    attempt = models.ForeignKey(
+        StudentExamAttempt,
+        on_delete=models.CASCADE,
+        related_name="review_events",
+    )
+    exam = models.ForeignKey(
+        Exam,
+        on_delete=models.CASCADE,
+        related_name="answer_review_events",
+    )
+    student = models.ForeignKey(
+        StudentProfile,
+        on_delete=models.CASCADE,
+        related_name="answer_review_events",
+    )
+    question = models.ForeignKey(
+        Question,
+        on_delete=models.CASCADE,
+        related_name="review_events",
+    )
+    actor_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="answer_review_events",
+        blank=True,
+        null=True,
+    )
+    actor_teacher = models.ForeignKey(
+        TeacherProfile,
+        on_delete=models.SET_NULL,
+        related_name="answer_review_events",
+        blank=True,
+        null=True,
+    )
+    event_type = models.CharField(max_length=30, choices=ReviewEventType.choices)
+    from_status = models.CharField(max_length=30, choices=ReviewTaskStatus.choices, blank=True)
+    to_status = models.CharField(max_length=30, choices=ReviewTaskStatus.choices, blank=True)
+    marks_awarded = models.DecimalField(max_digits=8, decimal_places=2, blank=True, null=True)
+    notes = models.TextField(blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+        indexes = [
+            models.Index(fields=["review_task", "created_at"]),
+            models.Index(fields=["exam", "created_at"]),
+            models.Index(fields=["student", "created_at"]),
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.review_task_id and self.answer_id and self.review_task.answer_id != self.answer_id:
+            raise ValidationError({"answer": "Review event answer must match the review task answer."})
+        if self.answer_id and self.attempt_id and self.answer.attempt_id != self.attempt_id:
+            raise ValidationError({"attempt": "Review event attempt must match the answer attempt."})
+        if self.answer_id and self.question_id and self.answer.question_id != self.question_id:
+            raise ValidationError({"question": "Review event question must match the answer question."})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.review_task_id} - {self.event_type}"

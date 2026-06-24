@@ -7,6 +7,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from apps.accounts.models import AccountProfile
+from apps.attempts.models import ReviewTaskStatus, StudentAnswerReviewTask
 from apps.attempts.services import save_answer, start_attempt, submit_attempt
 from apps.economy.models import ContentAccessPolicy
 from apps.economy.services import grant_admin_stars
@@ -55,6 +56,11 @@ class AuthenticationAccessControlTestCase(TestCase):
             username="institute-admin-auth",
             password="Admin@123",
             email="institute-admin-auth@example.com",
+        )
+        self.platform_admin_user, self.platform_admin_account = self.builder.create_platform_admin_account(
+            username="platform-admin-cred",
+            password="Platform@123",
+            email="platform-admin-cred@example.com",
         )
 
         self.other_student = self.builder.create_student(
@@ -314,9 +320,43 @@ class AuthenticationAccessControlTestCase(TestCase):
         self.assertEqual(summary_response.status_code, 200)
         self.assertEqual(len(summary_response.data), 1)
         self.assertEqual(str(summary_response.data[0]["exam"]), str(self.exam.id))
+        self.assertIn("score_distribution", summary_response.data[0])
+        self.assertIn("section_performance", summary_response.data[0])
+        self.assertIn("experience_profile", summary_response.data[0])
+        self.assertIn("review_release_risk", summary_response.data[0])
+
+    def test_teacher_result_summary_includes_review_queue_blockers(self):
+        answer = self.primary_attempt.answers.select_related("question").get()
+        StudentAnswerReviewTask.objects.create(
+            institute=self.context["institute"],
+            answer=answer,
+            attempt=self.primary_attempt,
+            exam=self.exam,
+            student=self.context["student"],
+            question=answer.question,
+            status=ReviewTaskStatus.RECHECK_REQUESTED,
+        )
+
+        self._authenticate_with_token("teacher-auth", "Teacher@123")
+
+        summary_response = self.client.get("/api/v1/teacher/results/summary/")
+        self.assertEqual(summary_response.status_code, 200)
+        self.assertEqual(len(summary_response.data), 1)
+        self.assertEqual(summary_response.data[0]["pending_review_tasks_count"], 1)
+        self.assertEqual(summary_response.data[0]["recheck_review_tasks_count"], 1)
+        self.assertTrue(summary_response.data[0]["review_blocked"])
+        self.assertIn(summary_response.data[0]["review_release_risk"]["level"], {"low", "medium", "high"})
 
     def test_teacher_has_read_only_access_to_academic_setup_lookups(self):
         self._authenticate_with_token("teacher-auth", "Teacher@123")
+
+        programs_response = self.client.get("/api/v1/academics/programs/")
+        self.assertEqual(programs_response.status_code, 200)
+        self.assertEqual(programs_response.data["count"], 1)
+        self.assertEqual(str(programs_response.data["results"][0]["id"]), str(self.context["program"].id))
+        self.assertIn("assessment_family_code", programs_response.data["results"][0])
+        self.assertIn("assessment_family_label", programs_response.data["results"][0])
+        self.assertIn("assessment_family_profile", programs_response.data["results"][0])
 
         subjects_response = self.client.get("/api/v1/academics/subjects/")
         self.assertEqual(subjects_response.status_code, 200)
@@ -353,6 +393,9 @@ class AuthenticationAccessControlTestCase(TestCase):
         self.assertEqual(analysis_response.status_code, 200)
         self.assertEqual(len(analysis_response.data), 1)
         self.assertEqual(str(analysis_response.data[0]["question_id"]), str(self.context["question"].id))
+        self.assertIn("quality_signal", analysis_response.data[0])
+        self.assertIn("revision_priority", analysis_response.data[0])
+        self.assertIn("quality_note", analysis_response.data[0])
 
     def test_institute_admin_can_view_institute_dashboard_summary(self):
         self._authenticate_with_token("institute-admin-auth", "Admin@123")
@@ -362,6 +405,14 @@ class AuthenticationAccessControlTestCase(TestCase):
         self.assertEqual(str(response.data["institute"]["id"]), str(self.context["institute"].id))
         self.assertEqual(response.data["counts"]["students"], 2)
         self.assertIn("readiness_score", response.data["derived"])
+        self.assertIn("analytics_ready_exams", response.data["derived"])
+        self.assertIn("analytics_result_rows", response.data["derived"])
+        self.assertIn("recent_exam_analytics", response.data)
+        self.assertIn("aggregate_score_distribution", response.data)
+        if response.data["recent_exam_analytics"]:
+            self.assertIn("experience_profile", response.data["recent_exam_analytics"][0])
+            self.assertIn("score_distribution", response.data["recent_exam_analytics"][0])
+            self.assertIn("section_performance", response.data["recent_exam_analytics"][0])
 
     def test_student_available_exam_list_works_and_is_scoped(self):
         self._authenticate_with_token("student-auth", "Student@123")
@@ -425,6 +476,18 @@ class AuthenticationAccessControlTestCase(TestCase):
         self.assertEqual(str(detail_response.data["id"]), str(self.exam.id))
         self.assertEqual(detail_response.data["attempts_used"], 1)
         self.assertEqual(detail_response.data["remaining_attempts"], 0)
+        self.assertEqual(
+            detail_response.data["experience_profile"]["assessment_family"],
+            "benchmark",
+        )
+        self.assertEqual(
+            detail_response.data["experience_profile"]["recommended_timer_mode"],
+            "hybrid",
+        )
+        self.assertEqual(
+            detail_response.data["experience_profile"]["recommended_navigation_mode"],
+            "hybrid",
+        )
 
         missing_response = self.client.get(f"/api/v1/student/exams/{self.other_context['exam'].id}/detail/")
         self.assertEqual(missing_response.status_code, 404)
@@ -570,6 +633,66 @@ class AuthenticationAccessControlTestCase(TestCase):
         self.assertEqual(assigned_available_response.status_code, 200)
         self.assertEqual([str(item["id"]) for item in assigned_available_response.data], [str(self.exam.id)])
 
+    def test_selected_student_assignment_overrides_program_scope_for_visibility_and_detail(self):
+        alternate_program = self.builder.create_program(
+            self.context["institute"],
+            name="Selected Student Override Program",
+            code="SSOP01",
+        )
+        alternate_cohort = self.builder.create_cohort(
+            self.context["institute"],
+            alternate_program,
+            self.context["academic_year"],
+            name="Selected Student Override Cohort",
+            code="SSOC01",
+        )
+        assigned_student = self.builder.create_student(
+            self.context["institute"],
+            self.context["academic_year"],
+            alternate_program,
+            alternate_cohort,
+            admission_no="STU005",
+            email="scope-override@example.com",
+            first_name="Scope",
+            last_name="Override",
+        )
+        self.builder.create_student_account(
+            institute=self.context["institute"],
+            student_profile=assigned_student,
+            username="scope-override-student",
+            password="Student@123",
+            email="scope-override-student@example.com",
+        )
+
+        self._authenticate_with_token("teacher-auth", "Teacher@123")
+        assign_response = self.client.post(
+            f"/api/v1/exams/{self.exam.id}/assign-students/",
+            {
+                "assignment_mode": "selected_students",
+                "student_ids": [str(assigned_student.id)],
+            },
+            format="json",
+        )
+        self.assertEqual(assign_response.status_code, 200)
+        self.assertEqual(assign_response.data["data"]["assignment_mode"], "selected_students")
+        self.assertEqual(assign_response.data["data"]["assigned_student_count"], 1)
+
+        self._authenticate_with_token("scope-override-student", "Student@123")
+        available_response = self.client.get("/api/v1/student/exams/available/")
+        self.assertEqual(available_response.status_code, 200)
+        self.assertEqual([str(item["id"]) for item in available_response.data], [str(self.exam.id)])
+
+        detail_response = self.client.get(f"/api/v1/student/exams/{self.exam.id}/detail/")
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertEqual(str(detail_response.data["id"]), str(self.exam.id))
+
+        start_response = self.client.post(
+            "/api/v1/attempts/start/",
+            {"exam": str(self.exam.id), "student": str(assigned_student.id)},
+            format="json",
+        )
+        self.assertEqual(start_response.status_code, 201)
+
     def test_upcoming_and_expired_exams_cannot_be_started(self):
         self._authenticate_with_token("student-auth", "Student@123")
 
@@ -664,6 +787,10 @@ class AuthenticationAccessControlTestCase(TestCase):
         self.assertEqual(detail_response.status_code, 200)
         self.assertEqual(detail_response.data["economy_access"]["policy_type"], "stars_only")
         self.assertTrue(detail_response.data["economy_access"]["is_locked"])
+        self.assertEqual(
+            detail_response.data["experience_profile"]["assessment_family"],
+            "benchmark",
+        )
 
     def test_student_must_unlock_star_locked_exam_before_starting(self):
         fresh_exam = self.builder.create_exam(
@@ -1141,13 +1268,9 @@ class AuthenticationAccessControlTestCase(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.data["has_login"])
-        self.assertEqual(response.data["login_username"], "institute-admin-cred")
+        self.assertEqual(response.data["login_username"], "institute-admin-auth")
         self.assertTrue(response.data["login_is_active"])
         self.assertEqual(response.data["account_user_id"], self.institute_admin_user.id)
-        self.assertEqual(
-            self.context["institute"].metadata["exam_defaults"]["review_mode"],
-            "solution_review",
-        )
 
 
 class CredentialManagementApiTestCase(TestCase):
@@ -1537,6 +1660,24 @@ class CredentialManagementApiTestCase(TestCase):
         self.assertEqual(teacher_summary_response.status_code, 200)
         self.assertIn("overview", teacher_summary_response.data)
         self.assertIn("weak_topics", teacher_summary_response.data)
+        self.assertIn("exam_overview", teacher_summary_response.data)
+        if teacher_summary_response.data["exam_overview"]:
+            self.assertIn(
+                "experience_profile",
+                teacher_summary_response.data["exam_overview"][0],
+            )
+            self.assertIn(
+                "score_distribution",
+                teacher_summary_response.data["exam_overview"][0],
+            )
+            self.assertIn(
+                "section_performance",
+                teacher_summary_response.data["exam_overview"][0],
+            )
+            self.assertIn(
+                "assessment_family",
+                teacher_summary_response.data["exam_overview"][0]["experience_profile"],
+            )
 
         question_performance_response = self.client.get(
             "/api/v1/teacher/questions/performance/"

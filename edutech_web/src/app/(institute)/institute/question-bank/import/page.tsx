@@ -1,37 +1,15 @@
-import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { InstitutePageHeader } from "@/components/ui/institute-page-header";
 import { TeacherQuestionImportWorkspace } from "@/components/ui/teacher-question-import-workspace";
 import { fetchTeacherQuestionImportTemplate } from "@/lib/api/teacher-builder";
 import { requireInstituteAdminSession } from "@/lib/auth/session";
+import { buildFallbackQuestionImportTemplate } from "@/lib/teacher/question-import-template-fallback";
 
 export default async function InstituteQuestionImportPage() {
   await requireInstituteAdminSession();
 
-  const template = await fetchTeacherQuestionImportTemplate().catch(() => null);
-
-  if (!template) {
-    return (
-      <div className="studentPage">
-        <InstitutePageHeader
-          title="Import Questions"
-          description="This route depends on the live question-bank import template and validation endpoints."
-        />
-        <StudentStatePanel
-          eyebrow="Load issue"
-          title="Question import workspace could not be loaded"
-          description="The web importer needs the live CSV template endpoint before institute admins can preview and finalize question imports."
-          bullets={[
-            "Question bank import template endpoint",
-            "Question import preview endpoint",
-            "Question import finalize endpoint",
-          ]}
-          ctaHref="/institute/question-bank"
-          ctaLabel="Back to Question Bank"
-          statusLabel="Retry after backend check"
-        />
-      </div>
-    );
-  }
+  const template =
+    (await fetchTeacherQuestionImportTemplate().catch(() => null)) ??
+    buildFallbackQuestionImportTemplate();
 
   return (
     <div className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteQuestionImportPageVivid">

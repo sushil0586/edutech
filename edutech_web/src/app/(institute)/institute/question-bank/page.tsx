@@ -9,6 +9,7 @@ import {
   fetchTeacherOptionCatalog,
   fetchTeacherPrograms,
   fetchTeacherQuestionDetail,
+  fetchTeacherQuestionPassagePage,
   fetchTeacherQuestionPage,
   fetchTeacherQuestionTags,
   fetchTeacherSubjects,
@@ -48,6 +49,37 @@ function buildQuestionBankQuery(params: Record<string, string | number | boolean
 
   const query = searchParams.toString();
   return query ? `?${query}` : "";
+}
+
+function summarizeRichText(value: string | null | undefined, fallback: string) {
+  const normalized = (value || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  return normalized || fallback;
+}
+
+function buildQuestionScopeFilters(params: {
+  search: string;
+  teacher: string;
+  program: string;
+  subject: string;
+  topic: string;
+  tag: string;
+  questionType: string;
+  difficultyLevel: string;
+  missingExplanation: boolean;
+}) {
+  return {
+    search: params.search || undefined,
+    created_by_teacher: params.teacher || undefined,
+    program: params.program || undefined,
+    subject: params.subject || undefined,
+    topic: params.topic || undefined,
+    tag: params.tag || undefined,
+    question_type: params.questionType || undefined,
+    difficulty_level: params.difficultyLevel || undefined,
+    missing_explanation: params.missingExplanation,
+    page: 1,
+    page_size: 1,
+  };
 }
 
 function readLoadError(error: unknown, fallback: string) {
@@ -175,6 +207,8 @@ export default async function InstituteQuestionBankPage({
   const difficultyLevel = readSingle(resolvedSearchParams.difficulty_level);
   const ordering = readSingle(resolvedSearchParams.ordering) || "-created_at";
   const missingExplanation = readSingle(resolvedSearchParams.missing_explanation) === "true";
+  const qualitySignal = readSingle(resolvedSearchParams.quality_signal);
+  const revisionPriority = readSingle(resolvedSearchParams.revision_priority);
   const error = readSingle(resolvedSearchParams.error);
   const message = readSingle(resolvedSearchParams.message);
 
@@ -182,6 +216,7 @@ export default async function InstituteQuestionBankPage({
     fetchTeacherOptionCatalog(),
     fetchTeacherPrograms(),
     fetchTeacherQuestionTags(),
+    fetchTeacherQuestionPassagePage({ page_size: 20 }),
     fetchPortalList<TeacherOption>(
       `/api/v1/teachers/${profile.institute ? `?institute=${profile.institute}&page_size=100` : "?page_size=100"}`,
     ),
@@ -190,12 +225,14 @@ export default async function InstituteQuestionBankPage({
   const optionCatalogResult = bootstrapResults[0];
   const programsResult = bootstrapResults[1];
   const tagsResult = bootstrapResults[2];
-  const teachersResult = bootstrapResults[3];
+  const passageResult = bootstrapResults[3];
+  const teachersResult = bootstrapResults[4];
 
   const optionCatalogEntries =
     optionCatalogResult.status === "fulfilled" ? optionCatalogResult.value : [];
   const programs = programsResult.status === "fulfilled" ? programsResult.value : [];
   const tags = tagsResult.status === "fulfilled" ? tagsResult.value : [];
+  const passagePage = passageResult.status === "fulfilled" ? passageResult.value : null;
   const teachers = teachersResult.status === "fulfilled" ? teachersResult.value : [];
   const validTeacher = teachers.some((entry) => entry.id === teacher) ? teacher : "";
   const validProgram = programs.some((entry) => entry.id === program) ? program : "";
@@ -229,6 +266,8 @@ export default async function InstituteQuestionBankPage({
         tag: tag || undefined,
         question_type: questionType || undefined,
         difficulty_level: difficultyLevel || undefined,
+        quality_signal: qualitySignal || undefined,
+        revision_priority: revisionPriority || undefined,
         ordering,
         missing_explanation: missingExplanation || undefined,
         error: error || undefined,
@@ -249,6 +288,8 @@ export default async function InstituteQuestionBankPage({
     tag: tag || undefined,
     question_type: questionType || undefined,
     difficulty_level: difficultyLevel || undefined,
+    quality_signal: qualitySignal || undefined,
+    revision_priority: revisionPriority || undefined,
     ordering,
     missing_explanation: missingExplanation,
   }).catch((caughtError) => {
@@ -289,6 +330,31 @@ export default async function InstituteQuestionBankPage({
   const missingExplanationCount = questionPage.results.filter(
     (question) => !question.has_explanation,
   ).length;
+  const scopeFilters = buildQuestionScopeFilters({
+    search,
+    teacher: validTeacher,
+    program: validProgram,
+    subject: validSubject,
+    topic: validTopic,
+    tag,
+    questionType,
+    difficultyLevel,
+    missingExplanation: missingExplanation,
+  });
+  const qualitySummaryResults = await Promise.allSettled([
+    fetchTeacherQuestionPage({ ...scopeFilters, revision_priority: "high" }),
+    fetchTeacherQuestionPage({ ...scopeFilters, quality_signal: "ambiguous" }),
+    fetchTeacherQuestionPage({ ...scopeFilters, quality_signal: "skip_risk" }),
+    fetchTeacherQuestionPage({ ...scopeFilters, quality_signal: "emerging" }),
+  ]);
+  const highPriorityRevisionCount =
+    qualitySummaryResults[0].status === "fulfilled" ? qualitySummaryResults[0].value.count : 0;
+  const ambiguousCount =
+    qualitySummaryResults[1].status === "fulfilled" ? qualitySummaryResults[1].value.count : 0;
+  const skipRiskCount =
+    qualitySummaryResults[2].status === "fulfilled" ? qualitySummaryResults[2].value.count : 0;
+  const emergingCount =
+    qualitySummaryResults[3].status === "fulfilled" ? qualitySummaryResults[3].value.count : 0;
 
   return (
     <div className="studentPage studentPageTight studentDashboardModern instituteConsolePage questionBankPageVivid">
@@ -296,7 +362,13 @@ export default async function InstituteQuestionBankPage({
         action={
           <div className="questionBankButtonRow">
             <Link className="button buttonSecondary" href="/institute/question-bank/import">
-              Import CSV
+              Import Questions CSV
+            </Link>
+            <Link className="button buttonSecondary" href="/institute/question-bank/comprehension/import">
+              Import Comprehension CSV
+            </Link>
+            <Link className="button buttonSecondary" href="/institute/question-bank/comprehension/new">
+              Create Comprehension Set
             </Link>
             <Link className="button buttonPrimary" href="/institute/question-bank/new">
               Create Question
@@ -331,10 +403,69 @@ export default async function InstituteQuestionBankPage({
           <strong>{subjects.length}</strong>
           <small>{topics.length} topic options across the current subject lane</small>
         </article>
+        <article className="builderSummaryCard">
+          <span>Comprehension sets</span>
+          <strong>{passagePage?.count ?? 0}</strong>
+          <small>Shared passages available for linked question authoring</small>
+        </article>
+        <article className="builderSummaryCard">
+          <span>Revision queue</span>
+          <strong>{highPriorityRevisionCount}</strong>
+          <small>High-priority questions across the current institute scope that need editorial cleanup</small>
+        </article>
+        <article className="builderSummaryCard">
+          <span>Ambiguous items</span>
+          <strong>{ambiguousCount}</strong>
+          <small>Questions where wrong and skip behavior suggests wording or distractor problems</small>
+        </article>
+        <article className="builderSummaryCard">
+          <span>Skip risk</span>
+          <strong>{skipRiskCount}</strong>
+          <small>Questions students defer often and may need simpler phrasing or stronger scaffolds</small>
+        </article>
+        <article className="builderSummaryCard">
+          <span>Emerging data</span>
+          <strong>{emergingCount}</strong>
+          <small>Questions with early response volume that should be monitored before heavy edits</small>
+        </article>
       </section>
 
+      {passagePage?.results?.length ? (
+        <section className="contentCard">
+          <div className="sectionHeading">
+            <strong>Recent comprehension sets</strong>
+            <span>{passagePage.count} in current institute scope</span>
+          </div>
+          <div className="questionBankList">
+            {passagePage.results.slice(0, 4).map((passage) => (
+              <article className="questionBankCard" key={passage.id}>
+                <div className="questionBankCardHeader">
+                  <div className="questionBankCardCopy">
+                    <strong>{passage.title}</strong>
+                    <div className="questionBankChipRow">
+                      <span className="questionBankMetaChip">{passage.content_format}</span>
+                      <span className="questionBankMetaChip">{passage.linked_question_count} linked</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="questionBankCardFooter">
+                  <div className="questionBankCardMetaNote">
+                    <span>{summarizeRichText(passage.description, "No institute note added yet.")}</span>
+                  </div>
+                  <div className="questionBankCardActions">
+                    <Link className="button buttonSecondary" href={`/institute/question-bank/comprehension/${passage.id}`}>
+                      Open Set
+                    </Link>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       <TeacherQuestionBankWorkspace
-        key={[validProgram, validSubject, validTopic, search, tag, questionType, difficultyLevel, ordering, missingExplanation ? "1" : "0", page].join(":")}
+        key={[validProgram, validSubject, validTopic, search, tag, questionType, difficultyLevel, qualitySignal, revisionPriority, ordering, missingExplanation ? "1" : "0", page].join(":")}
         attachmentTypeLabelMap={optionCatalog.labelMap("question_attachment_type")}
         basePath="/institute/question-bank"
         bulkAction={applyQuestionBulkAction}
@@ -349,6 +480,8 @@ export default async function InstituteQuestionBankPage({
           tag,
           question_type: questionType,
           difficulty_level: difficultyLevel,
+          quality_signal: qualitySignal,
+          revision_priority: revisionPriority,
           ordering,
           missing_explanation: missingExplanation ? "true" : "",
         }}

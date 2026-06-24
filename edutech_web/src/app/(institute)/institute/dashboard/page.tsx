@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { FilterSummaryPills } from "@/components/ui/filter-summary-pills";
 import { PageHeader } from "@/components/ui/page-header";
+import type { StudentExamExperienceProfile } from "@/features/dashboard/types";
 import { fetchInstituteDashboardSummary } from "@/lib/api/portal";
 import { requireInstituteAdminSession } from "@/lib/auth/session";
 import { buildFilterHref, formatFilterValue, resolveFilterValue } from "@/lib/workspace/filter-utils";
@@ -23,6 +24,55 @@ function buildInstituteDashboardHref(args: { focus?: InstituteDashboardFocus; so
   ]);
 }
 
+function assessmentFamilyTone(code: string) {
+  if (code === "competitive") return "statusWarning";
+  if (code === "certification") return "statusLive";
+  if (code === "language_proficiency") return "statusDemo";
+  return "statusLive";
+}
+
+function percentage(value: string) {
+  return `${Math.round(Number(value))}%`;
+}
+
+function formatDuration(seconds: number) {
+  if (!seconds) return "0m";
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return remainingMinutes ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+}
+
+function formatCompactSeconds(seconds: number) {
+  if (!seconds || seconds <= 0) return "0s";
+  if (seconds < 60) return `${Math.round(seconds)}s`;
+  return formatDuration(seconds);
+}
+
+function normalizeLabel(value: string | null | undefined) {
+  return value?.replaceAll("_", " ") ?? "";
+}
+
+function summarizeAssessmentFamily(profile: StudentExamExperienceProfile | null | undefined) {
+  const familyCode = profile?.assessment_family ?? "general";
+  const familyLabel = profile?.assessment_family_label ?? "General";
+  const deliveryEmphasis = normalizeLabel(profile?.delivery_emphasis) || "balanced delivery";
+  const summaryMap: Record<string, string> = {
+    school: "Track syllabus coverage, concept mastery, and where reteaching should happen next.",
+    competitive: "Track rank pressure, speed, accuracy, and negative-marking exposure.",
+    certification: "Track scenario judgment, domain readiness, and distractor quality.",
+    language_proficiency: "Track skill bands, rubric evidence, and delivery quality across media-backed sections.",
+    general: "Track accuracy, topic mastery, and question-level risk.",
+  };
+  return {
+    familyCode,
+    familyLabel,
+    deliveryEmphasis,
+    summary: summaryMap[familyCode] ?? summaryMap.general,
+  };
+}
+
 export default async function InstituteDashboardPage({
   searchParams,
 }: {
@@ -41,11 +91,31 @@ export default async function InstituteDashboardPage({
   const teacherCount = dashboard?.counts.teachers ?? 0;
   const examCount = dashboard?.counts.exams ?? 0;
   const resultCount = dashboard?.counts.results ?? 0;
+  const pendingReviewTasks = dashboard?.counts.pending_review_tasks ?? 0;
+  const blockedReviewExams = dashboard?.counts.blocked_review_exams ?? 0;
+  const recheckReviewTasks = dashboard?.counts.recheck_review_tasks ?? 0;
   const examDefaultCount = dashboard?.institute.exam_default_count ?? 0;
+  const assessmentFamilyMix = dashboard?.counts.assessment_family_mix ?? [];
   const peopleCount = dashboard?.derived.people_count ?? 0;
   const academicStructureCount = dashboard?.derived.academic_structure_count ?? 0;
   const activeCoverageSignals = dashboard?.derived.active_coverage_signals ?? 0;
   const readinessScore = dashboard?.derived.readiness_score ?? 0;
+  const activeAssessmentFamilies = dashboard?.derived.active_assessment_families ?? 0;
+  const analyticsReadyExams = dashboard?.derived.analytics_ready_exams ?? 0;
+  const analyticsResultRows = dashboard?.derived.analytics_result_rows ?? 0;
+  const recentExamAnalytics = dashboard?.recent_exam_analytics ?? [];
+  const aggregateScoreDistribution = dashboard?.aggregate_score_distribution ?? [];
+  const weakestSections = recentExamAnalytics
+    .filter((exam) => exam.section_performance.length)
+    .map((exam) => ({
+      examId: exam.exam_id,
+      examTitle: exam.exam_title,
+      section:
+        exam.section_performance
+          .slice()
+          .sort((left, right) => left.accuracy_percentage - right.accuracy_percentage)[0] ?? null,
+    }))
+    .filter((item) => item.section);
 
   const instituteSignals = [
     {
@@ -83,6 +153,15 @@ export default async function InstituteDashboardPage({
           ? "Institute-wide exam defaults are configured."
           : "Exam defaults still need to be configured for this institute.",
       tone: examDefaultCount > 0 ? "live" : "warning",
+    },
+    {
+      label: "Review operations",
+      value: pendingReviewTasks,
+      note:
+        pendingReviewTasks > 0
+          ? `${blockedReviewExams} exam(s) currently have unresolved review work.`
+          : "No unresolved review tasks are currently blocking results.",
+      tone: pendingReviewTasks > 0 ? "warning" : "live",
     },
   ] as const;
 
@@ -150,7 +229,9 @@ export default async function InstituteDashboardPage({
             <span>{peopleCount} people in scope</span>
             <span>{academicStructureCount} academic units tracked</span>
             <span>{examCount} exams and {resultCount} results</span>
+            <span>{pendingReviewTasks} review task(s) open</span>
             <span>{activeCoverageSignals} active readiness signals</span>
+            <span>{activeAssessmentFamilies} active family profile(s)</span>
           </div>
           <div className="instituteConsoleActions adminInstituteHeroActions">
             <Link className="button buttonPrimary" href="/institute/people">
@@ -161,6 +242,9 @@ export default async function InstituteDashboardPage({
             </Link>
             <Link className="button buttonGhost" href="/institute/exams">
               Open exams
+            </Link>
+            <Link className="button buttonGhost" href="/institute/reviews">
+              Open reviews
             </Link>
           </div>
         </div>
@@ -193,6 +277,11 @@ export default async function InstituteDashboardPage({
               <span>Results</span>
               <strong>{resultCount}</strong>
               <small>Outcome rows currently stored.</small>
+            </article>
+            <article className="adminInstituteHeroMiniStat">
+              <span>Reviews</span>
+              <strong>{pendingReviewTasks}</strong>
+              <small>{recheckReviewTasks} recheck · {blockedReviewExams} blocked exam(s)</small>
             </article>
             <article className="adminInstituteHeroMiniStat">
               <span>Defaults</span>
@@ -234,6 +323,11 @@ export default async function InstituteDashboardPage({
             <strong>{examDefaultCount}</strong>
             <small>Institute-wide exam policy fields currently configured.</small>
           </article>
+          <article className="adminExecutiveStat">
+            <span>Assessment families</span>
+            <strong>{activeAssessmentFamilies}</strong>
+            <small>Program-family profiles currently active in this institute.</small>
+          </article>
         </div>
       </section>
 
@@ -268,6 +362,21 @@ export default async function InstituteDashboardPage({
           <strong>{examDefaultCount}</strong>
           <small>Institute-wide exam policy fields.</small>
         </article>
+        <article className="metricCard dashboardHeroCard">
+          <span>Family profiles</span>
+          <strong>{activeAssessmentFamilies}</strong>
+          <small>Distinct assessment families mapped across active programs.</small>
+        </article>
+        <article className="metricCard dashboardHeroCard">
+          <span>Analytics-ready exams</span>
+          <strong>{analyticsReadyExams}</strong>
+          <small>Recent exam summaries available for institute analytics.</small>
+        </article>
+        <article className="metricCard dashboardHeroCard adminMetricCardAccent">
+          <span>Analytics result rows</span>
+          <strong>{analyticsResultRows}</strong>
+          <small>Visible learner outcomes inside recent score bands.</small>
+        </article>
       </section>
 
       <section className="adminSignalGrid">
@@ -278,6 +387,154 @@ export default async function InstituteDashboardPage({
             <p>{signal.note}</p>
           </article>
         ))}
+      </section>
+
+      <section className="dashboardGrid">
+        <article className="dashboardPanel weakTopicsPanel">
+          <div className="sectionHeading">
+            <strong>Assessment family mix</strong>
+            <span>{assessmentFamilyMix.length} profile rows</span>
+          </div>
+          <div className="weakTopicStack">
+            {assessmentFamilyMix.length ? (
+              assessmentFamilyMix.map((family) => (
+                <div className="weakTopicRow" key={family.code}>
+                  <div>
+                    <strong>{family.label}</strong>
+                    <span>{family.code === "unassigned" ? "Programs still need a mapped family profile." : "Program setup is aligned to this assessment family."}</span>
+                  </div>
+                  <div className="weakTopicMeta">
+                    <span className={`statusPill ${assessmentFamilyTone(family.code)}`}>{family.label}</span>
+                    <strong>{family.program_count}</strong>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="emptyText">Assessment family mix will appear after programs are configured.</p>
+            )}
+          </div>
+        </article>
+
+        <article className="dashboardPanel weakTopicsPanel">
+          <div className="sectionHeading">
+            <strong>Institute score distribution</strong>
+            <span>{analyticsResultRows} recent result rows</span>
+          </div>
+          <div className="weakTopicStack">
+            {aggregateScoreDistribution.length ? (
+              aggregateScoreDistribution.map((bucket) => (
+                <div className="weakTopicRow" key={bucket.label}>
+                  <div>
+                    <strong>{bucket.label}</strong>
+                    <span>{Math.round(bucket.percentage_share)}% of recent visible learner outcomes</span>
+                  </div>
+                  <div className="weakTopicMeta">
+                    <strong>{bucket.count}</strong>
+                    <span>result rows</span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="emptyText">Score-band analytics will appear after exam summaries are calculated.</p>
+            )}
+          </div>
+        </article>
+
+        <article className="dashboardPanel weakTopicsPanel">
+          <div className="sectionHeading">
+            <strong>Section watchlist</strong>
+            <span>{weakestSections.length} exam sections flagged</span>
+          </div>
+          <div className="weakTopicStack">
+            {weakestSections.length ? (
+              weakestSections.map((item) => (
+                <div className="weakTopicRow" key={`${item.examId}-${item.section?.section_id ?? item.section?.section_name}`}>
+                  <div>
+                    <strong>{item.section?.section_name ?? "No section"}</strong>
+                    <span>{item.examTitle}</span>
+                  </div>
+                  <div className="weakTopicMeta">
+                    <strong>{Math.round(item.section?.accuracy_percentage ?? 0)}%</strong>
+                    <span>avg time {formatCompactSeconds(item.section?.average_time_seconds ?? 0)}</span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="emptyText">Section-level pressure indicators will appear once section summaries are available.</p>
+            )}
+          </div>
+        </article>
+      </section>
+
+      <section className="dashboardGrid">
+        <article className="dashboardPanel">
+          <div className="sectionHeading">
+            <strong>Recent assessment analytics</strong>
+            <span>{recentExamAnalytics.length} exam summaries</span>
+          </div>
+          <div className="weakTopicStack">
+            {recentExamAnalytics.length ? (
+              recentExamAnalytics.map((exam) => {
+                const familySummary = summarizeAssessmentFamily(exam.experience_profile);
+                const weakestSection =
+                  exam.section_performance
+                    .slice()
+                    .sort((left, right) => left.accuracy_percentage - right.accuracy_percentage)[0] ?? null;
+                return (
+                  <div className="weakTopicRow" key={exam.exam_id}>
+                    <div>
+                      <strong>{exam.exam_title}</strong>
+                      <span>{exam.exam_code}</span>
+                      <div className="questionBankTagRow">
+                        <span className={`statusPill ${assessmentFamilyTone(familySummary.familyCode)}`}>
+                          {familySummary.familyLabel}
+                        </span>
+                        <span className="questionBankTagChip">{familySummary.deliveryEmphasis}</span>
+                        {weakestSection ? (
+                          <span className="questionBankTagChip">Weakest section: {weakestSection.section_name}</span>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className="weakTopicMeta">
+                      <strong>{percentage(exam.average_percentage)}</strong>
+                      <span>{exam.total_attempted} attempts</span>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <p className="emptyText">Recent exam analytics will appear once results are calculated for this institute.</p>
+            )}
+          </div>
+        </article>
+
+        <article className="dashboardPanel weakTopicsPanel">
+          <div className="sectionHeading">
+            <strong>Assessment family lens</strong>
+            <span>{recentExamAnalytics.length} summaries scanned</span>
+          </div>
+          <div className="weakTopicStack">
+            {recentExamAnalytics.length ? (
+              recentExamAnalytics.map((exam) => {
+                const familySummary = summarizeAssessmentFamily(exam.experience_profile);
+                return (
+                  <div className="weakTopicRow" key={`${exam.exam_id}-family`}>
+                    <div>
+                      <strong>{familySummary.familyLabel}</strong>
+                      <span>{familySummary.summary}</span>
+                    </div>
+                    <div className="weakTopicMeta">
+                      <strong>{percentage(exam.average_percentage)}</strong>
+                      <span>{exam.total_passed} passed · {exam.total_failed} failed</span>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <p className="emptyText">Family-aware coaching guidance will appear after result summaries are available.</p>
+            )}
+          </div>
+        </article>
       </section>
 
       <section className="contentCard workspaceFiltersCard">

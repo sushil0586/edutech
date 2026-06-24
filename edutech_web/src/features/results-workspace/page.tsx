@@ -3,9 +3,18 @@ import { redirect, unstable_rethrow } from "next/navigation";
 import { FilterSummaryPills } from "@/components/ui/filter-summary-pills";
 import { InstitutePageHeader } from "@/components/ui/institute-page-header";
 import { LiveMonitorRefresh } from "@/components/ui/live-monitor-refresh";
+import {
+  getStudentQuestionPromptTitle,
+  StudentQuestionPrompt,
+} from "@/components/ui/student-question-prompt";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
+import { TeacherRubricReviewFields } from "@/components/ui/teacher-rubric-review-fields";
 import { TeacherPageHeader } from "@/components/ui/teacher-page-header";
-import type { TeacherResultSummary } from "@/features/dashboard/types";
+import type {
+  TeacherQuestionAnalysisPage,
+  TeacherResultSummary,
+} from "@/features/dashboard/types";
+import { buildQuestionTypePresentationProfile } from "@/lib/assessment/question-type-presentation";
 import {
   calculateTeacherExamRanks,
   createTeacherAttemptInterventionNote,
@@ -20,9 +29,12 @@ import {
   fetchTeacherTopicPerformance,
   forceSubmitTeacherAttempt,
   generateTeacherResultsForExam,
+  manualReviewTeacherAnswer,
   publishTeacherExamResults,
   runTeacherExamAction,
+  submitTeacherReviewTask,
 } from "@/lib/api/teacher";
+import { moderatePortalReviewTask } from "@/lib/api/portal";
 import { requireInstituteAdminSession, requireTeacherSession } from "@/lib/auth/session";
 import { buildFilterHref, formatFilterValue } from "@/lib/workspace/filter-utils";
 import {
@@ -46,9 +58,17 @@ type ResultsLeaderboardRow = Awaited<ReturnType<typeof fetchTeacherExamLeaderboa
 type ResultsTopicRow = Awaited<ReturnType<typeof fetchTeacherTopicPerformance>>["results"][number];
 type ResultsQuestionRow = Awaited<ReturnType<typeof fetchTeacherQuestionAnalysis>>["results"][number];
 
-type ResultExamFilter = "all" | "published" | "ready" | "live" | "draft";
-type ResultExamSort = "latest" | "attempts" | "average" | "title";
-type ResultExamGroup = "none" | "publication" | "status";
+type ResultExamFilter =
+  | "all"
+  | "published"
+  | "ready"
+  | "review_blocked"
+  | "high_risk"
+  | "medium_risk"
+  | "live"
+  | "draft";
+type ResultExamSort = "latest" | "attempts" | "average" | "release_risk" | "title";
+type ResultExamGroup = "none" | "publication" | "status" | "release_risk";
 type AttemptReviewFilter =
   | "all"
   | "low_performers"
@@ -61,6 +81,43 @@ type AttemptSort = "latest" | "score_low" | "warnings_high" | "time_long";
 type AttemptGroup = "none" | "health" | "status";
 type StudentQuestionFilter = "all" | "correct" | "wrong" | "skipped" | "marked" | "slow";
 type WorkflowTone = "statusLive" | "statusDemo" | "statusWarning";
+
+type FamilyInsightCard = {
+  title: string;
+  value: string;
+  detail: string;
+  tone: WorkflowTone;
+};
+
+type FamilyDeepDivePanel = {
+  title: string;
+  summary: string;
+  tone: WorkflowTone;
+  metrics: Array<{
+    label: string;
+    value: string;
+  }>;
+  callouts: string[];
+  actions: string[];
+};
+
+type ResultsQuestionAnalysisSummary = NonNullable<TeacherQuestionAnalysisPage["summary"]>;
+
+type FamilyPortfolioCard = {
+  familyCode: string;
+  familyLabel: string;
+  examCount: number;
+  trackedExamCount: number;
+  averagePercentage: number;
+  highRiskCount: number;
+  pendingReviewTasks: number;
+  weakestExamTitle: string | null;
+  weakestExamPercentage: number | null;
+  strongestExamTitle: string | null;
+  strongestExamPercentage: number | null;
+  primaryConcern: string;
+  tone: WorkflowTone;
+};
 
 type ResultWorkflowStep = {
   id: "lifecycle" | "generate" | "ranks" | "publish";
@@ -90,10 +147,19 @@ type ResultWorkflowStep = {
   blocked: boolean;
 };
 
+type ResultReadinessSnapshot = {
+  headline: string;
+  summary: string;
+  blockers: string[];
+  pendingDependencies: string[];
+  readySignals: string[];
+};
+
 type ResultsWorkspaceConfig = {
   role: ResultsWorkspaceRole;
   basePath: string;
   examBasePath: string;
+  reviewsBasePath: string;
   questionBankPath: string;
   dashboardPath: string;
   workspaceName: string;
@@ -107,6 +173,7 @@ const workspaceConfigs: Record<ResultsWorkspaceRole, ResultsWorkspaceConfig> = {
     role: "institute",
     basePath: "/institute/results",
     examBasePath: "/institute/exams",
+    reviewsBasePath: "/institute/reviews",
     questionBankPath: "/institute/question-bank",
     dashboardPath: "/institute/dashboard",
     workspaceName: "Institute results workspace",
@@ -118,6 +185,7 @@ const workspaceConfigs: Record<ResultsWorkspaceRole, ResultsWorkspaceConfig> = {
     role: "teacher",
     basePath: "/teacher/results",
     examBasePath: "/teacher/exams",
+    reviewsBasePath: "/teacher/reviews",
     questionBankPath: "/teacher/question-bank",
     dashboardPath: "/teacher/dashboard",
     workspaceName: "Teacher results workspace",
@@ -154,6 +222,10 @@ function percentage(value: string | number) {
   return Number.isFinite(numeric) ? `${Math.round(numeric)}%` : "0%";
 }
 
+function reviewOptionText(value: string) {
+  return value.replace(/\s*\n+\s*/g, " ").replace(/\s{2,}/g, " ").trim();
+}
+
 function formatDateTime(value: string | null) {
   if (!value) {
     return "Not available";
@@ -180,6 +252,742 @@ function formatDuration(totalSeconds: number | null) {
   if (hours > 0) return `${hours}h ${minutes}m`;
   if (minutes > 0) return `${minutes}m ${seconds}s`;
   return `${seconds}s`;
+}
+
+function formatCompactSeconds(value: number | null | undefined) {
+  if (!value || value <= 0) {
+    return "0s";
+  }
+  if (value < 60) {
+    return `${Math.round(value)}s`;
+  }
+  return formatDuration(Math.round(value));
+}
+
+function formatHoursCompact(hours: number | null | undefined) {
+  if (!hours || hours <= 0) {
+    return "0h";
+  }
+  if (hours < 1) {
+    return `${Math.round(hours * 60)}m`;
+  }
+  if (hours < 24) {
+    return `${Math.round(hours)}h`;
+  }
+  const days = Math.floor(hours / 24);
+  const remainingHours = Math.round(hours % 24);
+  return remainingHours ? `${days}d ${remainingHours}h` : `${days}d`;
+}
+
+function reviewRiskTone(level: TeacherResultSummary["review_release_risk"]["level"] | undefined): WorkflowTone {
+  if (level === "high" || level === "medium") return "statusWarning";
+  if (level === "low") return "statusDemo";
+  return "statusLive";
+}
+
+function reviewRiskPriority(level: TeacherResultSummary["review_release_risk"]["level"] | undefined) {
+  switch (level) {
+    case "high":
+      return 3;
+    case "medium":
+      return 2;
+    case "low":
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+function questionQualityTone(signal: ResultsQuestionRow["quality_signal"]) {
+  if (signal === "skip_risk" || signal === "hard") return "statusWarning";
+  if (signal === "ambiguous" || signal === "revision_candidate") return "statusDemo";
+  if (signal === "healthy") return "statusLive";
+  return "statusDemo";
+}
+
+function distractorTone(
+  signal:
+    | "validated_key"
+    | "key_review"
+    | "untested_distractor"
+    | "weak_distractor"
+    | "strong_distractor"
+    | "working_distractor"
+    | "light_distractor",
+) {
+  if (signal === "key_review" || signal === "weak_distractor") return "statusWarning";
+  if (signal === "strong_distractor" || signal === "working_distractor") return "statusLive";
+  if (signal === "validated_key") return "statusLive";
+  return "statusDemo";
+}
+
+function assessmentFamilyTone(assessmentFamily: string | null | undefined) {
+  if (assessmentFamily === "competitive") return "statusWarning";
+  if (assessmentFamily === "certification") return "statusLive";
+  if (assessmentFamily === "language_proficiency") return "statusDemo";
+  return "statusLive";
+}
+
+function normalizeLabel(value: string | null | undefined) {
+  return value?.replaceAll("_", " ") ?? "";
+}
+
+function resolveAssessmentAnalyticsLens(exam: ResultsExamCard) {
+  const profile = exam.experience_profile;
+  const familyCode = profile?.assessment_family ?? "general";
+  const familyLabel = profile?.assessment_family_label ?? "General";
+  const focusMap: Record<
+    string,
+    {
+      summary: string;
+      bankGuidance: string;
+      focusAreas: [string, string, string];
+    }
+  > = {
+    school: {
+      summary:
+        "Read the results for concept mastery, chapter coverage, and which learners need teacher intervention before the next classroom cycle.",
+      bankGuidance:
+        "Rewrite unclear classroom questions, rebalance chapter coverage, and use weak-topic clusters to plan remediation worksheets or reteaching sessions.",
+      focusAreas: ["concept mastery", "topic coverage", "intervention groups"],
+    },
+    competitive: {
+      summary:
+        "Interpret the exam through speed, accuracy, negative-marking risk, and rank separation so coaching teams can improve strategy under pressure.",
+      bankGuidance:
+        "Tighten distractors, remove ambiguous stems, and focus on skip-versus-attempt behavior to improve speed-accuracy decision making.",
+      focusAreas: ["speed vs accuracy", "rank spread", "negative-marking pressure"],
+    },
+    certification: {
+      summary:
+        "Use the results as a readiness signal for domain confidence, applied correctness, and whether the question bank mirrors certification-style judgment calls.",
+      bankGuidance:
+        "Strengthen domain scenario realism, review frequently missed distractors, and watch whether learners understand service selection rather than memorizing facts.",
+      focusAreas: ["domain readiness", "scenario judgment", "distractor quality"],
+    },
+    language_proficiency: {
+      summary:
+        "Review outcomes as a skill-band lens across comprehension, response quality, and media-backed delivery expectations rather than only objective score totals.",
+      bankGuidance:
+        "Separate language-skill weaknesses, inspect rubric-backed responses carefully, and tune prompts, passages, and media flow for authentic proficiency practice.",
+      focusAreas: ["skill bands", "rubric evidence", "media delivery readiness"],
+    },
+    general: {
+      summary:
+        "Use the results to compare learner accuracy, topic mastery, and question-level risk while keeping exam flow and review blockers in view.",
+      bankGuidance:
+        "Use hard-question patterns and skipped clusters to refine bank quality, clarify wording, and balance the next version of the exam.",
+      focusAreas: ["accuracy", "topic mastery", "question risk"],
+    },
+  };
+  const focus = focusMap[familyCode] ?? focusMap.general;
+  return {
+    familyCode,
+    familyLabel,
+    summary: focus.summary,
+    bankGuidance: focus.bankGuidance,
+    focusAreas: focus.focusAreas,
+    deliveryModeLabel: normalizeLabel(profile?.delivery_mode) || normalizeLabel(exam.delivery_mode) || "standard",
+    timerModeLabel: normalizeLabel(profile?.actual_timer_mode) || normalizeLabel(exam.timer_mode) || "standard",
+    navigationModeLabel:
+      normalizeLabel(profile?.actual_navigation_mode) || normalizeLabel(exam.navigation_mode) || "standard",
+    creatorSummary: profile?.creator_summary ?? "",
+    learnerSummary: profile?.learner_summary ?? "",
+    deliveryEmphasis: normalizeLabel(profile?.delivery_emphasis) || "balanced delivery",
+  };
+}
+
+function formatRatio(numerator: number, denominator: number) {
+  if (denominator <= 0) {
+    return "0/0";
+  }
+  return `${numerator}/${denominator}`;
+}
+
+function buildAssessmentFamilyInsights(args: {
+  familyCode: string;
+  examAccuracy: number;
+  examSkipRate: number;
+  strongTopics: number;
+  weakTopics: number;
+  lowPerformers: number;
+  skippedHeavyStudents: number;
+  totalTopics: number;
+  questionQualitySummary?: {
+    revision_candidates: number;
+    urgent_revision_candidates: number;
+    high_skip_questions: number;
+    hard_questions: number;
+    healthy_questions: number;
+    watch_questions: number;
+    ambiguous_questions: number;
+    emerging_questions: number;
+  };
+  examRubricSummary?: {
+    reviewed_responses: number;
+    weakest_criteria: Array<{
+      criterion_label: string;
+      average_percentage: number;
+    }>;
+  };
+}): FamilyInsightCard[] {
+  const {
+    familyCode,
+    examAccuracy,
+    examSkipRate,
+    strongTopics,
+    weakTopics,
+    lowPerformers,
+    skippedHeavyStudents,
+    totalTopics,
+    questionQualitySummary,
+    examRubricSummary,
+  } = args;
+  const quality = questionQualitySummary;
+  const weakestCriterion = examRubricSummary?.weakest_criteria?.[0] ?? null;
+
+  if (familyCode === "school") {
+    return [
+      {
+        title: "Chapter mastery",
+        value: formatRatio(strongTopics, totalTopics),
+        detail: "Topics already performing at a stable mastery level in this exam window.",
+        tone: strongTopics >= Math.max(totalTopics - weakTopics, 1) ? "statusLive" : "statusDemo",
+      },
+      {
+        title: "Intervention group",
+        value: String(lowPerformers),
+        detail: "Learners currently sitting in the immediate teacher support lane.",
+        tone: lowPerformers > 0 ? "statusWarning" : "statusLive",
+      },
+      {
+        title: "Reteach pressure",
+        value: String(weakTopics),
+        detail: "Weak topics that likely need reteaching, worksheets, or revision homework.",
+        tone: weakTopics > 0 ? "statusWarning" : "statusLive",
+      },
+    ];
+  }
+
+  if (familyCode === "competitive") {
+    return [
+      {
+        title: "Accuracy under pressure",
+        value: `${examAccuracy}%`,
+        detail: "Use this with rank and negative-marking pressure to judge exam strategy quality.",
+        tone: examAccuracy >= 65 ? "statusLive" : examAccuracy >= 45 ? "statusDemo" : "statusWarning",
+      },
+      {
+        title: "Skip pressure",
+        value: `${examSkipRate}%`,
+        detail: "Higher skip rates often indicate time pressure, confidence gaps, or poor selection strategy.",
+        tone: examSkipRate >= 30 ? "statusWarning" : examSkipRate >= 15 ? "statusDemo" : "statusLive",
+      },
+      {
+        title: "Risk load",
+        value: String((quality?.urgent_revision_candidates ?? 0) + (quality?.high_skip_questions ?? 0)),
+        detail: "Urgent or skip-heavy questions that may distort readiness signals for rank-style practice.",
+        tone: (quality?.urgent_revision_candidates ?? 0) + (quality?.high_skip_questions ?? 0) > 0 ? "statusWarning" : "statusLive",
+      },
+    ];
+  }
+
+  if (familyCode === "certification") {
+    return [
+      {
+        title: "Domain readiness",
+        value: formatRatio(strongTopics, totalTopics),
+        detail: "Topic rows currently showing stronger domain mastery across the cohort.",
+        tone: strongTopics >= Math.max(totalTopics - weakTopics, 1) ? "statusLive" : "statusDemo",
+      },
+      {
+        title: "Scenario risk",
+        value: String((quality?.hard_questions ?? 0) + (quality?.ambiguous_questions ?? 0)),
+        detail: "Underperforming questions that may need clearer scenario framing or better distractor design.",
+        tone: (quality?.hard_questions ?? 0) + (quality?.ambiguous_questions ?? 0) > 0 ? "statusWarning" : "statusLive",
+      },
+      {
+        title: "Bank stability",
+        value: formatRatio(quality?.healthy_questions ?? 0, Math.max((quality?.revision_candidates ?? 0) + (quality?.watch_questions ?? 0), 1)),
+        detail: "Healthy questions versus revision or watch-list items in the current exam evidence.",
+        tone: (quality?.healthy_questions ?? 0) >= (quality?.revision_candidates ?? 0) ? "statusLive" : "statusDemo",
+      },
+    ];
+  }
+
+  if (familyCode === "language_proficiency") {
+    return [
+      {
+        title: "Rubric evidence",
+        value: String(examRubricSummary?.reviewed_responses ?? 0),
+        detail: "Reviewed responses contributing real criterion-level evidence to this exam.",
+        tone: (examRubricSummary?.reviewed_responses ?? 0) > 0 ? "statusLive" : "statusDemo",
+      },
+      {
+        title: "Weakest skill band",
+        value: weakestCriterion ? `${weakestCriterion.criterion_label} ${weakestCriterion.average_percentage}%` : "Pending",
+        detail: "Lowest rubric criterion or skill band currently visible in reviewed responses.",
+        tone: weakestCriterion && weakestCriterion.average_percentage < 60 ? "statusWarning" : "statusDemo",
+      },
+      {
+        title: "Response strain",
+        value: String(skippedHeavyStudents),
+        detail: "Students showing skip or completion strain that may reflect response burden or delivery friction.",
+        tone: skippedHeavyStudents > 0 ? "statusWarning" : "statusLive",
+      },
+    ];
+  }
+
+  return [
+    {
+      title: "Accuracy",
+      value: `${examAccuracy}%`,
+      detail: "Overall correctness signal across the visible answer evidence.",
+      tone: examAccuracy >= 65 ? "statusLive" : examAccuracy >= 45 ? "statusDemo" : "statusWarning",
+    },
+    {
+      title: "Weak topics",
+      value: String(weakTopics),
+      detail: "Topics currently needing attention in the next teaching or builder cycle.",
+      tone: weakTopics > 0 ? "statusWarning" : "statusLive",
+    },
+    {
+      title: "Revision queue",
+      value: String(questionQualitySummary?.revision_candidates ?? 0),
+      detail: "Questions already showing enough evidence to justify editorial review.",
+      tone: (questionQualitySummary?.revision_candidates ?? 0) > 0 ? "statusDemo" : "statusLive",
+    },
+  ];
+}
+
+function buildAssessmentFamilyDeepDive(args: {
+  familyCode: string;
+  selectedSummary: TeacherResultSummary | null;
+  leaderboardRows: ResultsLeaderboardRow[];
+  studentRows: ResultsAttempt[];
+  topicRows: ResultsTopicRow[];
+  questionQualitySummary?: ResultsQuestionAnalysisSummary["question_quality"];
+  distractorQualitySummary?: ResultsQuestionAnalysisSummary["distractor_quality"];
+  examRubricSummary?: ResultsQuestionAnalysisSummary["rubric"];
+}): FamilyDeepDivePanel[] {
+  const {
+    familyCode,
+    selectedSummary,
+    leaderboardRows,
+    studentRows,
+    topicRows,
+    questionQualitySummary,
+    distractorQualitySummary,
+    examRubricSummary,
+  } = args;
+
+  const scoreDistribution = selectedSummary?.score_distribution ?? [];
+  const lowBandCount = scoreDistribution
+    .filter((bucket) => bucket.max_percentage <= 40)
+    .reduce((sum, bucket) => sum + bucket.count, 0);
+  const strongBandCount = scoreDistribution
+    .filter((bucket) => bucket.min_percentage >= 70)
+    .reduce((sum, bucket) => sum + bucket.count, 0);
+  const weakestSection =
+    selectedSummary?.section_performance?.reduce((lowest, section) => {
+      if (!lowest || section.accuracy_percentage < lowest.accuracy_percentage) {
+        return section;
+      }
+      return lowest;
+    }, null as TeacherResultSummary["section_performance"][number] | null) ?? null;
+  const strongestTopic =
+    topicRows.reduce((best, row) => {
+      if (!best || Number(row.percentage) > Number(best.percentage)) {
+        return row;
+      }
+      return best;
+    }, null as ResultsTopicRow | null) ?? null;
+  const weakestTopic =
+    topicRows.reduce((worst, row) => {
+      if (!worst || Number(row.percentage) < Number(worst.percentage)) {
+        return row;
+      }
+      return worst;
+    }, null as ResultsTopicRow | null) ?? null;
+  const timedAttempts = studentRows.filter((attempt) => (attempt.time_taken_seconds ?? 0) > 0);
+  const averageTimeTaken =
+    timedAttempts.length > 0
+      ? timedAttempts.reduce((sum, attempt) => sum + (attempt.time_taken_seconds ?? 0), 0) / timedAttempts.length
+      : 0;
+  const slowButAccurateCount = timedAttempts.filter(
+    (attempt) =>
+      Number(attempt.percentage) >= 60 && (attempt.time_taken_seconds ?? 0) > averageTimeTaken,
+  ).length;
+  const fastButErrorProneCount = timedAttempts.filter(
+    (attempt) =>
+      Number(attempt.percentage) < 50 && (attempt.time_taken_seconds ?? 0) > 0 && (attempt.time_taken_seconds ?? 0) < averageTimeTaken,
+  ).length;
+  const topRank = leaderboardRows[0] ?? null;
+  const thirdRank = leaderboardRows[2] ?? leaderboardRows[leaderboardRows.length - 1] ?? null;
+  const topRankGap =
+    topRank && thirdRank
+      ? Math.max(Number(topRank.percentage) - Number(thirdRank.percentage), 0)
+      : 0;
+  const strongestDistractor = distractorQualitySummary?.top_strong_distractors?.[0] ?? null;
+  const weakestCriterion = examRubricSummary?.weakest_criteria?.[0] ?? null;
+
+  if (familyCode === "school") {
+    return [
+      {
+        title: "Chapter mastery spread",
+        summary:
+          "Use topic and section evidence to decide which chapters can move forward and which need reteaching before the next class cycle.",
+        tone: lowBandCount > 0 || Number(weakestTopic?.percentage ?? 0) < 45 ? "statusWarning" : "statusLive",
+        metrics: [
+          { label: "Strong score bands", value: String(strongBandCount) },
+          { label: "Intervention score bands", value: String(lowBandCount) },
+          { label: "Weakest chapter", value: weakestTopic ? `${weakestTopic.topic_name || "Unmapped"} ${Math.round(Number(weakestTopic.percentage))}%` : "Pending" },
+        ],
+        callouts: [
+          weakestSection
+            ? `${weakestSection.section_name} is the weakest section at ${Math.round(weakestSection.accuracy_percentage)}% accuracy.`
+            : "Section performance evidence will appear once attempt volume exists.",
+          weakestTopic
+            ? `${weakestTopic.topic_name || "Unmapped topic"} is the current reteach hotspot.`
+            : "Topic-level mastery is still building.",
+        ],
+        actions: [
+          "Create reteach worksheets for the weakest chapter before the next classroom cycle.",
+          "Check whether weak sections reflect coverage gaps or only question wording issues.",
+        ],
+      },
+      {
+        title: "Intervention grouping",
+        summary:
+          "Separate the cohort into stable, watch, and urgent support lanes so teachers can act without reading every student individually.",
+        tone: lowBandCount > 0 ? "statusWarning" : "statusDemo",
+        metrics: [
+          { label: "Low performers", value: String(studentRows.filter((attempt) => Number(attempt.percentage) < 40).length) },
+          { label: "Skipped-heavy learners", value: String(studentRows.filter((attempt) => attempt.skipped_questions >= 2).length) },
+          { label: "Cohort in view", value: String(studentRows.length) },
+        ],
+        callouts: [
+          "Low-performing learners should move into teacher intervention or revision-homework lanes.",
+          "Skipped-heavy learners often need confidence-building, pacing help, or simpler first-step prompts.",
+        ],
+        actions: [
+          "Use the student explorer to isolate low performers and inspect question-wise evidence.",
+          "Map skipped-heavy learners against the weakest topics before assigning remediation.",
+        ],
+      },
+    ];
+  }
+
+  if (familyCode === "competitive") {
+    return [
+      {
+        title: "Rank readiness",
+        summary:
+          "Judge whether the cohort is separating cleanly enough for rank-style practice and whether the top lane is truly outperforming the rest.",
+        tone: topRankGap >= 10 ? "statusLive" : topRankGap >= 5 ? "statusDemo" : "statusWarning",
+        metrics: [
+          { label: "Top rank gap", value: `${Math.round(topRankGap)} pts` },
+          { label: "Urgent revision items", value: String(questionQualitySummary?.urgent_revision_candidates ?? 0) },
+          { label: "Skip-risk questions", value: String(questionQualitySummary?.high_skip_questions ?? 0) },
+        ],
+        callouts: [
+          topRank
+            ? `${topRank.student_name} is leading at ${Math.round(Number(topRank.percentage))}% in the visible leaderboard.`
+            : "Leaderboard evidence will appear once ranked results exist.",
+          "Weak rank separation often means the paper is not differentiating strategy and execution strongly enough.",
+        ],
+        actions: [
+          "Review urgent and skip-risk questions before using this paper as a benchmark mock.",
+          "Inspect whether top-rank separation is being blurred by ambiguous or overly easy items.",
+        ],
+      },
+      {
+        title: "Speed-pressure lane",
+        summary:
+          "Read time alongside accuracy to separate strategy issues from knowledge issues under test pressure.",
+        tone: fastButErrorProneCount > 0 || (questionQualitySummary?.high_skip_questions ?? 0) > 0 ? "statusWarning" : "statusDemo",
+        metrics: [
+          { label: "Slow but accurate", value: String(slowButAccurateCount) },
+          { label: "Fast but error-prone", value: String(fastButErrorProneCount) },
+          { label: "Average completion time", value: formatCompactSeconds(averageTimeTaken) },
+        ],
+        callouts: [
+          "Slow-but-accurate learners usually need pacing drills, not only concept revision.",
+          "Fast-but-error-prone learners often need attempt selection discipline and negative-marking awareness.",
+        ],
+        actions: [
+          "Use the student explorer to compare wrong-question patterns for fast-but-error-prone attempts.",
+          "Retune paper order or distractor quality if skip pressure remains high across the cohort.",
+        ],
+      },
+    ];
+  }
+
+  if (familyCode === "certification") {
+    return [
+      {
+        title: "Domain confidence",
+        summary:
+          "Treat topic rows as domain-readiness signals and check whether the exam is surfacing true service-selection judgment instead of recall-only performance.",
+        tone:
+          weakestTopic && Number(weakestTopic.percentage) < 50 ? "statusWarning" : "statusLive",
+        metrics: [
+          { label: "Strongest domain", value: strongestTopic ? `${strongestTopic.topic_name || "Unmapped"} ${Math.round(Number(strongestTopic.percentage))}%` : "Pending" },
+          { label: "Weakest domain", value: weakestTopic ? `${weakestTopic.topic_name || "Unmapped"} ${Math.round(Number(weakestTopic.percentage))}%` : "Pending" },
+          { label: "Healthy bank items", value: String(questionQualitySummary?.healthy_questions ?? 0) },
+        ],
+        callouts: [
+          strongestTopic
+            ? `${strongestTopic.topic_name || "Unmapped topic"} currently shows the best readiness signal.`
+            : "Topic evidence will strengthen once more attempts arrive.",
+          weakestTopic
+            ? `${weakestTopic.topic_name || "Unmapped topic"} needs domain reinforcement or clearer scenario framing.`
+            : "Weak-domain evidence is still emerging.",
+        ],
+        actions: [
+          "Use weak-domain topics to build follow-up labs, flashcards, or targeted practice sets.",
+          "Review whether scenario wording is matching real certification-style tradeoff decisions.",
+        ],
+      },
+      {
+        title: "Scenario trap analysis",
+        summary:
+          "Strong distractors are useful only when they expose real misconceptions, not when they overshadow the keyed answer unfairly.",
+        tone:
+          (distractorQualitySummary?.strong_distractors ?? 0) > 0 ||
+          (questionQualitySummary?.ambiguous_questions ?? 0) > 0
+            ? "statusWarning"
+            : "statusLive",
+        metrics: [
+          { label: "Strong distractors", value: String(distractorQualitySummary?.strong_distractors ?? 0) },
+          { label: "Key-review options", value: String(distractorQualitySummary?.key_review_options ?? 0) },
+          { label: "Ambiguous questions", value: String(questionQualitySummary?.ambiguous_questions ?? 0) },
+        ],
+        callouts: [
+          strongestDistractor
+            ? `Top misconception trap: ${strongestDistractor.option_text_summary}.`
+            : "No strong distractor hotspot is standing out yet.",
+          "Certification practice should reward judgment clarity, not confusion caused by weak answer-key separation.",
+        ],
+        actions: [
+          "Open the bank and revise high-pressure distractors that are trapping too many learners.",
+          "Recheck keyed answers on any question flagged for key review or ambiguity.",
+        ],
+      },
+    ];
+  }
+
+  if (familyCode === "language_proficiency") {
+    return [
+      {
+        title: "Skill-band evidence",
+        summary:
+          "Interpret performance through rubric-backed skill bands first, then use objective accuracy as supporting evidence rather than the whole story.",
+        tone:
+          weakestCriterion && weakestCriterion.average_percentage < 60 ? "statusWarning" : "statusDemo",
+        metrics: [
+          { label: "Reviewed responses", value: String(examRubricSummary?.reviewed_responses ?? 0) },
+          { label: "Tracked criteria", value: String(examRubricSummary?.criteria_count ?? 0) },
+          { label: "Weakest skill band", value: weakestCriterion ? `${weakestCriterion.criterion_label} ${weakestCriterion.average_percentage}%` : "Pending" },
+        ],
+        callouts: [
+          weakestCriterion
+            ? `${weakestCriterion.criterion_label} is the weakest visible criterion in reviewed responses.`
+            : "Rubric-backed evidence will appear once manual evaluation data accumulates.",
+          "Language outcomes should be read as evidence quality, not only answer correctness totals.",
+        ],
+        actions: [
+          "Inspect rubric-scored responses before drawing conclusions from objective sections alone.",
+          "Use the weakest criterion to plan speaking, writing, or reading-feedback interventions.",
+        ],
+      },
+      {
+        title: "Response burden and review flow",
+        summary:
+          "Check whether learners are straining against prompt load or whether the review pipeline is still too shallow to support confident proficiency reporting.",
+        tone:
+          (selectedSummary?.pending_review_tasks_count ?? 0) > 0 ||
+          studentRows.filter((attempt) => attempt.skipped_questions >= 2).length > 0
+            ? "statusWarning"
+            : "statusDemo",
+        metrics: [
+          { label: "Pending review tasks", value: String(selectedSummary?.pending_review_tasks_count ?? 0) },
+          { label: "Recheck tasks", value: String(selectedSummary?.recheck_review_tasks_count ?? 0) },
+          { label: "Skipped-heavy learners", value: String(studentRows.filter((attempt) => attempt.skipped_questions >= 2).length) },
+        ],
+        callouts: [
+          "Pending or recheck-heavy review queues weaken confidence in language proficiency reporting.",
+          "Skipped-heavy learners may be facing response fatigue, prompt overload, or delivery friction.",
+        ],
+        actions: [
+          "Review response formats, passage load, and manual-evaluation turnaround together.",
+          "Prioritize rubric completion before using the exam as a strong proficiency benchmark.",
+        ],
+      },
+    ];
+  }
+
+  return [
+    {
+      title: "Performance shape",
+      summary:
+        "Use the shared analytics lens to compare score distribution, topic pressure, and question risk before deciding what to fix first.",
+      tone: lowBandCount > 0 ? "statusDemo" : "statusLive",
+      metrics: [
+        { label: "Strong score bands", value: String(strongBandCount) },
+        { label: "Low score bands", value: String(lowBandCount) },
+        { label: "Weakest topic", value: weakestTopic ? weakestTopic.topic_name || "Unmapped" : "Pending" },
+      ],
+      callouts: [
+        weakestSection
+          ? `${weakestSection.section_name} is the weakest section right now.`
+          : "Section evidence is still building.",
+        "Use question risk, topic weakness, and student explorer together before revising the exam.",
+      ],
+      actions: [
+        "Start with high-risk questions and then validate whether the same topic weakness repeats at learner level.",
+        "Use the bank action queue to decide whether the next step is revision, reteaching, or monitoring.",
+      ],
+    },
+  ];
+}
+
+function buildFamilyPortfolioCards(
+  resultExamCards: Array<{ exam: ResultsExamCard; summary: TeacherResultSummary | null }>,
+): FamilyPortfolioCard[] {
+  const familyMap = new Map<
+    string,
+    {
+      familyCode: string;
+      familyLabel: string;
+      examCount: number;
+      trackedExamCount: number;
+      averagePercentageTotal: number;
+      highRiskCount: number;
+      pendingReviewTasks: number;
+      weakestExamTitle: string | null;
+      weakestExamPercentage: number | null;
+      strongestExamTitle: string | null;
+      strongestExamPercentage: number | null;
+    }
+  >();
+
+  for (const item of resultExamCards) {
+    const familyCode = item.exam.experience_profile?.assessment_family ?? "general";
+    const familyLabel = item.exam.experience_profile?.assessment_family_label ?? "General";
+    const current =
+      familyMap.get(familyCode) ??
+      {
+        familyCode,
+        familyLabel,
+        examCount: 0,
+        trackedExamCount: 0,
+        averagePercentageTotal: 0,
+        highRiskCount: 0,
+        pendingReviewTasks: 0,
+        weakestExamTitle: null,
+        weakestExamPercentage: null,
+        strongestExamTitle: null,
+        strongestExamPercentage: null,
+      };
+
+    current.examCount += 1;
+    if (item.summary) {
+      const averagePercentage = Number(item.summary.average_percentage);
+      current.trackedExamCount += 1;
+      current.averagePercentageTotal += Number.isFinite(averagePercentage) ? averagePercentage : 0;
+      current.pendingReviewTasks += item.summary.pending_review_tasks_count ?? 0;
+      if (item.summary.review_release_risk?.level === "high") {
+        current.highRiskCount += 1;
+      }
+      if (
+        current.weakestExamPercentage === null ||
+        averagePercentage < current.weakestExamPercentage
+      ) {
+        current.weakestExamTitle = item.exam.title;
+        current.weakestExamPercentage = averagePercentage;
+      }
+      if (
+        current.strongestExamPercentage === null ||
+        averagePercentage > current.strongestExamPercentage
+      ) {
+        current.strongestExamTitle = item.exam.title;
+        current.strongestExamPercentage = averagePercentage;
+      }
+    }
+
+    familyMap.set(familyCode, current);
+  }
+
+  return Array.from(familyMap.values())
+    .map((item) => {
+      const averagePercentage =
+        item.trackedExamCount > 0 ? Math.round(item.averagePercentageTotal / item.trackedExamCount) : 0;
+      const tone: WorkflowTone =
+        item.highRiskCount > 0
+          ? "statusWarning"
+          : averagePercentage >= 65
+            ? "statusLive"
+            : averagePercentage >= 45
+              ? "statusDemo"
+              : "statusWarning";
+      const primaryConcern =
+        item.highRiskCount > 0
+          ? `${item.highRiskCount} high-risk exam${item.highRiskCount === 1 ? "" : "s"} in this family need release attention.`
+          : item.pendingReviewTasks > 0
+            ? `${item.pendingReviewTasks} pending review task${item.pendingReviewTasks === 1 ? "" : "s"} are still open in this family.`
+            : item.weakestExamTitle
+              ? `${item.weakestExamTitle} is the weakest visible exam in this family.`
+              : "Live summary coverage is still building for this family.";
+
+      return {
+        familyCode: item.familyCode,
+        familyLabel: item.familyLabel,
+        examCount: item.examCount,
+        trackedExamCount: item.trackedExamCount,
+        averagePercentage,
+        highRiskCount: item.highRiskCount,
+        pendingReviewTasks: item.pendingReviewTasks,
+        weakestExamTitle: item.weakestExamTitle,
+        weakestExamPercentage: item.weakestExamPercentage,
+        strongestExamTitle: item.strongestExamTitle,
+        strongestExamPercentage: item.strongestExamPercentage,
+        primaryConcern,
+        tone,
+      };
+    })
+    .sort((left, right) => {
+      if (right.highRiskCount !== left.highRiskCount) {
+        return right.highRiskCount - left.highRiskCount;
+      }
+      if (left.averagePercentage !== right.averagePercentage) {
+        return left.averagePercentage - right.averagePercentage;
+      }
+      return left.familyLabel.localeCompare(right.familyLabel);
+    });
+}
+
+function isManualReviewRow(row: {
+  evaluation_status: string;
+  question_type: string;
+}) {
+  return (
+    row.evaluation_status === "manual_pending" ||
+    row.evaluation_status === "manual_reviewed" ||
+    row.question_type === "essay_manual_review"
+  );
+}
+
+function manualReviewStatusLabel(status: string) {
+  if (status === "manual_reviewed") return "Manually reviewed";
+  if (status === "manual_pending") return "Manual review pending";
+  return "Awaiting manual review";
+}
+
+function manualReviewStatusTone(status: string) {
+  if (status === "manual_reviewed") return "statusLive";
+  if (status === "manual_pending") return "statusWarning";
+  return "statusDemo";
 }
 
 function attemptTone(alertSeverity: string | undefined) {
@@ -287,6 +1095,23 @@ function resultReadinessState(args: {
     };
   }
 
+  if ((args.selectedSummary.pending_review_tasks_count ?? 0) > 0) {
+    const pendingCount = args.selectedSummary.pending_review_tasks_count ?? 0;
+    const reviewRisk = args.selectedSummary.review_release_risk;
+    return {
+      label:
+        reviewRisk?.level === "high"
+          ? "High release risk"
+          : reviewRisk?.level === "medium"
+            ? "Medium release risk"
+            : "Blocked by review queue",
+      note: reviewRisk?.summary
+        ? `${reviewRisk.summary} ${pendingCount} manual review task${pendingCount === 1 ? "" : "s"} remain unresolved.`
+        : `${pendingCount} manual review task${pendingCount === 1 ? "" : "s"} must be resolved before results can be published.`,
+      tone: reviewRiskTone(reviewRisk?.level),
+    };
+  }
+
   if (!args.canPublishResults) {
     return {
       label: "Awaiting exam completion",
@@ -302,9 +1127,117 @@ function resultReadinessState(args: {
   };
 }
 
+function buildResultReadinessSnapshot(args: {
+  selectedSummary: TeacherResultSummary | null;
+  resultsPublished: boolean;
+  canPublishResults: boolean;
+  attemptsCount: number;
+  evaluatedResults: number;
+  rankedLeaderboardReady: boolean;
+  selectedPendingCount: number;
+}) {
+  const {
+    selectedSummary,
+    resultsPublished,
+    canPublishResults,
+    attemptsCount,
+    evaluatedResults,
+    rankedLeaderboardReady,
+    selectedPendingCount,
+  } = args;
+  const blockers: string[] = [];
+  const pendingDependencies: string[] = [];
+  const readySignals: string[] = [];
+
+  if (attemptsCount > 0) {
+    readySignals.push(`${attemptsCount} submitted attempt${attemptsCount === 1 ? "" : "s"} found.`);
+  } else {
+    blockers.push("No submitted attempts are available yet.");
+  }
+
+  if (selectedSummary) {
+    readySignals.push("Result summary already exists for this exam.");
+  } else {
+    blockers.push("Result summary has not been generated yet.");
+  }
+
+  if (evaluatedResults > 0) {
+    readySignals.push(`${evaluatedResults} evaluated result${evaluatedResults === 1 ? "" : "s"} available.`);
+  } else if (selectedSummary) {
+    pendingDependencies.push("Summary exists, but evaluated results are still not visible.");
+  }
+
+  if (rankedLeaderboardReady) {
+    readySignals.push("Leaderboard ranks are already calculated.");
+  } else if (selectedSummary) {
+    pendingDependencies.push("Ranks have not been calculated yet.");
+  }
+
+  const pendingReviewTasks = selectedSummary?.pending_review_tasks_count ?? 0;
+  const recheckReviewTasks = selectedSummary?.recheck_review_tasks_count ?? 0;
+  const reviewRisk = selectedSummary?.review_release_risk;
+  if (pendingReviewTasks > 0) {
+    blockers.push(
+      `${pendingReviewTasks} manual review task${pendingReviewTasks === 1 ? "" : "s"} still block publication.`,
+    );
+    if (reviewRisk?.level && reviewRisk.level !== "none") {
+      pendingDependencies.push(
+        `${reviewRisk.label} · oldest unresolved work is ${formatHoursCompact(reviewRisk.oldest_open_hours)} old.`,
+      );
+    }
+  } else if (selectedSummary) {
+    readySignals.push("No manual review tasks are blocking publication.");
+  }
+
+  if (recheckReviewTasks > 0) {
+    pendingDependencies.push(
+      `${recheckReviewTasks} recheck task${recheckReviewTasks === 1 ? "" : "s"} still need closure.`,
+    );
+  }
+
+  if (canPublishResults) {
+    readySignals.push("Exam lifecycle is already completed.");
+  } else {
+    blockers.push("Exam lifecycle is not completed yet.");
+  }
+
+  if (selectedPendingCount > 0) {
+    pendingDependencies.push(
+      `${selectedPendingCount} submission${selectedPendingCount === 1 ? "" : "s"} still sit outside passed or failed outcomes.`,
+    );
+  }
+
+  if (resultsPublished) {
+    readySignals.push("Student-visible publication is already active.");
+  }
+
+  let headline = "Blocked";
+  let summary = "Resolve the blockers below before publishing results.";
+
+  if (resultsPublished) {
+    headline = "Published";
+    summary = "This exam has already crossed the publication line and is visible to students.";
+  } else if (blockers.length === 0 && pendingDependencies.length === 0) {
+    headline = "Ready to publish";
+    summary = "Lifecycle, summary, evaluation, and review states are aligned for publication.";
+  } else if (blockers.length === 0) {
+    headline = "Almost ready";
+    summary = "No hard blocker remains, but a few operational steps are still worth finishing first.";
+  }
+
+  return {
+    headline,
+    summary,
+    blockers,
+    pendingDependencies,
+    readySignals,
+  };
+}
+
 function examPublicationState(summary: TeacherResultSummary | null) {
   if (!summary) return { label: "No summary", tone: "statusWarning" };
   if (summary.results_published) return { label: "Published", tone: "statusLive" };
+  if (summary.review_blocked) return { label: "Review blocked", tone: "statusWarning" };
   if (summary.published_results_count > 0) return { label: "Partially published", tone: "statusDemo" };
   return { label: "Summary ready", tone: "statusDemo" };
 }
@@ -313,6 +1246,9 @@ function resolveExamFilter(value?: string): ResultExamFilter {
   switch (value) {
     case "published":
     case "ready":
+    case "review_blocked":
+    case "high_risk":
+    case "medium_risk":
     case "live":
     case "draft":
       return value;
@@ -325,6 +1261,7 @@ function resolveExamSort(value?: string): ResultExamSort {
   switch (value) {
     case "attempts":
     case "average":
+    case "release_risk":
     case "title":
       return value;
     default:
@@ -335,6 +1272,7 @@ function resolveExamSort(value?: string): ResultExamSort {
 function resolveExamGroup(value?: string): ResultExamGroup {
   switch (value) {
     case "publication":
+    case "release_risk":
     case "status":
       return value;
     default:
@@ -460,6 +1398,12 @@ function filterResultExamCards(
         return Boolean(summary?.results_published);
       case "ready":
         return Boolean(summary) && summary?.results_published !== true;
+      case "review_blocked":
+        return Boolean(summary?.review_blocked);
+      case "high_risk":
+        return summary?.review_release_risk?.level === "high";
+      case "medium_risk":
+        return summary?.review_release_risk?.level === "medium";
       case "live":
         return exam.status === "live";
       case "draft":
@@ -481,6 +1425,13 @@ function sortResultExamCards(
         return (right.summary?.total_attempted ?? 0) - (left.summary?.total_attempted ?? 0);
       case "average":
         return Number(right.summary?.average_percentage ?? 0) - Number(left.summary?.average_percentage ?? 0);
+      case "release_risk": {
+        const riskDelta =
+          reviewRiskPriority(right.summary?.review_release_risk?.level) -
+          reviewRiskPriority(left.summary?.review_release_risk?.level);
+        if (riskDelta !== 0) return riskDelta;
+        return (right.summary?.pending_review_tasks_count ?? 0) - (left.summary?.pending_review_tasks_count ?? 0);
+      }
       case "title":
         return left.exam.title.localeCompare(right.exam.title);
       case "latest":
@@ -499,6 +1450,7 @@ function buildResultExamGroupLabel(
   groupBy: ResultExamGroup,
 ) {
   if (groupBy === "publication") return examPublicationState(card.summary).label;
+  if (groupBy === "release_risk") return card.summary?.review_release_risk?.label ?? "No review risk";
   if (groupBy === "status") return card.exam.status.replaceAll("_", " ");
   return "Exams";
 }
@@ -538,6 +1490,7 @@ function buildResultWorkflow(args: {
   evaluatedResults: number;
   rankedLeaderboardReady: boolean;
   examBasePath: string;
+  reviewsBasePath: string;
 }) {
   const {
     selectedExamId,
@@ -550,9 +1503,13 @@ function buildResultWorkflow(args: {
     evaluatedResults,
     rankedLeaderboardReady,
     examBasePath,
+    reviewsBasePath,
   } = args;
 
   const examHref = `${examBasePath}/${selectedExamId}`;
+  const pendingReviewTasks = selectedSummary?.pending_review_tasks_count ?? 0;
+  const recheckReviewTasks = selectedSummary?.recheck_review_tasks_count ?? 0;
+  const reviewRisk = selectedSummary?.review_release_risk;
 
   const lifecycleStep: ResultWorkflowStep = canPublishResults
     ? {
@@ -738,6 +1695,37 @@ function buildResultWorkflow(args: {
           completed: false,
           blocked: true,
         }
+      : pendingReviewTasks > 0
+        ? {
+            id: "publish",
+            title: "Publish results",
+            statusLabel:
+              reviewRisk?.level === "high"
+                ? "High release risk"
+                : recheckReviewTasks > 0
+                  ? "Blocked by recheck"
+                  : "Blocked by review queue",
+            tone: reviewRiskTone(reviewRisk?.level),
+            detail: `${pendingReviewTasks} unresolved manual review task${
+              pendingReviewTasks === 1 ? "" : "s"
+            } still protect this exam from publication.${recheckReviewTasks > 0 ? ` ${recheckReviewTasks} task${recheckReviewTasks === 1 ? " is" : "s are"} waiting on recheck.` : ""}${
+              reviewRisk && reviewRisk.level !== "none"
+                ? ` ${reviewRisk.summary} Oldest unresolved work is ${formatHoursCompact(reviewRisk.oldest_open_hours)} old.`
+                : ""
+            }`,
+            helper:
+              reviewRisk?.level === "high"
+                ? "Clear the oldest or recheck-heavy review tasks first, then return here to publish confidently."
+                : "Resolve review tasks in the review queue first, then return here to publish confidently.",
+            action: {
+              kind: "link",
+              label: "Open Review Queue",
+              href: reviewsBasePath,
+              variant: "buttonSecondary",
+            },
+            completed: false,
+            blocked: true,
+          }
       : !canPublishResults
         ? {
             id: "publish",
@@ -928,6 +1916,122 @@ async function runResultsAttemptInterventionNoteAction(formData: FormData) {
   );
 }
 
+async function runResultsManualReviewAction(formData: FormData) {
+  "use server";
+
+  const role = String(formData.get("role") ?? "").trim() as ResultsWorkspaceRole;
+  const examId = String(formData.get("exam_id") ?? "").trim();
+  const attemptId = String(formData.get("attempt_id") ?? "").trim();
+  const answerId = String(formData.get("answer_id") ?? "").trim();
+  const reviewTaskId = String(formData.get("review_task_id") ?? "").trim();
+  const marksAwarded = String(formData.get("marks_awarded") ?? "").trim();
+  const reviewNotes = String(formData.get("review_notes") ?? "").trim();
+  const rubricScoresRaw = String(formData.get("rubric_scores_json") ?? "").trim();
+  const attemptFilter = String(formData.get("attempt_filter") ?? "all").trim();
+  const attemptSort = String(formData.get("attempt_sort") ?? "latest").trim();
+  const questionFilter = String(formData.get("question_filter") ?? "all").trim();
+  const studentQuestionFilter = String(formData.get("student_question_filter") ?? "all").trim();
+  const studentQuestionSearch = String(formData.get("student_question_search") ?? "").trim();
+  const safeRole = role === "teacher" ? "teacher" : "institute";
+  const returnPath = resolveReturnPath(formData, safeRole);
+
+  await requireResultsSession(safeRole);
+
+  if (!examId || !attemptId || !answerId || !marksAwarded) {
+    redirect(
+      `${returnPath}?exam=${encodeURIComponent(examId)}&attempt=${encodeURIComponent(
+        attemptId,
+      )}&attempt_filter=${encodeURIComponent(attemptFilter)}&attempt_sort=${encodeURIComponent(
+        attemptSort,
+      )}&question_filter=${encodeURIComponent(questionFilter)}&student_question_filter=${encodeURIComponent(
+        studentQuestionFilter,
+      )}&student_question_search=${encodeURIComponent(studentQuestionSearch)}&error=${encodeURIComponent(
+        "Manual review context is missing.",
+      )}`,
+    );
+  }
+
+  let rubricScores:
+    | Array<{
+        criterion_key: string;
+        awarded_score: string;
+        note?: string;
+      }>
+    | undefined;
+
+  if (rubricScoresRaw) {
+    try {
+      const parsed = JSON.parse(rubricScoresRaw) as Array<Record<string, unknown>>;
+      if (Array.isArray(parsed)) {
+        rubricScores = parsed.map((item) => ({
+          criterion_key: String(item.criterion_key ?? "").trim(),
+          awarded_score: String(item.awarded_score ?? "").trim(),
+          note: String(item.note ?? "").trim(),
+        }));
+      }
+    } catch {
+      redirect(
+        `${returnPath}?exam=${encodeURIComponent(examId)}&attempt=${encodeURIComponent(
+          attemptId,
+        )}&attempt_filter=${encodeURIComponent(attemptFilter)}&attempt_sort=${encodeURIComponent(
+          attemptSort,
+        )}&question_filter=${encodeURIComponent(questionFilter)}&student_question_filter=${encodeURIComponent(
+          studentQuestionFilter,
+        )}&student_question_search=${encodeURIComponent(studentQuestionSearch)}&error=${encodeURIComponent(
+          "Rubric score data is invalid.",
+        )}`,
+      );
+    }
+  }
+
+  try {
+    if (reviewTaskId) {
+      if (safeRole === "teacher") {
+        await submitTeacherReviewTask(reviewTaskId, {
+          marks_awarded: marksAwarded,
+          review_notes: reviewNotes,
+          rubric_scores: rubricScores,
+        });
+      } else {
+        await moderatePortalReviewTask(reviewTaskId, {
+          marks_awarded: marksAwarded,
+          review_notes: reviewNotes,
+          rubric_scores: rubricScores,
+        });
+      }
+    } else {
+      await manualReviewTeacherAnswer(answerId, {
+        marks_awarded: marksAwarded,
+        review_notes: reviewNotes,
+      });
+    }
+  } catch (error) {
+    unstable_rethrow(error);
+    const message = error instanceof Error && error.message ? error.message : "Unable to save the manual review.";
+    redirect(
+      `${returnPath}?exam=${encodeURIComponent(examId)}&attempt=${encodeURIComponent(
+        attemptId,
+      )}&attempt_filter=${encodeURIComponent(attemptFilter)}&attempt_sort=${encodeURIComponent(
+        attemptSort,
+      )}&question_filter=${encodeURIComponent(questionFilter)}&student_question_filter=${encodeURIComponent(
+        studentQuestionFilter,
+      )}&student_question_search=${encodeURIComponent(studentQuestionSearch)}&error=${encodeURIComponent(message)}`,
+    );
+  }
+
+  redirect(
+    `${returnPath}?exam=${encodeURIComponent(examId)}&attempt=${encodeURIComponent(
+      attemptId,
+    )}&attempt_filter=${encodeURIComponent(attemptFilter)}&attempt_sort=${encodeURIComponent(
+      attemptSort,
+    )}&question_filter=${encodeURIComponent(questionFilter)}&student_question_filter=${encodeURIComponent(
+      studentQuestionFilter,
+    )}&student_question_search=${encodeURIComponent(studentQuestionSearch)}&message=${encodeURIComponent(
+      "Manual review saved successfully.",
+    )}`,
+  );
+}
+
 async function runResultsExamLifecycleAction(formData: FormData) {
   "use server";
 
@@ -967,6 +2071,7 @@ type WorkspaceContext = {
   config: ResultsWorkspaceConfig;
   view: ResultsWorkspaceView;
   currentPath: string;
+  resultExamCards: Array<{ exam: ResultsExamCard; summary: TeacherResultSummary | null }>;
   selectedExam: ResultsExamCard;
   selectedSummary: TeacherResultSummary | null;
   selectedAttempt: ResultsAttempt | null;
@@ -1008,6 +2113,7 @@ type WorkspaceContext = {
   attemptQuestionAnalysisData: Awaited<ReturnType<typeof fetchTeacherAttemptQuestionAnalysis>>;
   monitor: Awaited<ReturnType<typeof fetchTeacherLiveExamMonitor>> | null;
   readiness: ReturnType<typeof resultReadinessState>;
+  readinessSnapshot: ResultReadinessSnapshot;
   workflowSteps: ResultWorkflowStep[];
   recommendedWorkflowStep: ResultWorkflowStep | null;
   canRefreshLifecycle: boolean;
@@ -1018,6 +2124,8 @@ type WorkspaceContext = {
   totalFailed: number;
   averageAcrossExams: number;
   selectedPendingCount: number;
+  selectedReviewBlockCount: number;
+  selectedRecheckCount: number;
   attemptsByHealth: Record<AttemptHealth, number>;
   interventionQueue: ResultsAttempt[];
   criticalAttempts: ResultsAttempt[];
@@ -1158,6 +2266,9 @@ function renderExamSidebar(context: WorkspaceContext) {
             <option value="all">All exams</option>
             <option value="published">Published</option>
             <option value="ready">Ready to publish</option>
+            <option value="review_blocked">Review blocked</option>
+            <option value="high_risk">High release risk</option>
+            <option value="medium_risk">Medium release risk</option>
             <option value="live">Live exams</option>
             <option value="draft">Draft exams</option>
           </select>
@@ -1168,6 +2279,7 @@ function renderExamSidebar(context: WorkspaceContext) {
             <option value="latest">Latest activity</option>
             <option value="attempts">Most attempts</option>
             <option value="average">Highest average</option>
+            <option value="release_risk">Highest release risk</option>
             <option value="title">Title A-Z</option>
           </select>
         </label>
@@ -1176,6 +2288,7 @@ function renderExamSidebar(context: WorkspaceContext) {
           <select defaultValue={examListGroup} name="exam_list_group">
             <option value="none">No grouping</option>
             <option value="publication">Publication state</option>
+            <option value="release_risk">Release risk</option>
             <option value="status">Exam status</option>
           </select>
         </label>
@@ -1272,6 +2385,20 @@ function renderExamSidebar(context: WorkspaceContext) {
                         <span className={`statusPill ${publication.tone}`}>{publication.label}</span>
                       </div>
 
+                      <div className="questionBankTagRow">
+                        <span className={`statusPill ${assessmentFamilyTone(exam.experience_profile?.assessment_family)}`}>
+                          {exam.experience_profile?.assessment_family_label ?? "General"}
+                        </span>
+                        <span className="questionBankTagChip">
+                          {normalizeLabel(exam.experience_profile?.delivery_emphasis) || "balanced delivery"}
+                        </span>
+                        {summary?.review_release_risk?.level && summary.review_release_risk.level !== "none" ? (
+                          <span className={`statusPill ${reviewRiskTone(summary.review_release_risk.level)}`}>
+                            {summary.review_release_risk.label}
+                          </span>
+                        ) : null}
+                      </div>
+
                       <div className="resultKpiGrid">
                         <div>
                           <span>Attempts</span>
@@ -1288,6 +2415,10 @@ function renderExamSidebar(context: WorkspaceContext) {
                         <div>
                           <span>Highest</span>
                           <strong>{summary?.highest_score ?? "N/A"}</strong>
+                        </div>
+                        <div>
+                          <span>Risk age</span>
+                          <strong>{formatHoursCompact(summary?.review_release_risk?.oldest_open_hours ?? 0)}</strong>
                         </div>
                       </div>
                     </Link>
@@ -1369,19 +2500,28 @@ function renderOverviewView(context: WorkspaceContext) {
   const {
     config,
     currentPath,
+    resultExamCards,
     selectedExam,
     selectedSummary,
     readiness,
+    readinessSnapshot,
     workflowSteps,
     recommendedWorkflowStep,
     canRefreshLifecycle,
     resultsPublished,
     evaluatedResults,
     selectedPendingCount,
+    selectedReviewBlockCount,
+    selectedRecheckCount,
     latestPublishLog,
     examLifecycleStatus,
     baseHrefArgs,
   } = context;
+  const assessmentLens = resolveAssessmentAnalyticsLens(selectedExam);
+  const familyPortfolioCards = buildFamilyPortfolioCards(resultExamCards);
+  const scoreDistribution = selectedSummary?.score_distribution ?? [];
+  const sectionPerformance = selectedSummary?.section_performance ?? [];
+  const reviewReleaseRisk = selectedSummary?.review_release_risk;
 
   return (
     <>
@@ -1409,6 +2549,11 @@ function renderOverviewView(context: WorkspaceContext) {
             <span className="statusPill statusLive">
               Updated {formatDateTime(selectedSummary?.last_calculated_at ?? selectedExam.updated_at)}
             </span>
+            {reviewReleaseRisk && reviewReleaseRisk.level !== "none" ? (
+              <span className={`statusPill ${reviewRiskTone(reviewReleaseRisk.level)}`}>
+                {reviewReleaseRisk.label}
+              </span>
+            ) : null}
           </div>
         </div>
 
@@ -1432,7 +2577,284 @@ function renderOverviewView(context: WorkspaceContext) {
               {context.attemptsPageData.summary.total_attempts} attempts total
             </span>
             <span className="statusPill statusLive">{evaluatedResults} evaluated</span>
+            {selectedReviewBlockCount > 0 ? (
+              <span className="statusPill statusWarning">
+                {selectedReviewBlockCount} review blocker{selectedReviewBlockCount === 1 ? "" : "s"}
+              </span>
+            ) : null}
+            {selectedRecheckCount > 0 ? (
+              <span className="statusPill statusDemo">
+                {selectedRecheckCount} recheck pending
+              </span>
+            ) : null}
           </div>
+        </div>
+
+        <div className="teacherResultsReadinessBoard">
+          <article className="teacherResultsReadinessHero">
+            <span className="studentDashboardTag">Assessment lens</span>
+            <strong>{assessmentLens.familyLabel} profile</strong>
+            <p>{assessmentLens.summary}</p>
+            <div className="questionBankTagRow">
+              <span className={`statusPill ${assessmentFamilyTone(assessmentLens.familyCode)}`}>
+                {assessmentLens.familyLabel}
+              </span>
+              <span className="questionBankTagChip">Delivery: {assessmentLens.deliveryModeLabel}</span>
+              <span className="questionBankTagChip">Timer: {assessmentLens.timerModeLabel}</span>
+              <span className="questionBankTagChip">Navigation: {assessmentLens.navigationModeLabel}</span>
+            </div>
+          </article>
+
+          <article className="teacherResultsReadinessCard">
+            <div className="teacherResultsReadinessCardTop">
+              <strong>Read the data through</strong>
+              <span className={`statusPill ${assessmentFamilyTone(assessmentLens.familyCode)}`}>
+                {assessmentLens.focusAreas.length}
+              </span>
+            </div>
+            <ul>
+              {assessmentLens.focusAreas.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </article>
+
+          <article className="teacherResultsReadinessCard">
+            <div className="teacherResultsReadinessCardTop">
+              <strong>Creator guidance</strong>
+              <span className="statusPill statusDemo">Builder aligned</span>
+            </div>
+            <p>{assessmentLens.creatorSummary || "Builder guidance is aligned from the exam and program profile."}</p>
+          </article>
+
+          <article className="teacherResultsReadinessCard teacherResultsReadinessCardReady">
+            <div className="teacherResultsReadinessCardTop">
+              <strong>Learner experience</strong>
+              <span className="statusPill statusLive">{assessmentLens.deliveryEmphasis}</span>
+            </div>
+            <p>{assessmentLens.learnerSummary || "Learner delivery guidance is available through the exam experience profile."}</p>
+          </article>
+        </div>
+
+        <div className="teacherResultsReadinessBoard">
+          <article className="teacherResultsReadinessHero">
+            <span className="studentDashboardTag">Score distribution</span>
+            <strong>
+              {scoreDistribution.length
+                ? "See how learners are spread across score bands, not just average score."
+                : "Distribution will appear once results are generated for this exam."}
+            </strong>
+            <p>
+              Distribution is the first Phase 6 analytics lens. It helps identify whether a low average means broad weakness,
+              a polarized cohort, or just a handful of struggling learners.
+            </p>
+          </article>
+
+          <article className="teacherResultsReadinessCard">
+            <div className="teacherResultsReadinessCardTop">
+              <strong>Score bands</strong>
+              <span className="statusPill statusLive">{scoreDistribution.length}</span>
+            </div>
+            {scoreDistribution.length ? (
+              <div className="analyticsResultBarStack">
+                {scoreDistribution.map((bucket) => (
+                  <div className="analyticsResultBarRow" key={bucket.label}>
+                    <div className="analyticsResultBarMeta">
+                      <strong>{bucket.label}</strong>
+                      <span>{bucket.count} learner{bucket.count === 1 ? "" : "s"}</span>
+                    </div>
+                    <div className="analyticsResultBarTrack">
+                      <div
+                        className="analyticsResultBarFill"
+                        style={{ width: `${Math.max(4, Math.min(bucket.percentage_share, 100))}%` }}
+                      />
+                    </div>
+                    <strong>{Math.round(bucket.percentage_share)}%</strong>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p>No score buckets are available yet.</p>
+            )}
+          </article>
+
+          <article className="teacherResultsReadinessCard teacherResultsReadinessCardReady">
+            <div className="teacherResultsReadinessCardTop">
+              <strong>Section performance</strong>
+              <span className="statusPill statusDemo">{sectionPerformance.length}</span>
+            </div>
+            {sectionPerformance.length ? (
+              <div className="analyticsResultBarStack">
+                {sectionPerformance.slice(0, 4).map((section) => (
+                  <div className="analyticsResultBarRow" key={section.section_id ?? section.section_name}>
+                    <div className="analyticsResultBarMeta">
+                      <strong>{section.section_name}</strong>
+                      <span>{section.total_questions} question{section.total_questions === 1 ? "" : "s"}</span>
+                    </div>
+                    <div className="analyticsResultBarTrack">
+                      <div
+                        className="analyticsResultBarFill"
+                        style={{ width: `${Math.max(4, Math.min(section.accuracy_percentage, 100))}%` }}
+                      />
+                    </div>
+                    <strong>{Math.round(section.accuracy_percentage)}%</strong>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p>No section summaries are available for this exam yet.</p>
+            )}
+          </article>
+
+          <article className="teacherResultsReadinessCard">
+            <div className="teacherResultsReadinessCardTop">
+              <strong>Fastest weak spot</strong>
+              <span className="statusPill statusWarning">Phase 6</span>
+            </div>
+            {sectionPerformance.length ? (
+              <>
+                <strong>
+                  {sectionPerformance
+                    .slice()
+                    .sort((left, right) => left.accuracy_percentage - right.accuracy_percentage)[0]?.section_name ?? "N/A"}
+                </strong>
+                <p>
+                  Lowest accuracy section with{" "}
+                  {Math.round(
+                    sectionPerformance
+                      .slice()
+                      .sort((left, right) => left.accuracy_percentage - right.accuracy_percentage)[0]
+                      ?.accuracy_percentage ?? 0,
+                  )}
+                  % accuracy and{" "}
+                  {Math.round(
+                    sectionPerformance
+                      .slice()
+                      .sort((left, right) => right.skip_percentage - left.skip_percentage)[0]
+                      ?.skip_percentage ?? 0,
+                  )}
+                  % skip pressure in the weakest visible section.
+                </p>
+              </>
+            ) : (
+              <p>Section-level weakness indicators will appear after answer data is available.</p>
+            )}
+          </article>
+        </div>
+
+        <div className="teacherResultsReadinessBoard">
+          <article className="teacherResultsReadinessHero">
+            <span className="studentDashboardTag">Family portfolio</span>
+            <strong>
+              Compare readiness, release pressure, and average performance across every assessment family in scope.
+            </strong>
+            <p>
+              This expands the family lens beyond one exam. Use it to decide which family needs the next builder cleanup,
+              review attention, or coaching intervention first.
+            </p>
+          </article>
+
+          {familyPortfolioCards.slice(0, 3).map((family) => (
+            <article className="teacherResultsReadinessCard" key={family.familyCode}>
+              <div className="teacherResultsReadinessCardTop">
+                <strong>{family.familyLabel}</strong>
+                <span className={`statusPill ${family.tone}`}>{family.averagePercentage}% avg</span>
+              </div>
+              <div className="resultKpiGrid">
+                <div>
+                  <span>Exams</span>
+                  <strong>{family.examCount}</strong>
+                </div>
+                <div>
+                  <span>Tracked</span>
+                  <strong>{family.trackedExamCount}</strong>
+                </div>
+                <div>
+                  <span>High risk</span>
+                  <strong>{family.highRiskCount}</strong>
+                </div>
+                <div>
+                  <span>Pending review</span>
+                  <strong>{family.pendingReviewTasks}</strong>
+                </div>
+              </div>
+              <p>{family.primaryConcern}</p>
+              <div className="questionBankTagRow">
+                {family.strongestExamTitle ? (
+                  <span className="questionBankTagChip">
+                    Strongest: {family.strongestExamTitle}
+                    {typeof family.strongestExamPercentage === "number"
+                      ? ` ${Math.round(family.strongestExamPercentage)}%`
+                      : ""}
+                  </span>
+                ) : null}
+                {family.weakestExamTitle ? (
+                  <span className="questionBankTagChip">
+                    Weakest: {family.weakestExamTitle}
+                    {typeof family.weakestExamPercentage === "number"
+                      ? ` ${Math.round(family.weakestExamPercentage)}%`
+                      : ""}
+                  </span>
+                ) : null}
+              </div>
+            </article>
+          ))}
+        </div>
+
+        <div className="teacherResultsReadinessBoard">
+          <article className="teacherResultsReadinessHero">
+            <span className="studentDashboardTag">Publication readiness</span>
+            <strong>{readinessSnapshot.headline}</strong>
+            <p>{readinessSnapshot.summary}</p>
+          </article>
+
+          <article className="teacherResultsReadinessCard teacherResultsReadinessCardBlocked">
+            <div className="teacherResultsReadinessCardTop">
+              <strong>Hard blockers</strong>
+              <span className="statusPill statusWarning">{readinessSnapshot.blockers.length}</span>
+            </div>
+            {readinessSnapshot.blockers.length ? (
+              <ul>
+                {readinessSnapshot.blockers.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            ) : (
+              <p>No blocker is currently stopping publication.</p>
+            )}
+          </article>
+
+          <article className="teacherResultsReadinessCard">
+            <div className="teacherResultsReadinessCardTop">
+              <strong>Still to verify</strong>
+              <span className="statusPill statusDemo">{readinessSnapshot.pendingDependencies.length}</span>
+            </div>
+            {readinessSnapshot.pendingDependencies.length ? (
+              <ul>
+                {readinessSnapshot.pendingDependencies.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            ) : (
+              <p>No extra dependency is waiting right now.</p>
+            )}
+          </article>
+
+          <article className="teacherResultsReadinessCard teacherResultsReadinessCardReady">
+            <div className="teacherResultsReadinessCardTop">
+              <strong>Already ready</strong>
+              <span className="statusPill statusLive">{readinessSnapshot.readySignals.length}</span>
+            </div>
+            {readinessSnapshot.readySignals.length ? (
+              <ul>
+                {readinessSnapshot.readySignals.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            ) : (
+              <p>No readiness signal has been established yet.</p>
+            )}
+          </article>
         </div>
 
         <div className="teacherWorkflowGrid">
@@ -1498,6 +2920,9 @@ function renderOverviewView(context: WorkspaceContext) {
           <Link className="button buttonGhost" href={`${config.examBasePath}/${selectedExam.id}/builder`}>
             Open Builder
           </Link>
+          <Link className="button buttonGhost" href={`${config.reviewsBasePath}?exam=${selectedExam.id}`}>
+            Open Reviews
+          </Link>
           <Link className="button buttonGhost" href={config.questionBankPath}>
             Inspect Question Bank
           </Link>
@@ -1510,7 +2935,7 @@ function renderOverviewView(context: WorkspaceContext) {
         </div>
       </section>
 
-      <section className="resultsSummaryGrid teacherResultsStatsGrid teacherResultsStatsGridFive">
+      <section className="resultsSummaryGrid teacherResultsStatsGrid teacherResultsStatsGridSix">
         <article className="metricCard metricCardPrimary dashboardHeroCard">
           <span>Lifecycle readiness</span>
           <strong>{readiness.label}</strong>
@@ -1533,6 +2958,26 @@ function renderOverviewView(context: WorkspaceContext) {
             {selectedPendingCount > 0
               ? "Submissions still need evaluation or publication work"
               : "No pending result work for this exam"}
+          </small>
+        </article>
+        <article className="metricCard">
+          <span>Review blockers</span>
+          <strong>{selectedReviewBlockCount}</strong>
+          <small>
+            {selectedReviewBlockCount > 0
+              ? selectedRecheckCount > 0
+                ? `${selectedRecheckCount} of these are waiting on recheck decisions`
+                : "Clear these review tasks before publishing results"
+              : "No unresolved manual review tasks are blocking publication"}
+          </small>
+        </article>
+        <article className="metricCard">
+          <span>Release risk</span>
+          <strong>{reviewReleaseRisk?.label ?? "No review risk"}</strong>
+          <small>
+            {reviewReleaseRisk?.level && reviewReleaseRisk.level !== "none"
+              ? `${formatHoursCompact(reviewReleaseRisk.oldest_open_hours)} oldest unresolved review age`
+              : "No review backlog is threatening publication right now"}
           </small>
         </article>
         <article className="metricCard">
@@ -2504,6 +3949,7 @@ function renderAnalysisView(context: WorkspaceContext) {
     questionPageSize,
     questionTotalPages,
     attemptsPageData,
+    leaderboardPageData,
     attemptQuestionAnalysisData,
     topicPerformancePageData,
     topicPage,
@@ -2515,6 +3961,9 @@ function renderAnalysisView(context: WorkspaceContext) {
   } = context;
   const topicRows = topicPerformancePageData.results;
   const questionRows = questionAnalysisPageData.results;
+  const examRubricSummary = questionAnalysisPageData.summary?.rubric;
+  const questionQualitySummary = questionAnalysisPageData.summary?.question_quality;
+  const distractorQualitySummary = questionAnalysisPageData.summary?.distractor_quality;
   const studentRows = attemptsPageData.results;
   const examCorrectTotal = questionRows.reduce((sum, row) => sum + row.correct_count, 0);
   const examWrongTotal = questionRows.reduce((sum, row) => sum + row.wrong_count, 0);
@@ -2527,11 +3976,78 @@ function renderAnalysisView(context: WorkspaceContext) {
       : 0;
   const strongTopics = topicRows.filter((row) => Number(row.percentage) >= 70).length;
   const weakTopics = topicRows.filter((row) => Number(row.percentage) < 40).length;
+  const totalTopics = topicRows.length;
   const lowPerformers = studentRows.filter((attempt) => Number(attempt.percentage) < 40).length;
   const skippedHeavyStudents = studentRows.filter((attempt) => attempt.skipped_questions >= 2).length;
   const studentQuestionRows = attemptQuestionAnalysisData.results;
   const studentQuestionSummary = attemptQuestionAnalysisData.summary;
   const selectedStudentAttempt = attemptQuestionAnalysisData.selected_attempt ?? selectedAttempt;
+  const rubricQuestionRows = studentQuestionRows.filter(
+    (row) => row.has_rubric && Array.isArray(row.rubric_scores) && row.rubric_scores.length > 0,
+  );
+  const rubricCriterionInsights = Array.from(
+    rubricQuestionRows
+      .flatMap((row) => row.rubric_scores ?? [])
+      .reduce(
+        (map, score) => {
+          const key = score.criterion_key;
+          const current = map.get(key) ?? {
+            criterion_key: key,
+            criterion_label: score.criterion_label || key,
+            awarded_total: 0,
+            max_total: 0,
+            attempts: 0,
+          };
+          current.awarded_total += Number(score.awarded_score || 0);
+          current.max_total += Number(score.max_score || 0);
+          current.attempts += 1;
+          map.set(key, current);
+          return map;
+        },
+        new Map<
+          string,
+          {
+            criterion_key: string;
+            criterion_label: string;
+            awarded_total: number;
+            max_total: number;
+            attempts: number;
+          }
+        >(),
+      )
+      .values(),
+  )
+    .map((item) => ({
+      ...item,
+      percentage: item.max_total > 0 ? Math.round((item.awarded_total / item.max_total) * 100) : 0,
+      awarded_average: item.attempts > 0 ? (item.awarded_total / item.attempts).toFixed(2) : "0.00",
+      max_average: item.attempts > 0 ? (item.max_total / item.attempts).toFixed(2) : "0.00",
+    }))
+    .sort((left, right) => left.percentage - right.percentage || left.criterion_label.localeCompare(right.criterion_label));
+  const weakestRubricCriterion = rubricCriterionInsights[0] ?? null;
+  const assessmentLens = resolveAssessmentAnalyticsLens(selectedExam);
+  const familyInsightCards = buildAssessmentFamilyInsights({
+    familyCode: assessmentLens.familyCode,
+    examAccuracy,
+    examSkipRate,
+    strongTopics,
+    weakTopics,
+    lowPerformers,
+    skippedHeavyStudents,
+    totalTopics,
+    questionQualitySummary,
+    examRubricSummary,
+  });
+  const familyDeepDivePanels = buildAssessmentFamilyDeepDive({
+    familyCode: assessmentLens.familyCode,
+    selectedSummary,
+    leaderboardRows: leaderboardPageData.results,
+    studentRows,
+    topicRows,
+    questionQualitySummary,
+    distractorQualitySummary,
+    examRubricSummary,
+  });
 
   return (
     <>
@@ -2547,6 +4063,9 @@ function renderAnalysisView(context: WorkspaceContext) {
             </p>
             <div className="questionBankTagRow">
               <span className="questionBankTagChip">Exam: {selectedExam.code}</span>
+              <span className={`statusPill ${assessmentFamilyTone(assessmentLens.familyCode)}`}>
+                {assessmentLens.familyLabel}
+              </span>
               <span className="questionBankTagChip">
                 Student: {selectedStudentAttempt?.student_name ?? "Choose from explorer"}
               </span>
@@ -2557,6 +4076,11 @@ function renderAnalysisView(context: WorkspaceContext) {
           </div>
 
           <div className="analyticsResultHeroMetaGrid">
+            <article className="analyticsResultHeroMetaCard">
+              <span>Assessment family</span>
+              <strong>{assessmentLens.familyLabel}</strong>
+              <small>{assessmentLens.deliveryEmphasis}</small>
+            </article>
             <article className="analyticsResultHeroMetaCard">
               <span>Exam average</span>
               <strong>{selectedSummary ? percentage(selectedSummary.average_percentage) : "N/A"}</strong>
@@ -2582,6 +4106,101 @@ function renderAnalysisView(context: WorkspaceContext) {
       </section>
 
       <section className="analyticsResultShowcaseGrid">
+        <article className="contentCard analyticsResultShowcaseCard">
+          <div className="sectionHeading">
+            <strong>Analysis lens</strong>
+            <span>{assessmentLens.familyLabel}</span>
+          </div>
+          <p>{assessmentLens.summary}</p>
+          <div className="questionBankTagRow">
+            {assessmentLens.focusAreas.map((item) => (
+              <span className="questionBankTagChip" key={item}>
+                {item}
+              </span>
+            ))}
+          </div>
+          <div className="analyticsResultGaugeMeta">
+            <div>
+              <span>Delivery mode</span>
+              <strong>{assessmentLens.deliveryModeLabel}</strong>
+            </div>
+            <div>
+              <span>Timer mode</span>
+              <strong>{assessmentLens.timerModeLabel}</strong>
+            </div>
+            <div>
+              <span>Navigation mode</span>
+              <strong>{assessmentLens.navigationModeLabel}</strong>
+            </div>
+          </div>
+        </article>
+
+        <article className="contentCard analyticsResultShowcaseCard">
+          <div className="sectionHeading">
+            <strong>Family focus board</strong>
+            <span>{assessmentLens.familyLabel}</span>
+          </div>
+          <p>
+            These signals are prioritized for this assessment family so teachers and institutes can
+            act faster without reading every metric the same way.
+          </p>
+          <div className="teacherResultsReadinessBoard">
+            {familyInsightCards.map((card) => (
+              <article className="teacherResultsReadinessCard" key={card.title}>
+                <div className="teacherResultsReadinessCardTop">
+                  <strong>{card.title}</strong>
+                  <span className={`statusPill ${card.tone}`}>{card.value}</span>
+                </div>
+                <p>{card.detail}</p>
+              </article>
+            ))}
+          </div>
+        </article>
+
+        <article className="contentCard analyticsResultShowcaseCard analyticsResultDeepDiveCard">
+          <div className="sectionHeading">
+            <strong>{assessmentLens.familyLabel} deep dive</strong>
+            <span>{familyDeepDivePanels.length} focused lane{familyDeepDivePanels.length === 1 ? "" : "s"}</span>
+          </div>
+          <p>
+            This view changes how the same exam evidence should be interpreted for this assessment family,
+            so teams can move from metrics into specific intervention or bank actions faster.
+          </p>
+          <div className="analyticsResultDeepDiveGrid">
+            {familyDeepDivePanels.map((panel) => (
+              <article className="analyticsResultDeepDivePanel" key={panel.title}>
+                <div className="resultCardTop">
+                  <strong>{panel.title}</strong>
+                  <span className={`statusPill ${panel.tone}`}>{assessmentLens.familyLabel}</span>
+                </div>
+                <p>{panel.summary}</p>
+                <div className="analyticsResultGaugeMeta">
+                  {panel.metrics.map((metric) => (
+                    <div key={`${panel.title}-${metric.label}`}>
+                      <span>{metric.label}</span>
+                      <strong>{metric.value}</strong>
+                    </div>
+                  ))}
+                </div>
+                <div className="questionBankTagRow">
+                  {panel.callouts.map((callout) => (
+                    <span className="questionBankTagChip" key={callout}>
+                      {callout}
+                    </span>
+                  ))}
+                </div>
+                <div className="analyticsResultActionList">
+                  {panel.actions.map((action) => (
+                    <div className="analyticsResultActionItem" key={action}>
+                      {action}
+                    </div>
+                  ))}
+                </div>
+              </article>
+            ))}
+          </div>
+        </article>
+
         <article className="contentCard analyticsResultShowcaseCard">
           <div className="sectionHeading">
             <strong>Exam pulse</strong>
@@ -2612,6 +4231,37 @@ function renderAnalysisView(context: WorkspaceContext) {
               </div>
             </div>
           </div>
+        </article>
+
+        <article className="contentCard analyticsResultShowcaseCard">
+          <div className="sectionHeading">
+            <strong>Section distribution</strong>
+            <span>{selectedSummary?.section_performance?.length ?? 0} sections</span>
+          </div>
+          {!selectedSummary?.section_performance?.length ? (
+            <p className="emptyText">Section analytics will appear once results and answer data are available.</p>
+          ) : (
+            <div className="analyticsResultBarStack">
+              {selectedSummary.section_performance.map((section) => (
+                <div className="analyticsResultBarRow" key={section.section_id ?? section.section_name}>
+                  <div className="analyticsResultBarMeta">
+                    <strong>{section.section_name}</strong>
+                    <span>
+                      {section.total_questions} question{section.total_questions === 1 ? "" : "s"} · avg time{" "}
+                      {formatCompactSeconds(section.average_time_seconds)}
+                    </span>
+                  </div>
+                  <div className="analyticsResultBarTrack">
+                    <div
+                      className="analyticsResultBarFill"
+                      style={{ width: `${Math.max(4, Math.min(section.accuracy_percentage, 100))}%` }}
+                    />
+                  </div>
+                  <strong>{Math.round(section.accuracy_percentage)}%</strong>
+                </div>
+              ))}
+            </div>
+          )}
         </article>
 
         <article className="contentCard analyticsResultShowcaseCard">
@@ -2654,6 +4304,109 @@ function renderAnalysisView(context: WorkspaceContext) {
 
         <article className="contentCard analyticsResultShowcaseCard">
           <div className="sectionHeading">
+            <strong>Bank action queue</strong>
+            <span>{questionQualitySummary?.revision_candidates ?? 0} in review lane</span>
+          </div>
+          <p>
+            Use the question-quality summary to decide whether this exam should trigger bank cleanup,
+            wording refinement, or more live sampling before the next release.
+          </p>
+          <div className="analyticsResultGaugeMeta">
+            <div>
+              <span>Healthy</span>
+              <strong>{questionQualitySummary?.healthy_questions ?? 0}</strong>
+            </div>
+            <div>
+              <span>Watch</span>
+              <strong>{questionQualitySummary?.watch_questions ?? 0}</strong>
+            </div>
+            <div>
+              <span>Ambiguous</span>
+              <strong>{questionQualitySummary?.ambiguous_questions ?? 0}</strong>
+            </div>
+            <div>
+              <span>Emerging</span>
+              <strong>{questionQualitySummary?.emerging_questions ?? 0}</strong>
+            </div>
+          </div>
+          {questionQualitySummary?.top_revision_topics?.length ? (
+            <>
+              <div className="sectionHeading">
+                <strong>Top revision topics</strong>
+                <span>{questionQualitySummary.top_revision_topics.length} hotspot(s)</span>
+              </div>
+              <div className="questionBankTagRow">
+                {questionQualitySummary.top_revision_topics.map((topic) => (
+                  <span className="questionBankTagChip" key={topic.topic_name}>
+                    {topic.topic_name}: {topic.count}
+                  </span>
+                ))}
+              </div>
+            </>
+          ) : null}
+          <div className="teacherResultsReadinessCard">
+            <div className="teacherResultsReadinessCardTop">
+              <strong>Recommended next actions</strong>
+              <span className="statusPill statusDemo">
+                {questionQualitySummary?.recommended_actions?.length ?? 0}
+              </span>
+            </div>
+            <ul>
+              {(questionQualitySummary?.recommended_actions ?? [
+                "Question-quality actions will appear once enough answer evidence is available.",
+              ]).map((action) => (
+                <li key={action}>{action}</li>
+              ))}
+            </ul>
+          </div>
+        </article>
+
+        <article className="contentCard analyticsResultShowcaseCard">
+          <div className="sectionHeading">
+            <strong>Distractor quality board</strong>
+            <span>{distractorQualitySummary?.weak_distractors ?? 0} weak distractor(s)</span>
+          </div>
+          <p>
+            Track whether answer options are actually separating learners. Weak distractors, untested options,
+            and keyed-answer review signals usually point to the next bank-cleanup work.
+          </p>
+          <div className="analyticsResultGaugeMeta">
+            <div>
+              <span>Weak distractors</span>
+              <strong>{distractorQualitySummary?.weak_distractors ?? 0}</strong>
+            </div>
+            <div>
+              <span>Untested distractors</span>
+              <strong>{distractorQualitySummary?.untested_distractors ?? 0}</strong>
+            </div>
+            <div>
+              <span>Strong distractors</span>
+              <strong>{distractorQualitySummary?.strong_distractors ?? 0}</strong>
+            </div>
+            <div>
+              <span>Key review</span>
+              <strong>{distractorQualitySummary?.key_review_options ?? 0}</strong>
+            </div>
+          </div>
+          {distractorQualitySummary?.top_weak_distractors?.length ? (
+            <div className="analyticsResultInsightList">
+              {distractorQualitySummary.top_weak_distractors.map((item) => (
+                <article className="analyticsResultInsightCard" key={`weak-${item.option_id}`}>
+                  <div className="resultCardTop">
+                    <strong>{item.option_text_summary}</strong>
+                    <span className={`statusPill ${distractorTone(item.distractor_signal)}`}>
+                      {item.distractor_signal.replaceAll("_", " ")}
+                    </span>
+                  </div>
+                  <p>{item.distractor_note}</p>
+                </article>
+              ))}
+            </div>
+          ) : null}
+        </article>
+
+        <article className="contentCard analyticsResultShowcaseCard">
+          <div className="sectionHeading">
             <strong>Question risk board</strong>
             <span>{questionAnalysisPageData.count} shown</span>
           </div>
@@ -2667,6 +4420,23 @@ function renderAnalysisView(context: WorkspaceContext) {
             <Link className={`button ${questionFilter === "skipped_often" ? "buttonPrimary" : "buttonGhost"}`} href={buildResultsHref(currentPath, { ...baseHrefArgs, questionFilter: "skipped_often", questionPage: 1 })}>
               Skipped Often
             </Link>
+            <Link className={`button ${questionFilter === "revision_candidates" ? "buttonPrimary" : "buttonGhost"}`} href={buildResultsHref(currentPath, { ...baseHrefArgs, questionFilter: "revision_candidates", questionPage: 1 })}>
+              Revision Candidates
+            </Link>
+          </div>
+          <div className="questionBankTagRow">
+            <span className="questionBankTagChip">
+              {questionQualitySummary?.revision_candidates ?? 0} revision candidates
+            </span>
+            <span className="questionBankTagChip">
+              {questionQualitySummary?.urgent_revision_candidates ?? 0} urgent
+            </span>
+            <span className="questionBankTagChip">
+              {questionQualitySummary?.high_skip_questions ?? 0} skip risk
+            </span>
+            <span className="questionBankTagChip">
+              {questionQualitySummary?.hard_questions ?? 0} hard
+            </span>
           </div>
           {!questionRows.length ? (
             <p className="emptyText">No question analysis records are available for this exam yet.</p>
@@ -2684,8 +4454,32 @@ function renderAnalysisView(context: WorkspaceContext) {
                           {row.topic_name ? ` · ${row.topic_name}` : ""}
                         </span>
                       </div>
-                      <span className="statusPill statusWarning">{row.wrong_count} wrong</span>
+                      <span className={`statusPill ${questionQualityTone(row.quality_signal)}`}>
+                        {row.revision_priority} priority
+                      </span>
                     </div>
+                    {row.passage_title ? (
+                      <div className="questionBankTagRow">
+                        <span className="questionBankTagChip">Comprehension</span>
+                        <span className="questionBankTagChip">{row.passage_title}</span>
+                      </div>
+                    ) : null}
+                    <div className="questionBankTagRow">
+                      <span className={`statusPill ${questionQualityTone(row.quality_signal)}`}>
+                        {row.quality_signal.replaceAll("_", " ")}
+                      </span>
+                      <span className="questionBankTagChip">{Math.round(row.wrong_rate)}% wrong</span>
+                      <span className="questionBankTagChip">{Math.round(row.skip_rate)}% skipped</span>
+                    </div>
+                    {row.revision_reasons.length ? (
+                      <div className="questionBankTagRow">
+                        {row.revision_reasons.map((reason) => (
+                          <span className="questionBankTagChip" key={`${row.question_id}-${reason}`}>
+                            {reason}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
                     <div className="analyticsResultRiskBar">
                       <div className="analyticsResultRiskBarCorrect" style={{ width: `${(row.correct_count / total) * 100}%` }} />
                       <div className="analyticsResultRiskBarWrong" style={{ width: `${(row.wrong_count / total) * 100}%` }} />
@@ -2696,6 +4490,29 @@ function renderAnalysisView(context: WorkspaceContext) {
                       <span>Wrong {row.wrong_count}</span>
                       <span>Skipped {row.skipped_count}</span>
                     </div>
+                    <p>{row.quality_note}</p>
+                    {row.distractor_insights.length ? (
+                      <div className="analyticsResultInsightList">
+                        {row.distractor_insights.map((distractor) => (
+                          <article className="analyticsResultInsightCard" key={distractor.option_id}>
+                            <div className="resultCardTop">
+                              <strong>{distractor.option_text_summary}</strong>
+                              <span className={`statusPill ${distractorTone(distractor.distractor_signal)}`}>
+                                {distractor.distractor_signal.replaceAll("_", " ")}
+                              </span>
+                            </div>
+                            <div className="questionBankTagRow">
+                              <span className="questionBankTagChip">{Math.round(distractor.selection_rate)}% selected</span>
+                              <span className="questionBankTagChip">{distractor.selected_wrong_count} wrong picks</span>
+                              {distractor.is_correct ? (
+                                <span className="questionBankTagChip">Key option</span>
+                              ) : null}
+                            </div>
+                            <p>{distractor.distractor_note}</p>
+                          </article>
+                        ))}
+                      </div>
+                    ) : null}
                   </article>
                 );
               })}
@@ -2711,6 +4528,59 @@ function renderAnalysisView(context: WorkspaceContext) {
               </Link>
             </div>
           ) : null}
+        </article>
+
+        <article className="contentCard analyticsResultShowcaseCard">
+          <div className="sectionHeading">
+            <strong>Cohort rubric insight</strong>
+            <span>
+              {examRubricSummary?.reviewed_responses
+                ? `${examRubricSummary.reviewed_responses} reviewed response${examRubricSummary.reviewed_responses === 1 ? "" : "s"}`
+                : "No rubric data"}
+            </span>
+          </div>
+          {!examRubricSummary?.criteria_count ? (
+            <p className="emptyText">No rubric-backed review data is available for this exam yet.</p>
+          ) : (
+            <>
+              <div className="analyticsResultGaugeMeta">
+                <div>
+                  <span>Tracked criteria</span>
+                  <strong>{examRubricSummary.criteria_count}</strong>
+                </div>
+                <div>
+                  <span>Weakest cohort criterion</span>
+                  <strong>{examRubricSummary.weakest_criteria[0]?.criterion_label ?? "N/A"}</strong>
+                </div>
+                <div>
+                  <span>Lowest mastery</span>
+                  <strong>
+                    {typeof examRubricSummary.weakest_criteria[0]?.average_percentage === "number"
+                      ? `${examRubricSummary.weakest_criteria[0].average_percentage}%`
+                      : "N/A"}
+                  </strong>
+                </div>
+              </div>
+
+              <div className="analyticsResultBarStack">
+                {examRubricSummary.weakest_criteria.map((criterion) => (
+                  <div className="analyticsResultBarRow" key={criterion.criterion_key}>
+                    <div className="analyticsResultBarMeta">
+                      <strong>{criterion.criterion_label}</strong>
+                      <span>
+                        Avg {criterion.average_awarded_score.toFixed(2)} / {criterion.average_max_score.toFixed(2)} across{" "}
+                        {criterion.reviewed_count} reviewed response{criterion.reviewed_count === 1 ? "" : "s"}
+                      </span>
+                    </div>
+                    <div className="analyticsResultBarTrack">
+                      <div className="analyticsResultBarFill" style={{ width: `${criterion.average_percentage}%` }} />
+                    </div>
+                    <strong>{criterion.average_percentage}%</strong>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </article>
       </section>
 
@@ -2889,6 +4759,58 @@ function renderAnalysisView(context: WorkspaceContext) {
             )}
           </section>
 
+          <section className="contentCard analyticsResultShowcaseCard">
+            <div className="sectionHeading">
+              <strong>Rubric insight</strong>
+              <span>
+                {selectedStudentAttempt
+                  ? `${rubricQuestionRows.length} rubric-scored response${rubricQuestionRows.length === 1 ? "" : "s"}`
+                  : "Student not selected"}
+              </span>
+            </div>
+
+            {!selectedStudentAttempt ? (
+              <p className="emptyText">Choose a student to inspect criterion-level rubric performance.</p>
+            ) : !rubricCriterionInsights.length ? (
+              <p className="emptyText">No rubric-backed review data is available for this student yet.</p>
+            ) : (
+              <>
+                <div className="analyticsResultGaugeMeta">
+                  <div>
+                    <span>Tracked criteria</span>
+                    <strong>{rubricCriterionInsights.length}</strong>
+                  </div>
+                  <div>
+                    <span>Weakest criterion</span>
+                    <strong>{weakestRubricCriterion?.criterion_label ?? "N/A"}</strong>
+                  </div>
+                  <div>
+                    <span>Lowest mastery</span>
+                    <strong>{weakestRubricCriterion ? `${weakestRubricCriterion.percentage}%` : "N/A"}</strong>
+                  </div>
+                </div>
+
+                <div className="analyticsResultBarStack">
+                  {rubricCriterionInsights.slice(0, 5).map((criterion) => (
+                    <div className="analyticsResultBarRow" key={criterion.criterion_key}>
+                      <div className="analyticsResultBarMeta">
+                        <strong>{criterion.criterion_label}</strong>
+                        <span>
+                          Avg {criterion.awarded_average} / {criterion.max_average} across {criterion.attempts} response
+                          {criterion.attempts === 1 ? "" : "s"}
+                        </span>
+                      </div>
+                      <div className="analyticsResultBarTrack">
+                        <div className="analyticsResultBarFill" style={{ width: `${criterion.percentage}%` }} />
+                      </div>
+                      <strong>{criterion.percentage}%</strong>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </section>
+
           <section className="contentCard analyticsResultQuestionEvidence">
             <div className="sectionHeading">
               <strong>Question-wise evidence</strong>
@@ -2901,11 +4823,40 @@ function renderAnalysisView(context: WorkspaceContext) {
               <p className="emptyText">No question rows matched the current student question filter.</p>
             ) : (
               <div className="analyticsResultQuestionList">
-                {studentQuestionRows.map((row) => (
+                {studentQuestionRows.map((row, index) => {
+                  const previousRow = studentQuestionRows[index - 1];
+                  const shouldShowPassageTrigger =
+                    Boolean(row.passage && row.passage_text) &&
+                    previousRow?.passage !== row.passage;
+                  const rowNeedsManualReview = isManualReviewRow(row);
+                  const maxMarks = row.question_marks ?? "0.00";
+                  const presentationProfile = buildQuestionTypePresentationProfile(
+                    row.question_type_definition,
+                  );
+                  const promptQuestion = {
+                    question_text: row.question_text,
+                    assertion_text: row.assertion_text,
+                    reason_text: row.reason_text,
+                    matrix_left_items: row.matrix_left_items,
+                    matrix_right_items: row.matrix_right_items,
+                    question_type_definition: row.question_type_definition,
+                    passage_detail: row.passage
+                      ? {
+                          title: row.passage_title || "Comprehension passage",
+                          content_format: row.passage_content_format,
+                          passage_text: row.passage_text,
+                          description: row.passage_description,
+                        }
+                      : null,
+                    attachments: row.attachments,
+                    media_context: row.media_context,
+                  };
+
+                  return (
                   <article className="analyticsResultQuestionCard" key={`${selectedStudentAttempt.id}-${row.question_id}`}>
                     <div className="resultCardTop">
                       <div>
-                        <strong>Q{row.question_order}. {row.question_text_summary}</strong>
+                        <strong>Q{row.question_order}. {getStudentQuestionPromptTitle(promptQuestion)}</strong>
                         <span>
                           {row.subject_name || "No subject"}
                           {row.topic_name ? ` · ${row.topic_name}` : ""}
@@ -2924,20 +4875,82 @@ function renderAnalysisView(context: WorkspaceContext) {
                       </span>
                     </div>
 
+                    <StudentQuestionPrompt
+                      passageBadgeLabel="Shared passage"
+                      passageButtonLabel="Open Passage"
+                      passageMetaLabel={row.passage_title || "Comprehension"}
+                      question={promptQuestion}
+                      showPassageTrigger={shouldShowPassageTrigger}
+                    />
+
                     <div className="questionBankTagRow">
-                      <span className="questionBankTagChip">{row.question_type.replaceAll("_", " ")}</span>
+                      <span className="questionBankTagChip">
+                        {row.question_type_definition?.label ?? row.question_type.replaceAll("_", " ")}
+                      </span>
+                      {row.passage_title ? <span className="questionBankTagChip">{row.passage_title}</span> : null}
                       {row.is_marked_for_review ? <span className="questionBankTagChip">Marked for review</span> : null}
+                      {rowNeedsManualReview ? (
+                        <span className={`statusPill ${manualReviewStatusTone(row.evaluation_status)}`}>
+                          {manualReviewStatusLabel(row.evaluation_status)}
+                        </span>
+                      ) : null}
                       {row.selected_option_text ? <span className="questionBankTagChip">Selected: {row.selected_option_text}</span> : null}
                       {!row.selected_option_text && row.selected_option_texts.length ? (
                         <span className="questionBankTagChip">Selected: {row.selected_option_texts.join(", ")}</span>
                       ) : null}
-                      {row.answer_text ? <span className="questionBankTagChip">Typed: {row.answer_text}</span> : null}
                     </div>
+
+                    {row.answer_text ? (
+                      <div className="analyticsResultAnswerPanel">
+                        <div className="sectionHeading">
+                          <strong>Student response</strong>
+                          <span>{rowNeedsManualReview ? "Use this to score the answer" : "Captured text response"}</span>
+                        </div>
+                        <div className="analyticsResultAnswerBody">{row.answer_text}</div>
+                        {row.answer_transcript ? (
+                          <div className="analyticsResultReviewNotes">
+                            <span>Transcript</span>
+                            <p>{row.answer_transcript}</p>
+                          </div>
+                        ) : null}
+                        {presentationProfile.supportsAcceptedAnswers && row.accepted_answers.length ? (
+                          <div className="analyticsResultReviewNotes">
+                            <span>{presentationProfile.acceptedAnswersLabel}</span>
+                            <p>{row.accepted_answers.map(reviewOptionText).join(" / ")}</p>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+
+                    {row.response_artifacts.length ? (
+                      <div className="attemptArtifactList">
+                        {row.response_artifacts.map((artifact) => (
+                          <div className="attemptArtifactRow" key={artifact.upload_token}>
+                            <div>
+                              <strong>{artifact.file_name || artifact.asset_kind.replaceAll("_", " ")}</strong>
+                              <span>
+                                {artifact.asset_kind.replaceAll("_", " ")}
+                                {artifact.storage_status ? ` · ${artifact.storage_status}` : ""}
+                              </span>
+                            </div>
+                            {artifact.file_url ? (
+                              <Link className="button buttonGhost" href={artifact.file_url} target="_blank">
+                                Open
+                              </Link>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
 
                     <div className="analyticsResultQuestionStats">
                       <div>
-                        <span>Marks</span>
+                        <span>Awarded</span>
                         <strong>{row.marks_awarded ?? "0.00"}</strong>
+                      </div>
+                      <div>
+                        <span>Max marks</span>
+                        <strong>{row.question_marks ?? "0.00"}</strong>
                       </div>
                       <div>
                         <span>Negative</span>
@@ -2952,8 +4965,123 @@ function renderAnalysisView(context: WorkspaceContext) {
                         <strong>{formatDateTime(row.answered_at)}</strong>
                       </div>
                     </div>
+
+                    {rowNeedsManualReview && row.answer_id ? (
+                      <div className="analyticsResultReviewPanel">
+                        <div className="sectionHeading">
+                          <strong>Manual review</strong>
+                          <span>
+                            {row.reviewed_at
+                              ? `Last reviewed ${formatDateTime(row.reviewed_at)}`
+                              : "Grade this answer before final reporting"}
+                          </span>
+                        </div>
+
+                        {row.reviewed_by_teacher_name || row.review_notes ? (
+                          <div className="analyticsResultReviewMeta">
+                            {row.reviewed_by_teacher_name ? (
+                              <div>
+                                <span>Reviewer</span>
+                                <strong>{row.reviewed_by_teacher_name}</strong>
+                              </div>
+                            ) : null}
+                            {row.reviewed_at ? (
+                              <div>
+                                <span>Reviewed at</span>
+                                <strong>{formatDateTime(row.reviewed_at)}</strong>
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : null}
+
+                        {row.review_notes ? (
+                          <div className="analyticsResultReviewNotes">
+                            <span>Latest notes</span>
+                            <p>{row.review_notes}</p>
+                          </div>
+                        ) : null}
+
+                        <form action={runResultsManualReviewAction} className="analyticsResultReviewForm">
+                          <input name="role" type="hidden" value={config.role} />
+                          <input name="exam_id" type="hidden" value={selectedExam.id} />
+                          <input name="attempt_id" type="hidden" value={selectedStudentAttempt.id} />
+                          <input name="answer_id" type="hidden" value={row.answer_id} />
+                          <input name="review_task_id" type="hidden" value={row.review_task_id ?? ""} />
+                          <input name="attempt_filter" type="hidden" value={attemptFilter} />
+                          <input name="attempt_sort" type="hidden" value={attemptSort} />
+                          <input name="question_filter" type="hidden" value={questionFilter} />
+                          <input name="student_question_filter" type="hidden" value={studentQuestionFilter} />
+                          <input name="student_question_search" type="hidden" value={studentQuestionSearch} />
+                          <input name="return_path" type="hidden" value={currentPath} />
+
+                          {row.has_rubric && row.rubric ? (
+                            <div className="fieldStack fieldStackFull">
+                              <span>Rubric scoring</span>
+                              {row.rubric_scores?.length ? (
+                                <div className="teacherRubricReviewStack">
+                                  <div className="teacherRubricReviewSummary">
+                                    <strong>Latest rubric snapshot</strong>
+                                    <span>{row.rubric_total || row.marks_awarded || "0.00"}</span>
+                                  </div>
+                                  <div className="teacherRubricReviewGrid">
+                                    {row.rubric_scores.map((score) => (
+                                      <section className="teacherRubricCriterionCard" key={score.criterion_key}>
+                                        <div className="sectionHeading">
+                                          <strong>{score.criterion_label}</strong>
+                                          <span>
+                                            {score.awarded_score} / {score.max_score}
+                                          </span>
+                                        </div>
+                                        {score.note ? (
+                                          <p className="teacherRubricCriterionHint">{score.note}</p>
+                                        ) : null}
+                                      </section>
+                                    ))}
+                                  </div>
+                                </div>
+                              ) : null}
+                              <TeacherRubricReviewFields
+                                criteria={row.rubric.criteria}
+                                initialScores={row.rubric_scores ?? []}
+                              />
+                            </div>
+                          ) : (
+                            <label className="fieldStack">
+                              <span>Marks awarded</span>
+                              <input
+                                defaultValue={row.marks_awarded ?? ""}
+                                max={maxMarks}
+                                min="0"
+                                name="marks_awarded"
+                                placeholder={`0.00 to ${maxMarks}`}
+                                required
+                                step="0.01"
+                                type="number"
+                              />
+                            </label>
+                          )}
+
+                          <label className="fieldStack fieldStackFull">
+                            <span>Review notes</span>
+                            <textarea
+                              defaultValue={row.review_notes}
+                              name="review_notes"
+                              placeholder="Highlight strengths, misses, rubric observations, or follow-up advice."
+                              rows={4}
+                            />
+                          </label>
+
+                          <div className="resultCardActions">
+                            <button className="buttonPrimary" type="submit">
+                              {row.evaluation_status === "manual_reviewed" ? "Update review" : "Save review"}
+                            </button>
+                          </div>
+                        </form>
+                      </div>
+                    ) : null}
                   </article>
-                ))}
+                );
+                })}
               </div>
             )}
           </section>
@@ -2963,11 +5091,29 @@ function renderAnalysisView(context: WorkspaceContext) {
               <strong>Improve the bank</strong>
               <span>{selectedExam.code}</span>
             </div>
-            <p>
-              Use hard-question patterns to rewrite distractors, use skipped clusters to simplify question wording,
-              and use the selected student evidence to decide whether the issue is concept coverage, pacing, or
-              question clarity.
-            </p>
+            <p>{assessmentLens.bankGuidance}</p>
+            <div className="questionBankTagRow">
+              {assessmentLens.focusAreas.map((item) => (
+                <span className="questionBankTagChip" key={`bank-${item}`}>
+                  {item}
+                </span>
+              ))}
+            </div>
+            {questionQualitySummary?.top_revision_questions?.length ? (
+              <div className="analyticsResultInsightList">
+                {questionQualitySummary.top_revision_questions.map((question) => (
+                  <article className="analyticsResultInsightCard" key={question.question_id}>
+                    <div className="resultCardTop">
+                      <strong>{question.question_text_summary}</strong>
+                      <span className={`statusPill ${questionQualityTone(question.quality_signal)}`}>
+                        {question.revision_priority}
+                      </span>
+                    </div>
+                    <p>{question.topic_name || "Unmapped topic"}</p>
+                  </article>
+                ))}
+              </div>
+            ) : null}
             <div className="resultCardActions">
               <Link className="button buttonSecondary" href={config.questionBankPath}>
                 Open Question Bank
@@ -3083,6 +5229,12 @@ export async function ResultsWorkspacePage({
     summary: summaryByExamId.get(exam.id) ?? null,
   }));
   const visibleExamCards = sortResultExamCards(filterResultExamCards(resultExamCards, examListFilter), examListSort);
+  const highRiskExamCount = resultExamCards.filter(
+    ({ summary }) => summary?.review_release_risk?.level === "high",
+  ).length;
+  const mediumRiskExamCount = resultExamCards.filter(
+    ({ summary }) => summary?.review_release_risk?.level === "medium",
+  ).length;
   const examTotalPages = Math.max(Math.ceil(visibleExamCards.length / examPageSize), 1);
   const safeExamPage = Math.min(examPage, examTotalPages);
   const pagedExamCards = visibleExamCards.slice((safeExamPage - 1) * examPageSize, safeExamPage * examPageSize);
@@ -3109,7 +5261,7 @@ export async function ResultsWorkspacePage({
     fetchTeacherQuestionAnalysis(selectedExam.id, {
       page: questionPage,
       pageSize: questionPageSize,
-      filter: questionFilter as "all" | "hard_questions" | "skipped_often",
+      filter: questionFilter as "all" | "hard_questions" | "skipped_often" | "revision_candidates",
     }),
     fetchTeacherTopicPerformance(selectedExam.id, {
       page: topicPage,
@@ -3167,6 +5319,8 @@ export async function ResultsWorkspacePage({
   const selectedPendingCount = selectedSummary
     ? pendingCount(selectedSummary.total_attempted, selectedSummary.total_passed, selectedSummary.total_failed)
     : 0;
+  const selectedReviewBlockCount = selectedSummary?.pending_review_tasks_count ?? 0;
+  const selectedRecheckCount = selectedSummary?.recheck_review_tasks_count ?? 0;
   const attempts = attemptsPageData.results;
   const attemptTotalPages = Math.max(Math.ceil(attemptsPageData.count / attemptPageSize), 1);
   const groupedAttempts = groupAttempts(attempts, attemptGroup);
@@ -3183,6 +5337,15 @@ export async function ResultsWorkspacePage({
     : 0;
   const rankedLeaderboardReady = leaderboardPageData.summary.all_ranked;
   const readiness = resultReadinessState({ selectedSummary, resultsPublished, canPublishResults });
+  const readinessSnapshot = buildResultReadinessSnapshot({
+    selectedSummary,
+    resultsPublished,
+    canPublishResults,
+    attemptsCount: attemptsPageData.summary.total_attempts,
+    evaluatedResults,
+    rankedLeaderboardReady,
+    selectedPendingCount,
+  });
   const workflowSteps = buildResultWorkflow({
     selectedExamId: selectedExam.id,
     selectedSummary,
@@ -3194,6 +5357,7 @@ export async function ResultsWorkspacePage({
     evaluatedResults,
     rankedLeaderboardReady,
     examBasePath: config.examBasePath,
+    reviewsBasePath: config.reviewsBasePath,
   });
   const recommendedWorkflowStep = nextWorkflowStep(workflowSteps);
   const latestPublishLog = selectedExam.publish_logs[0] ?? null;
@@ -3260,6 +5424,7 @@ export async function ResultsWorkspacePage({
     config,
     view,
     currentPath,
+    resultExamCards,
     selectedExam,
     selectedSummary,
     selectedAttempt,
@@ -3298,6 +5463,7 @@ export async function ResultsWorkspacePage({
     attemptQuestionAnalysisData,
     monitor,
     readiness,
+    readinessSnapshot,
     workflowSteps,
     recommendedWorkflowStep,
     canRefreshLifecycle,
@@ -3308,6 +5474,8 @@ export async function ResultsWorkspacePage({
     totalFailed,
     averageAcrossExams,
     selectedPendingCount,
+    selectedReviewBlockCount,
+    selectedRecheckCount,
     attemptsByHealth,
     interventionQueue,
     criticalAttempts,
@@ -3387,6 +5555,16 @@ export async function ResultsWorkspacePage({
           <span>Average Performance</span>
           <strong>{averageAcrossExams}%</strong>
           <small>Average percentage across all returned exam summaries</small>
+        </article>
+        <article className="metricCard dashboardHeroCard">
+          <span>High Release Risk</span>
+          <strong>{highRiskExamCount}</strong>
+          <small>Exams where review backlog is most likely to delay publication</small>
+        </article>
+        <article className="metricCard dashboardHeroCard">
+          <span>Medium Release Risk</span>
+          <strong>{mediumRiskExamCount}</strong>
+          <small>Exams that need review attention before pressure grows further</small>
         </article>
       </section>
 

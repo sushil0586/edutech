@@ -56,11 +56,47 @@ class AcademicYear(BaseModel):
         return f"{self.institute.code} - {self.name}"
 
 
+class AssessmentFamily(BaseModel):
+    code = models.CharField(max_length=80, unique=True)
+    label = models.CharField(max_length=150)
+    description = models.TextField(blank=True)
+    sort_order = models.PositiveIntegerField(default=0)
+    allowed_question_types = models.JSONField(default=list, blank=True)
+    scoring_defaults = models.JSONField(default=dict, blank=True)
+    delivery_defaults = models.JSONField(default=dict, blank=True)
+    analytics_preset = models.JSONField(default=dict, blank=True)
+    authoring_hints = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["sort_order", "label"]
+        indexes = [
+            models.Index(fields=["code"]),
+            models.Index(fields=["sort_order", "is_active"]),
+        ]
+
+    def save(self, *args, **kwargs):
+        self.code = normalize_academic_code(self.code)
+        self.label = normalize_academic_name(self.label)
+        self.description = self.description.strip()
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.label
+
+
 class Program(BaseModel):
     institute = models.ForeignKey(
         Institute,
         on_delete=models.CASCADE,
         related_name="programs",
+    )
+    assessment_family = models.ForeignKey(
+        AssessmentFamily,
+        on_delete=models.SET_NULL,
+        related_name="programs",
+        blank=True,
+        null=True,
     )
     name = models.CharField(max_length=255)
     code = models.CharField(max_length=50)
@@ -79,6 +115,7 @@ class Program(BaseModel):
         indexes = [
             models.Index(fields=["institute", "sort_order"]),
             models.Index(fields=["institute", "category"]),
+            models.Index(fields=["assessment_family", "is_active"]),
             models.Index(fields=["is_active"]),
         ]
 

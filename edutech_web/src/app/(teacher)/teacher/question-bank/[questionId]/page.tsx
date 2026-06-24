@@ -10,16 +10,23 @@ import {
   deleteTeacherQuestionAttachment,
   deleteTeacherQuestionTagMap,
   fetchTeacherOptionCatalog,
+  fetchTeacherQuestionPassages,
   fetchTeacherPrograms,
   fetchTeacherQuestionDetail,
   fetchTeacherQuestionTags,
+  fetchTeacherQuestionTypeRegistry,
   fetchTeacherSubjects,
   fetchTeacherTopics,
   updateTeacherQuestion,
 } from "@/lib/api/teacher-builder";
 import { requireTeacherSession } from "@/lib/auth/session";
+import { validateQuestionAttachmentUpload } from "@/lib/http/upload-validation";
 import { groupTeacherOptionCatalog } from "@/lib/teacher/option-catalog";
 import { buildTeacherQuestionPayload } from "@/lib/teacher/question-bank-form";
+import {
+  buildQuestionBankErrorSearch,
+  parseQuestionBankValidationErrors,
+} from "@/lib/teacher/question-bank-validation";
 
 function isReadOnlyLibraryQuestion(question: {
   id: string;
@@ -50,11 +57,12 @@ async function updateQuestionAction(formData: FormData) {
     redirect(`/teacher/question-bank/${question.id}?message=${encodeURIComponent("Question updated successfully.")}`);
   } catch (error) {
     unstable_rethrow(error);
-    const message =
-      error instanceof Error && error.message
-        ? error.message
-        : "Unable to update the question right now.";
-    redirect(`/teacher/question-bank/${questionId}?error=${encodeURIComponent(message)}`);
+    redirect(
+      `/teacher/question-bank/${questionId}?${buildQuestionBankErrorSearch(
+        error,
+        "Unable to update the question right now.",
+      )}`,
+    );
   }
 }
 
@@ -105,6 +113,11 @@ async function addQuestionAttachmentAction(formData: FormData) {
     redirect(
       `/teacher/question-bank/${questionId || ""}?error=${encodeURIComponent("Choose an attachment file before uploading.")}`,
     );
+  }
+
+  const fileError = validateQuestionAttachmentUpload(file, attachmentType);
+  if (fileError) {
+    redirect(`/teacher/question-bank/${questionId}?error=${encodeURIComponent(fileError)}`);
   }
 
   try {
@@ -204,12 +217,15 @@ export default async function TeacherQuestionDetailPage({
   const message = Array.isArray(resolvedSearchParams.message)
     ? resolvedSearchParams.message[0] ?? ""
     : resolvedSearchParams.message ?? "";
+  const validationErrors = parseQuestionBankValidationErrors(resolvedSearchParams.validation);
 
   const data = await Promise.all([
     fetchTeacherOptionCatalog(),
+    fetchTeacherQuestionTypeRegistry(),
     fetchTeacherPrograms(),
     fetchTeacherSubjects(),
     fetchTeacherTopics(),
+    fetchTeacherQuestionPassages(),
     fetchTeacherQuestionDetail(questionId),
     fetchTeacherQuestionTags(),
   ]).catch(() => null);
@@ -238,7 +254,7 @@ export default async function TeacherQuestionDetailPage({
     );
   }
 
-  const [optionCatalogEntries, programs, subjects, topics, question, tags] = data;
+  const [optionCatalogEntries, questionTypeDefinitions, programs, subjects, topics, passages, question, tags] = data;
   if (isReadOnlyLibraryQuestion(question)) {
     redirect(
       `/teacher/question-bank/new?duplicate=${question.id}&error=${encodeURIComponent(
@@ -294,7 +310,6 @@ export default async function TeacherQuestionDetailPage({
   return (
     <>
       {message ? <p className="feedbackBanner feedbackBannerSuccess">{decodeURIComponent(message)}</p> : null}
-      {error ? <p className="feedbackBanner feedbackBannerError">{decodeURIComponent(error)}</p> : null}
       <TeacherQuestionEditor
         action={updateQuestionAction}
         contentFormatOptions={optionCatalog.selectOptions("question_content_format")}
@@ -303,10 +318,14 @@ export default async function TeacherQuestionDetailPage({
         pageDescription="Review the question wording, explanation, answer structure, and academic mapping before reusing it in exams."
         pageTitle="Edit Question"
         pageClassName="teacherConsolePage teacherQuestionEditorPageVivid"
+        passages={passages}
         programs={programs}
+        questionTypeDefinitions={questionTypeDefinitions}
         questionTypeOptions={optionCatalog.selectOptions("question_type")}
         subjects={subjects}
         topics={topics}
+        validationErrors={validationErrors}
+        validationMessage={error ? decodeURIComponent(error) : ""}
       />
 
       <section className="studentPage studentPageTight studentDashboardModern teacherConsolePage teacherQuestionEditorPageVivid">

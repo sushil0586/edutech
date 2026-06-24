@@ -12,6 +12,7 @@ import {
   StudentExamDetail,
   StudentInsightSummary,
   StudentQuestionAnalytics,
+  StudentUploadedResponseArtifact,
   StudentNotification,
   StudentNotificationListResponse,
   StudentPaymentOrder,
@@ -54,11 +55,12 @@ async function performStudentRequest<T>(
     throw new Error("Student API is not configured.");
   }
 
+  const isFormDataBody = typeof FormData !== "undefined" && init?.body instanceof FormData;
   const response = await fetch(`${state.apiBaseUrl}${path}`, {
     method: init?.method ?? "GET",
     headers: {
       Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
+      ...(isFormDataBody ? {} : { "Content-Type": "application/json" }),
       ...(init?.headers ?? {}),
     },
     body: init?.body,
@@ -410,6 +412,17 @@ export async function saveStudentAnswer(
     selected_option?: string | null;
     selected_option_ids?: string[];
     answer_text?: string;
+    answer_transcript?: string;
+    response_artifacts?: Array<{
+      asset_kind: string;
+      upload_token: string;
+      file_name?: string;
+      mime_type?: string;
+      size_bytes?: number;
+      duration_seconds?: number;
+      storage_status?: string;
+      checksum?: string;
+    }>;
     is_marked_for_review?: boolean;
     clear_response?: boolean;
     skip?: boolean;
@@ -423,6 +436,29 @@ export async function saveStudentAnswer(
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export async function uploadStudentResponseArtifact(
+  attemptId: string,
+  payload: {
+    question: string;
+    asset_kind: "audio_recording" | "video_recording" | "image_upload" | "document_upload";
+    file: File | Blob;
+    fileName?: string;
+  },
+) {
+  const formData = new FormData();
+  formData.set("question", payload.question);
+  formData.set("asset_kind", payload.asset_kind);
+  formData.set("file", payload.file, payload.fileName ?? "response-artifact");
+
+  return requestStudentJson<StudentUploadedResponseArtifact>(
+    `/api/v1/attempts/${attemptId}/upload-response-artifact/`,
+    {
+      method: "POST",
+      body: formData,
+    },
+  );
 }
 
 export async function submitStudentAttempt(attemptId: string) {

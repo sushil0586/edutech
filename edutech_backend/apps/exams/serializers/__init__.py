@@ -6,6 +6,8 @@ from apps.accounts.scopes import get_account_profile
 from apps.exams.models import (
     AdvancedExamTemplate,
     Exam,
+    ExamPresetPack,
+    ExamPresetPackScope,
     ExamPublishLog,
     ExamQuestion,
     ExamSection,
@@ -14,6 +16,7 @@ from apps.exams.models import (
 )
 from apps.exams.services import (
     ADVANCED_EXAM_SELECTION_MODES,
+    EXAM_EXPERIENCE_MEDIA_FLOW_CHOICES,
     apply_institute_exam_defaults,
     allowed_exam_sources_for_profile,
     build_exam_content_target,
@@ -22,6 +25,8 @@ from apps.exams.services import (
     is_exam_assigned_to_student,
     is_review_available_for_attempt,
     remaining_attempts_for_student,
+    resolve_exam_experience_profile,
+    resolve_exam_experience_profile_from_values,
     resolve_exam_economy_access,
     resolve_exam_result_visibility_policy,
     resolve_exam_source_metadata,
@@ -29,7 +34,37 @@ from apps.exams.services import (
     sync_exam_access_policy,
     sync_total_marks_from_questions,
 )
-from apps.question_bank.models import QuestionAttachment, QuestionOption
+from apps.question_bank.registry import (
+    get_question_type_definition,
+    get_question_type_definition_payload,
+)
+from apps.question_bank.models import AttachmentType, QuestionAttachment, QuestionOption
+
+
+class AdvancedExamExperienceProfileOverrideSerializer(serializers.Serializer):
+    recommended_timer_mode = serializers.ChoiceField(
+        choices=Exam._meta.get_field("timer_mode").choices,
+        required=False,
+    )
+    recommended_navigation_mode = serializers.ChoiceField(
+        choices=Exam._meta.get_field("navigation_mode").choices,
+        required=False,
+    )
+    recommended_media_flow = serializers.ChoiceField(
+        choices=sorted(EXAM_EXPERIENCE_MEDIA_FLOW_CHOICES.items()),
+        required=False,
+    )
+    supports_section_media_guidance = serializers.BooleanField(required=False)
+    learner_summary = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=300,
+    )
+    creator_summary = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=300,
+    )
 
 
 class ExamSectionSerializer(serializers.ModelSerializer):
@@ -75,6 +110,11 @@ class ExamQuestionSerializer(serializers.ModelSerializer):
     question_text = serializers.CharField(source="question.question_text", read_only=True)
     question_type = serializers.CharField(source="question.question_type", read_only=True)
     difficulty_level = serializers.CharField(source="question.difficulty_level", read_only=True)
+    passage = serializers.UUIDField(source="question.passage_id", read_only=True)
+    passage_order = serializers.IntegerField(source="question.passage_order", read_only=True)
+    passage_title = serializers.CharField(source="question.passage.title", read_only=True)
+    passage_content_format = serializers.CharField(source="question.passage.content_format", read_only=True)
+    passage_text = serializers.CharField(source="question.passage.passage_text", read_only=True)
     topic = serializers.UUIDField(source="question.topic_id", read_only=True)
     topic_name = serializers.CharField(source="question.topic.name", read_only=True)
     explanation = serializers.CharField(source="question.explanation", read_only=True)
@@ -118,6 +158,11 @@ class ExamQuestionSerializer(serializers.ModelSerializer):
             "question_text",
             "question_type",
             "difficulty_level",
+            "passage",
+            "passage_order",
+            "passage_title",
+            "passage_content_format",
+            "passage_text",
             "topic",
             "topic_name",
             "explanation",
@@ -466,11 +511,18 @@ class AdvancedExamMetadataSerializer(serializers.Serializer):
     end_at = serializers.DateTimeField(required=False, allow_null=True)
     instructions = serializers.CharField(required=False, allow_blank=True, default="")
     replace_existing_code = serializers.BooleanField(required=False, default=False)
+    preset_pack_code = serializers.CharField(required=False, allow_blank=True, default="")
     source_type = serializers.ChoiceField(
         choices=Exam._meta.get_field("source_type").choices,
         required=False,
         allow_null=True,
     )
+    experience_profile = serializers.DictField(required=False, default=dict)
+
+    def validate_experience_profile(self, value):
+        serializer = AdvancedExamExperienceProfileOverrideSerializer(data=value or {})
+        serializer.is_valid(raise_exception=True)
+        return serializer.validated_data
 
 
 class AdvancedExamDeliverySerializer(serializers.Serializer):
@@ -719,6 +771,79 @@ class AdvancedExamTemplateSerializer(serializers.ModelSerializer):
         return False
 
 
+class ExamPresetPackSerializer(serializers.ModelSerializer):
+    institute_name = serializers.CharField(source="institute.name", read_only=True)
+    can_manage = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ExamPresetPack
+        fields = (
+            "id",
+            "institute",
+            "institute_name",
+            "scope_type",
+            "code",
+            "label",
+            "family",
+            "note",
+            "chip",
+            "config",
+            "is_active",
+            "can_manage",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = (
+            "id",
+            "institute_name",
+            "created_at",
+            "updated_at",
+        )
+
+    def validate_code(self, value):
+        normalized = str(value or "").strip().lower()
+        if not normalized:
+            raise serializers.ValidationError("Preset pack code is required.")
+        return normalized
+
+    def validate_config(self, value):
+        if value is None:
+            return {}
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("Config must be a JSON object.")
+        return value
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        request = self.context.get("request")
+        profile = get_account_profile(getattr(request, "user", None))
+        scope_type = attrs.get("scope_type", getattr(self.instance, "scope_type", ExamPresetPackScope.PLATFORM))
+        institute = attrs.get("institute", getattr(self.instance, "institute", None))
+        if scope_type == ExamPresetPackScope.PLATFORM:
+            attrs["institute"] = None
+        elif institute is None and getattr(profile, "role", None) == "institute_admin":
+            attrs["institute"] = getattr(profile, "institute", None)
+        elif institute is None:
+            raise serializers.ValidationError(
+                {"institute": "Institute preset packs must belong to an institute."}
+            )
+        return attrs
+
+    def get_can_manage(self, obj):
+        request = self.context.get("request")
+        profile = get_account_profile(getattr(request, "user", None))
+        if profile is None or not profile.is_active:
+            return False
+        if profile.role == "platform_admin":
+            return True
+        if profile.role == "institute_admin":
+            return (
+                obj.scope_type == ExamPresetPackScope.INSTITUTE
+                and profile.institute_id == obj.institute_id
+            )
+        return False
+
+
 class ExamReadSerializer(serializers.ModelSerializer):
     program_name = serializers.CharField(source="program.name", read_only=True)
     cohort_name = serializers.CharField(source="cohort.name", read_only=True)
@@ -738,6 +863,7 @@ class ExamReadSerializer(serializers.ModelSerializer):
     source_label = serializers.SerializerMethodField()
     source_name = serializers.SerializerMethodField()
     source_teacher_name = serializers.CharField(source="source_teacher.full_name", read_only=True)
+    experience_profile = serializers.SerializerMethodField()
     rank_visibility_mode = serializers.SerializerMethodField()
     percentile_visibility_mode = serializers.SerializerMethodField()
     benchmark_visibility_mode = serializers.SerializerMethodField()
@@ -784,6 +910,9 @@ class ExamReadSerializer(serializers.ModelSerializer):
 
     def get_source_name(self, obj):
         return resolve_exam_source_metadata(obj)["source_name"]
+
+    def get_experience_profile(self, obj):
+        return resolve_exam_experience_profile(obj)
 
     def get_rank_visibility_mode(self, obj):
         return resolve_exam_result_visibility_policy(obj)["rank_visibility_mode"]
@@ -969,12 +1098,25 @@ class StudentExamQuestionAttachmentSerializer(serializers.ModelSerializer):
             return ""
 
 
+class StudentExamQuestionPassageSerializer(serializers.Serializer):
+    id = serializers.UUIDField(read_only=True)
+    title = serializers.CharField(read_only=True)
+    content_format = serializers.CharField(read_only=True)
+    passage_text = serializers.CharField(read_only=True)
+    description = serializers.CharField(read_only=True)
+
+
 class StudentExamQuestionDetailSerializer(serializers.ModelSerializer):
     options = serializers.SerializerMethodField()
     attachments = serializers.SerializerMethodField()
+    media_context = serializers.SerializerMethodField()
+    passage = serializers.UUIDField(source="question.passage_id", read_only=True)
+    passage_order = serializers.IntegerField(source="question.passage_order", read_only=True)
+    passage_detail = serializers.SerializerMethodField()
     section_title = serializers.CharField(source="section.name", read_only=True)
     section_order = serializers.IntegerField(source="section.section_order", read_only=True)
     question_order = serializers.SerializerMethodField()
+    question_type_definition = serializers.SerializerMethodField()
 
     class Meta:
         model = ExamQuestion
@@ -996,9 +1138,14 @@ class StudentExamQuestionDetailSerializer(serializers.ModelSerializer):
             "updated_at",
             "question_text",
             "question_type",
+            "question_type_definition",
             "content_format",
+            "passage",
+            "passage_order",
+            "passage_detail",
             "options",
             "attachments",
+            "media_context",
         )
 
     question_text_summary = serializers.SerializerMethodField()
@@ -1017,6 +1164,9 @@ class StudentExamQuestionDetailSerializer(serializers.ModelSerializer):
             if value is not None:
                 return value
         return obj.question_order
+
+    def get_question_type_definition(self, obj):
+        return get_question_type_definition_payload(obj.question.question_type)
 
     def get_options(self, obj):
         options = list(
@@ -1038,6 +1188,49 @@ class StudentExamQuestionDetailSerializer(serializers.ModelSerializer):
     def get_attachments(self, obj):
         attachments = obj.question.attachments.filter(is_active=True).order_by("display_order", "created_at")
         return StudentExamQuestionAttachmentSerializer(attachments, many=True).data
+
+    def get_media_context(self, obj):
+        attachments = list(
+            obj.question.attachments.filter(is_active=True).order_by("display_order", "created_at")
+        )
+        definition = get_question_type_definition(obj.question.question_type)
+        attachment_types = []
+        for attachment in attachments:
+            normalized_type = str(attachment.attachment_type or "").strip()
+            if normalized_type and normalized_type not in attachment_types:
+                attachment_types.append(normalized_type)
+
+        total_attachments = len(attachments)
+        return {
+            "has_media": total_attachments > 0,
+            "total_attachments": total_attachments,
+            "attachment_types": attachment_types,
+            "primary_attachment_type": attachment_types[0] if attachment_types else None,
+            "delivery_mode": (
+                definition.media_delivery_mode
+                if definition is not None and total_attachments > 0
+                else "none"
+            ),
+            "preload_strategy": (
+                definition.media_preload_strategy
+                if definition is not None and total_attachments > 0
+                else "none"
+            ),
+            "supports_audio_prompt": AttachmentType.AUDIO in attachment_types,
+            "supports_video_prompt": AttachmentType.VIDEO in attachment_types,
+            "supports_document_prompt": AttachmentType.PDF in attachment_types,
+            "supports_visual_prompt": any(
+                attachment_type in attachment_types
+                for attachment_type in (AttachmentType.IMAGE, AttachmentType.DIAGRAM)
+            ),
+            "inline_attachment_count": sum(1 for attachment in attachments if attachment.is_inline),
+        }
+
+    def get_passage_detail(self, obj):
+        passage = getattr(obj.question, "passage", None)
+        if passage is None:
+            return None
+        return StudentExamQuestionPassageSerializer(passage).data
 
 
 class StudentExamDetailSerializer(ExamReadSerializer):
@@ -1075,6 +1268,7 @@ class StudentExamAvailabilitySerializer(serializers.ModelSerializer):
     source_name = serializers.SerializerMethodField()
     source_teacher_id = serializers.SerializerMethodField()
     source_teacher_name = serializers.SerializerMethodField()
+    experience_profile = serializers.SerializerMethodField()
 
     class Meta:
         model = Exam
@@ -1116,6 +1310,7 @@ class StudentExamAvailabilitySerializer(serializers.ModelSerializer):
             "source_teacher_id",
             "source_teacher_name",
             "economy_access",
+            "experience_profile",
         )
 
     def _student(self):
@@ -1321,6 +1516,9 @@ class StudentExamAvailabilitySerializer(serializers.ModelSerializer):
 
     def get_source_teacher_name(self, obj):
         return resolve_exam_source_metadata(obj)["teacher_name"]
+
+    def get_experience_profile(self, obj):
+        return resolve_exam_experience_profile(obj)
 
 
 class StudentExamReadinessSerializer(StudentExamDetailSerializer):

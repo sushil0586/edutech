@@ -1,7 +1,7 @@
 import hashlib
 import random
 from datetime import timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -13,6 +13,10 @@ from apps.attempts.models import (
     AttemptIntegrityEvent,
     IntegrityEventSeverity,
     IntegrityEventType,
+    ReviewEventType,
+    ReviewTaskStatus,
+    StudentAnswerReviewEvent,
+    StudentAnswerReviewTask,
 )
 from apps.exams.services import (
     allows_unlimited_attempts,
@@ -21,11 +25,23 @@ from apps.exams.services import (
     resolve_security_policy,
 )
 from apps.exams.models import ExamQuestion
-from apps.question_bank.models import QuestionType
+from apps.question_bank.registry import (
+    question_type_is_auto_scorable,
+    get_question_type_definition,
+    question_type_requires_manual_review,
+    question_type_supports_multiple_selection,
+)
+from apps.teachers.models import TeacherProfile
 
 
 SECTION_TIMER_MODES = {"section", "hybrid"}
 INTEGRITY_EVENT_DEDUPE_SECONDS = 5
+REVIEW_TASK_UNRESOLVED_STATUSES = {
+    ReviewTaskStatus.PENDING,
+    ReviewTaskStatus.ASSIGNED,
+    ReviewTaskStatus.IN_REVIEW,
+    ReviewTaskStatus.RECHECK_REQUESTED,
+}
 MAX_ATTEMPT_EXTRA_TIME_MINUTES = 180
 INTEGRITY_EVENT_CONFIG = {
     IntegrityEventType.FOCUS_LOST: {
@@ -974,6 +990,58 @@ def _accepted_answers_for_question(question):
     return [normalized] if normalized else []
 
 
+def _fill_in_blanks_answer_parts(answer_text):
+    raw_text = str(answer_text or "").strip()
+    if not raw_text:
+        return []
+
+    if "|" in raw_text:
+        parts = raw_text.split("|")
+    else:
+        parts = raw_text.splitlines()
+
+    return [
+        _normalized_answer_text(part)
+        for part in parts
+        if _normalized_answer_text(part)
+    ]
+
+
+def _accepted_numeric_answers_for_question(question):
+    metadata = question.metadata if isinstance(question.metadata, dict) else {}
+    values = metadata.get("accepted_answers")
+    if not isinstance(values, list):
+        single_value = metadata.get("accepted_answer") or metadata.get("answer_key")
+        values = [single_value] if single_value not in (None, "") else []
+
+    normalized = []
+    for value in values:
+        text = str(value or "").strip().replace(",", "")
+        if not text:
+            continue
+        try:
+            decimal_value = Decimal(text)
+        except (InvalidOperation, TypeError, ValueError):
+            continue
+        normalized.append(decimal_value)
+    return normalized
+
+
+def _numeric_tolerance_for_question(question):
+    metadata = question.metadata if isinstance(question.metadata, dict) else {}
+    numeric_validation = metadata.get("numeric_validation", {})
+    if not isinstance(numeric_validation, dict):
+        return Decimal("0")
+    raw_tolerance = numeric_validation.get("tolerance")
+    if raw_tolerance in (None, ""):
+        return Decimal("0")
+    try:
+        tolerance = Decimal(str(raw_tolerance).replace(",", ""))
+    except (InvalidOperation, TypeError, ValueError):
+        return Decimal("0")
+    return tolerance if tolerance >= 0 else Decimal("0")
+
+
 def _question_has_response(answer):
     if answer is None:
         return False
@@ -981,13 +1049,95 @@ def _question_has_response(answer):
         answer.selected_option_id
         or _normalized_selected_option_ids(getattr(answer, "selected_option_ids", []))
         or (answer.answer_text or "").strip()
+        or (answer.answer_transcript or "").strip()
+        or bool(getattr(answer, "response_artifacts", []) or [])
     )
+
+
+def ensure_review_task_for_answer(answer):
+    task, created = StudentAnswerReviewTask.objects.get_or_create(
+        answer=answer,
+        defaults={
+            "institute": answer.attempt.institute,
+            "attempt": answer.attempt,
+            "exam": answer.attempt.exam,
+            "student": answer.attempt.student,
+            "question": answer.question,
+            "status": ReviewTaskStatus.PENDING,
+            "opened_at": timezone.now(),
+        },
+    )
+    if created:
+        StudentAnswerReviewEvent.objects.create(
+            review_task=task,
+            answer=answer,
+            attempt=answer.attempt,
+            exam=answer.attempt.exam,
+            student=answer.attempt.student,
+            question=answer.question,
+            event_type=ReviewEventType.TASK_OPENED,
+            from_status="",
+            to_status=task.status,
+            marks_awarded=answer.marks_awarded,
+            notes="Manual review task opened.",
+        )
+    return task
+
+
+def sync_review_task_for_answer(answer):
+    question_type_definition = get_question_type_definition(answer.question.question_type)
+    if question_type_definition is None or not question_type_requires_manual_review(answer.question.question_type):
+        return None
+
+    has_response = _question_has_response(answer)
+    existing_task = getattr(answer, "review_task", None)
+
+    if not has_response:
+        if existing_task and existing_task.is_active:
+            existing_task.is_active = False
+            existing_task.status = ReviewTaskStatus.CANCELLED
+            existing_task.resolved_at = timezone.now()
+            existing_task.save(update_fields=["is_active", "status", "resolved_at", "updated_at"])
+        return None
+
+    task = ensure_review_task_for_answer(answer)
+    updates = []
+    if not task.is_active:
+        task.is_active = True
+        updates.append("is_active")
+    if task.status in {
+        ReviewTaskStatus.REVIEWED,
+        ReviewTaskStatus.MODERATED,
+        ReviewTaskStatus.CANCELLED,
+    }:
+        task.status = ReviewTaskStatus.PENDING
+        task.resolved_at = None
+        updates.extend(["status", "resolved_at"])
+    if task.attempt_id != answer.attempt_id:
+        task.attempt = answer.attempt
+        updates.append("attempt")
+    if task.exam_id != answer.attempt.exam_id:
+        task.exam = answer.attempt.exam
+        updates.append("exam")
+    if task.student_id != answer.attempt.student_id:
+        task.student = answer.attempt.student
+        updates.append("student")
+    if task.question_id != answer.question_id:
+        task.question = answer.question
+        updates.append("question")
+    if task.institute_id != answer.attempt.institute_id:
+        task.institute = answer.attempt.institute
+        updates.append("institute")
+    if updates:
+        updates.append("updated_at")
+        task.save(update_fields=updates)
+    return task
 
 
 def _evaluate_choice_answer(*, question, exam_question, selected_option, selected_option_ids):
     normalized_ids = _normalized_selected_option_ids(selected_option_ids)
 
-    if question.question_type == QuestionType.MCQ_MULTIPLE:
+    if question_type_supports_multiple_selection(question.question_type):
         correct_option_ids = {
             str(option.id)
             for option in question.options.filter(is_active=True, is_correct=True)
@@ -1054,6 +1204,330 @@ def _evaluate_short_answer(*, question, exam_question, answer_text):
     }
 
 
+def _evaluate_fill_in_blanks_answer(*, question, exam_question, answer_text):
+    submitted_parts = _fill_in_blanks_answer_parts(answer_text)
+    if not submitted_parts:
+        return {
+            "is_correct": False,
+            "marks_awarded": Decimal("0.00"),
+            "negative_marks_applied": Decimal("0.00"),
+        }
+
+    accepted_answers = _accepted_answers_for_question(question)
+    if len(submitted_parts) != len(accepted_answers):
+        return {
+            "is_correct": False,
+            "marks_awarded": Decimal("0.00"),
+            "negative_marks_applied": exam_question.negative_marks or Decimal("0.00"),
+        }
+
+    if all(submitted == expected for submitted, expected in zip(submitted_parts, accepted_answers)):
+        return {
+            "is_correct": True,
+            "marks_awarded": exam_question.marks,
+            "negative_marks_applied": Decimal("0.00"),
+        }
+
+    return {
+        "is_correct": False,
+        "marks_awarded": Decimal("0.00"),
+        "negative_marks_applied": exam_question.negative_marks or Decimal("0.00"),
+    }
+
+
+def _evaluate_numeric_answer(*, question, exam_question, answer_text):
+    raw_answer = str(answer_text or "").strip().replace(",", "")
+    if not raw_answer:
+        return {
+            "is_correct": False,
+            "marks_awarded": Decimal("0.00"),
+            "negative_marks_applied": Decimal("0.00"),
+        }
+
+    try:
+        submitted_value = Decimal(raw_answer)
+    except (InvalidOperation, TypeError, ValueError):
+        return {
+            "is_correct": False,
+            "marks_awarded": Decimal("0.00"),
+            "negative_marks_applied": exam_question.negative_marks or Decimal("0.00"),
+        }
+
+    accepted_answers = _accepted_numeric_answers_for_question(question)
+    tolerance = _numeric_tolerance_for_question(question)
+
+    for accepted_value in accepted_answers:
+        if abs(submitted_value - accepted_value) <= tolerance:
+            return {
+                "is_correct": True,
+                "marks_awarded": exam_question.marks,
+                "negative_marks_applied": Decimal("0.00"),
+            }
+
+    return {
+        "is_correct": False,
+        "marks_awarded": Decimal("0.00"),
+        "negative_marks_applied": exam_question.negative_marks or Decimal("0.00"),
+    }
+
+
+def _manual_review_pending_scoring():
+    return {
+        "is_correct": False,
+        "marks_awarded": Decimal("0.00"),
+        "negative_marks_applied": Decimal("0.00"),
+    }
+
+
+def _evaluation_mode_for_question(question):
+    definition = get_question_type_definition(question.question_type)
+    return definition.evaluation_mode if definition is not None else ""
+
+
+def _response_mode_for_question(question):
+    definition = get_question_type_definition(question.question_type)
+    return definition.response_mode if definition is not None else ""
+
+
+def _authoring_variant_for_question(question):
+    definition = get_question_type_definition(question.question_type)
+    return definition.authoring_variant if definition is not None else ""
+
+
+def _normalized_response_artifacts(response_artifacts):
+    if not response_artifacts:
+        return []
+    normalized = []
+    for artifact in response_artifacts:
+        if not isinstance(artifact, dict):
+            continue
+        normalized_artifact = {}
+        for key in (
+            "asset_kind",
+            "upload_token",
+            "file_name",
+            "mime_type",
+            "storage_status",
+            "checksum",
+            "storage_path",
+            "file_url",
+        ):
+            value = str(artifact.get(key, "") or "").strip()
+            if value:
+                normalized_artifact[key] = value
+        for key in ("size_bytes", "duration_seconds"):
+            value = artifact.get(key)
+            if value in (None, ""):
+                continue
+            try:
+                numeric_value = int(value)
+            except (TypeError, ValueError):
+                continue
+            if numeric_value >= 0:
+                normalized_artifact[key] = numeric_value
+        if normalized_artifact.get("asset_kind") and normalized_artifact.get("upload_token"):
+            normalized.append(normalized_artifact)
+    return normalized
+
+
+def _assign_answer_response_fields(
+    *,
+    answer,
+    question,
+    selected_option,
+    selected_option_ids,
+    answer_text,
+    answer_transcript="",
+    response_artifacts=None,
+):
+    response_mode = _response_mode_for_question(question)
+    if response_mode in {"multi_choice", "text", "numeric"}:
+        answer.selected_option = None
+    else:
+        answer.selected_option = selected_option
+    answer.selected_option_ids = selected_option_ids
+    answer.answer_text = answer_text
+    if answer_transcript is not None:
+        answer.answer_transcript = str(answer_transcript or "").strip()
+    if response_artifacts is not None:
+        answer.response_artifacts = _normalized_response_artifacts(response_artifacts)
+
+
+def _question_rubric_definition(question):
+    metadata = question.metadata if isinstance(question.metadata, dict) else {}
+    rubric = metadata.get("rubric", {})
+    if not isinstance(rubric, dict):
+        return None
+
+    criteria = rubric.get("criteria", [])
+    if not isinstance(criteria, list) or not criteria:
+        return None
+
+    normalized = []
+    for index, criterion in enumerate(criteria):
+        if not isinstance(criterion, dict):
+            continue
+        key = str(criterion.get("key", "") or "").strip()
+        label = str(criterion.get("label", "") or "").strip()
+        max_score_raw = criterion.get("max_score")
+        if not key or not label or max_score_raw in (None, ""):
+            continue
+        try:
+            max_score = Decimal(str(max_score_raw))
+        except (InvalidOperation, TypeError, ValueError):
+            continue
+        if max_score <= 0:
+            continue
+        normalized.append(
+            {
+                "key": key,
+                "label": label,
+                "max_score": max_score,
+                "display_order": int(criterion.get("display_order", index + 1) or (index + 1)),
+                "reviewer_hint": str(criterion.get("reviewer_hint", "") or "").strip(),
+            }
+        )
+
+    if not normalized:
+        return None
+    return sorted(normalized, key=lambda item: (item["display_order"], item["label"]))
+
+
+def _normalize_rubric_review_scores(*, question, exam_question, rubric_scores, awarded_marks):
+    rubric_definition = _question_rubric_definition(question)
+    if rubric_definition is None:
+        if rubric_scores:
+            raise ValidationError({"rubric_scores": "Rubric scores are only supported for rubric-backed questions."})
+        return [], None
+
+    if not isinstance(rubric_scores, list) or not rubric_scores:
+        raise ValidationError({"rubric_scores": "Submit criterion-level rubric scores for this question."})
+
+    rubric_by_key = {criterion["key"]: criterion for criterion in rubric_definition}
+    normalized_scores = []
+    seen_keys = set()
+    derived_total = Decimal("0.00")
+
+    for index, score in enumerate(rubric_scores):
+        if not isinstance(score, dict):
+            raise ValidationError({"rubric_scores": f"Criterion score {index + 1} must be an object."})
+
+        criterion_key = str(score.get("criterion_key", "") or "").strip()
+        if not criterion_key:
+            raise ValidationError({"rubric_scores": f"Criterion score {index + 1} must include criterion_key."})
+        if criterion_key not in rubric_by_key:
+            raise ValidationError({"rubric_scores": f"Criterion '{criterion_key}' is not part of this rubric."})
+        if criterion_key in seen_keys:
+            raise ValidationError({"rubric_scores": f"Criterion '{criterion_key}' is duplicated."})
+
+        criterion = rubric_by_key[criterion_key]
+        try:
+            criterion_score = Decimal(str(score.get("awarded_score", "") or ""))
+        except (InvalidOperation, TypeError, ValueError) as exc:
+            raise ValidationError(
+                {"rubric_scores": f"Criterion '{criterion['label']}' score must be a valid number."}
+            ) from exc
+
+        if criterion_score < 0:
+            raise ValidationError({"rubric_scores": f"Criterion '{criterion['label']}' score cannot be negative."})
+        if criterion_score > criterion["max_score"]:
+            raise ValidationError(
+                {
+                    "rubric_scores": (
+                        f"Criterion '{criterion['label']}' score cannot exceed "
+                        f"{format(criterion['max_score'].quantize(Decimal('0.01')), 'f')}."
+                    )
+                }
+            )
+
+        normalized_scores.append(
+            {
+                "criterion_key": criterion_key,
+                "criterion_label": criterion["label"],
+                "max_score": format(criterion["max_score"].quantize(Decimal("0.01")), "f"),
+                "awarded_score": format(criterion_score.quantize(Decimal("0.01")), "f"),
+                "note": str(score.get("note", "") or "").strip(),
+            }
+        )
+        seen_keys.add(criterion_key)
+        derived_total += criterion_score
+
+    missing_keys = [criterion["label"] for criterion in rubric_definition if criterion["key"] not in seen_keys]
+    if missing_keys:
+        raise ValidationError(
+            {"rubric_scores": f"Submit scores for every rubric criterion. Missing: {', '.join(missing_keys)}."}
+        )
+
+    maximum_marks = exam_question.marks or Decimal("0.00")
+    if derived_total > maximum_marks:
+        raise ValidationError({"rubric_scores": "Rubric total cannot exceed the configured question marks."})
+    if awarded_marks != derived_total:
+        raise ValidationError(
+            {
+                "marks_awarded": (
+                    "Marks awarded must match the rubric total "
+                    f"({format(derived_total.quantize(Decimal('0.01')), 'f')})."
+                )
+            }
+        )
+
+    return normalized_scores, derived_total
+
+
+def _score_submitted_answer(
+    *,
+    question,
+    exam_question,
+    selected_option,
+    selected_option_ids,
+    answer_text,
+):
+    evaluation_mode = _evaluation_mode_for_question(question)
+    response_mode = _response_mode_for_question(question)
+
+    if evaluation_mode == "manual_rubric_review":
+        return _manual_review_pending_scoring(), "manual_pending"
+
+    if response_mode == "numeric":
+        return (
+            _evaluate_numeric_answer(
+                question=question,
+                exam_question=exam_question,
+                answer_text=answer_text,
+            ),
+            "auto_evaluated",
+        )
+
+    if response_mode == "text":
+        if _authoring_variant_for_question(question) == "fill_in_blanks":
+            return (
+                _evaluate_fill_in_blanks_answer(
+                    question=question,
+                    exam_question=exam_question,
+                    answer_text=answer_text,
+                ),
+                "auto_evaluated",
+            )
+        return (
+            _evaluate_short_answer(
+                question=question,
+                exam_question=exam_question,
+                answer_text=answer_text,
+            ),
+            "auto_evaluated",
+        )
+
+    return (
+        _evaluate_choice_answer(
+            question=question,
+            exam_question=exam_question,
+            selected_option=selected_option,
+            selected_option_ids=selected_option_ids,
+        ),
+        "auto_evaluated",
+    )
+
+
 def _auto_submit_expired_attempt(attempt):
     if attempt.status != "in_progress":
         return attempt
@@ -1086,6 +1560,8 @@ def save_answer(
     selected_option=None,
     selected_option_ids=None,
     answer_text="",
+    answer_transcript="",
+    response_artifacts=None,
     time_spent_seconds=None,
     is_marked_for_review=False,
     clear_response=False,
@@ -1094,6 +1570,9 @@ def save_answer(
     from apps.attempts.models import StudentAnswer
 
     _validate_attempt_is_editable(attempt)
+    question_type_definition = get_question_type_definition(question.question_type)
+    if question_type_definition is None:
+        raise ValidationError({"question": "Unsupported question type."})
 
     try:
         exam_question = attempt.exam.exam_questions.select_related("question").get(
@@ -1109,7 +1588,7 @@ def save_answer(
         raise ValidationError({"selected_option": "Selected option must be active."})
 
     selected_option_ids = _normalized_selected_option_ids(selected_option_ids)
-    if question.question_type == QuestionType.MCQ_MULTIPLE:
+    if question_type_supports_multiple_selection(question.question_type):
         valid_option_ids = {
             str(option.id)
             for option in question.options.filter(is_active=True).only("id")
@@ -1126,17 +1605,14 @@ def save_answer(
 
     _ensure_question_accessible_for_attempt(attempt, exam_question)
 
-    if question.question_type not in {
-        QuestionType.MCQ_SINGLE,
-        QuestionType.MCQ_MULTIPLE,
-        QuestionType.TRUE_FALSE,
-        QuestionType.SHORT_ANSWER,
-    }:
+    if (
+        not question_type_is_auto_scorable(question.question_type)
+        and not question_type_requires_manual_review(question.question_type)
+    ):
         raise ValidationError(
             {
                 "question": (
-                    "Saving answers is currently supported for single choice, multi-select, "
-                    "true/false, and short answer questions only."
+                    f"Saving answers is not yet enabled for {question_type_definition.label} questions."
                 )
             }
         )
@@ -1145,6 +1621,8 @@ def save_answer(
         selected_option = None
         selected_option_ids = []
         answer_text = ""
+        answer_transcript = ""
+        response_artifacts = []
 
     answer, _ = StudentAnswer.objects.get_or_create(
         attempt=attempt,
@@ -1153,45 +1631,735 @@ def save_answer(
             "selected_option": selected_option,
             "selected_option_ids": selected_option_ids,
             "answer_text": answer_text,
+            "answer_transcript": str(answer_transcript or ""),
+            "response_artifacts": _normalized_response_artifacts(response_artifacts),
             "time_spent_seconds": time_spent_seconds,
             "is_marked_for_review": is_marked_for_review,
         },
     )
 
-    if question.question_type == QuestionType.MCQ_MULTIPLE:
-        answer.selected_option = None
-    elif question.question_type == QuestionType.SHORT_ANSWER:
-        answer.selected_option = None
-    else:
-        answer.selected_option = selected_option
-    answer.selected_option_ids = selected_option_ids
-    answer.answer_text = answer_text
+    _assign_answer_response_fields(
+        answer=answer,
+        question=question,
+        selected_option=selected_option,
+        selected_option_ids=selected_option_ids,
+        answer_text=answer_text,
+        answer_transcript=answer_transcript,
+        response_artifacts=response_artifacts,
+    )
     answer.time_spent_seconds = time_spent_seconds
     answer.is_marked_for_review = is_marked_for_review
     answer.answered_at = timezone.now()
+    answer.reviewed_by_teacher = None
+    answer.reviewed_at = None
+    answer.review_notes = ""
 
-    if question.question_type == QuestionType.SHORT_ANSWER:
-        scoring = _evaluate_short_answer(
-            question=question,
-            exam_question=exam_question,
-            answer_text=answer_text,
-        )
-    else:
-        scoring = _evaluate_choice_answer(
-            question=question,
-            exam_question=exam_question,
-            selected_option=selected_option,
-            selected_option_ids=selected_option_ids,
-        )
+    scoring, evaluation_status = _score_submitted_answer(
+        question=question,
+        exam_question=exam_question,
+        selected_option=selected_option,
+        selected_option_ids=selected_option_ids,
+        answer_text=answer_text,
+    )
+    answer.evaluation_status = (
+        StudentAnswer.EvaluationStatus.MANUAL_PENDING
+        if evaluation_status == "manual_pending"
+        else StudentAnswer.EvaluationStatus.AUTO_EVALUATED
+    )
     answer.is_correct = scoring["is_correct"]
     answer.marks_awarded = scoring["marks_awarded"]
     answer.negative_marks_applied = scoring["negative_marks_applied"]
 
     answer.save()
+    sync_review_task_for_answer(answer)
     return answer
 
 
+@transaction.atomic
+def review_manual_answer(*, answer, reviewed_by_teacher, marks_awarded, review_notes="", rubric_scores=None):
+    from apps.results.services import generate_result_from_attempt
+
+    question_type_definition = get_question_type_definition(answer.question.question_type)
+    if question_type_definition is None or not question_type_requires_manual_review(answer.question.question_type):
+        raise ValidationError({"answer": "This answer does not require manual review."})
+
+    try:
+        awarded_marks = Decimal(str(marks_awarded))
+    except (InvalidOperation, TypeError, ValueError) as exc:
+        raise ValidationError({"marks_awarded": "Marks awarded must be a valid number."}) from exc
+
+    exam_question = answer.attempt.exam.exam_questions.select_related("question").get(
+        question=answer.question,
+        is_active=True,
+    )
+    maximum_marks = exam_question.marks or Decimal("0.00")
+    if awarded_marks < 0:
+        raise ValidationError({"marks_awarded": "Marks awarded cannot be negative."})
+    if awarded_marks > maximum_marks:
+        raise ValidationError({"marks_awarded": "Marks awarded cannot exceed the configured question marks."})
+
+    normalized_rubric_scores, rubric_total = _normalize_rubric_review_scores(
+        question=answer.question,
+        exam_question=exam_question,
+        rubric_scores=rubric_scores,
+        awarded_marks=awarded_marks,
+    )
+
+    task = ensure_review_task_for_answer(answer)
+    previous_status = task.status
+    note_text = str(review_notes or "").strip()
+    reviewed_at = timezone.now()
+
+    answer.evaluation_status = answer.EvaluationStatus.MANUAL_REVIEWED
+    answer.marks_awarded = awarded_marks
+    answer.negative_marks_applied = Decimal("0.00")
+    answer.is_correct = awarded_marks >= maximum_marks and maximum_marks > 0
+    answer.reviewed_by_teacher = reviewed_by_teacher
+    answer.reviewed_at = reviewed_at
+    answer.review_notes = note_text
+    answer.save()
+
+    task.status = ReviewTaskStatus.REVIEWED
+    task.last_reviewed_by_teacher = reviewed_by_teacher
+    task.last_reviewed_at = reviewed_at
+    task.latest_marks_awarded = awarded_marks
+    task.latest_review_summary = note_text
+    task.review_started_at = task.review_started_at or reviewed_at
+    task.resolved_at = reviewed_at
+    task.is_active = True
+    task_metadata = dict(task.metadata or {})
+    if normalized_rubric_scores:
+        task_metadata["rubric_scores"] = normalized_rubric_scores
+        task_metadata["rubric_total"] = format(rubric_total.quantize(Decimal("0.01")), "f")
+    else:
+        task_metadata.pop("rubric_scores", None)
+        task_metadata.pop("rubric_total", None)
+    task.metadata = task_metadata
+    task.save(
+        update_fields=[
+            "status",
+            "last_reviewed_by_teacher",
+            "last_reviewed_at",
+            "latest_marks_awarded",
+            "latest_review_summary",
+            "review_started_at",
+            "resolved_at",
+            "metadata",
+            "is_active",
+            "updated_at",
+        ]
+    )
+
+    StudentAnswerReviewEvent.objects.create(
+        review_task=task,
+        answer=answer,
+        attempt=answer.attempt,
+        exam=answer.attempt.exam,
+        student=answer.attempt.student,
+        question=answer.question,
+        actor_teacher=reviewed_by_teacher,
+        event_type=ReviewEventType.REVIEW_UPDATED if previous_status == ReviewTaskStatus.REVIEWED else ReviewEventType.REVIEW_SAVED,
+        from_status=previous_status,
+        to_status=task.status,
+        marks_awarded=awarded_marks,
+        notes=note_text,
+        metadata=(
+            {
+                "rubric_scores": normalized_rubric_scores,
+                "rubric_total": format(rubric_total.quantize(Decimal("0.01")), "f"),
+            }
+            if normalized_rubric_scores
+            else {}
+        ),
+    )
+
+    scoring = calculate_attempt_score(answer.attempt)
+    for field, value in scoring.items():
+        setattr(answer.attempt, field, value)
+    answer.attempt.save()
+
+    if answer.attempt.status in {"submitted", "auto_submitted"}:
+        try:
+            generate_result_from_attempt(answer.attempt)
+        except ValidationError:
+            pass
+
+    return answer
+
+
+def review_queue_summary(*, queryset):
+    tasks = list(queryset)
+    pending = 0
+    reviewed = 0
+    in_review = 0
+    assigned = 0
+    total = len(tasks)
+    unassigned = 0
+    reviewer_summary = {}
+    exam_summary = {}
+    reviewed_turnaround_hours = []
+    now = timezone.now()
+    oldest_open_hours = 0.0
+    recheck_requested = 0
+    backlog_age_buckets = {
+        "under_4h": 0,
+        "under_24h": 0,
+        "under_72h": 0,
+        "over_72h": 0,
+    }
+    trend_windows = [
+        {"key": "24h", "label": "24 hours", "hours": 24},
+        {"key": "72h", "label": "3 days", "hours": 72},
+        {"key": "168h", "label": "7 days", "hours": 168},
+    ]
+    throughput_windows = {
+        item["key"]: {
+            "label": item["label"],
+            "hours": item["hours"],
+            "opened": 0,
+            "resolved": 0,
+            "net_queue_change": 0,
+        }
+        for item in trend_windows
+    }
+    window_24h_start = now - timedelta(hours=24)
+    previous_window_start = now - timedelta(hours=48)
+    opened_last_24h = 0
+    opened_previous_24h = 0
+    resolved_last_24h = 0
+    resolved_previous_24h = 0
+
+    def _task_opened_at(task):
+        return task.opened_at or task.created_at
+
+    def _task_age_hours(task):
+        opened_at = _task_opened_at(task)
+        return max((now - opened_at).total_seconds() / 3600, 0.0) if opened_at else 0.0
+
+    def _task_turnaround_hours(task):
+        opened_at = _task_opened_at(task)
+        resolved_at = task.resolved_at or task.last_reviewed_at
+        if not opened_at or not resolved_at:
+            return None
+        return max((resolved_at - opened_at).total_seconds() / 3600, 0.0)
+
+    for task in tasks:
+        if task.status == ReviewTaskStatus.PENDING:
+            pending += 1
+        if task.status == ReviewTaskStatus.REVIEWED:
+            reviewed += 1
+        if task.status == ReviewTaskStatus.IN_REVIEW:
+            in_review += 1
+        if task.status == ReviewTaskStatus.ASSIGNED:
+            assigned += 1
+        if task.status == ReviewTaskStatus.RECHECK_REQUESTED:
+            recheck_requested += 1
+        if not task.assigned_to_teacher_id:
+            unassigned += 1
+
+        unresolved = task.status in REVIEW_TASK_UNRESOLVED_STATUSES
+        task_age_hours = _task_age_hours(task)
+        opened_at = _task_opened_at(task)
+        if opened_at:
+            if opened_at >= window_24h_start:
+                opened_last_24h += 1
+            elif opened_at >= previous_window_start:
+                opened_previous_24h += 1
+            for window in trend_windows:
+                if opened_at >= now - timedelta(hours=window["hours"]):
+                    throughput_windows[window["key"]]["opened"] += 1
+        if unresolved:
+            oldest_open_hours = max(oldest_open_hours, task_age_hours)
+            if task_age_hours < 4:
+                backlog_age_buckets["under_4h"] += 1
+            elif task_age_hours < 24:
+                backlog_age_buckets["under_24h"] += 1
+            elif task_age_hours < 72:
+                backlog_age_buckets["under_72h"] += 1
+            else:
+                backlog_age_buckets["over_72h"] += 1
+        turnaround_hours = _task_turnaround_hours(task)
+        resolved_at = task.resolved_at or task.last_reviewed_at
+        if resolved_at:
+            if resolved_at >= window_24h_start:
+                resolved_last_24h += 1
+            elif resolved_at >= previous_window_start:
+                resolved_previous_24h += 1
+            for window in trend_windows:
+                if resolved_at >= now - timedelta(hours=window["hours"]):
+                    throughput_windows[window["key"]]["resolved"] += 1
+        if turnaround_hours is not None:
+            reviewed_turnaround_hours.append(turnaround_hours)
+
+        teacher_key = str(task.assigned_to_teacher_id) if task.assigned_to_teacher_id else "unassigned"
+        teacher_bucket = reviewer_summary.setdefault(
+            teacher_key,
+            {
+                "teacher_id": str(task.assigned_to_teacher_id) if task.assigned_to_teacher_id else None,
+                "teacher_name": task.assigned_to_teacher.full_name if task.assigned_to_teacher_id else "Unassigned",
+                "task_count": 0,
+                "pending_count": 0,
+                "assigned_count": 0,
+                "in_review_count": 0,
+                "reviewed_count": 0,
+                "recheck_requested_count": 0,
+                "unresolved_count": 0,
+                "oldest_open_hours": 0.0,
+                "resolved_turnaround_hours_total": 0.0,
+                "resolved_turnaround_count": 0,
+            },
+        )
+        teacher_bucket["task_count"] += 1
+        if task.status == ReviewTaskStatus.PENDING:
+            teacher_bucket["pending_count"] += 1
+        if task.status == ReviewTaskStatus.ASSIGNED:
+            teacher_bucket["assigned_count"] += 1
+        if task.status == ReviewTaskStatus.IN_REVIEW:
+            teacher_bucket["in_review_count"] += 1
+        if task.status == ReviewTaskStatus.REVIEWED:
+            teacher_bucket["reviewed_count"] += 1
+        if task.status == ReviewTaskStatus.RECHECK_REQUESTED:
+            teacher_bucket["recheck_requested_count"] += 1
+        if unresolved:
+            teacher_bucket["unresolved_count"] += 1
+            teacher_bucket["oldest_open_hours"] = max(
+                teacher_bucket["oldest_open_hours"],
+                task_age_hours,
+            )
+        if turnaround_hours is not None:
+            teacher_bucket["resolved_turnaround_hours_total"] += turnaround_hours
+            teacher_bucket["resolved_turnaround_count"] += 1
+
+        exam_key = str(task.exam_id)
+        exam_bucket = exam_summary.setdefault(
+            exam_key,
+            {
+                "exam_id": exam_key,
+                "exam_title": task.exam.title,
+                "task_count": 0,
+                "pending_count": 0,
+                "assigned_count": 0,
+                "in_review_count": 0,
+                "reviewed_count": 0,
+                "unassigned_count": 0,
+                "recheck_requested_count": 0,
+                "oldest_open_hours": 0.0,
+            },
+        )
+        exam_bucket["task_count"] += 1
+        if task.status == ReviewTaskStatus.PENDING:
+            exam_bucket["pending_count"] += 1
+        if task.status == ReviewTaskStatus.ASSIGNED:
+            exam_bucket["assigned_count"] += 1
+        if task.status == ReviewTaskStatus.IN_REVIEW:
+            exam_bucket["in_review_count"] += 1
+        if task.status == ReviewTaskStatus.REVIEWED:
+            exam_bucket["reviewed_count"] += 1
+        if not task.assigned_to_teacher_id:
+            exam_bucket["unassigned_count"] += 1
+        if task.status == ReviewTaskStatus.RECHECK_REQUESTED:
+            exam_bucket["recheck_requested_count"] += 1
+        if unresolved:
+            exam_bucket["oldest_open_hours"] = max(exam_bucket["oldest_open_hours"], task_age_hours)
+
+    for bucket in reviewer_summary.values():
+        resolved_count = bucket.pop("resolved_turnaround_count")
+        resolved_total = bucket.pop("resolved_turnaround_hours_total")
+        bucket["average_turnaround_hours"] = round(resolved_total / resolved_count, 2) if resolved_count else 0.0
+
+    for bucket in exam_summary.values():
+        if bucket["pending_count"] >= 8 or bucket["oldest_open_hours"] >= 72 or bucket["recheck_requested_count"] >= 3:
+            risk_level = "high"
+        elif bucket["pending_count"] >= 3 or bucket["oldest_open_hours"] >= 24 or bucket["recheck_requested_count"] >= 1:
+            risk_level = "medium"
+        else:
+            risk_level = "low"
+        bucket["release_risk_level"] = risk_level
+
+    reviewer_rows = sorted(
+        reviewer_summary.values(),
+        key=lambda item: (
+            -item["unresolved_count"],
+            -item["recheck_requested_count"],
+            -item["task_count"],
+            item["teacher_name"].lower(),
+        ),
+    )[:6]
+    exam_rows = sorted(
+        exam_summary.values(),
+        key=lambda item: (
+            -(
+                3
+                if item["release_risk_level"] == "high"
+                else 2
+                if item["release_risk_level"] == "medium"
+                else 1
+            ),
+            -item["pending_count"],
+            -item["recheck_requested_count"],
+            -item["task_count"],
+            item["exam_title"].lower(),
+        ),
+    )[:6]
+    oldest_pending_rows = [
+        {
+            "task_id": str(task.id),
+            "exam_id": str(task.exam_id),
+            "exam_title": task.exam.title,
+            "student_name": task.student.full_name,
+            "question_text_summary": (task.question.question_text or "").strip()[:120]
+            + ("..." if len((task.question.question_text or "").strip()) > 120 else ""),
+            "assigned_to_teacher_name": task.assigned_to_teacher.full_name if task.assigned_to_teacher_id else "",
+            "status": task.status,
+            "opened_at": task.opened_at.isoformat() if task.opened_at else None,
+        }
+        for task in sorted(
+            [
+                item
+                for item in tasks
+                if item.status in {
+                    ReviewTaskStatus.PENDING,
+                    ReviewTaskStatus.ASSIGNED,
+                    ReviewTaskStatus.IN_REVIEW,
+                    ReviewTaskStatus.RECHECK_REQUESTED,
+                }
+            ],
+            key=lambda item: (item.opened_at or item.created_at, item.created_at),
+        )[:6]
+    ]
+
+    risk_counts = {"high": 0, "medium": 0, "low": 0}
+    for bucket in exam_summary.values():
+        risk_counts[bucket["release_risk_level"]] += 1
+
+    previous_net = opened_previous_24h - resolved_previous_24h
+    current_net = opened_last_24h - resolved_last_24h
+    if current_net < previous_net:
+        trend_direction = "improving"
+    elif current_net > previous_net:
+        trend_direction = "worsening"
+    else:
+        trend_direction = "steady"
+    for bucket in throughput_windows.values():
+        bucket["net_queue_change"] = bucket["opened"] - bucket["resolved"]
+
+    return {
+        "total": total,
+        "pending": pending,
+        "assigned": assigned,
+        "in_review": in_review,
+        "reviewed": reviewed,
+        "unassigned": unassigned,
+        "recheck_requested": recheck_requested,
+        "blocked_exams": len(
+            {
+                str(task.exam_id)
+                for task in tasks
+                if task.status in REVIEW_TASK_UNRESOLVED_STATUSES
+            }
+        ),
+        "average_turnaround_hours": round(
+            sum(reviewed_turnaround_hours) / len(reviewed_turnaround_hours),
+            2,
+        )
+        if reviewed_turnaround_hours
+        else 0.0,
+        "slowest_turnaround_hours": round(max(reviewed_turnaround_hours), 2)
+        if reviewed_turnaround_hours
+        else 0.0,
+        "oldest_open_hours": round(oldest_open_hours, 2),
+        "backlog_age_buckets": backlog_age_buckets,
+        "throughput_trend": {
+            "opened_last_24h": opened_last_24h,
+            "opened_previous_24h": opened_previous_24h,
+            "resolved_last_24h": resolved_last_24h,
+            "resolved_previous_24h": resolved_previous_24h,
+            "net_queue_change_last_24h": current_net,
+            "net_queue_change_previous_24h": previous_net,
+            "direction": trend_direction,
+        },
+        "throughput_windows": list(throughput_windows.values()),
+        "release_risk_summary": {
+            "high_risk_exams": risk_counts["high"],
+            "medium_risk_exams": risk_counts["medium"],
+            "low_risk_exams": risk_counts["low"],
+        },
+        "reviewers": reviewer_rows,
+        "exams": exam_rows,
+        "oldest_pending_tasks": oldest_pending_rows,
+    }
+
+
+@transaction.atomic
+def assign_review_task(*, task, assigned_to_teacher=None, assigned_by_user=None):
+    previous_status = task.status
+    now = timezone.now()
+
+    if assigned_to_teacher is not None and assigned_to_teacher.institute_id != task.institute_id:
+        raise ValidationError({"assigned_to_teacher": "Assigned teacher must belong to the same institute."})
+
+    task.assigned_to_teacher = assigned_to_teacher
+    task.assigned_by_user = assigned_by_user
+    task.assigned_at = now if assigned_to_teacher is not None else None
+    task.status = ReviewTaskStatus.ASSIGNED if assigned_to_teacher is not None else ReviewTaskStatus.PENDING
+    if task.status == ReviewTaskStatus.PENDING:
+        task.review_started_at = None
+    task.save(
+        update_fields=[
+            "assigned_to_teacher",
+            "assigned_by_user",
+            "assigned_at",
+            "status",
+            "review_started_at",
+            "updated_at",
+        ]
+    )
+
+    StudentAnswerReviewEvent.objects.create(
+        review_task=task,
+        answer=task.answer,
+        attempt=task.attempt,
+        exam=task.exam,
+        student=task.student,
+        question=task.question,
+        actor_user=assigned_by_user,
+        actor_teacher=assigned_to_teacher if assigned_to_teacher is not None else None,
+        event_type=ReviewEventType.ASSIGNED if assigned_to_teacher is not None else ReviewEventType.UNASSIGNED,
+        from_status=previous_status,
+        to_status=task.status,
+        marks_awarded=task.latest_marks_awarded,
+        notes=(
+            f"Assigned to {assigned_to_teacher.full_name}."
+            if assigned_to_teacher is not None
+            else "Task returned to the unassigned queue."
+        ),
+    )
+    return task
+
+
+@transaction.atomic
+def claim_review_task_for_teacher(*, task, teacher_profile, actor_user=None):
+    previous_status = task.status
+    now = timezone.now()
+
+    if teacher_profile.institute_id != task.institute_id:
+        raise ValidationError({"assigned_to_teacher": "Assigned teacher must belong to the same institute."})
+
+    if task.assigned_to_teacher_id and task.assigned_to_teacher_id != teacher_profile.id:
+        raise ValidationError({"detail": "This review task is already assigned to another teacher."})
+
+    task.assigned_to_teacher = teacher_profile
+    task.assigned_by_user = actor_user
+    task.assigned_at = task.assigned_at or now
+    task.status = ReviewTaskStatus.IN_REVIEW
+    task.review_started_at = task.review_started_at or now
+    task.save(
+        update_fields=[
+            "assigned_to_teacher",
+            "assigned_by_user",
+            "assigned_at",
+            "status",
+            "review_started_at",
+            "updated_at",
+        ]
+    )
+
+    StudentAnswerReviewEvent.objects.create(
+        review_task=task,
+        answer=task.answer,
+        attempt=task.attempt,
+        exam=task.exam,
+        student=task.student,
+        question=task.question,
+        actor_user=actor_user,
+        actor_teacher=teacher_profile,
+        event_type=ReviewEventType.TASK_OPENED,
+        from_status=previous_status,
+        to_status=task.status,
+        marks_awarded=task.latest_marks_awarded,
+        notes=(
+            "Teacher resumed the assigned review task."
+            if previous_status in {ReviewTaskStatus.ASSIGNED, ReviewTaskStatus.IN_REVIEW, ReviewTaskStatus.RECHECK_REQUESTED}
+            and task.assigned_to_teacher_id == teacher_profile.id
+            else "Teacher claimed the next available review task."
+        ),
+    )
+    return task
+
+
+@transaction.atomic
+def request_review_recheck(*, task, requested_by_user=None, requested_by_teacher=None, review_notes=""):
+    previous_status = task.status
+    now = timezone.now()
+    note_text = str(review_notes or "").strip()
+    answer = task.answer
+
+    answer.evaluation_status = answer.EvaluationStatus.MANUAL_PENDING
+    answer.is_correct = False
+    answer.marks_awarded = Decimal("0.00")
+    answer.negative_marks_applied = Decimal("0.00")
+    answer.reviewed_by_teacher = None
+    answer.reviewed_at = None
+    answer.review_notes = note_text
+    answer.save()
+
+    task.status = ReviewTaskStatus.RECHECK_REQUESTED
+    task.resolved_at = None
+    task.last_reviewed_at = None
+    task.latest_marks_awarded = Decimal("0.00")
+    task.latest_review_summary = note_text
+    if requested_by_teacher is not None:
+        task.assigned_to_teacher = requested_by_teacher
+        task.assigned_at = now
+    task.save(
+        update_fields=[
+            "status",
+            "resolved_at",
+            "last_reviewed_at",
+            "latest_marks_awarded",
+            "latest_review_summary",
+            "assigned_to_teacher",
+            "assigned_at",
+            "updated_at",
+        ]
+    )
+
+    StudentAnswerReviewEvent.objects.create(
+        review_task=task,
+        answer=task.answer,
+        attempt=task.attempt,
+        exam=task.exam,
+        student=task.student,
+        question=task.question,
+        actor_user=requested_by_user,
+        actor_teacher=requested_by_teacher,
+        event_type=ReviewEventType.RECHECK_REQUESTED,
+        from_status=previous_status,
+        to_status=task.status,
+        marks_awarded=Decimal("0.00"),
+        notes=note_text or "Review returned for recheck.",
+    )
+    return task
+
+
+@transaction.atomic
+def moderate_review_task(*, task, reviewed_by_teacher, marks_awarded, review_notes="", actor_user=None, rubric_scores=None):
+    from apps.results.services import generate_result_from_attempt
+
+    try:
+        awarded_marks = Decimal(str(marks_awarded))
+    except (InvalidOperation, TypeError, ValueError) as exc:
+        raise ValidationError({"marks_awarded": "Marks awarded must be a valid number."}) from exc
+
+    exam_question = task.attempt.exam.exam_questions.select_related("question").get(
+        question=task.question,
+        is_active=True,
+    )
+    maximum_marks = exam_question.marks or Decimal("0.00")
+    if awarded_marks < 0:
+        raise ValidationError({"marks_awarded": "Marks awarded cannot be negative."})
+    if awarded_marks > maximum_marks:
+        raise ValidationError({"marks_awarded": "Marks awarded cannot exceed the configured question marks."})
+
+    normalized_rubric_scores, rubric_total = _normalize_rubric_review_scores(
+        question=task.question,
+        exam_question=exam_question,
+        rubric_scores=rubric_scores,
+        awarded_marks=awarded_marks,
+    )
+
+    previous_status = task.status
+    reviewed_at = timezone.now()
+    note_text = str(review_notes or "").strip()
+    answer = task.answer
+
+    answer.evaluation_status = answer.EvaluationStatus.MANUAL_REVIEWED
+    answer.marks_awarded = awarded_marks
+    answer.negative_marks_applied = Decimal("0.00")
+    answer.is_correct = awarded_marks >= maximum_marks and maximum_marks > 0
+    answer.reviewed_by_teacher = reviewed_by_teacher
+    answer.reviewed_at = reviewed_at
+    answer.review_notes = note_text
+    answer.save()
+
+    task.status = ReviewTaskStatus.MODERATED
+    task.last_reviewed_by_teacher = reviewed_by_teacher
+    task.last_reviewed_at = reviewed_at
+    task.latest_marks_awarded = awarded_marks
+    task.latest_review_summary = note_text
+    task.review_started_at = task.review_started_at or reviewed_at
+    task.resolved_at = reviewed_at
+    task.is_active = True
+    task_metadata = dict(task.metadata or {})
+    previous_rubric_scores = task_metadata.get("rubric_scores", [])
+    previous_rubric_total = task_metadata.get("rubric_total")
+    if normalized_rubric_scores:
+        task_metadata["rubric_scores"] = normalized_rubric_scores
+        task_metadata["rubric_total"] = format(rubric_total.quantize(Decimal("0.01")), "f")
+        task_metadata["moderation_rubric_scores"] = normalized_rubric_scores
+        task_metadata["moderation_rubric_total"] = format(rubric_total.quantize(Decimal("0.01")), "f")
+    else:
+        task_metadata.pop("moderation_rubric_scores", None)
+        task_metadata.pop("moderation_rubric_total", None)
+    task.metadata = task_metadata
+    task.save(
+        update_fields=[
+            "status",
+            "last_reviewed_by_teacher",
+            "last_reviewed_at",
+            "latest_marks_awarded",
+            "latest_review_summary",
+            "review_started_at",
+            "resolved_at",
+            "metadata",
+            "is_active",
+            "updated_at",
+        ]
+    )
+
+    StudentAnswerReviewEvent.objects.create(
+        review_task=task,
+        answer=answer,
+        attempt=answer.attempt,
+        exam=answer.attempt.exam,
+        student=answer.attempt.student,
+        question=answer.question,
+        actor_user=actor_user,
+        actor_teacher=reviewed_by_teacher,
+        event_type=ReviewEventType.MODERATED,
+        from_status=previous_status,
+        to_status=task.status,
+        marks_awarded=awarded_marks,
+        notes=note_text or "Review moderated.",
+        metadata=(
+            {
+                "previous_rubric_scores": previous_rubric_scores,
+                "previous_rubric_total": str(previous_rubric_total or ""),
+                "rubric_scores": normalized_rubric_scores,
+                "rubric_total": format(rubric_total.quantize(Decimal("0.01")), "f"),
+            }
+            if normalized_rubric_scores
+            else {}
+        ),
+    )
+
+    scoring = calculate_attempt_score(answer.attempt)
+    for field, value in scoring.items():
+        setattr(answer.attempt, field, value)
+    answer.attempt.save()
+
+    if answer.attempt.status in {"submitted", "auto_submitted"}:
+        try:
+            generate_result_from_attempt(answer.attempt)
+        except ValidationError:
+            pass
+
+    return task
+
+
 def calculate_attempt_score(attempt):
+    from apps.attempts.models import StudentAnswer
+
     answers = list(
         attempt.answers.select_related("question", "selected_option").filter(is_active=True)
     )
@@ -1213,6 +2381,8 @@ def calculate_attempt_score(attempt):
         answer = answer_map.get(exam_question.question_id)
         if _question_has_response(answer):
             attempted_questions += 1
+            if answer.evaluation_status == StudentAnswer.EvaluationStatus.MANUAL_PENDING:
+                continue
             if answer.is_correct:
                 correct_answers += 1
                 score += answer.marks_awarded or Decimal("0.00")
@@ -1238,6 +2408,30 @@ def calculate_attempt_score(attempt):
         "final_score": final_score,
         "percentage": percentage.quantize(Decimal("0.01")),
     }
+
+
+def attempt_has_pending_manual_review(attempt):
+    return StudentAnswerReviewTask.objects.filter(
+        attempt=attempt,
+        is_active=True,
+        status__in=REVIEW_TASK_UNRESOLVED_STATUSES,
+    ).exists()
+
+
+def unresolved_review_tasks_queryset(*, exam=None, institute=None, institute_id=None, teacher=None):
+    queryset = StudentAnswerReviewTask.objects.filter(
+        is_active=True,
+        status__in=REVIEW_TASK_UNRESOLVED_STATUSES,
+    )
+    if exam is not None:
+        queryset = queryset.filter(exam=exam)
+    if institute is not None:
+        queryset = queryset.filter(institute=institute)
+    if institute_id is not None:
+        queryset = queryset.filter(institute_id=institute_id)
+    if teacher is not None:
+        queryset = queryset.filter(assigned_to_teacher=teacher)
+    return queryset
 
 
 @transaction.atomic

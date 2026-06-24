@@ -2,6 +2,7 @@ import { AdvancedExamBuilder } from "@/components/ui/advanced-exam-builder";
 import { TeacherPageHeader } from "@/components/ui/teacher-page-header";
 import {
   fetchTeacherAcademicYears,
+  fetchTeacherAssessmentRegistry,
   fetchTeacherCohorts,
   fetchTeacherOptionCatalog,
   fetchTeacherPrograms,
@@ -24,10 +25,11 @@ export default async function TeacherAdvancedExamBuilderPage() {
     throw new Error("Teacher institute scope is missing.");
   }
 
-  const [academicYears, programs, optionCatalogEntries] = await Promise.all([
+  const [academicYears, programs, optionCatalogEntries, assessmentRegistry] = await Promise.all([
     fetchTeacherAcademicYears(),
     fetchTeacherPrograms(),
     fetchTeacherOptionCatalog(),
+    fetchTeacherAssessmentRegistry(),
   ]);
 
   const selectedAcademicYear = academicYears[0]?.id ?? "";
@@ -56,6 +58,7 @@ export default async function TeacherAdvancedExamBuilderPage() {
 
       <AdvancedExamBuilder
         academicYears={academicYears}
+        assessmentRegistry={assessmentRegistry}
         assignmentModeOptions={optionCatalog.selectOptions("exam_assignment_mode")}
         audience="teacher"
         defaultSource="teacher"

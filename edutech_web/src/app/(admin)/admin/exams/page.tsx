@@ -225,6 +225,9 @@ export default async function PlatformAdminExamsPage({
         description="Review platform-wide exam coverage and create platform-owned or institute-owned exam shells from one governance workspace."
         action={
           <div className="pageHeaderActionGroup">
+            <Link className="button buttonGhost" href="/admin/exams/preset-packs">
+              Preset Library
+            </Link>
             <Link className="button buttonSecondary" href="/admin/exams/new">
               Quick Create
             </Link>

@@ -4,12 +4,14 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { formatTopicOptionLabel, sortTopicOptions } from "@/lib/academics/topic-options";
+import { buildQuestionTypePresentationProfile } from "@/lib/assessment/question-type-presentation";
 import type {
   LookupProgram,
   QuestionTagLite,
   LookupSubject,
   LookupTopic,
   TeacherQuestion,
+  TeacherQuestionOption,
   TeacherQuestionSummary,
 } from "@/lib/api/teacher-builder";
 import type { CatalogSelectOption } from "@/lib/teacher/option-catalog";
@@ -23,6 +25,20 @@ type TeacherFilterOption = {
 function percentage(value: string) {
   const numeric = Number(value);
   return Number.isFinite(numeric) ? `${Math.round(numeric)}%` : "0%";
+}
+
+function questionQualityTone(signal: TeacherQuestionSummary["quality_signal"] | TeacherQuestion["quality_signal"]) {
+  if (signal === "ambiguous" || signal === "revision_candidate") return "statusDemo";
+  if (signal === "skip_risk" || signal === "hard" || signal === "watch") return "statusWarn";
+  if (signal === "healthy") return "statusSuccess";
+  return "statusDefault";
+}
+
+function distractorTone(signal: TeacherQuestionOption["distractor_signal"]) {
+  if (signal === "strong_distractor" || signal === "key_review") return "statusWarn";
+  if (signal === "validated_key" || signal === "working_distractor") return "statusSuccess";
+  if (signal === "weak_distractor") return "statusDemo";
+  return "statusDefault";
 }
 
 function normalizeLookupRelationId(
@@ -69,15 +85,120 @@ function isQualityReady(question: TeacherQuestionSummary | TeacherQuestion) {
     return question.is_quality_ready;
   }
 
-  const hasCorrectOption = question.options.some((option) => option.is_correct);
+  const presentationProfile = buildQuestionTypePresentationProfile(question.question_type_definition);
+  const hasCorrectOption =
+    !presentationProfile.supportsOptions || question.options.some((option) => option.is_correct);
   const hasMinimumOptions =
-    question.question_type === "true_false"
-      ? question.options.length === 2
-      : question.question_type === "short_answer"
-        ? true
-        : question.options.length >= 2;
+    !presentationProfile.supportsOptions || question.options.length >= 2;
+  const hasAcceptedAnswers =
+    !presentationProfile.supportsAcceptedAnswers ||
+    Boolean(question.accepted_answers?.filter((answer) => answer.trim()).length);
 
-  return hasCorrectOption && hasMinimumOptions && question.has_explanation;
+  return hasCorrectOption && hasMinimumOptions && hasAcceptedAnswers && question.has_explanation;
+}
+
+function renderQuestionResponsePreview(question: TeacherQuestionSummary | TeacherQuestion) {
+  const presentationProfile = buildQuestionTypePresentationProfile(question.question_type_definition);
+  const acceptedAnswers =
+    question.accepted_answers?.filter((answer) => answer.trim()).map((answer) => answer.trim()) ?? [];
+  const optionRows = "options" in question ? question.options : [];
+
+  if (presentationProfile.supportsOptions) {
+    return (
+      <>
+        <strong>Answer options</strong>
+        {optionRows.length ? (
+          <div className="questionBankOptionsList">
+            {optionRows.map((option) => (
+              <div className="questionBankOptionRow" key={option.id ?? `${question.id}-${option.option_order}`}>
+                <span>{option.is_correct ? "✓" : "○"}</span>
+                <p>{option.option_text}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="emptyText">
+            {presentationProfile.optionsHint || "No options were returned for this question."}
+          </p>
+        )}
+      </>
+    );
+  }
+
+  if (presentationProfile.supportsAcceptedAnswers) {
+    return (
+      <>
+        <strong>{presentationProfile.acceptedAnswersLabel}</strong>
+        {acceptedAnswers.length ? (
+          <div className="questionBankTagRow">
+            {acceptedAnswers.map((answer) => (
+              <span className="questionBankTagChip" key={answer}>
+                {answer}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="emptyText">
+            {presentationProfile.acceptedAnswersHelper || "No accepted answers were added yet."}
+          </p>
+        )}
+      </>
+    );
+  }
+
+  if (presentationProfile.supportsTextAnswer) {
+    return (
+      <>
+        <strong>Student response format</strong>
+        <p className="emptyText">
+          {presentationProfile.responseInputHelper || "Learners respond in free text for this question type."}
+        </p>
+      </>
+    );
+  }
+
+  return null;
+}
+
+function renderDistractorAnalytics(question: TeacherQuestion) {
+  if (!question.options.length) {
+    return null;
+  }
+
+  return (
+    <section className="questionPreviewSection">
+      <strong>Option analytics</strong>
+      <div className="questionBankOptionAnalyticsGrid">
+        {question.options.map((option) => (
+          <article className="questionBankOptionAnalyticsCard" key={option.id ?? `${question.id}-${option.option_order}`}>
+            <div className="questionBankOptionAnalyticsHeader">
+              <span className={`statusPill ${option.is_correct ? "statusSuccess" : distractorTone(option.distractor_signal)}`}>
+                {option.is_correct ? "Correct option" : option.distractor_signal.replaceAll("_", " ")}
+              </span>
+              <span className="questionBankMetaChip">Option {option.option_order}</span>
+            </div>
+            <p>{option.option_text}</p>
+            <div className="questionBankOptionAnalyticsStats">
+              <span>{Math.round(option.selection_rate)}% selected</span>
+              <span>{option.selected_count} picks</span>
+              <span>{option.selected_wrong_count} wrong picks</span>
+            </div>
+            <small>{option.distractor_note}</small>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function getPassageTitle(question: TeacherQuestionSummary | TeacherQuestion) {
+  if ("passage_detail" in question && question.passage_detail?.title) {
+    return question.passage_detail.title;
+  }
+  if ("passage_title" in question && question.passage_title) {
+    return question.passage_title;
+  }
+  return "";
 }
 
 function buildPageHref(
@@ -203,10 +324,10 @@ export function TeacherQuestionBankWorkspace({
   const [programFilter, setProgramFilter] = useState(filters.program ?? "");
   const [subjectFilter, setSubjectFilter] = useState(filters.subject ?? "");
   const [topicFilter, setTopicFilter] = useState(filters.topic ?? "");
+  const [qualitySignalFilter, setQualitySignalFilter] = useState(filters.quality_signal ?? "");
+  const [revisionPriorityFilter, setRevisionPriorityFilter] = useState(filters.revision_priority ?? "");
   const [loadedTopicInventory, setLoadedTopicInventory] = useState<LookupTopic[] | null>(null);
-  const [recentTopicIds] = useState<string[]>(() =>
-    readStoredArray(`${storageKeyPrefix}-recent-topics`),
-  );
+  const [recentTopicIds, setRecentTopicIds] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [previewQuestionId, setPreviewQuestionId] = useState<string | null>(null);
   const [questionDetailsById, setQuestionDetailsById] = useState<Record<string, TeacherQuestion>>({});
@@ -225,6 +346,7 @@ export function TeacherQuestionBankWorkspace({
     }
 
     setFavoriteIds(readStoredArray(`${storageKeyPrefix}-favorites`));
+    setRecentTopicIds(readStoredArray(`${storageKeyPrefix}-recent-topics`));
     setShowFavoritesOnly(
       window.localStorage.getItem(`${storageKeyPrefix}-favorites-only`) === "true",
     );
@@ -406,7 +528,7 @@ export function TeacherQuestionBankWorkspace({
   }, [recentTopicIds, selectedTopicFilter]);
 
   useEffect(() => {
-    if (!isBrowser) {
+    if (!isBrowser || !hasLoadedPreferences) {
       return;
     }
 
@@ -414,7 +536,7 @@ export function TeacherQuestionBankWorkspace({
       `${storageKeyPrefix}-recent-topics`,
       JSON.stringify(mergedRecentTopicIds),
     );
-  }, [mergedRecentTopicIds, isBrowser, storageKeyPrefix]);
+  }, [hasLoadedPreferences, mergedRecentTopicIds, isBrowser, storageKeyPrefix]);
 
   const visibleQuestions = useMemo(() => {
     return questions.filter((question) => {
@@ -674,6 +796,32 @@ export function TeacherQuestionBankWorkspace({
             </select>
           </label>
 
+          <label className="fieldStack">
+            <span>Quality signal</span>
+            <select name="quality_signal" value={qualitySignalFilter} onChange={(event) => setQualitySignalFilter(event.target.value)}>
+              <option value="">All signals</option>
+              <option value="revision_candidate">Revision candidate</option>
+              <option value="ambiguous">Ambiguous</option>
+              <option value="skip_risk">Skip risk</option>
+              <option value="hard">Hard</option>
+              <option value="watch">Watch</option>
+              <option value="emerging">Emerging</option>
+              <option value="healthy">Healthy</option>
+            </select>
+          </label>
+
+          <label className="fieldStack">
+            <span>Revision priority</span>
+            <select name="revision_priority" value={revisionPriorityFilter} onChange={(event) => setRevisionPriorityFilter(event.target.value)}>
+              <option value="">All priorities</option>
+              <option value="urgent">Urgent</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="watch">Watch</option>
+              <option value="none">None</option>
+            </select>
+          </label>
+
           <label className="fieldStack questionBankStatusField">
             <span>Status</span>
             <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
@@ -720,6 +868,8 @@ export function TeacherQuestionBankWorkspace({
                 !filters.tag &&
                 !filters.question_type &&
                 !filters.difficulty_level &&
+                !filters.quality_signal &&
+                !filters.revision_priority &&
                 filters.ordering === "-created_at" &&
                 filters.missing_explanation !== "true"
                   ? " workspaceQuickChipActive"
@@ -753,9 +903,9 @@ export function TeacherQuestionBankWorkspace({
             </button>
             <Link
               className={`workspaceQuickChip${
-                filters.question_type === "single_choice" ? " workspaceQuickChipActive" : ""
+                filters.question_type === "mcq_single" ? " workspaceQuickChipActive" : ""
               }`}
-              href={quickFilterHref({ question_type: "single_choice" })}
+              href={quickFilterHref({ question_type: "mcq_single" })}
             >
               MCQ
             </Link>
@@ -777,6 +927,30 @@ export function TeacherQuestionBankWorkspace({
             </Link>
             <Link
               className={`workspaceQuickChip${
+                filters.revision_priority === "high" ? " workspaceQuickChipActive" : ""
+              }`}
+              href={quickFilterHref({ revision_priority: "high" })}
+            >
+              Revision Queue
+            </Link>
+            <Link
+              className={`workspaceQuickChip${
+                filters.quality_signal === "skip_risk" ? " workspaceQuickChipActive" : ""
+              }`}
+              href={quickFilterHref({ quality_signal: "skip_risk" })}
+            >
+              Skip Risk
+            </Link>
+            <Link
+              className={`workspaceQuickChip${
+                filters.quality_signal === "ambiguous" ? " workspaceQuickChipActive" : ""
+              }`}
+              href={quickFilterHref({ quality_signal: "ambiguous" })}
+            >
+              Ambiguous
+            </Link>
+            <Link
+              className={`workspaceQuickChip${
                 filters.ordering === "-usage_count" ? " workspaceQuickChipActive" : ""
               }`}
               href={quickFilterHref({ ordering: "-usage_count" })}
@@ -795,6 +969,12 @@ export function TeacherQuestionBankWorkspace({
           </span>
           <span className="statusPill statusDefault">
             Type: {filters.question_type || "all"}
+          </span>
+          <span className="statusPill statusDefault">
+            Quality: {filters.quality_signal || "all"}
+          </span>
+          <span className="statusPill statusDefault">
+            Revision: {filters.revision_priority || "all"}
           </span>
           <span className="statusPill statusDefault">
             Difficulty: {filters.difficulty_level || "all"}
@@ -828,7 +1008,7 @@ export function TeacherQuestionBankWorkspace({
           </span>
         </div>
 
-        {recentTopics.length ? (
+        {hasLoadedPreferences && recentTopics.length ? (
           <div className="questionBankRecentTopics">
             <span>Recent topics</span>
             <div className="questionBankTagRow">
@@ -991,6 +1171,7 @@ export function TeacherQuestionBankWorkspace({
                 topics.find((topic) => topic.id === question.topic)?.name ?? null;
               const previewText = question.question_text.replaceAll("\n", " ").trim();
               const favorite = favoriteIds.includes(question.id);
+              const passageTitle = getPassageTitle(question);
 
               return (
                 <article
@@ -1012,6 +1193,9 @@ export function TeacherQuestionBankWorkspace({
                         {programName ? <span className="questionBankMetaChip">{programName}</span> : null}
                         {subjectName ? <span className="questionBankMetaChip">{subjectName}</span> : null}
                         {topicName ? <span className="questionBankMetaChip">{topicName}</span> : null}
+                        {passageTitle ? (
+                          <span className="questionBankMetaChip">Comprehension: {passageTitle}</span>
+                        ) : null}
                         <span className="questionBankMetaChip">
                           {questionTypeLabelMap[question.question_type] ?? question.question_type}
                         </span>
@@ -1023,6 +1207,12 @@ export function TeacherQuestionBankWorkspace({
                         </span>
                         <span className={`questionBankQualityPill ${isQualityReady(question) ? "questionBankQualityPillGood" : "questionBankQualityPillWarn"}`}>
                           {isQualityReady(question) ? "Quality ready" : "Needs cleanup"}
+                        </span>
+                        <span className={`statusPill ${questionQualityTone(question.quality_signal)}`}>
+                          {question.quality_signal.replaceAll("_", " ")}
+                        </span>
+                        <span className={`statusPill ${questionQualityTone(question.quality_signal)}`}>
+                          {question.revision_priority} priority
                         </span>
                         {question.attachment_count > 0 ? (
                           <span className="questionBankQualityPill questionBankQualityPillGood">
@@ -1060,16 +1250,21 @@ export function TeacherQuestionBankWorkspace({
                     </div>
                     <div>
                       <span>Wrong</span>
-                      <strong>{percentage(question.wrong_attempt_percentage)}</strong>
+                      <strong>{Math.round(question.wrong_rate)}%</strong>
                     </div>
                     <div>
                       <span>Skip</span>
-                      <strong>{percentage(question.skip_percentage)}</strong>
+                      <strong>{Math.round(question.skip_rate)}%</strong>
                     </div>
                   </div>
 
                   <div className="questionBankCardFooter">
                     <div className="questionBankCardMetaNote">
+                      <span>
+                        {passageTitle
+                          ? `Linked to comprehension set "${passageTitle}"`
+                          : "Standalone question"}
+                      </span>
                       <span>
                         {question.attachment_count > 0
                           ? `${question.attachment_count} attachment${question.attachment_count === 1 ? "" : "s"} linked`
@@ -1079,6 +1274,9 @@ export function TeacherQuestionBankWorkspace({
                         {question.has_explanation
                           ? "Explanation present"
                           : "Explanation still missing"}
+                      </span>
+                      <span>
+                        {question.quality_note}
                       </span>
                       <span>
                         {question.tag_count > 0
@@ -1130,18 +1328,11 @@ export function TeacherQuestionBankWorkspace({
                               </p>
                             </div>
 
-                            {questionDetailsById[question.id].options.length ? (
-                              <div className="questionBankOptionsList">
-                                {questionDetailsById[question.id].options.map((option) => (
-                                  <div className="questionBankOptionRow" key={option.id ?? `${question.id}-${option.option_order}`}>
-                                    <span>{option.is_correct ? "✓" : "○"}</span>
-                                    <p>{option.option_text}</p>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <p className="emptyText">No options were returned for this question.</p>
-                            )}
+                            <div className="questionPreviewSection">
+                              {renderQuestionResponsePreview(questionDetailsById[question.id])}
+                            </div>
+
+                            {renderDistractorAnalytics(questionDetailsById[question.id])}
 
                             {questionDetailsById[question.id].attachments.length ? (
                               <div className="questionBankAttachmentNotice">
@@ -1217,6 +1408,11 @@ export function TeacherQuestionBankWorkspace({
 
                 <div className="questionPreviewBody">
                   <div className="questionBankChipRow">
+                    {getPassageTitle(previewQuestion) ? (
+                      <span className="questionBankMetaChip">
+                        Comprehension: {getPassageTitle(previewQuestion)}
+                      </span>
+                    ) : null}
                     <span className="questionBankMetaChip">
                       {questionTypeLabelMap[previewQuestion.question_type] ?? previewQuestion.question_type}
                     </span>
@@ -1261,32 +1457,20 @@ export function TeacherQuestionBankWorkspace({
                   </section>
 
                   {"options" in previewQuestion ? (
-                    <section className="questionPreviewSection">
-                      <strong>Answer options</strong>
-                      {previewQuestion.options.length ? (
-                        <div className="questionBankOptionsList">
-                          {previewQuestion.options.map((option) => (
-                            <div
-                              className="questionBankOptionRow"
-                              key={option.id ?? `${previewQuestion.id}-${option.option_order}`}
-                            >
-                              <span>{option.is_correct ? "✓" : "○"}</span>
-                              <p>{option.option_text}</p>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="emptyText">No options were returned for this question.</p>
-                      )}
-                    </section>
+                    <>
+                      <section className="questionPreviewSection">
+                        {renderQuestionResponsePreview(previewQuestion)}
+                      </section>
+                      {renderDistractorAnalytics(previewQuestion)}
+                    </>
                   ) : isLoadingQuestionDetail(previewQuestion.id) ? (
                     <section className="questionPreviewSection">
-                      <strong>Answer options</strong>
+                      <strong>Response details</strong>
                       <p className="emptyText">Loading full question details...</p>
                     </section>
                   ) : detailErrors[previewQuestion.id] ? (
                     <section className="questionPreviewSection">
-                      <strong>Answer options</strong>
+                      <strong>Response details</strong>
                       <p className="emptyText">{detailErrors[previewQuestion.id]}</p>
                     </section>
                   ) : null}

@@ -9,6 +9,7 @@ import {
   deleteTeacherQuestionTagMap,
   fetchTeacherPrograms,
   fetchTeacherQuestionDetail,
+  fetchTeacherQuestionPassagePage,
   fetchTeacherQuestionPage,
   fetchTeacherQuestionTags,
   fetchTeacherSubjects,
@@ -47,6 +48,35 @@ function readLoadError(error: unknown, fallback: string) {
     return error.message.trim();
   }
   return fallback;
+}
+
+function summarizeRichText(value: string | null | undefined, fallback: string) {
+  const normalized = (value || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  return normalized || fallback;
+}
+
+function buildQuestionScopeFilters(params: {
+  search: string;
+  program: string;
+  subject: string;
+  topic: string;
+  tag: string;
+  questionType: string;
+  difficultyLevel: string;
+  missingExplanation: boolean;
+}) {
+  return {
+    search: params.search || undefined,
+    program: params.program || undefined,
+    subject: params.subject || undefined,
+    topic: params.topic || undefined,
+    tag: params.tag || undefined,
+    question_type: params.questionType || undefined,
+    difficulty_level: params.difficultyLevel || undefined,
+    missing_explanation: params.missingExplanation,
+    page: 1,
+    page_size: 1,
+  };
 }
 
 async function applyQuestionBulkAction(formData: FormData) {
@@ -166,6 +196,8 @@ export default async function TeacherQuestionBankPage({
   const difficultyLevel = readSingle(resolvedSearchParams.difficulty_level);
   const ordering = readSingle(resolvedSearchParams.ordering) || "-created_at";
   const missingExplanation = readSingle(resolvedSearchParams.missing_explanation) === "true";
+  const qualitySignal = readSingle(resolvedSearchParams.quality_signal);
+  const revisionPriority = readSingle(resolvedSearchParams.revision_priority);
   const error = readSingle(resolvedSearchParams.error);
   const message = readSingle(resolvedSearchParams.message);
 
@@ -173,6 +205,7 @@ export default async function TeacherQuestionBankPage({
     fetchTeacherOptionCatalog(),
     fetchTeacherPrograms(),
     fetchTeacherQuestionTags(),
+    fetchTeacherQuestionPassagePage({ page_size: 20 }),
   ]);
 
   const optionCatalogEntries =
@@ -181,6 +214,8 @@ export default async function TeacherQuestionBankPage({
     bootstrapResults[1].status === "fulfilled" ? bootstrapResults[1].value : [];
   const tags =
     bootstrapResults[2].status === "fulfilled" ? bootstrapResults[2].value : [];
+  const passagePage =
+    bootstrapResults[3].status === "fulfilled" ? bootstrapResults[3].value : null;
   const validProgram = programs.some((entry) => entry.id === program) ? program : "";
   const subjects = await fetchTeacherSubjects({
     program: validProgram || undefined,
@@ -206,6 +241,8 @@ export default async function TeacherQuestionBankPage({
         tag: tag || undefined,
         question_type: questionType || undefined,
         difficulty_level: difficultyLevel || undefined,
+        quality_signal: qualitySignal || undefined,
+        revision_priority: revisionPriority || undefined,
         ordering,
         missing_explanation: missingExplanation || undefined,
         error: error || undefined,
@@ -225,6 +262,8 @@ export default async function TeacherQuestionBankPage({
     tag: tag || undefined,
     question_type: questionType || undefined,
     difficulty_level: difficultyLevel || undefined,
+    quality_signal: qualitySignal || undefined,
+    revision_priority: revisionPriority || undefined,
     ordering,
     missing_explanation: missingExplanation,
   }).catch((caughtError) => {
@@ -265,6 +304,30 @@ export default async function TeacherQuestionBankPage({
   const missingExplanationCount = questionPage.results.filter(
     (question) => !question.has_explanation,
   ).length;
+  const scopeFilters = buildQuestionScopeFilters({
+    search,
+    program: validProgram,
+    subject: validSubject,
+    topic: validTopic,
+    tag,
+    questionType,
+    difficultyLevel,
+    missingExplanation: missingExplanation,
+  });
+  const qualitySummaryResults = await Promise.allSettled([
+    fetchTeacherQuestionPage({ ...scopeFilters, revision_priority: "high" }),
+    fetchTeacherQuestionPage({ ...scopeFilters, quality_signal: "ambiguous" }),
+    fetchTeacherQuestionPage({ ...scopeFilters, quality_signal: "skip_risk" }),
+    fetchTeacherQuestionPage({ ...scopeFilters, quality_signal: "emerging" }),
+  ]);
+  const highPriorityRevisionCount =
+    qualitySummaryResults[0].status === "fulfilled" ? qualitySummaryResults[0].value.count : 0;
+  const ambiguousCount =
+    qualitySummaryResults[1].status === "fulfilled" ? qualitySummaryResults[1].value.count : 0;
+  const skipRiskCount =
+    qualitySummaryResults[2].status === "fulfilled" ? qualitySummaryResults[2].value.count : 0;
+  const emergingCount =
+    qualitySummaryResults[3].status === "fulfilled" ? qualitySummaryResults[3].value.count : 0;
 
   return (
     <div className="studentPage studentPageTight studentDashboardModern teacherConsolePage questionBankPageVivid">
@@ -272,7 +335,13 @@ export default async function TeacherQuestionBankPage({
         action={
           <div className="questionBankButtonRow">
             <Link className="button buttonSecondary" href="/teacher/question-bank/import">
-              Import CSV
+              Import Questions CSV
+            </Link>
+            <Link className="button buttonSecondary" href="/teacher/question-bank/comprehension/import">
+              Import Comprehension CSV
+            </Link>
+            <Link className="button buttonSecondary" href="/teacher/question-bank/comprehension/new">
+              Create Comprehension Set
             </Link>
             <Link className="button buttonPrimary" href="/teacher/question-bank/new">
               Create Question
@@ -309,10 +378,69 @@ export default async function TeacherQuestionBankPage({
           <strong>{subjects.length}</strong>
           <small>{topics.length} topic options across the current subject lane</small>
         </article>
+        <article className="builderSummaryCard">
+          <span>Comprehension sets</span>
+          <strong>{passagePage?.count ?? 0}</strong>
+          <small>Shared passages available for linked question authoring</small>
+        </article>
+        <article className="builderSummaryCard">
+          <span>Revision queue</span>
+          <strong>{highPriorityRevisionCount}</strong>
+          <small>High-priority questions waiting for distractor, wording, or explanation cleanup</small>
+        </article>
+        <article className="builderSummaryCard">
+          <span>Ambiguous items</span>
+          <strong>{ambiguousCount}</strong>
+          <small>Wrong plus skip patterns suggest unclear prompts or misleading choices</small>
+        </article>
+        <article className="builderSummaryCard">
+          <span>Skip risk</span>
+          <strong>{skipRiskCount}</strong>
+          <small>Questions that students avoid often and may need simplification or better scaffolding</small>
+        </article>
+        <article className="builderSummaryCard">
+          <span>Emerging data</span>
+          <strong>{emergingCount}</strong>
+          <small>Questions with too little response volume to trust editorial conclusions yet</small>
+        </article>
       </section>
 
+      {passagePage?.results?.length ? (
+        <section className="contentCard">
+          <div className="sectionHeading">
+            <strong>Recent comprehension sets</strong>
+            <span>{passagePage.count} in current teacher scope</span>
+          </div>
+          <div className="questionBankList">
+            {passagePage.results.slice(0, 4).map((passage) => (
+              <article className="questionBankCard" key={passage.id}>
+                <div className="questionBankCardHeader">
+                  <div className="questionBankCardCopy">
+                    <strong>{passage.title}</strong>
+                    <div className="questionBankChipRow">
+                      <span className="questionBankMetaChip">{passage.content_format}</span>
+                      <span className="questionBankMetaChip">{passage.linked_question_count} linked</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="questionBankCardFooter">
+                  <div className="questionBankCardMetaNote">
+                    <span>{summarizeRichText(passage.description, "No teacher note added yet.")}</span>
+                  </div>
+                  <div className="questionBankCardActions">
+                    <Link className="button buttonSecondary" href={`/teacher/question-bank/comprehension/${passage.id}`}>
+                      Open Set
+                    </Link>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       <TeacherQuestionBankWorkspace
-        key={[validProgram, validSubject, validTopic, search, tag, questionType, difficultyLevel, ordering, missingExplanation ? "1" : "0", page].join(":")}
+        key={[validProgram, validSubject, validTopic, search, tag, questionType, difficultyLevel, qualitySignal, revisionPriority, ordering, missingExplanation ? "1" : "0", page].join(":")}
         bulkAction={applyQuestionBulkAction}
         attachmentTypeLabelMap={optionCatalog.labelMap("question_attachment_type")}
         difficultyLabelMap={optionCatalog.labelMap("question_difficulty")}
@@ -325,6 +453,8 @@ export default async function TeacherQuestionBankPage({
           tag,
           question_type: questionType,
           difficulty_level: difficultyLevel,
+          quality_signal: qualitySignal,
+          revision_priority: revisionPriority,
           ordering,
           missing_explanation: missingExplanation ? "true" : "",
         }}

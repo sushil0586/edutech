@@ -1,6 +1,14 @@
 from rest_framework import serializers
 
-from apps.academics.models import AcademicYear, Cohort, OptionCatalogEntry, Program, Subject, Topic
+from apps.academics.models import (
+    AcademicYear,
+    AssessmentFamily,
+    Cohort,
+    OptionCatalogEntry,
+    Program,
+    Subject,
+    Topic,
+)
 
 
 class AcademicYearSerializer(serializers.ModelSerializer):
@@ -24,21 +32,87 @@ class AcademicYearListSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class AssessmentFamilySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AssessmentFamily
+        fields = "__all__"
+
+
+class AssessmentFamilyListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AssessmentFamily
+        fields = (
+            "id",
+            "code",
+            "label",
+            "description",
+            "sort_order",
+            "allowed_question_types",
+            "scoring_defaults",
+            "delivery_defaults",
+            "analytics_preset",
+            "authoring_hints",
+            "is_active",
+        )
+        read_only_fields = fields
+
+
 class ProgramSerializer(serializers.ModelSerializer):
+    assessment_family_code = serializers.SerializerMethodField()
+    assessment_family_label = serializers.SerializerMethodField()
+    assessment_family_profile = serializers.SerializerMethodField()
+
+    def get_assessment_family_code(self, obj):
+        family = getattr(obj, "assessment_family", None)
+        return family.code if family is not None else None
+
+    def get_assessment_family_label(self, obj):
+        family = getattr(obj, "assessment_family", None)
+        return family.label if family is not None else None
+
+    def get_assessment_family_profile(self, obj):
+        family = getattr(obj, "assessment_family", None)
+        if family is None:
+            return None
+        return AssessmentFamilyListSerializer(family).data
+
     class Meta:
         model = Program
         fields = "__all__"
 
 
 class ProgramListSerializer(serializers.ModelSerializer):
+    assessment_family_code = serializers.SerializerMethodField()
+    assessment_family_label = serializers.SerializerMethodField()
+    assessment_family_profile = serializers.SerializerMethodField()
+
+    def get_assessment_family_code(self, obj):
+        family = getattr(obj, "assessment_family", None)
+        return family.code if family is not None else None
+
+    def get_assessment_family_label(self, obj):
+        family = getattr(obj, "assessment_family", None)
+        return family.label if family is not None else None
+
+    def get_assessment_family_profile(self, obj):
+        family = getattr(obj, "assessment_family", None)
+        if family is None:
+            return None
+        return AssessmentFamilyListSerializer(family).data
+
     class Meta:
         model = Program
         fields = (
             "id",
             "institute",
+            "assessment_family",
+            "assessment_family_code",
+            "assessment_family_label",
+            "assessment_family_profile",
             "name",
             "code",
             "category",
+            "description",
             "sort_order",
             "is_active",
         )

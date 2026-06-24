@@ -6,12 +6,148 @@ from django.db.models import Avg, Count, F, Max, Min, Prefetch, Q, Sum, Window
 from django.db.models.functions import RowNumber
 from django.utils import timezone
 
-from apps.attempts.services import attempt_integrity_summary, hydrate_attempt_integrity_summaries
+from apps.attempts.models import StudentAnswer
+from apps.attempts.services import (
+    attempt_has_pending_manual_review,
+    attempt_integrity_summary,
+    hydrate_attempt_integrity_summaries,
+    unresolved_review_tasks_queryset,
+)
 from apps.exams.services import (
     choose_attempt_for_result_policy,
     is_result_visible_for_attempt,
     resolve_result_publish_mode,
+    resolve_exam_experience_profile,
 )
+
+
+def _score_distribution_buckets(results_qs):
+    bucket_specs = [
+        ("0-24", 0, 25),
+        ("25-49", 25, 50),
+        ("50-69", 50, 70),
+        ("70-84", 70, 85),
+        ("85-100", 85, 101),
+    ]
+    buckets = []
+    total = results_qs.count()
+    for label, lower, upper in bucket_specs:
+        if upper == 101:
+            count = results_qs.filter(percentage__gte=lower, percentage__lte=100).count()
+        else:
+            count = results_qs.filter(percentage__gte=lower, percentage__lt=upper).count()
+        buckets.append(
+            {
+                "label": label,
+                "min_percentage": lower,
+                "max_percentage": 100 if upper == 101 else upper - 1,
+                "count": count,
+                "percentage_share": round((count / total) * 100, 2) if total > 0 else 0.0,
+            }
+        )
+    return buckets
+
+
+def _section_performance_summary(exam):
+    exam_questions = list(
+        exam.exam_questions.filter(is_active=True)
+        .select_related("section", "question")
+        .order_by("question_order", "created_at")
+    )
+    if not exam_questions:
+        return []
+
+    question_map = {
+        str(item.question_id): item
+        for item in exam_questions
+    }
+    section_stats = {}
+    unsectioned_key = "unsectioned"
+
+    def ensure_entry(*, key, label, order):
+        return section_stats.setdefault(
+            key,
+            {
+                "section_id": None if key == unsectioned_key else key,
+                "section_name": label,
+                "section_order": order,
+                "total_questions": 0,
+                "attempted_answers": 0,
+                "correct_answers": 0,
+                "wrong_answers": 0,
+                "skipped_answers": 0,
+                "marks_awarded": Decimal("0.00"),
+                "negative_marks_applied": Decimal("0.00"),
+                "total_time_seconds": 0,
+            },
+        )
+
+    for item in exam_questions:
+        section_key = str(item.section_id) if item.section_id else unsectioned_key
+        section_label = item.section.name if item.section_id else item.section_name or "No section"
+        section_order = item.section.section_order if item.section_id else 9999
+        entry = ensure_entry(key=section_key, label=section_label, order=section_order)
+        entry["total_questions"] += 1
+
+    answers = StudentAnswer.objects.filter(
+        attempt__exam=exam,
+        attempt__is_active=True,
+        is_active=True,
+    ).select_related("question")
+
+    for answer in answers:
+        exam_question = question_map.get(str(answer.question_id))
+        if exam_question is None:
+            continue
+        section_key = str(exam_question.section_id) if exam_question.section_id else unsectioned_key
+        section_label = exam_question.section.name if exam_question.section_id else exam_question.section_name or "No section"
+        section_order = exam_question.section.section_order if exam_question.section_id else 9999
+        entry = ensure_entry(key=section_key, label=section_label, order=section_order)
+        has_response = bool(
+            answer.selected_option_id
+            or (answer.selected_option_ids or [])
+            or (answer.answer_text or "").strip()
+        )
+        if has_response:
+            entry["attempted_answers"] += 1
+            if answer.is_correct:
+                entry["correct_answers"] += 1
+            else:
+                entry["wrong_answers"] += 1
+        else:
+            entry["skipped_answers"] += 1
+        entry["marks_awarded"] += answer.marks_awarded or Decimal("0.00")
+        entry["negative_marks_applied"] += answer.negative_marks_applied or Decimal("0.00")
+        entry["total_time_seconds"] += int(answer.time_spent_seconds or 0)
+
+    payload = []
+    for item in sorted(section_stats.values(), key=lambda row: (row["section_order"], row["section_name"])):
+        attempts_total = item["correct_answers"] + item["wrong_answers"] + item["skipped_answers"]
+        answered_total = item["correct_answers"] + item["wrong_answers"]
+        payload.append(
+            {
+                "section_id": item["section_id"],
+                "section_name": item["section_name"],
+                "section_order": item["section_order"],
+                "total_questions": item["total_questions"],
+                "attempted_answers": item["attempted_answers"],
+                "correct_answers": item["correct_answers"],
+                "wrong_answers": item["wrong_answers"],
+                "skipped_answers": item["skipped_answers"],
+                "accuracy_percentage": round((item["correct_answers"] / answered_total) * 100, 2)
+                if answered_total > 0
+                else 0.0,
+                "skip_percentage": round((item["skipped_answers"] / attempts_total) * 100, 2)
+                if attempts_total > 0
+                else 0.0,
+                "marks_awarded": _decimal_string(item["marks_awarded"]),
+                "negative_marks_applied": _decimal_string(item["negative_marks_applied"]),
+                "average_time_seconds": round(item["total_time_seconds"] / attempts_total, 2)
+                if attempts_total > 0
+                else 0.0,
+            }
+        )
+    return payload
 
 
 def attempt_monitor_alerts(attempt, *, at_time=None):
@@ -396,6 +532,8 @@ def generate_result_from_attempt(attempt):
 
     if attempt.status not in {"submitted", "auto_submitted"}:
         raise ValidationError({"attempt": "Attempt must be submitted or auto-submitted."})
+    if attempt_has_pending_manual_review(attempt):
+        raise ValidationError({"attempt": "Result cannot be generated until all manual-review answers are graded."})
 
     result, created = ExamResult.objects.get_or_create(
         exam=attempt.exam,
@@ -513,6 +651,16 @@ def publish_exam_results(exam):
     results = list(ExamResult.objects.filter(exam=exam, is_active=True))
     if not results:
         raise ValidationError({"exam": "No generated results found for this exam."})
+    unresolved_review_count = unresolved_review_tasks_queryset(exam=exam).count()
+    if unresolved_review_count:
+        raise ValidationError(
+            {
+                "exam": (
+                    "Results cannot be published while review tasks are unresolved. "
+                    f"{unresolved_review_count} review task(s) still need attention."
+                )
+            }
+        )
 
     published_at = timezone.now()
     for result in results:
@@ -625,6 +773,11 @@ def calculate_exam_performance_summary(exam):
     total_results = results_qs.count()
     total_passed = results_qs.filter(result_status="pass").count()
     total_failed = results_qs.filter(result_status="fail").count()
+    metadata = {
+        "score_distribution": _score_distribution_buckets(results_qs),
+        "section_performance": _section_performance_summary(exam),
+        "experience_profile": resolve_exam_experience_profile(exam),
+    }
 
     summary, _ = ExamPerformanceSummary.objects.get_or_create(
         institute=exam.institute,
@@ -639,6 +792,7 @@ def calculate_exam_performance_summary(exam):
             "lowest_score": aggregates["lowest_score"] or Decimal("0.00"),
             "average_percentage": aggregates["average_percentage"] or Decimal("0.00"),
             "last_calculated_at": timezone.now(),
+            "metadata": metadata,
         },
     )
 
@@ -651,6 +805,7 @@ def calculate_exam_performance_summary(exam):
     summary.lowest_score = aggregates["lowest_score"] or Decimal("0.00")
     summary.average_percentage = aggregates["average_percentage"] or Decimal("0.00")
     summary.last_calculated_at = timezone.now()
+    summary.metadata = metadata
     summary.save()
 
     return summary
@@ -1378,7 +1533,7 @@ def build_student_insight_summary(student):
 
 
 def build_teacher_insight_summary(user):
-    from apps.accounts.scopes import scope_teacher_queryset
+    from apps.accounts.scopes import get_account_profile, scope_teacher_queryset
     from apps.attempts.models import StudentAnswer, StudentExamAttempt
     from apps.results.models import ExamPerformanceSummary, ExamResult, StudentTopicPerformance
 
@@ -1487,6 +1642,18 @@ def build_teacher_insight_summary(user):
     )
     most_wrong = list(answer_rows.order_by("-wrong_count", "-total_attempts", "question_id")[:5])
     most_skipped = list(answer_rows.order_by("-skipped_count", "-total_attempts", "question_id")[:5])
+    profile = get_account_profile(user)
+    review_task_qs = unresolved_review_tasks_queryset(
+        institute=getattr(profile, "institute", None),
+        teacher=getattr(profile, "teacher_profile", None),
+    )
+    review_summary = {
+        "pending_tasks": review_task_qs.count(),
+        "assigned_tasks": review_task_qs.filter(status="assigned").count(),
+        "in_review_tasks": review_task_qs.filter(status="in_review").count(),
+        "recheck_requested_tasks": review_task_qs.filter(status="recheck_requested").count(),
+        "blocked_exams": review_task_qs.values("exam_id").distinct().count(),
+    }
 
     return {
         "overview": {
@@ -1495,12 +1662,25 @@ def build_teacher_insight_summary(user):
             "average_percentage": _decimal_string(avg_percentage),
             "accuracy_percentage": _decimal_string(accuracy_percentage),
             "average_time_taken_seconds": int(avg_time or 0),
+            "pending_review_tasks": review_summary["pending_tasks"],
         },
+        "review_summary": review_summary,
         "exam_overview": [
             {
                 "exam_id": str(summary.exam_id),
                 "exam_title": summary.exam.title,
                 "exam_code": summary.exam.code,
+                "experience_profile": resolve_exam_experience_profile(summary.exam),
+                "score_distribution": (
+                    summary.metadata.get("score_distribution", [])
+                    if isinstance(getattr(summary, "metadata", {}), dict)
+                    else []
+                ),
+                "section_performance": (
+                    summary.metadata.get("section_performance", [])
+                    if isinstance(getattr(summary, "metadata", {}), dict)
+                    else []
+                ),
                 "total_attempted": summary.total_attempted,
                 "total_passed": summary.total_passed,
                 "total_failed": summary.total_failed,

@@ -3,6 +3,10 @@ import { redirect, unstable_rethrow } from "next/navigation";
 import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import { StudentKpiGrid } from "@/components/ui/student-kpi-grid";
 import { StudentPageHeader } from "@/components/ui/student-page-header";
+import {
+  getStudentQuestionPromptTitle,
+  StudentQuestionPrompt,
+} from "@/components/ui/student-question-prompt";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { StatusPill } from "@/components/ui/status-pill";
 import {
@@ -17,6 +21,7 @@ import {
   questionTypeLabel,
   titleCaseState,
 } from "@/lib/student/formatters";
+import { questionTypeSupportsTextAnswer } from "@/lib/assessment/question-type";
 import {
   derivePracticeFocusFromReviewQuestions,
   resolvePracticeFollowUpAction,
@@ -352,17 +357,23 @@ export default async function AttemptReviewPage({
       </section>
 
       <section className="attemptQuestionStack">
-        {review.review_questions.map((question) => (
+        {review.review_questions.map((question, index) => {
+          const previousQuestion = review.review_questions[index - 1];
+          const shouldShowPassageTrigger =
+            Boolean(question.passage && question.passage_detail?.passage_text) &&
+            previousQuestion?.passage !== question.passage;
+
+          return (
           <article className="attemptQuestionCard" key={question.exam_question_id}>
             <div className="attemptQuestionHeader">
               <div>
                 <strong>
-                  Q{question.question_order}. {question.question_text}
+                  Q{question.question_order}. {getStudentQuestionPromptTitle(question)}
                 </strong>
                 <span>
                   {question.section_title
-                    ? `${question.section_title} · ${questionTypeLabel(question.question_type)}`
-                    : questionTypeLabel(question.question_type)}
+                    ? `${question.section_title} · ${questionTypeLabel(question.question_type, question.question_type_definition)}`
+                    : questionTypeLabel(question.question_type, question.question_type_definition)}
                 </span>
               </div>
               <span
@@ -378,12 +389,26 @@ export default async function AttemptReviewPage({
               </span>
             </div>
 
-            {question.question_type === "short_answer" ? (
+            <StudentQuestionPrompt
+              passageBadgeLabel="Shared passage"
+              passageButtonLabel="Open Passage"
+              passageMetaLabel={question.passage_detail?.title || "Comprehension"}
+              question={question}
+              showPassageTrigger={shouldShowPassageTrigger}
+            />
+
+            {questionTypeSupportsTextAnswer(question.question_type_definition) ? (
               <div className="attemptOptionList">
                 <div className="attemptOptionRow attemptOptionReviewRow attemptOptionSelected">
                   <strong>Your answer</strong>
                   <span>{reviewOptionText(question.answer_text || "No answer submitted")}</span>
                 </div>
+                {question.answer_transcript ? (
+                  <div className="attemptOptionRow attemptOptionReviewRow">
+                    <strong>Transcript</strong>
+                    <span>{reviewOptionText(question.answer_transcript)}</span>
+                  </div>
+                ) : null}
                 {review.show_correct_answers && question.accepted_answers.length ? (
                   <div className="attemptOptionRow attemptOptionReviewRow">
                     <strong>Accepted answer</strong>
@@ -410,11 +435,37 @@ export default async function AttemptReviewPage({
               </div>
             )}
 
+            {question.response_artifacts.length ? (
+              <div className="attemptArtifactList">
+                {question.response_artifacts.map((artifact) => (
+                  <div className="attemptArtifactRow" key={artifact.upload_token}>
+                    <div>
+                      <strong>{artifact.file_name || titleCaseState(artifact.asset_kind)}</strong>
+                      <span>
+                        {titleCaseState(artifact.asset_kind)}
+                        {artifact.storage_status ? ` · ${artifact.storage_status}` : ""}
+                      </span>
+                    </div>
+                    {artifact.file_url ? (
+                      <Link
+                        className="button buttonGhost"
+                        href={artifact.file_url}
+                        target="_blank"
+                      >
+                        Open
+                      </Link>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
             {review.show_explanations && question.explanation ? (
               <p className="studentNotificationMessage">{question.explanation}</p>
             ) : null}
           </article>
-        ))}
+        );
+        })}
       </section>
     </div>
   );

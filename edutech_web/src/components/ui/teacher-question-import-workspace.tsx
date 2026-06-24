@@ -6,6 +6,11 @@ import type {
   QuestionImportPreview,
   QuestionImportPreviewRow,
 } from "@/lib/api/teacher-builder";
+import {
+  buildQuestionImportSampleTemplates,
+  type QuestionImportSampleTemplate,
+} from "@/lib/teacher/question-import-samples";
+import { getQuestionBankFieldLabel } from "@/lib/teacher/question-bank-validation";
 
 type ImportFieldErrors = Partial<Record<"file", string>>;
 
@@ -37,6 +42,61 @@ function buildTemplateFileName() {
   return `nexora-question-bank-template-${stamp}.csv`;
 }
 
+function downloadCsvFile(content: string, fileName: string) {
+  const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
+
+function labelImportField(field: string) {
+  return getQuestionBankFieldLabel(field);
+}
+
+function normalizeImportMessages(value: string | string[] | undefined) {
+  if (!value) {
+    return [] as string[];
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => item.trim()).filter(Boolean);
+  }
+
+  return value.trim() ? [value.trim()] : [];
+}
+
+function rowMessages(row: QuestionImportPreviewRow) {
+  const fieldMessages = Object.values(row.error_map ?? {}).flatMap((value) =>
+    normalizeImportMessages(
+      Array.isArray(value)
+        ? value.map((item) => String(item))
+        : typeof value === "string"
+          ? value
+          : undefined,
+    ),
+  );
+  return [...fieldMessages, ...(row.errors ?? [])];
+}
+
+function hasDuplicateSignal(row: QuestionImportPreviewRow) {
+  return rowMessages(row).some((message) => {
+    const normalized = message.toLowerCase();
+    return normalized.includes("duplicate") || normalized.includes("already exists");
+  });
+}
+
+function hasComprehensionConflictSignal(row: QuestionImportPreviewRow) {
+  return rowMessages(row).some((message) => {
+    const normalized = message.toLowerCase();
+    return normalized.includes("passage order") || normalized.includes("comprehension order");
+  });
+}
+
 export function TeacherQuestionImportWorkspace({
   backHref = "/teacher/question-bank",
   csvContent,
@@ -66,17 +126,47 @@ export function TeacherQuestionImportWorkspace({
     () => preview?.rows.filter((row) => row.is_valid) ?? [],
     [preview],
   );
+  const invalidPreviewRows = useMemo(
+    () => preview?.rows.filter((row) => !row.is_valid) ?? [],
+    [preview],
+  );
+  const repeatedErrorFields = useMemo(() => {
+    const counts = new Map<string, number>();
+
+    for (const row of invalidPreviewRows) {
+      for (const field of row.error_fields ?? []) {
+        counts.set(field, (counts.get(field) ?? 0) + 1);
+      }
+    }
+
+    return [...counts.entries()].sort((left, right) => right[1] - left[1]);
+  }, [invalidPreviewRows]);
+  const repeatedExpectations = useMemo(() => {
+    const counts = new Map<string, number>();
+
+    for (const row of invalidPreviewRows) {
+      for (const expectation of row.expectations ?? []) {
+        counts.set(expectation, (counts.get(expectation) ?? 0) + 1);
+      }
+    }
+
+    return [...counts.entries()].sort((left, right) => right[1] - left[1]);
+  }, [invalidPreviewRows]);
+  const duplicateRows = useMemo(
+    () => invalidPreviewRows.filter((row) => hasDuplicateSignal(row)),
+    [invalidPreviewRows],
+  );
+  const comprehensionConflictRows = useMemo(
+    () => invalidPreviewRows.filter((row) => hasComprehensionConflictSignal(row)),
+    [invalidPreviewRows],
+  );
+  const sampleTemplates = useMemo<QuestionImportSampleTemplate[]>(
+    () => buildQuestionImportSampleTemplates(templateColumns),
+    [templateColumns],
+  );
 
   function downloadTemplate() {
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = buildTemplateFileName();
-    document.body.append(link);
-    link.click();
-    link.remove();
-    window.URL.revokeObjectURL(url);
+    downloadCsvFile(csvContent, buildTemplateFileName());
   }
 
   async function handlePreviewSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -158,6 +248,8 @@ export function TeacherQuestionImportWorkspace({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          preview_schema_version: preview.preview_schema_version,
+          preview_signature: preview.preview_signature,
           preview_rows: preview.rows,
           valid_payloads: preview.valid_payloads,
         }),
@@ -173,16 +265,26 @@ export function TeacherQuestionImportWorkspace({
         throw new Error(nextMessage);
       }
 
-      const payload = (await response.json()) as
-        | { created_count?: number; error?: string }
-        | { success: true; created_count: number };
+      const payload = (await response.json()) as {
+        created_count?: number;
+        failed_count?: number;
+        failures?: Array<{ row_number?: number | null; question_text?: string; errors?: Record<string, string[]> }>;
+        error?: string;
+      };
 
       const createdCount =
         "created_count" in payload && typeof payload.created_count === "number"
           ? payload.created_count
           : 0;
-
-      setMessage(`${createdCount} questions were imported into the question bank.`);
+      const failedCount =
+        "failed_count" in payload && typeof payload.failed_count === "number"
+          ? payload.failed_count
+          : 0;
+      setMessage(
+        failedCount > 0
+          ? `${createdCount} questions were imported. ${failedCount} row(s) still failed during final import and should be previewed again.`
+          : `${createdCount} questions were imported into the question bank.`,
+      );
       setPreview(null);
       setSelectedFile(null);
       const form = document.getElementById(formId) as HTMLFormElement | null;
@@ -224,6 +326,33 @@ export function TeacherQuestionImportWorkspace({
           <strong>{preview?.total_rows ?? 0}</strong>
           <small>Total CSV rows currently checked against the backend rules</small>
         </article>
+        <article className="builderSummaryCard">
+          <span>Most repeated fix</span>
+          <strong>{repeatedErrorFields[0] ? labelImportField(repeatedErrorFields[0][0]) : "Clean"}</strong>
+          <small>
+            {repeatedErrorFields[0]
+              ? `${repeatedErrorFields[0][1]} row(s) need the same field corrected`
+              : "No repeated field failures in the current preview"}
+          </small>
+        </article>
+        <article className="builderSummaryCard">
+          <span>Duplicate risk rows</span>
+          <strong>{duplicateRows.length}</strong>
+          <small>
+            {duplicateRows.length
+              ? "Rows match existing or repeated question content"
+              : "No duplicate-content risks detected in this preview"}
+          </small>
+        </article>
+        <article className="builderSummaryCard">
+          <span>Comprehension order conflicts</span>
+          <strong>{comprehensionConflictRows.length}</strong>
+          <small>
+            {comprehensionConflictRows.length
+              ? "Rows reuse passage order inside the same set"
+              : "No comprehension-order conflicts detected"}
+          </small>
+        </article>
       </section>
 
       <section className="contentCard questionImportPanel">
@@ -252,6 +381,46 @@ export function TeacherQuestionImportWorkspace({
           </div>
         </div>
 
+        <div className="builderMiniBanner">
+          <div>
+            <strong>Type-specific columns</strong>
+            <span>
+              Use <code>correct_answer</code> for MCQ and true/false rows. Use <code>accepted_answers</code>
+              for short-answer and numeric rows with pipe-separated values like <code>2.5|2.50</code>.
+              Use <code>numeric_tolerance</code> only for numeric rows and <code>review_guidance</code> only for essay manual-review rows.
+              Use <code>passage_title</code> and <code>passage_order</code> only when a question should link to an existing comprehension set.
+            </span>
+          </div>
+        </div>
+
+        <div className="questionImportSampleGrid">
+          {sampleTemplates.map((sample) => (
+            <article className="questionImportSampleCard" key={sample.id}>
+              <div className="questionImportSampleCardCopy">
+                <strong>{sample.title}</strong>
+                <p>{sample.description}</p>
+              </div>
+              <button
+                className="button buttonGhost"
+                onClick={() => downloadCsvFile(sample.csvContent, sample.fileName)}
+                type="button"
+              >
+                Download Sample
+              </button>
+            </article>
+          ))}
+        </div>
+
+        <div className="builderMiniBanner">
+          <div>
+            <strong>Before using a sample</strong>
+            <span>
+              Replace <code>SUBJECT-CODE</code> and <code>TOPIC-CODE</code> with real academic codes from your setup before previewing the import.
+              If you use <code>passage_title</code>, import that comprehension set first and match the title exactly.
+            </span>
+          </div>
+        </div>
+
         <form
           action="#"
           className="builderSectionCard"
@@ -265,9 +434,15 @@ export function TeacherQuestionImportWorkspace({
                 accept=".csv,text/csv"
                 aria-invalid={Boolean(fieldErrors.file)}
                 className={fieldErrors.file ? "setupFieldInvalid" : undefined}
+                data-testid="question-import-file-input"
                 name="file"
                 onChange={(event) => {
                   setSelectedFile(event.target.files?.[0] ?? null);
+                  setFieldErrors((current) => ({ ...current, file: "" }));
+                }}
+                onInput={(event) => {
+                  const target = event.currentTarget as HTMLInputElement;
+                  setSelectedFile(target.files?.[0] ?? null);
                   setFieldErrors((current) => ({ ...current, file: "" }));
                 }}
                 type="file"
@@ -321,6 +496,58 @@ export function TeacherQuestionImportWorkspace({
             </button>
           </div>
 
+          {repeatedErrorFields.length ? (
+            <div className="builderMiniBanner">
+              <div>
+                <strong>Most common fix areas</strong>
+                <span>
+                  {repeatedErrorFields
+                    .slice(0, 5)
+                    .map(([field, count]) => `${labelImportField(field)} (${count})`)
+                    .join(" • ")}
+                </span>
+              </div>
+            </div>
+          ) : null}
+
+          {duplicateRows.length ? (
+            <div className="builderMiniBanner">
+              <div>
+                <strong>Duplicate rows need attention first</strong>
+                <span>
+                  {duplicateRows.length} row(s) look like repeated or already-existing questions. Review the
+                  question text and academic scope before final import.
+                </span>
+              </div>
+            </div>
+          ) : null}
+
+          {comprehensionConflictRows.length ? (
+            <div className="builderMiniBanner">
+              <div>
+                <strong>Comprehension order conflicts detected</strong>
+                <span>
+                  {comprehensionConflictRows.length} row(s) reuse a `passage_order`. Each linked question inside the
+                  same comprehension set needs a unique order.
+                </span>
+              </div>
+            </div>
+          ) : null}
+
+          {repeatedExpectations.length ? (
+            <div className="builderMiniBanner">
+              <div>
+                <strong>Most repeated row guidance</strong>
+                <span>
+                  {repeatedExpectations
+                    .slice(0, 3)
+                    .map(([expectation, count]) => `${expectation} (${count})`)
+                    .join(" • ")}
+                </span>
+              </div>
+            </div>
+          ) : null}
+
           <div className="questionImportRowGrid">
             {preview.rows.map((row: QuestionImportPreviewRow) => (
               <article
@@ -343,7 +570,61 @@ export function TeacherQuestionImportWorkspace({
                   <span className="questionBankTagChip">
                     {row.difficulty_level || "Unknown difficulty"}
                   </span>
+                  {row.passage_title ? (
+                    <span className="questionBankMetaChip">
+                      Passage: {row.passage_title}
+                      {row.passage_order ? ` • Order ${row.passage_order}` : ""}
+                    </span>
+                  ) : null}
+                  {row.status ? (
+                    <span className="questionBankMetaChip">{row.status}</span>
+                  ) : null}
+                  {row.tag_values?.map((tagValue) => (
+                    <span className="questionBankTagChip" key={`${row.row_number}-tag-${tagValue}`}>
+                      {tagValue}
+                    </span>
+                  ))}
+                  {row.error_fields?.map((field) => (
+                    <span className="questionBankMetaChip" key={`${row.row_number}-${field}`}>
+                      Fix {labelImportField(field)}
+                    </span>
+                  ))}
                 </div>
+                {row.error_map && Object.keys(row.error_map).length ? (
+                  <div className="questionImportFixPanel">
+                    <strong>Field-by-field fixes</strong>
+                    <div className="questionImportFixList">
+                      {Object.entries(row.error_map).map(([field, value]) => {
+                        const messages = normalizeImportMessages(
+                          Array.isArray(value)
+                            ? value.map((item) => String(item))
+                            : typeof value === "string"
+                              ? value
+                              : undefined,
+                        );
+
+                        if (!messages.length) {
+                          return null;
+                        }
+
+                        return (
+                          <div className="questionImportFixItem" key={`${row.row_number}-${field}-fix`}>
+                            <span>{labelImportField(field)}</span>
+                            <p>{messages[0]}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+                {row.expectations?.length ? (
+                  <div className="builderMiniBanner">
+                    <div>
+                      <strong>Expected for this row type</strong>
+                      <span>{row.expectations.join(" • ")}</span>
+                    </div>
+                  </div>
+                ) : null}
                 {!row.is_valid && row.errors.length ? (
                   <ul className="questionImportErrorList">
                     {row.errors.map((rowError) => (

@@ -21,6 +21,10 @@ type RosterImportPreview = {
   valid_payloads: Record<string, unknown>[];
 };
 
+type RosterImportPreviewResponse =
+  | { preview?: RosterImportPreview | null }
+  | RosterImportPreview;
+
 type BulkImportResult = {
   created_count: number;
   failed_count: number;
@@ -157,8 +161,10 @@ export function RosterImportDialog({
         );
         throw new Error(message);
       }
-      const payload = (await response.json()) as { preview?: RosterImportPreview };
-      setPreview(payload.preview ?? null);
+      const payload = (await response.json()) as RosterImportPreviewResponse;
+      const resolvedPreview =
+        "preview" in payload && payload.preview ? payload.preview : (payload as RosterImportPreview);
+      setPreview(resolvedPreview);
       setMessage("Preview generated.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Preview failed.");

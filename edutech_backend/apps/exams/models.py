@@ -92,6 +92,11 @@ class AdvancedExamTemplateAudience(models.TextChoices):
     TEACHER = "teacher", "Teacher"
 
 
+class ExamPresetPackScope(models.TextChoices):
+    PLATFORM = "platform", "Platform"
+    INSTITUTE = "institute", "Institute"
+
+
 class Exam(BaseModel):
     institute = models.ForeignKey(
         Institute,
@@ -338,6 +343,79 @@ class AdvancedExamTemplate(BaseModel):
 
     def __str__(self):
         return self.name
+
+
+class ExamPresetPack(BaseModel):
+    institute = models.ForeignKey(
+        Institute,
+        on_delete=models.CASCADE,
+        related_name="exam_preset_packs",
+        blank=True,
+        null=True,
+    )
+    scope_type = models.CharField(
+        max_length=20,
+        choices=ExamPresetPackScope.choices,
+        default=ExamPresetPackScope.PLATFORM,
+    )
+    code = models.CharField(max_length=100)
+    label = models.CharField(max_length=255)
+    family = models.CharField(max_length=120)
+    note = models.TextField(blank=True)
+    chip = models.CharField(max_length=120, blank=True)
+    config = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["scope_type", "family", "label", "-updated_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["scope_type", "institute", "code"],
+                name="unique_exam_preset_pack_code_per_scope",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["scope_type", "institute"], name="exams_examp_scope_t_613f61_idx"),
+            models.Index(fields=["code"], name="exams_examp_code_1c7118_idx"),
+            models.Index(fields=["is_active"], name="exams_examp_is_acti_04d118_idx"),
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.scope_type == ExamPresetPackScope.PLATFORM and self.institute_id is not None:
+            raise ValidationError(
+                {"institute": "Platform preset packs cannot be bound to an institute."}
+            )
+        if self.scope_type == ExamPresetPackScope.INSTITUTE and self.institute_id is None:
+            raise ValidationError(
+                {"institute": "Institute preset packs must belong to an institute."}
+            )
+        if not isinstance(self.config, dict):
+            raise ValidationError({"config": "Preset pack config must be a JSON object."})
+        normalized_code = str(self.code or "").strip().lower()
+        if not normalized_code:
+            raise ValidationError({"code": "Preset pack code is required."})
+        self.code = normalized_code
+
+        duplicate_queryset = ExamPresetPack.objects.filter(
+            scope_type=self.scope_type,
+            code=self.code,
+            is_active=True,
+        )
+        if self.scope_type == ExamPresetPackScope.PLATFORM:
+            duplicate_queryset = duplicate_queryset.filter(institute__isnull=True)
+        else:
+            duplicate_queryset = duplicate_queryset.filter(institute_id=self.institute_id)
+        if self._state.adding is False and self.pk:
+            duplicate_queryset = duplicate_queryset.exclude(pk=self.pk)
+        if duplicate_queryset.exists():
+            raise ValidationError({"code": "A preset pack with this code already exists in this scope."})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.label
 
 
 class ExamSection(BaseModel):

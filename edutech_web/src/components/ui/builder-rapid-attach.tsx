@@ -22,6 +22,38 @@ function titleCase(value: string) {
   return value.replaceAll("_", " ");
 }
 
+function qualityTone(signal: LookupQuestion["quality_signal"]) {
+  if (signal === "ambiguous" || signal === "revision_candidate") return "statusDemo";
+  if (signal === "skip_risk" || signal === "hard" || signal === "watch") return "statusWarning";
+  if (signal === "healthy") return "statusLive";
+  return "statusNeutral";
+}
+
+function questionPriorityScore(question: LookupQuestion) {
+  const revisionWeightMap: Record<LookupQuestion["revision_priority"], number> = {
+    urgent: 80,
+    high: 60,
+    medium: 35,
+    watch: 15,
+    none: 0,
+  };
+  const qualityWeightMap: Record<LookupQuestion["quality_signal"], number> = {
+    ambiguous: 50,
+    revision_candidate: 45,
+    skip_risk: 30,
+    hard: 20,
+    watch: 12,
+    emerging: 8,
+    healthy: -20,
+  };
+  let score = 0;
+  score += revisionWeightMap[question.revision_priority];
+  score += qualityWeightMap[question.quality_signal];
+  if (!question.is_verified) score += 12;
+  if (!question.has_explanation) score += 18;
+  return score;
+}
+
 export function BuilderRapidAttach({
   action,
   difficultyLabelMap,
@@ -87,7 +119,11 @@ export function BuilderRapidAttach({
       }
     }
 
-    return Array.from(groups.entries()).map(([id, group]) => ({ id, ...group }));
+    return Array.from(groups.entries()).map(([id, group]) => ({
+      id,
+      ...group,
+      questions: [...group.questions].sort((left, right) => questionPriorityScore(left) - questionPriorityScore(right)),
+    }));
   }, [difficultyFilter, questions, searchTerm, topicNameMap, typeFilter]);
 
   const selectedQuestions = useMemo(
@@ -99,6 +135,13 @@ export function BuilderRapidAttach({
   );
 
   const visibleQuestionCount = groupedQuestions.reduce((sum, group) => sum + group.questions.length, 0);
+  const visibleHealthyCount = groupedQuestions.reduce(
+    (sum, group) => sum + group.questions.filter((question) => question.quality_signal === "healthy" && question.is_verified && question.has_explanation).length,
+    0,
+  );
+  const selectedRevisionQueueCount = selectedQuestions.filter(
+    (question) => question.revision_priority === "urgent" || question.revision_priority === "high",
+  ).length;
 
   function toggleQuestion(questionId: string) {
     setSelectedIds((current) =>
@@ -208,7 +251,7 @@ export function BuilderRapidAttach({
           <div className="builderQuickSelectionSummary">
             <strong>{selectedIds.length}</strong>
             <span>question(s) selected for bulk attach</span>
-            <small>{visibleQuestionCount} visible after filters</small>
+            <small>{visibleQuestionCount} visible after filters · {visibleHealthyCount} healthy-first candidates</small>
           </div>
 
           <div className="builderTopicAttachStack">
@@ -253,9 +296,23 @@ export function BuilderRapidAttach({
                                 {questionTypeLabelMap[question.question_type] ?? titleCase(question.question_type)}
                               </span>
                               <span className="statusPill statusLive">{question.default_marks} marks</span>
+                              <span className={`statusPill ${qualityTone(question.quality_signal)}`}>
+                                {titleCase(question.quality_signal)}
+                              </span>
+                              <span className={`statusPill ${qualityTone(question.quality_signal)}`}>
+                                {titleCase(question.revision_priority)} priority
+                              </span>
+                              {question.passage_title ? (
+                                <span className="statusPill statusDemo">Comprehension</span>
+                              ) : null}
                             </div>
                             <strong>{previewText.slice(0, 160)}{previewText.length > 160 ? "..." : ""}</strong>
-                            <p>{difficultyLabelMap[question.difficulty_level] ?? titleCase(question.difficulty_level)} difficulty</p>
+                            <p>
+                              {difficultyLabelMap[question.difficulty_level] ?? titleCase(question.difficulty_level)} difficulty
+                              {question.passage_title ? ` · ${question.passage_title}` : ""}
+                              {` · wrong ${Math.round(question.wrong_rate)}% · skip ${Math.round(question.skip_rate)}%`}
+                            </p>
+                            <small className="builderQuickAttachHint">{question.quality_note}</small>
                             <div className="builderQuickAttachPreviewRow">
                               <BuilderQuestionPreviewTrigger
                                 buttonClassName="button buttonGhost builderQuickAttachPreviewButton"
@@ -303,12 +360,20 @@ export function BuilderRapidAttach({
               <strong>{visibleQuestionCount}</strong>
             </article>
             <article>
+              <span>Healthy now</span>
+              <strong>{visibleHealthyCount}</strong>
+            </article>
+            <article>
               <span>Topic groups</span>
               <strong>{groupedQuestions.length}</strong>
             </article>
             <article>
               <span>Starting order</span>
               <strong>{nextOrder}</strong>
+            </article>
+            <article>
+              <span>Selected risk</span>
+              <strong>{selectedRevisionQueueCount}</strong>
             </article>
           </div>
 
@@ -323,7 +388,19 @@ export function BuilderRapidAttach({
                     <span>{question.default_marks} marks</span>
                   </div>
                   <strong>{question.question_text.replaceAll("\n", " ").trim().slice(0, 120)}{question.question_text.trim().length > 120 ? "..." : ""}</strong>
-                  <p>{topicLabel} · {questionTypeLabelMap[question.question_type] ?? titleCase(question.question_type)} · {difficultyLabelMap[question.difficulty_level] ?? titleCase(question.difficulty_level)}</p>
+                  <p>
+                    {topicLabel} · {questionTypeLabelMap[question.question_type] ?? titleCase(question.question_type)} · {difficultyLabelMap[question.difficulty_level] ?? titleCase(question.difficulty_level)}
+                    {question.passage_title ? ` · ${question.passage_title}` : ""}
+                  </p>
+                  <div className="builderQuestionBankChips">
+                    <span className={`statusPill ${qualityTone(question.quality_signal)}`}>
+                      {titleCase(question.quality_signal)}
+                    </span>
+                    <span className={`statusPill ${qualityTone(question.quality_signal)}`}>
+                      {titleCase(question.revision_priority)} priority
+                    </span>
+                  </div>
+                  <small className="builderQuickAttachHint">{question.quality_note}</small>
                   <div className="builderSelectionPreviewAction">
                     <BuilderQuestionPreviewTrigger
                       buttonClassName="button buttonGhost builderQuickAttachPreviewButton"

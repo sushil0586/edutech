@@ -63,6 +63,9 @@ export function AccountActionButtons({
   isCompact?: boolean;
   onActionComplete?: (action: AccountAction, result: ActionResult) => void;
 }) {
+  const [localHasLogin, setLocalHasLogin] = useState(hasLogin);
+  const [localLoginIsActive, setLocalLoginIsActive] = useState(loginIsActive);
+  const [localUserId, setLocalUserId] = useState<number | null>(userId);
   const [state, setState] = useState<ActionState>({
     message: "",
     result: null,
@@ -72,6 +75,12 @@ export function AccountActionButtons({
   const [autoGeneratePassword, setAutoGeneratePassword] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
+  useEffect(() => {
+    setLocalHasLogin(hasLogin);
+    setLocalLoginIsActive(loginIsActive);
+    setLocalUserId(userId);
+  }, [hasLogin, loginIsActive, userId]);
 
   useEffect(() => {
     if (!resetDialogOpen) {
@@ -122,7 +131,7 @@ export function AccountActionButtons({
       const actionResource =
         action === "create-login" ? resource : ("users" as const);
       const actionEntityId =
-        action === "create-login" ? entityId : String(userId ?? "");
+        action === "create-login" ? entityId : String(localUserId ?? "");
       if (!actionEntityId) {
         throw new Error("User account id is required for this action.");
       }
@@ -144,6 +153,17 @@ export function AccountActionButtons({
                 : "Login disabled successfully.",
         result,
       });
+      if (action === "create-login") {
+        setLocalHasLogin(true);
+        setLocalLoginIsActive(true);
+        if (typeof result.user_id === "number") {
+          setLocalUserId(result.user_id);
+        }
+      } else if (action === "enable") {
+        setLocalLoginIsActive(true);
+      } else if (action === "disable") {
+        setLocalLoginIsActive(false);
+      }
       onActionComplete?.(action, result);
       return true;
     } catch (error) {
@@ -182,7 +202,7 @@ export function AccountActionButtons({
   return (
     <div className="accountActionStack">
       <div className="accountActionRow">
-        {!hasLogin ? (
+        {!localHasLogin ? (
           <button
             className="appTopbarAction"
             disabled={state.loading}
@@ -194,7 +214,7 @@ export function AccountActionButtons({
             </span>
             Create login
           </button>
-        ) : hasLogin ? (
+        ) : localHasLogin ? (
           <>
             <button
               className="appTopbarAction"
@@ -210,13 +230,13 @@ export function AccountActionButtons({
             <button
               className="appTopbarAction"
               disabled={state.loading}
-              onClick={() => void runAction(loginIsActive ? "disable" : "enable")}
+              onClick={() => void runAction(localLoginIsActive ? "disable" : "enable")}
               type="button"
             >
               <span className="appTopbarActionIcon" aria-hidden="true">
-                {loginIsActive ? "⊖" : "⊕"}
+                {localLoginIsActive ? "⊖" : "⊕"}
               </span>
-              {loginIsActive ? "Disable login" : "Enable login"}
+              {localLoginIsActive ? "Disable login" : "Enable login"}
             </button>
           </>
         ) : null}

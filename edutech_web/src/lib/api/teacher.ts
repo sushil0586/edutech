@@ -11,6 +11,7 @@ import {
   TeacherLiveExamMonitor,
   TeacherAttemptQuestionAnalysis,
   TeacherQuestionAnalysis,
+  TeacherQuestionAnalysisPage,
   TeacherResultSummary,
   StudentTopicPerformance,
   PaginatedResponse,
@@ -228,14 +229,14 @@ export async function fetchTeacherAttemptInterventions(attemptId: string) {
 
 export async function fetchTeacherQuestionAnalysis(
   examId: string,
-  options?: { page?: number; pageSize?: number; filter?: "all" | "hard_questions" | "skipped_often" },
+  options?: { page?: number; pageSize?: number; filter?: "all" | "hard_questions" | "skipped_often" | "revision_candidates" },
 ) {
   const params = new URLSearchParams();
   if (options?.page && options.page > 1) params.set("page", String(options.page));
   if (options?.pageSize) params.set("page_size", String(options.pageSize));
   if (options?.filter && options.filter !== "all") params.set("filter", options.filter);
   const query = params.toString();
-  return requestTeacherJson<PaginatedResponse<TeacherQuestionAnalysis>>(
+  return requestTeacherJson<TeacherQuestionAnalysisPage>(
     `/api/v1/results/exam/${examId}/question-analysis/${query ? `?${query}` : ""}`,
   );
 }
@@ -302,6 +303,324 @@ export async function createTeacherAttemptInterventionNote(payload: {
     message?: string;
     data?: TeacherAttemptIntervention;
   }>("/api/v1/results/attempt-intervention-note/", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function manualReviewTeacherAnswer(
+  answerId: string,
+  payload: {
+    marks_awarded: string;
+    review_notes?: string;
+  },
+) {
+  return requestTeacherJson<{
+    success?: boolean;
+    message?: string;
+    data?: Record<string, unknown>;
+  }>(`/api/v1/attempts/answers/${answerId}/manual-review/`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+import type { AssessmentQuestionTypeDefinition } from "@/features/dashboard/types";
+
+export type TeacherReviewTask = {
+  id: string;
+  answer_id: string;
+  attempt_id: string;
+  exam_id: string;
+  exam_title: string;
+  student_id: string;
+  student_name: string;
+  question_id: string;
+  question_type: string;
+  question_type_definition: AssessmentQuestionTypeDefinition | null;
+  question_text_summary: string;
+  question_text: string;
+  assertion_text?: string;
+  reason_text?: string;
+  matrix_left_items?: string[];
+  matrix_right_items?: string[];
+  content_format: string;
+  passage: string | null;
+  passage_order: number | null;
+  passage_detail: {
+    id: string;
+    title: string;
+    content_format: string;
+    passage_text: string;
+    description: string;
+  } | null;
+  attachments: Array<{
+    id: string;
+    file: string;
+    file_url: string;
+    attachment_type: string;
+    title: string;
+    display_order: number;
+    alt_text: string;
+    is_inline: boolean;
+    is_active: boolean;
+  }>;
+  media_context: {
+    has_media: boolean;
+    total_attachments: number;
+    attachment_types: string[];
+    primary_attachment_type: string | null;
+    delivery_mode: string;
+    preload_strategy: string;
+    supports_audio_prompt: boolean;
+    supports_video_prompt: boolean;
+    supports_document_prompt: boolean;
+    supports_visual_prompt: boolean;
+    inline_attachment_count: number;
+  };
+  answer_text: string;
+  answer_transcript: string;
+  response_artifacts: Array<{
+    asset_kind: string;
+    upload_token: string;
+    file_name?: string;
+    mime_type?: string;
+    size_bytes?: number;
+    duration_seconds?: number;
+    storage_status?: string;
+    checksum?: string;
+    storage_path?: string;
+    file_url?: string;
+  }>;
+  review_guidance: string;
+  rubric_checklist: string[];
+  has_rubric: boolean;
+  rubric: {
+    mode: string;
+    criteria: Array<{
+      key: string;
+      label: string;
+      max_score: string;
+      display_order: number;
+      reviewer_hint: string;
+      band_descriptors: unknown[];
+    }>;
+  } | null;
+  rubric_scores: Array<{
+    criterion_key: string;
+    criterion_label: string;
+    max_score: string;
+    awarded_score: string;
+    note: string;
+  }>;
+  rubric_total: string;
+  question_marks: string;
+  status: string;
+  priority: string;
+  opened_at: string;
+  assigned_at: string | null;
+  review_started_at: string | null;
+  resolved_at: string | null;
+  last_reviewed_at: string | null;
+  latest_marks_awarded: string;
+  latest_review_summary: string;
+  assigned_to_teacher: string | null;
+  assigned_to_teacher_name: string;
+  last_reviewed_by_teacher: string | null;
+  last_reviewed_by_teacher_name: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TeacherReviewTaskEvent = {
+  id: string;
+  event_type: string;
+  from_status: string;
+  to_status: string;
+  marks_awarded: string | null;
+  notes: string;
+  metadata: Record<string, unknown>;
+  actor_user: string | null;
+  actor_user_name: string;
+  actor_teacher: string | null;
+  actor_teacher_name: string;
+  created_at: string;
+};
+
+export type TeacherReviewTaskDetail = TeacherReviewTask & {
+  events: TeacherReviewTaskEvent[];
+};
+
+export type TeacherReviewTaskSummary = {
+  total: number;
+  pending: number;
+  assigned: number;
+  in_review: number;
+  reviewed: number;
+  unassigned: number;
+  recheck_requested: number;
+  blocked_exams: number;
+  average_turnaround_hours: number;
+  slowest_turnaround_hours: number;
+  oldest_open_hours: number;
+  backlog_age_buckets: {
+    under_4h: number;
+    under_24h: number;
+    under_72h: number;
+    over_72h: number;
+  };
+  throughput_trend: {
+    opened_last_24h: number;
+    opened_previous_24h: number;
+    resolved_last_24h: number;
+    resolved_previous_24h: number;
+    net_queue_change_last_24h: number;
+    net_queue_change_previous_24h: number;
+    direction: "improving" | "steady" | "worsening";
+  };
+  throughput_windows: Array<{
+    label: string;
+    hours: number;
+    opened: number;
+    resolved: number;
+    net_queue_change: number;
+  }>;
+  release_risk_summary: {
+    high_risk_exams: number;
+    medium_risk_exams: number;
+    low_risk_exams: number;
+  };
+  reviewers: Array<{
+    teacher_id: string | null;
+    teacher_name: string;
+    task_count: number;
+    pending_count: number;
+    assigned_count: number;
+    in_review_count: number;
+    reviewed_count: number;
+    recheck_requested_count: number;
+    unresolved_count: number;
+    oldest_open_hours: number;
+    average_turnaround_hours: number;
+  }>;
+  exams: Array<{
+    exam_id: string;
+    exam_title: string;
+    task_count: number;
+    pending_count: number;
+    assigned_count: number;
+    in_review_count: number;
+    reviewed_count: number;
+    unassigned_count: number;
+    recheck_requested_count: number;
+    oldest_open_hours: number;
+    release_risk_level: "high" | "medium" | "low";
+  }>;
+  oldest_pending_tasks: Array<{
+    task_id: string;
+    exam_id: string;
+    exam_title: string;
+    student_name: string;
+    question_text_summary: string;
+    assigned_to_teacher_name: string;
+    status: string;
+    opened_at: string | null;
+  }>;
+};
+
+export async function fetchTeacherReviewTaskPage(options?: {
+  page?: number;
+  pageSize?: number;
+  status?: string;
+  search?: string;
+  exam?: string;
+}) {
+  const params = new URLSearchParams();
+  if (options?.page && options.page > 1) params.set("page", String(options.page));
+  if (options?.pageSize) params.set("page_size", String(options.pageSize));
+  if (options?.status && options.status !== "all") params.set("status", options.status);
+  if (options?.search?.trim()) params.set("search", options.search.trim());
+  if (options?.exam?.trim()) params.set("exam", options.exam.trim());
+  const query = params.toString();
+  return requestTeacherJson<PaginatedResponse<TeacherReviewTask>>(
+    `/api/v1/attempts/review-tasks/${query ? `?${query}` : ""}`,
+  );
+}
+
+export async function fetchTeacherReviewTaskSummary(options?: {
+  status?: string;
+  search?: string;
+  exam?: string;
+}) {
+  const params = new URLSearchParams();
+  if (options?.status && options.status !== "all") params.set("status", options.status);
+  if (options?.search?.trim()) params.set("search", options.search.trim());
+  if (options?.exam?.trim()) params.set("exam", options.exam.trim());
+  const query = params.toString();
+  return requestTeacherJson<TeacherReviewTaskSummary>(
+    `/api/v1/attempts/review-tasks/summary/${query ? `?${query}` : ""}`,
+  );
+}
+
+export async function fetchTeacherReviewTaskDetail(taskId: string) {
+  return requestTeacherJson<TeacherReviewTaskDetail>(`/api/v1/attempts/review-tasks/${taskId}/`);
+}
+
+export async function submitTeacherReviewTask(
+  taskId: string,
+  payload: {
+    marks_awarded: string;
+    review_notes?: string;
+    rubric_scores?: Array<{
+      criterion_key: string;
+      awarded_score: string;
+      note?: string;
+    }>;
+  },
+) {
+  return requestTeacherJson<{
+    success?: boolean;
+    message?: string;
+    data?: TeacherReviewTaskDetail;
+  }>(`/api/v1/attempts/review-tasks/${taskId}/submit-review/`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function assignTeacherReviewTaskToMe(taskId: string) {
+  return requestTeacherJson<{
+    success?: boolean;
+    message?: string;
+    data?: TeacherReviewTaskDetail;
+  }>(`/api/v1/attempts/review-tasks/${taskId}/assign-to-me/`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+export async function claimNextTeacherReviewTask() {
+  return requestTeacherJson<{
+    success?: boolean;
+    message?: string;
+    data?: TeacherReviewTaskDetail;
+  }>("/api/v1/attempts/review-tasks/claim-next/", {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+export async function requestTeacherReviewTaskRecheck(
+  taskId: string,
+  payload: {
+    review_notes?: string;
+  },
+) {
+  return requestTeacherJson<{
+    success?: boolean;
+    message?: string;
+    data?: TeacherReviewTaskDetail;
+  }>(`/api/v1/attempts/review-tasks/${taskId}/request-recheck/`, {
     method: "POST",
     body: JSON.stringify(payload),
   });

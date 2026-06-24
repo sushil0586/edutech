@@ -2,6 +2,7 @@ from rest_framework.routers import DefaultRouter
 
 from apps.academics.views import (
     AcademicYearViewSet,
+    AssessmentFamilyViewSet,
     CohortViewSet,
     OptionCatalogEntryViewSet,
     ProgramViewSet,
@@ -12,6 +13,7 @@ from apps.academics.views import (
 app_name = "academics"
 
 router = DefaultRouter()
+router.register("assessment-families", AssessmentFamilyViewSet, basename="assessment-families")
 router.register("academic-years", AcademicYearViewSet, basename="academic-years")
 router.register("programs", ProgramViewSet, basename="programs")
 router.register("cohorts", CohortViewSet, basename="cohorts")

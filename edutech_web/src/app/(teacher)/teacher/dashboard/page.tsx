@@ -2,6 +2,7 @@ import Link from "next/link";
 import { FilterSummaryPills } from "@/components/ui/filter-summary-pills";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { TeacherPageHeader } from "@/components/ui/teacher-page-header";
+import type { StudentExamExperienceProfile } from "@/features/dashboard/types";
 import {
   fetchTeacherInsightSummary,
   getTeacherApiState,
@@ -47,6 +48,42 @@ function formatDuration(seconds: number) {
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
   return remainingMinutes ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+}
+
+function formatCompactSeconds(seconds: number) {
+  if (!seconds || seconds <= 0) return "0s";
+  if (seconds < 60) return `${Math.round(seconds)}s`;
+  return formatDuration(seconds);
+}
+
+function assessmentFamilyTone(assessmentFamily: string | null | undefined) {
+  if (assessmentFamily === "competitive") return "statusWarning";
+  if (assessmentFamily === "certification") return "statusLive";
+  if (assessmentFamily === "language_proficiency") return "statusDemo";
+  return "statusLive";
+}
+
+function normalizeLabel(value: string | null | undefined) {
+  return value?.replaceAll("_", " ") ?? "";
+}
+
+function summarizeAssessmentFamily(profile: StudentExamExperienceProfile | null | undefined) {
+  const familyCode = profile?.assessment_family ?? "general";
+  const familyLabel = profile?.assessment_family_label ?? "General";
+  const deliveryEmphasis = normalizeLabel(profile?.delivery_emphasis) || "balanced delivery";
+  const summaryMap: Record<string, string> = {
+    school: "Focus on concept mastery, chapter coverage, and which learners need reteaching next.",
+    competitive: "Focus on speed, accuracy, rank pressure, and negative-marking decisions.",
+    certification: "Focus on domain readiness, scenario judgment, and distractor quality.",
+    language_proficiency: "Focus on skill bands, rubric evidence, and media-backed delivery quality.",
+    general: "Focus on accuracy, topic mastery, and question-level risk.",
+  };
+  return {
+    familyCode,
+    familyLabel,
+    deliveryEmphasis,
+    summary: summaryMap[familyCode] ?? summaryMap.general,
+  };
 }
 
 async function loadTeacherDashboard() {
@@ -146,6 +183,36 @@ export default async function TeacherDashboardPage({
           return right.wrong_count - left.wrong_count;
       }
     });
+  const familyCounts = visibleExamOverview.reduce<Record<string, { label: string; count: number }>>((acc, exam) => {
+    const label = exam.experience_profile?.assessment_family_label ?? "General";
+    const code = exam.experience_profile?.assessment_family ?? "general";
+    acc[code] = {
+      label,
+      count: (acc[code]?.count ?? 0) + 1,
+    };
+    return acc;
+  }, {});
+  const dominantFamilyEntry =
+    Object.entries(familyCounts)
+      .sort((left, right) => right[1].count - left[1].count || left[1].label.localeCompare(right[1].label))[0] ?? null;
+  const dominantFamilyProfile = visibleExamOverview.find(
+    (exam) => (exam.experience_profile?.assessment_family ?? "general") === (dominantFamilyEntry?.[0] ?? ""),
+  )?.experience_profile;
+  const dominantFamilySummary = summarizeAssessmentFamily(dominantFamilyProfile);
+  const aggregateScoreDistribution = visibleExamOverview.reduce<
+    Array<{ label: string; count: number }>
+  >((acc, exam) => {
+    for (const bucket of exam.score_distribution ?? []) {
+      const current = acc.find((item) => item.label === bucket.label);
+      if (current) {
+        current.count += bucket.count;
+      } else {
+        acc.push({ label: bucket.label, count: bucket.count });
+      }
+    }
+    return acc;
+  }, []);
+  const totalDistributionCount = aggregateScoreDistribution.reduce((sum, item) => sum + item.count, 0);
 
   return (
     <div className="studentPage studentDashboardModern teacherConsolePage teacherDashboardPageVivid">
@@ -201,8 +268,14 @@ export default async function TeacherDashboardPage({
                 weak learning patterns, and performance trends remain visible without switching tools.
               </p>
               <small>
-                {summary.overview.tracked_exams} tracked exams · {summary.overview.total_attempts} learner attempts
+                {summary.overview.tracked_exams} tracked exams · {summary.overview.total_attempts} learner attempts · {summary.overview.pending_review_tasks} review tasks waiting
               </small>
+              <div className="questionBankTagRow">
+                <span className={`statusPill ${assessmentFamilyTone(dominantFamilySummary.familyCode)}`}>
+                  {dominantFamilySummary.familyLabel} dominant
+                </span>
+                <span className="questionBankTagChip">{dominantFamilySummary.deliveryEmphasis}</span>
+              </div>
             </div>
             <div className="studentInsightHeroActions">
               <Link className="button buttonPrimary" href="/teacher/exams">
@@ -210,6 +283,9 @@ export default async function TeacherDashboardPage({
               </Link>
               <Link className="button buttonSecondary" href="/teacher/results">
                 Open Results
+              </Link>
+              <Link className="button buttonGhost" href="/teacher/reviews">
+                Open Reviews
               </Link>
             </div>
           </section>
@@ -231,6 +307,20 @@ export default async function TeacherDashboardPage({
               <span>Average Score</span>
               <strong>{percentage(summary.overview.average_percentage)}</strong>
               <small>{formatDuration(summary.overview.average_time_taken_seconds)} average completion time</small>
+            </article>
+
+            <article className="metricCard dashboardHeroCard">
+              <span>Pending Reviews</span>
+              <strong>{summary.review_summary.pending_tasks}</strong>
+              <small>
+                {summary.review_summary.blocked_exams} blocked exam(s) · {summary.review_summary.recheck_requested_tasks} recheck task(s) are back in the queue
+              </small>
+            </article>
+
+            <article className="metricCard dashboardHeroCard">
+              <span>Assessment lens</span>
+              <strong>{dominantFamilySummary.familyLabel}</strong>
+              <small>{dominantFamilySummary.summary}</small>
             </article>
           </section>
 
@@ -325,6 +415,25 @@ export default async function TeacherDashboardPage({
                       <div>
                         <strong>{exam.exam_title}</strong>
                         <span>{exam.exam_code}</span>
+                        <div className="questionBankTagRow">
+                          <span className={`statusPill ${assessmentFamilyTone(exam.experience_profile?.assessment_family)}`}>
+                            {exam.experience_profile?.assessment_family_label ?? "General"}
+                          </span>
+                          <span className="questionBankTagChip">
+                            {normalizeLabel(exam.experience_profile?.delivery_emphasis) || "balanced delivery"}
+                          </span>
+                          {exam.section_performance?.length ? (
+                            <span className="questionBankTagChip">
+                              Weakest section:{" "}
+                              {
+                                exam.section_performance
+                                  .slice()
+                                  .sort((left, right) => left.accuracy_percentage - right.accuracy_percentage)[0]
+                                  ?.section_name
+                              }
+                            </span>
+                          ) : null}
+                        </div>
                       </div>
                       <div className="weakTopicMeta">
                         <strong>{percentage(exam.average_percentage)}</strong>
@@ -334,6 +443,66 @@ export default async function TeacherDashboardPage({
                   ))
                 ) : (
                   <p className="emptyText">Teacher exam summaries will appear here after exam activity is recorded.</p>
+                )}
+              </div>
+            </article>
+
+            <article className="dashboardPanel weakTopicsPanel">
+              <div className="sectionHeading">
+                <strong>Assessment Family Lens</strong>
+                <span>{Object.keys(familyCounts).length} family profiles</span>
+              </div>
+              <div className="weakTopicStack">
+                {Object.entries(familyCounts).length ? (
+                  Object.entries(familyCounts)
+                    .sort((left, right) => right[1].count - left[1].count || left[1].label.localeCompare(right[1].label))
+                    .map(([code, item]) => (
+                      <div className="weakTopicRow" key={code}>
+                        <div>
+                          <strong>{item.label}</strong>
+                          <span>{summarizeAssessmentFamily(
+                            visibleExamOverview.find(
+                              (exam) => (exam.experience_profile?.assessment_family ?? "general") === code,
+                            )?.experience_profile,
+                          ).summary}</span>
+                        </div>
+                        <div className="weakTopicMeta">
+                          <strong>{item.count}</strong>
+                          <span>exam{item.count === 1 ? "" : "s"} in scope</span>
+                        </div>
+                      </div>
+                    ))
+                ) : (
+                  <p className="emptyText">Assessment-family guidance will appear once tracked exam summaries are available.</p>
+                )}
+              </div>
+            </article>
+
+            <article className="dashboardPanel weakTopicsPanel">
+              <div className="sectionHeading">
+                <strong>Cohort distribution</strong>
+                <span>{totalDistributionCount} result rows</span>
+              </div>
+              <div className="weakTopicStack">
+                {aggregateScoreDistribution.length ? (
+                  aggregateScoreDistribution.map((bucket) => (
+                    <div className="weakTopicRow" key={bucket.label}>
+                      <div>
+                        <strong>{bucket.label}</strong>
+                        <span>
+                          {totalDistributionCount > 0
+                            ? `${Math.round((bucket.count / totalDistributionCount) * 100)}% of visible result rows`
+                            : "No visible result rows"}
+                        </span>
+                      </div>
+                      <div className="weakTopicMeta">
+                        <strong>{bucket.count}</strong>
+                        <span>learner results</span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="emptyText">Score-distribution insights will appear once exam summaries are available.</p>
                 )}
               </div>
             </article>
@@ -388,6 +557,38 @@ export default async function TeacherDashboardPage({
                   ))
                 ) : (
                   <p className="emptyText">High-performing students will be ranked once result summaries are available.</p>
+                )}
+              </div>
+            </article>
+
+            <article className="dashboardPanel weakTopicsPanel">
+              <div className="sectionHeading">
+                <strong>Section pressure highlights</strong>
+                <span>{visibleExamOverview.length} exam summaries</span>
+              </div>
+              <div className="weakTopicStack">
+                {visibleExamOverview.some((exam) => exam.section_performance?.length) ? (
+                  visibleExamOverview
+                    .filter((exam) => exam.section_performance?.length)
+                    .map((exam) => {
+                      const weakestSection = exam.section_performance
+                        .slice()
+                        .sort((left, right) => left.accuracy_percentage - right.accuracy_percentage)[0];
+                      return (
+                        <div className="weakTopicRow" key={`${exam.exam_id}-section`}>
+                          <div>
+                            <strong>{weakestSection?.section_name ?? "No section"}</strong>
+                            <span>{exam.exam_title}</span>
+                          </div>
+                          <div className="weakTopicMeta">
+                            <strong>{Math.round(weakestSection?.accuracy_percentage ?? 0)}%</strong>
+                            <span>avg time {formatCompactSeconds(weakestSection?.average_time_seconds ?? 0)}</span>
+                          </div>
+                        </div>
+                      );
+                    })
+                ) : (
+                  <p className="emptyText">Section pressure indicators will appear when section-level summaries are available.</p>
                 )}
               </div>
             </article>

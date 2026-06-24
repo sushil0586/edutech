@@ -17,9 +17,12 @@ from apps.accounts.scopes import (
     scope_student_profile_queryset,
     scope_teacher_queryset,
 )
+from apps.institutes.models import Institute
 from apps.exams.models import (
     AdvancedExamTemplate,
     Exam,
+    ExamPresetPack,
+    ExamPresetPackScope,
     ExamPublishLog,
     ExamQuestion,
     ExamSection,
@@ -27,6 +30,7 @@ from apps.exams.models import (
 )
 from apps.exams.serializers import (
     AdvancedExamBuilderSerializer,
+    ExamPresetPackSerializer,
     AdvancedExamTemplateSerializer,
     ExamActionSerializer,
     ExamEconomyPolicyUpdateSerializer,
@@ -105,6 +109,7 @@ class ExamViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
                 "sections",
                 "student_assignments__student__cohort",
                 "exam_questions__question",
+                "exam_questions__question__passage",
                 "exam_questions__section",
                 "publish_logs__changed_by",
             )
@@ -221,6 +226,7 @@ class ExamViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
 
         payload = {
             "valid": True,
+            "blockers": preview["blockers"],
             "warnings": preview["warnings"],
             "resolved_exam": {
                 "title": preview["resolved_exam"]["title"],
@@ -233,6 +239,8 @@ class ExamViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
                 "duration_minutes": preview["resolved_exam"]["duration_minutes"],
                 "total_questions": preview["resolved_exam"]["total_questions"],
                 "total_marks": preview["resolved_exam"]["total_marks"],
+                "question_quality": preview["resolved_exam"]["question_quality"],
+                "experience_profile": preview["resolved_exam"]["experience_profile"],
             },
             "sections": [
                 {
@@ -242,7 +250,9 @@ class ExamViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
                     "resolved": section["resolved"],
                     "difficulty_mix": section["difficulty_mix"],
                     "actual_difficulty_breakup": section["actual_difficulty_breakup"],
+                    "quality_summary": section["quality_summary"],
                     "topic_breakup": section["topic_breakup"],
+                    "blockers": section["blockers"],
                     "warnings": section["warnings"],
                 }
                 for section in preview["sections"]
@@ -687,7 +697,11 @@ class AdvancedExamTemplateViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
     def perform_create(self, serializer):
         profile = self._profile()
         institute = None
-        if profile is not None and profile.institute_id:
+        if profile is not None and profile.role == AccountRole.PLATFORM_ADMIN:
+            requested_institute_id = str(self.request.data.get("institute_id", "")).strip()
+            if requested_institute_id:
+                institute = Institute.objects.filter(id=requested_institute_id, is_active=True).first()
+        if institute is None and profile is not None and profile.institute_id:
             institute = profile.institute
         if institute is None:
             raise serializers.ValidationError(
@@ -753,6 +767,144 @@ class AdvancedExamTemplateViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
             entity_id=template.id,
             message="Advanced exam template deleted.",
             metadata={"template_name": template.name, "audience_context": template.audience_context},
+            request=request,
+        )
+        return super().destroy(request, *args, **kwargs)
+
+
+class ExamPresetPackViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
+    permission_classes = [IsAuthenticated, CanBuildExams]
+    serializer_class = ExamPresetPackSerializer
+    filterset_fields = ["scope_type", "institute", "is_active"]
+    search_fields = ["code", "label", "family", "note", "chip"]
+    ordering_fields = ["scope_type", "family", "label", "created_at", "updated_at"]
+    ordering = ["scope_type", "family", "label", "-updated_at"]
+
+    def _profile(self):
+        return get_account_profile(self.request.user)
+
+    def _assert_can_manage_pack(self, *, profile, pack):
+        if profile is None or not profile.is_active:
+            raise PermissionDenied("You do not have permission to manage this preset pack.")
+        if profile.role == AccountRole.PLATFORM_ADMIN:
+            return
+        if profile.role == AccountRole.INSTITUTE_ADMIN:
+            if (
+                pack.scope_type != ExamPresetPackScope.INSTITUTE
+                or profile.institute_id != pack.institute_id
+            ):
+                raise PermissionDenied("Institute admins can manage only their own institute preset packs.")
+            return
+        raise PermissionDenied("You do not have permission to manage this preset pack.")
+
+    def get_queryset(self):
+        queryset = ExamPresetPack.objects.select_related("institute").all()
+        profile = self._profile()
+        if profile is None or not profile.is_active:
+            return queryset.none()
+        if profile.role == AccountRole.PLATFORM_ADMIN:
+            return queryset
+        if self.action in {"update", "partial_update", "destroy"}:
+            if profile.role == AccountRole.INSTITUTE_ADMIN and profile.institute_id:
+                return queryset.filter(
+                    scope_type=ExamPresetPackScope.INSTITUTE,
+                    institute_id=profile.institute_id,
+                )
+            return queryset.none()
+        if profile.institute_id and profile.role in {AccountRole.INSTITUTE_ADMIN, AccountRole.TEACHER}:
+            return queryset.filter(
+                models.Q(scope_type=ExamPresetPackScope.PLATFORM)
+                | models.Q(
+                    scope_type=ExamPresetPackScope.INSTITUTE,
+                    institute_id=profile.institute_id,
+                )
+            )
+        return queryset.filter(scope_type=ExamPresetPackScope.PLATFORM)
+
+    def create(self, request, *args, **kwargs):
+        profile = self._profile()
+        if profile is None or not profile.is_active:
+            raise PermissionDenied("A valid account profile is required to save preset packs.")
+        if profile.role not in {AccountRole.PLATFORM_ADMIN, AccountRole.INSTITUTE_ADMIN}:
+            raise PermissionDenied("You do not have permission to save preset packs.")
+        if (
+            profile.role == AccountRole.INSTITUTE_ADMIN
+            and request.data.get("scope_type", ExamPresetPackScope.INSTITUTE) != ExamPresetPackScope.INSTITUTE
+        ):
+            raise PermissionDenied("Institute admins can save institute preset packs only.")
+        return super().create(request, *args, **kwargs)
+
+    def perform_create(self, serializer):
+        profile = self._profile()
+        if profile is None or not profile.is_active:
+            raise serializers.ValidationError(
+                {"detail": "A valid account profile is required to save preset packs."}
+            )
+        payload = serializer.validated_data
+        scope_type = payload.get("scope_type", ExamPresetPackScope.PLATFORM)
+
+        if profile.role == AccountRole.INSTITUTE_ADMIN and scope_type != ExamPresetPackScope.INSTITUTE:
+            raise PermissionDenied("Institute admins can save institute preset packs only.")
+        if profile.role not in {AccountRole.PLATFORM_ADMIN, AccountRole.INSTITUTE_ADMIN}:
+            raise PermissionDenied("You do not have permission to save preset packs.")
+
+        if scope_type == ExamPresetPackScope.PLATFORM:
+            pack = ExamPresetPack.objects.create(
+                institute=None,
+                scope_type=scope_type,
+                code=payload["code"],
+                label=payload["label"],
+                family=payload["family"],
+                note=payload.get("note", ""),
+                chip=payload.get("chip", ""),
+                config=payload.get("config", {}),
+                is_active=payload.get("is_active", True),
+            )
+        else:
+            institute = getattr(profile, "institute", None)
+            if institute is None:
+                raise serializers.ValidationError(
+                    {"institute": "A valid institute scope is required to save institute preset packs."}
+                )
+            pack = ExamPresetPack.objects.create(
+                institute=institute,
+                scope_type=scope_type,
+                code=payload["code"],
+                label=payload["label"],
+                family=payload["family"],
+                note=payload.get("note", ""),
+                chip=payload.get("chip", ""),
+                config=payload.get("config", {}),
+                is_active=payload.get("is_active", True),
+            )
+        serializer.instance = pack
+        create_audit_log(
+            user=self.request.user,
+            institute=pack.institute,
+            action="exam_preset_pack_save",
+            entity_type="exam_preset_pack",
+            entity_id=pack.id,
+            message="Exam preset pack saved.",
+            metadata={"code": pack.code, "scope_type": pack.scope_type},
+            request=self.request,
+        )
+
+    def perform_update(self, serializer):
+        pack = self.get_object()
+        self._assert_can_manage_pack(profile=self._profile(), pack=pack)
+        serializer.save()
+
+    def destroy(self, request, *args, **kwargs):
+        pack = self.get_object()
+        self._assert_can_manage_pack(profile=self._profile(), pack=pack)
+        create_audit_log(
+            user=request.user,
+            institute=pack.institute,
+            action="exam_preset_pack_delete",
+            entity_type="exam_preset_pack",
+            entity_id=pack.id,
+            message="Exam preset pack deleted.",
+            metadata={"code": pack.code, "scope_type": pack.scope_type},
             request=request,
         )
         return super().destroy(request, *args, **kwargs)

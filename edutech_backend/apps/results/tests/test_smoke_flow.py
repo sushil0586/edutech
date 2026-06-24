@@ -9,6 +9,7 @@ from decimal import Decimal
 from apps.attempts.models import StudentExamAttempt
 from apps.attempts.services import save_answer, start_attempt, submit_attempt
 from apps.exams.services import mark_exam_completed, mark_exam_live, publish_exam, refresh_exam_status
+from apps.exams.services import sync_total_marks_from_questions
 from apps.results.models import ExamResult
 from apps.results.services import (
     calculate_exam_ranks,
@@ -32,6 +33,28 @@ class AcademicAssessmentSmokeTestCase(TestCase):
 
     def _action_data(self, response):
         return response.data["data"]
+
+    def _build_attempt_for_student(
+        self,
+        *,
+        exam,
+        student,
+        question,
+        selected_option,
+        time_spent_seconds=20,
+        is_marked_for_review=False,
+    ):
+        attempt = start_attempt(student, exam)
+        save_answer(
+            attempt=attempt,
+            question=question,
+            selected_option=selected_option,
+            time_spent_seconds=time_spent_seconds,
+            is_marked_for_review=is_marked_for_review,
+        )
+        attempt = submit_attempt(attempt)
+        generate_result_from_attempt(attempt)
+        return attempt
 
     def test_full_academic_assessment_flow_end_to_end(self):
         exam = self.context["exam"]
@@ -157,6 +180,22 @@ class AcademicAssessmentSmokeTestCase(TestCase):
             "correct",
         )
 
+        question_analysis_response = self.client.get(
+            f"/api/v1/results/exam/{exam.id}/question-analysis/?page=1&page_size=10&filter=all"
+        )
+        self.assertEqual(question_analysis_response.status_code, 200)
+        self.assertEqual(question_analysis_response.data["count"], 1)
+        self.assertIn("summary", question_analysis_response.data)
+        self.assertIn("question_quality", question_analysis_response.data["summary"])
+        self.assertIn(
+            "top_revision_topics",
+            question_analysis_response.data["summary"]["question_quality"],
+        )
+        self.assertIn(
+            "recommended_actions",
+            question_analysis_response.data["summary"]["question_quality"],
+        )
+
         intervention_note_response = self.client.post(
             "/api/v1/results/attempt-intervention-note/",
             {
@@ -196,6 +235,106 @@ class AcademicAssessmentSmokeTestCase(TestCase):
         summary_response = self.client.get("/api/v1/results/exam-summary/")
         self.assertEqual(summary_response.status_code, 200)
         self.assertEqual(summary_response.data["count"], 1)
+        self.assertIn("score_distribution", summary_response.data["results"][0])
+        self.assertIn("section_performance", summary_response.data["results"][0])
+        self.assertIn("review_release_risk", summary_response.data["results"][0])
+
+    def test_question_analysis_exposes_distractor_and_revision_signals(self):
+        exam = self.context["exam"]
+        question = self.context["question"]
+        correct_option = next(option for option in self.context["options"] if option.is_correct)
+        wrong_option = next(option for option in self.context["options"] if not option.is_correct)
+
+        sync_total_marks_from_questions(exam)
+        exam.passing_marks = Decimal("1.00")
+        exam.save(update_fields=["passing_marks", "updated_at"])
+        publish_exam(exam, changed_by=self.context["teacher"], remarks="Question quality smoke test")
+
+        students = [
+            self.context["student"],
+            self.builder.create_student(
+                self.context["institute"],
+                self.context["academic_year"],
+                self.context["program"],
+                self.context["cohort"],
+                admission_no="STU002",
+                first_name="Ishaan",
+                email="ishaan@example.com",
+            ),
+            self.builder.create_student(
+                self.context["institute"],
+                self.context["academic_year"],
+                self.context["program"],
+                self.context["cohort"],
+                admission_no="STU003",
+                first_name="Myra",
+                email="myra@example.com",
+            ),
+        ]
+
+        self._build_attempt_for_student(
+            exam=exam,
+            student=students[0],
+            question=question,
+            selected_option=correct_option,
+            time_spent_seconds=18,
+        )
+        self._build_attempt_for_student(
+            exam=exam,
+            student=students[1],
+            question=question,
+            selected_option=wrong_option,
+            time_spent_seconds=26,
+            is_marked_for_review=True,
+        )
+        self._build_attempt_for_student(
+            exam=exam,
+            student=students[2],
+            question=question,
+            selected_option=wrong_option,
+            time_spent_seconds=31,
+            is_marked_for_review=True,
+        )
+
+        response = self.client.get(
+            f"/api/v1/results/exam/{exam.id}/question-analysis/?page=1&page_size=10&filter=all"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 1)
+
+        row = response.data["results"][0]
+        self.assertEqual(row["question_id"], str(question.id))
+        self.assertEqual(row["quality_signal"], "hard")
+        self.assertEqual(row["revision_priority"], "urgent")
+        self.assertEqual(row["wrong_count"], 2)
+        self.assertEqual(row["marked_for_review_count"], 2)
+        self.assertIn("High wrong-answer pressure", row["revision_reasons"])
+        self.assertIn("Strong misconception trap: 3", row["revision_reasons"])
+
+        distractor_signals = {
+            item["option_text_summary"]: item["distractor_signal"]
+            for item in row["distractor_insights"]
+        }
+        self.assertEqual(distractor_signals["4"], "validated_key")
+        self.assertEqual(distractor_signals["3"], "strong_distractor")
+
+        summary = response.data["summary"]
+        self.assertEqual(summary["question_quality"]["revision_candidates"], 1)
+        self.assertEqual(summary["question_quality"]["urgent_revision_candidates"], 1)
+        self.assertEqual(summary["question_quality"]["hard_questions"], 1)
+        self.assertEqual(summary["question_quality"]["top_revision_topics"][0]["topic_name"], "Algebra")
+        self.assertEqual(
+            str(summary["question_quality"]["top_revision_questions"][0]["question_id"]),
+            str(question.id),
+        )
+        self.assertEqual(summary["distractor_quality"]["strong_distractors"], 1)
+        self.assertEqual(summary["distractor_quality"]["weak_distractors"], 0)
+        self.assertEqual(summary["distractor_quality"]["key_review_options"], 0)
+        self.assertEqual(
+            summary["distractor_quality"]["top_strong_distractors"][0]["option_text_summary"],
+            "3",
+        )
 
     def test_cannot_publish_exam_without_questions(self):
         empty_exam = self.builder.create_exam(

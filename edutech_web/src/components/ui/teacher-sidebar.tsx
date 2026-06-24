@@ -12,6 +12,7 @@ const navItems = [
   { href: "/teacher/exams", label: "Exams", icon: "◫" },
   { href: "/teacher/question-bank", label: "Question Bank", icon: "◌" },
   { href: "/teacher/results", label: "Results", icon: "◎" },
+  { href: "/teacher/reviews", label: "Reviews", icon: "◔" },
 ];
 
 export function TeacherSidebar({ profile }: { profile: AccountProfile }) {

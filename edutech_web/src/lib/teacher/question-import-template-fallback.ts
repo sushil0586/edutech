@@ -1,0 +1,58 @@
+export const FALLBACK_QUESTION_IMPORT_COLUMNS = [
+  "subject",
+  "topic",
+  "passage_title",
+  "passage_order",
+  "question_type",
+  "difficulty_level",
+  "question_text",
+  "assertion_text",
+  "reason_text",
+  "matrix_left_items",
+  "matrix_right_items",
+  "option_1",
+  "option_2",
+  "option_3",
+  "option_4",
+  "correct_answer",
+  "accepted_answers",
+  "numeric_tolerance",
+  "review_guidance",
+  "default_marks",
+  "negative_marks",
+  "explanation",
+  "tags",
+] as const;
+
+export function buildFallbackQuestionImportTemplate() {
+  const sampleRow = [
+    "Mathematics",
+    "Algebra",
+    "",
+    "",
+    "mcq_single",
+    "foundation",
+    "What is 2 + 2?",
+    "",
+    "",
+    "",
+    "",
+    "3",
+    "4",
+    "",
+    "",
+    "2",
+    "",
+    "",
+    "",
+    "1.00",
+    "0.00",
+    "4 is the correct answer because 2 plus 2 equals 4.",
+    "arithmetic|foundation",
+  ];
+
+  return {
+    columns: [...FALLBACK_QUESTION_IMPORT_COLUMNS],
+    csv_content: [FALLBACK_QUESTION_IMPORT_COLUMNS.join(","), sampleRow.join(",")].join("\n"),
+  };
+}
