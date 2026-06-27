@@ -1,0 +1,59 @@
+appId: com.anonymous.nexorastudentmobile
+---
+# Set these before running:
+# STUDENT_USERNAME
+# STUDENT_PASSWORD
+#
+# Seed expectation:
+# - the student account can log in successfully
+# - analytics lane is reachable for the signed-in student
+# - profile lane is reachable and logout returns to the unauthenticated role gate
+
+- launchApp:
+    clearState: true
+
+- extendedWaitUntil:
+    visible: "Login"
+    timeout: 30000
+
+- tapOn: "Login"
+- tapOn:
+    text: "Username"
+- inputText: ${STUDENT_USERNAME}
+
+- tapOn:
+    text: "Enter password"
+- inputText: ${STUDENT_PASSWORD}
+
+- hideKeyboard
+- tapOn: "Login"
+
+- extendedWaitUntil:
+    visible: "Student Dashboard"
+    timeout: 30000
+
+- tapOn: "⏷, Analytics"
+
+- assertVisible: "Student Analytics"
+- assertVisible: "Understand progress without overload"
+- assertVisible: "Next action"
+
+- tapOn: "Open Results"
+
+- assertVisible: "Student Results"
+
+- tapOn: "⏷, Profile"
+
+- assertVisible: "Student Profile"
+- assertVisible: "Account details"
+- assertVisible: "Open Dashboard"
+- assertVisible: "Logout"
+
+- tapOn: "Logout"
+
+- extendedWaitUntil:
+    visible: "No active mobile session yet"
+    timeout: 30000
+
+- assertVisible: "Continue into the student lane"
+- assertVisible: "Login"

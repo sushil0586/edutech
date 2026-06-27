@@ -1,4 +1,5 @@
 from datetime import timedelta
+from decimal import Decimal
 from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
@@ -204,3 +205,22 @@ LOGGING = {
         "nexora.api": {"handlers": ["console"], "level": "ERROR", "propagate": False},
     },
 }
+
+ECONOMY_INSTITUTE_ADMIN_CAN_CONFIRM_ORDERS = config(
+    "ECONOMY_INSTITUTE_ADMIN_CAN_CONFIRM_ORDERS",
+    cast=bool,
+    default=True,
+)
+ECONOMY_INSTITUTE_ADMIN_MAX_CONFIRM_ORDER_AMOUNT = Decimal(
+    config("ECONOMY_INSTITUTE_ADMIN_MAX_CONFIRM_ORDER_AMOUNT", default="5000.00")
+)
+ECONOMY_INSTITUTE_ADMIN_CAN_GRANT_STARS = config(
+    "ECONOMY_INSTITUTE_ADMIN_CAN_GRANT_STARS",
+    cast=bool,
+    default=True,
+)
+ECONOMY_INSTITUTE_ADMIN_MAX_GRANT_STARS = config(
+    "ECONOMY_INSTITUTE_ADMIN_MAX_GRANT_STARS",
+    cast=int,
+    default=250,
+)

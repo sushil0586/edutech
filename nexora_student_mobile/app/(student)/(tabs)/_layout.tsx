@@ -22,6 +22,9 @@ export default function StudentTabsLayout() {
       }}
     >
       <Tabs.Screen name="dashboard" options={{ title: "Dashboard" }} />
+      <Tabs.Screen name="exams" options={{ title: "Exams" }} />
+      <Tabs.Screen name="attempts" options={{ title: "Attempts" }} />
+      <Tabs.Screen name="results" options={{ title: "Results" }} />
       <Tabs.Screen name="analytics" options={{ title: "Analytics" }} />
       <Tabs.Screen name="profile" options={{ title: "Profile" }} />
     </Tabs>

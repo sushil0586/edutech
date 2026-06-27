@@ -316,12 +316,15 @@ DJANGO_SETTINGS_MODULE=config.settings.prod ./.venv/bin/python manage.py check
 ./.venv/bin/python manage.py makemigrations --check --dry-run
 DJANGO_SETTINGS_MODULE=config.settings.prod ./.venv/bin/python manage.py collectstatic --noinput
 ./.venv/bin/python manage.py test --keepdb
+./.venv/bin/python manage.py audit_exam_publish_readiness --only-problem-exams
+./.venv/bin/python manage.py audit_result_publish_readiness --only-problem-exams
 ```
 
 Pass condition:
 
 - All commands succeed
 - Test suite reports `0` failures
+- Publish-readiness audits do not reveal unexpected blocker inventory for exams intended to go live
 
 ### Frontend gate
 

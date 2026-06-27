@@ -659,6 +659,8 @@ export default async function InstituteExamBuilderPage({
   const activeSections = detail.sections.filter((section) => section.is_active);
   const activeExamQuestions = detail.exam_questions.filter((question) => question.is_active);
   const activeAssignedStudents = detail.assigned_students.filter((student) => student.is_active);
+  const selectedProgramFamilyProfile =
+    programs.find((program) => program.id === detail.program)?.assessment_family_profile ?? null;
   const readinessSnapshot = buildBuilderReadinessSnapshot({
     examStatus: detail.status,
     activeSectionsCount: activeSections.length,
@@ -816,6 +818,7 @@ export default async function InstituteExamBuilderPage({
           examType={detail.exam_type}
           durationMinutes={detail.duration_minutes}
           instructions={detail.instructions}
+          programFamilyProfile={selectedProgramFamilyProfile}
           questionTypeLabelMap={questionTypeLabelMap}
           startAt={detail.start_at}
           subjectName={detail.subject_name}

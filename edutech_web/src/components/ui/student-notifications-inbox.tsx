@@ -50,6 +50,17 @@ function readErrorMessage(payload: unknown, fallback: string) {
   return fallback;
 }
 
+function notificationActionLabel(notification: StudentNotification) {
+  const route = notificationHref(notification);
+  if (route.includes("/attempts/") && route.endsWith("/summary")) {
+    return "Open Attempt Summary";
+  }
+  if (route.includes("/exams/")) {
+    return "Open Exam Detail";
+  }
+  return "Open Notification Detail";
+}
+
 export function StudentNotificationsInbox({
   initialPage,
   initialGroupBy,
@@ -131,7 +142,7 @@ export function StudentNotificationsInbox({
             readErrorMessage(payload, "Unable to mark this notification as read."),
           );
         }
-        setMessage("Notification marked as read.");
+        setMessage("Notification marked as read. Open the linked route if you want to act on it now.");
       } catch (updateError) {
         setInbox(snapshot);
         setError(
@@ -182,7 +193,7 @@ export function StudentNotificationsInbox({
             readErrorMessage(payload, "Unable to mark all notifications as read."),
           );
         }
-        setMessage("All notifications marked as read.");
+        setMessage("All notifications marked as read. Your unread counter is now synced to the current inbox view.");
       } catch (updateError) {
         setInbox(snapshot);
         setError(
@@ -245,7 +256,7 @@ export function StudentNotificationsInbox({
       </section>
 
       <div className="workspaceResultsGroup">
-        {groups.map((group) => (
+            {groups.map((group) => (
           <section className="studentNotificationGroup" key={group.key}>
             <div className="studentNotificationGroupHeader">
               <strong>{group.label}</strong>
@@ -289,7 +300,7 @@ export function StudentNotificationsInbox({
                       <small>
                         {notification.is_read
                           ? "Already acknowledged by the learner."
-                          : "Unread and waiting for learner action."}
+                          : "Unread and waiting for learner action. Mark it read after you have checked the linked exam, result, or summary state."}
                       </small>
                     </div>
                     <div className="studentInsightHeroActions">
@@ -322,7 +333,7 @@ export function StudentNotificationsInbox({
                         className="button buttonSecondary"
                         href={notificationHref(notification)}
                       >
-                        Open
+                        {notificationActionLabel(notification)}
                       </Link>
                     </div>
                   </div>

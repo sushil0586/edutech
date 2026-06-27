@@ -22,11 +22,22 @@ import {
   titleCaseState,
 } from "@/lib/student/formatters";
 import {
+  attemptOutcomeHelper,
+  attemptOutcomeJourney,
+  attemptOutcomeLabel,
+  attemptOutcomeProgressLabel,
+  attemptOutcomeResultsLabel,
+  attemptOutcomeReviewLabel,
+  resolveAttemptOutcomeState,
+} from "@/lib/student/attempt-outcome";
+import {
   ALL_SOURCES_CONTEXT,
   ALL_SUBJECTS_CONTEXT,
   filterStudentExamsBySubject,
   filterStudentRecordsBySource,
   filterStudentRecordsByMetadataSubject,
+  getExamSubjectDisplayLabel,
+  getMetadataSubjectDisplayLabel,
   getStudentSourceOptions,
   getStudentSubjectOptions,
   resolveSelectedStudentSource,
@@ -37,7 +48,7 @@ import {
   STUDENT_SOURCE_TEACHER_CONTEXT_COOKIE,
   STUDENT_SUBJECT_CONTEXT_COOKIE,
 } from "@/lib/student/subject-context";
-import { resolvePracticeFollowUpAction } from "@/lib/student/practice";
+import { buildPracticeHref, resolvePracticeFollowUpAction } from "@/lib/student/practice";
 import { buildFilterHref, formatFilterValue } from "@/lib/workspace/filter-utils";
 
 type ResultStatusFilter =
@@ -74,24 +85,40 @@ function resultSourceDescriptor(result: {
   return result.source_label;
 }
 
+function looksLikeNeetValue(value: string | null | undefined) {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+  return normalized.includes("neet") || normalized.includes("medical entrance");
+}
+
 function resultStateCopy(result: StudentResult) {
-  if (!result.is_published) {
+  const outcomeState = resolveAttemptOutcomeState({
+    resultVisible: result.is_published,
+    reviewAvailable: result.review_available,
+  });
+  const journey = attemptOutcomeJourney(outcomeState);
+
+  if (outcomeState === "awaiting_publication") {
     return {
-      badge: "Awaiting publication",
-      helper:
-        "This attempt is submitted, but the backend has not yet published the student-visible result.",
-      summaryCta: "Check attempt",
+      badge: attemptOutcomeLabel(outcomeState),
+      helper: `${attemptOutcomeHelper(outcomeState, "exam")} ${journey.laneHelper}`,
+      progress: attemptOutcomeProgressLabel(outcomeState),
+      summaryCta: journey.summaryCta,
+      laneLabel: journey.laneLabel,
       reviewHref: null,
       practiceCta: "Open Practice",
     };
   }
 
-  if (!result.review_available) {
+  if (outcomeState === "published_summary_only") {
     return {
-      badge: titleCaseState(result.result_status),
-      helper:
-        "This result is visible, but answer review is still restricted by the current review setting for this exam.",
-      summaryCta: "Attempt Summary",
+      badge: attemptOutcomeLabel(outcomeState),
+      helper: `${attemptOutcomeHelper(outcomeState, "exam")} ${journey.laneHelper}`,
+      progress: attemptOutcomeProgressLabel(outcomeState),
+      summaryCta: journey.summaryCta,
+      laneLabel: journey.laneLabel,
       reviewHref: null,
       practiceCta:
         result.result_status === "fail" ? "Practice Weak Areas" : "Open Practice",
@@ -99,10 +126,11 @@ function resultStateCopy(result: StudentResult) {
   }
 
   return {
-    badge: titleCaseState(result.result_status),
-      helper:
-        "This result is fully visible here, including summary access and answer review.",
-    summaryCta: "Attempt Summary",
+    badge: attemptOutcomeLabel(outcomeState),
+    helper: `${attemptOutcomeHelper(outcomeState, "exam")} ${journey.laneHelper}`,
+    progress: attemptOutcomeProgressLabel(outcomeState),
+    summaryCta: journey.summaryCta,
+    laneLabel: journey.laneLabel,
     reviewHref: `/app/attempts/${result.attempt}/review`,
     practiceCta:
       result.result_status === "fail" ? "Practice Weak Areas" : "Practice Again",
@@ -146,16 +174,19 @@ function resolveResultGroupOption(value?: string): ResultGroupOption {
 }
 
 function buildResultGroupLabel(result: StudentResult, groupBy: ResultGroupOption) {
+  const outcomeState = resolveAttemptOutcomeState({
+    resultVisible: result.is_published,
+    reviewAvailable: result.review_available,
+  });
   if (groupBy === "source") {
     return resultSourceDescriptor(result);
   }
   if (groupBy === "outcome") {
-    if (!result.is_published) return "Awaiting publication";
-    return titleCaseState(result.result_status);
+    if (!result.is_published) return attemptOutcomeResultsLabel(outcomeState);
+    return `${attemptOutcomeResultsLabel(outcomeState)} · ${titleCaseState(result.result_status)}`;
   }
   if (groupBy === "review") {
-    if (!result.is_published) return "Pending release";
-    return result.review_available ? "Review ready" : "Summary only";
+    return attemptOutcomeReviewLabel(outcomeState);
   }
   return "Results";
 }
@@ -218,8 +249,14 @@ function buildResultsFilterHref(args: {
   status?: ResultStatusFilter;
   sort?: ResultSortOption;
   group?: ResultGroupOption;
+  subject?: string;
+  source?: string;
+  teacher?: string;
 }) {
   return buildFilterHref("/app/results", [
+    ["subject", args.subject],
+    ["source", args.source],
+    ["teacher", args.teacher],
     ["result_status", args.status, "all"],
     ["result_sort", args.sort, "latest"],
     ["result_group", args.group, "none"],
@@ -312,33 +349,56 @@ export default async function ResultsPage({
 }: {
   searchParams: Promise<{
     error?: string;
+    subject?: string;
+    source?: string;
+    teacher?: string;
     result_status?: string;
     result_sort?: string;
     result_group?: string;
   }>;
 }) {
-  const { error, result_status, result_sort, result_group } = await searchParams;
+  const {
+    error,
+    subject,
+    source: sourceParam,
+    teacher: teacherParam,
+    result_status,
+    result_sort,
+    result_group,
+  } = await searchParams;
   const profile = await fetchCurrentAccountProfile();
   const registrationContext = profile?.registration_context ?? {};
   const subjectOptions = getStudentSubjectOptions(profile ?? registrationContext);
+  const requestedSubject =
+    subjectOptions.find((option) => option.value === subject)?.value ?? null;
   const cookieStore = await cookies();
-  const selectedSource = resolveSelectedStudentSource(
-    cookieStore.get(STUDENT_SOURCE_CONTEXT_COOKIE)?.value ?? ALL_SOURCES_CONTEXT,
-  );
+  const requestedSource = resolveSelectedStudentSource(sourceParam ?? ALL_SOURCES_CONTEXT);
   const selectedSubject = resolveSelectedStudentSubject(
     subjectOptions,
-    cookieStore.get(STUDENT_SUBJECT_CONTEXT_COOKIE)?.value ?? ALL_SUBJECTS_CONTEXT,
+    requestedSubject ??
+      cookieStore.get(STUDENT_SUBJECT_CONTEXT_COOKIE)?.value ??
+      ALL_SUBJECTS_CONTEXT,
   );
   const selectedSubjectLabel =
     subjectOptions.find((option) => option.value === selectedSubject)?.label ?? "Overall";
+  const scopedSubjectParam =
+    selectedSubject === ALL_SUBJECTS_CONTEXT ? undefined : selectedSubject;
 
   const { source, results, practiceExams } = await loadResults();
   const { teacherOptions } = getStudentSourceOptions([...results, ...practiceExams]);
+  const selectedSource =
+    sourceParam !== undefined
+      ? requestedSource
+      : resolveSelectedStudentSource(
+          cookieStore.get(STUDENT_SOURCE_CONTEXT_COOKIE)?.value ?? ALL_SOURCES_CONTEXT,
+        );
   const selectedTeacherId = resolveSelectedStudentSourceTeacher(
     teacherOptions,
     selectedSource,
-    cookieStore.get(STUDENT_SOURCE_TEACHER_CONTEXT_COOKIE)?.value ?? null,
+    teacherParam ?? cookieStore.get(STUDENT_SOURCE_TEACHER_CONTEXT_COOKIE)?.value ?? null,
   );
+  const scopedSourceParam =
+    selectedSource === ALL_SOURCES_CONTEXT ? undefined : selectedSource;
   const scopedResults = filterStudentRecordsByMetadataSubject(
     filterStudentRecordsBySource(results, selectedSource, selectedTeacherId),
     selectedSubject,
@@ -377,6 +437,102 @@ export default async function ResultsPage({
     exams: scopedPracticeExams,
     subjectName: selectedSubject === ALL_SUBJECTS_CONTEXT ? null : selectedSubject,
   });
+  const practiceLaneHref = buildPracticeHref({
+    subjectName: selectedSubject === ALL_SUBJECTS_CONTEXT ? null : selectedSubject,
+    source: scopedSourceParam ?? null,
+    teacher: selectedSource === "teacher" ? selectedTeacherId : null,
+  });
+  const resultsRecoverySequence =
+    practiceFollowUp.exam && practiceFollowUp.action.mode === "unlock"
+      ? [
+          {
+            label: "Do this first",
+            detail: "Open the attempt summary or review for the latest visible result and confirm what actually went wrong.",
+          },
+          {
+            label: "Then next",
+            detail: "Unlock the matched practice lane only after you confirm it covers the same weak subject or concept.",
+          },
+          {
+            label: "After that",
+            detail: "Return to analytics or weak areas before scheduling another broad mock test.",
+          },
+        ]
+      : [
+          {
+            label: "Do this first",
+            detail: "Open the latest summary or review surface and identify the mistakes you want to repair next.",
+          },
+          {
+            label: "Then next",
+            detail: "Move straight into the matched practice lane while that error pattern is still fresh.",
+          },
+          {
+            label: "After that",
+            detail: "Return to analytics, weak areas, or results to verify whether the same gap still appears.",
+          },
+        ];
+  const neetLane =
+    looksLikeNeetValue(selectedSubjectLabel) ||
+    scopedResults.some(
+      (result) =>
+        looksLikeNeetValue(result.exam_title) ||
+        looksLikeNeetValue(result.exam_code) ||
+        looksLikeNeetValue(result.source_label) ||
+        looksLikeNeetValue(result.source_name),
+    ) ||
+    scopedPracticeExams.some(
+      (exam) =>
+        exam.experience_profile.assessment_family === "competitive" &&
+        (looksLikeNeetValue(getExamSubjectDisplayLabel(exam)) ||
+          looksLikeNeetValue(exam.title) ||
+          looksLikeNeetValue(exam.code)),
+    );
+  const resultsCopy = neetLane
+    ? {
+        description:
+          selectedSubject === ALL_SUBJECTS_CONTEXT
+            ? "A live NEET mock-result workspace showing score visibility, review release, and the next exam-day repair lane from real student result data."
+            : `A live NEET mock-result workspace focused on ${selectedSubjectLabel}, using matching backend subject records where available.`,
+        heroTag: "Mock result overview",
+        analyticsLabel: "View Readiness Analytics",
+        averageLabel: "Average Mock Result",
+        latestLabel: "Latest Visible Mock",
+        highestLabel: "Best Mock Score",
+        pendingLabel: "Pending Mock Release",
+        controlsTitle: "Mock Result Controls",
+        needsWorkChip: "Needs Repair",
+        premiumTitle: "Premium mock follow-up guidance",
+        premiumDescription:
+          "After a mock result is visible, the next recommended practice may be free, directly startable, or protected by premium access rules. When stars can unlock it, the exact repair action is shown here.",
+        recoveryTitle: "Mock Recovery Loop",
+        recoveryLead:
+          "Mock history is most useful when it pushes the learner into the next repair action instead of becoming a passive score archive.",
+        recoverySecond:
+          "Use the summary or answer review to confirm the error pattern first, then continue into the matched practice lane.",
+      }
+    : {
+        description:
+          selectedSubject === ALL_SUBJECTS_CONTEXT
+            ? "A live result workspace showing scores, review visibility, and next-step practice opportunities from real student result data."
+            : `A live result workspace focused on ${selectedSubjectLabel}, using matching backend subject records where available.`,
+        heroTag: "Result Overview",
+        analyticsLabel: "View Analytics",
+        averageLabel: "Average Result",
+        latestLabel: "Latest Visible Result",
+        highestLabel: "Highest Score",
+        pendingLabel: "Pending Publication",
+        controlsTitle: "Result Controls",
+        needsWorkChip: "Needs Work",
+        premiumTitle: "Premium follow-up guidance",
+        premiumDescription:
+          "After a result is visible, the next recommended practice may be free, directly startable, or protected by premium access rules. When stars can unlock it, the exact action is shown here.",
+        recoveryTitle: "Results Recovery Loop",
+        recoveryLead:
+          "Result history is most useful when it sends the learner into the next repair action instead of becoming a passive score archive.",
+        recoverySecond:
+          "Use the summary or answer review to confirm the mistake pattern first, then continue into the matched practice lane.",
+      };
 
   return (
     <div className="studentPage studentDashboardModern studentLearnerPage studentLearnerResultsPage">
@@ -399,9 +555,7 @@ export default async function ResultsPage({
             .join(" · ") || undefined
         }
         description={
-          selectedSubject === ALL_SUBJECTS_CONTEXT
-            ? "A live result workspace showing scores, review visibility, and next-step practice opportunities from real student result data."
-            : `A live result workspace focused on ${selectedSubjectLabel}, using matching backend subject records where available.`
+          resultsCopy.description
         }
         statusLabel={
           source === "live"
@@ -462,7 +616,7 @@ export default async function ResultsPage({
         <>
           <section className="studentInsightHeroCard studentInsightHeroCardCompact">
             <div className="studentInsightHeroCopy">
-              <span className="studentDashboardTag">Result Overview</span>
+              <span className="studentDashboardTag">{resultsCopy.heroTag}</span>
               <strong>
                 {latestResult?.exam_title ?? "Latest result"}
               </strong>
@@ -478,9 +632,16 @@ export default async function ResultsPage({
             </div>
             <div className="studentInsightHeroActions">
               <Link className="button buttonPrimary" href="/app/analytics">
-                View Analytics
+                {resultsCopy.analyticsLabel}
               </Link>
-              <Link className="button buttonSecondary" href="/app/attempts">
+              <Link
+                className="button buttonSecondary"
+                href={buildFilterHref("/app/attempts", [
+                  ["subject", scopedSubjectParam],
+                  ["source", scopedSourceParam],
+                  ["teacher", selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined],
+                ])}
+              >
                 Open Attempts
               </Link>
             </div>
@@ -489,13 +650,13 @@ export default async function ResultsPage({
           <StudentKpiGrid
             items={[
               {
-                label: "Average Result",
+                label: resultsCopy.averageLabel,
                 value: averagePercentage !== null ? `${averagePercentage}%` : "Pending",
                 note: `Based on ${publishedResults.length} published${publishedResults.length === 1 ? " result" : " results"}`,
                 tone: "primary",
               },
               {
-                label: "Latest Visible Result",
+                label: resultsCopy.latestLabel,
                 value:
                   latestResult && latestResult.is_published
                     ? percentageLabel(latestResult.percentage)
@@ -505,14 +666,14 @@ export default async function ResultsPage({
                   : "No latest result available",
               },
               {
-                label: "Highest Score",
+                label: resultsCopy.highestLabel,
                 value: highestScore ? percentageLabel(highestScore.percentage) : "Pending",
                 note: highestScore
                   ? highestScore.exam_title
                   : "No published scores to compare",
               },
               {
-                label: "Pending Publication",
+                label: resultsCopy.pendingLabel,
                 value: pendingResults,
                 note: "Submitted attempts not yet released to the learner",
               },
@@ -521,7 +682,7 @@ export default async function ResultsPage({
 
           <section className="contentCard studentWorkspaceFiltersCard">
             <div className="sectionHeading">
-              <strong>Result Controls</strong>
+              <strong>{resultsCopy.controlsTitle}</strong>
               <span>
                 {visibleResults.length} shown
                 {visibleResults.length !== scopedResults.length ? ` of ${scopedResults.length}` : ""}
@@ -562,7 +723,14 @@ export default async function ResultsPage({
                 <button className="button buttonPrimary" type="submit">
                   Apply filters
                 </button>
-                <Link className="button buttonSecondary" href="/app/results">
+                <Link
+                  className="button buttonSecondary"
+                  href={buildResultsFilterHref({
+                    subject: scopedSubjectParam,
+                    source: scopedSourceParam,
+                    teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
+                  })}
+                >
                   Reset filters
                 </Link>
               </div>
@@ -572,43 +740,91 @@ export default async function ResultsPage({
               <div className="studentWorkspaceFilterQuickChips">
                 <Link
                   className={`studentWorkspaceQuickChip ${statusFilter === "all" ? "studentWorkspaceQuickChipActive" : ""}`}
-                  href={buildResultsFilterHref({ sort: sortOption, group: groupOption })}
+                  href={buildResultsFilterHref({
+                    sort: sortOption,
+                    group: groupOption,
+                    subject: scopedSubjectParam,
+                    source: scopedSourceParam,
+                    teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
+                  })}
                 >
                   All
                 </Link>
                 <Link
                   className={`studentWorkspaceQuickChip ${statusFilter === "published" ? "studentWorkspaceQuickChipActive" : ""}`}
-                  href={buildResultsFilterHref({ status: "published", sort: sortOption, group: groupOption })}
+                  href={buildResultsFilterHref({
+                    status: "published",
+                    sort: sortOption,
+                    group: groupOption,
+                    subject: scopedSubjectParam,
+                    source: scopedSourceParam,
+                    teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
+                  })}
                 >
                   Published
                 </Link>
                 <Link
                   className={`studentWorkspaceQuickChip ${statusFilter === "review_ready" ? "studentWorkspaceQuickChipActive" : ""}`}
-                  href={buildResultsFilterHref({ status: "review_ready", sort: sortOption, group: groupOption })}
+                  href={buildResultsFilterHref({
+                    status: "review_ready",
+                    sort: sortOption,
+                    group: groupOption,
+                    subject: scopedSubjectParam,
+                    source: scopedSourceParam,
+                    teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
+                  })}
                 >
                   Review Ready
                 </Link>
                 <Link
                   className={`studentWorkspaceQuickChip ${statusFilter === "fail" ? "studentWorkspaceQuickChipActive" : ""}`}
-                  href={buildResultsFilterHref({ status: "fail", sort: sortOption, group: groupOption })}
+                  href={buildResultsFilterHref({
+                    status: "fail",
+                    sort: sortOption,
+                    group: groupOption,
+                    subject: scopedSubjectParam,
+                    source: scopedSourceParam,
+                    teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
+                  })}
                 >
-                  Needs Work
+                  {resultsCopy.needsWorkChip}
                 </Link>
                 <Link
                   className={`studentWorkspaceQuickChip ${sortOption === "highest" ? "studentWorkspaceQuickChipActive" : ""}`}
-                  href={buildResultsFilterHref({ status: statusFilter, sort: "highest", group: groupOption })}
+                  href={buildResultsFilterHref({
+                    status: statusFilter,
+                    sort: "highest",
+                    group: groupOption,
+                    subject: scopedSubjectParam,
+                    source: scopedSourceParam,
+                    teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
+                  })}
                 >
                   Top Score
                 </Link>
                 <Link
                   className={`studentWorkspaceQuickChip ${sortOption === "fastest" ? "studentWorkspaceQuickChipActive" : ""}`}
-                  href={buildResultsFilterHref({ status: statusFilter, sort: "fastest", group: groupOption })}
+                  href={buildResultsFilterHref({
+                    status: statusFilter,
+                    sort: "fastest",
+                    group: groupOption,
+                    subject: scopedSubjectParam,
+                    source: scopedSourceParam,
+                    teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
+                  })}
                 >
                   Fastest
                 </Link>
                 <Link
                   className={`studentWorkspaceQuickChip ${groupOption === "source" ? "studentWorkspaceQuickChipActive" : ""}`}
-                  href={buildResultsFilterHref({ status: statusFilter, sort: sortOption, group: "source" })}
+                  href={buildResultsFilterHref({
+                    status: statusFilter,
+                    sort: sortOption,
+                    group: "source",
+                    subject: scopedSubjectParam,
+                    source: scopedSourceParam,
+                    teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
+                  })}
                 >
                   Group by Source
                 </Link>
@@ -629,7 +845,11 @@ export default async function ResultsPage({
               eyebrow="No matching results"
               title="No results match these filters"
               description="Try a broader status filter, a different sort order, or reset the current result controls."
-              ctaHref="/app/results"
+              ctaHref={buildResultsFilterHref({
+                subject: scopedSubjectParam,
+                source: scopedSourceParam,
+                teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
+              })}
               ctaLabel="Reset result filters"
               statusLabel="Filter returned zero results"
             />
@@ -646,13 +866,23 @@ export default async function ResultsPage({
               <div className="studentResultsGrid">
             {group.items.map((result) => {
               const stateCopy = resultStateCopy(result);
+              const outcomeState = resolveAttemptOutcomeState({
+                resultVisible: result.is_published,
+                reviewAvailable: result.review_available,
+              });
+              const resultSubjectLabel = getMetadataSubjectDisplayLabel(result.metadata);
 
               return (
                 <article className="contentCard studentResultSurface" key={result.id}>
                   <div className="studentResultSurfaceHead">
                     <div>
                       <strong>{result.exam_title}</strong>
-                      <span>{result.exam_code}</span>
+                      <span>
+                        {result.exam_code}
+                        {resultSubjectLabel !== "Subject pending"
+                          ? ` · ${resultSubjectLabel}`
+                          : ""}
+                      </span>
                     </div>
                     <div className="studentResultSurfaceStatus">
                       <span className="statusPill statusDefault">{result.source_label}</span>
@@ -711,22 +941,33 @@ export default async function ResultsPage({
                       <strong>
                         {result.published_at
                           ? studentDateTimeLabel(result.published_at)
-                          : "Pending release"}
+                          : attemptOutcomeResultsLabel(outcomeState)}
                       </strong>
                       <small>
-                        {resultSourceDescriptor(result)}. {stateCopy.helper}
+                        {resultSourceDescriptor(result)}. {stateCopy.helper} {stateCopy.progress}
                       </small>
                     </div>
                     <div className="studentInsightHeroActions">
                       <Link
                         className="button buttonPrimary"
-                        href={`/app/attempts/${result.attempt}/summary`}
+                        href={buildFilterHref(`/app/attempts/${result.attempt}/summary`, [
+                          ["subject", scopedSubjectParam],
+                          ["source", scopedSourceParam],
+                          ["teacher", selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined],
+                        ])}
                       >
                         {stateCopy.summaryCta}
                       </Link>
                       {stateCopy.reviewHref ? (
-                        <Link className="button buttonSecondary" href={stateCopy.reviewHref}>
-                          Review Attempt
+                        <Link
+                          className="button buttonSecondary"
+                          href={buildFilterHref(stateCopy.reviewHref, [
+                            ["subject", scopedSubjectParam],
+                            ["source", scopedSourceParam],
+                            ["teacher", selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined],
+                          ])}
+                        >
+                          Open Answer Review
                         </Link>
                       ) : null}
                       {practiceFollowUp.exam && practiceFollowUp.action.mode === "start" ? (
@@ -784,13 +1025,82 @@ export default async function ResultsPage({
 
           <section className="contentCard">
             <div className="sectionHeading">
-              <strong>Premium follow-up guidance</strong>
+              <strong>{resultsCopy.premiumTitle}</strong>
               <Link href="/app/wallet">Wallet</Link>
             </div>
             <p className="sectionDescription">
-              After a result is visible, the next recommended practice may be free, directly startable,
-              or protected by premium access rules. When stars can unlock it, the exact action is shown here.
+              {resultsCopy.premiumDescription}
             </p>
+          </section>
+
+          <section className="studentInsightsTwoColumn">
+            <article className="contentCard">
+              <div className="sectionHeading">
+                <strong>{resultsCopy.recoveryTitle}</strong>
+                <span>{practiceFollowUp.action.label}</span>
+              </div>
+              <div className="studentInsightMessageStack">
+                <div className="studentInsightMessage">
+                  <span className="placeholderDot" aria-hidden="true" />
+                  <p>{resultsCopy.recoveryLead}</p>
+                </div>
+                <div className="studentInsightMessage">
+                  <span className="placeholderDot" aria-hidden="true" />
+                  <p>{resultsCopy.recoverySecond}</p>
+                </div>
+              </div>
+              <div className="studentActionSequence" aria-label="Results recovery order">
+                {resultsRecoverySequence.map((step) => (
+                  <div className="studentActionSequenceCard" key={step.label}>
+                    <span>{step.label}</span>
+                    <strong>{step.detail}</strong>
+                  </div>
+                ))}
+              </div>
+              <div className="studentInsightHeroActions">
+                <Link className="button buttonSecondary" href={practiceLaneHref}>
+                  Open Practice Lane
+                </Link>
+                <Link className="button buttonGhost" href="/app/weak-areas">
+                  Open Weak Areas
+                </Link>
+              </div>
+            </article>
+            <article className="contentCard">
+              <div className="sectionHeading">
+                <strong>What To Check</strong>
+                <span>Before the next mock</span>
+              </div>
+              <div className="studentInsightMessageStack">
+                <div className="studentInsightMessage">
+                  <span className="placeholderDot" aria-hidden="true" />
+                  <p>Wrong answers usually need concept repair. Skips usually need confidence or pacing repair.</p>
+                </div>
+                <div className="studentInsightMessage">
+                  <span className="placeholderDot" aria-hidden="true" />
+                  <p>If review is already open, clear those errors before another broad test. If review is locked, use summary plus practice as the immediate loop.</p>
+                </div>
+                <div className="studentInsightMessage">
+                  <span className="placeholderDot" aria-hidden="true" />
+                  <p>Compare results only after the targeted practice follow-up, so the next trend reflects a real correction attempt.</p>
+                </div>
+              </div>
+              <div className="studentInsightHeroActions">
+                <Link className="button buttonSecondary" href="/app/analytics">
+                  View Analytics
+                </Link>
+                <Link
+                  className="button buttonGhost"
+                  href={buildResultsFilterHref({
+                    subject: scopedSubjectParam,
+                    source: scopedSourceParam,
+                    teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
+                  })}
+                >
+                  Stay In Results
+                </Link>
+              </div>
+            </article>
           </section>
         </>
       )}

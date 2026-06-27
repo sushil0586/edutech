@@ -21,6 +21,7 @@ import {
   ALL_SOURCES_CONTEXT,
   ALL_SUBJECTS_CONTEXT,
   filterStudentExamsBySubject,
+  getExamSubjectDisplayLabel,
   getStudentSubjectOptions,
   resolveSelectedStudentSubject,
   selectedStudentSourceLabel,
@@ -60,17 +61,21 @@ function formatExamState(state: string) {
   }
 }
 
-function actionLabel(
-  canResume: boolean,
-  canStart: boolean,
-  hasAttemptHistory: boolean,
-  reviewAvailable: boolean,
-) {
-  if (canResume) return "Resume";
-  if (canStart) return "Start";
-  if (reviewAvailable && hasAttemptHistory) return "Review";
-  if (hasAttemptHistory) return "Summary";
-  return "View";
+function actionLabel(args: {
+  canResume: boolean;
+  canStart: boolean;
+  hasAttemptHistory: boolean;
+  reviewAvailable: boolean;
+  isLocked: boolean;
+  canUnlockWithStars: boolean;
+  starCost: number;
+}) {
+  if (args.canResume) return "Resume";
+  if (args.canStart) return "Start";
+  if (args.isLocked && args.canUnlockWithStars) return `Unlock with ${args.starCost} stars`;
+  if (args.hasAttemptHistory) return "Open summary";
+  if (args.reviewAvailable && args.hasAttemptHistory) return "Open review";
+  return "View detail";
 }
 
 function actionHref(
@@ -165,11 +170,11 @@ function examAvailabilityGuidance(exam: {
   }
 
   if (exam.can_start) {
-    return "You can start this mock test now. Once started, your attempt will be tracked live from the backend session.";
+    return "You can start this mock test now. Starting creates a live backend attempt immediately and sends you into the timed workspace.";
   }
 
   if (exam.review_available) {
-    return "Attempt history is available here. Open summary or review to learn from the last run.";
+    return "Attempt history is available here. Open summary first for the clearest status view, then move into review when policy allows it.";
   }
 
   if (exam.remaining_attempts === 0) {
@@ -478,6 +483,9 @@ export default async function ExamsPage({
     visibleMockExams.find((exam) => exam.availability_state === "upcoming") ??
     visibleMockExams[0] ??
     null;
+  const featuredExamSubjectLabel = featuredExam
+    ? getExamSubjectDisplayLabel(featuredExam)
+    : null;
 
   return (
     <div className="studentPage studentDashboardModern studentLearnerPage studentLearnerExamsPage">
@@ -586,7 +594,7 @@ export default async function ExamsPage({
               <small>
                 {featuredExam
                   ? `${featuredExam.code} · ${examSourceDescriptor(featuredExam)}${
-                      featuredExam.subject_name ? ` · ${featuredExam.subject_name}` : ""
+                      featuredExamSubjectLabel ? ` · ${featuredExamSubjectLabel}` : ""
                     } · ${formatExamState(featuredExam.availability_state)}`
                   : "Live catalog connected to student availability"}
               </small>
@@ -774,8 +782,8 @@ export default async function ExamsPage({
 
                 <div className="studentInsightHeroActions">
                   <StatusPill tone="default">{examSourceDescriptor(featuredExam)}</StatusPill>
-                  {featuredExam.subject_name ? (
-                    <StatusPill tone="demo">{featuredExam.subject_name}</StatusPill>
+                  {featuredExamSubjectLabel ? (
+                    <StatusPill tone="demo">{featuredExamSubjectLabel}</StatusPill>
                   ) : null}
                 </div>
 
@@ -783,35 +791,58 @@ export default async function ExamsPage({
                   <div className="studentResultHelper">
                     <span>Next action</span>
                     <strong>
-                      {actionLabel(
-                        featuredExam.can_resume,
-                        featuredExam.can_start,
-                        attempts.some((attempt) => attempt.exam === featuredExam.id),
-                        featuredExam.review_available,
-                      )}{" "}
-                      Mock Test
+                    {actionLabel({
+                      canResume: featuredExam.can_resume,
+                      canStart: featuredExam.can_start,
+                      hasAttemptHistory: attempts.some((attempt) => attempt.exam === featuredExam.id),
+                      reviewAvailable: featuredExam.review_available,
+                      isLocked: featuredExam.economy_access.is_locked,
+                      canUnlockWithStars: featuredExam.economy_access.can_unlock_with_stars,
+                      starCost: featuredExam.economy_access.star_cost,
+                    })}
                     </strong>
                     <small>{examAvailabilityGuidance(featuredExam)}</small>
                   </div>
                   <div className="studentInsightHeroActions">
-                    <Link
-                      className="button buttonPrimary"
-                      href={actionHref(
-                        featuredExam.id,
-                        featuredExam.can_resume,
-                        featuredExam.active_attempt?.id ?? null,
-                        attempts.find((attempt) => attempt.exam === featuredExam.id)?.id ?? null,
-                        featuredExam.review_available,
-                      )}
-                    >
-                      {actionLabel(
-                        featuredExam.can_resume,
-                        featuredExam.can_start,
-                        attempts.some((attempt) => attempt.exam === featuredExam.id),
-                        featuredExam.review_available,
-                      )}{" "}
-                      Mock Test
-                    </Link>
+                    {featuredExam.economy_access.is_locked && featuredExam.economy_access.can_unlock_with_stars ? (
+                      <>
+                        <form action={unlockExamAction}>
+                          <input name="exam_id" type="hidden" value={featuredExam.id} />
+                          <input name="content_type" type="hidden" value={featuredExam.economy_access.content_type} />
+                          <input name="content_key" type="hidden" value={featuredExam.economy_access.content_key} />
+                          <input name="subject_id" type="hidden" value={featuredExam.economy_access.subject_id ?? ""} />
+                          <ActionSubmitButton
+                            className="button buttonPrimary"
+                            idleLabel={`Unlock with ${featuredExam.economy_access.star_cost} stars`}
+                            pendingLabel="Unlocking..."
+                          />
+                        </form>
+                        <Link className="button buttonSecondary" href="/app/wallet">
+                          Open Wallet
+                        </Link>
+                      </>
+                    ) : (
+                      <Link
+                        className="button buttonPrimary"
+                        href={actionHref(
+                          featuredExam.id,
+                          featuredExam.can_resume,
+                          featuredExam.active_attempt?.id ?? null,
+                          attempts.find((attempt) => attempt.exam === featuredExam.id)?.id ?? null,
+                          featuredExam.review_available,
+                        )}
+                      >
+                        {actionLabel({
+                          canResume: featuredExam.can_resume,
+                          canStart: featuredExam.can_start,
+                          hasAttemptHistory: attempts.some((attempt) => attempt.exam === featuredExam.id),
+                          reviewAvailable: featuredExam.review_available,
+                          isLocked: featuredExam.economy_access.is_locked,
+                          canUnlockWithStars: featuredExam.economy_access.can_unlock_with_stars,
+                          starCost: featuredExam.economy_access.star_cost,
+                        })}
+                      </Link>
+                    )}
                     <Link className="button buttonSecondary" href={`/app/exams/${featuredExam.id}`}>
                       View Full Detail
                     </Link>
@@ -857,12 +888,16 @@ export default async function ExamsPage({
               <div className="studentResultsGrid">
             {group.items.map((exam) => {
               const latestAttempt = attempts.find((attempt) => attempt.exam === exam.id) ?? null;
-              const primaryLabel = actionLabel(
-                exam.can_resume,
-                exam.can_start,
-                Boolean(latestAttempt),
-                exam.review_available,
-              );
+              const examSubjectLabel = getExamSubjectDisplayLabel(exam);
+              const primaryLabel = actionLabel({
+                canResume: exam.can_resume,
+                canStart: exam.can_start,
+                hasAttemptHistory: Boolean(latestAttempt),
+                reviewAvailable: exam.review_available,
+                isLocked: exam.economy_access.is_locked,
+                canUnlockWithStars: exam.economy_access.can_unlock_with_stars,
+                starCost: exam.economy_access.star_cost,
+              });
               const primaryHref = actionHref(
                 exam.id,
                 exam.can_resume,
@@ -878,7 +913,7 @@ export default async function ExamsPage({
                       <strong>{exam.title}</strong>
                       <span>
                         {exam.code} · {examSourceDescriptor(exam)}
-                        {exam.subject_name ? ` · ${exam.subject_name}` : ""}
+                        {examSubjectLabel ? ` · ${examSubjectLabel}` : ""}
                       </span>
                     </div>
                     <StatusPill tone={examStateTone(exam.availability_state)}>

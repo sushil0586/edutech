@@ -37,6 +37,65 @@ from apps.question_bank.models import AttachmentType, Question, QuestionOption
 from apps.students.models import StudentProfile
 
 
+def _question_program_assessment_family_code(question, *, exam=None):
+    program = getattr(exam, "program", None) or getattr(question, "program", None)
+    family = getattr(program, "assessment_family", None)
+    return str(getattr(family, "code", "") or "").strip()
+
+
+def response_artifact_contract_for_question(question, *, exam=None):
+    allowed_types = question_type_allowed_response_artifact_types(question.question_type)
+    family_code = _question_program_assessment_family_code(question, exam=exam)
+    metadata = question.metadata if isinstance(getattr(question, "metadata", {}), dict) else {}
+    policy = metadata.get("response_artifact_policy", {})
+    if not isinstance(policy, dict):
+        policy = {}
+
+    if family_code != "language_proficiency":
+        return {
+            "supports_response_artifacts": bool(allowed_types),
+            "allowed_response_artifact_types": allowed_types,
+            "supports_answer_transcript": bool(allowed_types),
+        }
+
+    effective_allowed_types: list[str] = []
+    for asset_kind in allowed_types:
+        if asset_kind == "audio_recording" and not bool(policy.get("allow_audio_recording", False)):
+            continue
+        if asset_kind == "video_recording" and not bool(policy.get("allow_video_recording", False)):
+            continue
+        effective_allowed_types.append(asset_kind)
+
+    supports_answer_transcript = bool(
+        policy.get(
+            "allow_answer_transcript",
+            any(asset_kind in effective_allowed_types for asset_kind in ("audio_recording", "video_recording")),
+        )
+    )
+
+    return {
+        "supports_response_artifacts": bool(effective_allowed_types),
+        "allowed_response_artifact_types": effective_allowed_types,
+        "supports_answer_transcript": supports_answer_transcript,
+    }
+
+
+def question_type_definition_payload_for_question(question, *, exam=None):
+    payload = get_question_type_definition_payload(question.question_type)
+    if payload is None:
+        return None
+
+    contract = response_artifact_contract_for_question(question, exam=exam)
+    payload["allowed_response_artifact_types"] = contract["allowed_response_artifact_types"]
+    capabilities = payload.get("capabilities", {})
+    if not isinstance(capabilities, dict):
+        capabilities = {}
+    capabilities["supports_response_artifacts"] = contract["supports_response_artifacts"]
+    capabilities["allowed_response_artifact_types"] = contract["allowed_response_artifact_types"]
+    payload["capabilities"] = capabilities
+    return payload
+
+
 def attempt_accommodation_snapshot(attempt):
     metadata = attempt.metadata if isinstance(attempt.metadata, dict) else {}
     snapshot = metadata.get("accommodation_snapshot", {})
@@ -537,7 +596,8 @@ class StudentAnswerReviewTaskSerializer(serializers.ModelSerializer):
         return text[:160] + ("..." if len(text) > 160 else "")
 
     def get_question_type_definition(self, obj):
-        return get_question_type_definition_payload(obj.question.question_type)
+        attempt = self.context.get("attempt")
+        return question_type_definition_payload_for_question(obj.question, exam=getattr(attempt, "exam", None))
 
     def get_assertion_text(self, obj):
         return assertion_reason_fields_for_question(obj.question)[0]
@@ -972,7 +1032,10 @@ class AttemptReviewSerializer(serializers.ModelSerializer):
                     "matrix_right_items": matrix_match_fields_for_question(question)[1],
                     "content_format": question.content_format,
                     "question_type": question.question_type,
-                    "question_type_definition": get_question_type_definition_payload(question.question_type),
+                    "question_type_definition": question_type_definition_payload_for_question(
+                        question,
+                        exam=attempt.exam,
+                    ),
                     "passage": str(question.passage_id) if question.passage_id else None,
                     "passage_order": question.passage_order,
                     "passage_detail": (
@@ -1208,8 +1271,10 @@ class SaveAnswerSerializer(serializers.Serializer):
         has_text_answer = bool(attrs.get("answer_text", "").strip())
         has_answer_transcript = bool(str(attrs.get("answer_transcript", "") or "").strip())
         has_response_artifacts = "response_artifacts" in attrs and bool(attrs.get("response_artifacts"))
-        supports_response_artifacts = question_type_supports_response_artifacts(question_type)
-        allowed_response_artifact_types = question_type_allowed_response_artifact_types(question_type)
+        artifact_contract = response_artifact_contract_for_question(attrs["question_obj"])
+        supports_response_artifacts = artifact_contract["supports_response_artifacts"]
+        allowed_response_artifact_types = artifact_contract["allowed_response_artifact_types"]
+        supports_answer_transcript = artifact_contract["supports_answer_transcript"]
         if question_type_supports_text_answer(question_type):
             if selected_option_id or selected_option_ids:
                 raise serializers.ValidationError(
@@ -1219,11 +1284,11 @@ class SaveAnswerSerializer(serializers.Serializer):
                         )
                     }
                 )
-            if has_answer_transcript and not supports_response_artifacts:
+            if has_answer_transcript and not supports_answer_transcript:
                 raise serializers.ValidationError(
                     {
                         "answer_transcript": (
-                            "answer_transcript is only supported when this question type allows response artifacts."
+                            "answer_transcript is only supported when this question explicitly allows media-backed responses."
                         )
                     }
                 )

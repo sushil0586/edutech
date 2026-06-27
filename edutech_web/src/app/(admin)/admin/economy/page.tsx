@@ -1,10 +1,17 @@
 import Link from "next/link";
+import { EconomyCatalogGovernanceCard } from "@/components/admin/economy-catalog-governance-card";
+import { EconomyContentAccessPolicyManagementCard } from "@/components/admin/economy-content-access-policy-management-card";
+import { EconomyReferralProgramManagementCard } from "@/components/admin/economy-referral-program-management-card";
+import { EconomyRewardRuleManagementCard } from "@/components/admin/economy-reward-rule-management-card";
 import { EconomySeedScreen } from "@/components/admin/economy-seed-screen";
+import { EconomyStarPackManagementCard } from "@/components/admin/economy-star-pack-management-card";
+import { EconomySubscriptionPlanManagementCard } from "@/components/admin/economy-subscription-plan-management-card";
+import { EconomyUnlockRuleManagementCard } from "@/components/admin/economy-unlock-rule-management-card";
 import { InstituteEconomyWorkspace } from "@/components/admin/institute-economy-workspace";
 import { PlatformAdminPageHeader } from "@/components/ui/platform-admin-page-header";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import type { TeacherExamListItem } from "@/features/dashboard/types";
-import { fetchPortalList } from "@/lib/api/portal";
+import { fetchPortalList, fetchPortalRecord } from "@/lib/api/portal";
 import { fetchTeacherExamPage, getTeacherApiState } from "@/lib/api/teacher";
 
 type StudentRecord = {
@@ -12,6 +19,172 @@ type StudentRecord = {
   full_name: string;
   admission_no: string;
   is_active: boolean;
+};
+
+type InstituteRecord = {
+  id: string;
+  name: string;
+  code: string;
+  is_active: boolean;
+};
+
+type SubjectRecord = {
+  id: string;
+  institute: string;
+  name: string;
+  is_active: boolean;
+};
+
+type EconomyCatalogItem = {
+  id: string;
+  item_type: string;
+  name: string;
+  is_active: boolean;
+  updated_at: string;
+  institute: string | null;
+  institute_name: string;
+  code: string;
+  secondary_label: string;
+  metric_label: string;
+};
+
+type EconomyCatalogGroup = {
+  item_type: string;
+  total: number;
+  active: number;
+  inactive: number;
+  items: EconomyCatalogItem[];
+};
+
+type EconomyCatalogOverview = {
+  reward_rules: EconomyCatalogGroup;
+  referral_programs: EconomyCatalogGroup;
+  star_packs: EconomyCatalogGroup;
+  subscription_plans: EconomyCatalogGroup;
+};
+
+type AdminStarPack = {
+  id: string;
+  institute: string;
+  institute_name: string;
+  name: string;
+  code: string;
+  stars_credited: number;
+  price_amount: string;
+  currency: string;
+  sort_order: number;
+  metadata: Record<string, unknown>;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+type AdminSubscriptionPlan = {
+  id: string;
+  institute: string;
+  institute_name: string;
+  name: string;
+  code: string;
+  description: string;
+  metadata: Record<string, unknown>;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  cycles: Array<{
+    id?: string;
+    billing_interval: string;
+    interval_count: number;
+    price_amount: string;
+    currency: string;
+    metadata: Record<string, unknown>;
+    is_active: boolean;
+    star_credit_rules: Array<{
+      id?: string;
+      stars_credited: number;
+      credit_on_activation: boolean;
+      credit_on_renewal: boolean;
+      metadata: Record<string, unknown>;
+      is_active: boolean;
+    }>;
+  }>;
+};
+
+type AdminReferralProgram = {
+  id: string;
+  institute: string;
+  institute_name: string;
+  name: string;
+  referrer_stars: number;
+  referee_stars: number;
+  reward_side: string;
+  valid_from: string | null;
+  valid_until: string | null;
+  metadata: Record<string, unknown>;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+type AdminRewardRule = {
+  id: string;
+  institute: string;
+  institute_name: string;
+  subject: string | null;
+  subject_name: string | null;
+  name: string;
+  rule_type: string;
+  stars_awarded: number;
+  score_threshold_percentage: string | null;
+  completion_count_threshold: number | null;
+  streak_count_threshold: number | null;
+  priority: number;
+  valid_from: string | null;
+  valid_until: string | null;
+  metadata: Record<string, unknown>;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+type AdminContentAccessPolicy = {
+  id: string;
+  institute: string;
+  institute_name: string;
+  subject: string | null;
+  subject_name: string | null;
+  content_type: string;
+  content_key: string;
+  content_label: string;
+  policy_type: string;
+  star_cost: number;
+  entitlement_code: string;
+  priority: number;
+  metadata: Record<string, unknown>;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+type AdminUnlockRule = {
+  id: string;
+  institute: string;
+  institute_name: string;
+  subject: string | null;
+  subject_name: string | null;
+  content_type: string;
+  content_key: string;
+  content_label: string;
+  rule_type: string;
+  required_star_balance: number | null;
+  required_entitlement_code: string;
+  required_completion_count: number | null;
+  required_score_percentage: string | null;
+  admin_override_allowed: boolean;
+  priority: number;
+  metadata: Record<string, unknown>;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 };
 
 async function loadPlatformEconomy() {
@@ -56,18 +229,45 @@ function policyLabel(value: string | null | undefined) {
   return value.replaceAll("_", " ");
 }
 
+function examSubjectDisplayLabel(
+  exam: Pick<TeacherExamListItem, "subject_name" | "subject_summary">,
+) {
+  return exam.subject_summary?.display_label || exam.subject_name || "Unassigned subject";
+}
+
 export default async function AdminEconomyPage() {
-  const [{ source, gatedExams, starLockedCount, entitlementCount, totalStarCost }, students] =
+  const [
+    { source, gatedExams, starLockedCount, entitlementCount, totalStarCost },
+    students,
+    catalogOverview,
+    starPacks,
+    subscriptionPlans,
+    referralPrograms,
+    rewardRules,
+    contentAccessPolicies,
+    unlockRules,
+    institutes,
+    subjects,
+  ] =
     await Promise.all([
     loadPlatformEconomy(),
     fetchPortalList<StudentRecord>("/api/v1/students/?page_size=100"),
+    fetchPortalRecord<EconomyCatalogOverview>("/api/v1/economy/admin/catalog-overview/").catch(() => null),
+    fetchPortalList<AdminStarPack>("/api/v1/economy/admin/star-packs/").catch(() => []),
+    fetchPortalList<AdminSubscriptionPlan>("/api/v1/economy/admin/subscription-plans/").catch(() => []),
+    fetchPortalList<AdminReferralProgram>("/api/v1/economy/admin/referral-programs/").catch(() => []),
+    fetchPortalList<AdminRewardRule>("/api/v1/economy/admin/reward-rules/").catch(() => []),
+    fetchPortalList<AdminContentAccessPolicy>("/api/v1/economy/admin/content-access-policies/").catch(() => []),
+    fetchPortalList<AdminUnlockRule>("/api/v1/economy/admin/unlock-rules/").catch(() => []),
+    fetchPortalList<InstituteRecord>("/api/v1/institutes/?page_size=100").catch(() => []),
+    fetchPortalList<SubjectRecord>("/api/v1/academics/subjects/?page_size=200").catch(() => []),
     ]);
 
   return (
     <section className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteSupportPageVivid">
       <PlatformAdminPageHeader
         title="Economy"
-        description="Review platform-visible exam access policy coverage and use controlled admin actions for student wallet support without hardcoded pricing assumptions."
+        description="Review platform-visible economy coverage, operate student support actions, and keep catalog governance tied to platform-owned policy rather than hardcoded pricing assumptions."
         statusLabel={
           source === "live"
             ? `${gatedExams.length} exams with economy policy`
@@ -88,6 +288,10 @@ export default async function AdminEconomyPage() {
         <div className="studentInsightHeroCopy">
           <span className="studentDashboardTag">Economy Governance</span>
           <strong>Economy and access overview</strong>
+          <p>
+            Platform admin owns cross-institute economy design, seed rollout, and catalog governance. This workspace
+            also remains the highest-scope operator lane for student wallet support and settlement review.
+          </p>
           <small>
             {students.length} students in scope · {starLockedCount} star-gated exams
           </small>
@@ -103,6 +307,21 @@ export default async function AdminEconomyPage() {
       </section>
 
       <EconomySeedScreen audience="platform" />
+      <EconomyCatalogGovernanceCard initialOverview={catalogOverview} />
+      <EconomyStarPackManagementCard initialStarPacks={starPacks} institutes={institutes} />
+      <EconomySubscriptionPlanManagementCard initialPlans={subscriptionPlans} institutes={institutes} />
+      <EconomyReferralProgramManagementCard initialPrograms={referralPrograms} institutes={institutes} />
+      <EconomyRewardRuleManagementCard initialRules={rewardRules} institutes={institutes} subjects={subjects} />
+      <EconomyContentAccessPolicyManagementCard
+        initialPolicies={contentAccessPolicies}
+        institutes={institutes}
+        subjects={subjects}
+      />
+      <EconomyUnlockRuleManagementCard
+        initialRules={unlockRules}
+        institutes={institutes}
+        subjects={subjects}
+      />
 
       {source !== "live" ? (
         <StudentStatePanel
@@ -168,7 +387,7 @@ export default async function AdminEconomyPage() {
                           <strong>{exam.title}</strong>
                           <span>
                             {policyLabel(exam.economy_policy?.policy_type)}
-                            {exam.subject_name ? ` · ${exam.subject_name}` : ""}
+                            {` · ${examSubjectDisplayLabel(exam)}`}
                           </span>
                         </div>
                         <div className="weakTopicMeta">
@@ -204,7 +423,7 @@ export default async function AdminEconomyPage() {
                   <div className="weakTopicRow">
                     <div>
                       <strong>Student support actions</strong>
-                      <span>Wallet inspection, reward review, controlled star grants, and unlock recalculation are supported.</span>
+                      <span>Wallet inspection, reward review, controlled star grants, unlock recalculation, and pending order confirmation are supported.</span>
                     </div>
                     <div className="weakTopicMeta">
                       <strong>{students.length}</strong>
@@ -213,12 +432,12 @@ export default async function AdminEconomyPage() {
                   </div>
                   <div className="weakTopicRow">
                     <div>
-                      <strong>Future catalog governance</strong>
-                      <span>Pack and subscription configuration should remain backend-led until dedicated admin endpoints are added.</span>
+                      <strong>Catalog and policy governance</strong>
+                      <span>Pack, subscription, referral, and unlock-rule governance should remain platform-owned and backend-led until dedicated governance endpoints are added.</span>
                     </div>
                     <div className="weakTopicMeta">
-                      <strong>Backend-led</strong>
-                      <span>No fake UI</span>
+                      <strong>Platform-owned</strong>
+                      <span>Command-led today</span>
                     </div>
                   </div>
                 </div>

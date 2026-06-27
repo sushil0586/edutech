@@ -1,4 +1,4 @@
-import { API_BASE_URL, isApiConfigured } from "@/lib/config";
+import { API_BASE_URL, API_REQUEST_TIMEOUT_MS, isApiConfigured } from "@/lib/config";
 
 function firstError(value: unknown) {
   if (Array.isArray(value)) {
@@ -28,15 +28,35 @@ export async function requestJson<T>(
     throw new MobileApiError("EXPO_PUBLIC_API_BASE_URL is not configured.");
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: init?.method ?? "GET",
-    headers: {
-      "Content-Type": "application/json",
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-      ...(init?.headers ?? {}),
-    },
-    body: init?.body,
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), API_REQUEST_TIMEOUT_MS);
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      method: init?.method ?? "GET",
+      headers: {
+        "Content-Type": "application/json",
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        ...(init?.headers ?? {}),
+      },
+      body: init?.body,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new MobileApiError(
+        "The request took too long. Please check your connection and try again.",
+      );
+    }
+
+    throw new MobileApiError(
+      "We could not reach the Nexora server. Check your internet connection and try again.",
+    );
+  }
+
+  clearTimeout(timeoutId);
 
   if (!response.ok) {
     const payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;

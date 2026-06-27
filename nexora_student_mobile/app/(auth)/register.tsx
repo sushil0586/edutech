@@ -5,6 +5,7 @@ import { ScreenShell } from "@/components/screen-shell";
 import { HeroCard } from "@/components/hero-card";
 import { ActionButton } from "@/components/action-button";
 import { SectionBlock } from "@/components/section-block";
+import { StatePanel } from "@/components/state-panel";
 import { MobileApiError } from "@/lib/api/client";
 import { fetchRegisterOptions, registerStudent } from "@/lib/api/auth";
 import { persistSession } from "@/lib/secure-session";
@@ -14,7 +15,7 @@ import { appStyles } from "@/theme/styles";
 function friendlyRegisterError(error: MobileApiError | Error) {
   const rawMessage = error.message.toLowerCase();
 
-  if (rawMessage.includes("network request failed")) {
+  if (rawMessage.includes("network request failed") || rawMessage.includes("took too long")) {
     return "We could not reach the Nexora server. Check your internet connection and try again.";
   }
 
@@ -31,6 +32,18 @@ function friendlyRegisterError(error: MobileApiError | Error) {
   }
 
   return error.message || "Registration failed. Please review the form and try again.";
+}
+
+function friendlyRegisterOptionsError(error: unknown) {
+  if (error instanceof MobileApiError) {
+    return friendlyRegisterError(error);
+  }
+
+  if (error instanceof Error) {
+    return friendlyRegisterError(error);
+  }
+
+  return "Unable to load registration options yet.";
 }
 
 function SelectionField({
@@ -90,17 +103,23 @@ export default function RegisterScreen() {
   const [classLevelOptions, setClassLevelOptions] = useState<string[]>([]);
   const [boardOptions, setBoardOptions] = useState<string[]>([]);
   const [examInterestOptions, setExamInterestOptions] = useState<string[]>([]);
+  const [suggestedSchoolCode, setSuggestedSchoolCode] = useState("");
   const [helper, setHelper] = useState("Next step: connect this screen to register options and live public registration APIs.");
   const [message, setMessage] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [optionsLoading, setOptionsLoading] = useState(true);
+  const [optionsLoadError, setOptionsLoadError] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     let active = true;
     async function loadOptions() {
+      setOptionsLoading(true);
+      setOptionsLoadError("");
       try {
         const options = await fetchRegisterOptions();
         if (!active) return;
+        setSuggestedSchoolCode(options.public_institute.code);
         setSchoolCode(options.public_institute.code);
         setClassLevelOptions(options.class_levels);
         setBoardOptions(options.boards);
@@ -113,11 +132,13 @@ export default function RegisterScreen() {
         );
       } catch (error) {
         if (!active) return;
-        setHelper(
-          error instanceof Error
-            ? error.message
-            : "Unable to load registration options yet.",
-        );
+        const friendlyMessage = friendlyRegisterOptionsError(error);
+        setOptionsLoadError(friendlyMessage);
+        setHelper(friendlyMessage);
+      } finally {
+        if (active) {
+          setOptionsLoading(false);
+        }
       }
     }
     void loadOptions();
@@ -157,6 +178,11 @@ export default function RegisterScreen() {
   async function submit() {
     if (!validateForm()) {
       setMessage("Please fix the highlighted fields before continuing.");
+      return;
+    }
+
+    if (!classLevelOptions.length || !boardOptions.length || !examInterestOptions.length) {
+      setMessage("Registration options are still loading or unavailable. Retry the setup step first.");
       return;
     }
 
@@ -209,6 +235,45 @@ export default function RegisterScreen() {
         description="This mobile MVP will register only student users, but the app architecture remains role-ready for future teacher, parent, institute, and admin lanes."
         helper={helper}
       />
+      {optionsLoadError ? (
+        <StatePanel
+          tone="warning"
+          title="Registration setup needs attention"
+          body={optionsLoadError}
+          action={{
+            label: optionsLoading ? "Loading..." : "Retry setup",
+            onPress: () => {
+              if (!optionsLoading) {
+                setOptionsLoadError("");
+                setHelper("Reloading registration options...");
+                void (async () => {
+                  try {
+                    setOptionsLoading(true);
+                    const options = await fetchRegisterOptions();
+                    setSuggestedSchoolCode(options.public_institute.code);
+                    setSchoolCode(options.public_institute.code);
+                    setClassLevelOptions(options.class_levels);
+                    setBoardOptions(options.boards);
+                    setExamInterestOptions(options.student_exam_interests);
+                    setClassLevel(options.class_levels[0] ?? "");
+                    setBoard(options.boards[0] ?? "");
+                    setExamInterest(options.student_exam_interests[0] ?? "");
+                    setHelper(
+                      `Public institute: ${options.public_institute.code} · Classes: ${options.class_levels.join(", ")} · Boards: ${options.boards.join(", ")}`,
+                    );
+                    setOptionsLoadError("");
+                  } catch (error) {
+                    setOptionsLoadError(friendlyRegisterOptionsError(error));
+                  } finally {
+                    setOptionsLoading(false);
+                  }
+                })();
+              }
+            },
+            tone: "secondary",
+          }}
+        />
+      ) : null}
       <View style={appStyles.formCard}>
         <View style={appStyles.cardHeader}>
           <Text style={appStyles.sectionTitle}>Quick onboarding</Text>
@@ -224,6 +289,7 @@ export default function RegisterScreen() {
             <TextInput
               placeholder="Enter first name"
               style={[appStyles.input, fieldErrors.first_name ? appStyles.inputError : null]}
+              testID="register-first-name-input"
               value={firstName}
               onChangeText={setFirstName}
             />
@@ -240,6 +306,7 @@ export default function RegisterScreen() {
               keyboardType="email-address"
               placeholder="Enter email"
               style={[appStyles.input, fieldErrors.email ? appStyles.inputError : null]}
+              testID="register-email-input"
               value={email}
               onChangeText={setEmail}
             />
@@ -251,10 +318,24 @@ export default function RegisterScreen() {
               autoCapitalize="characters"
               placeholder="Enter school code"
               style={[appStyles.input, fieldErrors.school_code ? appStyles.inputError : null]}
+              testID="register-school-code-input"
               value={schoolCode}
               onChangeText={setSchoolCode}
             />
-            <Text style={appStyles.fieldHint}>This should usually match the public institute code suggested by the backend.</Text>
+            <Text style={appStyles.fieldHint}>
+              This should usually match the public institute code suggested by the backend.
+            </Text>
+            {suggestedSchoolCode ? (
+              <View style={appStyles.rowWrap}>
+                <ActionButton
+                  label={`Use ${suggestedSchoolCode}`}
+                  tone="secondary"
+                  compact
+                  onPress={() => setSchoolCode(suggestedSchoolCode)}
+                  testID="register-use-suggested-school-code-button"
+                />
+              </View>
+            ) : null}
             {fieldErrors.school_code ? <Text style={appStyles.fieldError}>{fieldErrors.school_code}</Text> : null}
           </View>
         </View>
@@ -296,6 +377,7 @@ export default function RegisterScreen() {
               placeholder="Create password"
               secureTextEntry
               style={[appStyles.input, fieldErrors.password ? appStyles.inputError : null]}
+              testID="register-password-input"
               value={password}
               onChangeText={setPassword}
             />
@@ -308,6 +390,7 @@ export default function RegisterScreen() {
               placeholder="Confirm password"
               secureTextEntry
               style={[appStyles.input, fieldErrors.confirm_password ? appStyles.inputError : null]}
+              testID="register-confirm-password-input"
               value={confirmPassword}
               onChangeText={setConfirmPassword}
             />
@@ -316,9 +399,10 @@ export default function RegisterScreen() {
         </View>
         {message ? <Text style={appStyles.errorText}>{message}</Text> : null}
         <ActionButton
-          label={loading ? "Registering..." : "Register Student"}
+          label={optionsLoading ? "Loading setup..." : loading ? "Registering..." : "Register Student"}
           onPress={() => void submit()}
           disabled={
+            optionsLoading ||
             loading ||
             !firstName.trim() ||
             !email.trim() ||
@@ -329,8 +413,9 @@ export default function RegisterScreen() {
             !password.trim() ||
             !confirmPassword.trim()
           }
+          testID="register-submit-button"
         />
-        {!loading && !message && helper.toLowerCase().includes("unable to load") ? (
+        {!loading && !optionsLoading && !message && helper.toLowerCase().includes("unable to load") ? (
           <Text style={appStyles.warningText}>
             Registration options did not fully load. You can still try registering if you know the required values.
           </Text>
@@ -339,7 +424,7 @@ export default function RegisterScreen() {
       <SectionBlock
         title="Already registered?"
         subtitle="Use your existing student account to continue on mobile"
-        action={<ActionButton label="Go to Login" tone="secondary" onPress={() => router.push("/(auth)/login")} />}
+        action={<ActionButton label="Go to Login" tone="secondary" onPress={() => router.push("/(auth)/login")} testID="register-go-to-login-button" />}
       >
         <Text style={appStyles.body}>
           If the learner already exists in Nexora, there is no need to create a duplicate account. Login will restore the mobile session securely.

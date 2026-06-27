@@ -1,0 +1,28 @@
+appId: com.anonymous.nexorastudentmobile
+---
+# Set these before running:
+# STUDENT_USERNAME
+# STUDENT_PASSWORD
+#
+# Seed expectation:
+# - the student account credentials are valid in normal conditions
+# - the app is already open on the login screen before disabling network
+# - this flow is intended for offline-mode validation only in a warm app session
+
+- tapOn: "Login"
+- tapOn:
+    text: "Username"
+- inputText: ${STUDENT_USERNAME}
+
+- tapOn:
+    text: "Enter password"
+- inputText: ${STUDENT_PASSWORD}
+
+- hideKeyboard
+- tapOn: "Login"
+
+- extendedWaitUntil:
+    visible: "We could not reach the Nexora server. Check your internet connection and try again."
+    timeout: 30000
+
+- assertVisible: "Login"

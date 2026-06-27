@@ -85,6 +85,10 @@ These are active near-term hardening areas, not brand-new product bets:
 - live classes
 - recorded courses
 - AI tutoring
+- student bookmarks or saved-question workflows
+- student revision-plan builders
+- new recommendation engines beyond the current backend-driven next-step heuristics
+- fake preference surfaces that imply personalization without real backend support
 - large-scale mobile rollout for the new architecture
 
 ### Not Part Of The Current Architecture Phase

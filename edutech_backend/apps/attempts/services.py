@@ -2437,6 +2437,12 @@ def unresolved_review_tasks_queryset(*, exam=None, institute=None, institute_id=
 @transaction.atomic
 def submit_attempt(attempt, *, auto_submitted=False):
     from apps.reports.services import notify_attempt_submitted
+    from apps.results.services import (
+        calculate_exam_performance_summary,
+        calculate_exam_ranks,
+        calculate_student_topic_performance,
+        generate_result_from_attempt,
+    )
 
     _validate_attempt_is_editable(attempt)
 
@@ -2453,6 +2459,12 @@ def submit_attempt(attempt, *, auto_submitted=False):
         setattr(attempt, field, value)
 
     attempt.save()
+    runtime_config = _runtime_config(attempt)
+    if runtime_config.get("result_publish_mode") == "immediate":
+        generate_result_from_attempt(attempt)
+        calculate_student_topic_performance(attempt.exam, attempt.student, attempt)
+        calculate_exam_ranks(attempt.exam)
+        calculate_exam_performance_summary(attempt.exam)
     notify_attempt_submitted(attempt)
     return attempt
 

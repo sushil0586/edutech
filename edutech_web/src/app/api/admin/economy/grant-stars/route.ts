@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
   }
 
   const session = await getAuthenticatedSession();
-  if (!session || !hasRequiredRole(session.profile, ["platform_admin"])) {
+  if (!session || !hasRequiredRole(session.profile, ["platform_admin", "institute_admin"])) {
     return NextResponse.json(
       { detail: "Portal session is not available." },
       { status: 401 },

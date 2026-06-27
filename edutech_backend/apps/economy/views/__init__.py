@@ -3,19 +3,45 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.accounts.permissions import IsPlatformOrInstituteAdmin, IsStudent
+from apps.accounts.permissions import IsPlatformAdmin, IsPlatformOrInstituteAdmin, IsStudent
 from apps.accounts.scopes import (
     get_scoped_object_or_403,
     scope_queryset_for_institute,
     scope_student_profile_queryset,
     scope_student_queryset,
 )
-from apps.economy.models import PaymentOrder, StarLedger, StudentRewardEvent, StudentUnlockState
+from apps.economy.models import (
+    ContentAccessPolicy,
+    PaymentOrder,
+    ReferralProgram,
+    RewardRule,
+    StarLedger,
+    StarPack,
+    StudentRewardEvent,
+    StudentUnlockState,
+    SubscriptionPlan,
+    UnlockRule,
+)
+from apps.economy.governance import (
+    enforce_institute_admin_order_confirmation_policy,
+    enforce_institute_admin_star_grant_policy,
+    get_or_create_economy_operator_policy_config,
+    get_economy_operator_policy,
+)
 from apps.economy.serializers import (
+    AdminContentAccessPolicySerializer,
+    AdminRewardRuleSerializer,
+    AdminReferralProgramSerializer,
+    AdminStarPackSerializer,
+    AdminSubscriptionPlanSerializer,
+    AdminUnlockRuleSerializer,
     AdminGrantStarsSerializer,
     ConfirmPaymentOrderSerializer,
     CreateStarPackOrderSerializer,
     CreateSubscriptionOrderSerializer,
+    EconomyCatalogItemStatusUpdateSerializer,
+    EconomyPolicyAuditLogSerializer,
+    EconomyOperatorPolicyConfigSerializer,
     PaymentOrderSerializer,
     PaymentTransactionSerializer,
     SpendStarsForContentSerializer,
@@ -40,8 +66,73 @@ from apps.economy.services import (
     list_student_subscriptions,
     spend_stars_for_content,
 )
+from apps.reports.models import AuditLog
 from apps.students.models import StudentProfile
+from apps.reports.services import create_audit_log
 from common.responses import action_response
+
+
+ECONOMY_CATALOG_MODEL_MAP = {
+    "reward_rule": RewardRule,
+    "referral_program": ReferralProgram,
+    "star_pack": StarPack,
+    "subscription_plan": SubscriptionPlan,
+}
+
+
+def _serialize_economy_catalog_item(item_type, obj):
+    institute_name = getattr(getattr(obj, "institute", None), "name", "")
+    payload = {
+        "id": str(obj.id),
+        "item_type": item_type,
+        "name": getattr(obj, "name", ""),
+        "is_active": obj.is_active,
+        "updated_at": obj.updated_at,
+        "institute": str(obj.institute_id) if getattr(obj, "institute_id", None) else None,
+        "institute_name": institute_name,
+        "code": "",
+        "secondary_label": "",
+        "metric_label": "",
+    }
+
+    if item_type == "reward_rule":
+        payload["secondary_label"] = (
+            f"{obj.rule_type.replace('_', ' ')}"
+            + (f" · {obj.subject.name}" if obj.subject_id else "")
+        )
+        payload["metric_label"] = f"{obj.stars_awarded} stars"
+    elif item_type == "referral_program":
+        payload["secondary_label"] = f"{obj.reward_side.replace('_', ' ')} reward"
+        payload["metric_label"] = f"{obj.referrer_stars}/{obj.referee_stars} stars"
+    elif item_type == "star_pack":
+        payload["code"] = obj.code
+        payload["secondary_label"] = f"{obj.currency} {obj.price_amount}"
+        payload["metric_label"] = f"{obj.stars_credited} stars"
+    elif item_type == "subscription_plan":
+        payload["code"] = obj.code
+        active_cycles = [cycle for cycle in obj.cycles.all() if cycle.is_active]
+        payload["secondary_label"] = (
+            f"{len(active_cycles)} active cycle{'s' if len(active_cycles) != 1 else ''}"
+        )
+        if active_cycles:
+            cheapest_cycle = min(active_cycles, key=lambda cycle: cycle.price_amount)
+            payload["metric_label"] = f"from {cheapest_cycle.currency} {cheapest_cycle.price_amount}"
+        else:
+            payload["metric_label"] = "No active cycle"
+    return payload
+
+
+def _economy_catalog_group_payload(*, item_type, queryset):
+    model = ECONOMY_CATALOG_MODEL_MAP[item_type]
+    total = model.objects.count()
+    active = model.objects.filter(is_active=True).count()
+    return {
+        "item_type": item_type,
+        "total": total,
+        "active": active,
+        "inactive": total - active,
+        "items": [_serialize_economy_catalog_item(item_type, item) for item in queryset],
+    }
 
 
 class StudentWalletView(APIView):
@@ -239,6 +330,10 @@ class AdminGrantStarsView(APIView):
     def post(self, request):
         serializer = AdminGrantStarsSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        enforce_institute_admin_star_grant_policy(
+            user=request.user,
+            stars=serializer.validated_data["stars"],
+        )
 
         student = get_scoped_object_or_403(
             scope_student_profile_queryset(
@@ -266,6 +361,719 @@ class AdminGrantStarsView(APIView):
         )
 
 
+class AdminEconomyPolicyView(APIView):
+    permission_classes = [IsAuthenticated, IsPlatformOrInstituteAdmin]
+
+    def get(self, request):
+        return Response(get_economy_operator_policy(user=request.user), status=status.HTTP_200_OK)
+
+
+class AdminEconomyPolicyConfigView(APIView):
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+
+    def get(self, request):
+        config_object = get_or_create_economy_operator_policy_config()
+        return Response(
+            EconomyOperatorPolicyConfigSerializer(config_object).data,
+            status=status.HTTP_200_OK,
+        )
+
+    def patch(self, request):
+        config_object = get_or_create_economy_operator_policy_config()
+        previous_state = {
+            "institute_admin_can_confirm_orders": config_object.institute_admin_can_confirm_orders,
+            "institute_admin_max_confirm_order_amount": str(config_object.institute_admin_max_confirm_order_amount),
+            "institute_admin_confirm_order_currency": config_object.institute_admin_confirm_order_currency,
+            "institute_admin_can_grant_stars": config_object.institute_admin_can_grant_stars,
+            "institute_admin_max_grant_stars": config_object.institute_admin_max_grant_stars,
+        }
+        serializer = EconomyOperatorPolicyConfigSerializer(
+            config_object,
+            data=request.data,
+            partial=True,
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        changed_fields = {
+            key: {
+                "before": previous_state.get(key),
+                "after": serializer.data.get(key),
+            }
+            for key in previous_state
+            if str(previous_state.get(key)) != str(serializer.data.get(key))
+        }
+        create_audit_log(
+            user=request.user,
+            action="economy_policy_update",
+            entity_type="economy_operator_policy_config",
+            entity_id=config_object.id,
+            message="Economy operator policy updated.",
+            metadata={"changed_fields": changed_fields},
+            request=request,
+        )
+        return action_response(
+            data=serializer.data,
+            message="Economy operator policy updated successfully.",
+            status_code=status.HTTP_200_OK,
+        )
+
+
+class AdminEconomyPolicyAuditListView(APIView):
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+
+    def get(self, request):
+        config_object = get_or_create_economy_operator_policy_config()
+        queryset = (
+            AuditLog.objects.filter(
+                entity_type="economy_operator_policy_config",
+                entity_id=str(config_object.id),
+                is_active=True,
+            )
+            .select_related("user")
+            .order_by("-created_at")[:20]
+        )
+        return Response(
+            EconomyPolicyAuditLogSerializer(queryset, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class AdminEconomyCatalogOverviewView(APIView):
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+
+    def get(self, request):
+        reward_rules = RewardRule.objects.select_related("institute", "subject").order_by(
+            "institute__name",
+            "priority",
+            "name",
+        )[:8]
+        referral_programs = ReferralProgram.objects.select_related("institute").order_by(
+            "institute__name",
+            "name",
+        )[:8]
+        star_packs = StarPack.objects.select_related("institute").order_by(
+            "institute__name",
+            "sort_order",
+            "price_amount",
+            "name",
+        )[:8]
+        subscription_plans = SubscriptionPlan.objects.select_related("institute").prefetch_related(
+            "cycles",
+        ).order_by("institute__name", "name")[:8]
+
+        return Response(
+            {
+                "reward_rules": _economy_catalog_group_payload(
+                    item_type="reward_rule",
+                    queryset=reward_rules,
+                ),
+                "referral_programs": _economy_catalog_group_payload(
+                    item_type="referral_program",
+                    queryset=referral_programs,
+                ),
+                "star_packs": _economy_catalog_group_payload(
+                    item_type="star_pack",
+                    queryset=star_packs,
+                ),
+                "subscription_plans": _economy_catalog_group_payload(
+                    item_type="subscription_plan",
+                    queryset=subscription_plans,
+                ),
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class AdminEconomyCatalogItemStatusView(APIView):
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+
+    def patch(self, request, item_type, item_id):
+        model = ECONOMY_CATALOG_MODEL_MAP.get(item_type)
+        if model is None:
+            return Response(
+                {"detail": "Unsupported economy catalog item type."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        serializer = EconomyCatalogItemStatusUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        instance = get_scoped_object_or_403(
+            model.objects.select_related("institute"),
+            user=request.user,
+            value=item_id,
+            not_found_message="Economy catalog item not found.",
+        )
+        previous_state = instance.is_active
+        instance.is_active = serializer.validated_data["is_active"]
+        instance.save(update_fields=["is_active", "updated_at"])
+
+        create_audit_log(
+            user=request.user,
+            action="economy_catalog_item_status_update",
+            entity_type=item_type,
+            entity_id=instance.id,
+            message=f"Economy catalog item status updated for {instance.name}.",
+            metadata={
+                "before": {"is_active": previous_state},
+                "after": {"is_active": instance.is_active},
+                "item_name": instance.name,
+            },
+            request=request,
+        )
+
+        return action_response(
+            data=_serialize_economy_catalog_item(item_type, instance),
+            message="Economy catalog item status updated successfully.",
+            status_code=status.HTTP_200_OK,
+        )
+
+
+class AdminStarPackListCreateView(APIView):
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+
+    def get(self, request):
+        queryset = StarPack.objects.select_related("institute").order_by(
+            "institute__name",
+            "sort_order",
+            "price_amount",
+            "name",
+        )
+        return Response(
+            AdminStarPackSerializer(queryset, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+    def post(self, request):
+        serializer = AdminStarPackSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        instance = serializer.save()
+        create_audit_log(
+            user=request.user,
+            action="economy_star_pack_create",
+            entity_type="star_pack",
+            entity_id=instance.id,
+            message=f"Star pack created: {instance.name}.",
+            metadata={
+                "institute_id": str(instance.institute_id),
+                "code": instance.code,
+                "stars_credited": instance.stars_credited,
+                "price_amount": str(instance.price_amount),
+                "currency": instance.currency,
+            },
+            request=request,
+        )
+        return action_response(
+            data=AdminStarPackSerializer(instance).data,
+            message="Star pack created successfully.",
+            status_code=status.HTTP_201_CREATED,
+        )
+
+
+class AdminStarPackDetailView(APIView):
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+
+    def patch(self, request, star_pack_id):
+        instance = get_scoped_object_or_403(
+            StarPack.objects.select_related("institute"),
+            user=request.user,
+            value=star_pack_id,
+            not_found_message="Star pack not found.",
+        )
+        previous_state = {
+            "institute": str(instance.institute_id),
+            "name": instance.name,
+            "code": instance.code,
+            "stars_credited": instance.stars_credited,
+            "price_amount": str(instance.price_amount),
+            "currency": instance.currency,
+            "sort_order": instance.sort_order,
+            "is_active": instance.is_active,
+        }
+        serializer = AdminStarPackSerializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        updated_instance = serializer.save()
+        changed_fields = {
+            key: {
+                "before": previous_state.get(key),
+                "after": serializer.data.get(key),
+            }
+            for key in previous_state
+            if str(previous_state.get(key)) != str(serializer.data.get(key))
+        }
+        create_audit_log(
+            user=request.user,
+            action="economy_star_pack_update",
+            entity_type="star_pack",
+            entity_id=updated_instance.id,
+            message=f"Star pack updated: {updated_instance.name}.",
+            metadata={"changed_fields": changed_fields},
+            request=request,
+        )
+        return action_response(
+            data=serializer.data,
+            message="Star pack updated successfully.",
+            status_code=status.HTTP_200_OK,
+        )
+
+
+class AdminSubscriptionPlanListCreateView(APIView):
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+
+    def get(self, request):
+        queryset = SubscriptionPlan.objects.select_related("institute").prefetch_related(
+            "cycles__star_credit_rules",
+        ).order_by("institute__name", "name")
+        return Response(
+            AdminSubscriptionPlanSerializer(queryset, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+    def post(self, request):
+        serializer = AdminSubscriptionPlanSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        instance = serializer.save()
+        refreshed_instance = (
+            SubscriptionPlan.objects.select_related("institute")
+            .prefetch_related("cycles__star_credit_rules")
+            .get(pk=instance.pk)
+        )
+        create_audit_log(
+            user=request.user,
+            action="economy_subscription_plan_create",
+            entity_type="subscription_plan",
+            entity_id=refreshed_instance.id,
+            message=f"Subscription plan created: {refreshed_instance.name}.",
+            metadata={
+                "institute_id": str(refreshed_instance.institute_id),
+                "code": refreshed_instance.code,
+                "cycle_count": refreshed_instance.cycles.count(),
+            },
+            request=request,
+        )
+        return action_response(
+            data=AdminSubscriptionPlanSerializer(refreshed_instance).data,
+            message="Subscription plan created successfully.",
+            status_code=status.HTTP_201_CREATED,
+        )
+
+
+class AdminSubscriptionPlanDetailView(APIView):
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+
+    def patch(self, request, plan_id):
+        instance = get_scoped_object_or_403(
+            SubscriptionPlan.objects.select_related("institute").prefetch_related("cycles__star_credit_rules"),
+            user=request.user,
+            value=plan_id,
+            not_found_message="Subscription plan not found.",
+        )
+        previous_state = {
+            "institute": str(instance.institute_id),
+            "name": instance.name,
+            "code": instance.code,
+            "description": instance.description,
+            "is_active": instance.is_active,
+            "cycle_count": instance.cycles.count(),
+        }
+        serializer = AdminSubscriptionPlanSerializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        updated_instance = serializer.save()
+        refreshed_instance = (
+            SubscriptionPlan.objects.select_related("institute")
+            .prefetch_related("cycles__star_credit_rules")
+            .get(pk=updated_instance.pk)
+        )
+        changed_fields = {
+            key: {
+                "before": previous_state.get(key),
+                "after": serializer.data.get(key),
+            }
+            for key in ("institute", "name", "code", "description", "is_active")
+            if str(previous_state.get(key)) != str(serializer.data.get(key))
+        }
+        if "cycles" in request.data:
+            changed_fields["cycle_count"] = {
+                "before": previous_state["cycle_count"],
+                "after": refreshed_instance.cycles.count(),
+            }
+        create_audit_log(
+            user=request.user,
+            action="economy_subscription_plan_update",
+            entity_type="subscription_plan",
+            entity_id=refreshed_instance.id,
+            message=f"Subscription plan updated: {refreshed_instance.name}.",
+            metadata={"changed_fields": changed_fields},
+            request=request,
+        )
+        return action_response(
+            data=AdminSubscriptionPlanSerializer(refreshed_instance).data,
+            message="Subscription plan updated successfully.",
+            status_code=status.HTTP_200_OK,
+        )
+
+
+class AdminReferralProgramListCreateView(APIView):
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+
+    def get(self, request):
+        queryset = ReferralProgram.objects.select_related("institute").order_by("institute__name", "name")
+        return Response(
+            AdminReferralProgramSerializer(queryset, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+    def post(self, request):
+        serializer = AdminReferralProgramSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        instance = serializer.save()
+        create_audit_log(
+            user=request.user,
+            action="economy_referral_program_create",
+            entity_type="referral_program",
+            entity_id=instance.id,
+            message=f"Referral program created: {instance.name}.",
+            metadata={
+                "institute_id": str(instance.institute_id),
+                "reward_side": instance.reward_side,
+                "referrer_stars": instance.referrer_stars,
+                "referee_stars": instance.referee_stars,
+            },
+            request=request,
+        )
+        return action_response(
+            data=AdminReferralProgramSerializer(instance).data,
+            message="Referral program created successfully.",
+            status_code=status.HTTP_201_CREATED,
+        )
+
+
+class AdminReferralProgramDetailView(APIView):
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+
+    def patch(self, request, program_id):
+        instance = get_scoped_object_or_403(
+            ReferralProgram.objects.select_related("institute"),
+            user=request.user,
+            value=program_id,
+            not_found_message="Referral program not found.",
+        )
+        previous_state = {
+            "institute": str(instance.institute_id),
+            "name": instance.name,
+            "referrer_stars": instance.referrer_stars,
+            "referee_stars": instance.referee_stars,
+            "reward_side": instance.reward_side,
+            "valid_from": instance.valid_from.isoformat() if instance.valid_from else None,
+            "valid_until": instance.valid_until.isoformat() if instance.valid_until else None,
+            "is_active": instance.is_active,
+        }
+        serializer = AdminReferralProgramSerializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        updated_instance = serializer.save()
+        changed_fields = {
+            key: {
+                "before": previous_state.get(key),
+                "after": serializer.data.get(key),
+            }
+            for key in previous_state
+            if str(previous_state.get(key)) != str(serializer.data.get(key))
+        }
+        create_audit_log(
+            user=request.user,
+            action="economy_referral_program_update",
+            entity_type="referral_program",
+            entity_id=updated_instance.id,
+            message=f"Referral program updated: {updated_instance.name}.",
+            metadata={"changed_fields": changed_fields},
+            request=request,
+        )
+        return action_response(
+            data=AdminReferralProgramSerializer(updated_instance).data,
+            message="Referral program updated successfully.",
+            status_code=status.HTTP_200_OK,
+        )
+
+
+class AdminRewardRuleListCreateView(APIView):
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+
+    def get(self, request):
+        queryset = RewardRule.objects.select_related("institute", "subject").order_by(
+            "institute__name",
+            "priority",
+            "name",
+        )
+        return Response(
+            AdminRewardRuleSerializer(queryset, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+    def post(self, request):
+        serializer = AdminRewardRuleSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        instance = serializer.save()
+        create_audit_log(
+            user=request.user,
+            action="economy_reward_rule_create",
+            entity_type="reward_rule",
+            entity_id=instance.id,
+            message=f"Reward rule created: {instance.name}.",
+            metadata={
+                "institute_id": str(instance.institute_id),
+                "rule_type": instance.rule_type,
+                "stars_awarded": instance.stars_awarded,
+                "subject_id": str(instance.subject_id) if instance.subject_id else None,
+            },
+            request=request,
+        )
+        return action_response(
+            data=AdminRewardRuleSerializer(instance).data,
+            message="Reward rule created successfully.",
+            status_code=status.HTTP_201_CREATED,
+        )
+
+
+class AdminRewardRuleDetailView(APIView):
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+
+    def patch(self, request, rule_id):
+        instance = get_scoped_object_or_403(
+            RewardRule.objects.select_related("institute", "subject"),
+            user=request.user,
+            value=rule_id,
+            not_found_message="Reward rule not found.",
+        )
+        previous_state = {
+            "institute": str(instance.institute_id),
+            "subject": str(instance.subject_id) if instance.subject_id else None,
+            "name": instance.name,
+            "rule_type": instance.rule_type,
+            "stars_awarded": instance.stars_awarded,
+            "score_threshold_percentage": (
+                str(instance.score_threshold_percentage)
+                if instance.score_threshold_percentage is not None
+                else None
+            ),
+            "completion_count_threshold": instance.completion_count_threshold,
+            "streak_count_threshold": instance.streak_count_threshold,
+            "priority": instance.priority,
+            "valid_from": instance.valid_from.isoformat() if instance.valid_from else None,
+            "valid_until": instance.valid_until.isoformat() if instance.valid_until else None,
+            "is_active": instance.is_active,
+        }
+        serializer = AdminRewardRuleSerializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        updated_instance = serializer.save()
+        changed_fields = {
+            key: {
+                "before": previous_state.get(key),
+                "after": serializer.data.get(key),
+            }
+            for key in previous_state
+            if str(previous_state.get(key)) != str(serializer.data.get(key))
+        }
+        create_audit_log(
+            user=request.user,
+            action="economy_reward_rule_update",
+            entity_type="reward_rule",
+            entity_id=updated_instance.id,
+            message=f"Reward rule updated: {updated_instance.name}.",
+            metadata={"changed_fields": changed_fields},
+            request=request,
+        )
+        return action_response(
+            data=AdminRewardRuleSerializer(updated_instance).data,
+            message="Reward rule updated successfully.",
+            status_code=status.HTTP_200_OK,
+        )
+
+
+class AdminContentAccessPolicyListCreateView(APIView):
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+
+    def get(self, request):
+        queryset = ContentAccessPolicy.objects.select_related("institute", "subject").order_by(
+            "institute__name",
+            "priority",
+            "content_type",
+            "content_key",
+        )
+        return Response(
+            AdminContentAccessPolicySerializer(queryset, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+    def post(self, request):
+        serializer = AdminContentAccessPolicySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        instance = serializer.save()
+        create_audit_log(
+            user=request.user,
+            action="economy_content_access_policy_create",
+            entity_type="content_access_policy",
+            entity_id=instance.id,
+            message=f"Content access policy created for {instance.content_type}:{instance.content_key}.",
+            metadata={
+                "institute_id": str(instance.institute_id),
+                "policy_type": instance.policy_type,
+                "star_cost": instance.star_cost,
+                "entitlement_code": instance.entitlement_code,
+            },
+            request=request,
+        )
+        return action_response(
+            data=AdminContentAccessPolicySerializer(instance).data,
+            message="Content access policy created successfully.",
+            status_code=status.HTTP_201_CREATED,
+        )
+
+
+class AdminContentAccessPolicyDetailView(APIView):
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+
+    def patch(self, request, policy_id):
+        instance = get_scoped_object_or_403(
+            ContentAccessPolicy.objects.select_related("institute", "subject"),
+            user=request.user,
+            value=policy_id,
+            not_found_message="Content access policy not found.",
+        )
+        previous_state = {
+            "institute": str(instance.institute_id),
+            "subject": str(instance.subject_id) if instance.subject_id else None,
+            "content_type": instance.content_type,
+            "content_key": instance.content_key,
+            "content_label": instance.content_label,
+            "policy_type": instance.policy_type,
+            "star_cost": instance.star_cost,
+            "entitlement_code": instance.entitlement_code,
+            "priority": instance.priority,
+            "is_active": instance.is_active,
+        }
+        serializer = AdminContentAccessPolicySerializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        updated_instance = serializer.save()
+        changed_fields = {
+            key: {
+                "before": previous_state.get(key),
+                "after": serializer.data.get(key),
+            }
+            for key in previous_state
+            if str(previous_state.get(key)) != str(serializer.data.get(key))
+        }
+        create_audit_log(
+            user=request.user,
+            action="economy_content_access_policy_update",
+            entity_type="content_access_policy",
+            entity_id=updated_instance.id,
+            message=f"Content access policy updated for {updated_instance.content_type}:{updated_instance.content_key}.",
+            metadata={"changed_fields": changed_fields},
+            request=request,
+        )
+        return action_response(
+            data=AdminContentAccessPolicySerializer(updated_instance).data,
+            message="Content access policy updated successfully.",
+            status_code=status.HTTP_200_OK,
+        )
+
+
+class AdminUnlockRuleListCreateView(APIView):
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+
+    def get(self, request):
+        queryset = UnlockRule.objects.select_related("institute", "subject").order_by(
+            "institute__name",
+            "priority",
+            "content_type",
+            "content_key",
+        )
+        return Response(
+            AdminUnlockRuleSerializer(queryset, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+    def post(self, request):
+        serializer = AdminUnlockRuleSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        instance = serializer.save()
+        create_audit_log(
+            user=request.user,
+            action="economy_unlock_rule_create",
+            entity_type="unlock_rule",
+            entity_id=instance.id,
+            message=f"Unlock rule created for {instance.content_type}:{instance.content_key}.",
+            metadata={
+                "institute_id": str(instance.institute_id),
+                "rule_type": instance.rule_type,
+                "required_star_balance": instance.required_star_balance,
+                "required_entitlement_code": instance.required_entitlement_code,
+            },
+            request=request,
+        )
+        return action_response(
+            data=AdminUnlockRuleSerializer(instance).data,
+            message="Unlock rule created successfully.",
+            status_code=status.HTTP_201_CREATED,
+        )
+
+
+class AdminUnlockRuleDetailView(APIView):
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+
+    def patch(self, request, rule_id):
+        instance = get_scoped_object_or_403(
+            UnlockRule.objects.select_related("institute", "subject"),
+            user=request.user,
+            value=rule_id,
+            not_found_message="Unlock rule not found.",
+        )
+        previous_state = {
+            "institute": str(instance.institute_id),
+            "subject": str(instance.subject_id) if instance.subject_id else None,
+            "content_type": instance.content_type,
+            "content_key": instance.content_key,
+            "content_label": instance.content_label,
+            "rule_type": instance.rule_type,
+            "required_star_balance": instance.required_star_balance,
+            "required_entitlement_code": instance.required_entitlement_code,
+            "required_completion_count": instance.required_completion_count,
+            "required_score_percentage": (
+                str(instance.required_score_percentage)
+                if instance.required_score_percentage is not None
+                else None
+            ),
+            "admin_override_allowed": instance.admin_override_allowed,
+            "priority": instance.priority,
+            "is_active": instance.is_active,
+        }
+        serializer = AdminUnlockRuleSerializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        updated_instance = serializer.save()
+        changed_fields = {
+            key: {
+                "before": previous_state.get(key),
+                "after": serializer.data.get(key),
+            }
+            for key in previous_state
+            if str(previous_state.get(key)) != str(serializer.data.get(key))
+        }
+        create_audit_log(
+            user=request.user,
+            action="economy_unlock_rule_update",
+            entity_type="unlock_rule",
+            entity_id=updated_instance.id,
+            message=f"Unlock rule updated for {updated_instance.content_type}:{updated_instance.content_key}.",
+            metadata={"changed_fields": changed_fields},
+            request=request,
+        )
+        return action_response(
+            data=AdminUnlockRuleSerializer(updated_instance).data,
+            message="Unlock rule updated successfully.",
+            status_code=status.HTTP_200_OK,
+        )
+
+
 class AdminConfirmPaymentOrderView(APIView):
     permission_classes = [IsAuthenticated, IsPlatformOrInstituteAdmin]
 
@@ -286,6 +1094,10 @@ class AdminConfirmPaymentOrderView(APIView):
             user=request.user,
             value=order_id,
             not_found_message="Payment order not found in your scope.",
+        )
+        enforce_institute_admin_order_confirmation_policy(
+            user=request.user,
+            payment_order=payment_order,
         )
 
         result = complete_payment_order(
@@ -367,6 +1179,26 @@ class AdminStudentRewardEventListView(APIView):
         )
         return Response(
             StudentRewardEventSerializer(queryset, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class AdminStudentPaymentOrderListView(APIView):
+    permission_classes = [IsAuthenticated, IsPlatformOrInstituteAdmin]
+
+    def get(self, request, student_id):
+        student = get_scoped_object_or_403(
+            scope_student_profile_queryset(
+                StudentProfile.objects.select_related("institute"),
+                request.user,
+            ),
+            user=request.user,
+            value=student_id,
+            not_found_message="Student not found in your scope.",
+        )
+        queryset = list_student_payment_orders(student=student)
+        return Response(
+            PaymentOrderSerializer(queryset, many=True).data,
             status=status.HTTP_200_OK,
         )
 

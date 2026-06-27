@@ -1,11 +1,18 @@
 "use client";
 
-import { startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   examPresetPacks as defaultExamPresetPacks,
+  type ExamPresetPackBuilderDefaults,
   type ExamPresetPackDefinition,
+  type ExamPresetPackSectionTemplate,
+  type ExamPresetPackTopicPool,
 } from "@/lib/assessment/exam-preset-packs";
+import {
+  getAssessmentExamFamilyMetadata,
+  resolveAssessmentExamFamilyId,
+} from "@/lib/assessment/exam-family-metadata";
 import { formatTopicOptionLabel, sortTopicOptions } from "@/lib/academics/topic-options";
 import type { TeacherAssessmentRegistryResponse } from "@/lib/api/teacher-builder";
 
@@ -48,6 +55,7 @@ type ScopeOption = {
 
 type TopicOption = {
   id: string;
+  subject: string;
   name: string;
   code: string;
   difficulty_level: string;
@@ -81,6 +89,7 @@ type SectionDraft = {
   id: string;
   name: string;
   order: number;
+  subjectId: string;
   description: string;
   instructions: string;
   questionCount: number;
@@ -274,6 +283,7 @@ type SavedBuilderTemplate = {
     sections: Array<{
       name: string;
       order: number;
+      subjectCode?: string;
       description: string;
       instructions: string;
       questionCount: number;
@@ -401,6 +411,247 @@ function getTemplateAssessmentFamilyLabel(template: SavedBuilderTemplate) {
   return template.blueprint.exam.assessmentFamilyLabel?.trim() || "";
 }
 
+function getPresetPackProgramFamilyCode(pack: ExamPresetPackDefinition) {
+  if (pack.familyId) {
+    return getAssessmentExamFamilyMetadata(pack.familyId)?.programFamilyCode ?? "";
+  }
+  if (pack.programFamilyCode) {
+    return pack.programFamilyCode;
+  }
+  return normalizeAssessmentFamilyCode(pack.family || pack.chip || pack.id);
+}
+
+function resolvePresetPackTopicCodes(
+  topicPool: ExamPresetPackTopicPool,
+  topicGroups: {
+    firstTwo: string[];
+    firstThree: string[];
+    all: string[];
+  },
+) {
+  switch (topicPool) {
+    case "firstTwo":
+      return topicGroups.firstTwo;
+    case "firstThree":
+      return topicGroups.firstThree;
+    case "all":
+      return topicGroups.all;
+    case "allOrFirstThree":
+      return topicGroups.all.length ? topicGroups.all : topicGroups.firstThree;
+    default:
+      return topicGroups.firstThree;
+  }
+}
+
+function createSectionsFromPresetPackDefaults(
+  sectionTemplates: ExamPresetPackSectionTemplate[],
+  topicGroups: {
+    firstTwo: string[];
+    firstThree: string[];
+    all: string[];
+  },
+  subjectId: string,
+) {
+  return sectionTemplates.map((section, index) =>
+    createSectionFromTemplate({
+      index,
+      subjectId,
+      name: section.name,
+      questionCount: section.questionCount,
+      topicCodes: resolvePresetPackTopicCodes(section.topicPool, topicGroups),
+      difficultyMix: section.difficultyMix,
+      marksPerQuestion: section.marksPerQuestion,
+      negativeMarksPerQuestion: section.negativeMarksPerQuestion,
+      timerEnabled: section.timerEnabled,
+      durationMinutes: section.durationMinutes,
+      allowSkipSection: section.allowSkipSection,
+      lockAfterSubmit: section.lockAfterSubmit,
+    }),
+  );
+}
+
+function buildTopicCodeGroups(topics: TopicOption[]) {
+  const sortedTopics = sortTopicOptions(topics);
+  const firstTwo = sortedTopics.slice(0, Math.min(2, sortedTopics.length)).map((topic) => topic.code);
+  const firstThree = sortedTopics.slice(0, Math.min(3, sortedTopics.length)).map((topic) => topic.code);
+  const all = sortedTopics.map((topic) => topic.code);
+
+  return {
+    firstTwo: firstTwo.length > 0 ? firstTwo : all,
+    firstThree: firstThree.length > 0 ? firstThree : all,
+    all,
+  };
+}
+
+function resolveExamFamilyIdForProgram(program: ProgramOption | null) {
+  const candidates = [
+    program?.name,
+    program?.code,
+    program?.assessment_family_profile?.label,
+    program?.assessment_family_label,
+    program?.assessment_family_code,
+    program?.assessment_family,
+  ];
+  for (const candidate of candidates) {
+    const resolved = resolveAssessmentExamFamilyId(candidate);
+    if (resolved) {
+      return resolved;
+    }
+  }
+  return null;
+}
+
+function summarizePresetPackSections(pack: ExamPresetPackDefinition | null) {
+  const sections = pack?.builderDefaults?.sections ?? [];
+  if (sections.length === 0) {
+    return "No structured section guidance is mapped yet.";
+  }
+  return sections
+    .map((section) => `${section.name} (${section.questionCount})`)
+    .join(" | ");
+}
+
+function scoringDefaultsSummary(scoringDefaults: Record<string, unknown> | null | undefined) {
+  if (!scoringDefaults || typeof scoringDefaults !== "object") {
+    return "Standard positive scoring is assumed unless the exam overrides it.";
+  }
+  const negativeMarkingEnabled = Boolean(scoringDefaults.negative_marking_default);
+  const supportsNumericEntry = Boolean(scoringDefaults.supports_numeric_entry);
+  const supportsPartialScoring = Boolean(scoringDefaults.supports_partial_scoring);
+  const attemptPolicy =
+    typeof scoringDefaults.recommended_attempt_policy === "string"
+      ? String(scoringDefaults.recommended_attempt_policy).replaceAll("_", " ")
+      : "";
+
+  return [
+    negativeMarkingEnabled ? "Negative marking default is on." : "Negative marking default is off.",
+    supportsNumericEntry ? "Numeric-entry support is expected." : "Numeric-entry support is not primary.",
+    supportsPartialScoring ? "Partial scoring is available where question types allow it." : "Partial scoring is limited.",
+    attemptPolicy ? `Recommended attempt posture: ${attemptPolicy}.` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function buildFamilyExecutionChecklist(
+  familyId: ReturnType<typeof resolveAssessmentExamFamilyId>,
+  presetPack: ExamPresetPackDefinition | null,
+) {
+  const questionMix = presetPack?.recommendations?.questionMixGuidance ?? "";
+  switch (familyId) {
+    case "neet":
+      return [
+        "Keep the exam mock-first: full-length pacing, one serious attempt posture, and controlled post-submit release.",
+        "Use large Biology, Chemistry, and Physics blocks instead of chapter-sized micro checks.",
+        questionMix || "Preserve a Biology-heavy objective mix with Chemistry and Physics support in each section plan.",
+      ];
+    case "jee":
+      return [
+        "Bias toward challenge-heavy timed sections and keep section contracts explicit before previewing.",
+        "Include a numeric-answer lane when the paper is meant to mirror JEE-style solving depth.",
+        "Do not pair numeric-entry sections with negative marking in the current JEE contract.",
+      ];
+    case "gre":
+      return [
+        "Prefer formal timed sections and graduate-readiness wording over school-style chapter-test framing.",
+        "Keep result and review settings aligned to total-score-first reporting; avoid implying deep sectional score storytelling.",
+        questionMix || "Balance quant reasoning coverage across difficulty bands instead of clustering only easy or only advanced prompts.",
+      ];
+    case "aws_certification":
+      return [
+        "Organize sections around AWS domains or objectives, not school chapters.",
+        "Favor scenario-driven single-best-answer practice with explanation-friendly review after submit.",
+        questionMix || "Keep service-domain coverage broad enough that readiness feels certification-oriented rather than chapter-oriented.",
+      ];
+    case "language_proficiency":
+      return [
+        "Keep sections skill-specific and preserve formal section pacing across reading, listening, writing, or integrated prompts.",
+        "Avoid implying production-ready speaking capture unless that workflow is explicitly configured.",
+        questionMix || "Use rubric-aware prompt mixes that reflect real skill demonstration rather than recall-only drills.",
+      ];
+    default:
+      return [];
+  }
+}
+
+function hydrateSectionsFromBlueprint(
+  sectionRows: SavedBuilderTemplate["blueprint"]["sections"],
+  availableTopicCodes: Set<string>,
+  fallbackTopicCode: string,
+  fallbackSubjectId: string,
+  subjectOptions: ScopeOption[],
+) {
+  const subjectByCode = new Map(subjectOptions.map((item) => [item.code, item.id]));
+  return sectionRows.map((section, sectionIndex) => ({
+    id: uid("section"),
+    name: section.name,
+    order: sectionIndex + 1,
+    subjectId: section.subjectCode ? (subjectByCode.get(section.subjectCode) ?? fallbackSubjectId) : fallbackSubjectId,
+    description: section.description,
+    instructions: section.instructions,
+    questionCount: section.questionCount,
+    marksPerQuestion: section.marksPerQuestion,
+    negativeMarksPerQuestion: section.negativeMarksPerQuestion,
+    timerEnabled: section.timerEnabled,
+    durationMinutes: section.durationMinutes,
+    allowSkipSection: section.allowSkipSection,
+    lockAfterSubmit: section.lockAfterSubmit,
+    difficultyMix: { ...section.difficultyMix },
+    topics: section.topics.map((topicRow, topicIndex) => ({
+      id: uid("topic"),
+      topicCode:
+        topicRow.topicCode && (availableTopicCodes.has(topicRow.topicCode) || Boolean(section.subjectCode))
+          ? topicRow.topicCode
+          : sectionIndex === 0 && topicIndex === 0
+            ? fallbackTopicCode
+            : "",
+      count: topicRow.count,
+    })),
+  }));
+}
+
+function getRecommendedAttemptPolicy(scoringDefaults: Record<string, unknown> | null | undefined) {
+  if (!scoringDefaults || typeof scoringDefaults !== "object") {
+    return "";
+  }
+  return typeof scoringDefaults.recommended_attempt_policy === "string"
+    ? String(scoringDefaults.recommended_attempt_policy)
+    : "";
+}
+
+function getSectionScoringAlerts(
+  section: SectionDraft,
+  index: number,
+  familyProfile?: ProgramOption["assessment_family_profile"] | null,
+) {
+  const alerts: string[] = [];
+  const scoringDefaults = familyProfile?.scoring_defaults;
+  const negativeMarkingEnabled = Boolean(scoringDefaults?.negative_marking_default);
+  const negativeMarks = Number(section.negativeMarksPerQuestion || 0);
+  const marksPerQuestion = Number(section.marksPerQuestion || 0);
+  const sectionLabel = resolveSectionLabel(section, index);
+
+  if (negativeMarkingEnabled && negativeMarks <= 0 && section.questionCount > 0) {
+    alerts.push(
+      `${sectionLabel} has no negative marks even though ${familyProfile?.label ?? "this family"} usually expects them for objective scoring.`,
+    );
+  }
+
+  if (!negativeMarkingEnabled && negativeMarks > 0) {
+    alerts.push(
+      `${sectionLabel} adds negative marks even though ${familyProfile?.label ?? "this family"} usually runs without them.`,
+    );
+  }
+
+  if (negativeMarks > 0 && marksPerQuestion > 0 && negativeMarks >= marksPerQuestion) {
+    alerts.push(
+      `${sectionLabel} has negative marks equal to or higher than the positive marks per question. Double-check the scoring ratio.`,
+    );
+  }
+
+  return alerts;
+}
+
 const deliverySelectConfig: Array<{
   label: string;
   key:
@@ -425,11 +676,12 @@ function uid(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function createSectionDraft(index: number, topicCode = ""): SectionDraft {
+function createSectionDraft(index: number, subjectId = "", topicCode = ""): SectionDraft {
   return {
     id: uid("section"),
     name: `Section ${String.fromCharCode(65 + index)}`,
     order: index + 1,
+    subjectId,
     description: "",
     instructions: "",
     questionCount: 10,
@@ -471,6 +723,7 @@ function distributeTopicCounts(total: number, topicCodes: string[]) {
 
 function createSectionFromTemplate({
   index,
+  subjectId,
   name,
   questionCount,
   topicCodes,
@@ -483,6 +736,7 @@ function createSectionFromTemplate({
   lockAfterSubmit = false,
 }: {
   index: number;
+  subjectId: string;
   name: string;
   questionCount: number;
   topicCodes: string[];
@@ -498,6 +752,7 @@ function createSectionFromTemplate({
     id: uid("section"),
     name,
     order: index + 1,
+    subjectId,
     description: "",
     instructions: "",
     questionCount,
@@ -553,6 +808,13 @@ function getSectionTopicCountError(section: SectionDraft, index: number) {
   }
 
   return `${resolveSectionLabel(section, index)} has ${assignedTopicCount} topic slot(s), but needs ${requestedQuestionCount} question(s). Adjust the topic counts so they match the section question count.`;
+}
+
+function getTopicOptionsForSection(
+  section: Pick<SectionDraft, "subjectId">,
+  topicOptionsBySubject: Record<string, TopicOption[]>,
+) {
+  return sortTopicOptions(topicOptionsBySubject[section.subjectId] ?? []);
 }
 
 function getBuilderCompositionError(sections: SectionDraft[]) {
@@ -930,6 +1192,24 @@ export function AdvancedExamBuilder({
 }: AdvancedExamBuilderProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const initialProgramRecord = programs[0] ?? null;
+  const initialProgramFamilyId = resolveExamFamilyIdForProgram(initialProgramRecord);
+  const initialProgramPresetPack =
+    defaultExamPresetPacks.find((pack) => pack.familyId === initialProgramFamilyId && pack.builderDefaults) ?? null;
+  const initialTopicGroups = buildTopicCodeGroups(initialTopics);
+  const initialExamDefaults = initialProgramPresetPack?.builderDefaults?.exam;
+  const initialDeliveryDefaults = initialProgramPresetPack?.builderDefaults?.delivery;
+  const initialEconomyDefaults = initialProgramPresetPack?.builderDefaults?.economy;
+  const initialExperienceDefaults = initialProgramPresetPack?.builderDefaults?.experience;
+  const initialSelectionMode = initialProgramPresetPack?.builderDefaults?.selectionMode ?? "strict";
+  const initialSections =
+    initialProgramPresetPack?.builderDefaults?.sections?.length
+      ? createSectionsFromPresetPackDefaults(
+          initialProgramPresetPack.builderDefaults.sections,
+          initialTopicGroups,
+          initialSubjects[0]?.id ?? "",
+        )
+      : [createSectionDraft(0, initialSubjects[0]?.id ?? "", initialTopics[0]?.code ?? "")];
   const templateImportInputRef = useRef<HTMLInputElement | null>(null);
   const requestedPresetPackAppliedRef = useRef("");
   const [activeStage, setActiveStage] = useState(0);
@@ -965,59 +1245,65 @@ export function AdvancedExamBuilder({
   const [selectedSubject, setSelectedSubject] = useState(initialSubjects[0]?.id ?? "");
   const [cohortOptions, setCohortOptions] = useState(initialCohorts);
   const [subjectOptions, setSubjectOptions] = useState(initialSubjects);
-  const [topicOptions, setTopicOptions] = useState(sortTopicOptions(initialTopics));
+  const [topicOptionsBySubject, setTopicOptionsBySubject] = useState<Record<string, TopicOption[]>>(
+    initialSubjects[0]?.id
+      ? { [initialSubjects[0].id]: sortTopicOptions(initialTopics) }
+      : {},
+  );
 
   const [exam, setExam] = useState({
     title: "",
     code: "",
     description: "",
-    presetPackCode: "",
-    examType: examTypeOptions[0]?.value ?? "test",
-    deliveryMode: deliveryModeOptions[0]?.value ?? "online",
-    status: statusOptions[0]?.value ?? "draft",
+    presetPackCode: initialProgramPresetPack?.id ?? "",
+    examType: initialExamDefaults?.examType ?? examTypeOptions[0]?.value ?? "test",
+    deliveryMode: initialExamDefaults?.deliveryMode ?? deliveryModeOptions[0]?.value ?? "online",
+    status: initialExamDefaults?.status ?? statusOptions[0]?.value ?? "draft",
     sourceType: defaultSource,
-    durationMinutes: "60",
-    passingMarks: "0.00",
+    durationMinutes: initialExamDefaults?.durationMinutes ?? "60",
+    passingMarks: initialExamDefaults?.passingMarks ?? "0.00",
     startAt: "",
     endAt: "",
     instructions: "",
   });
 
   const [delivery, setDelivery] = useState({
-    timerMode: timerModeOptions[0]?.value ?? "global",
-    navigationMode: navigationModeOptions[0]?.value ?? "free_exam",
-    attemptPolicy: attemptPolicyOptions[0]?.value ?? "single",
-    resultPublishMode: resultPublishModeOptions[0]?.value ?? "after_review",
-    reviewMode: reviewModeOptions[0]?.value ?? "attempted_only",
-    securityMode: securityModeOptions[0]?.value ?? "normal",
-    assignmentMode: assignmentModeOptions[0]?.value ?? "scope",
-    maxAttempts: "1",
-    randomizeQuestions: true,
-    randomizeOptions: true,
+    timerMode: initialDeliveryDefaults?.timerMode ?? timerModeOptions[0]?.value ?? "global",
+    navigationMode: initialDeliveryDefaults?.navigationMode ?? navigationModeOptions[0]?.value ?? "free_exam",
+    attemptPolicy: initialDeliveryDefaults?.attemptPolicy ?? attemptPolicyOptions[0]?.value ?? "single",
+    resultPublishMode:
+      initialDeliveryDefaults?.resultPublishMode ?? resultPublishModeOptions[0]?.value ?? "after_review",
+    reviewMode: initialDeliveryDefaults?.reviewMode ?? reviewModeOptions[0]?.value ?? "attempted_only",
+    securityMode: initialDeliveryDefaults?.securityMode ?? securityModeOptions[0]?.value ?? "normal",
+    assignmentMode: initialDeliveryDefaults?.assignmentMode ?? assignmentModeOptions[0]?.value ?? "scope",
+    maxAttempts: initialDeliveryDefaults?.maxAttempts ?? "1",
+    randomizeQuestions: initialDeliveryDefaults?.randomizeQuestions ?? true,
+    randomizeOptions: initialDeliveryDefaults?.randomizeOptions ?? true,
     allowLateSubmit: false,
-    showResultImmediately: false,
-    allowReviewAfterSubmit: true,
-    allowResume: true,
-    allowSectionSwitching: true,
-    allowReturnToPreviousSection: true,
+    showResultImmediately: initialDeliveryDefaults?.resultPublishMode === "immediate",
+    allowReviewAfterSubmit: !["disabled", "none"].includes(initialDeliveryDefaults?.reviewMode ?? ""),
+    allowResume: initialDeliveryDefaults?.allowResume ?? true,
+    allowSectionSwitching: initialDeliveryDefaults?.allowSectionSwitching ?? true,
+    allowReturnToPreviousSection: initialDeliveryDefaults?.allowReturnToPreviousSection ?? true,
     resultPublishAt: "",
     reviewAvailableFrom: "",
     reviewAvailableUntil: "",
   });
 
   const [experienceOverride, setExperienceOverride] = useState<ExperienceOverrideDraft>(
-    familyAwareExperienceOverrides(
-      examTypeOptions[0]?.value ?? "test",
-      programs[0]?.assessment_family_profile ?? null,
-    ),
+    initialExperienceDefaults ??
+      familyAwareExperienceOverrides(
+        initialExamDefaults?.examType ?? examTypeOptions[0]?.value ?? "test",
+        programs[0]?.assessment_family_profile ?? null,
+      ),
   );
 
   const [economy, setEconomy] = useState({
-    policyType: economyPolicyOptions[0]?.value ?? "",
-    starCost: "0",
-    entitlementCode: "",
+    policyType: initialEconomyDefaults?.policyType ?? economyPolicyOptions[0]?.value ?? "",
+    starCost: initialEconomyDefaults?.starCost ?? "0",
+    entitlementCode: initialEconomyDefaults?.entitlementCode ?? "",
     priority: "100",
-    unlockRuleType: "",
+    unlockRuleType: initialEconomyDefaults?.unlockRuleType ?? "",
     requiredStarBalance: "",
     requiredEntitlementCode: "",
     requiredCompletionCount: "",
@@ -1026,11 +1312,13 @@ export function AdvancedExamBuilder({
     adminOverrideAllowed: true,
   });
 
-  const [selectionMode, setSelectionMode] = useState("strict");
-  const [sections, setSections] = useState<SectionDraft[]>([
-    createSectionDraft(0, initialTopics[0]?.code ?? ""),
-  ]);
+  const [selectionMode, setSelectionMode] = useState(initialSelectionMode);
+  const [sections, setSections] = useState<SectionDraft[]>(initialSections);
   const deferredSections = useDeferredValue(sections);
+  const topicOptions = useMemo(
+    () => topicOptionsBySubject[selectedSubject] ?? [],
+    [selectedSubject, topicOptionsBySubject],
+  );
   const sortedTopicOptions = useMemo(() => sortTopicOptions(topicOptions), [topicOptions]);
   const deliveryOptionsByKey = {
     timerMode: timerModeOptions,
@@ -1063,6 +1351,48 @@ export function AdvancedExamBuilder({
   const selectedProgramFamilyCode = useMemo(
     () => normalizeAssessmentFamilyCode(selectedProgramRecord?.assessment_family_code),
     [selectedProgramRecord?.assessment_family_code],
+  );
+  const selectedProgramFamilyId = useMemo(
+    () => resolveExamFamilyIdForProgram(selectedProgramRecord),
+    [selectedProgramRecord],
+  );
+  const selectedPresetPack = useMemo(
+    () => presetPackLibrary.find((pack) => pack.id === exam.presetPackCode) ?? null,
+    [exam.presetPackCode, presetPackLibrary],
+  );
+  const effectiveFamilyId = useMemo(
+    () => selectedPresetPack?.familyId ?? selectedProgramFamilyId,
+    [selectedPresetPack?.familyId, selectedProgramFamilyId],
+  );
+  const selectedProgramFamilyMetadata = useMemo(
+    () => getAssessmentExamFamilyMetadata(effectiveFamilyId),
+    [effectiveFamilyId],
+  );
+  const selectedProgramPresetPack = useMemo(() => {
+    const activePresetPack =
+      selectedPresetPack?.builderDefaults ? selectedPresetPack : null;
+    if (
+      activePresetPack &&
+      ((effectiveFamilyId && activePresetPack.familyId === effectiveFamilyId) ||
+        (selectedProgramFamilyCode &&
+          activePresetPack.programFamilyCode === selectedProgramFamilyCode) ||
+        !selectedProgramFamilyId)
+    ) {
+      return activePresetPack;
+    }
+
+    return (
+      presetPackLibrary.find(
+        (pack) =>
+          pack.builderDefaults &&
+          ((effectiveFamilyId && pack.familyId === effectiveFamilyId) ||
+            (selectedProgramFamilyCode && pack.programFamilyCode === selectedProgramFamilyCode)),
+      ) ?? null
+    );
+  }, [effectiveFamilyId, selectedPresetPack, presetPackLibrary, selectedProgramFamilyCode, selectedProgramFamilyId]);
+  const familyExecutionChecklist = useMemo(
+    () => buildFamilyExecutionChecklist(effectiveFamilyId, selectedProgramPresetPack),
+    [effectiveFamilyId, selectedProgramPresetPack],
   );
   const normalizedTemplateSearch = templateSearch.trim().toLowerCase();
   const savedTemplates = useMemo(
@@ -1184,7 +1514,7 @@ export function AdvancedExamBuilder({
         setSubjectOptions([]);
         setSelectedCohort("");
         setSelectedSubject("");
-        setTopicOptions([]);
+        setTopicOptionsBySubject({});
         return;
       }
 
@@ -1256,34 +1586,60 @@ export function AdvancedExamBuilder({
     let ignore = false;
 
     async function refreshTopics() {
-      if (!selectedSubject) {
-        setTopicOptions([]);
+      const subjectIdsToLoad = Array.from(
+        new Set(
+          [selectedSubject, ...sections.map((section) => section.subjectId)]
+            .map((value) => value.trim())
+            .filter(Boolean),
+        ),
+      ).filter((subjectId) => !(subjectId in topicOptionsBySubject));
+
+      if (subjectIdsToLoad.length === 0) {
         return;
       }
 
       try {
-        const query = new URLSearchParams({
-          is_active: "true",
-          subject: selectedSubject,
-        });
-        if (scopeInstituteId) {
-          query.set("institute", scopeInstituteId);
-        }
-        const nextTopics = await fetchLookup<TopicOption>(
-          `/api/teacher/academics/topics?${query.toString()}`,
+        const loadedTopicPairs = await Promise.all(
+          subjectIdsToLoad.map(async (subjectId) => {
+            const query = new URLSearchParams({
+              is_active: "true",
+              subject: subjectId,
+            });
+            if (scopeInstituteId) {
+              query.set("institute", scopeInstituteId);
+            }
+            const nextTopics = await fetchLookup<TopicOption>(
+              `/api/teacher/academics/topics?${query.toString()}`,
+            );
+            return [subjectId, sortTopicOptions(nextTopics)] as const;
+          }),
         );
 
         if (ignore) {
           return;
         }
 
-        setTopicOptions(sortTopicOptions(nextTopics));
-        const allowedCodes = new Set(nextTopics.map((topic) => topic.code));
+        setTopicOptionsBySubject((current) => {
+          const next = { ...current };
+          for (const [subjectId, topics] of loadedTopicPairs) {
+            next[subjectId] = topics;
+          }
+          return next;
+        });
         setSections((currentSections) =>
           currentSections.map((section, sectionIndex) => ({
             ...section,
+            subjectId:
+              section.subjectId && subjectOptions.some((subject) => subject.id === section.subjectId)
+                ? section.subjectId
+                : (selectedSubject || subjectOptions[0]?.id || ""),
             topics: section.topics.map((topicRow, topicIndex) => {
-              const fallbackCode = nextTopics[0]?.code ?? "";
+              const sectionTopics =
+                loadedTopicPairs.find(([subjectId]) => subjectId === section.subjectId)?.[1]
+                ?? topicOptionsBySubject[section.subjectId]
+                ?? [];
+              const allowedCodes = new Set(sectionTopics.map((topic) => topic.code));
+              const fallbackCode = sectionTopics[0]?.code ?? "";
               return {
                 ...topicRow,
                 topicCode:
@@ -1308,7 +1664,7 @@ export function AdvancedExamBuilder({
     return () => {
       ignore = true;
     };
-  }, [scopeInstituteId, selectedSubject]);
+  }, [scopeInstituteId, sections, selectedSubject, subjectOptions, topicOptionsBySubject]);
 
   const selectedAcademicYearRecord = useMemo(
     () => academicYears.find((item) => item.id === selectedAcademicYear) ?? null,
@@ -1322,13 +1678,31 @@ export function AdvancedExamBuilder({
     () => subjectOptions.find((item) => item.id === selectedSubject) ?? null,
     [subjectOptions, selectedSubject],
   );
+
+  useEffect(() => {
+    if (subjectOptions.length === 0) {
+      return;
+    }
+
+    const fallbackSubjectId = selectedSubject || subjectOptions[0]?.id || "";
+    setSections((currentSections) =>
+      currentSections.map((section) =>
+        section.subjectId && subjectOptions.some((subject) => subject.id === section.subjectId)
+          ? section
+          : {
+              ...section,
+              subjectId: fallbackSubjectId,
+              topics: section.topics.map((topicRow) => ({
+                ...topicRow,
+                topicCode: "",
+              })),
+            },
+      ),
+    );
+  }, [selectedSubject, subjectOptions]);
   const selectedExamTypeLabel = useMemo(
     () => examTypeOptions.find((item) => item.value === exam.examType)?.label ?? titleCase(exam.examType),
     [exam.examType, examTypeOptions],
-  );
-  const selectedPresetPack = useMemo(
-    () => presetPackLibrary.find((pack) => pack.id === exam.presetPackCode) ?? null,
-    [exam.presetPackCode, presetPackLibrary],
   );
   const recommendedBuilderTemplates = useMemo(() => {
     if (!selectedProgramFamilyCode) {
@@ -1345,10 +1719,8 @@ export function AdvancedExamBuilder({
       return presetPackLibrary;
     }
     return [...presetPackLibrary].sort((left, right) => {
-      const leftMatch =
-        normalizeAssessmentFamilyCode(left.family || left.chip || left.id) === selectedProgramFamilyCode;
-      const rightMatch =
-        normalizeAssessmentFamilyCode(right.family || right.chip || right.id) === selectedProgramFamilyCode;
+      const leftMatch = getPresetPackProgramFamilyCode(left) === selectedProgramFamilyCode;
+      const rightMatch = getPresetPackProgramFamilyCode(right) === selectedProgramFamilyCode;
       return Number(rightMatch) - Number(leftMatch);
     });
   }, [presetPackLibrary, selectedProgramFamilyCode]);
@@ -1366,48 +1738,51 @@ export function AdvancedExamBuilder({
     const programCode = selectedProgramRecord?.code ?? "PRG";
     const cohortLabel = selectedCohortRecord?.name ?? "All Cohorts";
     const cohortCode = selectedCohortRecord?.code ?? "ALL";
+    const recommendedPackDefaults = selectedProgramPresetPack?.builderDefaults?.exam;
+    const recommendedPackLabel = selectedProgramPresetPack?.label ?? selectedProgramFamilyProfile?.label ?? "";
 
     return {
       code: [
         abbreviation(programCode, "PRG"),
         abbreviation(subjectCode, "SUB"),
         abbreviation(cohortCode, "ALL"),
-        abbreviation(selectedExamTypeLabel, "EXAM"),
+        abbreviation(recommendedPackDefaults?.codeSuffix ?? selectedExamTypeLabel, "EXAM"),
         "01",
       ]
         .filter(Boolean)
         .join("-"),
-      description: `${selectedExamTypeLabel} for ${cohortLabel} in ${subjectLabel} under ${programLabel}.`,
-      durationMinutes: recommendedDurationForProgramFamily(
-        exam.examType,
-        selectedProgramFamilyCode,
-      ),
-      passingMarks: recommendedPassingMarksForProgramFamily(
-        exam.examType,
-        selectedProgramFamilyCode,
-      ),
-      templateName: `${subjectLabel} ${selectedExamTypeLabel} Template`,
-      title: `${subjectLabel} ${selectedExamTypeLabel}`,
+      description:
+        recommendedPackDefaults?.description ??
+        `${selectedExamTypeLabel} for ${cohortLabel} in ${subjectLabel} under ${programLabel}.`,
+      durationMinutes:
+        selectedProgramPresetPack?.recommendations?.suggestedDurationMinutes ??
+        recommendedPackDefaults?.durationMinutes ??
+        recommendedDurationForProgramFamily(
+          exam.examType,
+          selectedProgramFamilyCode,
+        ),
+      passingMarks:
+        recommendedPackDefaults?.passingMarks ??
+        recommendedPassingMarksForProgramFamily(
+          exam.examType,
+          selectedProgramFamilyCode,
+        ),
+      templateName: `${subjectLabel} ${recommendedPackLabel || selectedExamTypeLabel} Template`,
+      title: `${subjectLabel} ${recommendedPackDefaults?.titleSuffix ?? selectedExamTypeLabel}`,
     };
   }, [
     exam.examType,
     selectedCohortRecord,
     selectedExamTypeLabel,
     selectedProgramFamilyCode,
+    selectedProgramFamilyProfile?.label,
+    selectedProgramPresetPack,
     selectedProgramRecord,
     selectedSubjectRecord,
   ]);
   const requestedPresetPack = searchParams.get("preset_pack")?.trim() ?? "";
   const selectedTemplateTopicCodes = useMemo(() => {
-    const firstTwo = sortedTopicOptions.slice(0, Math.min(2, sortedTopicOptions.length)).map((topic) => topic.code);
-    const firstThree = sortedTopicOptions.slice(0, Math.min(3, sortedTopicOptions.length)).map((topic) => topic.code);
-    const allTopicCodes = sortedTopicOptions.map((topic) => topic.code);
-
-    return {
-      firstTwo: firstTwo.length > 0 ? firstTwo : allTopicCodes,
-      firstThree: firstThree.length > 0 ? firstThree : allTopicCodes,
-      all: allTopicCodes,
-    };
+    return buildTopicCodeGroups(sortedTopicOptions);
   }, [sortedTopicOptions]);
 
   const requestedQuestionCount = deferredSections.reduce(
@@ -1426,6 +1801,46 @@ export function AdvancedExamBuilder({
     0,
   );
   const previewBlockerCount = preview?.blockers.length ?? 0;
+  const sectionScoringAlerts = useMemo(
+    () =>
+      sections.flatMap((section, index) =>
+        getSectionScoringAlerts(section, index, selectedProgramFamilyProfile).map((message) => ({
+          sectionId: section.id,
+          message,
+        })),
+      ),
+    [sections, selectedProgramFamilyProfile],
+  );
+  const recommendedAttemptPolicy = useMemo(
+    () => getRecommendedAttemptPolicy(selectedProgramFamilyProfile?.scoring_defaults),
+    [selectedProgramFamilyProfile?.scoring_defaults],
+  );
+  const deliveryContractAlerts = useMemo(() => {
+    const alerts: string[] = [];
+    if (!selectedProgramFamilyProfile) {
+      return alerts;
+    }
+
+    if (recommendedAttemptPolicy && delivery.attemptPolicy !== recommendedAttemptPolicy) {
+      alerts.push(
+        `${selectedProgramFamilyProfile.label} recommends "${titleCase(recommendedAttemptPolicy)}" attempts, but this exam is set to "${titleCase(delivery.attemptPolicy)}".`,
+      );
+    }
+
+    if (recommendedAttemptPolicy === "single" && Number(delivery.maxAttempts || 1) > 1) {
+      alerts.push(
+        `${selectedProgramFamilyProfile.label} typically runs with one attempt, but max attempts is set to ${delivery.maxAttempts}.`,
+      );
+    }
+
+    if (Boolean(selectedProgramFamilyProfile.scoring_defaults?.supports_numeric_entry)) {
+      alerts.push(
+        "Numeric-entry questions are part of this family contract. Keep at least one numeric-answer lane available in the linked question bank when relevant.",
+      );
+    }
+
+    return alerts;
+  }, [delivery.attemptPolicy, delivery.maxAttempts, recommendedAttemptPolicy, selectedProgramFamilyProfile]);
 
   function autoFillExamDetails(force = false) {
     setExam((current) => ({
@@ -1463,19 +1878,60 @@ export function AdvancedExamBuilder({
   }
 
   function applyProgramFamilyDefaults() {
-    if (!selectedProgramFamilyProfile) {
+    if (!selectedProgramFamilyProfile && !selectedProgramPresetPack?.builderDefaults) {
       setMessage("This program does not have an assessment family profile yet.");
+      return;
+    }
+
+    if (selectedProgramPresetPack?.builderDefaults) {
+      const defaults = selectedProgramPresetPack.builderDefaults;
+      setExam((current) => ({
+        ...current,
+        presetPackCode: selectedProgramPresetPack.id,
+        examType: defaults.exam.examType,
+        deliveryMode: defaults.exam.deliveryMode,
+        status: defaults.exam.status,
+        durationMinutes: defaults.exam.durationMinutes,
+        passingMarks: defaults.exam.passingMarks,
+        title:
+          current.title.trim() ||
+          `${selectedSubjectRecord?.name ?? "Subject"} ${defaults.exam.titleSuffix}`,
+        description: current.description.trim() || defaults.exam.description,
+      }));
+      setDelivery((current) => ({
+        ...current,
+        ...defaults.delivery,
+        showResultImmediately: defaults.delivery.resultPublishMode === "immediate",
+        allowReviewAfterSubmit: !["disabled", "none"].includes(defaults.delivery.reviewMode),
+      }));
+      setEconomy((current) => ({
+        ...current,
+        policyType: defaults.economy.policyType,
+        starCost: defaults.economy.starCost,
+        entitlementCode: defaults.economy.entitlementCode,
+        unlockRuleType: defaults.economy.unlockRuleType,
+      }));
+      setExperienceOverride(defaults.experience);
+      setSelectionMode(defaults.selectionMode);
+      if (defaults.sections.length > 0) {
+        setSections(
+          createSectionsFromPresetPackDefaults(defaults.sections, selectedTemplateTopicCodes, selectedSubject),
+        );
+      }
+      setMessage(
+        `Builder defaults aligned to ${selectedProgramPresetPack.label} for the ${selectedProgramFamilyProfile?.label ?? "selected"} family.`,
+      );
       return;
     }
 
     setDelivery((current) => ({
       ...current,
       timerMode:
-        typeof selectedProgramFamilyProfile.delivery_defaults?.recommended_timer_mode === "string"
+        typeof selectedProgramFamilyProfile?.delivery_defaults?.recommended_timer_mode === "string"
           ? String(selectedProgramFamilyProfile.delivery_defaults.recommended_timer_mode)
           : current.timerMode,
       navigationMode:
-        typeof selectedProgramFamilyProfile.delivery_defaults?.recommended_navigation_mode === "string"
+        typeof selectedProgramFamilyProfile?.delivery_defaults?.recommended_navigation_mode === "string"
           ? String(selectedProgramFamilyProfile.delivery_defaults.recommended_navigation_mode)
           : current.navigationMode,
     }));
@@ -1493,7 +1949,9 @@ export function AdvancedExamBuilder({
     setExperienceOverride(
       familyAwareExperienceOverrides(exam.examType, selectedProgramFamilyProfile),
     );
-    setMessage(`Builder defaults aligned to the ${selectedProgramFamilyProfile.label} family.`);
+    setMessage(
+      `Builder defaults aligned to the ${selectedProgramFamilyProfile?.label ?? "selected"} family.`,
+    );
   }
 
   function isManagedPresetPackBlueprint(
@@ -1514,7 +1972,7 @@ export function AdvancedExamBuilder({
     );
   }
 
-  function applyManagedPresetPack(pack: ExamPresetPackDefinition) {
+  const applyManagedPresetPack = useCallback((pack: ExamPresetPackDefinition) => {
     if (!isManagedPresetPackBlueprint(pack.config)) {
       setError(`Preset pack "${pack.label}" does not have a valid builder configuration yet.`);
       return false;
@@ -1537,15 +1995,23 @@ export function AdvancedExamBuilder({
     setDelivery({ ...blueprint.delivery });
     setEconomy({ ...blueprint.economy });
     setSelectionMode(blueprint.selectionMode);
-    setSections(hydrateSectionsFromBlueprint(blueprint.sections, availableTopicCodes));
+    setSections(
+      hydrateSectionsFromBlueprint(
+        blueprint.sections,
+        availableTopicCodes,
+        topicOptions[0]?.code ?? "",
+        selectedSubject,
+        subjectOptions,
+      ),
+    );
     setPreview(null);
     setError("");
     setMessage(`${pack.label} preset pack applied from managed configuration.`);
     setActiveStage(1);
     return true;
-  }
+  }, [selectedProgramFamilyProfile, selectedSubject, sortedTopicOptions, subjectOptions, topicOptions]);
 
-  function applyPresetPack(presetId: PresetPackId) {
+  const applyPresetPack = useCallback((presetId: PresetPackId) => {
     if (topicOptions.length === 0 || !selectedSubjectRecord) {
       setError("Choose a subject with active topics before applying a preset pack.");
       return;
@@ -1596,431 +2062,54 @@ export function AdvancedExamBuilder({
       setActiveStage(1);
     };
 
-    if (presetId === "ielts_academic") {
+    const applyStructuredStarterPack = (
+      defaults: ExamPresetPackBuilderDefaults,
+      messageLabel: string,
+    ) => {
       assignPack(
         {
-          title: `${subjectLabel} IELTS Academic Mock`,
-          code: `${subjectSlug}-IELTS-01`,
-          description: "Academic English simulation with skill-based sections and guided prompt media behavior.",
-          examType: "mock_exam",
-          deliveryMode: "online",
-          status: "draft",
-          durationMinutes: "120",
+          title: `${subjectLabel} ${defaults.exam.titleSuffix}`,
+          code: `${subjectSlug}-${defaults.exam.codeSuffix}`,
+          description: defaults.exam.description,
+          examType: defaults.exam.examType,
+          deliveryMode: defaults.exam.deliveryMode,
+          status: defaults.exam.status,
+          durationMinutes: defaults.exam.durationMinutes,
+          passingMarks: defaults.exam.passingMarks,
         },
-        {
-          timerMode: "section",
-          navigationMode: "sequential",
-          attemptPolicy: "single",
-          resultPublishMode: "after_review",
-          reviewMode: "attempted_only",
-          securityMode: "focus",
-          assignmentMode: "scope",
-          maxAttempts: "1",
-          randomizeQuestions: false,
-          randomizeOptions: true,
-          allowResume: true,
-          allowSectionSwitching: false,
-          allowReturnToPreviousSection: false,
-        },
-        { policyType: "free", starCost: "0", entitlementCode: "", unlockRuleType: "" },
-        [
-          createSectionFromTemplate({
-            index: 0,
-            name: "Reading",
-            questionCount: 20,
-            topicCodes: firstTwoTopics,
-            difficultyMix: { foundation: 20, intermediate: 50, advanced: 30 },
-            marksPerQuestion: "1.00",
-            negativeMarksPerQuestion: "0.00",
-            timerEnabled: true,
-            durationMinutes: "40",
-            allowSkipSection: false,
-            lockAfterSubmit: true,
-          }),
-          createSectionFromTemplate({
-            index: 1,
-            name: "Listening",
-            questionCount: 20,
-            topicCodes: firstTwoTopics,
-            difficultyMix: { foundation: 20, intermediate: 40, advanced: 40 },
-            marksPerQuestion: "1.00",
-            negativeMarksPerQuestion: "0.00",
-            timerEnabled: true,
-            durationMinutes: "30",
-            allowSkipSection: false,
-            lockAfterSubmit: true,
-          }),
-          createSectionFromTemplate({
-            index: 2,
-            name: "Writing",
-            questionCount: 2,
-            topicCodes: firstTwoTopics,
-            difficultyMix: { foundation: 0, intermediate: 40, advanced: 60 },
-            marksPerQuestion: "9.00",
-            negativeMarksPerQuestion: "0.00",
-            timerEnabled: true,
-            durationMinutes: "50",
-            allowSkipSection: false,
-            lockAfterSubmit: true,
-          }),
-        ],
-        {
-          recommendedTimerMode: "section",
-          recommendedNavigationMode: "sequential",
-          recommendedMediaFlow: "controlled_exam_media",
-          supportsSectionMediaGuidance: true,
-          learnerSummary: "Treat this like a full language-test simulation with section-by-section pacing.",
-          creatorSummary: "Use dedicated skill sections and attach prompt media only inside the relevant blocks.",
-        },
-        "strict",
-        "IELTS Academic",
+        defaults.delivery,
+        defaults.economy,
+        createSectionsFromPresetPackDefaults(
+          defaults.sections,
+          {
+            firstTwo: firstTwoTopics,
+            firstThree: firstThreeTopics,
+            all: allTopics,
+          },
+          selectedSubject,
+        ),
+        defaults.experience,
+        defaults.selectionMode,
+        messageLabel,
+      );
+    };
+
+    if (presetDefinition?.builderDefaults) {
+      applyStructuredStarterPack(
+        presetDefinition.builderDefaults,
+        presetDefinition.label,
       );
       return;
     }
 
-    if (presetId === "pte_academic") {
-      assignPack(
-        {
-          title: `${subjectLabel} PTE Academic Simulation`,
-          code: `${subjectSlug}-PTE-01`,
-          description: "Computer-first academic English simulation with strong prompt-media guidance.",
-          examType: "mock_exam",
-          deliveryMode: "online",
-          status: "draft",
-          durationMinutes: "90",
-        },
-        {
-          timerMode: "section",
-          navigationMode: "sequential",
-          attemptPolicy: "single",
-          resultPublishMode: "after_review",
-          reviewMode: "attempted_only",
-          securityMode: "focus",
-          assignmentMode: "scope",
-          maxAttempts: "1",
-          randomizeQuestions: true,
-          randomizeOptions: true,
-          allowResume: true,
-          allowSectionSwitching: false,
-          allowReturnToPreviousSection: false,
-        },
-        { policyType: "free", starCost: "0", entitlementCode: "", unlockRuleType: "" },
-        [
-          createSectionFromTemplate({
-            index: 0,
-            name: "Integrated Skills",
-            questionCount: 15,
-            topicCodes: firstThreeTopics,
-            difficultyMix: { foundation: 20, intermediate: 45, advanced: 35 },
-            marksPerQuestion: "1.00",
-            negativeMarksPerQuestion: "0.00",
-            timerEnabled: true,
-            durationMinutes: "35",
-            allowSkipSection: false,
-            lockAfterSubmit: true,
-          }),
-          createSectionFromTemplate({
-            index: 1,
-            name: "Reading and Listening",
-            questionCount: 25,
-            topicCodes: firstThreeTopics,
-            difficultyMix: { foundation: 15, intermediate: 45, advanced: 40 },
-            marksPerQuestion: "1.00",
-            negativeMarksPerQuestion: "0.00",
-            timerEnabled: true,
-            durationMinutes: "55",
-            allowSkipSection: false,
-            lockAfterSubmit: true,
-          }),
-        ],
-        {
-          recommendedTimerMode: "section",
-          recommendedNavigationMode: "sequential",
-          recommendedMediaFlow: "controlled_exam_media",
-          supportsSectionMediaGuidance: true,
-          learnerSummary: "Computer-delivered flow with controlled media prompts and limited movement across blocks.",
-          creatorSummary: "Cluster integrated skills together and keep prompt-based items in tightly timed sections.",
-        },
-        "strict",
-        "PTE Academic",
-      );
-      return;
-    }
-
-    if (presetId === "gre_quant") {
-      assignPack(
-        {
-          title: `${subjectLabel} GRE Quant Drill`,
-          code: `${subjectSlug}-GREQ-01`,
-          description: "Graduate-level quantitative reasoning simulation with timed structured sections.",
-          examType: "assessment",
-          deliveryMode: "online",
-          status: "draft",
-          durationMinutes: "70",
-        },
-        {
-          timerMode: "section",
-          navigationMode: "sequential",
-          attemptPolicy: "single",
-          resultPublishMode: "after_review",
-          reviewMode: "attempted_only",
-          securityMode: "fullscreen",
-          assignmentMode: "scope",
-          maxAttempts: "1",
-          randomizeQuestions: true,
-          randomizeOptions: true,
-          allowResume: true,
-          allowSectionSwitching: false,
-          allowReturnToPreviousSection: false,
-        },
-        { policyType: "stars_only", starCost: "120", entitlementCode: "", unlockRuleType: "" },
-        [
-          createSectionFromTemplate({
-            index: 0,
-            name: "Quant Section 1",
-            questionCount: 20,
-            topicCodes: firstTwoTopics,
-            difficultyMix: { foundation: 10, intermediate: 40, advanced: 50 },
-            marksPerQuestion: "1.00",
-            negativeMarksPerQuestion: "0.00",
-            timerEnabled: true,
-            durationMinutes: "35",
-            allowSkipSection: false,
-            lockAfterSubmit: true,
-          }),
-          createSectionFromTemplate({
-            index: 1,
-            name: "Quant Section 2",
-            questionCount: 20,
-            topicCodes: firstTwoTopics,
-            difficultyMix: { foundation: 5, intermediate: 35, advanced: 60 },
-            marksPerQuestion: "1.00",
-            negativeMarksPerQuestion: "0.00",
-            timerEnabled: true,
-            durationMinutes: "35",
-            allowSkipSection: false,
-            lockAfterSubmit: true,
-          }),
-        ],
-        {
-          recommendedTimerMode: "section",
-          recommendedNavigationMode: "sequential",
-          recommendedMediaFlow: "light_reference",
-          supportsSectionMediaGuidance: false,
-          learnerSummary: "Graduate-level quant simulation with disciplined section pacing and minimal distractions.",
-          creatorSummary: "Keep sections balanced, difficulty high, and reference media light.",
-        },
-        "strict",
-        "GRE Quant",
-      );
-      return;
-    }
-
-    if (presetId === "neet_mock") {
-      assignPack(
-        {
-          title: `${subjectLabel} NEET Full Mock`,
-          code: `${subjectSlug}-NEET-01`,
-          description: "Full-length competitive mock with strict sequencing and exam-day style runtime rules.",
-          examType: "final_exam",
-          deliveryMode: "online",
-          status: "draft",
-          durationMinutes: "180",
-        },
-        {
-          timerMode: "section",
-          navigationMode: "sequential",
-          attemptPolicy: "single",
-          resultPublishMode: "after_review",
-          reviewMode: "attempted_only",
-          securityMode: "violation_limited",
-          assignmentMode: "scope",
-          maxAttempts: "1",
-          randomizeQuestions: true,
-          randomizeOptions: true,
-          allowResume: true,
-          allowSectionSwitching: false,
-          allowReturnToPreviousSection: false,
-        },
-        { policyType: "stars_only", starCost: "200", entitlementCode: "", unlockRuleType: "" },
-        [
-          createSectionFromTemplate({
-            index: 0,
-            name: "Biology",
-            questionCount: 45,
-            topicCodes: allTopics.length ? allTopics : firstThreeTopics,
-            difficultyMix: { foundation: 20, intermediate: 45, advanced: 35 },
-            marksPerQuestion: "4.00",
-            negativeMarksPerQuestion: "1.00",
-            timerEnabled: true,
-            durationMinutes: "60",
-            allowSkipSection: false,
-            lockAfterSubmit: true,
-          }),
-          createSectionFromTemplate({
-            index: 1,
-            name: "Chemistry",
-            questionCount: 45,
-            topicCodes: allTopics.length ? allTopics : firstThreeTopics,
-            difficultyMix: { foundation: 15, intermediate: 45, advanced: 40 },
-            marksPerQuestion: "4.00",
-            negativeMarksPerQuestion: "1.00",
-            timerEnabled: true,
-            durationMinutes: "60",
-            allowSkipSection: false,
-            lockAfterSubmit: true,
-          }),
-          createSectionFromTemplate({
-            index: 2,
-            name: "Physics",
-            questionCount: 45,
-            topicCodes: allTopics.length ? allTopics : firstThreeTopics,
-            difficultyMix: { foundation: 10, intermediate: 40, advanced: 50 },
-            marksPerQuestion: "4.00",
-            negativeMarksPerQuestion: "1.00",
-            timerEnabled: true,
-            durationMinutes: "60",
-            allowSkipSection: false,
-            lockAfterSubmit: true,
-          }),
-        ],
-        {
-          recommendedTimerMode: "section",
-          recommendedNavigationMode: "sequential",
-          recommendedMediaFlow: "free_reference",
-          supportsSectionMediaGuidance: false,
-          learnerSummary: "High-stakes competitive mock built for stamina, speed, and strict sequence discipline.",
-          creatorSummary: "Use full-length timed sections, stronger negative marking, and minimal media distractions.",
-        },
-        "subject_fallback",
-        "NEET Mock",
-      );
-      return;
-    }
-
-    if (presetId === "jee_mains_math") {
-      assignPack(
-        {
-          title: `${subjectLabel} JEE Mains Math Mock`,
-          code: `${subjectSlug}-JEE-01`,
-          description: "Structured engineering-entrance mock with numeric and objective emphasis.",
-          examType: "assessment",
-          deliveryMode: "online",
-          status: "draft",
-          durationMinutes: "90",
-        },
-        {
-          timerMode: "hybrid",
-          navigationMode: "hybrid",
-          attemptPolicy: "single",
-          resultPublishMode: "after_review",
-          reviewMode: "attempted_only",
-          securityMode: "fullscreen",
-          assignmentMode: "scope",
-          maxAttempts: "1",
-          randomizeQuestions: true,
-          randomizeOptions: true,
-          allowResume: true,
-          allowSectionSwitching: true,
-          allowReturnToPreviousSection: false,
-        },
-        { policyType: "stars_only", starCost: "150", entitlementCode: "", unlockRuleType: "" },
-        [
-          createSectionFromTemplate({
-            index: 0,
-            name: "Objective",
-            questionCount: 20,
-            topicCodes: firstThreeTopics,
-            difficultyMix: { foundation: 10, intermediate: 45, advanced: 45 },
-            marksPerQuestion: "4.00",
-            negativeMarksPerQuestion: "1.00",
-            timerEnabled: true,
-            durationMinutes: "45",
-            allowSkipSection: true,
-            lockAfterSubmit: false,
-          }),
-          createSectionFromTemplate({
-            index: 1,
-            name: "Numeric",
-            questionCount: 10,
-            topicCodes: firstTwoTopics,
-            difficultyMix: { foundation: 5, intermediate: 40, advanced: 55 },
-            marksPerQuestion: "4.00",
-            negativeMarksPerQuestion: "0.00",
-            timerEnabled: true,
-            durationMinutes: "45",
-            allowSkipSection: true,
-            lockAfterSubmit: false,
-          }),
-        ],
-        {
-          recommendedTimerMode: "hybrid",
-          recommendedNavigationMode: "hybrid",
-          recommendedMediaFlow: "light_reference",
-          supportsSectionMediaGuidance: false,
-          learnerSummary: "Engineering-entrance pacing with a balance of objective and numeric reasoning blocks.",
-          creatorSummary: "Keep objective and numeric sections distinct and weight advanced items more heavily.",
-        },
-        "strict",
-        "JEE Mains Math",
-      );
-      return;
-    }
-
-    if (presetId !== "aws_practitioner") {
-      setError(`Preset pack "${presetDefinition?.label ?? presetId}" is not configured for automatic application yet.`);
-      return;
-    }
-
-    assignPack(
-      {
-        title: `${subjectLabel} AWS Practitioner Pack`,
-        code: `${subjectSlug}-AWS-01`,
-        description: "Certification-focused practice set with concise structure and quick performance feedback.",
-        examType: "practice",
-        deliveryMode: "online",
-        status: "draft",
-        durationMinutes: "45",
-      },
-      {
-        timerMode: "global",
-        navigationMode: "free_exam",
-        attemptPolicy: "unlimited_practice",
-        resultPublishMode: "immediate",
-        reviewMode: "solution_review",
-        securityMode: "normal",
-        assignmentMode: "scope",
-        maxAttempts: "1",
-        randomizeQuestions: true,
-        randomizeOptions: true,
-        allowResume: true,
-        allowSectionSwitching: true,
-        allowReturnToPreviousSection: true,
-      },
-      { policyType: "free", starCost: "0", entitlementCode: "", unlockRuleType: "" },
-      [
-        createSectionFromTemplate({
-          index: 0,
-          name: "Cloud Concepts",
-          questionCount: 25,
-          topicCodes: firstThreeTopics,
-          difficultyMix: { foundation: 35, intermediate: 45, advanced: 20 },
-          marksPerQuestion: "1.00",
-          negativeMarksPerQuestion: "0.00",
-        }),
-      ],
-      {
-        recommendedTimerMode: "global",
-        recommendedNavigationMode: "free_exam",
-        recommendedMediaFlow: "free_reference",
-        supportsSectionMediaGuidance: false,
-        learnerSummary: "Certification prep flow optimized for repetition, confidence, and immediate feedback.",
-        creatorSummary: "Keep it concise, objective-heavy, and friendly to repeated practice sessions.",
-      },
-      "strict",
-      "AWS Practitioner",
-    );
-  }
+    setError(`Preset pack "${presetDefinition?.label ?? presetId}" is not configured for automatic application yet.`);
+  }, [
+    applyManagedPresetPack,
+    presetPackLibrary,
+    selectedSubjectRecord,
+    selectedTemplateTopicCodes,
+    topicOptions.length,
+  ]);
 
   useEffect(() => {
     if (!requestedPresetPack) {
@@ -2034,9 +2123,20 @@ export function AdvancedExamBuilder({
       return;
     }
 
-    applyPresetPack(requestedPresetPack);
-    requestedPresetPackAppliedRef.current = requestedPresetPack;
-  }, [presetPackLibrary, requestedPresetPack, selectedSubjectRecord, topicOptions.length]);
+    const presetId = requestedPresetPack;
+    queueMicrotask(() => {
+      startTransition(() => {
+        applyPresetPack(presetId);
+        requestedPresetPackAppliedRef.current = presetId;
+      });
+    });
+  }, [
+    applyPresetPack,
+    presetPackLibrary.length,
+    requestedPresetPack,
+    selectedSubjectRecord,
+    topicOptions.length,
+  ]);
 
   function updateSection(sectionId: string, updater: (section: SectionDraft) => SectionDraft) {
     setSections((current) =>
@@ -2045,7 +2145,10 @@ export function AdvancedExamBuilder({
   }
 
   function addSection() {
-    setSections((current) => [...current, createSectionDraft(current.length, sortedTopicOptions[0]?.code ?? "")]);
+    setSections((current) => [
+      ...current,
+      createSectionDraft(current.length, selectedSubject, sortedTopicOptions[0]?.code ?? ""),
+    ]);
   }
 
   function removeSection(sectionId: string) {
@@ -2136,6 +2239,7 @@ export function AdvancedExamBuilder({
       setSections([
         createSectionFromTemplate({
           index: 0,
+          subjectId: selectedSubject,
           name: "Practice Set",
           questionCount: 15,
           topicCodes: selectedTemplateTopicCodes.firstTwo,
@@ -2191,6 +2295,7 @@ export function AdvancedExamBuilder({
       setSections([
         createSectionFromTemplate({
           index: 0,
+          subjectId: selectedSubject,
           name: "Core Concepts",
           questionCount: 18,
           topicCodes: selectedTemplateTopicCodes.firstTwo,
@@ -2200,6 +2305,7 @@ export function AdvancedExamBuilder({
         }),
         createSectionFromTemplate({
           index: 1,
+          subjectId: selectedSubject,
           name: "Application and Challenge",
           questionCount: 12,
           topicCodes: selectedTemplateTopicCodes.firstThree,
@@ -2256,6 +2362,7 @@ export function AdvancedExamBuilder({
     setSections([
       createSectionFromTemplate({
         index: 0,
+        subjectId: selectedSubject,
         name: "Foundation Sweep",
         questionCount: 15,
         topicCodes: selectedTemplateTopicCodes.all,
@@ -2265,6 +2372,7 @@ export function AdvancedExamBuilder({
       }),
       createSectionFromTemplate({
         index: 1,
+        subjectId: selectedSubject,
         name: "Applied Pressure",
         questionCount: 15,
         topicCodes: selectedTemplateTopicCodes.all,
@@ -2274,6 +2382,7 @@ export function AdvancedExamBuilder({
       }),
       createSectionFromTemplate({
         index: 2,
+        subjectId: selectedSubject,
         name: "Ranker Finish",
         questionCount: 15,
         topicCodes: selectedTemplateTopicCodes.firstThree,
@@ -2324,6 +2433,7 @@ export function AdvancedExamBuilder({
         sections: sections.map((section, index) => ({
           name: section.name.trim() || `Section ${String.fromCharCode(65 + index)}`,
           order: index + 1,
+          subject_code: subjectOptions.find((item) => item.id === section.subjectId)?.code ?? "",
           description: section.description.trim(),
           instructions: section.instructions.trim(),
           question_count: Number(section.questionCount || 0),
@@ -2403,6 +2513,7 @@ export function AdvancedExamBuilder({
       sections: sections.map((section, index) => ({
         name: section.name.trim() || `Section ${String.fromCharCode(65 + index)}`,
         order: index + 1,
+        subjectCode: subjectOptions.find((item) => item.id === section.subjectId)?.code ?? "",
         description: section.description,
         instructions: section.instructions,
         questionCount: section.questionCount,
@@ -2570,37 +2681,6 @@ export function AdvancedExamBuilder({
     }
   }
 
-  function hydrateSectionsFromBlueprint(
-    sectionRows: SavedBuilderTemplate["blueprint"]["sections"],
-    availableTopicCodes: Set<string>,
-  ) {
-    return sectionRows.map((section, sectionIndex) => ({
-      id: uid("section"),
-      name: section.name,
-      order: sectionIndex + 1,
-      description: section.description,
-      instructions: section.instructions,
-      questionCount: section.questionCount,
-      marksPerQuestion: section.marksPerQuestion,
-      negativeMarksPerQuestion: section.negativeMarksPerQuestion,
-      timerEnabled: section.timerEnabled,
-      durationMinutes: section.durationMinutes,
-      allowSkipSection: section.allowSkipSection,
-      lockAfterSubmit: section.lockAfterSubmit,
-      difficultyMix: { ...section.difficultyMix },
-      topics: section.topics.map((topicRow, topicIndex) => ({
-        id: uid("topic"),
-        topicCode:
-          topicRow.topicCode && availableTopicCodes.has(topicRow.topicCode)
-            ? topicRow.topicCode
-            : sectionIndex === 0 && topicIndex === 0
-              ? topicOptions[0]?.code ?? ""
-              : "",
-        count: topicRow.count,
-      })),
-    }));
-  }
-
   async function saveCurrentTemplate() {
     const normalizedName = templateName.trim();
     const resolvedTemplateName = normalizedName || recommendedExamMetadata.templateName;
@@ -2653,12 +2733,12 @@ export function AdvancedExamBuilder({
 
   function loadSavedTemplate(template: SavedBuilderTemplate) {
     const availableTopicCodes = new Set(sortedTopicOptions.map((topic) => topic.code));
-    const {
-      experienceProfile,
-      assessmentFamilyCode: _assessmentFamilyCode,
-      assessmentFamilyLabel: _assessmentFamilyLabel,
-      ...examBlueprint
-    } = template.blueprint.exam;
+    const examBlueprintSource = { ...template.blueprint.exam };
+    const experienceProfile = examBlueprintSource.experienceProfile;
+    delete examBlueprintSource.experienceProfile;
+    delete examBlueprintSource.assessmentFamilyCode;
+    delete examBlueprintSource.assessmentFamilyLabel;
+    const examBlueprint = examBlueprintSource;
     setExam({
       ...examBlueprint,
       presetPackCode: examBlueprint.presetPackCode ?? "",
@@ -2673,7 +2753,15 @@ export function AdvancedExamBuilder({
     setDelivery({ ...template.blueprint.delivery });
     setEconomy({ ...template.blueprint.economy });
     setSelectionMode(template.blueprint.selectionMode);
-    setSections(hydrateSectionsFromBlueprint(template.blueprint.sections, availableTopicCodes));
+    setSections(
+      hydrateSectionsFromBlueprint(
+        template.blueprint.sections,
+        availableTopicCodes,
+        topicOptions[0]?.code ?? "",
+        selectedSubject,
+        subjectOptions,
+      ),
+    );
     setPreview(null);
     setMessage(`Loaded saved template "${template.name}". You can adjust anything before preview or create.`);
     setError("");
@@ -3285,8 +3373,7 @@ export function AdvancedExamBuilder({
                       <span className="advancedBuilderTemplateChip">
                         {preset.chip}
                         {selectedProgramFamilyCode &&
-                        normalizeAssessmentFamilyCode(preset.family || preset.chip || preset.id) ===
-                          selectedProgramFamilyCode
+                        getPresetPackProgramFamilyCode(preset) === selectedProgramFamilyCode
                           ? " · Recommended"
                           : ""}
                       </span>
@@ -3790,7 +3877,7 @@ export function AdvancedExamBuilder({
                     </select>
                   </label>
                   <label className="advancedBuilderField">
-                    <span>Subject</span>
+                    <span>Primary subject</span>
                     <select value={selectedSubject} onChange={(event) => setSelectedSubject(event.target.value)}>
                       {subjectOptions.map((item) => (
                         <option key={item.id} value={item.id}>
@@ -3798,6 +3885,9 @@ export function AdvancedExamBuilder({
                         </option>
                       ))}
                     </select>
+                    <small>
+                      Sets the default or lead subject for the exam. Each section can still carry its own subject below.
+                    </small>
                   </label>
                   <label className="advancedBuilderField">
                     <span>Source</span>
@@ -3942,6 +4032,46 @@ export function AdvancedExamBuilder({
                         ))}
                       </div>
                     ) : null}
+                    {selectedProgramPresetPack ? (
+                      <div className="builderHintPanel">
+                        <strong>Authoring lane</strong>
+                        <p>
+                          {selectedProgramPresetPack.recommendations?.authoringNote ??
+                            selectedProgramPresetPack.note}
+                        </p>
+                        <small>
+                          {selectedProgramPresetPack.recommendations?.questionMixGuidance}
+                          {" · "}
+                          Section shape: {summarizePresetPackSections(selectedProgramPresetPack)}
+                        </small>
+                      </div>
+                    ) : null}
+                    {familyExecutionChecklist.length ? (
+                      <div className="builderHintPanel">
+                        <strong>Execution checklist</strong>
+                        <p>
+                          Use this as the minimum quality bar before moving into full preview and publish checks.
+                        </p>
+                        <ul className="builderHintPanelList">
+                          {familyExecutionChecklist.map((item) => (
+                            <li key={item}>{item}</li>
+                          ))}
+                        </ul>
+                        <small>
+                          {selectedProgramFamilyMetadata?.authoringNote ??
+                            "Keep the exam shell aligned to the selected family contract unless you intentionally need a variant."}
+                        </small>
+                      </div>
+                    ) : null}
+                    {selectedProgramFamilyProfile?.scoring_defaults ? (
+                      <div className="builderHintPanel">
+                        <strong>Scoring contract</strong>
+                        <p>{scoringDefaultsSummary(selectedProgramFamilyProfile.scoring_defaults)}</p>
+                        <small>
+                          Keep marks, negative marks, and attempt policy aligned to this contract unless the specific exam intentionally diverges.
+                        </small>
+                      </div>
+                    ) : null}
                   </section>
                 ) : null}
               </section>
@@ -3965,9 +4095,32 @@ export function AdvancedExamBuilder({
                   <select value={selectionMode} onChange={(event) => setSelectionMode(event.target.value)}>
                     <option value="strict">Strict</option>
                     <option value="relaxed">Relaxed</option>
-                    <option value="subject_fallback">Subject fallback</option>
+                    <option value="subject_fallback">Use primary subject as fallback</option>
                   </select>
                 </label>
+
+                {selectedProgramPresetPack ? (
+                  <div className="builderHintPanel">
+                    <strong>Composition guidance</strong>
+                    <p>Recommended sections: {summarizePresetPackSections(selectedProgramPresetPack)}</p>
+                    <small>
+                      {selectedProgramPresetPack.recommendations?.suggestedQuestionCountBand ??
+                        "Question count band not mapped yet."}
+                      {" · "}
+                      {selectedProgramPresetPack.recommendations?.timingExpectation}
+                    </small>
+                  </div>
+                ) : null}
+
+                {sectionScoringAlerts.length ? (
+                  <div className="builderHintPanel">
+                    <strong>Family alignment checks</strong>
+                    <p>
+                      Review these scoring differences before you preview or publish this exam.
+                    </p>
+                    <small>{sectionScoringAlerts.map((item) => item.message).join(" ")}</small>
+                  </div>
+                ) : null}
 
                 <div className="advancedBuilderSectionStack">
                   {sections.map((section, sectionIndex) => (
@@ -4015,6 +4168,32 @@ export function AdvancedExamBuilder({
                               }))
                             }
                           />
+                        </label>
+                        <label className="advancedBuilderField">
+                          <span>Section subject</span>
+                          <select
+                            value={section.subjectId}
+                            onChange={(event) =>
+                              updateSection(section.id, (current) => ({
+                                ...current,
+                                subjectId: event.target.value,
+                                topics: current.topics.map((row) => ({
+                                  ...row,
+                                  topicCode: "",
+                                })),
+                              }))
+                            }
+                          >
+                            <option value="">Choose subject</option>
+                            {subjectOptions.map((item) => (
+                              <option key={item.id} value={item.id}>
+                                {item.name}
+                              </option>
+                            ))}
+                          </select>
+                          <small>
+                            The section subject is the real content mapping used for mixed-subject exams.
+                          </small>
                         </label>
                         <label className="advancedBuilderField">
                           <span>Marks per question</span>
@@ -4073,6 +4252,18 @@ export function AdvancedExamBuilder({
                         ))}
                       </div>
 
+                      {sectionScoringAlerts.some((item) => item.sectionId === section.id) ? (
+                        <div className="builderHintPanel">
+                          <strong>Section scoring review</strong>
+                          <small>
+                            {sectionScoringAlerts
+                              .filter((item) => item.sectionId === section.id)
+                              .map((item) => item.message)
+                              .join(" ")}
+                          </small>
+                        </div>
+                      ) : null}
+
                       <div className="advancedBuilderTopicBlock">
                         <div className="advancedBuilderTopicHeader">
                           <strong>Topics</strong>
@@ -4100,7 +4291,7 @@ export function AdvancedExamBuilder({
                               }
                             >
                               <option value="">Choose topic</option>
-                              {sortedTopicOptions.map((topic) => (
+                              {getTopicOptionsForSection(section, topicOptionsBySubject).map((topic) => (
                                 <option key={topic.id} value={topic.code}>
                                   {formatTopicOptionLabel(topic)}
                                 </option>
@@ -4272,6 +4463,28 @@ export function AdvancedExamBuilder({
                     Reset to family-aware preset
                   </button>
                 </div>
+
+                {selectedProgramPresetPack ? (
+                  <div className="builderHintPanel">
+                    <strong>Delivery posture</strong>
+                    <p>
+                      {selectedProgramPresetPack.recommendations?.securitySuggestion}
+                    </p>
+                    <small>
+                      {selectedProgramPresetPack.recommendations?.reviewPolicy}
+                      {" · "}
+                      {selectedProgramPresetPack.recommendations?.resultVisibility}
+                    </small>
+                  </div>
+                ) : null}
+
+                {deliveryContractAlerts.length ? (
+                  <div className="builderHintPanel">
+                    <strong>Attempt contract checks</strong>
+                    <p>These runtime settings currently diverge from the selected family contract.</p>
+                    <small>{deliveryContractAlerts.join(" ")}</small>
+                  </div>
+                ) : null}
 
                 <div className="advancedBuilderGrid advancedBuilderGridTwo">
                   <label className="advancedBuilderField">
@@ -4643,7 +4856,7 @@ export function AdvancedExamBuilder({
                     <strong>{selectedProgramRecord?.name ?? "Pending"}</strong>
                   </div>
                   <div>
-                    <span>Subject</span>
+                    <span>Primary subject</span>
                     <strong>{selectedSubjectRecord?.name ?? "Pending"}</strong>
                   </div>
                   <div>
@@ -4665,6 +4878,33 @@ export function AdvancedExamBuilder({
                     ))}
                   </ul>
                 </div>
+
+                {selectedProgramPresetPack ? (
+                  <div className="advancedBuilderSummaryBlock">
+                    <strong>Family recommendation</strong>
+                    <ul>
+                      <li>
+                        <span>Recommended pack</span>
+                        <small>{selectedProgramPresetPack.label}</small>
+                      </li>
+                      <li>
+                        <span>Timing posture</span>
+                        <small>{selectedProgramPresetPack.recommendations?.timingExpectation}</small>
+                      </li>
+                      <li>
+                        <span>Security and review</span>
+                        <small>
+                          {selectedProgramPresetPack.recommendations?.securitySuggestion} ·{" "}
+                          {selectedProgramPresetPack.recommendations?.reviewPolicy}
+                        </small>
+                      </li>
+                    </ul>
+                    <p className="advancedBuilderSummaryNote">
+                      {selectedProgramPresetPack.recommendations?.authoringNote ??
+                        selectedProgramPresetPack.note}
+                    </p>
+                  </div>
+                ) : null}
 
                 {preview ? (
                   <>

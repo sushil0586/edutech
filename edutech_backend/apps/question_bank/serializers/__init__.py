@@ -2,6 +2,9 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from rest_framework import serializers
 
+from apps.academics.assessment_family_contracts import (
+    validate_program_assessment_family_question_contract,
+)
 from apps.academics.services import QUESTION_DIFFICULTY_NAMESPACE, validate_option_catalog_code
 from apps.academics.models import Topic
 from apps.question_bank.models import (
@@ -968,6 +971,16 @@ class QuestionSerializer(serializers.ModelSerializer):
                 topic=topic,
                 created_by_teacher=created_by_teacher,
             )
+
+        family_contract_errors = validate_program_assessment_family_question_contract(
+            program=program,
+            question_type=question_type,
+            marks=attrs.get("default_marks", getattr(instance, "default_marks", Decimal("0.00"))),
+            negative_marks=attrs.get("negative_marks", getattr(instance, "negative_marks", Decimal("0.00"))),
+            question_type_definition=question_type_definition,
+        )
+        if family_contract_errors:
+            raise serializers.ValidationError(family_contract_errors)
 
         if passage is not None:
             validate_question_passage_assignment(

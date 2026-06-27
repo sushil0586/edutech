@@ -136,6 +136,38 @@ class ContentTargetMixin(models.Model):
         ]
 
 
+class EconomyOperatorPolicyConfig(BaseModel):
+    singleton_key = models.CharField(max_length=50, default="default", unique=True)
+    institute_admin_can_confirm_orders = models.BooleanField(default=True)
+    institute_admin_max_confirm_order_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("5000.00"),
+    )
+    institute_admin_confirm_order_currency = models.CharField(max_length=10, default="INR")
+    institute_admin_can_grant_stars = models.BooleanField(default=True)
+    institute_admin_max_grant_stars = models.PositiveIntegerField(default=250)
+
+    class Meta:
+        verbose_name = "Economy operator policy config"
+        verbose_name_plural = "Economy operator policy config"
+
+    def clean(self):
+        super().clean()
+        if self.institute_admin_max_confirm_order_amount <= Decimal("0.00"):
+            raise ValidationError(
+                {"institute_admin_max_confirm_order_amount": "Maximum confirm amount must be greater than zero."}
+            )
+        if self.institute_admin_max_grant_stars <= 0:
+            raise ValidationError(
+                {"institute_admin_max_grant_stars": "Maximum grant stars must be greater than zero."}
+            )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
 class StudentEconomyProfile(BaseModel):
     institute = models.ForeignKey(
         Institute,

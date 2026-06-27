@@ -1,0 +1,47 @@
+appId: com.anonymous.nexorastudentmobile
+---
+# Set these before running:
+# STUDENT_USERNAME
+# STUDENT_PASSWORD
+#
+# Seed expectation:
+# - the student account has at least one review-ready result
+
+- launchApp:
+    clearState: true
+
+- tapOn: "Login"
+- tapOn:
+    text: "Username"
+- inputText: ${STUDENT_USERNAME}
+
+- tapOn:
+    text: "Enter password"
+- inputText: ${STUDENT_PASSWORD}
+
+- hideKeyboard
+- tapOn: "Login"
+
+- assertVisible: "Student Dashboard"
+
+- tapOn: "Results"
+
+- assertVisible: "Student Results"
+
+- scrollUntilVisible:
+    element: "Review"
+    direction: DOWN
+
+- tapOn: "Review"
+
+- assertVisible: "Attempt Review"
+
+- tapOn:
+    id: "attempt-review-back-summary-button"
+
+- assertVisible: "Attempt Summary"
+
+- tapOn:
+    id: "attempt-summary-open-results-button"
+
+- assertVisible: "Student Results"

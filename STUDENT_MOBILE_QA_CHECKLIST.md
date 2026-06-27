@@ -13,11 +13,29 @@ Before starting:
 1. confirm backend is reachable from the device
 2. confirm `EXPO_PUBLIC_API_BASE_URL` points to the correct environment
 3. confirm test student accounts are available
-4. confirm at least one student has:
+4. confirm the account-to-flow mapping from [STUDENT_SEED_CONTRACT.md](/Users/ansh/Documents/Eductech/nexora_student_mobile/.maestro/STUDENT_SEED_CONTRACT.md:1)
+5. confirm at least one student has:
    - available exams
    - locked exams
    - result history
    - topic-performance data
+
+## Automation Setup
+
+Native mobile automation for this app uses Maestro rather than Playwright because this is a React Native surface.
+
+Available flow commands:
+
+- `npm run maestro:student:exams`
+- `npm run maestro:student:results`
+- `npm run maestro:student:review`
+- `npm run maestro:student:attempt`
+- `npm run maestro:student:analytics`
+- `npm run maestro:student:offline-login`
+- `npm run maestro:student:offline-register`
+
+Before treating any automation failure as a product bug, confirm the seeded account actually matches the required state in the seed contract.
+For weak-network execution guidance, use [STUDENT_MOBILE_WEAK_NETWORK_RUNBOOK.md](/Users/ansh/Documents/Eductech/STUDENT_MOBILE_WEAK_NETWORK_RUNBOOK.md:1).
 
 ## Environment Checks
 
@@ -62,6 +80,8 @@ Before starting:
 - Dashboard loads without crashing
 - Student greeting and context are visible
 - Stars metric is visible
+- Overall subject lane reset works
+- Subject-specific dashboard exam cards actually change with the selected lane
 - Available exams list appears when data exists
 - Locked exams list appears when data exists
 - Recommended exam action works
@@ -69,14 +89,55 @@ Before starting:
 - Analytics preview section is visible
 - Empty-state behavior is understandable when no exams exist
 
+## Exams Lane
+
+- Exams tab opens successfully
+- Search by exam title works
+- Search by subject text works
+- `All` filter works
+- `Resume` filter works
+- `Startable` filter works
+- `Locked` filter works
+- Reset clears search and state filters
+- Resume-ready exam opens runtime correctly
+- Startable exam opens exam detail correctly
+- Locked exam opens detail with truthful blocked guidance
+- No-match filter state is understandable
+
+## Attempts Lane
+
+- Attempts tab opens successfully
+- Active attempts appear when data exists
+- Completed attempts appear when data exists
+- Resume Attempt opens runtime correctly
+- Open Summary opens the submitted attempt summary correctly
+- Open Review opens correctly when review is available
+- Empty active-attempt state points back to exams
+- Empty completed-attempt state points back to exams
+
+## Results Lane
+
+- Results tab opens successfully
+- Subject scope switching works
+- Review-ready results section is understandable
+- Pending publication section is understandable
+- Results timeline is understandable
+- Summary handoff works
+- Review handoff works when review is available
+- Empty review-ready state points to attempts
+- Empty pending or empty overall results state points to exams
+
 ## Exam Detail
 
-- Exam detail opens from dashboard
+- Exam detail opens from dashboard or exams lane
 - Resume flow works when active attempt exists
 - Start flow works when no active attempt exists
 - Section preview is visible
 - Security guidance is visible
 - Locked exam state is understandable
+- Upcoming exam state is understandable
+- Attempt-exhausted exam state is understandable
+- Blocked-state CTA points to exams or results truthfully
 
 ## Attempt Flow
 
@@ -84,6 +145,9 @@ Before starting:
 
 - Attempt screen loads successfully
 - Question navigator works
+- Previous button works
+- Next button works
+- Current question position is understandable
 - Section switching works
 - Timer state is visible
 - Integrity metrics are visible
@@ -138,6 +202,7 @@ Before starting:
 ## Analytics
 
 - Analytics screen loads successfully
+- Open Results handoff works
 - Average and accuracy metrics render
 - Weak topics render correctly
 - Strong topics render correctly
@@ -169,6 +234,11 @@ Confirm:
 - no unreadable text blocks
 - attempt flow remains usable on smaller screens
 
+Also confirm:
+
+- Maestro flows can still locate the main exam controls on both Android and iPhone-size screens
+- no mobile-specific layout shift hides tab labels or key action buttons used by automation
+
 ## Network Pass
 
 Test under:
@@ -182,12 +252,16 @@ Confirm:
 - loading states remain understandable
 - retry paths are available
 - student does not get trapped in dead-end states
+- Maestro flow failures under weak network are classified correctly as:
+  - acceptable flaky network behavior
+  - setup gap
+  - real product bug
 
 ## Exit Criteria
 
 The student mobile app is ready for beta when:
 
 1. all core flows pass
-2. no critical blocker remains in auth, attempt, summary, review, or analytics
+2. no critical blocker remains in auth, exams, attempts, results, runtime, summary, review, or analytics
 3. real-device usability is acceptable on small screens
 4. failure states are recoverable without developer assistance

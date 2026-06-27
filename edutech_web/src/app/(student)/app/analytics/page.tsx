@@ -24,6 +24,7 @@ import {
   scoreTone,
   sourceDescriptor,
 } from "@/lib/student/analytics";
+import { resolvePracticeFocusRecommendation } from "@/lib/student/practice";
 import {
   benchmarkLabel,
   percentageLabel,
@@ -41,6 +42,7 @@ import {
   filterStudentRecordsByMetadataSubject,
   filterStudentSummaryBySource,
   filterStudentSummaryBySubject,
+  getExamSubjectDisplayLabel,
   getStudentSourceOptions,
   getStudentSubjectOptions,
   resolveSelectedStudentSource,
@@ -132,43 +134,73 @@ function AnalyticsGlyph({
   );
 }
 
-function recommendedPracticeAction(exam: {
-  id: string;
-  can_resume: boolean;
-  can_start: boolean;
-  active_attempt: { id: string } | null;
-  economy_access: {
-    is_locked: boolean;
-    can_unlock_with_stars: boolean;
-    star_cost: number;
-  };
+function looksLikeAwsCertificationValue(value: string | null | undefined) {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+  return (
+    normalized.includes("aws") ||
+    normalized.includes("cloud practitioner") ||
+    normalized.includes("certification")
+  );
+}
+
+function isAwsCertificationAnalyticsLane(params: {
+  selectedSubjectLabel: string;
+  sourceSummary:
+    | {
+        recent_exams?: Array<{
+          subject_name: string | null;
+          exam_title: string;
+          exam_code: string;
+          source_label: string;
+          source_name: string;
+        }>;
+      }
+    | null
+    | undefined;
+  scopedPracticeExams: Array<{
+    subject_name: string;
+    primary_subject_name?: string | null;
+    section_subjects?: Array<{ name?: string | null }> | null;
+    subject_summary?: {
+      display_label?: string | null;
+      subjects?: Array<{ name?: string | null }> | null;
+    } | null;
+    title: string;
+    code: string;
+    experience_profile: {
+      assessment_family: string;
+      assessment_family_label: string;
+    };
+  }>;
 }) {
-  if (exam.can_resume && exam.active_attempt?.id) {
-    return {
-      mode: "link" as const,
-      href: `/app/attempts/${exam.active_attempt.id}`,
-      label: "Resume Practice",
-    };
+  if (looksLikeAwsCertificationValue(params.selectedSubjectLabel)) {
+    return true;
   }
-  if (exam.can_start) {
-    return {
-      mode: "start" as const,
-      href: "",
-      label: "Start Practice",
-    };
+
+  if (
+    params.scopedPracticeExams.some(
+      (exam) =>
+        exam.experience_profile.assessment_family === "certification" &&
+        (looksLikeAwsCertificationValue(getExamSubjectDisplayLabel(exam)) ||
+          looksLikeAwsCertificationValue(exam.title) ||
+          looksLikeAwsCertificationValue(exam.code) ||
+          looksLikeAwsCertificationValue(exam.experience_profile.assessment_family_label)),
+    )
+  ) {
+    return true;
   }
-  if (exam.economy_access.is_locked && exam.economy_access.can_unlock_with_stars) {
-    return {
-      mode: "unlock" as const,
-      href: "",
-      label: `Unlock with ${exam.economy_access.star_cost} Stars`,
-    };
-  }
-  return {
-    mode: "link" as const,
-    href: `/app/exams/${exam.id}`,
-    label: "View Practice Detail",
-  };
+
+  return (params.sourceSummary?.recent_exams ?? []).some(
+    (exam) =>
+      looksLikeAwsCertificationValue(exam.subject_name) ||
+      looksLikeAwsCertificationValue(exam.exam_title) ||
+      looksLikeAwsCertificationValue(exam.exam_code) ||
+      looksLikeAwsCertificationValue(exam.source_label) ||
+      looksLikeAwsCertificationValue(exam.source_name),
+  );
 }
 
 async function startPracticeAction(formData: FormData) {
@@ -285,16 +317,41 @@ export default async function AnalyticsPage({
     ),
     selectedSubject,
   );
-  const recommendedPracticeExam =
-    (topWeakTopic
-      ? scopedPracticeExams.find((exam) => exam.subject_name === topWeakTopic.subject_name)
-      : null) ??
-    scopedPracticeExams.find((exam) => !exam.economy_access.is_locked) ??
-    scopedPracticeExams[0] ??
-    null;
-  const recommendedPracticeActionState = recommendedPracticeExam
-    ? recommendedPracticeAction(recommendedPracticeExam)
-    : null;
+  const practiceFocus = resolvePracticeFocusRecommendation({
+    exams: scopedPracticeExams,
+    subjectName: topWeakTopic?.subject_name ?? null,
+    topicName: topWeakTopic?.topic_name ?? null,
+  });
+  const practiceLocked = Boolean(practiceFocus.exam) && practiceFocus.action.mode === "unlock";
+  const analyticsActionSequence = practiceLocked
+    ? [
+        {
+          label: "Do this first",
+          detail: "Open weak areas and verify the exact topic causing the latest score drop.",
+        },
+        {
+          label: "Then next",
+          detail: "Unlock the recommended practice set only after you confirm it matches the current weak topic.",
+        },
+        {
+          label: "If blocked",
+          detail: "If you do not want to spend stars yet, compare recent results first and keep mock attempts for later.",
+        },
+      ]
+    : [
+        {
+          label: "Do this first",
+          detail: "Open weak areas for the weakest ranked topic and move straight into the focused practice lane.",
+        },
+        {
+          label: "Then next",
+          detail: "Finish that targeted practice pass before booking another broad mock or switching subjects.",
+        },
+        {
+          label: "If blocked",
+          detail: "If the topic still feels unclear, compare recent results and review question evidence before retrying.",
+        },
+      ];
   const sourceBreakdown = scopedSummary?.source_breakdown ?? [];
   const sourceSubjectBreakdown = scopedSummary?.source_subject_breakdown ?? [];
   const dominantSource = sourceBreakdown[0] ?? null;
@@ -328,6 +385,74 @@ export default async function AnalyticsPage({
   const flatTrendSeries =
     recentTrendBars.length > 1 &&
     recentTrendBars.every((item) => Math.round(item.value) === Math.round(recentTrendBars[0]?.value ?? 0));
+  const awsCertificationLane = isAwsCertificationAnalyticsLane({
+    selectedSubjectLabel,
+    sourceSummary: scopedSummary,
+    scopedPracticeExams,
+  });
+  const analyticsCopy = awsCertificationLane
+    ? {
+        heroTag: "Certification Readiness",
+        heroFallbackTitle: "Turn domain evidence into the next action",
+        sourceDescription:
+          selectedSubject === ALL_SUBJECTS_CONTEXT
+            ? "A live certification-readiness workspace built from backend insights, published results, and domain performance data."
+            : `A live certification-readiness workspace focused on ${selectedSubjectLabel}, using only matching backend subject records in this view.`,
+        heroMetaAverage: "Average readiness",
+        heroMetaAccuracy: "Domain accuracy",
+        heroMetaHistory: "Session history",
+        benchmarkTitle: "Readiness benchmark",
+        averageCardTitle: "Readiness level",
+        averageCardSuffix: "overall readiness",
+        accuracyCardTitle: "Answer accuracy",
+        topicMapTitle: "Domain coverage map",
+        weakBadge: "Needs review",
+        strongBadge: "Confident",
+        recoveryLaneTitle: "Recommended Domain Recovery Lane",
+        recoveryFirst:
+          "Use certification analytics to isolate the weakest visible domain first, then move into focused practice before booking another full readiness pass.",
+        recoverySecond:
+          "A strong sequence is: review the weakest domain signal, run the targeted practice set, then return to results or comparison views before another broader certification simulation.",
+        actionLogicThird:
+          "If the latest result is already visible, compare readiness signals before another full-length attempt. If not, use domain gaps and focused practice as the safer next move.",
+        focusWorkspaceLabel: "Open Targeted Domain Practice",
+        weakAreasLabel: "Open Domain Gaps",
+        kpiAverage: "Average Readiness",
+        kpiTrend: "Readiness Trend",
+        kpiHistory: "Session History",
+        sourcePanelTitle: "Readiness by Source",
+      }
+    : {
+        heroTag: "Analytics Focus",
+        heroFallbackTitle: "Turn analytics into action",
+        sourceDescription:
+          selectedSubject === ALL_SUBJECTS_CONTEXT
+            ? "A live analytics workspace built from backend insights, published results, and topic performance data."
+            : `A live analytics workspace focused on ${selectedSubjectLabel}, using only matching backend subject records in this view.`,
+        heroMetaAverage: "Average score",
+        heroMetaAccuracy: "Accuracy",
+        heroMetaHistory: "Attempt history",
+        benchmarkTitle: "Benchmark pulse",
+        averageCardTitle: "Average performance",
+        averageCardSuffix: "overall score",
+        accuracyCardTitle: "Accuracy pulse",
+        topicMapTitle: "Topic pressure map",
+        weakBadge: "Needs work",
+        strongBadge: "Strong",
+        recoveryLaneTitle: "Recommended Recovery Lane",
+        recoveryFirst:
+          "Use analytics to choose the weakest visible concept first, then move into practice before checking whether the next result trend improves.",
+        recoverySecond:
+          "A strong sequence is: open weak areas for the ranked topic, run the focused practice pass, then return to results or comparison views before scheduling another broad mock.",
+        actionLogicThird:
+          "If the latest result is already visible, compare recent results before another mock. If not, use weak areas and focused practice as the safer next move.",
+        focusWorkspaceLabel: "Open Focused Practice Workspace",
+        weakAreasLabel: "Open Weak Areas",
+        kpiAverage: "Average Performance",
+        kpiTrend: "Performance Trend",
+        kpiHistory: "Attempt History",
+        sourcePanelTitle: "Performance by Source",
+      };
 
   return (
     <div className="studentPage studentDashboardModern studentLearnerPage studentLearnerAnalyticsPage">
@@ -350,9 +475,7 @@ export default async function AnalyticsPage({
             .join(" · ") || undefined
         }
         description={
-          selectedSubject === ALL_SUBJECTS_CONTEXT
-            ? "A live analytics workspace built from backend insights, published results, and topic performance data."
-            : `A live analytics workspace focused on ${selectedSubjectLabel}, using only matching backend subject records in this view.`
+          analyticsCopy.sourceDescription
         }
         statusLabel={
           source === "live"
@@ -410,10 +533,10 @@ export default async function AnalyticsPage({
             <div className="studentInsightHeroCard studentInsightHeroCardWarm analyticsLandingHeroMain">
               <div className="studentInsightHeroCopy analyticsLandingHeroCopy">
               <span className="studentDashboardTag studentDashboardTagWarm">
-                Analytics Focus
+                {analyticsCopy.heroTag}
               </span>
               <strong>
-                {topWeakTopic?.topic_name ?? "Turn analytics into action"}
+                {topWeakTopic?.topic_name ?? analyticsCopy.heroFallbackTitle}
               </strong>
               <small>
                 Trend: {trendDirectionLabel(scopedSummary.improvement_trend.direction)} ·{" "}
@@ -422,26 +545,27 @@ export default async function AnalyticsPage({
                     ? ` · Most published activity from ${sourceDescriptor(dominantSource)}`
                     : ""}
                 </small>
+                <p className="sectionDescription">{practiceFocus.helper}</p>
                 <div className="analyticsHeroMetaGrid">
                   <div className="analyticsHeroMetaCard">
                     <span className="analyticsHeroMetaIcon analyticsHeroMetaIconScore">
                       <AnalyticsGlyph kind="score" />
                     </span>
-                    <span>Average score</span>
+                    <span>{analyticsCopy.heroMetaAverage}</span>
                     <strong>{percentageLabel(scopedSummary.average_percentage)}</strong>
                   </div>
                   <div className="analyticsHeroMetaCard">
                     <span className="analyticsHeroMetaIcon analyticsHeroMetaIconAccuracy">
                       <AnalyticsGlyph kind="accuracy" />
                     </span>
-                    <span>Accuracy</span>
+                    <span>{analyticsCopy.heroMetaAccuracy}</span>
                     <strong>{percentageLabel(scopedSummary.accuracy_percentage)}</strong>
                   </div>
                   <div className="analyticsHeroMetaCard">
                     <span className="analyticsHeroMetaIcon analyticsHeroMetaIconHistory">
                       <AnalyticsGlyph kind="history" />
                     </span>
-                    <span>Attempt history</span>
+                    <span>{analyticsCopy.heroMetaHistory}</span>
                     <strong>{scopedSummary.attempt_behavior.attempt_count}</strong>
                   </div>
                 </div>
@@ -465,59 +589,50 @@ export default async function AnalyticsPage({
                 </div>
                 <div className="studentInsightHeroActions analyticsLandingHeroActions">
                   <span className="studentDashboardTag studentDashboardTagWarm">
-                    Live analytics
+                    {practiceFocus.laneLabel}
                   </span>
-                  {recommendedPracticeExam && recommendedPracticeActionState ? (
-                    recommendedPracticeActionState.mode === "start" ? (
+                  {practiceFocus.exam ? (
+                    practiceFocus.action.mode === "start" ? (
                       <form action={startPracticeAction}>
-                        <input name="exam_id" type="hidden" value={recommendedPracticeExam.id} />
+                        <input name="exam_id" type="hidden" value={practiceFocus.exam.id} />
                         <ActionSubmitButton
                           className="button buttonPrimary"
-                          idleLabel={recommendedPracticeActionState.label}
+                          idleLabel={practiceFocus.action.label}
                           pendingLabel="Starting..."
                         />
                       </form>
-                    ) : recommendedPracticeActionState.mode === "unlock" ? (
+                    ) : practiceFocus.action.mode === "unlock" ? (
                       <form action={unlockPracticeAction}>
-                        <input name="exam_id" type="hidden" value={recommendedPracticeExam.id} />
+                        <input name="exam_id" type="hidden" value={practiceFocus.exam.id} />
                         <input
                           name="content_type"
                           type="hidden"
-                          value={recommendedPracticeExam.economy_access.content_type}
+                          value={practiceFocus.exam.economy_access.content_type}
                         />
                         <input
                           name="content_key"
                           type="hidden"
-                          value={recommendedPracticeExam.economy_access.content_key}
+                          value={practiceFocus.exam.economy_access.content_key}
                         />
                         <input
                           name="subject_id"
                           type="hidden"
-                          value={recommendedPracticeExam.economy_access.subject_id ?? ""}
+                          value={practiceFocus.exam.economy_access.subject_id ?? ""}
                         />
                         <ActionSubmitButton
                           className="button buttonPrimary"
-                          idleLabel={recommendedPracticeActionState.label}
+                          idleLabel={practiceFocus.action.label}
                           pendingLabel="Unlocking..."
                         />
                       </form>
                     ) : (
-                      <Link className="button buttonPrimary" href={recommendedPracticeActionState.href}>
-                        {recommendedPracticeActionState.label}
+                      <Link className="button buttonPrimary" href={practiceFocus.action.href}>
+                        {practiceFocus.action.label}
                       </Link>
                     )
                   ) : (
-                    <Link
-                      className="button buttonPrimary"
-                      href={
-                        topWeakTopic
-                          ? `/app/practice?subject=${encodeURIComponent(
-                              topWeakTopic.subject_name,
-                            )}&topic=${encodeURIComponent(topWeakTopic.topic_name ?? "")}`
-                          : "/app/practice"
-                      }
-                    >
-                      Start Practice
+                    <Link className="button buttonPrimary" href={practiceFocus.focusHref}>
+                      {practiceFocus.focusLabel}
                     </Link>
                   )}
                   <Link className="button buttonSecondary" href="/app/results">
@@ -584,9 +699,9 @@ export default async function AnalyticsPage({
                     )}
                   </div>
                 </div>
-                <div className="analyticsHeroBenchmarkCard analyticsHeroInsightCard">
-                  <div className="sectionHeading sectionHeadingCompact">
-                    <strong>Benchmark pulse</strong>
+                  <div className="analyticsHeroBenchmarkCard analyticsHeroInsightCard">
+                    <div className="sectionHeading sectionHeadingCompact">
+                    <strong>{analyticsCopy.benchmarkTitle}</strong>
                     <span>{benchmarkOverview.length} scopes</span>
                   </div>
                   <div className="analyticsBenchmarkStack">
@@ -622,7 +737,7 @@ export default async function AnalyticsPage({
           <section className="analyticsShowcaseGrid">
             <article className="analyticsShowcaseCard analyticsShowcaseCardScore">
               <div className="sectionHeading sectionHeadingCompact">
-                <strong>Average performance</strong>
+                <strong>{analyticsCopy.averageCardTitle}</strong>
                 <span>{publishedResults.length} published</span>
               </div>
               <div className="analyticsGaugeCard">
@@ -634,7 +749,7 @@ export default async function AnalyticsPage({
                 >
                   <div>
                     <strong>{percentageLabel(scopedSummary.average_percentage)}</strong>
-                    <span>overall score</span>
+                    <span>{analyticsCopy.averageCardSuffix}</span>
                   </div>
                 </div>
                 <div className="analyticsGaugeMeta">
@@ -650,7 +765,7 @@ export default async function AnalyticsPage({
 
             <article className="analyticsShowcaseCard analyticsShowcaseCardAccuracy">
               <div className="sectionHeading sectionHeadingCompact">
-                <strong>Accuracy pulse</strong>
+                <strong>{analyticsCopy.accuracyCardTitle}</strong>
                 <span>{scopedSummary.attempted_questions} attempted</span>
               </div>
               <div className="analyticsGaugeCard">
@@ -690,7 +805,7 @@ export default async function AnalyticsPage({
 
             <article className="analyticsShowcaseCard analyticsShowcaseCardTopics">
               <div className="sectionHeading sectionHeadingCompact">
-                <strong>Topic pressure map</strong>
+                <strong>{analyticsCopy.topicMapTitle}</strong>
                 <span>{weakTopics.length + strongTopics.length} highlighted</span>
               </div>
               <div className="analyticsTopicMiniGrid">
@@ -706,7 +821,7 @@ export default async function AnalyticsPage({
                     })}
                     key={topic.id}
                   >
-                    <span>Needs work</span>
+                    <span>{analyticsCopy.weakBadge}</span>
                     <strong>{topic.topic_name ?? "Untagged topic"}</strong>
                     <small>{percentageLabel(topic.percentage)}</small>
                   </Link>
@@ -723,7 +838,7 @@ export default async function AnalyticsPage({
                     })}
                     key={topic.id}
                   >
-                    <span>Strong</span>
+                    <span>{analyticsCopy.strongBadge}</span>
                     <strong>{topic.topic_name ?? "Untagged topic"}</strong>
                     <small>{percentageLabel(topic.percentage)}</small>
                   </Link>
@@ -732,11 +847,86 @@ export default async function AnalyticsPage({
             </article>
           </section>
 
+          <section className="studentInsightsTwoColumn">
+            <article className="contentCard">
+              <div className="sectionHeading">
+                <strong>{analyticsCopy.recoveryLaneTitle}</strong>
+                <span>{practiceFocus.focusLabel}</span>
+              </div>
+              <div className="studentInsightMessageStack">
+                <div className="studentInsightMessage">
+                  <span className="placeholderDot" aria-hidden="true" />
+                  <p>{practiceFocus.helper}</p>
+                </div>
+                <div className="studentInsightMessage">
+                  <span className="placeholderDot" aria-hidden="true" />
+                  <p>{analyticsCopy.recoveryFirst}</p>
+                </div>
+                <div className="studentInsightMessage">
+                  <span className="placeholderDot" aria-hidden="true" />
+                  <p>{analyticsCopy.recoverySecond}</p>
+                </div>
+              </div>
+              <div className="studentActionSequence" aria-label="Analytics recovery order">
+                {analyticsActionSequence.map((step) => (
+                  <div className="studentActionSequenceCard" key={step.label}>
+                    <span>{step.label}</span>
+                    <strong>{step.detail}</strong>
+                  </div>
+                ))}
+              </div>
+              <div className="studentInsightHeroActions">
+                <Link className="button buttonSecondary" href={practiceFocus.focusHref}>
+                  {analyticsCopy.focusWorkspaceLabel}
+                </Link>
+                <Link className="button buttonGhost" href="/app/weak-areas">
+                  {analyticsCopy.weakAreasLabel}
+                </Link>
+              </div>
+            </article>
+            <article className="contentCard">
+              <div className="sectionHeading">
+                <strong>Action Logic</strong>
+                <span>State-aware handoff</span>
+              </div>
+              <div className="studentInsightMessageStack">
+                <div className="studentInsightMessage">
+                  <span className="placeholderDot" aria-hidden="true" />
+                  <p>The recommendation starts from the weakest topic visible in the current filtered analytics view.</p>
+                </div>
+                <div className="studentInsightMessage">
+                  <span className="placeholderDot" aria-hidden="true" />
+                  <p>The CTA then prefers resume, start, unlock, and detail states in that order so the action stays truthful to live backend access.</p>
+                </div>
+                <div className="studentInsightMessage">
+                  <span className="placeholderDot" aria-hidden="true" />
+                  <p>{analyticsCopy.actionLogicThird}</p>
+                </div>
+              </div>
+              <div className="studentInsightHeroActions">
+                <Link className="button buttonSecondary" href="/app/weak-areas">
+                  {analyticsCopy.weakAreasLabel}
+                </Link>
+                <Link
+                  className="button buttonGhost"
+                  href={buildAnalyticsResultsCompareHref({
+                    subject:
+                      selectedSubject === ALL_SUBJECTS_CONTEXT ? null : selectedSubjectLabel,
+                    source: selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
+                    teacher: selectedSource === "teacher" ? selectedTeacherId : null,
+                  })}
+                >
+                  Compare Results
+                </Link>
+              </div>
+            </article>
+          </section>
+
           <StudentKpiGrid
             className="resultsSummaryGrid analyticsKpiGrid"
             items={[
               {
-                label: "Average Performance",
+                label: analyticsCopy.kpiAverage,
                 value: percentageLabel(scopedSummary.average_percentage),
                 note: `Based on ${publishedResults.length} published${publishedResults.length === 1 ? " result" : " results"}`,
                 tone: "primary",
@@ -761,7 +951,7 @@ export default async function AnalyticsPage({
                 }),
               },
               {
-                label: "Performance Trend",
+                label: analyticsCopy.kpiTrend,
                 value: trendDirectionLabel(scopedSummary.improvement_trend.direction),
                 note: `Change of ${signedPercentageLabel(scopedSummary.improvement_trend.change_percentage)} across recent exams`,
                 icon: <AnalyticsGlyph kind="trend" />,
@@ -773,7 +963,7 @@ export default async function AnalyticsPage({
                 }),
               },
               {
-                label: "Attempt History",
+                label: analyticsCopy.kpiHistory,
                 value: scopedSummary.attempt_behavior.attempt_count,
                 note: `${scopedSummary.attempt_behavior.attempted_questions} answered and ${scopedSummary.attempt_behavior.skipped_questions} skipped overall`,
                 icon: <AnalyticsGlyph kind="history" />,
@@ -790,7 +980,7 @@ export default async function AnalyticsPage({
           <section className="studentInsightsTwoColumn">
             <article className="contentCard analyticsPanel analyticsPanelSource">
               <div className="sectionHeading">
-                <strong>Performance by Source</strong>
+                <strong>{analyticsCopy.sourcePanelTitle}</strong>
                 <span>{sourceBreakdown.length} sources tracked</span>
               </div>
               <div className="studentTopicStack">
@@ -885,7 +1075,9 @@ export default async function AnalyticsPage({
                       </div>
                       <div className="studentTopicRowMeta">
                         <strong>{percentageLabel(row.average_percentage)}</strong>
-                        <span>{row.count} results</span>
+                        <span>
+                          {row.count} {row.count === 1 ? "subject record" : "subject records"}
+                        </span>
                       </div>
                     </Link>
                   ))
@@ -987,49 +1179,52 @@ export default async function AnalyticsPage({
               </div>
               <div className="dashboardRailStack">
                 {scopedSummary.recent_exams.length ? (
-                  scopedSummary.recent_exams.slice(0, 4).map((exam) => (
-                    <Link
-                      className="dashboardRailRow"
-                      href={buildAnalyticsResultsCompareHref({
-                        subject:
-                          selectedSubject === ALL_SUBJECTS_CONTEXT
-                            ? exam.subject_name
-                            : selectedSubjectLabel,
-                        source:
-                          selectedSource === ALL_SOURCES_CONTEXT
-                            ? exam.source_type
-                            : selectedSource,
-                        teacher:
-                          exam.source_type === "teacher"
-                            ? exam.source_teacher_id
-                            : selectedSource === "teacher"
-                              ? selectedTeacherId
-                              : null,
-                      })}
-                      key={exam.exam_id}
-                    >
-                      <div>
-                        <strong>{exam.exam_title}</strong>
-                        <span>
-                          {exam.exam_code} ·{" "}
-                          {sourceDescriptor(exam)}
-                          {exam.subject_name ? ` · ${exam.subject_name}` : ""} ·{" "}
-                          {exam.published_at
-                            ? studentDateTimeLabel(exam.published_at)
-                            : "Awaiting publish"}
-                        </span>
-                      </div>
-                      <div className="studentInsightHeroActions">
-                        <StatusPill tone="default">{exam.source_label}</StatusPill>
-                        {exam.source_type === "teacher" && exam.source_teacher_name ? (
-                          <StatusPill tone="demo">{exam.source_teacher_name}</StatusPill>
-                        ) : null}
-                        <span className="dashboardRailStat">
-                          {percentageLabel(exam.percentage)}
-                        </span>
-                      </div>
-                    </Link>
-                  ))
+                  scopedSummary.recent_exams.slice(0, 4).map((exam) => {
+                    const examSubjectLabel = getExamSubjectDisplayLabel(exam);
+                    return (
+                      <Link
+                        className="dashboardRailRow"
+                        href={buildAnalyticsResultsCompareHref({
+                          subject:
+                            selectedSubject === ALL_SUBJECTS_CONTEXT
+                              ? examSubjectLabel
+                              : selectedSubjectLabel,
+                          source:
+                            selectedSource === ALL_SOURCES_CONTEXT
+                              ? exam.source_type
+                              : selectedSource,
+                          teacher:
+                            exam.source_type === "teacher"
+                              ? exam.source_teacher_id
+                              : selectedSource === "teacher"
+                                ? selectedTeacherId
+                                : null,
+                        })}
+                        key={exam.exam_id}
+                      >
+                        <div>
+                          <strong>{exam.exam_title}</strong>
+                          <span>
+                            {exam.exam_code} ·{" "}
+                            {sourceDescriptor(exam)}
+                            {examSubjectLabel ? ` · ${examSubjectLabel}` : ""} ·{" "}
+                            {exam.published_at
+                              ? studentDateTimeLabel(exam.published_at)
+                              : "Awaiting publish"}
+                          </span>
+                        </div>
+                        <div className="studentInsightHeroActions">
+                          <StatusPill tone="default">{exam.source_label}</StatusPill>
+                          {exam.source_type === "teacher" && exam.source_teacher_name ? (
+                            <StatusPill tone="demo">{exam.source_teacher_name}</StatusPill>
+                          ) : null}
+                          <span className="dashboardRailStat">
+                            {percentageLabel(exam.percentage)}
+                          </span>
+                        </div>
+                      </Link>
+                    );
+                  })
                 ) : (
                   <p className="emptyText">Recent published results will appear here after scored attempts.</p>
                 )}

@@ -7,16 +7,45 @@ import {
 } from "@/components/ui/student-analytics-detail";
 import { fetchStudentQuestionAnalytics, getStudentApiState } from "@/lib/api/student";
 import {
+  aggregateQuestionsByTopic,
+  aggregateQuestionsByType,
+} from "@/lib/student/analytics-derivations";
+import {
   buildAnalyticsQuestionTypeHref,
   buildAnalyticsSubjectHref,
+  buildAnalyticsTimelineHref,
   buildAnalyticsTopicHref,
   buildQuestionAnalyticsHref,
+  decodeAnalyticsParam,
   loadStudentAnalyticsBundle,
 } from "@/lib/student/analytics";
 import { percentageLabel, questionTypeLabel } from "@/lib/student/formatters";
 
-export default async function StudentAnalyticsActionsPage() {
+function readTopicContext(
+  questions: Awaited<ReturnType<typeof fetchStudentQuestionAnalytics>>["questions"],
+  topicKey: string | null,
+) {
+  if (!topicKey) {
+    return null;
+  }
+
+  return (
+    questions.find(
+      (item) => (item.topic_id ?? item.topic_name ?? "untagged") === topicKey,
+    ) ?? null
+  );
+}
+
+export default async function StudentAnalyticsActionsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ subject?: string; source?: string; teacher?: string }>;
+}) {
+  const query = await searchParams;
   const state = getStudentApiState();
+  const subject = query.subject ? decodeAnalyticsParam(query.subject) : null;
+  const source = query.source ? decodeAnalyticsParam(query.source) : null;
+  const teacher = query.teacher ?? null;
 
   if (!state.apiConfigured) {
     return (
@@ -36,7 +65,7 @@ export default async function StudentAnalyticsActionsPage() {
 
   const [bundle, questionData] = await Promise.all([
     loadStudentAnalyticsBundle(),
-    fetchStudentQuestionAnalytics().catch(() => null),
+    fetchStudentQuestionAnalytics({ subject, source, teacher }).catch(() => null),
   ]);
 
   if (!bundle.summary || !questionData) {
@@ -55,10 +84,9 @@ export default async function StudentAnalyticsActionsPage() {
     );
   }
 
-  const weakTopics = [...bundle.topicPerformance]
-    .sort((a, b) => Number(a.percentage) - Number(b.percentage))
-    .slice(0, 3);
+  const weakTopics = aggregateQuestionsByTopic(questionData.questions).slice(0, 3);
   const weakestTopic = weakTopics[0] ?? null;
+  const weakestTopicContext = readTopicContext(questionData.questions, weakestTopic?.key ?? null);
   const mostWrong = questionData.questions
     .filter((item) => item.your_result === "wrong")
     .slice(0, 4);
@@ -68,7 +96,8 @@ export default async function StudentAnalyticsActionsPage() {
   const slowestQuestions = [...questionData.questions]
     .sort((a, b) => b.your_time_spent_seconds - a.your_time_spent_seconds)
     .slice(0, 4);
-  const weakestQuestionType = bundle.summary.weak_question_types[0] ?? null;
+  const weakestQuestionType = aggregateQuestionsByType(questionData.questions)[0] ?? null;
+  const subjectFocusName = subject ?? weakestTopicContext?.subject_name ?? null;
 
   return (
     <div className="studentPage studentDashboardModern">
@@ -84,19 +113,19 @@ export default async function StudentAnalyticsActionsPage() {
       <StudentAnalyticsDetailHero
         eyebrow="Recommended now"
         title={
-          weakestTopic?.topic_name
-            ? `Recover ${weakestTopic.topic_name}`
+          weakestTopic?.label
+            ? `Recover ${weakestTopic.label}`
             : "Turn analytics into a study move"
         }
         description={
           weakestTopic
-            ? `${weakestTopic.topic_name} is your weakest tracked topic right now at ${percentageLabel(weakestTopic.percentage)}. Start with the weakest concept, then reinforce it with exact question review.`
+            ? `${weakestTopic.label} is your weakest tracked topic right now at ${percentageLabel(weakestTopic.accuracy)}. Start with the weakest concept, then reinforce it with exact question review.`
             : "Your action center combines weak topics, risky question types, and costly question patterns so you can choose what to fix next."
         }
         badges={[
-          weakestTopic?.subject_name ?? "Overall view",
+          subjectFocusName ?? "Overall view",
           weakestQuestionType
-            ? `${questionTypeLabel(weakestQuestionType.question_type)} risk`
+            ? `${questionTypeLabel(weakestQuestionType.label)} risk`
             : "Question patterns ready",
         ]}
         stats={[
@@ -120,14 +149,30 @@ export default async function StudentAnalyticsActionsPage() {
         tone="warm"
         actions={
           <>
-            <Link className="button buttonPrimary" href={weakestTopic ? buildAnalyticsTopicHref({
-              topicId: weakestTopic.topic ?? "untagged",
-              subject: weakestTopic.subject_name,
-              label: weakestTopic.topic_name,
-            }) : "/app/practice"}>
+            <Link
+              className="button buttonPrimary"
+              href={
+                weakestTopicContext
+                  ? buildAnalyticsTopicHref({
+                      topicId: weakestTopicContext.topic_id ?? "untagged",
+                      subject: weakestTopicContext.subject_name ?? subject,
+                      label: weakestTopicContext.topic_name,
+                      source,
+                      teacher,
+                    })
+                  : "/app/practice"
+              }
+            >
               Open weakest topic
             </Link>
-            <Link className="button buttonSecondary" href="/app/practice">
+            <Link
+              className="button buttonSecondary"
+              href={
+                subjectFocusName
+                  ? `/app/practice?subject=${encodeURIComponent(subjectFocusName)}`
+                  : "/app/practice"
+              }
+            >
               Open Practice Lane
             </Link>
           </>
@@ -138,26 +183,36 @@ export default async function StudentAnalyticsActionsPage() {
         {weakestTopic ? (
           <article className="contentCard analyticsActionCard">
             <span className="studentDashboardTagWarm">Topic recovery</span>
-            <strong>{weakestTopic.topic_name ?? "Untagged topic"}</strong>
+            <strong>{weakestTopic.label}</strong>
             <p>
               Focus your next study block on the topic with the lowest scored performance and then review the exact questions behind it.
             </p>
             <div className="studentInsightHeroActions">
               <Link
                 className="button buttonPrimary"
-                href={buildAnalyticsTopicHref({
-                  topicId: weakestTopic.topic ?? "untagged",
-                  subject: weakestTopic.subject_name,
-                  label: weakestTopic.topic_name,
-                })}
+                href={
+                  weakestTopicContext
+                    ? buildAnalyticsTopicHref({
+                        topicId: weakestTopicContext.topic_id ?? "untagged",
+                        subject: weakestTopicContext.subject_name ?? subject,
+                        label: weakestTopicContext.topic_name,
+                        source,
+                        teacher,
+                      })
+                    : "/app/analytics"
+                }
               >
                 Topic deep dive
               </Link>
               <Link
                 className="button buttonGhost"
-                href={`/app/practice?subject=${encodeURIComponent(
-                  weakestTopic.subject_name,
-                )}&topic=${encodeURIComponent(weakestTopic.topic_name ?? "")}`}
+                href={
+                  weakestTopicContext?.subject_name
+                    ? `/app/practice?subject=${encodeURIComponent(
+                        weakestTopicContext.subject_name,
+                      )}&topic=${encodeURIComponent(weakestTopicContext.topic_name ?? "")}`
+                    : "/app/practice"
+                }
               >
                 Practice this topic
               </Link>
@@ -168,7 +223,7 @@ export default async function StudentAnalyticsActionsPage() {
         {weakestQuestionType ? (
           <article className="contentCard analyticsActionCard">
             <span className="studentDashboardTagWarm">Format repair</span>
-            <strong>{questionTypeLabel(weakestQuestionType.question_type)}</strong>
+            <strong>{questionTypeLabel(weakestQuestionType.label)}</strong>
             <p>
               You are losing the most marks in this format right now. Review the pattern before it compounds across more exams.
             </p>
@@ -176,7 +231,10 @@ export default async function StudentAnalyticsActionsPage() {
               <Link
                 className="button buttonPrimary"
                 href={buildAnalyticsQuestionTypeHref({
-                  questionType: weakestQuestionType.question_type,
+                  questionType: weakestQuestionType.label,
+                  subject,
+                  source,
+                  teacher,
                 })}
               >
                 Open type lab
@@ -184,7 +242,10 @@ export default async function StudentAnalyticsActionsPage() {
               <Link
                 className="button buttonGhost"
                 href={buildQuestionAnalyticsHref({
-                  questionType: weakestQuestionType.question_type,
+                  questionType: weakestQuestionType.label,
+                  subject,
+                  source,
+                  teacher,
                 })}
               >
                 Open question table
@@ -195,7 +256,7 @@ export default async function StudentAnalyticsActionsPage() {
 
         <article className="contentCard analyticsActionCard">
           <span className="studentDashboardTagWarm">Subject focus</span>
-          <strong>{weakestTopic?.subject_name ?? "Choose a subject"}</strong>
+          <strong>{subjectFocusName ?? "Choose a subject"}</strong>
           <p>
             Subject pages combine your topic, difficulty, and question-type signals so you can decide what to revise in one place.
           </p>
@@ -203,8 +264,8 @@ export default async function StudentAnalyticsActionsPage() {
             <Link
               className="button buttonPrimary"
               href={
-                weakestTopic?.subject_name
-                  ? buildAnalyticsSubjectHref(weakestTopic.subject_name)
+                subjectFocusName
+                  ? buildAnalyticsSubjectHref(subjectFocusName, { source, teacher })
                   : "/app/analytics"
               }
             >
@@ -256,14 +317,17 @@ export default async function StudentAnalyticsActionsPage() {
             <span>Three quick routes</span>
           </div>
           <div className="analyticsChecklist">
-            <Link className="analyticsChecklistItem" href="/app/analytics/timeline">
+            <Link
+              className="analyticsChecklistItem"
+              href={buildAnalyticsTimelineHref({ subject, source, teacher })}
+            >
               <strong>Check your timeline</strong>
               <span>Validate whether this is a trend or a one-off dip.</span>
             </Link>
-            {weakestTopic?.subject_name ? (
+            {subjectFocusName ? (
               <Link
                 className="analyticsChecklistItem"
-                href={buildAnalyticsSubjectHref(weakestTopic.subject_name)}
+                href={buildAnalyticsSubjectHref(subjectFocusName, { source, teacher })}
               >
                 <strong>Open subject deep dive</strong>
                 <span>See whether the weakness is topic, format, or difficulty driven.</span>
@@ -273,7 +337,10 @@ export default async function StudentAnalyticsActionsPage() {
               <Link
                 className="analyticsChecklistItem"
                 href={buildAnalyticsQuestionTypeHref({
-                  questionType: weakestQuestionType.question_type,
+                  questionType: weakestQuestionType.label,
+                  subject,
+                  source,
+                  teacher,
                 })}
               >
                 <strong>Fix your riskiest format</strong>

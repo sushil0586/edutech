@@ -11,6 +11,11 @@ export type StudentInsightSummary = {
     exam_title: string;
     exam_code: string;
     subject_name: string | null;
+    primary_subject: string | null;
+    primary_subject_name: string | null;
+    is_multi_subject: boolean;
+    section_subjects: TeacherExamSectionSubjectSummary[];
+    subject_summary: TeacherExamSubjectSummary;
     source_type: string;
     source_label: string;
     source_name: string;
@@ -102,6 +107,11 @@ export type StudentAvailableExam = {
   access_key_enabled: boolean;
   status: string;
   subject_name: string;
+  primary_subject: string | null;
+  primary_subject_name: string | null;
+  is_multi_subject: boolean;
+  section_subjects: TeacherExamSectionSubjectSummary[];
+  subject_summary: TeacherExamSubjectSummary;
   duration_minutes: number;
   start_at: string | null;
   end_at: string | null;
@@ -173,6 +183,17 @@ export type StudentWalletSummary = {
   created_at: string;
   updated_at: string;
   is_active: boolean;
+};
+
+export type EconomyOperatorPolicy = {
+  role: "platform_admin" | "institute_admin";
+  can_grant_stars: boolean;
+  max_grant_stars: number | null;
+  can_confirm_orders: boolean;
+  max_confirm_order_amount: string | null;
+  max_confirm_order_currency: string | null;
+  catalog_governance_scope: "platform_only";
+  support_scope: "cross_institute" | "institute_only";
 };
 
 export type StudentStarLedgerEntry = {
@@ -818,6 +839,11 @@ export type StudentExamDetail = {
   review_available_until: string | null;
   result_publish_at: string | null;
   subject_name: string | null;
+  primary_subject: string | null;
+  primary_subject_name: string | null;
+  is_multi_subject: boolean;
+  section_subjects: TeacherExamSectionSubjectSummary[];
+  subject_summary: TeacherExamSubjectSummary;
   program_name: string;
   cohort_name: string | null;
   sections: StudentExamSection[];
@@ -1133,6 +1159,8 @@ export type StudentAttemptReview = {
 export type TeacherExamSection = {
   id: string;
   exam: string;
+  subject: string | null;
+  subject_name: string | null;
   name: string;
   description: string;
   section_order: number;
@@ -1217,6 +1245,52 @@ export type TeacherExamEconomyPolicy = {
   updated_at: string;
 };
 
+export type TeacherExamSectionSubjectSummary = {
+  id: string;
+  name: string;
+  code: string;
+  section_count: number;
+  section_ids: string[];
+};
+
+export type TeacherExamSubjectSummary = {
+  display_label: string;
+  short_label: string;
+  subject_count: number;
+  primary_subject_id: string | null;
+  primary_subject_name: string | null;
+  subjects: Array<{
+    id: string;
+    name: string;
+    code: string;
+  }>;
+};
+
+export type ReadinessIssue = {
+  code: string;
+  field: string;
+  message: string;
+  level: "blocker" | "warning";
+};
+
+export type TeacherExamPublishReadiness = {
+  ready: boolean;
+  blocker_count: number;
+  warning_count: number;
+  blockers: ReadinessIssue[];
+  warnings: ReadinessIssue[];
+};
+
+export type TeacherResultPublishReadiness = {
+  ready: boolean;
+  blocker_count: number;
+  warning_count: number;
+  generated_results_count: number;
+  published_results_count: number;
+  blockers: ReadinessIssue[];
+  warnings: ReadinessIssue[];
+};
+
 export type TeacherExam = {
   id: string;
   institute: string;
@@ -1227,6 +1301,11 @@ export type TeacherExam = {
   cohort_name: string | null;
   subject: string | null;
   subject_name: string | null;
+  primary_subject: string | null;
+  primary_subject_name: string | null;
+  is_multi_subject: boolean;
+  section_subjects: TeacherExamSectionSubjectSummary[];
+  subject_summary: TeacherExamSubjectSummary;
   title: string;
   code: string;
   description: string;
@@ -1276,6 +1355,7 @@ export type TeacherExam = {
   exam_questions: TeacherExamQuestion[];
   active_questions_count: number;
   publish_logs: TeacherExamPublishLog[];
+  publish_readiness: TeacherExamPublishReadiness;
   economy_policy: TeacherExamEconomyPolicy | null;
   created_at: string;
   updated_at: string;
@@ -1292,6 +1372,11 @@ export type TeacherExamListItem = {
   cohort_name: string | null;
   subject: string | null;
   subject_name: string | null;
+  primary_subject: string | null;
+  primary_subject_name: string | null;
+  is_multi_subject: boolean;
+  section_subjects: TeacherExamSectionSubjectSummary[];
+  subject_summary: TeacherExamSubjectSummary;
   title: string;
   code: string;
   description: string;

@@ -1,5 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
+import {
+  expectPreviewFamilyContract,
+  fetchPrograms,
+  type ProgramRegistryRecord,
+} from "../helpers/assessment-family";
 import { getRoleCredentials } from "../fixtures/env";
 import { expectInstituteWorkspace, expectStudentWorkspace } from "../helpers/navigation";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
@@ -98,6 +103,9 @@ async function createInstituteAdvancedExam(
 
   await page.goto("/institute/exams/advanced");
   await expect(page.getByRole("heading", { name: /advanced exam builder/i }).first()).toBeVisible();
+  const selectedProgramId = await page.getByRole("combobox", { name: /^program/i }).first().inputValue();
+  const availablePrograms = await fetchPrograms(page);
+  const selectedProgram = availablePrograms.find((program) => program.id === selectedProgramId) ?? null;
 
   await page.getByRole("button", { name: /quick practice/i }).click();
   await expect(page.getByText(/quick practice template applied/i)).toBeVisible();
@@ -121,7 +129,26 @@ async function createInstituteAdvancedExam(
   const firstTopicRow = firstSectionCard.locator(".advancedBuilderTopicRow").first();
   await firstTopicRow.locator('input[type="number"]').fill("1");
 
+  const previewResponsePromise = page.waitForResponse((response) =>
+    response.url().includes("/api/exams/advanced-builder/preview") && response.request().method() === "POST",
+  );
   await page.getByRole("button", { name: /preview exam/i }).click();
+  const previewResponse = await previewResponsePromise;
+  expect(previewResponse.ok()).toBe(true);
+  const previewPayload = (await previewResponse.json()) as {
+    valid: boolean;
+    resolved_exam?: { assessment_family_profile?: ProgramRegistryRecord["assessment_family_profile"] };
+    sections?: Array<{
+      family_contract?: {
+        assessment_family_code?: string | null;
+        negative_marking_scope?: string | null;
+        negative_marking_recommended?: boolean;
+        negative_marking_allowed?: boolean;
+      };
+    }>;
+  };
+  expect(previewPayload.valid).toBe(true);
+  expectPreviewFamilyContract(previewPayload, selectedProgram?.assessment_family_profile ?? null);
   await expect(page.getByText(/preview refreshed\./i)).toBeVisible({ timeout: 60000 });
   await page.getByRole("button", { name: /create advanced exam/i }).click();
 

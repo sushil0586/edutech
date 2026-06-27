@@ -1,6 +1,8 @@
 import { useMemo } from "react";
+import { useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { Text, View } from "react-native";
+import { ActionButton } from "@/components/action-button";
 import { ScreenShell } from "@/components/screen-shell";
 import { HeroCard } from "@/components/hero-card";
 import { MetricCard } from "@/components/metric-card";
@@ -71,6 +73,7 @@ function nextActionMessage(params: {
 }
 
 export default function AnalyticsScreen() {
+  const router = useRouter();
   const accessToken = useSessionStore((state) => state.accessToken);
   const profile = useSessionStore((state) => state.profile);
   const selectedSubject = useSessionStore((state) => state.selectedSubject);
@@ -126,6 +129,19 @@ export default function AnalyticsScreen() {
                 ? query.error.message
                 : "Unable to load analytics."
               : summary?.insight_messages[0] || "Use weak topics, published results, and accuracy trends to plan the next study move."
+        }
+        actions={
+          <View style={appStyles.rowWrap}>
+            <ActionButton
+              label="Open Results"
+              onPress={() => router.push("./results")}
+            />
+            <ActionButton
+              label="Back to Dashboard"
+              tone="secondary"
+              onPress={() => router.push("/(student)/(tabs)/dashboard")}
+            />
+          </View>
         }
       />
       {query.isError ? (

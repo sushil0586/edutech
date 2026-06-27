@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from apps.academics.assessment_family_contracts import merge_assessment_family_contract
 from apps.academics.models import (
     AcademicYear,
     AssessmentFamily,
@@ -39,6 +40,25 @@ class AssessmentFamilySerializer(serializers.ModelSerializer):
 
 
 class AssessmentFamilyListSerializer(serializers.ModelSerializer):
+    allowed_question_types = serializers.SerializerMethodField()
+    scoring_defaults = serializers.SerializerMethodField()
+
+    def get_allowed_question_types(self, obj):
+        contract = merge_assessment_family_contract(
+            family_code=getattr(obj, "code", None),
+            allowed_question_types=getattr(obj, "allowed_question_types", []),
+            scoring_defaults=getattr(obj, "scoring_defaults", {}),
+        )
+        return contract["allowed_question_types"]
+
+    def get_scoring_defaults(self, obj):
+        contract = merge_assessment_family_contract(
+            family_code=getattr(obj, "code", None),
+            allowed_question_types=getattr(obj, "allowed_question_types", []),
+            scoring_defaults=getattr(obj, "scoring_defaults", {}),
+        )
+        return contract["scoring_defaults"]
+
     class Meta:
         model = AssessmentFamily
         fields = (

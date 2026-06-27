@@ -21,6 +21,9 @@ test.describe("Admin exam detail workspace", () => {
     await expect(page.getByText(/exam actions/i).first()).toBeVisible();
     await expect(page.getByText(/exam configuration/i).first()).toBeVisible();
     await expect(page.getByText(/student access and stars/i).first()).toBeVisible();
+    await expect(page.getByText(/^result status$/i).first()).toBeVisible();
+    await expect(page.getByText(/^exam publish readiness$/i).first()).toBeVisible();
+    await expect(page.getByText(/^result publish readiness$/i).first()).toBeVisible();
 
     await expect(page.getByRole("link", { name: /open builder/i }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /link questions/i }).first()).toBeVisible();

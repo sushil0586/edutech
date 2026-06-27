@@ -148,6 +148,15 @@ export default function AttemptScreen() {
     visibleQuestions.find((question) => question.question === selectedQuestionId) ??
     visibleQuestions[0] ??
     null;
+  const currentQuestionIndex = currentQuestion
+    ? visibleQuestions.findIndex((question) => question.question === currentQuestion.question)
+    : -1;
+  const previousQuestion =
+    currentQuestionIndex > 0 ? visibleQuestions[currentQuestionIndex - 1] : null;
+  const nextQuestion =
+    currentQuestionIndex >= 0 && currentQuestionIndex < visibleQuestions.length - 1
+      ? visibleQuestions[currentQuestionIndex + 1]
+      : null;
   const currentAnswer = currentQuestion ? answerMap.get(currentQuestion.question) : undefined;
   const currentQuestionSupportsMultiSelect = currentQuestion
     ? supportsMultiSelect(currentQuestion.question_type)
@@ -395,13 +404,15 @@ export default function AttemptScreen() {
             <View style={appStyles.rowWrap}>
               <ActionButton
                 label={pendingAction === "submit" ? "Submitting..." : "Submit Attempt"}
+                testID="attempt-runtime-submit-button"
                 onPress={handleSubmitPress}
                 disabled={pendingAction !== null}
               />
               <ActionButton
-                label="Back to Dashboard"
+                label="Open Attempts"
                 tone="secondary"
-                onPress={() => router.push("/(student)/(tabs)/dashboard")}
+                testID="attempt-runtime-open-attempts-button"
+                onPress={() => router.push("../../attempts")}
                 disabled={pendingAction === "submit"}
               />
             </View>
@@ -510,7 +521,7 @@ export default function AttemptScreen() {
               return (
                 <ActionButton
                   key={question.id}
-                  label={`Q${index + 1}${saved ? " saved" : ""}`}
+                  label={`Q${index + 1}${saved ? " *" : ""}`}
                   tone={isActive ? "primary" : "secondary"}
                   onPress={() => selectQuestion(question)}
                   disabled={pendingAction !== null}
@@ -545,23 +556,26 @@ export default function AttemptScreen() {
             </Text>
           </View>
           <View style={appStyles.rowWrap}>
-            <ActionButton
-              label={pendingAction === "save" ? "Saving..." : "Save and Continue"}
-              onPress={() => void saveDraftAndContinue()}
-              disabled={pendingAction !== null}
-            />
-            <ActionButton
-              label="Discard Draft"
-              tone="secondary"
-              onPress={discardDraftAndContinue}
-              disabled={pendingAction !== null}
-            />
-            <ActionButton
-              label="Stay Here"
-              tone="secondary"
-              onPress={() => setPendingNavigation(null)}
-              disabled={pendingAction !== null}
-            />
+              <ActionButton
+                label={pendingAction === "save" ? "Saving..." : "Save and Continue"}
+                testID="attempt-runtime-save-and-continue-button"
+                onPress={() => void saveDraftAndContinue()}
+                disabled={pendingAction !== null}
+              />
+              <ActionButton
+                label="Discard Draft"
+                tone="secondary"
+                testID="attempt-runtime-discard-draft-button"
+                onPress={discardDraftAndContinue}
+                disabled={pendingAction !== null}
+              />
+              <ActionButton
+                label="Stay Here"
+                tone="secondary"
+                testID="attempt-runtime-stay-here-button"
+                onPress={() => setPendingNavigation(null)}
+                disabled={pendingAction !== null}
+              />
           </View>
         </SectionBlock>
       ) : null}
@@ -572,8 +586,42 @@ export default function AttemptScreen() {
       >
         {currentQuestion ? (
           <View style={appStyles.column}>
+            <View style={appStyles.rowBetween}>
+              <Text style={appStyles.label}>
+                {currentQuestion.section_name} · Question {currentQuestion.question_order}
+              </Text>
+              <Text style={appStyles.helper}>
+                {currentQuestionIndex + 1} of {visibleQuestions.length} in this section
+              </Text>
+            </View>
+            <View style={appStyles.rowWrap}>
+              <ActionButton
+                label="Previous"
+                tone="secondary"
+                compact
+                testID="attempt-runtime-previous-button"
+                onPress={() => {
+                  if (previousQuestion) {
+                    selectQuestion(previousQuestion);
+                  }
+                }}
+                disabled={pendingAction !== null || !previousQuestion}
+              />
+              <ActionButton
+                label="Next"
+                tone={nextQuestion ? "primary" : "secondary"}
+                compact
+                testID="attempt-runtime-next-button"
+                onPress={() => {
+                  if (nextQuestion) {
+                    selectQuestion(nextQuestion);
+                  }
+                }}
+                disabled={pendingAction !== null || !nextQuestion}
+              />
+            </View>
             <Text style={appStyles.label}>
-              {currentQuestion.section_name} · Question {currentQuestion.question_order}
+              Fastest flow: answer, save, move next. Use review-mark only when you intend to revisit before submit.
             </Text>
             <Text style={appStyles.questionStem}>{currentQuestion.question_text}</Text>
             <View style={appStyles.rowWrap}>
@@ -676,6 +724,7 @@ export default function AttemptScreen() {
                 onChangeText={setAnswerText}
                 placeholder="Type a response when this question requires written input."
                 style={[appStyles.input, { minHeight: 110, paddingVertical: spacing.md, textAlignVertical: "top" }]}
+                testID="attempt-runtime-answer-text-input"
                 value={answerText}
               />
             </View>
@@ -683,17 +732,20 @@ export default function AttemptScreen() {
               <ActionButton
                 label={markedForReview ? "Marked for review" : "Mark for review"}
                 tone={markedForReview ? "primary" : "secondary"}
+                testID="attempt-runtime-mark-review-button"
                 onPress={() => setMarkedForReview((value) => !value)}
                 disabled={pendingAction !== null}
               />
               <ActionButton
                 label={pendingAction === "save" ? "Saving..." : "Save Answer"}
+                testID="attempt-runtime-save-answer-button"
                 onPress={() => void handleSave(false)}
                 disabled={pendingAction !== null}
               />
               <ActionButton
                 label="Clear Response"
                 tone="secondary"
+                testID="attempt-runtime-clear-response-button"
                 onPress={() => void handleSave(true)}
                 disabled={pendingAction !== null}
               />
@@ -766,6 +818,7 @@ export default function AttemptScreen() {
             {currentQuestionHasDraftChanges ? (
               <ActionButton
                 label={pendingAction === "submit" ? "Submitting..." : "Save Draft and Submit"}
+                testID="attempt-runtime-save-draft-submit-button"
                 onPress={() => void confirmAndSubmit(true)}
                 disabled={pendingAction !== null}
               />
@@ -773,12 +826,14 @@ export default function AttemptScreen() {
             <ActionButton
               label={pendingAction === "submit" ? "Submitting..." : "Submit Now"}
               tone={currentQuestionHasDraftChanges ? "secondary" : "primary"}
+              testID="attempt-runtime-submit-now-button"
               onPress={() => void confirmAndSubmit(false)}
               disabled={pendingAction !== null}
             />
             <ActionButton
               label="Continue Attempt"
               tone="secondary"
+              testID="attempt-runtime-continue-attempt-button"
               onPress={() => setShowSubmitConfirm(false)}
               disabled={pendingAction !== null}
             />

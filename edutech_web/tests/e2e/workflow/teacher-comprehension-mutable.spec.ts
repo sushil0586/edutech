@@ -1,4 +1,4 @@
-import { expect, test, type Locator } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
 import { expectTeacherWorkspace } from "../helpers/navigation";
@@ -39,7 +39,7 @@ async function selectTextWithinEditor(
   expect(found).toBe(true);
 }
 
-async function selectFirstNonEmptyOption(page: Parameters<typeof test>[0]["page"], selector: string) {
+async function selectFirstNonEmptyOption(page: Page, selector: string) {
   const locator = page.locator(selector);
   const values = await locator.locator("option").evaluateAll((options) =>
     options.map((option) => (option as HTMLOptionElement).value),

@@ -5,7 +5,7 @@ from rest_framework.test import APIClient
 from apps.accounts import services as account_services
 from apps.accounts.models import AccountAcquisition, AccountLocation, AccountProfile
 from apps.academics.models import AcademicYear, Program
-from apps.economy.models import ReferralEvent
+from apps.economy.models import ReferralEvent, ReferralProgram, RewardRule, StudentEconomyProfile
 from apps.geography.models import City, Country, PostalCode, State
 from apps.institutes.models import Institute
 from apps.parents.models import ParentProfile
@@ -409,6 +409,379 @@ class PublicRegistrationApiTestCase(TestCase):
         self.assertEqual(location.confirmed_country, "India")
         self.assertEqual(location.confirmed_city, "Delhi")
         self.assertIsNotNone(location.confirmed_at)
+
+    def test_student_onboarding_completion_applies_signup_reward_and_creates_referral_code(self):
+        RewardRule.objects.create(
+            institute=self.registration_institute,
+            name="Default signup bonus",
+            rule_type="signup",
+            stars_awarded=100,
+        )
+
+        self.client.post(
+            "/api/v1/auth/register/",
+            {
+                "role": "student",
+                "first_name": "Aarav",
+                "last_name": "Rewarded",
+                "email": "aarav.rewarded@example.com",
+                "phone": "9876543219",
+                "password": "Student@12345",
+                "confirm_password": "Student@12345",
+                "school_code": "NPS",
+            },
+            format="json",
+        )
+        user = User.objects.get(username="aarav.rewarded@example.com")
+        self.client.force_authenticate(user=user)
+
+        response = self.client.patch(
+            "/api/v1/onboarding/profile/",
+            {
+                "class_level": "7",
+                "board": "CBSE",
+                "exam_interest": "Olympiad",
+                "subject_interests": ["Math", "Science"],
+                "country": "India",
+                "state": "Delhi",
+                "city": "Delhi",
+                "pincode": "110001",
+                "timezone": "Asia/Kolkata",
+                "school_code": "NPS",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertIsNotNone(response.data["student_context"]["referral_code"])
+
+        profile = AccountProfile.objects.get(user=user)
+        economy = StudentEconomyProfile.objects.get(student=profile.student_profile)
+        self.assertEqual(economy.available_stars, 100)
+
+        reward_events = profile.student_profile.reward_events.all()
+        self.assertEqual(reward_events.count(), 1)
+        self.assertEqual(reward_events.first().reward_rule.rule_type, "signup")
+
+        second_response = self.client.patch(
+            "/api/v1/onboarding/profile/",
+            {
+                "class_level": "7",
+                "board": "CBSE",
+                "exam_interest": "Olympiad",
+                "subject_interests": ["Math", "Science"],
+                "country": "India",
+                "state": "Delhi",
+                "city": "Delhi",
+                "pincode": "110001",
+                "timezone": "Asia/Kolkata",
+                "school_code": "NPS",
+            },
+            format="json",
+        )
+
+        self.assertEqual(second_response.status_code, 200, second_response.data)
+        economy.refresh_from_db()
+        self.assertEqual(economy.available_stars, 100)
+        self.assertEqual(profile.student_profile.reward_events.count(), 1)
+
+    def test_student_onboarding_completion_applies_referral_reward_once(self):
+        ReferralProgram.objects.create(
+            institute=self.registration_institute,
+            name="Default referral",
+            referrer_stars=50,
+            referee_stars=25,
+            reward_side="both",
+        )
+
+        referrer = StudentProfile.objects.create(
+            institute=self.registration_institute,
+            academic_year=account_services.get_or_create_public_registration_academic_year(
+                self.registration_institute
+            ),
+            program=account_services.get_or_create_public_registration_program(
+                self.registration_institute,
+                class_level="7",
+                board="CBSE",
+            ),
+            cohort=None,
+            admission_no="STU-REF-001",
+            first_name="Ishaan",
+            last_name="Verma",
+            email="ishaan.referrer@example.com",
+            phone="9000000001",
+            is_active=True,
+        )
+        from apps.economy.services import get_or_create_student_referral_code
+
+        referrer_code = get_or_create_student_referral_code(student=referrer)
+
+        self.client.post(
+            "/api/v1/auth/register/",
+            {
+                "role": "student",
+                "first_name": "Aarav",
+                "last_name": "Referred",
+                "email": "aarav.referred.complete@example.com",
+                "phone": "9876543220",
+                "password": "Student@12345",
+                "confirm_password": "Student@12345",
+                "school_code": "NPS",
+                "referral_code": referrer_code.code,
+            },
+            format="json",
+        )
+        user = User.objects.get(username="aarav.referred.complete@example.com")
+        self.client.force_authenticate(user=user)
+
+        payload = {
+            "class_level": "7",
+            "board": "CBSE",
+            "exam_interest": "Olympiad",
+            "subject_interests": ["Math", "Science"],
+            "country": "India",
+            "state": "Delhi",
+            "city": "Delhi",
+            "pincode": "110001",
+            "timezone": "Asia/Kolkata",
+            "school_code": "NPS",
+        }
+
+        response = self.client.patch("/api/v1/onboarding/profile/", payload, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(ReferralEvent.objects.count(), 1)
+
+        referred_profile = AccountProfile.objects.get(user=user)
+        referrer_economy = StudentEconomyProfile.objects.get(student=referrer)
+        referee_economy = StudentEconomyProfile.objects.get(student=referred_profile.student_profile)
+        self.assertEqual(referrer_economy.available_stars, 50)
+        self.assertEqual(referee_economy.available_stars, 25)
+
+        second_response = self.client.patch("/api/v1/onboarding/profile/", payload, format="json")
+        self.assertEqual(second_response.status_code, 200, second_response.data)
+        referrer_economy.refresh_from_db()
+        referee_economy.refresh_from_db()
+        self.assertEqual(ReferralEvent.objects.count(), 1)
+        self.assertEqual(referrer_economy.available_stars, 50)
+        self.assertEqual(referee_economy.available_stars, 25)
+
+    def test_student_onboarding_rejects_invalid_referral_code_without_partial_student_creation(self):
+        self.client.post(
+            "/api/v1/auth/register/",
+            {
+                "role": "student",
+                "first_name": "Aarav",
+                "last_name": "InvalidReferral",
+                "email": "aarav.invalid.referral@example.com",
+                "phone": "9876543221",
+                "password": "Student@12345",
+                "confirm_password": "Student@12345",
+                "school_code": "NPS",
+                "referral_code": "NOT-A-REAL-CODE",
+            },
+            format="json",
+        )
+        user = User.objects.get(username="aarav.invalid.referral@example.com")
+        self.client.force_authenticate(user=user)
+
+        response = self.client.patch(
+            "/api/v1/onboarding/profile/",
+            {
+                "class_level": "7",
+                "board": "CBSE",
+                "exam_interest": "Olympiad",
+                "subject_interests": ["Math", "Science"],
+                "country": "India",
+                "state": "Delhi",
+                "city": "Delhi",
+                "pincode": "110001",
+                "timezone": "Asia/Kolkata",
+                "school_code": "NPS",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertIn("referral_code", response.data)
+
+        profile = AccountProfile.objects.get(user=user)
+        self.assertIsNone(profile.student_profile_id)
+        self.assertTrue(profile.profile_completion_required)
+        self.assertEqual(profile.onboarding_status, "not_started")
+        self.assertEqual(StudentProfile.objects.filter(email="aarav.invalid.referral@example.com").count(), 0)
+        self.assertEqual(ReferralEvent.objects.count(), 0)
+
+    def test_student_onboarding_rejects_cross_institute_referral_code_without_partial_student_creation(self):
+        other_institute = Institute.objects.create(
+            name="Other Public School",
+            code="OPS",
+            email="ops@example.com",
+        )
+        other_academic_year = account_services.get_or_create_public_registration_academic_year(
+            other_institute
+        )
+        other_program = account_services.get_or_create_public_registration_program(
+            other_institute,
+            class_level="7",
+            board="CBSE",
+        )
+        ReferralProgram.objects.create(
+            institute=other_institute,
+            name="Other institute referral",
+            referrer_stars=40,
+            referee_stars=20,
+            reward_side="both",
+        )
+        other_student = StudentProfile.objects.create(
+            institute=other_institute,
+            academic_year=other_academic_year,
+            program=other_program,
+            cohort=None,
+            admission_no="OPS-REF-001",
+            first_name="Cross",
+            last_name="Institute",
+            email="cross.institute@example.com",
+            phone="9000000002",
+            is_active=True,
+        )
+        from apps.economy.services import get_or_create_student_referral_code
+
+        cross_institute_code = get_or_create_student_referral_code(student=other_student)
+
+        self.client.post(
+            "/api/v1/auth/register/",
+            {
+                "role": "student",
+                "first_name": "Aarav",
+                "last_name": "CrossReferral",
+                "email": "aarav.cross.referral@example.com",
+                "phone": "9876543222",
+                "password": "Student@12345",
+                "confirm_password": "Student@12345",
+                "school_code": "NPS",
+                "referral_code": cross_institute_code.code,
+            },
+            format="json",
+        )
+        user = User.objects.get(username="aarav.cross.referral@example.com")
+        self.client.force_authenticate(user=user)
+
+        response = self.client.patch(
+            "/api/v1/onboarding/profile/",
+            {
+                "class_level": "7",
+                "board": "CBSE",
+                "exam_interest": "Olympiad",
+                "subject_interests": ["Math", "Science"],
+                "country": "India",
+                "state": "Delhi",
+                "city": "Delhi",
+                "pincode": "110001",
+                "timezone": "Asia/Kolkata",
+                "school_code": "NPS",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertIn("referral_code", response.data)
+
+        profile = AccountProfile.objects.get(user=user)
+        self.assertIsNone(profile.student_profile_id)
+        self.assertTrue(profile.profile_completion_required)
+        self.assertEqual(profile.onboarding_status, "not_started")
+        self.assertEqual(StudentProfile.objects.filter(email="aarav.cross.referral@example.com").count(), 0)
+        self.assertEqual(ReferralEvent.objects.count(), 0)
+
+    def test_student_onboarding_combines_signup_and_referral_rewards_once(self):
+        RewardRule.objects.create(
+            institute=self.registration_institute,
+            name="Default signup bonus",
+            rule_type="signup",
+            stars_awarded=100,
+        )
+        ReferralProgram.objects.create(
+            institute=self.registration_institute,
+            name="Default referral",
+            referrer_stars=50,
+            referee_stars=25,
+            reward_side="both",
+        )
+
+        referrer = StudentProfile.objects.create(
+            institute=self.registration_institute,
+            academic_year=account_services.get_or_create_public_registration_academic_year(
+                self.registration_institute
+            ),
+            program=account_services.get_or_create_public_registration_program(
+                self.registration_institute,
+                class_level="7",
+                board="CBSE",
+            ),
+            cohort=None,
+            admission_no="STU-COMBO-001",
+            first_name="Combo",
+            last_name="Referrer",
+            email="combo.referrer@example.com",
+            phone="9000000003",
+            is_active=True,
+        )
+        from apps.economy.services import get_or_create_student_referral_code
+
+        referral_code = get_or_create_student_referral_code(student=referrer)
+
+        self.client.post(
+            "/api/v1/auth/register/",
+            {
+                "role": "student",
+                "first_name": "Aarav",
+                "last_name": "Combo",
+                "email": "aarav.combo@example.com",
+                "phone": "9876543223",
+                "password": "Student@12345",
+                "confirm_password": "Student@12345",
+                "school_code": "NPS",
+                "referral_code": referral_code.code,
+            },
+            format="json",
+        )
+        user = User.objects.get(username="aarav.combo@example.com")
+        self.client.force_authenticate(user=user)
+
+        payload = {
+            "class_level": "7",
+            "board": "CBSE",
+            "exam_interest": "Olympiad",
+            "subject_interests": ["Math", "Science"],
+            "country": "India",
+            "state": "Delhi",
+            "city": "Delhi",
+            "pincode": "110001",
+            "timezone": "Asia/Kolkata",
+            "school_code": "NPS",
+        }
+
+        response = self.client.patch("/api/v1/onboarding/profile/", payload, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+
+        referred_profile = AccountProfile.objects.get(user=user)
+        referee_economy = StudentEconomyProfile.objects.get(student=referred_profile.student_profile)
+        referrer_economy = StudentEconomyProfile.objects.get(student=referrer)
+
+        self.assertEqual(referee_economy.available_stars, 125)
+        self.assertEqual(referrer_economy.available_stars, 50)
+        self.assertEqual(referred_profile.student_profile.reward_events.count(), 1)
+        self.assertEqual(ReferralEvent.objects.count(), 1)
+
+        second_response = self.client.patch("/api/v1/onboarding/profile/", payload, format="json")
+        self.assertEqual(second_response.status_code, 200, second_response.data)
+
+        referee_economy.refresh_from_db()
+        referrer_economy.refresh_from_db()
+        self.assertEqual(referee_economy.available_stars, 125)
+        self.assertEqual(referrer_economy.available_stars, 50)
+        self.assertEqual(referred_profile.student_profile.reward_events.count(), 1)
+        self.assertEqual(ReferralEvent.objects.count(), 1)
 
     def test_parent_onboarding_completion_creates_parent_profile_and_marks_account_complete(self):
         registration = self.client.post(

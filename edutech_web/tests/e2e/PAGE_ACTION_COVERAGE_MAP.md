@@ -45,6 +45,7 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | Action | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
 | dashboard route opens | Covered | Baseline | `tests/e2e/workflow/admin-dashboard-workspace.spec.ts` |
+| dashboard route remains reachable in the cross-browser shell lane | Covered | Baseline | `tests/e2e/workflow/admin-cross-browser-shell.spec.ts` |
 | focus lane filter | Covered | Baseline | `tests/e2e/workflow/admin-dashboard-workspace.spec.ts` |
 | sort by filter | Covered | Baseline | `tests/e2e/workflow/admin-dashboard-workspace.spec.ts` |
 | apply filters | Covered | Baseline | `tests/e2e/workflow/admin-dashboard-workspace.spec.ts` |
@@ -65,6 +66,7 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | Action | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
 | search route opens | Covered | Baseline | `tests/e2e/workflow/admin-search-workspace.spec.ts` |
+| search route remains reachable in the cross-browser deep-route lane | Covered | Baseline | `tests/e2e/workflow/admin-cross-browser-deep-routes.spec.ts` |
 | query seed is retained in controls | Covered | Baseline | `tests/e2e/workflow/admin-search-workspace.spec.ts` |
 | source filter | Covered | Baseline | `tests/e2e/workflow/admin-search-workspace.spec.ts` |
 | sort by filter | Covered | Baseline | `tests/e2e/workflow/admin-search-workspace.spec.ts` |
@@ -88,6 +90,7 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | Action | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
 | settings route opens | Covered | Baseline | `tests/e2e/workflow/admin-settings-workspace.spec.ts` |
+| settings route remains reachable in the cross-browser deep-route lane | Covered | Baseline | `tests/e2e/workflow/admin-cross-browser-deep-routes.spec.ts` |
 | governance summary cards visible | Covered | Baseline | `tests/e2e/workflow/admin-settings-workspace.spec.ts` |
 | current live control lanes panel visible | Covered | Baseline | `tests/e2e/workflow/admin-settings-workspace.spec.ts` |
 | backend-first layers panel visible | Covered | Baseline | `tests/e2e/workflow/admin-settings-workspace.spec.ts` |
@@ -102,6 +105,7 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | Action | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
 | institutes route opens | Covered | Baseline | `tests/e2e/workflow/admin-institutes-workspace.spec.ts` |
+| institutes route remains reachable in the cross-browser shell lane | Covered | Baseline | `tests/e2e/workflow/admin-cross-browser-shell.spec.ts` |
 | search institutes directory | Covered | Baseline | `tests/e2e/workflow/admin-institutes-workspace.spec.ts` |
 | active-only filter | Covered | Baseline | `tests/e2e/workflow/admin-institutes-workspace.spec.ts` |
 | inspect selected institute detail panel | Covered | Baseline | `tests/e2e/workflow/admin-institutes-workspace.spec.ts` |
@@ -128,6 +132,7 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | Action | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
 | reports route opens | Covered | Baseline | `tests/e2e/workflow/admin-reports-workspace.spec.ts` |
+| reports route remains reachable in the cross-browser shell lane | Covered | Baseline | `tests/e2e/workflow/admin-cross-browser-shell.spec.ts` |
 | focus lane filter | Covered | Baseline | `tests/e2e/workflow/admin-reports-workspace.spec.ts` |
 | subject filter | Covered | Baseline | `tests/e2e/workflow/admin-reports-workspace.spec.ts` |
 | sort by filter | Covered | Baseline | `tests/e2e/workflow/admin-reports-workspace.spec.ts` |
@@ -195,6 +200,7 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | Action | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
 | exams route opens | Covered | Baseline | `tests/e2e/workflow/admin-exams-workspace.spec.ts` |
+| exams route remains reachable in the cross-browser shell lane | Covered | Baseline | `tests/e2e/workflow/admin-cross-browser-shell.spec.ts` |
 | quick create handoff visible | Covered | Baseline | `tests/e2e/workflow/admin-exams-workspace.spec.ts` |
 | advanced builder handoff visible | Covered | Baseline | `tests/e2e/workflow/admin-exams-workspace.spec.ts` |
 | preset library handoff visible | Covered | Baseline | `tests/e2e/workflow/admin-exams-workspace.spec.ts` |
@@ -229,6 +235,7 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | Action | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
 | advanced builder route opens | Covered | Baseline | `tests/e2e/workflow/admin-advanced-builder-workspace.spec.ts` |
+| advanced builder route remains reachable in the cross-browser deep-route lane | Covered | Baseline | `tests/e2e/workflow/admin-cross-browser-deep-routes.spec.ts` |
 | preset library handoff visible | Covered | Baseline | `tests/e2e/workflow/admin-advanced-builder-workspace.spec.ts` |
 | basics stage visible | Covered | Baseline | `tests/e2e/workflow/admin-advanced-builder-workspace.spec.ts` |
 | composition stage visible | Covered | Baseline | `tests/e2e/workflow/admin-advanced-builder-workspace.spec.ts` |
@@ -243,6 +250,10 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | add topic action visible after section expansion | Covered | Baseline | `tests/e2e/workflow/admin-advanced-builder-workspace.spec.ts` |
 | managed preset pack controls visible | Covered | Baseline | `tests/e2e/workflow/admin-advanced-builder-workspace.spec.ts` |
 | template save controls visible | Covered | Baseline | `tests/e2e/workflow/admin-advanced-builder-workspace.spec.ts` |
+| seeded NEET advanced-builder family guidance and summary recommendation surface correctly | Covered | Baseline | `tests/e2e/workflow/family-advanced-builder-guidance.spec.ts` |
+| seeded JEE advanced-builder family guidance and summary recommendation surface correctly | Covered | Baseline | `tests/e2e/workflow/family-advanced-builder-guidance.spec.ts` |
+| seeded GRE advanced-builder family guidance and summary recommendation surface correctly | Covered | Baseline | `tests/e2e/workflow/family-advanced-builder-guidance.spec.ts` |
+| seeded AWS advanced-builder family guidance and summary recommendation surface correctly | Covered | Baseline | `tests/e2e/workflow/family-advanced-builder-guidance.spec.ts` |
 | coherent institute-scoped academic defaults load after template institute selection | Covered | Mutable | `tests/e2e/workflow/admin-exam-creation-advanced-matrix.mutable.spec.ts` |
 | apply quick-practice template as the advanced-builder seed | Covered | Mutable | `tests/e2e/workflow/admin-exam-creation-advanced-matrix.mutable.spec.ts` |
 | preview a disposable platform-source advanced-builder exam blueprint | Covered | Mutable | `tests/e2e/workflow/admin-exam-creation-advanced-matrix.mutable.spec.ts` |
@@ -282,6 +293,14 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | scope and identity controls visible | Covered | Baseline | `tests/e2e/workflow/admin-exams-create-workspace.spec.ts` |
 | scope and identity required-field gating before wizard advance | Covered | Baseline | `tests/e2e/workflow/admin-exams-create-workspace.spec.ts` |
 | source and economy access controls editable | Covered | Baseline | `tests/e2e/workflow/admin-exams-create-workspace.spec.ts` |
+| seeded NEET family guidance and execution checklist surface in wizard | Covered | Baseline | `tests/e2e/workflow/admin-family-guided-create-defaults.spec.ts` |
+| seeded NEET family defaults prefill duration, runtime, and learner posture | Covered | Baseline | `tests/e2e/workflow/admin-family-guided-create-defaults.spec.ts` |
+| seeded JEE family guidance and execution checklist surface in wizard | Covered | Baseline | `tests/e2e/workflow/admin-family-guided-create-defaults.spec.ts` |
+| seeded JEE family defaults prefill duration, runtime, and learner posture | Covered | Baseline | `tests/e2e/workflow/admin-family-guided-create-defaults.spec.ts` |
+| seeded GRE family guidance and execution checklist surface in wizard | Covered | Baseline | `tests/e2e/workflow/admin-family-guided-create-defaults.spec.ts` |
+| seeded GRE family defaults prefill duration, runtime, and learner posture | Covered | Baseline | `tests/e2e/workflow/admin-family-guided-create-defaults.spec.ts` |
+| seeded AWS family guidance and execution checklist surface in wizard | Covered | Baseline | `tests/e2e/workflow/admin-family-guided-create-defaults.spec.ts` |
+| seeded AWS family defaults prefill duration, runtime, and learner posture | Covered | Baseline | `tests/e2e/workflow/admin-family-guided-create-defaults.spec.ts` |
 | continue to schedule and delivery step | Covered | Baseline | `tests/e2e/workflow/admin-exams-create-workspace.spec.ts` |
 | continue to runtime rules step | Covered | Baseline | `tests/e2e/workflow/admin-exams-create-workspace.spec.ts` |
 | continue to learner experience step | Covered | Baseline | `tests/e2e/workflow/admin-exams-create-workspace.spec.ts` |
@@ -290,6 +309,8 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | create `platform` source `practice` exam shell from guided wizard | Covered | Mutable | `tests/e2e/workflow/admin-exam-creation-wizard-matrix.mutable.spec.ts` |
 | create `platform` source `quiz` exam shell from guided wizard | Covered | Mutable | `tests/e2e/workflow/admin-exam-creation-wizard-matrix.mutable.spec.ts` |
 | create `platform` source `mock_exam` exam shell from guided wizard | Covered | Mutable | `tests/e2e/workflow/admin-exam-creation-wizard-matrix.mutable.spec.ts` |
+| persist JEE guided-family defaults into saved admin exam metadata | Covered | Mutable | `tests/e2e/workflow/admin-family-guided-persistence.mutable.spec.ts` |
+| persist GRE guided-family defaults into saved admin exam metadata | Covered | Mutable | `tests/e2e/workflow/admin-family-guided-persistence.mutable.spec.ts` |
 | guided wizard handoff to created admin exam detail | Covered | Mutable | `tests/e2e/workflow/admin-exam-creation-wizard-matrix.mutable.spec.ts` |
 
 ### `/admin/exams/:id`
@@ -384,6 +405,7 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | Action | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
 | people route opens | Covered | Baseline | `tests/e2e/workflow/admin-people-workspace.spec.ts` |
+| people route remains reachable in the cross-browser shell lane | Covered | Baseline | `tests/e2e/workflow/admin-cross-browser-shell.spec.ts` |
 | student roster tab | Covered | Baseline | `tests/e2e/workflow/admin-people-workspace.spec.ts` |
 | teacher roster tab | Covered | Baseline | `tests/e2e/workflow/admin-people-workspace.spec.ts` |
 | institute scope selector | Covered | Baseline | `tests/e2e/workflow/admin-people-workspace.spec.ts` |
@@ -432,6 +454,7 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | Action | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
 | dashboard loads | Covered | Baseline | `tests/e2e/smoke/institute-results.spec.ts`, `tests/e2e/workflow/institute-dashboard-workspace.spec.ts` |
+| dashboard route remains reachable in the cross-browser shell lane | Covered | Baseline | `tests/e2e/workflow/institute-cross-browser-shell.spec.ts` |
 | focus filter select + apply | Covered | Baseline | `tests/e2e/smoke/institute-results.spec.ts`, `tests/e2e/workflow/institute-dashboard-workspace.spec.ts` |
 | sort by filter | Covered | Baseline | `tests/e2e/workflow/institute-dashboard-workspace.spec.ts` |
 | academics quick filter chip | Covered | Baseline | `tests/e2e/workflow/institute-dashboard-workspace.spec.ts` |
@@ -447,6 +470,7 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 
 | Action | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
+| people route remains reachable in the cross-browser shell lane | Covered | Baseline | `tests/e2e/workflow/institute-cross-browser-shell.spec.ts` |
 | student roster tab | Covered | Baseline | `tests/e2e/smoke/institute-results.spec.ts` |
 | teacher roster tab | Covered | Baseline | `tests/e2e/smoke/institute-results.spec.ts` |
 | search roster field visible | Covered | Baseline | `tests/e2e/smoke/institute-results.spec.ts` |
@@ -504,6 +528,7 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | Action | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
 | exam management page loads | Covered | Baseline | `tests/e2e/smoke/institute-results.spec.ts`, `tests/e2e/workflow/institute-exams-workspace.spec.ts` |
+| exams route remains reachable in the cross-browser shell lane | Covered | Baseline | `tests/e2e/workflow/institute-cross-browser-shell.spec.ts` |
 | quick create link visible | Covered | Baseline | `tests/e2e/smoke/institute-results.spec.ts`, `tests/e2e/workflow/institute-exams-workspace.spec.ts` |
 | advanced builder link visible | Covered | Baseline | `tests/e2e/smoke/institute-results.spec.ts`, `tests/e2e/workflow/institute-exams-workspace.spec.ts` |
 | preset library link visible | Covered | Baseline | `tests/e2e/workflow/institute-exams-workspace.spec.ts` |
@@ -536,6 +561,10 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | Action | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
 | advanced builder route opens | Covered | Baseline | `tests/e2e/smoke/institute-results.spec.ts` |
+| seeded NEET advanced-builder family guidance and summary recommendation surface correctly | Covered | Baseline | `tests/e2e/workflow/family-advanced-builder-guidance.spec.ts` |
+| seeded JEE advanced-builder family guidance and summary recommendation surface correctly | Covered | Baseline | `tests/e2e/workflow/family-advanced-builder-guidance.spec.ts` |
+| seeded GRE advanced-builder family guidance and summary recommendation surface correctly | Covered | Baseline | `tests/e2e/workflow/family-advanced-builder-guidance.spec.ts` |
+| seeded AWS advanced-builder family guidance and summary recommendation surface correctly | Covered | Baseline | `tests/e2e/workflow/family-advanced-builder-guidance.spec.ts` |
 | apply quick-practice template as the advanced-builder seed | Covered | Mutable | `tests/e2e/workflow/institute-exam-creation-advanced-matrix.mutable.spec.ts` |
 | preview a disposable advanced-builder exam blueprint | Covered | Mutable | `tests/e2e/workflow/institute-exam-creation-advanced-matrix.mutable.spec.ts` |
 | create disposable `practice` exam from advanced builder | Covered | Mutable | `tests/e2e/workflow/institute-exam-creation-advanced-matrix.mutable.spec.ts` |
@@ -549,10 +578,20 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 
 | Action | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
-| create exam route opens | Covered | Mutable | `tests/e2e/workflow/institute-exam-creation-wizard-matrix.mutable.spec.ts` |
+| create exam route opens | Covered | Baseline + Mutable | `tests/e2e/workflow/institute-family-guided-create-defaults.spec.ts`, `tests/e2e/workflow/institute-exam-creation-wizard-matrix.mutable.spec.ts` |
+| seeded NEET family guidance and execution checklist surface in wizard | Covered | Baseline | `tests/e2e/workflow/institute-family-guided-create-defaults.spec.ts` |
+| seeded NEET family defaults prefill duration, runtime, and learner posture | Covered | Baseline | `tests/e2e/workflow/institute-family-guided-create-defaults.spec.ts` |
+| seeded JEE family guidance and execution checklist surface in wizard | Covered | Baseline | `tests/e2e/workflow/institute-family-guided-create-defaults.spec.ts` |
+| seeded JEE family defaults prefill duration, runtime, and learner posture | Covered | Baseline | `tests/e2e/workflow/institute-family-guided-create-defaults.spec.ts` |
+| seeded GRE family guidance and execution checklist surface in wizard | Covered | Baseline | `tests/e2e/workflow/institute-family-guided-create-defaults.spec.ts` |
+| seeded GRE family defaults prefill duration, runtime, and learner posture | Covered | Baseline | `tests/e2e/workflow/institute-family-guided-create-defaults.spec.ts` |
+| seeded AWS family guidance and execution checklist surface in wizard | Covered | Baseline | `tests/e2e/workflow/institute-family-guided-create-defaults.spec.ts` |
+| seeded AWS family defaults prefill duration, runtime, and learner posture | Covered | Baseline | `tests/e2e/workflow/institute-family-guided-create-defaults.spec.ts` |
 | create `practice` exam shell from guided wizard | Covered | Mutable | `tests/e2e/workflow/institute-exam-creation-wizard-matrix.mutable.spec.ts` |
 | create `quiz` exam shell from guided wizard | Covered | Mutable | `tests/e2e/workflow/institute-exam-creation-wizard-matrix.mutable.spec.ts` |
 | create `mock_exam` exam shell from guided wizard | Covered | Mutable | `tests/e2e/workflow/institute-exam-creation-wizard-matrix.mutable.spec.ts` |
+| persist JEE guided-family defaults into saved institute exam metadata | Covered | Mutable | `tests/e2e/workflow/institute-family-guided-persistence.mutable.spec.ts` |
+| persist GRE guided-family defaults into saved institute exam metadata | Covered | Mutable | `tests/e2e/workflow/institute-family-guided-persistence.mutable.spec.ts` |
 | guided wizard handoff to created exam detail | Covered | Mutable | `tests/e2e/workflow/institute-exam-creation-wizard-matrix.mutable.spec.ts` |
 
 ### `/institute/exams/:id`
@@ -597,6 +636,7 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | Action | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
 | question bank page loads | Covered | Baseline | `tests/e2e/workflow/institute-question-bank-workspace.spec.ts` |
+| question bank route remains reachable in the cross-browser shell lane | Covered | Baseline | `tests/e2e/workflow/institute-cross-browser-shell.spec.ts` |
 | search/filter workflow | Covered | Baseline | `tests/e2e/workflow/institute-question-bank-workspace.spec.ts` |
 | preview details panel opens from a visible question card when available | Covered | Baseline | `tests/e2e/workflow/institute-question-bank-workspace.spec.ts` |
 | import questions route entry | Covered | Baseline | `tests/e2e/workflow/institute-question-bank-workspace.spec.ts` |
@@ -647,6 +687,8 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | Action | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
 | results landing loads | Covered | Baseline | `tests/e2e/smoke/institute-results.spec.ts`, `tests/e2e/workflow/institute-results-workspace.spec.ts` |
+| results route remains reachable in the cross-browser shell lane | Covered | Baseline | `tests/e2e/workflow/institute-cross-browser-shell.spec.ts` |
+| results workflow cards remain reachable in the cross-browser deep-route lane | Covered | Baseline | `tests/e2e/workflow/institute-cross-browser-results.spec.ts` |
 | exam state filter | Covered | Baseline | `tests/e2e/workflow/institute-results-workspace.spec.ts` |
 | sort by filter | Covered | Baseline | `tests/e2e/workflow/institute-results-workspace.spec.ts` |
 | group by filter | Covered | Baseline | `tests/e2e/workflow/institute-results-workspace.spec.ts` |
@@ -668,6 +710,7 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | Action | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
 | analytics landing loads | Covered | Baseline | `tests/e2e/smoke/institute-results.spec.ts` |
+| analysis route remains reachable in the cross-browser deep-route lane | Covered | Baseline | `tests/e2e/workflow/institute-cross-browser-results.spec.ts` |
 | group by filter | Covered | Baseline | `tests/e2e/smoke/institute-results.spec.ts` |
 | question risk board visible | Covered | Baseline | `tests/e2e/smoke/institute-results.spec.ts`, `tests/e2e/workflow/institute-results-analysis-workspace.spec.ts` |
 | student explorer visible | Covered | Baseline | `tests/e2e/smoke/institute-results.spec.ts`, `tests/e2e/workflow/institute-results-analysis-workspace.spec.ts` |
@@ -685,6 +728,7 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | Action | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
 | leaderboard route opens | Covered | Baseline | `tests/e2e/workflow/institute-results-workspace.spec.ts` |
+| leaderboard route remains reachable in the cross-browser deep-route lane | Covered | Baseline | `tests/e2e/workflow/institute-cross-browser-results.spec.ts` |
 | publication checklist visible | Covered | Baseline | `tests/e2e/workflow/institute-results-leaderboard-workspace.spec.ts` |
 | leaderboard KPI cards visible | Covered | Baseline | `tests/e2e/workflow/institute-results-leaderboard-workspace.spec.ts` |
 | ranked row details visible or honest empty state | Covered | Baseline | `tests/e2e/workflow/institute-results-leaderboard-workspace.spec.ts` |
@@ -713,6 +757,7 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | Action | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
 | live monitor page loads | Covered | Baseline | `tests/e2e/workflow/institute-results-live-workspace.spec.ts` |
+| live monitor route remains reachable in the cross-browser deep-route lane | Covered | Baseline | `tests/e2e/workflow/institute-cross-browser-results.spec.ts` |
 | live monitor refresh controls | Covered | Baseline | `tests/e2e/workflow/institute-results-live-workspace.spec.ts` |
 | pause and resume auto refresh | Covered | Baseline | `tests/e2e/workflow/institute-results-live-workspace.spec.ts` |
 | manual refresh button | Covered | Baseline | `tests/e2e/workflow/institute-results-live-workspace.spec.ts` |
@@ -744,6 +789,7 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | Action | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
 | reviews page loads | Covered | Baseline | `tests/e2e/workflow/institute-reviews-workspace.spec.ts` |
+| reviews route remains reachable in the cross-browser shell lane | Covered | Baseline | `tests/e2e/workflow/institute-cross-browser-shell.spec.ts` |
 | open results | Covered | Baseline | `tests/e2e/workflow/institute-reviews-workspace.spec.ts` |
 | open pending | Covered | Baseline | `tests/e2e/workflow/institute-reviews-workspace.spec.ts` |
 | open reviewed | Covered | Baseline | `tests/e2e/workflow/institute-reviews-workspace.spec.ts` |
@@ -763,6 +809,7 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | Action | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
 | dashboard loads | Covered | Baseline | `tests/e2e/smoke/teacher-workflows.spec.ts` |
+| dashboard route remains reachable in the cross-browser shell lane | Covered | Baseline | `tests/e2e/workflow/teacher-cross-browser-shell.spec.ts` |
 | lane filter apply | Covered | Baseline | `tests/e2e/smoke/teacher-workflows.spec.ts` |
 | reset filters | Covered | Baseline | `tests/e2e/smoke/teacher-workflows.spec.ts` |
 | new exam link | Covered | Baseline | `tests/e2e/smoke/teacher-workflows.spec.ts` |
@@ -774,6 +821,7 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | Action | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
 | exams page loads | Covered | Baseline | `tests/e2e/smoke/teacher-workflows.spec.ts` |
+| exams route remains reachable in the cross-browser shell lane | Covered | Baseline | `tests/e2e/workflow/teacher-cross-browser-shell.spec.ts` |
 | exam grouping filter | Covered | Baseline | `tests/e2e/smoke/teacher-workflows.spec.ts` |
 | reset filters | Covered | Baseline | `tests/e2e/smoke/teacher-workflows.spec.ts` |
 | quick create | Covered | Baseline | `tests/e2e/smoke/teacher-workflows.spec.ts` |
@@ -800,7 +848,9 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 
 | Action | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
-| delivery detail page loads | Covered | Baseline | `tests/e2e/smoke/teacher-workflows.spec.ts` |
+| delivery detail page loads | Covered | Baseline | `tests/e2e/workflow/teacher-exam-detail-workspace.spec.ts` |
+| exam publish readiness and result publish readiness panels render | Covered | Baseline | `tests/e2e/workflow/teacher-exam-detail-workspace.spec.ts` |
+| exam actions, configuration, access policy, and publish history panels render | Covered | Baseline | `tests/e2e/workflow/teacher-exam-detail-workspace.spec.ts` |
 | open results when hero handoff is exposed | Covered | Mutable | `tests/e2e/workflow/teacher-exam-detail-mutable.spec.ts` |
 | open reviews when hero handoff is exposed | Covered | Mutable | `tests/e2e/workflow/teacher-exam-detail-mutable.spec.ts` |
 | mutable policy and access actions | Covered | Mutable | `tests/e2e/workflow/teacher-exam-detail-mutable.spec.ts` |
@@ -830,6 +880,7 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | Action | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
 | question bank page loads | Covered | Baseline | `tests/e2e/smoke/teacher-workflows.spec.ts`, `tests/e2e/workflow/question-bank-deep.spec.ts` |
+| question bank route remains reachable in the cross-browser shell lane | Covered | Baseline | `tests/e2e/workflow/teacher-cross-browser-shell.spec.ts` |
 | search/filter workflow | Covered | Baseline | `tests/e2e/workflow/question-bank-deep.spec.ts` |
 | create question route entry | Covered | Baseline | `tests/e2e/smoke/teacher-workflows.spec.ts` |
 | comprehension authoring route entry | Covered | Baseline | `tests/e2e/smoke/teacher-workflows.spec.ts` |
@@ -908,6 +959,8 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | Action | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
 | results page loads | Covered | Baseline | `tests/e2e/workflow/teacher-results-workspace.spec.ts` |
+| results route remains reachable in the cross-browser shell lane | Covered | Baseline | `tests/e2e/workflow/teacher-cross-browser-shell.spec.ts` |
+| results workflow cards remain reachable in the cross-browser deep-route lane | Covered | Baseline | `tests/e2e/workflow/teacher-cross-browser-results.spec.ts` |
 | exam state filter | Covered | Baseline | `tests/e2e/workflow/teacher-results-workspace.spec.ts` |
 | sort by filter | Covered | Baseline | `tests/e2e/workflow/teacher-results-workspace.spec.ts` |
 | group by filter | Covered | Baseline | `tests/e2e/workflow/teacher-results-workspace.spec.ts` |
@@ -932,6 +985,7 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | Action | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
 | leaderboard route opens | Covered | Baseline | `tests/e2e/workflow/teacher-results-workspace.spec.ts` |
+| leaderboard route remains reachable in the cross-browser deep-route lane | Covered | Baseline | `tests/e2e/workflow/teacher-cross-browser-results.spec.ts` |
 | publication checklist visible | Covered | Baseline | `tests/e2e/workflow/teacher-results-leaderboard-workspace.spec.ts` |
 | leaderboard KPI cards visible | Covered | Baseline | `tests/e2e/workflow/teacher-results-leaderboard-workspace.spec.ts` |
 | ranked row details visible or honest empty state | Covered | Baseline | `tests/e2e/workflow/teacher-results-leaderboard-workspace.spec.ts` |
@@ -949,6 +1003,7 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | Action | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
 | analysis page loads | Covered | Baseline | `tests/e2e/workflow/exam-builder.spec.ts`, `tests/e2e/workflow/teacher-results-analysis-workspace.spec.ts` |
+| analysis route remains reachable in the cross-browser deep-route lane | Covered | Baseline | `tests/e2e/workflow/teacher-cross-browser-results.spec.ts` |
 | exam list group filter | Covered | Baseline | `tests/e2e/workflow/exam-builder.spec.ts` |
 | question risk board visible | Covered | Baseline | `tests/e2e/workflow/teacher-results-analysis-workspace.spec.ts` |
 | student explorer visible | Covered | Baseline | `tests/e2e/workflow/teacher-results-analysis-workspace.spec.ts` |
@@ -978,6 +1033,7 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | Action | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
 | live monitor page loads | Covered | Baseline | `tests/e2e/workflow/teacher-results-live-workspace.spec.ts` |
+| live monitor route remains reachable in the cross-browser deep-route lane | Covered | Baseline | `tests/e2e/workflow/teacher-cross-browser-results.spec.ts` |
 | live monitor refresh controls | Covered | Baseline | `tests/e2e/workflow/teacher-results-live-workspace.spec.ts` |
 | pause and resume auto refresh | Covered | Baseline | `tests/e2e/workflow/teacher-results-live-workspace.spec.ts` |
 | manual refresh button | Covered | Baseline | `tests/e2e/workflow/teacher-results-live-workspace.spec.ts` |
@@ -989,6 +1045,7 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | Action | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
 | reviews page loads | Covered | Baseline | `tests/e2e/workflow/teacher-reviews-workspace.spec.ts` |
+| reviews route remains reachable in the cross-browser shell lane | Covered | Baseline | `tests/e2e/workflow/teacher-cross-browser-shell.spec.ts` |
 | open results | Covered | Baseline | `tests/e2e/workflow/teacher-reviews-workspace.spec.ts` |
 | open pending | Covered | Baseline | `tests/e2e/workflow/teacher-reviews-workspace.spec.ts` |
 | open reviewed | Covered | Baseline | `tests/e2e/workflow/teacher-reviews-workspace.spec.ts` |
@@ -1006,11 +1063,21 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 
 ## Student pages
 
+### `/app/dashboard`
+
+| Action | Coverage | Mode | Spec |
+| --- | --- | --- | --- |
+| dashboard page loads with live action queue signals | Covered | Baseline | `tests/e2e/workflow/student-dashboard-workspace.spec.ts`, `tests/e2e/workflow/student-mobile-sanity-workspace.spec.ts` |
+| mobile drawer navigation opens from the student shell | Covered | Baseline | `tests/e2e/workflow/student-mobile-sanity-workspace.spec.ts` |
+| mobile drawer can navigate to tests, results, analytics, and profile routes | Covered | Baseline | `tests/e2e/workflow/student-mobile-sanity-workspace.spec.ts` |
+| cross-browser shell route opens and marks dashboard nav as current | Covered | Baseline | `tests/e2e/workflow/student-cross-browser-shell.spec.ts` |
+
 ### `/app/exams`
 
 | Action | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
 | exams page loads | Covered | Baseline | `tests/e2e/smoke/student-attempts.spec.ts` |
+| exams route remains reachable in the cross-browser shell lane | Covered | Baseline | `tests/e2e/workflow/student-cross-browser-shell.spec.ts` |
 | group by availability | Covered | Baseline | `tests/e2e/smoke/student-attempts.spec.ts` |
 | reset filters | Covered | Baseline | `tests/e2e/smoke/student-attempts.spec.ts` |
 | enter exam key | Covered | Baseline | `tests/e2e/smoke/student-attempts.spec.ts` |
@@ -1048,9 +1115,20 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | Action | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
 | analytics route opens | Covered | Baseline | `tests/e2e/smoke/student-attempts.spec.ts`, `tests/e2e/workflow/student-analytics-deep.spec.ts` |
+| analytics route remains reachable in the cross-browser shell lane | Covered | Baseline | `tests/e2e/workflow/student-cross-browser-shell.spec.ts` |
+| analytics route remains reachable from results in the cross-browser deep-route lane | Covered | Baseline | `tests/e2e/workflow/student-cross-browser-analytics-results.spec.ts` |
 | hero open action center | Covered | Baseline | `tests/e2e/workflow/student-analytics-deep.spec.ts` |
 | source drill opens source analytics detail route when available | Covered | Baseline | `tests/e2e/workflow/student-analytics-deep.spec.ts` |
 | subject drill opens subject analytics detail route when available | Covered | Baseline | `tests/e2e/workflow/student-analytics-deep.spec.ts` |
+
+### `/app/analytics/sources/:sourceKey`
+
+| Action | Coverage | Mode | Spec |
+| --- | --- | --- | --- |
+| source analytics drill opens | Covered | Baseline | `tests/e2e/workflow/student-analytics-deep.spec.ts`, `tests/e2e/workflow/student-analytics-scope-persistence-workspace.spec.ts` |
+| source detail preserves incoming subject and teacher query context | Covered | Baseline | `tests/e2e/workflow/student-analytics-scope-persistence-workspace.spec.ts` |
+| compare results link materializes scoped `source` query and preserves subject/teacher context | Covered | Baseline | `tests/e2e/workflow/student-analytics-scope-persistence-workspace.spec.ts` |
+| subject breakdown drill preserves source-teacher scope | Covered | Baseline | `tests/e2e/workflow/student-analytics-scope-persistence-workspace.spec.ts` |
 
 ### `/app/analytics/actions`
 
@@ -1058,24 +1136,30 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | --- | --- | --- | --- |
 | action center route opens | Covered | Baseline | `tests/e2e/smoke/student-attempts.spec.ts`, `tests/e2e/workflow/student-analytics-deep.spec.ts` |
 | check your timeline | Covered | Baseline | `tests/e2e/workflow/student-analytics-deep.spec.ts` |
+| action center preserves scoped source, subject, and teacher query context from timeline/source/subject drills | Covered | Baseline | `tests/e2e/workflow/student-analytics-scope-persistence-workspace.spec.ts` |
 
 ### `/app/analytics/timeline`
 
 | Action | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
 | timeline route opens | Covered | Baseline | `tests/e2e/smoke/student-attempts.spec.ts`, `tests/e2e/workflow/student-analytics-deep.spec.ts` |
+| timeline route remains reachable from compare in the cross-browser deep-route lane | Covered | Baseline | `tests/e2e/workflow/student-cross-browser-analytics-results.spec.ts` |
 | open action center | Covered | Baseline | `tests/e2e/workflow/student-analytics-deep.spec.ts` |
 | open results | Covered | Baseline | `tests/e2e/workflow/student-analytics-deep.spec.ts` |
 | subject momentum drill | Covered | Baseline | `tests/e2e/workflow/student-analytics-deep.spec.ts` |
+| timeline preserves scoped source, subject, and teacher query context from compare drills | Covered | Baseline | `tests/e2e/workflow/student-analytics-scope-persistence-workspace.spec.ts` |
 
 ### `/app/analytics/results/compare`
 
 | Action | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
 | compare route opens | Covered | Baseline | `tests/e2e/smoke/student-attempts.spec.ts`, `tests/e2e/workflow/student-analytics-deep.spec.ts` |
+| compare route remains reachable in the cross-browser deep-route lane | Covered | Baseline | `tests/e2e/workflow/student-cross-browser-analytics-results.spec.ts` |
 | compare route can be reached from source analytics drill with scoped query params | Covered | Baseline | `tests/e2e/workflow/student-analytics-deep.spec.ts` |
 | compare route renders preserved source and subject context from source drill when present | Covered | Baseline | `tests/e2e/workflow/student-analytics-deep.spec.ts` |
+| compare route preserves source, subject, and teacher context from source-detail CTA | Covered | Baseline | `tests/e2e/workflow/student-analytics-scope-persistence-workspace.spec.ts` |
 | open timeline | Covered | Baseline | `tests/e2e/workflow/student-analytics-deep.spec.ts` |
+| open timeline preserves scoped source, subject, and teacher context | Covered | Baseline | `tests/e2e/workflow/student-analytics-scope-persistence-workspace.spec.ts` |
 | open results | Covered | Baseline | `tests/e2e/workflow/student-analytics-deep.spec.ts` |
 
 ### `/app/analytics/subjects/:subject`
@@ -1086,6 +1170,8 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | subject open action center visible | Covered | Baseline | `tests/e2e/workflow/student-analytics-deep.spec.ts` |
 | subject practice CTA visible | Covered | Baseline | `tests/e2e/workflow/student-analytics-deep.spec.ts` |
 | subject practice CTA preserves subject query | Covered | Baseline | `tests/e2e/workflow/student-analytics-deep.spec.ts` |
+| subject drill from source detail preserves source and teacher scope | Covered | Baseline | `tests/e2e/workflow/student-analytics-scope-persistence-workspace.spec.ts` |
+| subject open action center preserves source and teacher scope | Covered | Baseline | `tests/e2e/workflow/student-analytics-scope-persistence-workspace.spec.ts` |
 
 ### `/app/attempts`
 
@@ -1093,12 +1179,15 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | --- | --- | --- | --- |
 | attempts page entry | Covered | Baseline | `tests/e2e/smoke/student-attempts.spec.ts` |
 | attempt timeline / compare drillthroughs | Covered | Baseline | `tests/e2e/smoke/student-attempts.spec.ts` |
+| attempts route remains reachable in the cross-browser post-submit lane | Covered | Baseline | `tests/e2e/workflow/student-cross-browser-attempts-summary.spec.ts` |
 
 ### `/app/results`
 
 | Action | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
 | results page loads | Covered | Baseline | `tests/e2e/workflow/student-results-workspace.spec.ts` |
+| results route remains reachable in the cross-browser shell lane | Covered | Baseline | `tests/e2e/workflow/student-cross-browser-shell.spec.ts` |
+| results page and analytics handoff remain reachable in the cross-browser deep-route lane | Covered | Baseline | `tests/e2e/workflow/student-cross-browser-analytics-results.spec.ts` |
 | status filter | Covered | Baseline | `tests/e2e/workflow/student-results-workspace.spec.ts` |
 | sort filter | Covered | Baseline | `tests/e2e/workflow/student-results-workspace.spec.ts` |
 | group filter | Covered | Baseline | `tests/e2e/workflow/student-results-workspace.spec.ts` |
@@ -1118,10 +1207,49 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | review attempt | Covered | Baseline | `tests/e2e/workflow/student-results-workspace.spec.ts` |
 | empty-state open exams | Covered | Baseline | `tests/e2e/workflow/student-results-workspace.spec.ts` |
 
+### `/app/attempts/:id/summary`
+
+| Action | Coverage | Mode | Spec |
+| --- | --- | --- | --- |
+| summary route opens from seeded post-submit data | Covered | Baseline | `tests/e2e/workflow/student-post-submit-workspace.spec.ts`, `tests/e2e/workflow/student-cross-browser-attempts-summary.spec.ts` |
+| summary route remains reachable in the cross-browser post-submit lane | Covered | Baseline | `tests/e2e/workflow/student-cross-browser-attempts-summary.spec.ts` |
+| summary route can hand off to results | Covered | Baseline | `tests/e2e/workflow/student-post-submit-workspace.spec.ts`, `tests/e2e/workflow/student-cross-browser-attempts-summary.spec.ts` |
+
+### `/app/attempts/:id/review`
+
+| Action | Coverage | Mode | Spec |
+| --- | --- | --- | --- |
+| review route opens when backend policy exposes learner review | Covered | Baseline | `tests/e2e/workflow/student-post-submit-workspace.spec.ts`, `tests/e2e/workflow/student-cross-browser-attempts-summary.spec.ts` |
+
+### `/app/notifications`
+
+| Action | Coverage | Mode | Spec |
+| --- | --- | --- | --- |
+| notifications page loads | Covered | Baseline | `tests/e2e/workflow/student-utility-workspace.spec.ts`, `tests/e2e/workflow/student-notifications-workspace.spec.ts` |
+| notifications setup-required state stays truthful | Covered | Baseline | `tests/e2e/workflow/student-notifications-workspace.spec.ts` |
+| notifications load-issue state stays truthful | Covered | Baseline | `tests/e2e/workflow/student-notifications-workspace.spec.ts` |
+| notifications empty state open exams CTA | Covered | Baseline | `tests/e2e/workflow/student-utility-workspace.spec.ts`, `tests/e2e/workflow/student-notifications-workspace.spec.ts` |
+| mark notification as read | Covered | Baseline | `tests/e2e/workflow/student-utility-workspace.spec.ts`, `tests/e2e/workflow/student-notifications-workspace.spec.ts` |
+| mark all notifications as read | Covered | Baseline | `tests/e2e/workflow/student-utility-workspace.spec.ts`, `tests/e2e/workflow/student-notifications-workspace.spec.ts` |
+| notifications search filter | Covered | Baseline | `tests/e2e/workflow/student-notifications-workspace.spec.ts` |
+| notifications status filter | Covered | Baseline | `tests/e2e/workflow/student-utility-workspace.spec.ts`, `tests/e2e/workflow/student-notifications-workspace.spec.ts` |
+| notifications group by type | Covered | Baseline | `tests/e2e/workflow/student-utility-workspace.spec.ts`, `tests/e2e/workflow/student-notifications-workspace.spec.ts` |
+| notifications route handoff opens linked learner surface | Covered | Baseline | `tests/e2e/workflow/student-notifications-workspace.spec.ts` |
+| notifications reset filters | Covered | Baseline | `tests/e2e/workflow/student-utility-workspace.spec.ts`, `tests/e2e/workflow/student-notifications-workspace.spec.ts` |
+
+### `/app/profile`
+
+| Action | Coverage | Mode | Spec |
+| --- | --- | --- | --- |
+| profile page loads | Covered | Baseline | `tests/e2e/workflow/student-utility-workspace.spec.ts`, `tests/e2e/workflow/student-mobile-sanity-workspace.spec.ts` |
+| profile route is reachable from the mobile drawer | Covered | Baseline | `tests/e2e/workflow/student-mobile-sanity-workspace.spec.ts` |
+| profile route remains reachable in the cross-browser shell lane | Covered | Baseline | `tests/e2e/workflow/student-cross-browser-shell.spec.ts` |
+
 ### `/app/exams/:id`
 
 | Action | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
+| exam detail route remains reachable in the cross-browser exam/runtime lane | Covered | Baseline | `tests/e2e/workflow/student-cross-browser-exam-runtime.spec.ts` |
 | start disposable assigned exam | Covered | Mutable | `tests/e2e/workflow/student-attempt-mutable.spec.ts` |
 | assigned admin-created platform `mock_exam` is visible to the student | Covered | Mutable | `tests/e2e/workflow/admin-exam-creation-advanced-student-attempt.mutable.spec.ts` |
 | start disposable assigned admin-created platform `mock_exam` | Covered | Mutable | `tests/e2e/workflow/admin-exam-creation-advanced-student-attempt.mutable.spec.ts` |
@@ -1133,6 +1261,7 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 
 | Action | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
+| seeded attempt runtime route remains reachable in the cross-browser exam/runtime lane | Covered | Baseline | `tests/e2e/workflow/student-cross-browser-exam-runtime.spec.ts` |
 | save answer | Covered | Mutable | `tests/e2e/workflow/student-attempt-mutable.spec.ts`, `tests/e2e/workflow/admin-exam-creation-advanced-student-attempt.mutable.spec.ts` |
 | submit exam | Covered | Mutable | `tests/e2e/workflow/student-attempt-mutable.spec.ts`, `tests/e2e/workflow/admin-exam-creation-advanced-student-attempt.mutable.spec.ts` |
 
@@ -1140,7 +1269,6 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 
 ### High-value pending actions
 
-- student results grouped outcome lane assertions
 - download/export assertions across additional surfaces when product export controls are added
 
 ### High-risk buttons still mostly visibility-only

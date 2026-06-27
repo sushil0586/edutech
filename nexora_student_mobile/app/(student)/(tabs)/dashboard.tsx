@@ -11,6 +11,10 @@ import { fetchStudentDashboardBundle } from "@/lib/api/student";
 import { useSessionStore } from "@/store/session-store";
 import { appStyles } from "@/theme/styles";
 
+function normalize(value: string) {
+  return value.trim().toLowerCase();
+}
+
 export default function DashboardScreen() {
   const router = useRouter();
   const accessToken = useSessionStore((state) => state.accessToken);
@@ -25,15 +29,19 @@ export default function DashboardScreen() {
 
   const subjectOptions = profile?.student_context?.subject_options ?? [];
   const exams = query.data?.exams ?? [];
+  const scopedExams =
+    normalize(selectedSubject) === "overall"
+      ? exams
+      : exams.filter((exam) => normalize(exam.subject_name) === normalize(selectedSubject));
   const summary = query.data?.summary ?? null;
   const wallet = query.data?.wallet ?? null;
   const recommendedExam =
-    exams.find((exam) => exam.can_resume) ??
-    exams.find((exam) => exam.can_start) ??
-    exams[0] ??
+    scopedExams.find((exam) => exam.can_resume) ??
+    scopedExams.find((exam) => exam.can_start) ??
+    scopedExams[0] ??
     null;
-  const availableExams = exams.filter((exam) => !exam.economy_access.is_locked).slice(0, 3);
-  const lockedExams = exams.filter((exam) => exam.economy_access.is_locked).slice(0, 2);
+  const availableExams = scopedExams.filter((exam) => !exam.economy_access.is_locked).slice(0, 3);
+  const lockedExams = scopedExams.filter((exam) => exam.economy_access.is_locked).slice(0, 2);
 
   return (
     <ScreenShell>
@@ -54,22 +62,34 @@ export default function DashboardScreen() {
                 ? query.error.message
                 : "Unable to load dashboard right now."
               : recommendedExam
-                ? `Next recommended exam: ${recommendedExam.title}`
-                : "No recommended exam is available right now."
+                ? `Next recommended exam${normalize(selectedSubject) === "overall" ? "" : ` in ${selectedSubject}`}: ${recommendedExam.title}`
+                : `No recommended exam is available${normalize(selectedSubject) === "overall" ? "" : ` in ${selectedSubject}`} right now.`
         }
         actions={
-          recommendedExam ? (
+          <View style={appStyles.rowWrap}>
+            {recommendedExam ? (
+              <ActionButton
+                label={recommendedExam.can_resume ? "Resume Attempt" : "Open Exam"}
+                onPress={() =>
+                  router.push(
+                    recommendedExam.can_resume && recommendedExam.active_attempt
+                      ? `/(attempt)/attempt/${recommendedExam.active_attempt.id}`
+                      : `/(student)/exam/${recommendedExam.id}`,
+                  )
+                }
+              />
+            ) : null}
             <ActionButton
-              label={recommendedExam.can_resume ? "Resume Attempt" : "Open Exam"}
-              onPress={() =>
-                router.push(
-                  recommendedExam.can_resume && recommendedExam.active_attempt
-                    ? `/(attempt)/attempt/${recommendedExam.active_attempt.id}`
-                    : `/(student)/exam/${recommendedExam.id}`,
-                )
-              }
+              label="Open Exams"
+              tone="secondary"
+              onPress={() => router.push("./exams")}
             />
-          ) : undefined
+            <ActionButton
+              label="Attempts"
+              tone="secondary"
+              onPress={() => router.push("./attempts")}
+            />
+          </View>
         }
       />
       {query.isError ? (
@@ -110,6 +130,12 @@ export default function DashboardScreen() {
           subtitle="Switch the dashboard context without leaving the page"
         >
           <View style={appStyles.rowWrap}>
+            <ActionButton
+              key="overall"
+              label="Overall"
+              tone={normalize(selectedSubject) === "overall" ? "primary" : "secondary"}
+              onPress={() => setSelectedSubject("overall")}
+            />
             {subjectOptions.map((option) => (
               <ActionButton
                 key={option.value}
@@ -124,6 +150,7 @@ export default function DashboardScreen() {
       <SectionBlock
         title="Available exams"
         subtitle="Start or resume the next best practice actions"
+        action={<ActionButton label="All Exams" tone="secondary" onPress={() => router.push("./exams")} />}
       >
         {availableExams.length ? (
           availableExams.map((exam) => (
@@ -167,7 +194,8 @@ export default function DashboardScreen() {
         ) : (
           <StatePanel
             title="No available exams yet"
-            body="No currently available exams were returned for this student scope. Check back after scheduling, unlock changes, or new assignments."
+            body={`No currently available exams were returned${normalize(selectedSubject) === "overall" ? "" : ` for ${selectedSubject}`}. Check back after scheduling, unlock changes, or new assignments.`}
+            action={{ label: "Open Attempts", onPress: () => router.push("./attempts"), tone: "secondary" }}
           />
         )}
       </SectionBlock>
@@ -198,7 +226,7 @@ export default function DashboardScreen() {
           <StatePanel
             tone="success"
             title="Nothing is locked right now"
-            body="This learner currently has no premium or gated exams blocking progress."
+            body={`This learner currently has no premium or gated exams${normalize(selectedSubject) === "overall" ? "" : ` in ${selectedSubject}`} blocking progress.`}
           />
         )}
       </SectionBlock>

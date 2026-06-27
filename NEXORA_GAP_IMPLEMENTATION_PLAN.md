@@ -58,7 +58,7 @@ Today, the platform is closest to:
 - exam security and anti-cheat depth
 - teacher monitoring maturity
 - marketing site as a true acquisition layer
-- deployment docs aligned to the active Next.js frontend
+- deployment docs aligned to the active Next.js frontend, with a small amount of remaining server-layout cleanup
 - parent role presence in backend without parent product surface
 - leaderboard and reporting signals without full family or cohort experience
 
@@ -185,9 +185,14 @@ Current marketing and portal experiences reference this direction, but the repo 
 
 ## 7. Documentation And Deployment Gap
 
-The active web frontend is now `edutech_web`, but deployment and demo documentation still primarily reference the older Flutter frontend.
+The active web frontend is now `edutech_web`, and the main deployment and demo docs mostly reflect that.
 
-This creates rollout friction and can confuse implementation priorities.
+The remaining gap is narrower:
+
+- some historical notes still reference Flutter for porting or archival context
+- a few deployment documents still need server-layout consistency
+
+This is now a documentation cleanup problem, not a product-direction problem.
 
 ## Implementation Principles
 
@@ -230,6 +235,7 @@ That mismatch will slow every future phase if we do not normalize it first.
   - an immediate migration goal
   - or a compatibility layer added later
 - update deployment and demo docs to use `edutech_web` as the primary web frontend
+- align deployment runbooks on one server checkout layout: `/var/www/nexora-learn/edutech`
 - define a single source of truth for:
   - current MVP scope
   - next-phase scope
@@ -243,6 +249,7 @@ That mismatch will slow every future phase if we do not normalize it first.
 
 - the team can answer “what are we building right now?” in one sentence
 - the docs no longer imply Flutter web is the active primary frontend
+- deployment runbooks no longer disagree on the expected server checkout path
 
 ## Phase 1. Student Portal Completion
 

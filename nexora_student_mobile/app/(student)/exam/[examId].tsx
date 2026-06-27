@@ -37,6 +37,26 @@ function statusToneLabel(detail: NonNullable<Awaited<ReturnType<typeof fetchStud
   return "Ready to start";
 }
 
+function blockedStateMessage(detail: NonNullable<Awaited<ReturnType<typeof fetchStudentExamDetail>>>) {
+  if (detail.active_attempt) {
+    return null;
+  }
+
+  if (detail.economy_access.is_locked) {
+    return detail.economy_access.lock_reason_message || "This exam is locked until the required star or access rule is satisfied.";
+  }
+
+  if (detail.remaining_attempts <= 0 || detail.availability_state === "completed") {
+    return "This learner has no remaining attempts for this exam, so mobile should stop at detail and use results or review if they are available.";
+  }
+
+  if (detail.availability_state === "upcoming") {
+    return "This exam is visible, but it is not live for the learner yet. Starting is correctly blocked until the scheduled window opens.";
+  }
+
+  return null;
+}
+
 export default function ExamDetailScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -89,9 +109,12 @@ export default function ExamDetailScreen() {
     ? "Resume Attempt"
     : detail?.economy_access.is_locked
       ? "Unlock Required"
+      : detail?.availability_state === "upcoming"
+        ? "Not Live Yet"
       : detail && detail.remaining_attempts > 0
         ? "Start Attempt"
         : "Attempt Limit Reached";
+  const blockedMessage = detail ? blockedStateMessage(detail) : null;
 
   return (
     <ScreenShell>
@@ -126,11 +149,13 @@ export default function ExamDetailScreen() {
                   detail.economy_access.is_locked ||
                   (!detail.active_attempt && detail.remaining_attempts <= 0)
                 }
+                testID="exam-detail-primary-action-button"
               />
               <ActionButton
-                label="Back to Dashboard"
+                label="Open Exams"
                 tone="secondary"
-                onPress={() => router.push("/(student)/(tabs)/dashboard")}
+                onPress={() => router.push("../(tabs)/exams")}
+                testID="exam-detail-open-exams-button"
               />
             </View>
           ) : undefined
@@ -175,6 +200,33 @@ export default function ExamDetailScreen() {
         <View style={appStyles.sectionCard}>
           <Text style={appStyles.errorText}>{actionMessage}</Text>
         </View>
+      ) : null}
+
+      {blockedMessage ? (
+        <StatePanel
+          tone={detail?.economy_access.is_locked ? "warning" : "neutral"}
+          title={
+            detail?.economy_access.is_locked
+              ? "Exam is locked"
+              : detail?.availability_state === "upcoming"
+                ? "Exam is not live yet"
+                : "Exam cannot be started now"
+          }
+          body={blockedMessage}
+          action={{
+            label:
+              detail?.review_available || detail?.result_published
+                ? "Open Results"
+                : "Open Exams",
+            onPress: () =>
+              router.push(
+                detail?.review_available || detail?.result_published
+                  ? "../(tabs)/results"
+                  : "../(tabs)/exams",
+              ),
+            tone: "secondary",
+          }}
+        />
       ) : null}
 
       <SectionBlock

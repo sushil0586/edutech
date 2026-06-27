@@ -67,7 +67,9 @@ export async function GET(request: Request) {
   for (const pack of backendResults) {
     const id = String(pack.code ?? pack.id ?? "").trim();
     if (!id) continue;
+    const starterPack = mergedById.get(id) ?? {};
     mergedById.set(id, {
+      ...starterPack,
       id,
       resourceId: pack.id ? String(pack.id) : undefined,
       label: pack.label ?? id,

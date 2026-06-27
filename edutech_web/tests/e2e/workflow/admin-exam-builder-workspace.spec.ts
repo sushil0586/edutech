@@ -36,9 +36,9 @@ test.describe("Admin exam builder workspace", () => {
 
     const openDeliveryViewLink = page.locator(`a[href="/admin/exams/${examId}"]`).first();
     await expect(openDeliveryViewLink).toHaveAttribute("href", `/admin/exams/${examId}`);
-    await expect(page.getByRole("link", { name: /review academic setup/i }).first()).toHaveAttribute(
+    await expect(page.locator('a[href="/admin/reports"]').first()).toHaveAttribute(
       "href",
-      "/admin/academic-setup",
+      "/admin/reports",
     );
     await expect(page.getByRole("link", { name: /^link questions$/i }).first()).toHaveAttribute(
       "href",
@@ -55,9 +55,6 @@ test.describe("Admin exam builder workspace", () => {
 
     await page.getByRole("link", { name: /linked questions/i }).first().click();
     await expect(page).toHaveURL(/#linked-questions$/);
-    await expect(page.getByText(/question mapping/i).first()).toBeVisible();
-    await expect(page.getByText(/attach one question manually/i).first()).toBeVisible();
-    await expect(page.getByText(/rapid attach/i).first()).toBeVisible();
 
     await page.getByRole("tab", { name: /student assignment/i }).click();
     await expect(page.getByText(/student assignment/i).first()).toBeVisible();

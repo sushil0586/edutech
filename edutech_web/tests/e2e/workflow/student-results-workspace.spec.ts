@@ -30,7 +30,7 @@ async function readResultCardSnapshot(resultCard: ReturnType<Page["locator"]>) {
   const source = (await resultCard.locator(".studentResultSurfaceStatus .statusPill").first().textContent())?.trim() ?? "";
   const visibility = (await resultCard.locator(".studentResultHelper strong").textContent())?.trim() ?? "";
   const reviewButtonVisible = await resultCard
-    .getByRole("link", { name: /review attempt/i })
+    .getByRole("link", { name: /open answer review/i })
     .isVisible()
     .catch(() => false);
 
@@ -39,7 +39,11 @@ async function readResultCardSnapshot(resultCard: ReturnType<Page["locator"]>) {
     source,
     visibility,
     reviewLabel:
-      visibility === "Pending release" ? "Pending release" : reviewButtonVisible ? "Review ready" : "Summary only",
+      visibility === "Evaluation pending"
+        ? "Evaluation pending"
+        : reviewButtonVisible
+          ? "Review available"
+          : "Review locked",
   };
 }
 
@@ -55,6 +59,10 @@ test.describe("Student results workspace", () => {
 
     const filtersCard = page.locator("section.studentWorkspaceFiltersCard").first();
     if (await filtersCard.isVisible().catch(() => false)) {
+      await expect(page.getByText(/results recovery loop/i).first()).toBeVisible();
+      await expect(page.getByText(/do this first/i).first()).toBeVisible();
+      await expect(page.getByRole("link", { name: /open practice lane/i }).first()).toBeVisible();
+
       await expect(page.getByRole("link", { name: /view analytics/i }).first()).toBeVisible();
       await page.getByRole("link", { name: /view analytics/i }).first().click();
       await expect(page).toHaveURL(/\/app\/analytics(?:\?.*)?$/);
@@ -70,8 +78,6 @@ test.describe("Student results workspace", () => {
       await expectStudentResultsWorkspace(page);
 
       const resultsForm = filtersCard.locator("form.studentWorkspaceFiltersForm").first();
-      const firstResultCard = page.locator("article.studentResultSurface").first();
-      const firstResultSnapshot = await readResultCardSnapshot(firstResultCard);
 
       await resultsForm.locator('select[name="result_status"]').selectOption("review_ready");
       await resultsForm.locator('select[name="result_sort"]').selectOption("highest");
@@ -83,13 +89,18 @@ test.describe("Student results workspace", () => {
       await expect(page).toHaveURL(/\/app\/results\?[^#]*result_group=source/);
       await expect(page.getByText(/status: review ready/i)).toBeVisible();
       await expect(page.getByText(/group: source/i)).toBeVisible();
+      const filteredSourceResultCard = page.locator("article.studentResultSurface").first();
+      await expect(filteredSourceResultCard).toBeVisible();
+      const filteredSourceSnapshot = await readResultCardSnapshot(filteredSourceResultCard);
+      await expect(filteredSourceResultCard.getByText(/result published/i).first()).toBeVisible();
+      await expect(filteredSourceResultCard.getByRole("link", { name: /open answer review/i })).toBeVisible();
       await expect(page.locator(".studentResultsGroupedSection").filter({
         has: page.locator(".sectionHeading.sectionHeadingCompact strong", {
-          hasText: firstResultSnapshot.source,
+          hasText: filteredSourceSnapshot.source,
         }),
       }).locator("article.studentResultSurface").filter({
         has: page.locator(".studentResultSurfaceHead strong", {
-          hasText: firstResultSnapshot.title,
+          hasText: filteredSourceSnapshot.title,
         }),
       }).first()).toBeVisible();
 
@@ -118,32 +129,71 @@ test.describe("Student results workspace", () => {
       await resultsForm.getByRole("button", { name: /apply filters/i }).click();
       await expect(page).toHaveURL(/\/app\/results\?[^#]*result_group=review/);
       await expect(page.getByText(/group: review/i)).toBeVisible();
-      await expect(page.locator(".studentResultsGroupedSection").filter({
-        has: page.locator(".sectionHeading.sectionHeadingCompact strong", {
-          hasText: firstResultSnapshot.reviewLabel,
-        }),
-      }).locator("article.studentResultSurface").filter({
-        has: page.locator(".studentResultSurfaceHead strong", {
-          hasText: firstResultSnapshot.title,
-        }),
-      }).first()).toBeVisible();
+      const groupedReviewSection = page.locator(".studentResultsGroupedSection").first();
+      await expect(groupedReviewSection).toBeVisible();
+      await expect(
+        groupedReviewSection.locator(".sectionHeading.sectionHeadingCompact strong").first(),
+      ).toBeVisible();
+      await expect(groupedReviewSection.locator("article.studentResultSurface").first()).toBeVisible();
 
       await page.getByRole("link", { name: /reset filters/i }).first().click();
       await expect(page).toHaveURL(/\/app\/results(?:\?.*)?$/);
 
+      await page.getByRole("link", { name: /open practice lane/i }).first().click();
+      await expect(page).toHaveURL(/\/app\/practice(?:\?.*)?$/);
+      await expect(page.getByRole("heading", { name: /practice/i }).first()).toBeVisible();
+
+      await gotoWithRetry(page, "/app/results");
+      await expectStudentResultsWorkspace(page);
+
       const resultCard = page.locator("article.studentResultSurface").first();
-      const summaryLink = resultCard.getByRole("link", {
-        name: /attempt summary|check attempt/i,
+      const practiceCandidates = [
+        resultCard.getByRole("button", { name: /practice weak areas|practice again|open practice/i }).first(),
+        resultCard.getByRole("link", { name: /practice weak areas|practice again|open practice/i }).first(),
+        resultCard.getByRole("button", { name: /unlock with .* stars/i }).first(),
+        resultCard.getByRole("link", { name: /view practice detail/i }).first(),
+      ];
+      for (const candidate of practiceCandidates) {
+        if (await candidate.isVisible().catch(() => false)) {
+          await candidate.click();
+          await expect(page).toHaveURL(
+            /\/app\/(practice|attempts\/[^/]+|exams\/[^/?#]+)(?:\?.*)?$/,
+          );
+          break;
+        }
+      }
+
+      if (/\/app\/practice(?:\?.*)?$/.test(page.url())) {
+        await expect(page.getByRole("heading", { name: /practice/i }).first()).toBeVisible();
+        await gotoWithRetry(page, "/app/results");
+        await expectStudentResultsWorkspace(page);
+      } else if (/\/app\/attempts\/[^/]+(?:\?.*)?$/.test(page.url())) {
+        await expect(page.getByText(/test in progress|attempt locked/i).first()).toBeVisible();
+        await gotoWithRetry(page, "/app/results");
+        await expectStudentResultsWorkspace(page);
+      } else if (/\/app\/exams\/[^/?#]+(?:\?.*)?$/.test(page.url())) {
+        await expect(page.getByRole("link", { name: /start|resume|open/i }).first()).toBeVisible();
+        await gotoWithRetry(page, "/app/results");
+        await expectStudentResultsWorkspace(page);
+      }
+
+      const resultCardAfterPracticeCheck = page.locator("article.studentResultSurface").first();
+      const summaryLink = resultCardAfterPracticeCheck.getByRole("link", {
+        name: /open summary|check attempt status/i,
       });
       await expect(summaryLink).toBeVisible();
       await summaryLink.click();
       await expect(page).toHaveURL(/\/app\/attempts\/[^/]+\/summary(?:\?.*)?$/);
       await expect(page.getByText(/post-submit state/i).first()).toBeVisible();
+      await expect(
+        page.getByText(/submitted, evaluation pending, result published, then review available/i).first(),
+      ).toBeVisible();
 
-      const reviewLink = page.getByRole("link", { name: /review attempt/i }).first();
+      const reviewLink = page.getByRole("link", { name: /open answer review/i }).first();
       if (await reviewLink.isVisible().catch(() => false)) {
         await reviewLink.click();
         await expect(page).toHaveURL(/\/app\/attempts\/[^/]+\/review(?:\?.*)?$/);
+        await expect(page.getByText(/review mode/i).first()).toBeVisible();
       }
     } else {
       await expect(page.getByText(/your result history is empty right now/i).first()).toBeVisible();

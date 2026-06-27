@@ -5,6 +5,7 @@ from rest_framework.test import APIClient, APITestCase
 from apps.academics.models import AssessmentFamily
 from apps.economy.models import ContentAccessPolicy, UnlockRule
 from apps.exams.models import Exam, ExamQuestion, ExamSection, ExamSourceType
+from apps.question_bank.models import QuestionType
 from apps.teachers.models import TeacherAssignment
 from common.tests.builders import AcademicAssessmentBuilder
 
@@ -41,21 +42,52 @@ class AdvancedExamBuilderApiTests(APITestCase):
             code="NUM-01",
             sort_order=2,
         )
+        self.second_subject = self.builder.create_subject(
+            self.context["institute"],
+            self.context["program"],
+            name="Science",
+            code="SCI10",
+            sort_order=2,
+        )
+        self.second_topic = self.builder.create_topic(
+            self.context["institute"],
+            self.second_subject,
+            name="Motion",
+            code="SCI-MOT-01",
+            sort_order=1,
+        )
+        TeacherAssignment.objects.create(
+            institute=self.context["institute"],
+            teacher=self.teacher,
+            academic_year=self.context["academic_year"],
+            program=self.context["program"],
+            cohort=self.context["cohort"],
+            subject=self.second_subject,
+            is_primary=False,
+        )
         self._seed_questions_for_topic(self.topic_algebra, foundation=6, intermediate=6, advanced=6)
         self._seed_questions_for_topic(self.topic_numbers, foundation=8, intermediate=8, advanced=8)
+        self._seed_questions_for_topic(
+            self.second_topic,
+            foundation=6,
+            intermediate=6,
+            advanced=6,
+            subject=self.second_subject,
+        )
 
-    def _seed_questions_for_topic(self, topic, *, foundation, intermediate, advanced):
+    def _seed_questions_for_topic(self, topic, *, foundation, intermediate, advanced, subject=None):
         counts = {
             "foundation": foundation,
             "intermediate": intermediate,
             "advanced": advanced,
         }
+        subject = subject or self.context["subject"]
         for difficulty_level, total in counts.items():
             for index in range(total):
                 self.builder.create_question_with_options(
                     self.context["institute"],
                     self.context["program"],
-                    self.context["subject"],
+                    subject,
                     topic,
                     self.teacher,
                     difficulty_level=difficulty_level,
@@ -63,6 +95,26 @@ class AdvancedExamBuilderApiTests(APITestCase):
                     default_marks=Decimal("2.00"),
                     negative_marks=Decimal("0.25"),
                 )
+
+    def _create_numeric_question(self, topic, *, difficulty_level="advanced", question_text=None):
+        question_text = question_text or f"{topic.code}-{difficulty_level}-numeric"
+        question, _ = self.builder.create_question_with_options(
+            self.context["institute"],
+            self.context["program"],
+            self.context["subject"],
+            topic,
+            self.teacher,
+            question_type=QuestionType.NUMERIC_ANSWER,
+            question_text=question_text,
+            default_marks=Decimal("4.00"),
+            negative_marks=Decimal("0.00"),
+            options=[],
+            metadata={
+                "accepted_answers": ["42"],
+                "numeric_validation": {"tolerance": "0.01"},
+            },
+        )
+        return question
 
     def _payload(self):
         return {
@@ -196,6 +248,185 @@ class AdvancedExamBuilderApiTests(APITestCase):
             response.data["resolved_exam"]["experience_profile"]["recommended_navigation_mode"],
             "sequential",
         )
+        self.assertEqual(
+            response.data["resolved_exam"]["assessment_family_profile"]["code"],
+            "competitive",
+        )
+        self.assertIn(
+            "matrix_match",
+            response.data["resolved_exam"]["assessment_family_profile"]["allowed_question_types"],
+        )
+        self.assertEqual(
+            response.data["sections"][0]["family_contract"]["assessment_family_code"],
+            "competitive",
+        )
+        self.assertEqual(
+            response.data["sections"][0]["family_contract"]["negative_marking_scope"],
+            "objective_only",
+        )
+        self.assertTrue(response.data["sections"][0]["family_contract"]["negative_marking_allowed"])
+        self.assertTrue(response.data["sections"][0]["family_contract"]["negative_marking_recommended"])
+        self.assertTrue(response.data["sections"][0]["family_contract"]["negative_marking_aligned"])
+
+    def test_preview_rejects_section_negative_marks_when_family_disables_them(self):
+        family = AssessmentFamily.objects.get(code="certification")
+        program = self.context["program"]
+        program.assessment_family = family
+        program.save(update_fields=["assessment_family"])
+
+        self.client.force_authenticate(user=self.teacher_user)
+        payload = self._payload()
+        payload["exam"]["code"] = "ADV-BUILDER-CERT-01"
+        payload["composition"]["sections"][0]["negative_marks_per_question"] = "0.25"
+
+        response = self.client.post(
+            "/api/v1/exams/advanced-builder/preview/",
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("composition", response.data)
+        self.assertTrue(
+            any("does not allow section-level negative marking" in item for item in response.data["composition"])
+        )
+
+    def test_preview_warns_when_competitive_family_section_has_no_negative_marks(self):
+        family = AssessmentFamily.objects.get(code="competitive")
+        program = self.context["program"]
+        program.assessment_family = family
+        program.save(update_fields=["assessment_family"])
+
+        self.client.force_authenticate(user=self.teacher_user)
+        payload = self._payload()
+        payload["exam"]["code"] = "ADV-BUILDER-COMP-01"
+        payload["composition"]["sections"][0]["negative_marks_per_question"] = "0.00"
+
+        response = self.client.post(
+            "/api/v1/exams/advanced-builder/preview/",
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["valid"])
+        self.assertFalse(response.data["sections"][0]["family_contract"]["negative_marking_aligned"])
+        self.assertTrue(response.data["sections"][0]["family_contract"]["negative_marking_recommended"])
+        self.assertTrue(
+            any("usually expects negative marking" in warning for warning in response.data["warnings"])
+        )
+
+    def test_preview_warns_when_jee_preset_has_no_numeric_entry_questions(self):
+        family = AssessmentFamily.objects.get(code="competitive")
+        program = self.context["program"]
+        program.assessment_family = family
+        program.save(update_fields=["assessment_family"])
+
+        self.client.force_authenticate(user=self.teacher_user)
+        payload = self._payload()
+        payload["exam"]["code"] = "ADV-BUILDER-JEE-NONUM-01"
+        payload["exam"]["preset_pack_code"] = "jee_mains_math"
+
+        response = self.client.post(
+            "/api/v1/exams/advanced-builder/preview/",
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["valid"])
+        self.assertTrue(
+            any("resolved no numeric-entry questions" in warning for warning in response.data["warnings"])
+        )
+        self.assertTrue(response.data["sections"][0]["family_contract"]["numeric_entry_supported"])
+        self.assertFalse(response.data["sections"][0]["family_contract"]["numeric_entry_present"])
+        self.assertEqual(response.data["sections"][0]["family_contract"]["numeric_entry_count"], 0)
+
+    def test_preview_rejects_jee_numeric_entry_section_with_negative_marking(self):
+        family = AssessmentFamily.objects.get(code="competitive")
+        program = self.context["program"]
+        program.assessment_family = family
+        program.save(update_fields=["assessment_family"])
+
+        self.client.force_authenticate(user=self.teacher_user)
+        payload = self._payload()
+        payload["exam"]["code"] = "ADV-BUILDER-JEE-NUMPEN-01"
+        payload["exam"]["preset_pack_code"] = "jee_mains_math"
+        payload["composition"]["sections"] = [
+            {
+                "name": "Numeric Section",
+                "order": 1,
+                "question_count": 1,
+                "marks_per_question": "4.00",
+                "negative_marks_per_question": "1.00",
+                "difficulty_mix": {
+                    "foundation": 0,
+                    "intermediate": 0,
+                    "advanced": 100,
+                },
+                "topics": [
+                    {"topic_code": self.topic_numbers.code, "count": 1},
+                ],
+            }
+        ]
+
+        response = self.client.post(
+            "/api/v1/exams/advanced-builder/preview/",
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("composition", response.data)
+        self.assertIn("do not support negative marking", str(response.data["composition"]))
+
+    def test_preview_returns_gre_reporting_contract_for_gre_preset(self):
+        self.client.force_authenticate(user=self.teacher_user)
+        payload = self._payload()
+        payload["exam"]["code"] = "ADV-BUILDER-GRE-REPORT-01"
+        payload["exam"]["preset_pack_code"] = "gre_quant"
+
+        response = self.client.post(
+            "/api/v1/exams/advanced-builder/preview/",
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        contract = response.data["resolved_exam"]["reporting_contract"]
+        self.assertEqual(contract["family_id"], "gre")
+        self.assertEqual(contract["score_reporting_mode"], "total_score_first")
+        self.assertFalse(contract["sectional_reporting_ready"])
+        self.assertEqual(contract["recommended_review_mode"], "attempted_only")
+        self.assertEqual(contract["recommended_percentile_visibility_mode"], "final_after_exam_closure")
+        self.assertEqual(contract["recommended_benchmark_visibility_mode"], "peer_average_plus_percentile")
+
+    def test_preview_warns_when_gre_reporting_visibility_is_too_early(self):
+        self.client.force_authenticate(user=self.teacher_user)
+        payload = self._payload()
+        payload["exam"]["code"] = "ADV-BUILDER-GRE-WARN-01"
+        payload["exam"]["preset_pack_code"] = "gre_quant"
+        payload["delivery"]["review_mode"] = "solution_review"
+        payload["delivery"]["rank_visibility_mode"] = "provisional_after_submit"
+        payload["delivery"]["percentile_visibility_mode"] = "provisional_after_submit"
+        payload["delivery"]["benchmark_visibility_mode"] = "hidden"
+
+        response = self.client.post(
+            "/api/v1/exams/advanced-builder/preview/",
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(
+            any("attempted-only mode" in warning for warning in response.data["warnings"])
+        )
+        self.assertTrue(
+            any("avoid provisional rank visibility" in warning for warning in response.data["warnings"])
+        )
+        self.assertTrue(
+            any("percentile visibility works best after exam closure" in warning for warning in response.data["warnings"])
+        )
 
     def test_create_builds_exam_sections_questions_and_economy(self):
         self.client.force_authenticate(user=self.teacher_user)
@@ -239,6 +470,14 @@ class AdvancedExamBuilderApiTests(APITestCase):
             "gre_quant",
         )
         self.assertEqual(
+            exam.metadata["advanced_builder"]["reporting_contract"]["family_id"],
+            "gre",
+        )
+        self.assertEqual(
+            exam.metadata["advanced_builder"]["reporting_contract"]["score_reporting_mode"],
+            "total_score_first",
+        )
+        self.assertEqual(
             exam_payload["experience_profile"]["recommended_navigation_mode"],
             "sequential",
         )
@@ -246,10 +485,118 @@ class AdvancedExamBuilderApiTests(APITestCase):
             exam_payload["experience_profile"]["learner_summary"],
             "Treat this as a full simulation with stricter pacing.",
         )
+        self.assertTrue(all(section.subject_id == self.context["subject"].id for section in exam.sections.all()))
 
         unlock_rule = UnlockRule.objects.get(content_key=exam_id, is_active=True)
         self.assertEqual(unlock_rule.rule_type, "score_threshold")
         self.assertEqual(unlock_rule.required_score_percentage, Decimal("75.00"))
+
+    def test_preview_supports_section_subject_codes_without_scope_subject(self):
+        self.client.force_authenticate(user=self.teacher_user)
+        payload = self._payload()
+        payload["scope"]["subject_code"] = ""
+        payload["exam"]["code"] = "ADV-BUILDER-MULTI-01"
+        payload["composition"]["sections"] = [
+            {
+                "name": "Math Section",
+                "order": 1,
+                "subject_code": self.context["subject"].code,
+                "question_count": 4,
+                "marks_per_question": "2.00",
+                "difficulty_mix": {
+                    "foundation": 50,
+                    "intermediate": 50,
+                    "advanced": 0,
+                },
+                "topics": [
+                    {"topic_code": self.topic_algebra.code, "count": 4},
+                ],
+            },
+            {
+                "name": "Science Section",
+                "order": 2,
+                "subject_code": self.second_subject.code,
+                "question_count": 4,
+                "marks_per_question": "2.00",
+                "difficulty_mix": {
+                    "foundation": 50,
+                    "intermediate": 50,
+                    "advanced": 0,
+                },
+                "topics": [
+                    {"topic_code": self.second_topic.code, "count": 4},
+                ],
+            },
+        ]
+
+        response = self.client.post(
+            "/api/v1/exams/advanced-builder/preview/",
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["valid"])
+        self.assertTrue(response.data["resolved_exam"]["primary_subject"])
+        self.assertEqual(response.data["sections"][0]["subject_code"], self.context["subject"].code)
+        self.assertEqual(response.data["sections"][1]["subject_code"], self.second_subject.code)
+        self.assertEqual(response.data["sections"][1]["subject_name"], self.second_subject.name)
+
+    def test_create_persists_section_subjects_for_multi_subject_exam(self):
+        self.client.force_authenticate(user=self.teacher_user)
+        payload = self._payload()
+        payload["scope"]["subject_code"] = ""
+        payload["exam"]["code"] = "ADV-BUILDER-MULTI-02"
+        payload["composition"]["sections"] = [
+            {
+                "name": "Math Section",
+                "order": 1,
+                "subject_code": self.context["subject"].code,
+                "question_count": 3,
+                "marks_per_question": "2.00",
+                "difficulty_mix": {
+                    "foundation": 100,
+                    "intermediate": 0,
+                    "advanced": 0,
+                },
+                "topics": [
+                    {"topic_code": self.topic_algebra.code, "count": 3},
+                ],
+            },
+            {
+                "name": "Science Section",
+                "order": 2,
+                "subject_code": self.second_subject.code,
+                "question_count": 3,
+                "marks_per_question": "2.00",
+                "difficulty_mix": {
+                    "foundation": 100,
+                    "intermediate": 0,
+                    "advanced": 0,
+                },
+                "topics": [
+                    {"topic_code": self.second_topic.code, "count": 3},
+                ],
+            },
+        ]
+
+        response = self.client.post(
+            "/api/v1/exams/advanced-builder/create/",
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        exam = Exam.objects.get(pk=response.data["data"]["id"])
+        self.assertEqual(exam.sections.count(), 2)
+        self.assertEqual(
+            list(exam.sections.order_by("section_order").values_list("subject__code", flat=True)),
+            [self.context["subject"].code, self.second_subject.code],
+        )
+        self.assertEqual(
+            exam.metadata["advanced_builder"]["section_subject_codes"],
+            [self.context["subject"].code, self.second_subject.code],
+        )
 
     def test_strict_selection_fails_when_topic_pool_is_short(self):
         self.client.force_authenticate(user=self.admin_user)

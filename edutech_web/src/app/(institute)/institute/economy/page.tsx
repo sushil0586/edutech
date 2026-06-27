@@ -72,7 +72,7 @@ export default async function InstituteEconomyPage() {
     <section className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteSupportPageVivid">
       <InstitutePageHeader
         title="Economy Oversight"
-        description="Review how star-based access is attached to institute exams and support student wallets with controlled administrative actions."
+        description="Review how star-based access is attached to institute exams and support institute-scoped student wallets with controlled administrative actions."
         statusLabel={
           source === "live"
             ? `${gatedExams.length} exams with economy policy`
@@ -96,7 +96,7 @@ export default async function InstituteEconomyPage() {
           <p>
             This workspace is intentionally grounded in the backend contracts that exist today. It tracks exam-level
             economy policies and provides institute-scoped wallet support actions without inventing a separate pricing
-            system in the frontend.
+            system in the frontend. Pack, plan, referral, and unlock catalog governance still remain platform-owned.
           </p>
           <small>
             {students.length} students in scope · {starLockedCount} star-gated exams
@@ -214,7 +214,7 @@ export default async function InstituteEconomyPage() {
                   <div className="weakTopicRow">
                     <div>
                       <strong>Student support actions</strong>
-                      <span>Wallet inspection, reward review, controlled star grants, and unlock recalculation are supported.</span>
+                      <span>Wallet inspection, reward review, controlled star grants, unlock recalculation, and pending order confirmation are supported for institute-scoped learners.</span>
                     </div>
                     <div className="weakTopicMeta">
                       <strong>{students.length}</strong>
@@ -223,12 +223,12 @@ export default async function InstituteEconomyPage() {
                   </div>
                   <div className="weakTopicRow">
                     <div>
-                      <strong>Future catalog management</strong>
-                      <span>Pack and subscription configuration remains an operator workflow until dedicated admin endpoints are added.</span>
+                      <strong>Catalog governance stays centralized</strong>
+                      <span>Pack, subscription, referral, and unlock-rule configuration remain platform/backend-command-led rather than institute-managed.</span>
                     </div>
                     <div className="weakTopicMeta">
-                      <strong>Backend-led</strong>
-                      <span>No fake UI</span>
+                      <strong>Platform-owned</strong>
+                      <span>Support-only here</span>
                     </div>
                   </div>
                 </div>

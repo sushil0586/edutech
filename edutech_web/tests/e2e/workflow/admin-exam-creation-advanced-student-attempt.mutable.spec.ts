@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { getRoleCredentials } from "../fixtures/env";
+import { answerCurrentAttemptQuestion } from "../helpers/attempt";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
 import { expectAdminWorkspace, expectStudentWorkspace } from "../helpers/navigation";
@@ -24,6 +25,18 @@ function toDateTimeLocalValue(date: Date) {
   const hours = `${date.getHours()}`.padStart(2, "0");
   const minutes = `${date.getMinutes()}`.padStart(2, "0");
   return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+function adminExamReadinessPanel(page: Page) {
+  return page.locator("article").filter({
+    has: page.getByText(/^exam publish readiness$/i),
+  }).first();
+}
+
+function adminResultReadinessPanel(page: Page) {
+  return page.locator("article").filter({
+    has: page.getByText(/^result publish readiness$/i),
+  }).first();
 }
 
 async function backendAccessToken(page: Page) {
@@ -302,6 +315,44 @@ async function scheduleAndPublishAdminExam(page: Page, examId: string) {
   }
 }
 
+async function expectAdminReadinessBeforePublish(page: Page, examId: string, examTitle: string) {
+  await page.goto(`/admin/exams/${examId}`);
+  await expect(
+    page.getByRole("heading", { name: new RegExp(escapeRegExp(examTitle), "i") }).first(),
+  ).toBeVisible();
+  await expect(adminExamReadinessPanel(page)).toContainText(/blocked/i);
+  await expect(adminExamReadinessPanel(page)).toContainText(/blocker/i);
+  await expect(adminResultReadinessPanel(page)).toContainText(/review first|blocked/i);
+}
+
+async function expectAdminReadinessAfterLive(page: Page, examId: string, examTitle: string) {
+  await page.goto(`/admin/exams/${examId}`);
+  await expect(
+    page.getByRole("heading", { name: new RegExp(escapeRegExp(examTitle), "i") }).first(),
+  ).toBeVisible();
+  await expect(adminExamReadinessPanel(page)).toContainText(/ready/i);
+}
+
+async function expectAdminReadinessAfterSubmission(page: Page, examId: string, examTitle: string) {
+  await loginAsRole(page, "admin");
+  await expectAdminWorkspace(page);
+  await page.goto(`/admin/exams/${examId}`);
+  await expect(
+    page.getByRole("heading", { name: new RegExp(escapeRegExp(examTitle), "i") }).first(),
+  ).toBeVisible();
+
+  const markCompletedButton = page.getByRole("button", { name: /mark completed/i });
+  if (await markCompletedButton.count()) {
+    await markCompletedButton.click();
+    await expect(page).toHaveURL(/message=/);
+  }
+
+  await expect(adminExamReadinessPanel(page)).toContainText(/blocked/i);
+  await expect(adminExamReadinessPanel(page)).toContainText(/invalid status/i);
+  await expect(adminResultReadinessPanel(page)).toContainText(/review first|blocked/i);
+  await expect(adminResultReadinessPanel(page)).toContainText(/0 generated/i);
+}
+
 async function attemptExamAsStudent(page: Page, examId: string, examTitle: string, uniqueSeed: number) {
   await loginAsRole(page, "student");
   await expectStudentWorkspace(page);
@@ -318,19 +369,7 @@ async function attemptExamAsStudent(page: Page, examId: string, examTitle: strin
   await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+(?:\?.*)?$/);
   await expect(page.getByText(/test in progress|attempt locked/i).first()).toBeVisible();
 
-  const radioOption = page.locator('input[name="selected_option"][type="radio"]').first();
-  const checkboxOption = page.locator('input[name="selected_option_ids"][type="checkbox"]').first();
-  const textAnswer = page.locator('textarea[name="answer_text"]').first();
-
-  if (await radioOption.count()) {
-    await radioOption.check();
-  } else if (await checkboxOption.count()) {
-    await checkboxOption.check();
-  } else if (await textAnswer.count()) {
-    await textAnswer.fill(`Playwright admin advanced answer ${uniqueSeed}`);
-  } else {
-    throw new Error("No supported answer input was found on the attempt page.");
-  }
+  await answerCurrentAttemptQuestion(page, uniqueSeed, "Playwright admin advanced answer");
 
   await page.getByRole("checkbox", { name: /mark for review/i }).check();
   await page.getByRole("button", { name: /save (&|and) review|save (&|and) next/i }).click();
@@ -386,9 +425,12 @@ test.describe("Admin advanced-builder student attempt", () => {
       const created = await createAdminAdvancedMockExam(page, uniqueSeed, studentTarget);
       examId = created.examId;
 
+      await expectAdminReadinessBeforePublish(page, examId, created.examTitle);
       await assignStudentToAdminExam(page, examId, studentTarget.displayName);
       await scheduleAndPublishAdminExam(page, examId);
+      await expectAdminReadinessAfterLive(page, examId, created.examTitle);
       await attemptExamAsStudent(page, examId, created.examTitle, uniqueSeed);
+      await expectAdminReadinessAfterSubmission(page, examId, created.examTitle);
     } finally {
       if (examId) {
         await loginAsRole(page, "admin");

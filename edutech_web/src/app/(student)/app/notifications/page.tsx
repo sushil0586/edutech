@@ -182,10 +182,62 @@ export default async function NotificationsPage({
               </small>
             </div>
             <div className="studentInsightHeroActions">
+              <Link className="button buttonPrimary" href="/app/results">
+                Check Result Status
+              </Link>
               <Link className="button buttonSecondary" href="/app/dashboard">
                 Back to Dashboard
               </Link>
+              <Link className="button buttonGhost" href="/app/attempts">
+                Open Attempt Timeline
+              </Link>
             </div>
+          </section>
+
+          <section className="studentInsightsTwoColumn">
+            <article className="contentCard">
+              <div className="sectionHeading">
+                <strong>How To Use This Inbox</strong>
+                <span>Truthful notification flow</span>
+              </div>
+              <div className="studentInsightMessageStack">
+                <div className="studentInsightMessage">
+                  <span className="placeholderDot" aria-hidden="true" />
+                  <p>Unread notifications are prompts to check a real learner surface such as an exam, result, or attempt summary.</p>
+                </div>
+                <div className="studentInsightMessage">
+                  <span className="placeholderDot" aria-hidden="true" />
+                  <p>Use Mark Read only after you have reviewed the linked state. The inbox does not replace the underlying learner workflow.</p>
+                </div>
+                <div className="studentInsightMessage">
+                  <span className="placeholderDot" aria-hidden="true" />
+                  <p>A strong sequence is: open the linked learner route, confirm the current backend state, then mark the notification as read only after that check is complete.</p>
+                </div>
+              </div>
+            </article>
+            <article className="contentCard">
+              <div className="sectionHeading">
+                <strong>Best Next Checks</strong>
+                <span>Fastest learner follow-up</span>
+              </div>
+              <div className="studentInsightMessageStack">
+                <div className="studentInsightMessage">
+                  <span className="placeholderDot" aria-hidden="true" />
+                  <p>Attempt timeline is safest for active or just-submitted work, while results is stronger when a score, publication, or review update is expected.</p>
+                </div>
+              </div>
+              <div className="studentInsightHeroActions">
+                <Link className="button buttonSecondary" href="/app/attempts">
+                  Open Attempt Timeline
+                </Link>
+                <Link className="button buttonSecondary" href="/app/results">
+                  Open Results
+                </Link>
+                <Link className="button buttonGhost" href="/app/exams">
+                  Open Exams
+                </Link>
+              </div>
+            </article>
           </section>
 
           <StudentKpiGrid
@@ -210,6 +262,14 @@ export default async function NotificationsPage({
                 label: "Read Alerts",
                 value: summary.read,
                 note: "Notifications already acknowledged by the learner",
+              },
+              {
+                label: "Inbox State",
+                value: summary.unread > 0 ? "Needs review" : "Caught up",
+                note:
+                  summary.unread > 0
+                    ? "Unread alerts still point to learner routes worth checking"
+                    : "No unread alerts are currently waiting in the inbox",
               },
             ]}
           />

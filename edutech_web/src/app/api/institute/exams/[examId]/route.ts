@@ -39,6 +39,52 @@ async function proxyDelete(examId: string) {
   });
 }
 
+async function proxyGet(examId: string) {
+  if (!API_BASE_URL) {
+    return NextResponse.json(
+      { detail: "Portal API is not configured." },
+      { status: 500 },
+    );
+  }
+
+  const session = await getAuthenticatedSession();
+  if (!session || !hasRequiredRole(session.profile, ["institute_admin"])) {
+    return NextResponse.json(
+      { detail: "Portal session is not available." },
+      { status: 401 },
+    );
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/v1/exams/${examId}/`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${session.accessToken}`,
+      "Content-Type": "application/json",
+    },
+    cache: "no-store",
+  });
+
+  const text = await response.text();
+  return new NextResponse(text, {
+    status: response.status,
+    headers: {
+      "Content-Type": response.headers.get("content-type") ?? "application/json",
+    },
+  });
+}
+
+export async function GET(
+  _request: NextRequest,
+  {
+    params,
+  }: {
+    params: Promise<{ examId: string }>;
+  },
+) {
+  const { examId } = await params;
+  return proxyGet(examId);
+}
+
 export async function DELETE(
   _request: NextRequest,
   {

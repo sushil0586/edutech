@@ -7375,6 +7375,41 @@ button {
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
 }
 
+.attemptMobileRuntimeStrip {
+  display: none;
+  gap: var(--space-3);
+  padding: 16px 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(31, 95, 214, 0.14);
+  background:
+    radial-gradient(circle at top right, rgba(214, 231, 255, 0.58), transparent 28%),
+    linear-gradient(180deg, rgba(249, 252, 255, 0.98), rgba(242, 247, 255, 0.92));
+}
+
+.attemptMobileRuntimeHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.attemptMobileRuntimeHeader > div {
+  display: grid;
+  gap: 6px;
+}
+
+.attemptMobileRuntimeHeader strong {
+  font-size: var(--text-lg);
+  line-height: var(--leading-snug);
+}
+
+.attemptMobileRuntimeGrid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .attemptStatusTile {
   display: grid;
   gap: var(--space-2);
@@ -7414,6 +7449,10 @@ button {
   display: grid;
   gap: var(--space-2);
   color: var(--color-text-secondary);
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(31, 95, 214, 0.12);
+  background: linear-gradient(180deg, rgba(247, 250, 255, 0.98), rgba(241, 246, 255, 0.92));
 }
 
 .attemptSubmitChecklist span {
@@ -7476,6 +7515,67 @@ button {
   color: var(--color-text-muted);
   font-size: var(--text-sm);
   line-height: var(--leading-normal);
+}
+
+.attemptQuestionStateStrip {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.attemptQuestionStateCard {
+  display: grid;
+  gap: 6px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(31, 95, 214, 0.1);
+  background: linear-gradient(180deg, rgba(248, 251, 255, 0.96), rgba(242, 247, 255, 0.86));
+}
+
+.attemptQuestionStateCard span {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.attemptQuestionStateCard strong {
+  color: var(--color-text-primary);
+}
+
+.attemptQuestionStateCard small {
+  color: var(--color-text-secondary);
+  line-height: var(--leading-relaxed);
+}
+
+.attemptLiveCheckpoint {
+  display: grid;
+  gap: var(--space-3);
+  padding: 18px 20px;
+  border-radius: 22px;
+  border: 1px solid rgba(31, 95, 214, 0.14);
+  background:
+    radial-gradient(circle at top right, rgba(214, 231, 255, 0.55), transparent 30%),
+    linear-gradient(180deg, rgba(249, 252, 255, 0.98), rgba(243, 248, 255, 0.92));
+}
+
+.attemptLiveCheckpointHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.attemptLiveCheckpointHeader > div {
+  display: grid;
+  gap: 6px;
+}
+
+.attemptLiveCheckpointHeader strong {
+  font-size: var(--text-lg);
+  line-height: var(--leading-snug);
 }
 
 .attemptOptionList {
@@ -7808,6 +7908,37 @@ button {
   padding: 20px;
 }
 
+.attemptPaletteLegend {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.attemptPaletteLegendCard {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(31, 95, 214, 0.1);
+  background: linear-gradient(180deg, rgba(248, 251, 255, 0.98), rgba(243, 247, 255, 0.92));
+}
+
+.attemptPaletteLegendCard span,
+.attemptSectionCardStats span,
+.attemptQuestionNavChipMeta small {
+  color: var(--color-text-muted);
+}
+
+.attemptPaletteLegendCard strong {
+  font-size: var(--text-base);
+  line-height: var(--leading-snug);
+}
+
+.attemptPaletteLegendCard small {
+  color: var(--color-text-secondary);
+  line-height: var(--leading-relaxed);
+}
+
 .attemptQuestionNavGrid {
   display: grid;
   gap: var(--space-3);
@@ -7816,6 +7947,13 @@ button {
 
 .attemptQuestionNavGridCompact {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.attemptConsoleTimerWrap {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  margin-bottom: 12px;
 }
 
 .attemptQuestionNavChip {
@@ -7842,6 +7980,18 @@ button {
 
 .attemptQuestionNavChipCompact {
   padding: 12px 14px;
+}
+
+.attemptQuestionNavChipMeta {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  text-align: right;
+}
+
+.attemptQuestionNavChipMeta small {
+  font-size: 0.72rem;
+  line-height: 1.35;
 }
 
 .attemptQuestionNavChipCurrent {
@@ -7889,6 +8039,27 @@ button {
 .attemptSectionSwitchButton {
   min-height: 40px;
   font-size: 0.92rem;
+}
+
+.attemptSectionCardStats {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.attemptSectionCardStats > div {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(248, 250, 252, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.attemptSectionCardHint {
+  margin: 0;
+  color: var(--color-text-secondary);
+  line-height: var(--leading-relaxed);
 }
 
 .attemptSectionCardActive {
@@ -12254,6 +12425,51 @@ button {
   line-height: var(--leading-normal);
 }
 
+.builderHintPanel {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+  padding: 16px 18px;
+  border: 1px solid rgba(32, 106, 93, 0.14);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at top right, rgba(32, 106, 93, 0.08), transparent 30%),
+    linear-gradient(180deg, rgba(249, 253, 251, 0.96), rgba(241, 248, 245, 0.92));
+}
+
+.builderHintPanel strong {
+  font-size: var(--text-sm);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.builderHintPanel p {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}
+
+.builderHintPanel small {
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+}
+
+.builderHintPanelList {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--color-text-primary);
+  display: grid;
+  gap: 6px;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}
+
+.builderHintPanelList li {
+  margin: 0;
+}
+
 .wizardSectionHidden {
   display: none;
 }
@@ -12718,6 +12934,10 @@ button {
   .attemptHeroTimerCluster {
     justify-items: start;
   }
+
+  .attemptMobileRuntimeStrip {
+    display: grid;
+  }
 }
 
 @media (max-width: 640px) {
@@ -12754,6 +12974,7 @@ button {
 
   .attemptToolbarConsole,
   .attemptConsoleSummaryGrid,
+  .attemptMobileRuntimeGrid,
   .attemptQuestionNavGridCompact,
   .attemptStatusGrid {
     grid-template-columns: 1fr;

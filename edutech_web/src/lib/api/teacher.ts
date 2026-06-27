@@ -4,6 +4,7 @@ import {
   TeacherExamPage,
   TeacherExamAttempt,
   TeacherExamAttemptPage,
+  TeacherExamPublishReadiness,
   TeacherAttemptIntervention,
   TeacherInsightSummary,
   TeacherLeaderboardPage,
@@ -12,6 +13,7 @@ import {
   TeacherAttemptQuestionAnalysis,
   TeacherQuestionAnalysis,
   TeacherQuestionAnalysisPage,
+  TeacherResultPublishReadiness,
   TeacherResultSummary,
   StudentTopicPerformance,
   PaginatedResponse,
@@ -164,12 +166,30 @@ export async function fetchTeacherExamDetail(examId: string) {
   return requestTeacherJson<TeacherExam>(`/api/v1/exams/${examId}/`);
 }
 
+export async function fetchTeacherExamPublishReadiness(examId: string) {
+  const response = await requestTeacherJson<{
+    success?: boolean;
+    message?: string;
+    data: TeacherExamPublishReadiness;
+  }>(`/api/v1/exams/${examId}/publish-readiness/`);
+  return response.data;
+}
+
 export async function fetchTeacherInsightSummary() {
   return requestTeacherJson<TeacherInsightSummary>("/api/v1/teacher/insights/summary/");
 }
 
 export async function fetchTeacherResultSummary() {
   return requestTeacherJson<TeacherResultSummary[]>("/api/v1/teacher/results/summary/");
+}
+
+export async function fetchTeacherResultPublishReadiness(examId: string) {
+  const response = await requestTeacherJson<{
+    success?: boolean;
+    message?: string;
+    data: TeacherResultPublishReadiness;
+  }>(`/api/v1/results/exam/${examId}/publish-readiness/`);
+  return response.data;
 }
 
 export async function fetchTeacherLiveExamMonitor(examId: string) {

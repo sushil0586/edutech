@@ -224,7 +224,7 @@ function audienceCopy(audience: EconomySeedScreenProps["audience"]) {
       description:
         "Institute admins can use this screen to understand which economy scenarios already have runtime support, which defaults should exist, and which governance lanes remain platform-controlled.",
       boundary:
-        "Institute admins can review the full scenario model here, but economy imports are platform-level only for now. Pack, subscription, and unlock catalog seeding should not be initiated from institute scope.",
+        "Institute admins can review the full scenario model here, but economy imports are platform-level only for now. Pack, subscription, referral, reward-rule, and unlock catalog seeding should not be initiated from institute scope.",
     };
   }
 
@@ -234,7 +234,7 @@ function audienceCopy(audience: EconomySeedScreenProps["audience"]) {
     description:
       "This planning screen covers all economy seed scenarios: reward ladders, referral, paid packs, subscriptions, content access, unlock rules, and admin support actions. Platform admin remains the only import owner for now.",
     boundary:
-      "Platform admin owns economy imports for now, and the seed layer for packs, plans, and advanced policy templates should still be executed through backend commands until governance endpoints exist.",
+      "Platform admin owns economy imports for now, and the seed layer for packs, plans, referral programs, reward rules, and advanced policy templates should still be executed through backend commands until governance endpoints exist.",
   };
 }
 
@@ -381,7 +381,7 @@ export function EconomySeedScreen({ audience }: EconomySeedScreenProps) {
               <div className="weakTopicRow">
                 <div>
                   <strong>Runtime support</strong>
-                  <span>Admin grants, order confirmation, unlock refresh, and wallet inspection stay operational rather than seed-driven.</span>
+                  <span>Admin grants, order confirmation, unlock refresh, and wallet inspection stay operational rather than seed-driven, even while catalog governance remains centralized.</span>
                 </div>
                 <div className="weakTopicMeta">
                   <strong>Always on</strong>

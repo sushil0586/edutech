@@ -125,6 +125,41 @@ function rewardRuleLabel(ruleType: string) {
   }
 }
 
+function latestReferralReward(rewards: Awaited<ReturnType<typeof fetchStudentRewardEvents>>) {
+  return rewards.find(
+    (reward) =>
+      reward.reward_rule_type === "referral" ||
+      reward.ledger_entry?.source_type === "referral_bonus",
+  );
+}
+
+function latestReferralLedgerEntry(ledger: Awaited<ReturnType<typeof fetchStudentWalletLedger>>) {
+  return ledger.find((entry) => entry.source_type === "referral_bonus");
+}
+
+function referralRewardReference(
+  referenceSource:
+    | Awaited<ReturnType<typeof fetchStudentRewardEvents>>[number]
+    | Awaited<ReturnType<typeof fetchStudentWalletLedger>>[number]
+    | null
+    | undefined,
+) {
+  if (!referenceSource) {
+    return null;
+  }
+
+  const metadataReferralCode = referenceSource.metadata?.referral_code;
+  if (typeof metadataReferralCode === "string" && metadataReferralCode.trim()) {
+    return metadataReferralCode.trim();
+  }
+
+  if ("event_reference" in referenceSource) {
+    return referenceSource.event_reference?.trim() || null;
+  }
+
+  return referenceSource.source_reference?.trim() || null;
+}
+
 function transactionStateLabel(order: {
   status: string;
   transactions: Array<{
@@ -215,6 +250,9 @@ export default async function WalletPage({
     fetchCurrentAccountProfile(),
   ]);
   const referralCode = profile?.student_context?.referral_code ?? null;
+  const latestReferralRewardEvent = latestReferralReward(data.rewards);
+  const latestReferralLedger = latestReferralLedgerEntry(data.ledger);
+  const latestReferralCode = referralRewardReference(latestReferralLedger ?? latestReferralRewardEvent);
   const pendingOrders = data.orders.filter((order) =>
     ["pending", "processing"].includes(order.status),
   );
@@ -223,7 +261,7 @@ export default async function WalletPage({
     <div className="studentPage studentDashboardModern studentWalletPage studentLearnerPage studentLearnerAccountPage studentLearnerWalletPage">
       <StudentPageHeader
         title="Wallet"
-        description="Track your stars, understand how they move, and choose the best way to unlock premium content."
+        description="Track real star balance and unlock history, and create economy requests where your institute or platform has enabled them."
         statusLabel={
           data.source === "live"
             ? `${data.wallet?.available_stars ?? 0} stars available`
@@ -275,6 +313,36 @@ export default async function WalletPage({
         />
       ) : (
         <>
+          <section className="studentInsightHeroCard studentInsightHeroCardCompact">
+            <div className="studentInsightHeroCopy">
+              <span className="studentDashboardTag">Wallet State</span>
+              <strong>
+                {data.wallet.available_stars > 0
+                  ? "Stars are available for premium unlocks"
+                  : "No spendable stars are available yet"}
+              </strong>
+              <small>
+                {pendingOrders.length
+                  ? `${pendingOrders.length} order request${pendingOrders.length === 1 ? "" : "s"} still waiting for confirmation`
+                  : "No pending wallet requests right now"}
+              </small>
+              <p className="sectionDescription">
+                This page is a truthful economy workspace. It shows live balance, order requests, unlock history, and subscription-linked value, but purchase settlement still depends on the configured operator flow.
+              </p>
+            </div>
+            <div className="studentInsightHeroActions">
+              <Link className="button buttonPrimary" href="/app/subscriptions">
+                Compare Plans
+              </Link>
+              <Link className="button buttonSecondary" href="/app/exams">
+                Browse Premium Exams
+              </Link>
+              <Link className="button buttonGhost" href="/app/practice">
+                Open Practice
+              </Link>
+            </div>
+          </section>
+
           <StudentKpiGrid
             items={[
               {
@@ -333,6 +401,40 @@ export default async function WalletPage({
 
               <section className="contentCard">
                 <div className="sectionHeading">
+                  <strong>What This Page Can And Cannot Do</strong>
+                </div>
+                <div className="detailGrid">
+                  <article className="detailCard">
+                    <span>Visible here</span>
+                    <strong>Balance and history</strong>
+                    <small>See real wallet credits, debits, rewards, and unlock outcomes from the backend economy records.</small>
+                  </article>
+                  <article className="detailCard">
+                    <span>Visible here</span>
+                    <strong>Request creation</strong>
+                    <small>Requesting a star pack records a real order request, but it may still wait for manual or provider-side confirmation.</small>
+                  </article>
+                  <article className="detailCard">
+                    <span>Not guaranteed here</span>
+                    <strong>Instant settlement</strong>
+                    <small>Payment capture and final wallet credit do not happen optimistically on this page.</small>
+                  </article>
+                  <article className="detailCard">
+                    <span>Best next route</span>
+                    <strong>Subscriptions or premium content</strong>
+                    <small>Use subscriptions for recurring value, or return to exams and practice when you are ready to spend stars.</small>
+                  </article>
+                </div>
+                <div className="studentInsightMessageStack">
+                  <div className="studentInsightMessage">
+                    <span className="placeholderDot" aria-hidden="true" />
+                    <p>A safe order is: check balance and request state here, compare plans only if you need recurring value, then return to exams or practice when you are ready to spend stars.</p>
+                  </div>
+                </div>
+              </section>
+
+              <section className="contentCard">
+                <div className="sectionHeading">
                   <strong>Balance Summary</strong>
                 </div>
                 <div className="detailGrid">
@@ -370,6 +472,16 @@ export default async function WalletPage({
                     <strong>{referralCode ?? "Not active yet"}</strong>
                   </article>
                   <article className="detailCard">
+                    <span>Latest Referral Reward</span>
+                    <strong>
+                      {latestReferralLedger
+                        ? `${latestReferralLedger.stars_delta > 0 ? "+" : ""}${latestReferralLedger.stars_delta} stars`
+                        : referralCode
+                          ? "No referral reward yet"
+                          : "Referral not active yet"}
+                    </strong>
+                  </article>
+                  <article className="detailCard">
                     <span>Reward Events</span>
                     <strong>{data.rewards.length}</strong>
                   </article>
@@ -383,6 +495,21 @@ export default async function WalletPage({
                   </article>
                 </div>
                 <div className="dashboardRailStack">
+                  {latestReferralLedger ? (
+                    <div className="dashboardOfferCard">
+                      <strong>Latest referral reward</strong>
+                      <span>
+                        {latestReferralLedger.stars_delta > 0 ? "+" : ""}
+                        {latestReferralLedger.stars_delta} stars ·{" "}
+                        {studentDateTimeLabel(latestReferralLedger.effective_at)}
+                      </span>
+                      {latestReferralCode ? <small>Applied code: {latestReferralCode}</small> : null}
+                      <small>
+                        Referral rewards appear here after a valid learner joins through your active
+                        code and backend policy credits the wallet.
+                      </small>
+                    </div>
+                  ) : null}
                   {data.rewards.slice(0, 5).map((reward) => (
                     <div className="dashboardRailRow dashboardLedgerRow" key={reward.id}>
                       <div>
@@ -487,6 +614,9 @@ export default async function WalletPage({
                     <small>
                       Use the wallet for one-time packs or open subscriptions for recurring value.
                     </small>
+                    <small>
+                      This page does not promise instant settlement. Treat it as balance truth plus request tracking.
+                    </small>
                     <div className="buttonRow">
                       <Link className="button buttonSecondary" href="/app/exams">
                         Browse Premium Exams
@@ -518,7 +648,7 @@ export default async function WalletPage({
                         <input name="star_pack_id" type="hidden" value={pack.id} />
                         <ActionSubmitButton
                           className="button buttonPrimary"
-                          idleLabel="Create Order"
+                          idleLabel="Request Pack"
                           pendingLabel="Creating..."
                         />
                       </form>

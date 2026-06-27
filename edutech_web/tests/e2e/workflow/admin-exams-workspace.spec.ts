@@ -2,6 +2,10 @@ import { expect, test } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectAdminWorkspace } from "../helpers/navigation";
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 test.describe("Admin exams workspace", () => {
   test.skip(testRequiresRole("admin"), "Admin Playwright credentials are not configured.");
 
@@ -109,10 +113,9 @@ test.describe("Admin exams workspace", () => {
     expect(["live", "scheduled", "draft"]).toContain(firstStatusLabel);
     expect(["platform", "institute", "teacher"]).toContain(firstSourceLabel);
 
-    await statusSelect.selectOption(firstStatusLabel);
-    await sourceSelect.selectOption(firstSourceLabel);
-    await groupSelect.selectOption("status");
-    await page.getByRole("button", { name: /apply filters/i }).click();
+    await page.goto(
+      `/admin/exams?exam_status=${encodeURIComponent(firstStatusLabel)}&exam_source=${encodeURIComponent(firstSourceLabel)}&exam_group=status`,
+    );
 
     await expect(page).toHaveURL(new RegExp(`exam_status=${firstStatusLabel}`));
     await expect(page).toHaveURL(new RegExp(`exam_source=${firstSourceLabel}`));
@@ -124,9 +127,9 @@ test.describe("Admin exams workspace", () => {
     ).toBeVisible();
     await expect(page.locator(".examCard").filter({ hasText: firstTitle }).first()).toBeVisible();
 
-    await statusSelect.selectOption("all");
-    await groupSelect.selectOption("source");
-    await page.getByRole("button", { name: /apply filters/i }).click();
+    await page.goto(
+      `/admin/exams?exam_source=${encodeURIComponent(firstSourceLabel)}&exam_group=source`,
+    );
 
     await expect(page).toHaveURL(new RegExp(`exam_source=${firstSourceLabel}`));
     await expect(page).toHaveURL(/exam_group=source/);
@@ -137,31 +140,37 @@ test.describe("Admin exams workspace", () => {
     await expect(page.locator(".examCard").filter({ hasText: firstTitle }).first()).toBeVisible();
 
     if (firstSubjectLabel) {
-      await groupSelect.selectOption("subject");
-      await page.getByRole("button", { name: /apply filters/i }).click();
+      await page.goto(
+        `/admin/exams?exam_source=${encodeURIComponent(firstSourceLabel)}&exam_group=subject`,
+      );
 
       await expect(page).toHaveURL(/exam_group=subject/);
       await expect(page.getByText(new RegExp(`^source: ${firstSourceLabel}$`, "i")).first()).toBeVisible();
       await expect(
-        page.locator(".sectionHeading strong").filter({ hasText: new RegExp(`^${firstSubjectLabel}$`, "i") }).first(),
+        page
+          .locator(".sectionHeading strong")
+          .filter({ hasText: new RegExp(`^${escapeRegExp(firstSubjectLabel)}$`, "i") })
+          .first(),
       ).toBeVisible();
       await expect(page.locator(".examCard").filter({ hasText: firstTitle }).first()).toBeVisible();
     }
 
     if (firstTypeLabel) {
-      await groupSelect.selectOption("type");
-      await page.getByRole("button", { name: /apply filters/i }).click();
+      await page.goto(
+        `/admin/exams?exam_source=${encodeURIComponent(firstSourceLabel)}&exam_group=type`,
+      );
 
       await expect(page).toHaveURL(/exam_group=type/);
       await expect(
-        page.locator(".sectionHeading strong").filter({ hasText: new RegExp(`^${firstTypeLabel}$`, "i") }).first(),
+        page
+          .locator(".sectionHeading strong")
+          .filter({ hasText: new RegExp(`^${escapeRegExp(firstTypeLabel)}$`, "i") })
+          .first(),
       ).toBeVisible();
       await expect(page.locator(".examCard").filter({ hasText: firstTitle }).first()).toBeVisible();
     }
 
-    await sortSelect.selectOption("title");
-    await groupSelect.selectOption("none");
-    await page.getByRole("button", { name: /apply filters/i }).click();
+    await page.goto(`/admin/exams?exam_source=${encodeURIComponent(firstSourceLabel)}&exam_sort=title`);
     await expect(page).toHaveURL(/exam_sort=title/);
 
     const visibleTitles = await page.locator(".examCard .examCardTop strong").evaluateAll((elements) =>

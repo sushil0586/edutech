@@ -15,14 +15,15 @@ type StudentResponseArtifactPanelProps = {
   fieldName: string;
   initialArtifacts: StudentAttemptAnswer["response_artifacts"];
   allowedArtifactKinds?: ResponseArtifactKind[];
+  assessmentFamilyCode?: string | null;
 };
 
 const RESPONSE_ARTIFACT_OPTIONS: Array<{
   value: ResponseArtifactKind;
   label: string;
 }> = [
-  { value: "audio_recording", label: "Audio response" },
-  { value: "video_recording", label: "Video response" },
+  { value: "audio_recording", label: "Audio recording" },
+  { value: "video_recording", label: "Video recording" },
   { value: "image_upload", label: "Image upload" },
   { value: "document_upload", label: "Document upload" },
 ];
@@ -108,6 +109,7 @@ export function StudentResponseArtifactPanel({
   fieldName,
   initialArtifacts,
   allowedArtifactKinds,
+  assessmentFamilyCode,
 }: StudentResponseArtifactPanelProps) {
   const availableArtifactKinds = useMemo(
     () =>
@@ -143,6 +145,7 @@ export function StudentResponseArtifactPanel({
     typeof MediaRecorder !== "undefined";
 
   const canRecord = isRecordableArtifactKind(artifactKind) && isRecorderAvailable;
+  const isLanguageFamily = assessmentFamilyCode === "language_proficiency";
 
   useEffect(() => {
     if (!availableArtifactKinds.includes(artifactKind)) {
@@ -422,10 +425,13 @@ export function StudentResponseArtifactPanel({
     <div className="attemptArtifactPanel" ref={rootRef}>
       <div className="attemptArtifactPanelHeader">
         <div>
-          <strong>Optional file-backed response</strong>
+          <strong>
+            {isLanguageFamily ? "Optional configured response artifact" : "Optional file-backed response"}
+          </strong>
           <p>
-            Upload an audio, video, image, or document response when the
-            question needs supporting media.
+            {isLanguageFamily
+              ? "Upload or record audio, video, image, or document artifacts only when this prompt explicitly asks for supporting media."
+              : "Upload an audio, video, image, or document response when the question needs supporting media."}
           </p>
         </div>
         <span className="questionBankTagChip">{artifacts.length} saved</span>
@@ -480,7 +486,13 @@ export function StudentResponseArtifactPanel({
         <div className="attemptRecorderPanel">
           <div className="attemptRecorderHeader">
             <strong>
-              {artifactKind === "audio_recording" ? "Record in browser" : "Record video response"}
+              {artifactKind === "audio_recording"
+                ? isLanguageFamily
+                  ? "Record optional audio artifact"
+                  : "Record in browser"
+                : isLanguageFamily
+                  ? "Record optional video artifact"
+                  : "Record video response"}
             </strong>
             {isRecording ? (
               <span className="attemptRecorderStatus">
@@ -577,7 +589,9 @@ export function StudentResponseArtifactPanel({
         <small className="fieldHint">{noticeMessage}</small>
       ) : (
         <small className="fieldHint">
-          Uploaded files stay attached after you click Save Answer.
+          {isLanguageFamily
+            ? "Uploaded or recorded artifacts stay attached after you click Save Answer. Use them only when the prompt explicitly requires media-backed evidence."
+            : "Uploaded files stay attached after you click Save Answer."}
         </small>
       )}
 

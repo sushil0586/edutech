@@ -13,12 +13,20 @@ from apps.attempts.services import (
     hydrate_attempt_integrity_summaries,
     unresolved_review_tasks_queryset,
 )
+from apps.exams.serializers import _exam_subject_summary_payload
 from apps.exams.services import (
     choose_attempt_for_result_policy,
     is_result_visible_for_attempt,
     resolve_result_publish_mode,
     resolve_exam_experience_profile,
 )
+
+RESULT_PUBLISH_BLOCKER_INVALID_STATUS = "invalid_status"
+RESULT_PUBLISH_BLOCKER_EXAM_NOT_COMPLETED = "exam_not_completed"
+RESULT_PUBLISH_BLOCKER_ACTIVE_ATTEMPTS = "active_attempts_in_progress"
+RESULT_PUBLISH_BLOCKER_NO_GENERATED_RESULTS = "no_generated_results"
+RESULT_PUBLISH_BLOCKER_UNRESOLVED_REVIEW_TASKS = "unresolved_review_tasks"
+RESULT_PUBLISH_WARNING_MISSING_RANKS = "missing_ranks"
 
 
 def _score_distribution_buckets(results_qs):
@@ -254,6 +262,111 @@ def _ensure_exam_status_allows_result_publishing(exam):
         raise ValidationError(
             {"exam": "Results cannot be published while active attempts are still in progress."}
         )
+
+
+def _build_result_publish_issue(*, code, field, message, level):
+    return {
+        "code": code,
+        "field": field,
+        "message": message,
+        "level": level,
+    }
+
+
+def build_result_publish_readiness(exam):
+    from apps.results.models import ExamResult
+
+    blockers = []
+    warnings = []
+
+    if exam.status in {"draft", "cancelled"}:
+        blockers.append(
+            _build_result_publish_issue(
+                code=RESULT_PUBLISH_BLOCKER_INVALID_STATUS,
+                field="exam",
+                message="Results cannot be published while the exam is draft or cancelled.",
+                level="blocker",
+            )
+        )
+    elif exam.status != "completed":
+        blockers.append(
+            _build_result_publish_issue(
+                code=RESULT_PUBLISH_BLOCKER_EXAM_NOT_COMPLETED,
+                field="exam",
+                message="Complete the exam before publishing results.",
+                level="blocker",
+            )
+        )
+
+    if exam.attempts.filter(status="in_progress", is_active=True).exists():
+        blockers.append(
+            _build_result_publish_issue(
+                code=RESULT_PUBLISH_BLOCKER_ACTIVE_ATTEMPTS,
+                field="exam",
+                message="Results cannot be published while active attempts are still in progress.",
+                level="blocker",
+            )
+        )
+
+    results = list(ExamResult.objects.filter(exam=exam, is_active=True))
+    if not results:
+        blockers.append(
+            _build_result_publish_issue(
+                code=RESULT_PUBLISH_BLOCKER_NO_GENERATED_RESULTS,
+                field="exam",
+                message="No generated results found for this exam.",
+                level="blocker",
+            )
+        )
+    else:
+        unresolved_review_count = unresolved_review_tasks_queryset(exam=exam).count()
+        if unresolved_review_count:
+            blockers.append(
+                _build_result_publish_issue(
+                    code=RESULT_PUBLISH_BLOCKER_UNRESOLVED_REVIEW_TASKS,
+                    field="exam",
+                    message=(
+                        "Results cannot be published while review tasks are unresolved. "
+                        f"{unresolved_review_count} review task(s) still need attention."
+                    ),
+                    level="blocker",
+                )
+            )
+
+        missing_rank_count = sum(1 for result in results if result.rank is None)
+        if missing_rank_count:
+            warnings.append(
+                _build_result_publish_issue(
+                    code=RESULT_PUBLISH_WARNING_MISSING_RANKS,
+                    field="rank",
+                    message=(
+                        f"{missing_rank_count} generated result(s) do not have ranks yet. "
+                        "Publish can still proceed, but leaderboard order may look incomplete."
+                    ),
+                    level="warning",
+                )
+            )
+
+    published_count = sum(1 for result in results if result.is_published)
+    return {
+        "ready": not blockers,
+        "blocker_count": len(blockers),
+        "warning_count": len(warnings),
+        "generated_results_count": len(results),
+        "published_results_count": published_count,
+        "blockers": blockers,
+        "warnings": warnings,
+    }
+
+
+def _raise_result_publish_readiness_errors(readiness):
+    if readiness["ready"]:
+        return
+
+    field_errors = {}
+    for blocker in readiness["blockers"]:
+        field_errors.setdefault(blocker["field"], []).append(blocker["message"])
+    raise ValidationError(field_errors)
 
 
 def force_submit_eligibility(attempt):
@@ -646,21 +759,9 @@ def publish_exam_results(exam):
     from apps.results.models import ExamResult
     from apps.reports.services import notify_results_published
 
-    _ensure_exam_status_allows_result_publishing(exam)
+    _raise_result_publish_readiness_errors(build_result_publish_readiness(exam))
 
     results = list(ExamResult.objects.filter(exam=exam, is_active=True))
-    if not results:
-        raise ValidationError({"exam": "No generated results found for this exam."})
-    unresolved_review_count = unresolved_review_tasks_queryset(exam=exam).count()
-    if unresolved_review_count:
-        raise ValidationError(
-            {
-                "exam": (
-                    "Results cannot be published while review tasks are unresolved. "
-                    f"{unresolved_review_count} review task(s) still need attention."
-                )
-            }
-        )
 
     published_at = timezone.now()
     for result in results:
@@ -1246,6 +1347,7 @@ def build_student_question_analytics(
 
 def build_student_insight_summary(student):
     from apps.attempts.models import StudentAnswer, StudentExamAttempt
+    from apps.exams.models import Exam
     from apps.results.models import ExamResult, StudentTopicPerformance
     from apps.exams.services import resolve_exam_source_metadata
 
@@ -1374,7 +1476,29 @@ def build_student_insight_summary(student):
         source_bucket["attempted_questions"] += result.correct_answers + result.incorrect_answers
         source_bucket["skipped_questions"] += result.skipped_questions
 
-        subject_name = getattr(getattr(result.exam, "subject", None), "name", "") or "Unmapped"
+    topic_exam_subject_rows = list(
+        topic_qs.values("exam_id", "subject_id", "subject__name").annotate(
+            average_percentage=Avg("percentage"),
+            attempted_questions=Sum("attempted_questions"),
+            skipped_questions=Sum("skipped_questions"),
+        )
+    )
+    exam_map = {result.exam_id: result.exam for result in results}
+    missing_exam_ids = {
+        row["exam_id"] for row in topic_exam_subject_rows if row["exam_id"] not in exam_map
+    }
+    if missing_exam_ids:
+        for exam in Exam.objects.filter(id__in=missing_exam_ids).select_related("source_teacher", "subject"):
+            exam_map[exam.id] = exam
+
+    for row in topic_exam_subject_rows:
+        exam = exam_map.get(row["exam_id"])
+        if exam is None:
+            continue
+        source_meta = source_metadata_map.setdefault(
+            row["exam_id"], resolve_exam_source_metadata(exam)
+        )
+        subject_name = row["subject__name"] or "Unmapped"
         source_subject_key = (source_meta["source_type"], subject_name)
         source_subject_bucket = source_subject_rollups.setdefault(
             source_subject_key,
@@ -1391,12 +1515,10 @@ def build_student_insight_summary(student):
                 "skipped_questions": 0,
             },
         )
-        source_subject_bucket["total_percentage"] += Decimal(result.percentage)
+        source_subject_bucket["total_percentage"] += row["average_percentage"] or Decimal("0.00")
         source_subject_bucket["count"] += 1
-        source_subject_bucket["attempted_questions"] += (
-            result.correct_answers + result.incorrect_answers
-        )
-        source_subject_bucket["skipped_questions"] += result.skipped_questions
+        source_subject_bucket["attempted_questions"] += row["attempted_questions"] or 0
+        source_subject_bucket["skipped_questions"] += row["skipped_questions"] or 0
 
     source_breakdown = sorted(
         [
@@ -1471,18 +1593,21 @@ def build_student_insight_summary(student):
     elif trend_direction == "declining":
         insight_messages.append("Your recent scores dipped slightly. Review weak topics before the next test.")
 
-    return {
-        "student_id": str(student.id),
-        "average_percentage": _decimal_string(average_percentage),
-        "accuracy_percentage": _decimal_string(accuracy_percentage),
-        "attempted_questions": attempted_total,
-        "skipped_questions": total_skipped,
-        "recent_exams": [
+    recent_exams = []
+    for result in results[:5]:
+        exam_subject_summary = _exam_subject_summary_payload(result.exam)
+        primary_subject = exam_subject_summary["primary_subject"]
+        recent_exams.append(
             {
                 "exam_id": str(result.exam_id),
                 "exam_title": result.exam.title,
                 "exam_code": result.exam.code,
                 "subject_name": getattr(getattr(result.exam, "subject", None), "name", None),
+                "primary_subject": primary_subject["id"] if primary_subject is not None else None,
+                "primary_subject_name": primary_subject["name"] if primary_subject is not None else None,
+                "is_multi_subject": exam_subject_summary["is_multi_subject"],
+                "section_subjects": exam_subject_summary["section_subjects"],
+                "subject_summary": exam_subject_summary["subject_summary"],
                 "source_type": source_metadata_map.setdefault(
                     result.exam_id, resolve_exam_source_metadata(result.exam)
                 )["source_type"],
@@ -1495,8 +1620,15 @@ def build_student_insight_summary(student):
                 "result_status": result.result_status,
                 "published_at": result.published_at.isoformat() if result.published_at else None,
             }
-            for result in results[:5]
-        ],
+        )
+
+    return {
+        "student_id": str(student.id),
+        "average_percentage": _decimal_string(average_percentage),
+        "accuracy_percentage": _decimal_string(accuracy_percentage),
+        "attempted_questions": attempted_total,
+        "skipped_questions": total_skipped,
+        "recent_exams": recent_exams,
         "source_breakdown": [
             {**item, "average_percentage": _decimal_string(item["average_percentage"])}
             for item in source_breakdown

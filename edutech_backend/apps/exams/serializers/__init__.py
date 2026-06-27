@@ -3,6 +3,9 @@ from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator
 
 from apps.accounts.scopes import get_account_profile
+from apps.academics.assessment_family_contracts import (
+    validate_program_assessment_family_question_contract,
+)
 from apps.exams.models import (
     AdvancedExamTemplate,
     Exam,
@@ -19,6 +22,7 @@ from apps.exams.services import (
     EXAM_EXPERIENCE_MEDIA_FLOW_CHOICES,
     apply_institute_exam_defaults,
     allowed_exam_sources_for_profile,
+    build_exam_publish_readiness,
     build_exam_content_target,
     default_exam_source_for_profile,
     get_exam_access_policy,
@@ -37,8 +41,167 @@ from apps.exams.services import (
 from apps.question_bank.registry import (
     get_question_type_definition,
     get_question_type_definition_payload,
+    question_type_allowed_response_artifact_types,
 )
 from apps.question_bank.models import AttachmentType, QuestionAttachment, QuestionOption
+
+
+def _question_program_assessment_family_code(question, *, exam_question=None):
+    exam = getattr(exam_question, "exam", None)
+    program = getattr(exam, "program", None) or getattr(question, "program", None)
+    family = getattr(program, "assessment_family", None)
+    return str(getattr(family, "code", "") or "").strip()
+
+
+def _response_artifact_contract_for_question(question, *, exam_question=None):
+    allowed_types = question_type_allowed_response_artifact_types(question.question_type)
+    family_code = _question_program_assessment_family_code(question, exam_question=exam_question)
+    metadata = question.metadata if isinstance(getattr(question, "metadata", {}), dict) else {}
+    policy = metadata.get("response_artifact_policy", {})
+    if not isinstance(policy, dict):
+        policy = {}
+
+    if family_code != "language_proficiency":
+        return {
+            "supports_response_artifacts": bool(allowed_types),
+            "allowed_response_artifact_types": allowed_types,
+        }
+
+    effective_allowed_types = []
+    for asset_kind in allowed_types:
+        if asset_kind == "audio_recording" and not bool(policy.get("allow_audio_recording", False)):
+            continue
+        if asset_kind == "video_recording" and not bool(policy.get("allow_video_recording", False)):
+            continue
+        effective_allowed_types.append(asset_kind)
+
+    return {
+        "supports_response_artifacts": bool(effective_allowed_types),
+        "allowed_response_artifact_types": effective_allowed_types,
+    }
+
+
+def _question_type_definition_payload_for_question(question, *, exam_question=None):
+    payload = get_question_type_definition_payload(question.question_type)
+    if payload is None:
+        return None
+
+    contract = _response_artifact_contract_for_question(question, exam_question=exam_question)
+    payload["allowed_response_artifact_types"] = contract["allowed_response_artifact_types"]
+    capabilities = payload.get("capabilities", {})
+    if not isinstance(capabilities, dict):
+        capabilities = {}
+    capabilities["supports_response_artifacts"] = contract["supports_response_artifacts"]
+    capabilities["allowed_response_artifact_types"] = contract["allowed_response_artifact_types"]
+    payload["capabilities"] = capabilities
+    return payload
+
+
+def _active_exam_sections(obj):
+    prefetched = getattr(obj, "sections", None)
+    if prefetched is not None and hasattr(prefetched, "all"):
+        return list(prefetched.all())
+    return list(obj.sections.filter(is_active=True).select_related("subject"))
+
+
+def _exam_subject_summary_payload(obj):
+    sections = [section for section in _active_exam_sections(obj) if getattr(section, "is_active", True)]
+    buckets = {}
+    order = []
+    for section in sections:
+        subject = getattr(section, "subject", None)
+        if subject is None:
+            continue
+        if subject.id not in buckets:
+            buckets[subject.id] = {
+                "id": str(subject.id),
+                "name": subject.name,
+                "code": subject.code,
+                "section_count": 0,
+                "section_ids": [],
+            }
+            order.append(subject.id)
+        buckets[subject.id]["section_count"] += 1
+        buckets[subject.id]["section_ids"].append(str(section.id))
+
+    primary_subject = getattr(obj, "subject", None)
+    if primary_subject is None and len(order) == 1:
+        only_subject = buckets[order[0]]
+        primary_subject_payload = only_subject
+    elif primary_subject is not None:
+        primary_subject_payload = {
+            "id": str(primary_subject.id),
+            "name": primary_subject.name,
+            "code": primary_subject.code,
+        }
+    else:
+        primary_subject_payload = None
+
+    ordered_subjects = []
+    if primary_subject_payload is not None and primary_subject_payload["id"] in {str(key) for key in order}:
+        primary_id = primary_subject_payload["id"]
+        ordered_subjects.append(buckets[next(key for key in order if str(key) == primary_id)])
+    for subject_id in order:
+        bucket = buckets[subject_id]
+        if primary_subject_payload is not None and bucket["id"] == primary_subject_payload["id"]:
+            continue
+        ordered_subjects.append(bucket)
+
+    if not ordered_subjects and primary_subject_payload is not None:
+        ordered_subjects.append(
+            {
+                "id": primary_subject_payload["id"],
+                "name": primary_subject_payload["name"],
+                "code": primary_subject_payload["code"],
+                "section_count": 0,
+                "section_ids": [],
+            }
+        )
+
+    subject_names = [item["name"] for item in ordered_subjects]
+    subject_count = len(ordered_subjects)
+    if subject_count <= 1:
+        display_label = subject_names[0] if subject_names else "General"
+        short_label = display_label
+    elif subject_count <= 3:
+        display_label = ", ".join(subject_names)
+        short_label = (
+            f"{primary_subject_payload['name']} +{subject_count - 1}"
+            if primary_subject_payload is not None
+            else "Mixed Subjects"
+        )
+    else:
+        display_label = (
+            f"{primary_subject_payload['name']} +{subject_count - 1} subjects"
+            if primary_subject_payload is not None
+            else f"Mixed Subjects (+{subject_count})"
+        )
+        short_label = (
+            f"{primary_subject_payload['name']} +{subject_count - 1}"
+            if primary_subject_payload is not None
+            else "Mixed Subjects"
+        )
+
+    return {
+        "primary_subject": primary_subject_payload,
+        "is_multi_subject": subject_count > 1,
+        "section_subjects": ordered_subjects,
+        "subject_summary": {
+            "display_label": display_label,
+            "short_label": short_label,
+            "subject_count": subject_count,
+            "primary_subject_id": primary_subject_payload["id"] if primary_subject_payload is not None else None,
+            "primary_subject_name": primary_subject_payload["name"] if primary_subject_payload is not None else None,
+            "subjects": [
+                {
+                    "id": item["id"],
+                    "name": item["name"],
+                    "code": item["code"],
+                }
+                for item in ordered_subjects
+            ],
+        },
+    }
 
 
 class AdvancedExamExperienceProfileOverrideSerializer(serializers.Serializer):
@@ -69,6 +232,37 @@ class AdvancedExamExperienceProfileOverrideSerializer(serializers.Serializer):
 
 class ExamSectionSerializer(serializers.ModelSerializer):
     linked_questions_count = serializers.SerializerMethodField()
+    subject_name = serializers.CharField(source="subject.name", read_only=True)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        instance = getattr(self, "instance", None)
+        exam = attrs.get("exam", getattr(instance, "exam", None))
+        subject = attrs.get("subject", getattr(instance, "subject", None))
+
+        if exam is None:
+            return attrs
+
+        if subject is None and instance is None and exam.subject_id:
+            attrs["subject"] = exam.subject
+            subject = exam.subject
+
+        if subject is not None:
+            if subject.institute_id != exam.institute_id:
+                raise serializers.ValidationError(
+                    {"subject": "Section subject must belong to the same institute as the exam."}
+                )
+            if subject.program_id and subject.program_id != exam.program_id:
+                raise serializers.ValidationError(
+                    {"subject": "Section subject must belong to the same program as the exam."}
+                )
+
+        if instance is None and attrs.get("subject") is None:
+            raise serializers.ValidationError(
+                {"subject": "Section subject is required when the exam does not define a fallback subject."}
+            )
+
+        return attrs
 
     class Meta:
         model = ExamSection
@@ -126,6 +320,7 @@ class ExamQuestionSerializer(serializers.ModelSerializer):
         attrs = super().validate(attrs)
         instance = getattr(self, "instance", None)
         exam = attrs.get("exam", getattr(instance, "exam", None))
+        question = attrs.get("question", getattr(instance, "question", None))
         section = attrs.get("section", getattr(instance, "section", None))
         section_name = attrs.get("section_name", getattr(instance, "section_name", ""))
 
@@ -143,6 +338,37 @@ class ExamQuestionSerializer(serializers.ModelSerializer):
             )
         if section is not None:
             attrs["section_name"] = section.name
+            effective_section_subject = section.subject or (exam.subject if exam is not None else None)
+            if effective_section_subject is not None and question is not None:
+                if question.subject_id != effective_section_subject.id:
+                    raise serializers.ValidationError(
+                        {
+                            "question": (
+                                "Question subject must match the selected section subject."
+                            )
+                        }
+                    )
+        elif exam is not None and exam.subject_id and question is not None and question.subject_id != exam.subject_id:
+            raise serializers.ValidationError(
+                {"question": "Question subject must match the exam subject when no section is selected."}
+            )
+
+        if exam is not None and question is not None:
+            question_type_definition = get_question_type_definition(question.question_type)
+            family_contract_errors = validate_program_assessment_family_question_contract(
+                program=exam.program,
+                question_type=question.question_type,
+                marks=attrs.get("marks", getattr(instance, "marks", None) or question.default_marks),
+                negative_marks=attrs.get(
+                    "negative_marks",
+                    getattr(instance, "negative_marks", None) if instance is not None else None,
+                )
+                if attrs.get("negative_marks", serializers.empty) is not serializers.empty
+                else (getattr(instance, "negative_marks", None) if instance is not None else question.negative_marks),
+                question_type_definition=question_type_definition,
+            )
+            if family_contract_errors:
+                raise serializers.ValidationError(family_contract_errors)
         return attrs
 
     class Meta:
@@ -426,6 +652,12 @@ class AdvancedExamTopicCountSerializer(serializers.Serializer):
 
 
 class AdvancedExamSectionBlueprintSerializer(serializers.Serializer):
+    subject_code = serializers.CharField(
+        max_length=50,
+        required=False,
+        allow_blank=True,
+        default="",
+    )
     name = serializers.CharField(max_length=150)
     order = serializers.IntegerField(min_value=1)
     description = serializers.CharField(required=False, allow_blank=True, default="")
@@ -481,7 +713,12 @@ class AdvancedExamScopeSerializer(serializers.Serializer):
     academic_year_name = serializers.CharField(max_length=50)
     program_code = serializers.CharField(max_length=50)
     cohort_code = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=50)
-    subject_code = serializers.CharField(max_length=50)
+    subject_code = serializers.CharField(
+        max_length=50,
+        required=False,
+        allow_blank=True,
+        default="",
+    )
     source_teacher_employee_code = serializers.CharField(
         required=False,
         allow_blank=True,
@@ -847,7 +1084,12 @@ class ExamPresetPackSerializer(serializers.ModelSerializer):
 class ExamReadSerializer(serializers.ModelSerializer):
     program_name = serializers.CharField(source="program.name", read_only=True)
     cohort_name = serializers.CharField(source="cohort.name", read_only=True)
-    subject_name = serializers.CharField(source="subject.name", read_only=True)
+    subject_name = serializers.SerializerMethodField()
+    primary_subject = serializers.SerializerMethodField()
+    primary_subject_name = serializers.SerializerMethodField()
+    is_multi_subject = serializers.SerializerMethodField()
+    section_subjects = serializers.SerializerMethodField()
+    subject_summary = serializers.SerializerMethodField()
     sections = ExamSectionSerializer(many=True, read_only=True)
     assigned_students = ExamAssignedStudentSerializer(
         many=True,
@@ -868,6 +1110,7 @@ class ExamReadSerializer(serializers.ModelSerializer):
     percentile_visibility_mode = serializers.SerializerMethodField()
     benchmark_visibility_mode = serializers.SerializerMethodField()
     rank_freeze_policy = serializers.SerializerMethodField()
+    publish_readiness = serializers.SerializerMethodField()
 
     class Meta:
         model = Exam
@@ -926,11 +1169,45 @@ class ExamReadSerializer(serializers.ModelSerializer):
     def get_rank_freeze_policy(self, obj):
         return resolve_exam_result_visibility_policy(obj)["rank_freeze_policy"]
 
+    def get_publish_readiness(self, obj):
+        return build_exam_publish_readiness(obj)
+
+    def get_subject_name(self, obj):
+        summary = _exam_subject_summary_payload(obj)
+        primary_subject = summary["primary_subject"]
+        if primary_subject is not None:
+            return primary_subject["name"]
+        if summary["is_multi_subject"]:
+            return "Mixed Subjects"
+        return None
+
+    def get_primary_subject(self, obj):
+        primary_subject = _exam_subject_summary_payload(obj)["primary_subject"]
+        return primary_subject["id"] if primary_subject is not None else None
+
+    def get_primary_subject_name(self, obj):
+        primary_subject = _exam_subject_summary_payload(obj)["primary_subject"]
+        return primary_subject["name"] if primary_subject is not None else None
+
+    def get_is_multi_subject(self, obj):
+        return _exam_subject_summary_payload(obj)["is_multi_subject"]
+
+    def get_section_subjects(self, obj):
+        return _exam_subject_summary_payload(obj)["section_subjects"]
+
+    def get_subject_summary(self, obj):
+        return _exam_subject_summary_payload(obj)["subject_summary"]
+
 
 class ExamListSerializer(serializers.ModelSerializer):
     program_name = serializers.CharField(source="program.name", read_only=True)
     cohort_name = serializers.CharField(source="cohort.name", read_only=True)
-    subject_name = serializers.CharField(source="subject.name", read_only=True)
+    subject_name = serializers.SerializerMethodField()
+    primary_subject = serializers.SerializerMethodField()
+    primary_subject_name = serializers.SerializerMethodField()
+    is_multi_subject = serializers.SerializerMethodField()
+    section_subjects = serializers.SerializerMethodField()
+    subject_summary = serializers.SerializerMethodField()
     assigned_student_count = serializers.SerializerMethodField()
     active_questions_count = serializers.SerializerMethodField()
     security_policy = serializers.SerializerMethodField()
@@ -955,6 +1232,11 @@ class ExamListSerializer(serializers.ModelSerializer):
             "cohort_name",
             "subject",
             "subject_name",
+            "primary_subject",
+            "primary_subject_name",
+            "is_multi_subject",
+            "section_subjects",
+            "subject_summary",
             "title",
             "code",
             "description",
@@ -1021,6 +1303,32 @@ class ExamListSerializer(serializers.ModelSerializer):
 
     def get_security_policy(self, obj):
         return resolve_security_policy(obj)
+
+    def get_subject_name(self, obj):
+        summary = _exam_subject_summary_payload(obj)
+        primary_subject = summary["primary_subject"]
+        if primary_subject is not None:
+            return primary_subject["name"]
+        if summary["is_multi_subject"]:
+            return "Mixed Subjects"
+        return None
+
+    def get_primary_subject(self, obj):
+        primary_subject = _exam_subject_summary_payload(obj)["primary_subject"]
+        return primary_subject["id"] if primary_subject is not None else None
+
+    def get_primary_subject_name(self, obj):
+        primary_subject = _exam_subject_summary_payload(obj)["primary_subject"]
+        return primary_subject["name"] if primary_subject is not None else None
+
+    def get_is_multi_subject(self, obj):
+        return _exam_subject_summary_payload(obj)["is_multi_subject"]
+
+    def get_section_subjects(self, obj):
+        return _exam_subject_summary_payload(obj)["section_subjects"]
+
+    def get_subject_summary(self, obj):
+        return _exam_subject_summary_payload(obj)["subject_summary"]
 
     def _serialize_economy_policy(self, policy):
         return ExamEconomyPolicySerializer(
@@ -1166,7 +1474,7 @@ class StudentExamQuestionDetailSerializer(serializers.ModelSerializer):
         return obj.question_order
 
     def get_question_type_definition(self, obj):
-        return get_question_type_definition_payload(obj.question.question_type)
+        return _question_type_definition_payload_for_question(obj.question, exam_question=obj)
 
     def get_options(self, obj):
         options = list(
@@ -1245,7 +1553,12 @@ class StudentExamDetailSerializer(ExamReadSerializer):
 class StudentExamAvailabilitySerializer(serializers.ModelSerializer):
     exam_type = serializers.CharField(read_only=True)
     attempt_policy = serializers.CharField(read_only=True)
-    subject_name = serializers.CharField(source="subject.name", read_only=True)
+    subject_name = serializers.SerializerMethodField()
+    primary_subject = serializers.SerializerMethodField()
+    primary_subject_name = serializers.SerializerMethodField()
+    is_multi_subject = serializers.SerializerMethodField()
+    section_subjects = serializers.SerializerMethodField()
+    subject_summary = serializers.SerializerMethodField()
     server_time = serializers.SerializerMethodField()
     attempts_used = serializers.SerializerMethodField()
     remaining_attempts = serializers.SerializerMethodField()
@@ -1281,6 +1594,11 @@ class StudentExamAvailabilitySerializer(serializers.ModelSerializer):
             "access_key_enabled",
             "status",
             "subject_name",
+            "primary_subject",
+            "primary_subject_name",
+            "is_multi_subject",
+            "section_subjects",
+            "subject_summary",
             "duration_minutes",
             "start_at",
             "end_at",
@@ -1395,6 +1713,32 @@ class StudentExamAvailabilitySerializer(serializers.ModelSerializer):
 
     def get_server_time(self, obj):
         return timezone.now()
+
+    def get_subject_name(self, obj):
+        summary = _exam_subject_summary_payload(obj)
+        primary_subject = summary["primary_subject"]
+        if primary_subject is not None:
+            return primary_subject["name"]
+        if summary["is_multi_subject"]:
+            return "Mixed Subjects"
+        return None
+
+    def get_primary_subject(self, obj):
+        primary_subject = _exam_subject_summary_payload(obj)["primary_subject"]
+        return primary_subject["id"] if primary_subject is not None else None
+
+    def get_primary_subject_name(self, obj):
+        primary_subject = _exam_subject_summary_payload(obj)["primary_subject"]
+        return primary_subject["name"] if primary_subject is not None else None
+
+    def get_is_multi_subject(self, obj):
+        return _exam_subject_summary_payload(obj)["is_multi_subject"]
+
+    def get_section_subjects(self, obj):
+        return _exam_subject_summary_payload(obj)["section_subjects"]
+
+    def get_subject_summary(self, obj):
+        return _exam_subject_summary_payload(obj)["subject_summary"]
 
     def get_attempts_used(self, obj):
         return len(self._student_attempts(obj))

@@ -7,13 +7,15 @@ Plan the first React Native mobile app architecture for Nexora in a way that is:
 - role-scalable in architecture
 - student-only in first implementation scope
 
-For the first build, implement only these student product surfaces:
+For the first build, the original target was a thinner student MVP:
 
 1. Register
 2. Login
-1. Dashboard
-2. Take Exam
-3. Analytics
+3. Dashboard
+4. Take Exam
+5. Analytics
+
+Current implemented reality has already expanded beyond that baseline into an exam-first student shell with dedicated exams, attempts, and results lanes.
 
 This mobile app must reuse the existing Django backend and the same student product rules already approved for the web experience.
 
@@ -27,19 +29,19 @@ That means:
 - but only the student lane will actually be built now
 - no role-specific teacher, parent, institute, or admin screens should be implemented in this phase
 
-It should not include:
+Earlier scope assumptions said it should not include:
 
 - teacher
 - institute
 - parent
 - admin
 - wallet purchase flows
-- full results workspace
+- full desktop-style results workspace
 - weak areas as a separate app section
 - notifications center
 - settings-heavy account management
 
-Those can come later.
+Those heavier surfaces can still come later, but the current student mobile app already includes a compact exam-first results lane because it is necessary for a truthful post-submit journey.
 
 ## Product Principle
 
@@ -118,13 +120,18 @@ That means:
 
 ### Current Implementation Scope
 
-Build only:
+Implemented today:
 
 1. Student register
 2. Student login
 3. Student dashboard
-4. Student exam detail and take-exam flow
-5. Student analytics
+4. Student exams lane
+5. Student attempts lane
+6. Student results lane
+7. Student exam detail and take-exam flow
+8. Student summary and review flow
+9. Student analytics
+10. Student profile
 
 Do not build:
 
@@ -179,16 +186,20 @@ This matches the web architecture direction already established.
 ### Student Tab / Shell
 
 - `dashboard`
+- `exams`
+- `attempts`
+- `results`
 - `analytics`
+- `profile`
 
 ### Detail / Flow Routes
 
 - `exam/[examId]`
 - `attempt/[attemptId]`
-- `attempt/[attemptId]/submit`
-- `attempt/[attemptId]/summary` later if needed
+- `attempt/[attemptId]/summary`
+- `attempt/[attemptId]/review`
 
-For MVP, only `dashboard`, `exam detail`, `live attempt`, and `analytics` are required.
+The mobile app is no longer only `dashboard`, `exam detail`, `live attempt`, and `analytics`. The current student lane now includes dedicated exams, attempts, and results tabs because those are necessary to keep the exam journey coherent on mobile.
 
 ## Final Mobile MVP Screens
 

@@ -599,6 +599,8 @@ export default async function TeacherExamBuilderPage({
   const activeSections = detail.sections.filter((section) => section.is_active);
   const activeExamQuestions = detail.exam_questions.filter((question) => question.is_active);
   const activeAssignedStudents = detail.assigned_students.filter((student) => student.is_active);
+  const selectedProgramFamilyProfile =
+    programs.find((program) => program.id === detail.program)?.assessment_family_profile ?? null;
   const selectedStudentIds = new Set(activeAssignedStudents.map((student) => student.student));
   const availableQuestions = questions.filter(
     (question) => !activeExamQuestions.some((linked) => linked.question === question.id),
@@ -749,6 +751,7 @@ export default async function TeacherExamBuilderPage({
           examType={detail.exam_type}
           durationMinutes={detail.duration_minutes}
           instructions={detail.instructions}
+          programFamilyProfile={selectedProgramFamilyProfile}
           questionTypeLabelMap={questionTypeLabelMap}
           startAt={detail.start_at}
           subjectName={detail.subject_name}

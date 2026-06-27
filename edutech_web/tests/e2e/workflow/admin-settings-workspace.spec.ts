@@ -17,6 +17,10 @@ test.describe("Admin settings workspace", () => {
       page.getByText(/what still needs dedicated contracts before it becomes configurable here/i).first(),
     ).toBeVisible();
     await expect(page.getByText(/current institute footprint/i).first()).toBeVisible();
+    await expect(page.getByText(/economy policy/i).first()).toBeVisible();
+    await expect(page.getByText(/institute-admin support limits/i).first()).toBeVisible();
+    await expect(page.getByText(/policy history/i).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: /save economy policy/i })).toBeVisible();
 
     await expect(page.getByText(/^institutes$/i).first()).toBeVisible();
     await expect(page.getByText(/people in scope/i).first()).toBeVisible();

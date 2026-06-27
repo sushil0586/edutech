@@ -1,0 +1,131 @@
+name: Wave 1 Quality Gates
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "edutech_backend/**"
+      - "edutech_web/**"
+      - ".github/workflows/wave-1-quality-gates.yml"
+      - "scripts/ci_backend_scoped_tests.sh"
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - "edutech_backend/**"
+      - "edutech_web/**"
+      - ".github/workflows/wave-1-quality-gates.yml"
+      - "scripts/ci_backend_scoped_tests.sh"
+
+concurrency:
+  group: wave-1-quality-gates-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend-quality:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: edutech_web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: edutech_web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify student web build
+        run: npm run verify:student
+
+  backend-quality:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: test_edutech_db
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d test_edutech_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DJANGO_DEBUG: "1"
+      DB_NAME: test_edutech_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+    defaults:
+      run:
+        working-directory: edutech_backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: edutech_backend/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Django system check
+        run: python manage.py check
+
+      - name: Migration drift check
+        run: python manage.py makemigrations --check --dry-run
+
+      - name: Resolve changed files
+        id: changed-files
+        working-directory: .
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          changed_file_list="$RUNNER_TEMP/backend_changed_files.txt"
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "run_all=true" >> "$GITHUB_OUTPUT"
+            touch "$changed_file_list"
+          elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            git fetch origin "${{ github.base_ref }}" --depth=1
+            git diff --name-only "origin/${{ github.base_ref }}"...HEAD > "$changed_file_list"
+            echo "run_all=false" >> "$GITHUB_OUTPUT"
+          else
+            if [[ "${{ github.event.before }}" == "0000000000000000000000000000000000000000" ]]; then
+              echo "run_all=true" >> "$GITHUB_OUTPUT"
+              touch "$changed_file_list"
+            else
+              git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" > "$changed_file_list"
+              echo "run_all=false" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+          echo "changed_file_list=$changed_file_list" >> "$GITHUB_OUTPUT"
+
+      - name: Run scoped backend tests
+        working-directory: .
+        run: |
+          if [[ "${{ steps.changed-files.outputs.run_all }}" == "true" ]]; then
+            ./scripts/ci_backend_scoped_tests.sh --all
+          else
+            ./scripts/ci_backend_scoped_tests.sh --changed-file-list "${{ steps.changed-files.outputs.changed_file_list }}"
+          fi

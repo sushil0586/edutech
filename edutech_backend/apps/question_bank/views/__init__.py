@@ -12,7 +12,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
-from apps.academics.models import Topic
+from apps.academics.models import AssessmentFamily, Topic
+from apps.academics.serializers import AssessmentFamilyListSerializer
 from apps.accounts.permissions import CanManageQuestionBank
 from apps.accounts.scopes import scope_institute_queryset, scope_question_queryset, scope_teacher_queryset
 from apps.institutes.models import Institute
@@ -266,10 +267,12 @@ class QuestionViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
             "false",
             "no",
         }
+        assessment_families = AssessmentFamily.objects.filter(is_active=True).order_by("sort_order", "label")
         question_types = list_question_type_definition_payloads(available_only=available_only)
         response_modes = list_response_mode_definition_payloads(available_only=available_only)
         evaluation_modes = list_evaluation_mode_definition_payloads(available_only=available_only)
         payload = {
+            "assessment_families": AssessmentFamilyListSerializer(assessment_families, many=True).data,
             "question_types": question_types,
             "response_modes": response_modes,
             "evaluation_modes": evaluation_modes,

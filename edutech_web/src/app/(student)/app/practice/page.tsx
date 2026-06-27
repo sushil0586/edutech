@@ -31,6 +31,8 @@ import {
   filterStudentRecordsBySource,
   filterStudentSummaryBySource,
   filterStudentSummaryBySubject,
+  getExamSubjectDisplayLabel,
+  getExamSubjectNames,
   getStudentSourceOptions,
   getStudentSubjectOptions,
   resolveSelectedStudentSource,
@@ -46,6 +48,7 @@ import type {
   StudentAvailableExam,
 } from "@/features/dashboard/types";
 import { buildFilterHref, formatFilterValue } from "@/lib/workspace/filter-utils";
+import { resolvePracticeFocusRecommendation } from "@/lib/student/practice";
 
 type PracticeAvailabilityFilter =
   | "all"
@@ -280,7 +283,7 @@ function buildPracticeGroupLabel(exam: StudentAvailableExam, groupBy: PracticeGr
     return titleCaseState(exam.availability_state);
   }
   if (groupBy === "subject") {
-    return exam.subject_name || "General practice";
+    return getExamSubjectDisplayLabel(exam);
   }
   if (groupBy === "access") {
     if (!exam.economy_access.requires_unlock) return "Free access";
@@ -311,10 +314,14 @@ function buildPracticeFilterHref(args: {
   group?: PracticeGroupOption;
   subject?: string;
   topic?: string;
+  source?: string;
+  teacher?: string;
 }) {
   return buildFilterHref("/app/practice", [
     ["subject", args.subject],
     ["topic", args.topic],
+    ["source", args.source],
+    ["teacher", args.teacher],
     ["practice_filter", args.availability, "all"],
     ["practice_sort", args.sort, "recommended"],
     ["practice_group", args.group, "none"],
@@ -422,6 +429,8 @@ export default async function PracticePage({
     error?: string;
     subject?: string;
     topic?: string;
+    source?: string;
+    teacher?: string;
     practice_filter?: string;
     practice_sort?: string;
     practice_group?: string;
@@ -431,6 +440,8 @@ export default async function PracticePage({
     error,
     subject,
     topic,
+    source: sourceParam,
+    teacher: teacherParam,
     practice_filter,
     practice_sort,
     practice_group,
@@ -439,9 +450,7 @@ export default async function PracticePage({
   const registrationContext = profile?.registration_context ?? {};
   const subjectOptions = getStudentSubjectOptions(profile ?? registrationContext);
   const cookieStore = await cookies();
-  const selectedSource = resolveSelectedStudentSource(
-    cookieStore.get(STUDENT_SOURCE_CONTEXT_COOKIE)?.value ?? ALL_SOURCES_CONTEXT,
-  );
+  const requestedSource = resolveSelectedStudentSource(sourceParam ?? ALL_SOURCES_CONTEXT);
   const selectedSubject = resolveSelectedStudentSubject(
     subjectOptions,
     cookieStore.get(STUDENT_SUBJECT_CONTEXT_COOKIE)?.value ?? ALL_SUBJECTS_CONTEXT,
@@ -461,11 +470,19 @@ export default async function PracticePage({
     ...(summary?.source_breakdown ?? []),
     ...(summary?.recent_exams ?? []),
   ]);
+  const selectedSource =
+    sourceParam !== undefined
+      ? requestedSource
+      : resolveSelectedStudentSource(
+          cookieStore.get(STUDENT_SOURCE_CONTEXT_COOKIE)?.value ?? ALL_SOURCES_CONTEXT,
+        );
   const selectedTeacherId = resolveSelectedStudentSourceTeacher(
     teacherOptions,
     selectedSource,
-    cookieStore.get(STUDENT_SOURCE_TEACHER_CONTEXT_COOKIE)?.value ?? null,
+    teacherParam ?? cookieStore.get(STUDENT_SOURCE_TEACHER_CONTEXT_COOKIE)?.value ?? null,
   );
+  const scopedSourceParam =
+    selectedSource === ALL_SOURCES_CONTEXT ? undefined : selectedSource;
   const scopedSummary = summary
     ? filterStudentSummaryBySubject(
         filterStudentSummaryBySource(summary, selectedSource, selectedTeacherId),
@@ -484,8 +501,8 @@ export default async function PracticePage({
     ),
     selectedSubject,
   ).sort((left, right) => {
-    const leftPriority = left.subject_name === focusSubject ? 0 : 1;
-    const rightPriority = right.subject_name === focusSubject ? 0 : 1;
+    const leftPriority = focusSubject && getExamSubjectNames(left).includes(focusSubject) ? 0 : 1;
+    const rightPriority = focusSubject && getExamSubjectNames(right).includes(focusSubject) ? 0 : 1;
     if (leftPriority !== rightPriority) return leftPriority - rightPriority;
     if (left.can_resume !== right.can_resume) return left.can_resume ? -1 : 1;
     if (left.can_start !== right.can_start) return left.can_start ? -1 : 1;
@@ -497,6 +514,9 @@ export default async function PracticePage({
   );
 
   const featuredPractice = filteredPracticeExams[0] ?? null;
+  const featuredPracticeSubjectLabel = featuredPractice
+    ? getExamSubjectDisplayLabel(featuredPractice)
+    : null;
   const additionalPracticeGroups = groupPracticeExams(
     featuredPractice
       ? filteredPracticeExams.filter((exam) => exam.id !== featuredPractice.id)
@@ -514,6 +534,41 @@ export default async function PracticePage({
   const featuredPracticeState = featuredPractice
     ? resolvePracticeUiState(featuredPractice, latestFocusedAttemptId)
     : null;
+  const practiceFocus = resolvePracticeFocusRecommendation({
+    exams: practiceExams,
+    subjectName: focusSubject || focusedWeakTopic?.subject_name || null,
+    topicName: focusTopic || focusedWeakTopic?.topic_name || null,
+  });
+  const practiceLoopSequence =
+    featuredPractice?.review_available
+      ? [
+          {
+            label: "Do this first",
+            detail: "Open the recommended practice set and finish the focused revision pass for this topic.",
+          },
+          {
+            label: "Then next",
+            detail: "Review the latest attempt feedback immediately while the weak pattern is still fresh.",
+          },
+          {
+            label: "After that",
+            detail: "Return to analytics or results before booking another broad mock test.",
+          },
+        ]
+      : [
+          {
+            label: "Do this first",
+            detail: "Start or resume the recommended practice set for the current weak topic.",
+          },
+          {
+            label: "Then next",
+            detail: "Check the attempt summary or review surface as soon as feedback becomes available.",
+          },
+          {
+            label: "After that",
+            detail: "Return to weak areas or analytics to confirm whether the same topic still needs repair.",
+          },
+        ];
 
   return (
     <div className="studentPage studentDashboardModern studentLearnerPage studentLearnerPracticePage">
@@ -641,6 +696,8 @@ export default async function PracticePage({
                   href={buildPracticeFilterHref({
                     subject: focusSubject || undefined,
                     topic: focusTopic || undefined,
+                    source: scopedSourceParam,
+                    teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
                   })}
                 >
                   Reset filters
@@ -651,13 +708,13 @@ export default async function PracticePage({
               <span className="studentWorkspaceFilterQuickLabel">Quick filters</span>
               <div className="studentWorkspaceFilterQuickChips">
                 {[
-                  { label: "All", href: buildPracticeFilterHref({ subject: focusSubject || undefined, topic: focusTopic || undefined }), active: availabilityFilter === "all" && sortOption === "recommended" && groupOption === "none" },
-                  { label: "Ready Now", href: buildPracticeFilterHref({ availability: "ready", sort: sortOption, group: groupOption, subject: focusSubject || undefined, topic: focusTopic || undefined }), active: availabilityFilter === "ready" },
-                  { label: "Resume", href: buildPracticeFilterHref({ availability: "resume", sort: sortOption, group: groupOption, subject: focusSubject || undefined, topic: focusTopic || undefined }), active: availabilityFilter === "resume" },
-                  { label: "Review Ready", href: buildPracticeFilterHref({ availability: "review", sort: sortOption, group: groupOption, subject: focusSubject || undefined, topic: focusTopic || undefined }), active: availabilityFilter === "review" },
-                  { label: "Locked", href: buildPracticeFilterHref({ availability: "locked", sort: sortOption, group: groupOption, subject: focusSubject || undefined, topic: focusTopic || undefined }), active: availabilityFilter === "locked" },
-                  { label: "Shortest", href: buildPracticeFilterHref({ availability: availabilityFilter, sort: "shortest", group: groupOption, subject: focusSubject || undefined, topic: focusTopic || undefined }), active: sortOption === "shortest" },
-                  { label: "Group by Subject", href: buildPracticeFilterHref({ availability: availabilityFilter, sort: sortOption, group: "subject", subject: focusSubject || undefined, topic: focusTopic || undefined }), active: groupOption === "subject" },
+                  { label: "All", href: buildPracticeFilterHref({ subject: focusSubject || undefined, topic: focusTopic || undefined, source: scopedSourceParam, teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined }), active: availabilityFilter === "all" && sortOption === "recommended" && groupOption === "none" },
+                  { label: "Ready Now", href: buildPracticeFilterHref({ availability: "ready", sort: sortOption, group: groupOption, subject: focusSubject || undefined, topic: focusTopic || undefined, source: scopedSourceParam, teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined }), active: availabilityFilter === "ready" },
+                  { label: "Resume", href: buildPracticeFilterHref({ availability: "resume", sort: sortOption, group: groupOption, subject: focusSubject || undefined, topic: focusTopic || undefined, source: scopedSourceParam, teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined }), active: availabilityFilter === "resume" },
+                  { label: "Review Ready", href: buildPracticeFilterHref({ availability: "review", sort: sortOption, group: groupOption, subject: focusSubject || undefined, topic: focusTopic || undefined, source: scopedSourceParam, teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined }), active: availabilityFilter === "review" },
+                  { label: "Locked", href: buildPracticeFilterHref({ availability: "locked", sort: sortOption, group: groupOption, subject: focusSubject || undefined, topic: focusTopic || undefined, source: scopedSourceParam, teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined }), active: availabilityFilter === "locked" },
+                  { label: "Shortest", href: buildPracticeFilterHref({ availability: availabilityFilter, sort: "shortest", group: groupOption, subject: focusSubject || undefined, topic: focusTopic || undefined, source: scopedSourceParam, teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined }), active: sortOption === "shortest" },
+                  { label: "Group by Subject", href: buildPracticeFilterHref({ availability: availabilityFilter, sort: sortOption, group: "subject", subject: focusSubject || undefined, topic: focusTopic || undefined, source: scopedSourceParam, teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined }), active: groupOption === "subject" },
                 ].map((chip) => (
                   <Link
                     key={chip.label}
@@ -689,6 +746,8 @@ export default async function PracticePage({
               ctaHref={buildPracticeFilterHref({
                 subject: focusSubject || undefined,
                 topic: focusTopic || undefined,
+                source: scopedSourceParam,
+                teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
               })}
               ctaLabel="Reset practice filters"
               statusLabel="Filter returned zero practice sets"
@@ -710,7 +769,7 @@ export default async function PracticePage({
               <small>
                 {focusedWeakTopic
                   ? `${percentageLabel(focusedWeakTopic.average_percentage)} in ${focusedWeakTopic.subject_name}`
-                  : "Live practice catalog connected to student availability"}
+                  : practiceFocus.helper}
               </small>
             </div>
             <div className="studentInsightHeroActions">
@@ -768,7 +827,7 @@ export default async function PracticePage({
                 <div className="studentResultStatGrid">
                   <div className="studentResultStat">
                     <span>Subject</span>
-                    <strong>{featuredPractice.subject_name || "General"}</strong>
+                    <strong>{featuredPracticeSubjectLabel || "General"}</strong>
                   </div>
                   <div className="studentResultStat">
                     <span>Duration</span>
@@ -903,6 +962,29 @@ export default async function PracticePage({
                     <p>When the exam policy allows it, results and answer review become your immediate improvement loop.</p>
                   </div>
                 </div>
+                <div className="studentActionSequence" aria-label="Practice continuity order">
+                  {practiceLoopSequence.map((step) => (
+                    <div className="studentActionSequenceCard" key={step.label}>
+                      <span>{step.label}</span>
+                      <strong>{step.detail}</strong>
+                    </div>
+                  ))}
+                </div>
+                <div className="studentInsightHeroActions">
+                  <Link className="button buttonSecondary" href="/app/analytics">
+                    Open Analytics
+                  </Link>
+                  <Link
+                    className="button buttonGhost"
+                    href={buildFilterHref("/app/results", [
+                      ["subject", focusSubject || undefined],
+                      ["source", scopedSourceParam],
+                      ["teacher", selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined],
+                    ])}
+                  >
+                    Check Results
+                  </Link>
+                </div>
               </article>
             </section>
           ) : null}
@@ -928,7 +1010,7 @@ export default async function PracticePage({
                   <div className="studentResultSurfaceHead">
                     <div>
                       <strong>{exam.title}</strong>
-                      <span>{exam.code} · {exam.subject_name || "General practice"}</span>
+                      <span>{exam.code} · {getExamSubjectDisplayLabel(exam)}</span>
                     </div>
                     <StatusPill tone={practiceStateTone(exam.availability_state)}>
                       {titleCaseState(exam.availability_state)}

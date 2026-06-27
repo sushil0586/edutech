@@ -5,12 +5,17 @@ This document captures the current status of the student-side web module in `edu
 
 ## Current Assessment
 - Overall student module status: `working beta`
-- Estimated completion: `65-72%`
+- Estimated completion: `80-85%`
 - Current focus areas with the most value left:
   - attempt experience polish
   - result and review clarity
-  - student productivity workflows
+  - utility-surface truthfulness and daily-use credibility
   - end-to-end student QA
+
+Recent progress that materially changed the status:
+
+- dedicated baseline Playwright coverage now exists for dashboard, exam detail, exam-key entry, attempt runtime, post-submit summary/review, analytics timeline/compare, and utility surfaces
+- the remaining risk is now more about polish, state coherence, and release confidence than raw route availability
 
 ## Completed Areas
 
@@ -135,6 +140,17 @@ This document captures the current status of the student-side web module in `edu
 - Logout is functional from the student settings page.
 - Settings exists, but it is still a minimal account/session page rather than a full settings workspace.
 
+### 12. Student Utility Surface Coverage
+- Dedicated baseline browser coverage now exists for:
+  - dashboard
+  - profile
+  - settings
+  - notifications
+  - wallet
+  - subscriptions
+  - search
+- This means the remaining work on these pages is now mostly product truthfulness and scope discipline, not route discovery.
+
 ## Major Strengths
 - The student module is already largely backend-driven rather than mock-data-driven.
 - Core student routes exist across the main lifecycle:
@@ -193,16 +209,29 @@ This document captures the current status of the student-side web module in `edu
   - session/device visibility
   - password/account management handoff if supported by backend
 
-### 5. Productivity Workflows Are Still Limited
-- The student module still lacks stronger study workflow features that would make it feel complete as a daily-use platform.
-- Likely missing or underpowered areas:
-  - bookmarks / saved questions workflow
-  - revision plans
-  - targeted practice launch from weak areas
-  - follow-up recommendations after result publication
-  - better continuity between dashboard, analytics, and next action
+### 5. Utility Surfaces Need A Final Product Stance
+- Wallet, subscriptions, and search are now covered and navigable, but still need an explicit MVP stance.
+- We should decide route by route whether each one is:
+  - a truthful MVP utility page
+  - an intentionally scoped informational page
+  - a post-Phase 1 expansion candidate
+- The main risk now is not broken navigation, but overstating capability.
 
-### 6. End-To-End Student QA Is Still Pending
+### 6. Productivity Workflows Are Still Limited
+- The student module still lacks stronger study workflow features that would make it feel complete as a daily-use platform.
+- Phase 1 intent should be split clearly:
+  - in scope now:
+    - targeted practice launch from weak areas
+    - follow-up recommendations using existing backend-driven state
+    - better continuity between dashboard, analytics, and next action
+  - intentionally not in Phase 1:
+    - bookmarks / saved questions workflow
+    - revision plans
+    - new recommendation engines that need fresh product or backend architecture
+- The product risk here is not merely “missing features”.
+- The bigger risk is accidentally implying these later-phase workflows already exist when the current MVP is still centered on trustworthy assessment, results, analytics, and follow-up practice.
+
+### 7. End-To-End Student QA Is Still Pending
 - Many individual student pages are implemented.
 - We still need a disciplined QA sweep across the real student lifecycle:
   - login
@@ -248,6 +277,7 @@ This document captures the current status of the student-side web module in `edu
 
 ### Priority 4. Expand Settings And Daily-Use Workflows
 - Add meaningful settings and preference controls where backend support exists.
+- Reduce or reframe any utility surface that still implies unsupported capability.
 - Improve day-to-day student utility beyond just “take exam and view result.”
 
 ### Priority 5. Run Full Student QA

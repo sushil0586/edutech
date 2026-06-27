@@ -1,7 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ActionSubmitButton } from "@/components/ui/action-submit-button";
+import { examPresetPacks } from "@/lib/assessment/exam-preset-packs";
+import {
+  getAssessmentExamFamilyMetadata,
+  resolveAssessmentExamFamilyId,
+} from "@/lib/assessment/exam-family-metadata";
 
 type Option = {
   value: string;
@@ -25,7 +30,19 @@ type CreateExamWizardProps = {
   hiddenFields?: Array<{ name: string; value: string }>;
   scopeContextLabel?: string;
   selectedAcademicYear: string;
-  programs: Array<{ id: string; name: string; code: string }>;
+  programs: Array<{
+    id: string;
+    name: string;
+    code: string;
+    assessment_family?: string | null;
+    assessment_family_code?: string | null;
+    assessment_family_label?: string | null;
+    assessment_family_profile?: {
+      code?: string | null;
+      label?: string | null;
+      scoring_defaults?: Record<string, unknown>;
+    } | null;
+  }>;
   selectedProgram: string;
   cohorts: SelectOption[];
   subjects: SelectOption[];
@@ -74,6 +91,193 @@ const steps = [
   },
 ];
 
+type WizardGuidedDefaults = {
+  examTypeValue: string;
+  deliveryModeValue: string;
+  durationMinutesValue: string;
+  maxAttemptsValue: string;
+  passingMarksValue: string;
+  descriptionValue: string;
+  timerModeValue: string;
+  navigationModeValue: string;
+  attemptPolicyValue: string;
+  resultPublishModeValue: string;
+  reviewModeValue: string;
+  securityModeValue: string;
+  economyPolicyType: string;
+  starCostValue: string;
+  entitlementCodeValue: string;
+  allowResumeValue: boolean;
+  allowSectionSwitchingValue: boolean;
+  allowReturnToPreviousSectionValue: boolean;
+  allowLateSubmitValue: boolean;
+  randomizeQuestionsValue: boolean;
+  randomizeOptionsValue: boolean;
+  showResultImmediatelyValue: boolean;
+  allowReviewAfterSubmitValue: boolean;
+};
+
+function summarizePresetSections(
+  presetPack: (typeof examPresetPacks)[number] | null,
+) {
+  const sections = presetPack?.builderDefaults?.sections ?? [];
+  if (sections.length === 0) {
+    return "No structured section guidance is mapped yet.";
+  }
+  return sections
+    .map((section) => `${section.name} (${section.questionCount})`)
+    .join(" | ");
+}
+
+function scoringDefaultsAuthoringNote(scoringDefaults: Record<string, unknown> | null | undefined) {
+  if (!scoringDefaults || typeof scoringDefaults !== "object") {
+    return "Standard positive scoring is assumed unless the exam shell overrides it.";
+  }
+  const negativeMarkingEnabled = Boolean(scoringDefaults.negative_marking_default);
+  const supportsNumericEntry = Boolean(scoringDefaults.supports_numeric_entry);
+  const recommendedAttemptPolicy =
+    typeof scoringDefaults.recommended_attempt_policy === "string"
+      ? scoringDefaults.recommended_attempt_policy.replaceAll("_", " ")
+      : "";
+
+  const parts = [
+    negativeMarkingEnabled
+      ? "Negative marking is expected by default."
+      : "Negative marking is not expected by default.",
+    supportsNumericEntry
+      ? "Numeric-entry items are part of this family contract."
+      : "Numeric-entry items are not a primary expectation for this family.",
+  ];
+  if (recommendedAttemptPolicy) {
+    parts.push(`Recommended attempt policy: ${recommendedAttemptPolicy}.`);
+  }
+  return parts.join(" ");
+}
+
+function buildFamilyExecutionChecklist(
+  familyId: ReturnType<typeof resolveAssessmentExamFamilyId>,
+  presetPack: (typeof examPresetPacks)[number] | null,
+) {
+  const questionMix = presetPack?.recommendations?.questionMixGuidance ?? "";
+  switch (familyId) {
+    case "neet":
+      return [
+        "Keep this mock-first: serious pacing, one-attempt discipline, and controlled post-submit visibility.",
+        "Use broad Biology, Chemistry, and Physics blocks instead of tiny chapter drills.",
+        questionMix || "Preserve a Biology-heavy objective mix with Chemistry and Physics support.",
+      ];
+    case "jee":
+      return [
+        "Use challenge-oriented timed sections instead of school-style short checks.",
+        "Include a numeric-answer lane when this paper is meant to mirror JEE solving depth.",
+        "Do not combine numeric-entry sections with negative marking in the current JEE contract.",
+      ];
+    case "gre":
+      return [
+        "Frame the exam as formal graduate-readiness practice, not a chapter test.",
+        "Keep review and result expectations aligned to total-score-first reporting.",
+        questionMix || "Balance quant reasoning across difficulty bands instead of clustering only easy prompts.",
+      ];
+    case "aws_certification":
+      return [
+        "Organize the exam around AWS domains or objectives rather than school chapters.",
+        "Favor scenario-based single-best-answer practice with explanation-friendly review.",
+        questionMix || "Keep service-domain coverage broad enough that readiness feels certification-oriented.",
+      ];
+    default:
+      return [];
+  }
+}
+
+function resolveProgramFamilyId(program: CreateExamWizardProps["programs"][number] | null) {
+  const candidates = [
+    program?.name,
+    program?.code,
+    program?.assessment_family_profile?.label,
+    program?.assessment_family_profile?.code,
+    program?.assessment_family_label,
+    program?.assessment_family_code,
+    program?.assessment_family,
+  ];
+  for (const candidate of candidates) {
+    const resolved = resolveAssessmentExamFamilyId(candidate);
+    if (resolved) {
+      return resolved;
+    }
+  }
+  return null;
+}
+
+function resolveProgramPresetPack(program: CreateExamWizardProps["programs"][number] | null) {
+  const familyId = resolveProgramFamilyId(program);
+  if (!familyId) {
+    return null;
+  }
+  return (
+    examPresetPacks.find((pack) => pack.familyId === familyId && pack.builderDefaults) ?? null
+  );
+}
+
+function buildGuidedDefaults({
+  defaultAttemptPolicy,
+  defaultDeliveryMode,
+  defaultExamType,
+  defaultNavigationMode,
+  defaultResultPublishMode,
+  defaultReviewMode,
+  defaultSecurityMode,
+  defaultTimerMode,
+  defaultEconomyPolicyType,
+  program,
+  presetPack,
+}: {
+  defaultAttemptPolicy: string;
+  defaultDeliveryMode: string;
+  defaultEconomyPolicyType: string;
+  defaultExamType: string;
+  defaultNavigationMode: string;
+  defaultResultPublishMode: string;
+  defaultReviewMode: string;
+  defaultSecurityMode: string;
+  defaultTimerMode: string;
+  program: CreateExamWizardProps["programs"][number] | null;
+  presetPack?: (typeof examPresetPacks)[number] | null;
+}): WizardGuidedDefaults {
+  const resolvedPresetPack = presetPack ?? resolveProgramPresetPack(program);
+  const packDefaults = resolvedPresetPack?.builderDefaults;
+  const recommendedDuration = resolvedPresetPack?.recommendations?.suggestedDurationMinutes ?? "30";
+
+  return {
+    examTypeValue: packDefaults?.exam.examType ?? defaultExamType,
+    deliveryModeValue: packDefaults?.exam.deliveryMode ?? defaultDeliveryMode,
+    durationMinutesValue: packDefaults?.exam.durationMinutes ?? recommendedDuration,
+    maxAttemptsValue: packDefaults?.delivery.maxAttempts ?? "1",
+    passingMarksValue: packDefaults?.exam.passingMarks ?? "0",
+    descriptionValue: packDefaults?.exam.description ?? "",
+    timerModeValue: packDefaults?.delivery.timerMode ?? defaultTimerMode,
+    navigationModeValue: packDefaults?.delivery.navigationMode ?? defaultNavigationMode,
+    attemptPolicyValue: packDefaults?.delivery.attemptPolicy ?? defaultAttemptPolicy,
+    resultPublishModeValue:
+      packDefaults?.delivery.resultPublishMode ?? defaultResultPublishMode,
+    reviewModeValue: packDefaults?.delivery.reviewMode ?? defaultReviewMode,
+    securityModeValue: packDefaults?.delivery.securityMode ?? defaultSecurityMode,
+    economyPolicyType: packDefaults?.economy.policyType ?? defaultEconomyPolicyType,
+    starCostValue: packDefaults?.economy.starCost ?? "0",
+    entitlementCodeValue: packDefaults?.economy.entitlementCode ?? "",
+    allowResumeValue: packDefaults?.delivery.allowResume ?? true,
+    allowSectionSwitchingValue: packDefaults?.delivery.allowSectionSwitching ?? true,
+    allowReturnToPreviousSectionValue:
+      packDefaults?.delivery.allowReturnToPreviousSection ?? true,
+    allowLateSubmitValue: false,
+    randomizeQuestionsValue: packDefaults?.delivery.randomizeQuestions ?? false,
+    randomizeOptionsValue: packDefaults?.delivery.randomizeOptions ?? false,
+    showResultImmediatelyValue: (packDefaults?.delivery.resultPublishMode ?? "") === "immediate",
+    allowReviewAfterSubmitValue: !["disabled", "none"].includes(
+      packDefaults?.delivery.reviewMode ?? "",
+    ),
+  };
+}
+
 export function CreateExamWizard({
   action,
   academicYears,
@@ -102,6 +306,34 @@ export function CreateExamWizard({
   benchmarkVisibilityModeOptions,
   rankFreezePolicyOptions,
 }: CreateExamWizardProps) {
+  const defaultExamType = examTypeOptions[0]?.value ?? "";
+  const defaultDeliveryMode = deliveryModeOptions[0]?.value ?? "";
+  const defaultTimerMode = timerModeOptions[0]?.value ?? "";
+  const defaultNavigationMode = navigationModeOptions[0]?.value ?? "";
+  const defaultAttemptPolicy = attemptPolicyOptions[0]?.value ?? "";
+  const defaultResultPublishMode = resultPublishModeOptions[0]?.value ?? "";
+  const defaultReviewMode = reviewModeOptions[0]?.value ?? "";
+  const defaultSecurityMode = securityModeOptions[0]?.value ?? "";
+  const defaultEconomyPolicyType = economyAccessPolicyOptions[0]?.value ?? "";
+  const defaultRankVisibilityMode = rankVisibilityModeOptions[0]?.value ?? "hidden";
+  const defaultPercentileVisibilityMode = percentileVisibilityModeOptions[0]?.value ?? "hidden";
+  const defaultBenchmarkVisibilityMode = benchmarkVisibilityModeOptions[0]?.value ?? "peer_average_only";
+  const defaultRankFreezePolicy = rankFreezePolicyOptions[0]?.value ?? "freeze_on_exam_closure";
+  const initialProgramRecord = programs.find((program) => program.id === selectedProgram) ?? null;
+  const initialProgramPresetPack = resolveProgramPresetPack(initialProgramRecord);
+  const initialGuidedDefaults = buildGuidedDefaults({
+    defaultAttemptPolicy,
+    defaultDeliveryMode,
+    defaultEconomyPolicyType,
+    defaultExamType,
+    defaultNavigationMode,
+    defaultResultPublishMode,
+    defaultReviewMode,
+    defaultSecurityMode,
+    defaultTimerMode,
+    program: initialProgramRecord,
+    presetPack: initialProgramPresetPack,
+  });
   const formRef = useRef<HTMLFormElement>(null);
   const [activeStep, setActiveStep] = useState(0);
   const [selectedAcademicYearValue, setSelectedAcademicYearValue] = useState(selectedAcademicYear);
@@ -115,21 +347,136 @@ export function CreateExamWizard({
   const [selectedSourceValue, setSelectedSourceValue] = useState(selectedSource);
   const [isScopeLoading, setIsScopeLoading] = useState(false);
   const [scopeError, setScopeError] = useState("");
-  const [economyPolicyType, setEconomyPolicyType] = useState(economyAccessPolicyOptions[0]?.value ?? "");
+  const [economyPolicyType, setEconomyPolicyType] = useState(initialGuidedDefaults.economyPolicyType);
+  const [examTypeValue, setExamTypeValue] = useState(initialGuidedDefaults.examTypeValue);
+  const [deliveryModeValue, setDeliveryModeValue] = useState(initialGuidedDefaults.deliveryModeValue);
+  const [durationMinutesValue, setDurationMinutesValue] = useState(initialGuidedDefaults.durationMinutesValue);
+  const [maxAttemptsValue, setMaxAttemptsValue] = useState(initialGuidedDefaults.maxAttemptsValue);
+  const [passingMarksValue, setPassingMarksValue] = useState(initialGuidedDefaults.passingMarksValue);
+  const [descriptionValue, setDescriptionValue] = useState(initialGuidedDefaults.descriptionValue);
+  const [timerModeValue, setTimerModeValue] = useState(initialGuidedDefaults.timerModeValue);
+  const [navigationModeValue, setNavigationModeValue] = useState(initialGuidedDefaults.navigationModeValue);
+  const [attemptPolicyValue, setAttemptPolicyValue] = useState(initialGuidedDefaults.attemptPolicyValue);
+  const [resultPublishModeValue, setResultPublishModeValue] = useState(
+    initialGuidedDefaults.resultPublishModeValue,
+  );
+  const [reviewModeValue, setReviewModeValue] = useState(initialGuidedDefaults.reviewModeValue);
+  const [securityModeValue, setSecurityModeValue] = useState(initialGuidedDefaults.securityModeValue);
+  const [starCostValue, setStarCostValue] = useState(initialGuidedDefaults.starCostValue);
+  const [entitlementCodeValue, setEntitlementCodeValue] = useState(initialGuidedDefaults.entitlementCodeValue);
+  const [allowResumeValue, setAllowResumeValue] = useState(initialGuidedDefaults.allowResumeValue);
+  const [allowSectionSwitchingValue, setAllowSectionSwitchingValue] = useState(
+    initialGuidedDefaults.allowSectionSwitchingValue,
+  );
+  const [allowReturnToPreviousSectionValue, setAllowReturnToPreviousSectionValue] = useState(
+    initialGuidedDefaults.allowReturnToPreviousSectionValue,
+  );
+  const [allowLateSubmitValue, setAllowLateSubmitValue] = useState(initialGuidedDefaults.allowLateSubmitValue);
+  const [randomizeQuestionsValue, setRandomizeQuestionsValue] = useState(
+    initialGuidedDefaults.randomizeQuestionsValue,
+  );
+  const [randomizeOptionsValue, setRandomizeOptionsValue] = useState(
+    initialGuidedDefaults.randomizeOptionsValue,
+  );
+  const [showResultImmediatelyValue, setShowResultImmediatelyValue] = useState(
+    initialGuidedDefaults.showResultImmediatelyValue,
+  );
+  const [allowReviewAfterSubmitValue, setAllowReviewAfterSubmitValue] = useState(
+    initialGuidedDefaults.allowReviewAfterSubmitValue,
+  );
+  const [selectedPresetPackId, setSelectedPresetPackId] = useState(initialProgramPresetPack?.id ?? "");
   const isFirstStep = activeStep === 0;
   const isLastStep = activeStep === steps.length - 1;
-  const defaultExamType = examTypeOptions[0]?.value ?? "";
-  const defaultDeliveryMode = deliveryModeOptions[0]?.value ?? "";
-  const defaultTimerMode = timerModeOptions[0]?.value ?? "";
-  const defaultNavigationMode = navigationModeOptions[0]?.value ?? "";
-  const defaultAttemptPolicy = attemptPolicyOptions[0]?.value ?? "";
-  const defaultResultPublishMode = resultPublishModeOptions[0]?.value ?? "";
-  const defaultReviewMode = reviewModeOptions[0]?.value ?? "";
-  const defaultSecurityMode = securityModeOptions[0]?.value ?? "";
-  const defaultRankVisibilityMode = rankVisibilityModeOptions[0]?.value ?? "hidden";
-  const defaultPercentileVisibilityMode = percentileVisibilityModeOptions[0]?.value ?? "hidden";
-  const defaultBenchmarkVisibilityMode = benchmarkVisibilityModeOptions[0]?.value ?? "peer_average_only";
-  const defaultRankFreezePolicy = rankFreezePolicyOptions[0]?.value ?? "freeze_on_exam_closure";
+  const selectedProgramRecord = useMemo(
+    () => programs.find((program) => program.id === selectedProgramValue) ?? null,
+    [programs, selectedProgramValue],
+  );
+  const selectedProgramFamilyId = useMemo(() => {
+    return resolveProgramFamilyId(selectedProgramRecord);
+  }, [selectedProgramRecord]);
+  const selectedProgramBaseFamilyMetadata = useMemo(
+    () => getAssessmentExamFamilyMetadata(selectedProgramFamilyId),
+    [selectedProgramFamilyId],
+  );
+  const selectedProgramPresetPack = useMemo(() => {
+    const activePresetPack =
+      examPresetPacks.find((pack) => pack.id === selectedPresetPackId && pack.builderDefaults) ?? null;
+    if (
+      activePresetPack &&
+      ((selectedProgramBaseFamilyMetadata?.programFamilyCode &&
+        activePresetPack.programFamilyCode === selectedProgramBaseFamilyMetadata.programFamilyCode) ||
+        activePresetPack.familyId === selectedProgramFamilyId)
+    ) {
+      return activePresetPack;
+    }
+    return resolveProgramPresetPack(selectedProgramRecord);
+  }, [selectedPresetPackId, selectedProgramRecord, selectedProgramFamilyId, selectedProgramBaseFamilyMetadata?.programFamilyCode]);
+  const effectiveFamilyId = useMemo(
+    () => selectedProgramPresetPack?.familyId ?? selectedProgramFamilyId,
+    [selectedProgramPresetPack?.familyId, selectedProgramFamilyId],
+  );
+  const selectedProgramFamilyMetadata = useMemo(
+    () => getAssessmentExamFamilyMetadata(effectiveFamilyId),
+    [effectiveFamilyId],
+  );
+  const availableProgramPresetPacks = useMemo(() => {
+    const programFamilyCode = selectedProgramFamilyMetadata?.programFamilyCode;
+    if (!programFamilyCode) {
+      return [] as typeof examPresetPacks;
+    }
+    return examPresetPacks.filter(
+      (pack) => pack.builderDefaults && pack.programFamilyCode === programFamilyCode,
+    );
+  }, [selectedProgramFamilyMetadata?.programFamilyCode]);
+  const familyExecutionChecklist = useMemo(
+    () => buildFamilyExecutionChecklist(effectiveFamilyId, selectedProgramPresetPack),
+    [effectiveFamilyId, selectedProgramPresetPack],
+  );
+
+  function applyGuidedDefaultsForProgram(programId: string, presetPackId?: string) {
+    const nextProgramRecord = programs.find((program) => program.id === programId) ?? null;
+    const nextProgramPresetPack = resolveProgramPresetPack(nextProgramRecord);
+    const nextPresetPack =
+      examPresetPacks.find((pack) => pack.id === presetPackId && pack.builderDefaults) ??
+      nextProgramPresetPack;
+    const nextDefaults = buildGuidedDefaults({
+      defaultAttemptPolicy,
+      defaultDeliveryMode,
+      defaultEconomyPolicyType,
+      defaultExamType,
+      defaultNavigationMode,
+      defaultResultPublishMode,
+      defaultReviewMode,
+      defaultSecurityMode,
+      defaultTimerMode,
+      program: nextProgramRecord,
+      presetPack: nextPresetPack,
+    });
+    setSelectedPresetPackId(nextPresetPack?.id ?? "");
+    setExamTypeValue(nextDefaults.examTypeValue);
+    setDeliveryModeValue(nextDefaults.deliveryModeValue);
+    setDurationMinutesValue(nextDefaults.durationMinutesValue);
+    setMaxAttemptsValue(nextDefaults.maxAttemptsValue);
+    setPassingMarksValue(nextDefaults.passingMarksValue);
+    setDescriptionValue(nextDefaults.descriptionValue);
+    setTimerModeValue(nextDefaults.timerModeValue);
+    setNavigationModeValue(nextDefaults.navigationModeValue);
+    setAttemptPolicyValue(nextDefaults.attemptPolicyValue);
+    setResultPublishModeValue(nextDefaults.resultPublishModeValue);
+    setReviewModeValue(nextDefaults.reviewModeValue);
+    setSecurityModeValue(nextDefaults.securityModeValue);
+    setEconomyPolicyType(nextDefaults.economyPolicyType);
+    setStarCostValue(nextDefaults.starCostValue);
+    setEntitlementCodeValue(nextDefaults.entitlementCodeValue);
+    setAllowResumeValue(nextDefaults.allowResumeValue);
+    setAllowSectionSwitchingValue(nextDefaults.allowSectionSwitchingValue);
+    setAllowReturnToPreviousSectionValue(nextDefaults.allowReturnToPreviousSectionValue);
+    setAllowLateSubmitValue(nextDefaults.allowLateSubmitValue);
+    setRandomizeQuestionsValue(nextDefaults.randomizeQuestionsValue);
+    setRandomizeOptionsValue(nextDefaults.randomizeOptionsValue);
+    setShowResultImmediatelyValue(nextDefaults.showResultImmediatelyValue);
+    setAllowReviewAfterSubmitValue(nextDefaults.allowReviewAfterSubmitValue);
+  }
 
   useEffect(() => {
     let ignore = false;
@@ -348,7 +695,40 @@ export function CreateExamWizard({
                 <strong>{programs.length} programs</strong>
                 <small>Each program keeps the new exam linked to the right curriculum lane.</small>
               </article>
+              <article className="wizardFeatureCard">
+                <span>Family defaults</span>
+                <strong>{selectedProgramFamilyMetadata?.label ?? "Generic flow"}</strong>
+                <small>
+                  {selectedProgramPresetPack
+                    ? `${selectedProgramPresetPack.label} will prefill guided defaults for this program.`
+                    : "No family-aligned preset pack is mapped yet, so the wizard is using generic defaults."}
+                </small>
+              </article>
             </div>
+            {availableProgramPresetPacks.length > 1 ? (
+              <div className="builderHintPanel">
+                <strong>Family preset</strong>
+                <p>
+                  Choose the starting exam lane for this program before you continue deeper into delivery and runtime defaults.
+                </p>
+                <div className="advancedBuilderTemplateStrip">
+                  {availableProgramPresetPacks.map((presetPack) => (
+                    <button
+                      key={presetPack.id}
+                      className={`advancedBuilderTemplateCard ${
+                        selectedProgramPresetPack?.id === presetPack.id ? "advancedBuilderTemplateCardActive" : ""
+                      }`}
+                      onClick={() => applyGuidedDefaultsForProgram(selectedProgramValue, presetPack.id)}
+                      type="button"
+                    >
+                      <span className="advancedBuilderTemplateChip">{presetPack.chip}</span>
+                      <strong>{presetPack.label}</strong>
+                      <small>{presetPack.note}</small>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             <div className="builderGrid">
               <label className="fieldStack">
                 <span>Academic year</span>
@@ -370,7 +750,11 @@ export function CreateExamWizard({
                 <span>Program</span>
                 <select
                   name="program"
-                  onChange={(event) => setSelectedProgramValue(event.target.value)}
+                  onChange={(event) => {
+                    const nextProgramValue = event.target.value;
+                    setSelectedProgramValue(nextProgramValue);
+                    applyGuidedDefaultsForProgram(nextProgramValue);
+                  }}
                   required
                   value={selectedProgramValue}
                 >
@@ -474,11 +858,12 @@ export function CreateExamWizard({
               <label className="fieldStack">
                 <span>Star cost</span>
                 <input
-                  defaultValue="0"
                   min="0"
                   name="economy_star_cost"
+                  onChange={(event) => setStarCostValue(event.target.value)}
                   step="1"
                   type="number"
+                  value={starCostValue}
                 />
                 <small>
                   {economyPolicyType === "stars_only" || economyPolicyType === "stars_or_entitlement"
@@ -491,8 +876,10 @@ export function CreateExamWizard({
                 <span>Entitlement code</span>
                 <input
                   name="economy_entitlement_code"
+                  onChange={(event) => setEntitlementCodeValue(event.target.value)}
                   placeholder="premium_math_access"
                   type="text"
+                  value={entitlementCodeValue}
                 />
               </label>
 
@@ -507,6 +894,32 @@ export function CreateExamWizard({
                 />
               </label>
             </div>
+            {selectedProgramPresetPack && selectedProgramFamilyMetadata ? (
+              <div className="builderHintPanel">
+                <strong>{selectedProgramPresetPack.label} guidance</strong>
+                <p>{selectedProgramPresetPack.recommendations?.authoringNote ?? selectedProgramPresetPack.note}</p>
+                <small>
+                  {selectedProgramFamilyMetadata.recommendedQuestionMixGuidance}
+                  {" · "}
+                  Section shape: {summarizePresetSections(selectedProgramPresetPack)}
+                </small>
+              </div>
+            ) : null}
+            {familyExecutionChecklist.length ? (
+              <div className="builderHintPanel">
+                <strong>Execution checklist</strong>
+                <p>Use these lane-specific guardrails before you move deeper into schedule, runtime, and learner settings.</p>
+                <ul className="builderHintPanelList">
+                  {familyExecutionChecklist.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+                <small>
+                  {selectedProgramFamilyMetadata?.authoringNote ??
+                    "Keep the guided draft aligned to the selected family contract unless you intentionally need a variant."}
+                </small>
+              </div>
+            ) : null}
             {scopeError ? <p className="feedbackBanner feedbackBannerError">{scopeError}</p> : null}
           </section>
 
@@ -536,7 +949,11 @@ export function CreateExamWizard({
             <div className="builderGrid">
               <label className="fieldStack">
                 <span>Exam type</span>
-                <select defaultValue={defaultExamType} name="exam_type">
+                <select
+                  name="exam_type"
+                  onChange={(event) => setExamTypeValue(event.target.value)}
+                  value={examTypeValue}
+                >
                   {examTypeOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
@@ -547,7 +964,11 @@ export function CreateExamWizard({
 
               <label className="fieldStack">
                 <span>Delivery mode</span>
-                <select defaultValue={defaultDeliveryMode} name="delivery_mode">
+                <select
+                  name="delivery_mode"
+                  onChange={(event) => setDeliveryModeValue(event.target.value)}
+                  value={deliveryModeValue}
+                >
                   {deliveryModeOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
@@ -558,12 +979,26 @@ export function CreateExamWizard({
 
               <label className="fieldStack">
                 <span>Duration (minutes)</span>
-                <input defaultValue="30" min="1" name="duration_minutes" required type="number" />
+                <input
+                  min="1"
+                  name="duration_minutes"
+                  onChange={(event) => setDurationMinutesValue(event.target.value)}
+                  required
+                  type="number"
+                  value={durationMinutesValue}
+                />
               </label>
 
               <label className="fieldStack">
                 <span>Max attempts</span>
-                <input defaultValue="1" min="1" name="max_attempts" required type="number" />
+                <input
+                  min="1"
+                  name="max_attempts"
+                  onChange={(event) => setMaxAttemptsValue(event.target.value)}
+                  required
+                  type="number"
+                  value={maxAttemptsValue}
+                />
               </label>
 
               <label className="fieldStack">
@@ -573,7 +1008,14 @@ export function CreateExamWizard({
 
               <label className="fieldStack">
                 <span>Passing marks</span>
-                <input defaultValue="0" min="0" name="passing_marks" step="0.01" type="number" />
+                <input
+                  min="0"
+                  name="passing_marks"
+                  onChange={(event) => setPassingMarksValue(event.target.value)}
+                  step="0.01"
+                  type="number"
+                  value={passingMarksValue}
+                />
               </label>
 
               <label className="fieldStack">
@@ -601,6 +1043,22 @@ export function CreateExamWizard({
                 <input name="review_available_until" type="datetime-local" />
               </label>
             </div>
+            {selectedProgramPresetPack ? (
+              <div className="builderHintPanel">
+                <strong>Suggested launch shape</strong>
+                <p>
+                  {selectedProgramPresetPack.recommendations?.timingExpectation}
+                </p>
+                <small>
+                  {selectedProgramPresetPack.recommendations?.suggestedQuestionCountBand
+                    ? `${selectedProgramPresetPack.recommendations?.suggestedQuestionCountBand} · `
+                    : ""}
+                  {selectedProgramPresetPack.recommendations?.reviewPolicy}
+                  {" · "}
+                  Sections: {summarizePresetSections(selectedProgramPresetPack)}
+                </small>
+              </div>
+            ) : null}
           </section>
 
           <section
@@ -617,7 +1075,11 @@ export function CreateExamWizard({
             <div className="builderGrid">
               <label className="fieldStack">
                 <span>Timer mode</span>
-                <select defaultValue={defaultTimerMode} name="timer_mode">
+                <select
+                  name="timer_mode"
+                  onChange={(event) => setTimerModeValue(event.target.value)}
+                  value={timerModeValue}
+                >
                   {timerModeOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
@@ -628,7 +1090,11 @@ export function CreateExamWizard({
 
               <label className="fieldStack">
                 <span>Navigation mode</span>
-                <select defaultValue={defaultNavigationMode} name="navigation_mode">
+                <select
+                  name="navigation_mode"
+                  onChange={(event) => setNavigationModeValue(event.target.value)}
+                  value={navigationModeValue}
+                >
                   {navigationModeOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
@@ -639,7 +1105,11 @@ export function CreateExamWizard({
 
               <label className="fieldStack">
                 <span>Attempt policy</span>
-                <select defaultValue={defaultAttemptPolicy} name="attempt_policy">
+                <select
+                  name="attempt_policy"
+                  onChange={(event) => setAttemptPolicyValue(event.target.value)}
+                  value={attemptPolicyValue}
+                >
                   {attemptPolicyOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
@@ -650,7 +1120,11 @@ export function CreateExamWizard({
 
               <label className="fieldStack">
                 <span>Result publish mode</span>
-                <select defaultValue={defaultResultPublishMode} name="result_publish_mode">
+                <select
+                  name="result_publish_mode"
+                  onChange={(event) => setResultPublishModeValue(event.target.value)}
+                  value={resultPublishModeValue}
+                >
                   {resultPublishModeOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
@@ -661,7 +1135,11 @@ export function CreateExamWizard({
 
               <label className="fieldStack">
                 <span>Review mode</span>
-                <select defaultValue={defaultReviewMode} name="review_mode">
+                <select
+                  name="review_mode"
+                  onChange={(event) => setReviewModeValue(event.target.value)}
+                  value={reviewModeValue}
+                >
                   {reviewModeOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
@@ -672,7 +1150,11 @@ export function CreateExamWizard({
 
               <label className="fieldStack">
                 <span>Security mode</span>
-                <select defaultValue={defaultSecurityMode} name="security_mode">
+                <select
+                  name="security_mode"
+                  onChange={(event) => setSecurityModeValue(event.target.value)}
+                  value={securityModeValue}
+                >
                   {securityModeOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
@@ -731,6 +1213,30 @@ export function CreateExamWizard({
                 </small>
               </label>
             </div>
+            {selectedProgramPresetPack ? (
+              <div className="builderHintPanel">
+                <strong>Runtime posture</strong>
+                <p>{selectedProgramPresetPack.recommendations?.securitySuggestion}</p>
+                <small>
+                  {selectedProgramPresetPack.recommendations?.resultVisibility}
+                  {" · "}
+                  {selectedProgramPresetPack.recommendations?.reviewPolicy}
+                </small>
+              </div>
+            ) : null}
+            {selectedProgramRecord?.assessment_family_profile?.scoring_defaults ? (
+              <div className="builderHintPanel">
+                <strong>Scoring posture</strong>
+                <p>
+                  {scoringDefaultsAuthoringNote(
+                    selectedProgramRecord.assessment_family_profile.scoring_defaults,
+                  )}
+                </p>
+                <small>
+                  Use the runtime and marks settings here only when this exam should intentionally diverge from the family-level scoring contract.
+                </small>
+              </div>
+            ) : null}
           </section>
 
           <section
@@ -747,7 +1253,13 @@ export function CreateExamWizard({
 
             <label className="fieldStack fieldStackFull">
               <span>Description</span>
-              <textarea name="description" placeholder="Summarize what this exam covers and who it is intended for." rows={4} />
+              <textarea
+                name="description"
+                onChange={(event) => setDescriptionValue(event.target.value)}
+                placeholder="Summarize what this exam covers and who it is intended for."
+                rows={4}
+                value={descriptionValue}
+              />
             </label>
 
             <label className="fieldStack fieldStackFull">
@@ -760,15 +1272,30 @@ export function CreateExamWizard({
             </label>
 
             <div className="toggleGrid">
-              <label><input defaultChecked name="allow_resume" type="checkbox" /> Allow resume</label>
-              <label><input defaultChecked name="allow_section_switching" type="checkbox" /> Allow section switching</label>
-              <label><input defaultChecked name="allow_return_to_previous_section" type="checkbox" /> Allow return to previous section</label>
-              <label><input name="allow_late_submit" type="checkbox" /> Allow late submit</label>
-              <label><input name="randomize_questions" type="checkbox" /> Randomize questions</label>
-              <label><input name="randomize_options" type="checkbox" /> Randomize options</label>
-              <label><input name="show_result_immediately" type="checkbox" /> Show result immediately</label>
-              <label><input defaultChecked name="allow_review_after_submit" type="checkbox" /> Allow review after submit</label>
+              <label><input checked={allowResumeValue} name="allow_resume" onChange={(event) => setAllowResumeValue(event.target.checked)} type="checkbox" /> Allow resume</label>
+              <label><input checked={allowSectionSwitchingValue} name="allow_section_switching" onChange={(event) => setAllowSectionSwitchingValue(event.target.checked)} type="checkbox" /> Allow section switching</label>
+              <label><input checked={allowReturnToPreviousSectionValue} name="allow_return_to_previous_section" onChange={(event) => setAllowReturnToPreviousSectionValue(event.target.checked)} type="checkbox" /> Allow return to previous section</label>
+              <label><input checked={allowLateSubmitValue} name="allow_late_submit" onChange={(event) => setAllowLateSubmitValue(event.target.checked)} type="checkbox" /> Allow late submit</label>
+              <label><input checked={randomizeQuestionsValue} name="randomize_questions" onChange={(event) => setRandomizeQuestionsValue(event.target.checked)} type="checkbox" /> Randomize questions</label>
+              <label><input checked={randomizeOptionsValue} name="randomize_options" onChange={(event) => setRandomizeOptionsValue(event.target.checked)} type="checkbox" /> Randomize options</label>
+              <label><input checked={showResultImmediatelyValue} name="show_result_immediately" onChange={(event) => setShowResultImmediatelyValue(event.target.checked)} type="checkbox" /> Show result immediately</label>
+              <label><input checked={allowReviewAfterSubmitValue} name="allow_review_after_submit" onChange={(event) => setAllowReviewAfterSubmitValue(event.target.checked)} type="checkbox" /> Allow review after submit</label>
             </div>
+
+            {selectedProgramPresetPack ? (
+              <div className="builderHintPanel">
+                <strong>Learner-facing guidance</strong>
+                <p>
+                  {selectedProgramPresetPack.builderDefaults?.experience.learnerSummary ??
+                    selectedProgramPresetPack.note}
+                </p>
+                <small>
+                  Creator posture:{" "}
+                  {selectedProgramPresetPack.builderDefaults?.experience.creatorSummary ??
+                    selectedProgramPresetPack.recommendations?.authoringNote}
+                </small>
+              </div>
+            ) : null}
           </section>
 
           <div className="wizardActionBar">

@@ -3,8 +3,15 @@ import { StudentKpiGrid } from "@/components/ui/student-kpi-grid";
 import { StudentPageHeader } from "@/components/ui/student-page-header";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { StudentAnalyticsDetailHero } from "@/components/ui/student-analytics-detail";
-import { aggregateSubjectPerformance, sortResultsByPublishedDate } from "@/lib/student/analytics-derivations";
-import { buildAnalyticsActionsHref, loadStudentAnalyticsBundle, sourceDescriptor } from "@/lib/student/analytics";
+import { fetchStudentQuestionAnalytics } from "@/lib/api/student";
+import { sortResultsByPublishedDate } from "@/lib/student/analytics-derivations";
+import {
+  buildAnalyticsActionsHref,
+  buildAnalyticsSubjectHref,
+  decodeAnalyticsParam,
+  loadStudentAnalyticsBundle,
+  sourceDescriptor,
+} from "@/lib/student/analytics";
 import {
   benchmarkLabel,
   percentageLabel,
@@ -13,11 +20,71 @@ import {
   studentDateTimeLabel,
   trendDirectionLabel,
 } from "@/lib/student/formatters";
+import {
+  ALL_SUBJECTS_CONTEXT,
+  filterStudentRecordsByMetadataSubject,
+  filterStudentRecordsBySource,
+} from "@/lib/student/subject-context";
 
-export default async function StudentAnalyticsTimelinePage() {
-  const bundle = await loadStudentAnalyticsBundle();
+function aggregateQuestionSubjects(
+  questions: Awaited<ReturnType<typeof fetchStudentQuestionAnalytics>>["questions"],
+) {
+  const map = new Map<
+    string,
+    {
+      subject: string;
+      total: number;
+      correct: number;
+      attempted: number;
+    }
+  >();
 
-  if (!bundle.summary) {
+  for (const item of questions) {
+    const subject = item.subject_name?.trim();
+    if (!subject) {
+      continue;
+    }
+
+    const bucket = map.get(subject) ?? {
+      subject,
+      total: 0,
+      correct: 0,
+      attempted: 0,
+    };
+    bucket.total += 1;
+    bucket.attempted += item.attempted_by_you ? 1 : 0;
+    bucket.correct += item.your_result === "correct" ? 1 : 0;
+    map.set(subject, bucket);
+  }
+
+  return Array.from(map.values())
+    .map((item) => ({
+      subject: item.subject,
+      averagePercentage: item.total ? (item.correct / item.total) * 100 : 0,
+      trackedTopics: item.total,
+      attemptedQuestions: item.attempted,
+      correctAnswers: item.correct,
+    }))
+    .sort((left, right) => right.averagePercentage - left.averagePercentage)
+    .slice(0, 4);
+}
+
+export default async function StudentAnalyticsTimelinePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ subject?: string; source?: string; teacher?: string }>;
+}) {
+  const query = await searchParams;
+  const subject = query.subject ? decodeAnalyticsParam(query.subject) : null;
+  const source = query.source ? decodeAnalyticsParam(query.source) : null;
+  const teacher = query.teacher ?? null;
+
+  const [bundle, questionData] = await Promise.all([
+    loadStudentAnalyticsBundle(),
+    fetchStudentQuestionAnalytics({ subject, source, teacher }).catch(() => null),
+  ]);
+
+  if (!bundle.summary || !questionData) {
     return (
       <div className="studentPage studentDashboardModern">
         <StudentStatePanel
@@ -41,10 +108,20 @@ export default async function StudentAnalyticsTimelinePage() {
     );
   }
 
-  const publishedResults = sortResultsByPublishedDate(
-    bundle.results.filter((item) => item.is_published),
+  const filteredResults = filterStudentRecordsByMetadataSubject(
+    filterStudentRecordsBySource(
+      bundle.results,
+      source === "platform" || source === "institute" || source === "teacher"
+        ? source
+        : "all",
+      source === "teacher" ? teacher : null,
+    ),
+    subject ?? ALL_SUBJECTS_CONTEXT,
   );
-  const subjectPerformance = aggregateSubjectPerformance(bundle.topicPerformance).slice(0, 4);
+  const publishedResults = sortResultsByPublishedDate(
+    filteredResults.filter((item) => item.is_published),
+  );
+  const subjectPerformance = aggregateQuestionSubjects(questionData.questions);
 
   return (
     <div className="studentPage studentDashboardModern">
@@ -72,11 +149,11 @@ export default async function StudentAnalyticsTimelinePage() {
         stats={[
           {
             label: "Answered",
-            value: String(bundle.summary.attempt_behavior.attempted_questions),
+            value: String(questionData.overview.attempted_count),
           },
           {
             label: "Skipped",
-            value: String(bundle.summary.attempt_behavior.skipped_questions),
+            value: String(questionData.overview.skipped_count),
           },
           {
             label: "Results",
@@ -89,7 +166,10 @@ export default async function StudentAnalyticsTimelinePage() {
         ]}
         actions={
           <>
-            <Link className="button buttonPrimary" href={buildAnalyticsActionsHref()}>
+            <Link
+              className="button buttonPrimary"
+              href={buildAnalyticsActionsHref({ subject, source, teacher })}
+            >
               Open Action Center
             </Link>
             <Link className="button buttonSecondary" href="/app/results">
@@ -119,8 +199,8 @@ export default async function StudentAnalyticsTimelinePage() {
           },
           {
             label: "Attempt History",
-            value: String(bundle.summary.attempt_behavior.attempt_count),
-            note: "Completed attempts contributing to this view",
+            value: String(questionData.overview.question_count),
+            note: "Scoped questions contributing to this view",
           },
         ]}
       />
@@ -201,21 +281,21 @@ export default async function StudentAnalyticsTimelinePage() {
           </div>
           <div className="studentTopicStack">
             {subjectPerformance.length ? (
-              subjectPerformance.map((subject) => (
+              subjectPerformance.map((item) => (
                 <Link
                   className="studentTopicRow"
-                  href={`/app/analytics/subjects/${encodeURIComponent(subject.subject)}`}
-                  key={subject.subject}
+                  href={buildAnalyticsSubjectHref(item.subject, { source, teacher })}
+                  key={item.subject}
                 >
                   <div>
-                    <strong>{subject.subject}</strong>
+                    <strong>{item.subject}</strong>
                     <span>
-                      {subject.trackedTopics} tracked topics · {subject.correctAnswers} correct
+                      {item.trackedTopics} tracked topics · {item.correctAnswers} correct
                     </span>
                   </div>
                   <div className="studentTopicRowMeta">
-                    <strong>{percentageLabel(subject.averagePercentage)}</strong>
-                    <span>{subject.attemptedQuestions} attempted</span>
+                    <strong>{percentageLabel(item.averagePercentage)}</strong>
+                    <span>{item.attemptedQuestions} attempted</span>
                   </div>
                 </Link>
               ))
@@ -241,7 +321,7 @@ export default async function StudentAnalyticsTimelinePage() {
             </div>
             <div className="analyticsChecklistItem">
               <strong>Action continuity</strong>
-              <span>From this page, open the action center and verify the weakest recovery suggestion still makes sense.</span>
+              <span>From this page, open the action center and verify the weakest recovery suggestion still matches the scoped drill.</span>
             </div>
           </div>
         </article>

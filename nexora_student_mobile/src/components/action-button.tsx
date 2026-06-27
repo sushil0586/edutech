@@ -7,17 +7,20 @@ export function ActionButton({
   compact = false,
   onPress,
   disabled = false,
+  testID,
 }: {
   label: string;
   tone?: "primary" | "secondary";
   compact?: boolean;
   onPress?: () => void;
   disabled?: boolean;
+  testID?: string;
 }) {
   return (
     <Pressable
       disabled={disabled}
       onPress={onPress}
+      testID={testID}
       style={[
         tone === "primary" ? appStyles.primaryButton : appStyles.secondaryButton,
         compact ? appStyles.navButtonPill : null,

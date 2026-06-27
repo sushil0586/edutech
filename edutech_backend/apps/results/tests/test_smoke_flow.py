@@ -8,10 +8,13 @@ from decimal import Decimal
 
 from apps.attempts.models import StudentExamAttempt
 from apps.attempts.services import save_answer, start_attempt, submit_attempt
+from apps.exams.models import ExamSection
 from apps.exams.services import mark_exam_completed, mark_exam_live, publish_exam, refresh_exam_status
 from apps.exams.services import sync_total_marks_from_questions
 from apps.results.models import ExamResult
 from apps.results.services import (
+    build_student_insight_summary,
+    build_result_publish_readiness,
     calculate_exam_ranks,
     generate_result_from_attempt,
     generate_results_for_exam,
@@ -458,6 +461,152 @@ class AcademicAssessmentSmokeTestCase(TestCase):
 
         with self.assertRaises(ValidationError):
             publish_exam_results(exam)
+
+    def test_result_publish_readiness_reports_completion_blocker(self):
+        exam = self.context["exam"]
+        question = self.context["question"]
+        correct_option = next(option for option in self.context["options"] if option.is_correct)
+        exam = publish_exam(exam, changed_by=self.context["teacher"], remarks="Readiness scheduled")
+
+        attempt = start_attempt(self.context["student"], exam)
+        save_answer(
+            attempt=attempt,
+            question=question,
+            selected_option=correct_option,
+            time_spent_seconds=10,
+        )
+        submit_attempt(attempt)
+        generate_results_for_exam(exam)
+
+        readiness = build_result_publish_readiness(exam)
+
+        self.assertFalse(readiness["ready"])
+        blocker_codes = {item["code"] for item in readiness["blockers"]}
+        self.assertIn("exam_not_completed", blocker_codes)
+
+    def test_result_publish_readiness_reports_missing_rank_warning(self):
+        exam = self.context["exam"]
+        question = self.context["question"]
+        correct_option = next(option for option in self.context["options"] if option.is_correct)
+        exam = publish_exam(exam, changed_by=self.context["teacher"], remarks="Rank warning scheduled")
+
+        attempt = start_attempt(self.context["student"], exam)
+        save_answer(
+            attempt=attempt,
+            question=question,
+            selected_option=correct_option,
+            time_spent_seconds=10,
+        )
+        submit_attempt(attempt)
+        generate_result_from_attempt(attempt)
+        exam = mark_exam_completed(exam, changed_by=self.context["teacher"])
+
+        readiness = build_result_publish_readiness(exam)
+
+        self.assertTrue(readiness["ready"])
+        warning_codes = {item["code"] for item in readiness["warnings"]}
+        self.assertIn("missing_ranks", warning_codes)
+
+    def test_student_insight_summary_keeps_multi_subject_recent_exam_and_subject_breakdown(self):
+        exam = self.context["exam"]
+        exam.max_attempts = 1
+        exam.passing_marks = Decimal("2.00")
+        exam.save(update_fields=["max_attempts", "passing_marks", "updated_at"])
+
+        first_section = ExamSection.objects.create(
+            exam=exam,
+            subject=self.context["subject"],
+            name="Mathematics Section",
+            section_order=1,
+            total_questions=1,
+        )
+
+        second_subject = self.builder.create_subject(
+            self.context["institute"],
+            self.context["program"],
+            name="Physics",
+            code="PHY10",
+            sort_order=2,
+        )
+        second_topic = self.builder.create_topic(
+            self.context["institute"],
+            second_subject,
+            name="Motion",
+            code="MOT-01",
+            sort_order=2,
+        )
+        second_question, second_options = self.builder.create_question_with_options(
+            self.context["institute"],
+            self.context["program"],
+            second_subject,
+            second_topic,
+            self.context["teacher"],
+            question_text="What is velocity?",
+            explanation="Basic motion concept.",
+            options=[
+                {"option_text": "Speed with direction", "option_order": 1, "is_correct": True, "is_active": True},
+                {"option_text": "Distance only", "option_order": 2, "is_correct": False, "is_active": True},
+            ],
+        )
+        second_section = ExamSection.objects.create(
+            exam=exam,
+            subject=second_subject,
+            name="Physics Section",
+            section_order=2,
+            total_questions=1,
+        )
+
+        exam_question = self.context["exam_question"]
+        exam_question.section = first_section
+        exam_question.section_name = first_section.name
+        exam_question.save(update_fields=["section", "section_name", "updated_at"])
+        self.builder.create_exam_question(
+            exam,
+            second_question,
+            section=second_section,
+            section_name=second_section.name,
+            question_order=2,
+        )
+
+        sync_total_marks_from_questions(exam)
+        publish_exam(exam, changed_by=self.context["teacher"], remarks="Multi-subject summary smoke test")
+
+        attempt = start_attempt(self.context["student"], exam)
+        first_correct_option = next(
+            option for option in self.context["options"] if option.is_correct
+        )
+        second_correct_option = next(option for option in second_options if option.is_correct)
+        save_answer(
+            attempt=attempt,
+            question=self.context["question"],
+            selected_option=first_correct_option,
+            time_spent_seconds=15,
+        )
+        save_answer(
+            attempt=attempt,
+            question=second_question,
+            selected_option=second_correct_option,
+            time_spent_seconds=18,
+        )
+        submit_attempt(attempt)
+        generate_result_from_attempt(attempt)
+
+        summary = build_student_insight_summary(self.context["student"])
+
+        recent_exam = summary["recent_exams"][0]
+        self.assertTrue(recent_exam["is_multi_subject"])
+        self.assertEqual(recent_exam["primary_subject_name"], self.context["subject"].name)
+        self.assertEqual(recent_exam["subject_summary"]["subject_count"], 2)
+        self.assertEqual(
+            {item["name"] for item in recent_exam["section_subjects"]},
+            {self.context["subject"].name, second_subject.name},
+        )
+
+        subject_breakdown_names = {
+            item["subject_name"] for item in summary["source_subject_breakdown"]
+        }
+        self.assertIn(self.context["subject"].name, subject_breakdown_names)
+        self.assertIn(second_subject.name, subject_breakdown_names)
 
     def test_teacher_can_force_submit_in_progress_attempt_from_monitor(self):
         exam = publish_exam(

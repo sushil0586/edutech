@@ -20,6 +20,15 @@ import {
   studentDateTimeLabel,
   titleCaseState,
 } from "@/lib/student/formatters";
+import {
+  attemptOutcomeHelper,
+  attemptOutcomeJourney,
+  attemptOutcomeLabel,
+  attemptOutcomeProgressLabel,
+  attemptOutcomeResultsLabel,
+  attemptOutcomeReviewLabel,
+  resolveAttemptOutcomeState,
+} from "@/lib/student/attempt-outcome";
 import { buildPracticeHref, resolvePracticeFollowUpAction } from "@/lib/student/practice";
 import {
   ALL_SOURCES_CONTEXT,
@@ -27,6 +36,7 @@ import {
   filterStudentExamsBySubject,
   filterStudentRecordsBySource,
   filterStudentRecordsByMetadataSubject,
+  getMetadataSubjectDisplayLabel,
   getStudentSourceOptions,
   getMetadataSubjectName,
   getStudentSubjectOptions,
@@ -68,13 +78,20 @@ function attemptSourceDescriptor(attempt: {
 }
 
 function submittedAttemptCopy() {
+  const outcomeState = resolveAttemptOutcomeState({
+    resultVisible: false,
+    reviewAvailable: false,
+  });
+  const journey = attemptOutcomeJourney(outcomeState);
+
   return {
-    workspace: "Summary and result visibility depend on policy",
-    helper:
-      "Open the summary first to check whether results are visible and whether review has been unlocked for this attempt.",
-    primaryCta: "Check Attempt Status",
-    secondaryCta: "Open Results",
+    workspace: attemptOutcomeLabel(outcomeState),
+    helper: `${attemptOutcomeHelper(outcomeState, "mock_exam")} ${journey.laneHelper}`,
+    progress: attemptOutcomeProgressLabel(outcomeState),
+    primaryCta: journey.summaryCta,
+    secondaryCta: journey.resultsCta,
     practiceCta: "Open Practice",
+    laneLabel: journey.laneLabel,
   };
 }
 
@@ -191,8 +208,14 @@ function buildAttemptFilterHref(args: {
   status?: AttemptStatusFilter;
   sort?: AttemptSortOption;
   group?: AttemptGroupOption;
+  subject?: string;
+  source?: string;
+  teacher?: string;
 }) {
   return buildFilterHref("/app/attempts", [
+    ["subject", args.subject],
+    ["source", args.source],
+    ["teacher", args.teacher],
     ["attempt_filter", args.status, "all"],
     ["attempt_sort", args.sort, "latest"],
     ["attempt_group", args.group, "none"],
@@ -286,33 +309,56 @@ export default async function AttemptsPage({
 }: {
   searchParams: Promise<{
     error?: string;
+    subject?: string;
+    source?: string;
+    teacher?: string;
     attempt_filter?: string;
     attempt_sort?: string;
     attempt_group?: string;
   }>;
 }) {
-  const { error, attempt_filter, attempt_sort, attempt_group } = await searchParams;
+  const {
+    error,
+    subject,
+    source: sourceParam,
+    teacher: teacherParam,
+    attempt_filter,
+    attempt_sort,
+    attempt_group,
+  } = await searchParams;
   const profile = await fetchCurrentAccountProfile();
   const registrationContext = profile?.registration_context ?? {};
   const subjectOptions = getStudentSubjectOptions(profile ?? registrationContext);
+  const requestedSubject =
+    subjectOptions.find((option) => option.value === subject)?.value ?? null;
   const cookieStore = await cookies();
-  const selectedSource = resolveSelectedStudentSource(
-    cookieStore.get(STUDENT_SOURCE_CONTEXT_COOKIE)?.value ?? ALL_SOURCES_CONTEXT,
-  );
+  const requestedSource = resolveSelectedStudentSource(sourceParam ?? ALL_SOURCES_CONTEXT);
   const selectedSubject = resolveSelectedStudentSubject(
     subjectOptions,
-    cookieStore.get(STUDENT_SUBJECT_CONTEXT_COOKIE)?.value ?? ALL_SUBJECTS_CONTEXT,
+    requestedSubject ??
+      cookieStore.get(STUDENT_SUBJECT_CONTEXT_COOKIE)?.value ??
+      ALL_SUBJECTS_CONTEXT,
   );
   const selectedSubjectLabel =
     subjectOptions.find((option) => option.value === selectedSubject)?.label ?? "Overall";
+  const scopedSubjectParam =
+    selectedSubject === ALL_SUBJECTS_CONTEXT ? undefined : selectedSubject;
 
   const { source, attempts, practiceExams } = await loadAttempts();
   const { teacherOptions } = getStudentSourceOptions([...attempts, ...practiceExams]);
+  const selectedSource =
+    sourceParam !== undefined
+      ? requestedSource
+      : resolveSelectedStudentSource(
+          cookieStore.get(STUDENT_SOURCE_CONTEXT_COOKIE)?.value ?? ALL_SOURCES_CONTEXT,
+        );
   const selectedTeacherId = resolveSelectedStudentSourceTeacher(
     teacherOptions,
     selectedSource,
-    cookieStore.get(STUDENT_SOURCE_TEACHER_CONTEXT_COOKIE)?.value ?? null,
+    teacherParam ?? cookieStore.get(STUDENT_SOURCE_TEACHER_CONTEXT_COOKIE)?.value ?? null,
   );
+  const scopedSourceParam =
+    selectedSource === ALL_SOURCES_CONTEXT ? undefined : selectedSource;
   const scopedAttempts = filterStudentRecordsByMetadataSubject(
     filterStudentRecordsBySource(attempts, selectedSource, selectedTeacherId),
     selectedSubject,
@@ -336,6 +382,36 @@ export default async function AttemptsPage({
     (attempt) => attempt.status === "submitted",
   ).length;
   const latestAttempt = scopedAttempts[0] ?? null;
+  const attemptsRecoverySequence =
+    inProgressCount > 0
+      ? [
+          {
+            label: "Do this first",
+            detail: "Resume the live attempt before opening a new mock or practice lane.",
+          },
+          {
+            label: "Then next",
+            detail: "After submit, use the summary to confirm release state and the next visible student action.",
+          },
+          {
+            label: "After that",
+            detail: "Move into results, review, or practice only after the active attempt is no longer in progress.",
+          },
+        ]
+      : [
+          {
+            label: "Do this first",
+            detail: "Open the latest submitted summary to confirm what is released and what still depends on evaluation or review policy.",
+          },
+          {
+            label: "Then next",
+            detail: "Use results or answer review to confirm the mistake pattern before restarting practice.",
+          },
+          {
+            label: "After that",
+            detail: "Return to practice or another mock only after the previous attempt has produced a clear follow-up action.",
+          },
+        ];
 
   return (
     <div className="studentPage studentDashboardModern">
@@ -458,7 +534,14 @@ export default async function AttemptsPage({
                 <button className="button buttonPrimary" type="submit">
                   Apply filters
                 </button>
-                <Link className="button buttonSecondary" href="/app/attempts">
+                <Link
+                  className="button buttonSecondary"
+                  href={buildAttemptFilterHref({
+                    subject: scopedSubjectParam,
+                    source: scopedSourceParam,
+                    teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
+                  })}
+                >
                   Reset filters
                 </Link>
               </div>
@@ -467,13 +550,13 @@ export default async function AttemptsPage({
               <span className="studentWorkspaceFilterQuickLabel">Quick filters</span>
               <div className="studentWorkspaceFilterQuickChips">
                 {[
-                  { label: "All", href: buildAttemptFilterHref({}), active: statusFilter === "all" && sortOption === "latest" && groupOption === "none" },
-                  { label: "In Progress", href: buildAttemptFilterHref({ status: "in_progress", sort: sortOption, group: groupOption }), active: statusFilter === "in_progress" },
-                  { label: "Submitted", href: buildAttemptFilterHref({ status: "submitted", sort: sortOption, group: groupOption }), active: statusFilter === "submitted" },
-                  { label: "Practice", href: buildAttemptFilterHref({ status: "practice", sort: sortOption, group: groupOption }), active: statusFilter === "practice" },
-                  { label: "Mock Tests", href: buildAttemptFilterHref({ status: "mock", sort: sortOption, group: groupOption }), active: statusFilter === "mock" },
-                  { label: "Highest Score", href: buildAttemptFilterHref({ status: statusFilter, sort: "highest", group: groupOption }), active: sortOption === "highest" },
-                  { label: "Group by Status", href: buildAttemptFilterHref({ status: statusFilter, sort: sortOption, group: "status" }), active: groupOption === "status" },
+                  { label: "All", href: buildAttemptFilterHref({ subject: scopedSubjectParam, source: scopedSourceParam, teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined }), active: statusFilter === "all" && sortOption === "latest" && groupOption === "none" },
+                  { label: "In Progress", href: buildAttemptFilterHref({ status: "in_progress", sort: sortOption, group: groupOption, subject: scopedSubjectParam, source: scopedSourceParam, teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined }), active: statusFilter === "in_progress" },
+                  { label: "Submitted", href: buildAttemptFilterHref({ status: "submitted", sort: sortOption, group: groupOption, subject: scopedSubjectParam, source: scopedSourceParam, teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined }), active: statusFilter === "submitted" },
+                  { label: "Practice", href: buildAttemptFilterHref({ status: "practice", sort: sortOption, group: groupOption, subject: scopedSubjectParam, source: scopedSourceParam, teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined }), active: statusFilter === "practice" },
+                  { label: "Mock Tests", href: buildAttemptFilterHref({ status: "mock", sort: sortOption, group: groupOption, subject: scopedSubjectParam, source: scopedSourceParam, teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined }), active: statusFilter === "mock" },
+                  { label: "Highest Score", href: buildAttemptFilterHref({ status: statusFilter, sort: "highest", group: groupOption, subject: scopedSubjectParam, source: scopedSourceParam, teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined }), active: sortOption === "highest" },
+                  { label: "Group by Status", href: buildAttemptFilterHref({ status: statusFilter, sort: sortOption, group: "status", subject: scopedSubjectParam, source: scopedSourceParam, teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined }), active: groupOption === "status" },
                 ].map((chip) => (
                   <Link
                     key={chip.label}
@@ -502,7 +585,11 @@ export default async function AttemptsPage({
               eyebrow="No matching attempts"
               title="No attempts match these controls"
               description="Try a broader status filter, a different sort order, or reset the controls to return to the full attempt history."
-              ctaHref="/app/attempts"
+              ctaHref={buildAttemptFilterHref({
+                subject: scopedSubjectParam,
+                source: scopedSourceParam,
+                teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
+              })}
               ctaLabel="Reset attempt filters"
               statusLabel="Filter returned zero attempts"
             />
@@ -526,7 +613,14 @@ export default async function AttemptsPage({
               <Link className="button buttonPrimary" href="/app/exams">
                 Open Mock Tests
               </Link>
-              <Link className="button buttonSecondary" href={buildPracticeHref()}>
+              <Link
+                className="button buttonSecondary"
+                href={buildPracticeHref({
+                  subjectName: scopedSubjectParam ?? null,
+                  source: scopedSourceParam ?? null,
+                  teacher: selectedSource === "teacher" ? selectedTeacherId : null,
+                })}
+              >
                 Open Practice
               </Link>
             </div>
@@ -568,7 +662,12 @@ export default async function AttemptsPage({
               const isInProgress = attempt.status === "in_progress";
               const currentSectionName = attempt.section_runtime.current_section_name;
               const submittedCopy = submittedAttemptCopy();
+              const submittedOutcomeState = resolveAttemptOutcomeState({
+                resultVisible: false,
+                reviewAvailable: false,
+              });
               const attemptSubjectName = getMetadataSubjectName(attempt.metadata);
+              const attemptSubjectLabel = getMetadataSubjectDisplayLabel(attempt.metadata);
               const practiceFollowUp = resolvePracticeFollowUpAction({
                 exams: scopedPracticeExams,
                 subjectName: attemptSubjectName || null,
@@ -579,7 +678,13 @@ export default async function AttemptsPage({
                   <div className="studentResultSurfaceHead">
                     <div>
                       <strong>{attempt.exam_title}</strong>
-                      <span>{attempt.exam_code} · Attempt {attempt.attempt_no}</span>
+                      <span>
+                        {attempt.exam_code}
+                        {attemptSubjectLabel !== "Subject pending"
+                          ? ` · ${attemptSubjectLabel}`
+                          : ""}{" "}
+                        · Attempt {attempt.attempt_no}
+                      </span>
                     </div>
                     <div className="studentResultSurfaceStatus">
                       <span className="statusPill statusDefault">{attempt.source_label}</span>
@@ -587,7 +692,9 @@ export default async function AttemptsPage({
                         <span className="statusPill statusDemo">{attempt.source_teacher_name}</span>
                       ) : null}
                       <span className={`statusPill ${attemptTone(attempt.status)}`}>
-                        {titleCaseState(attempt.status)}
+                        {isInProgress
+                          ? titleCaseState(attempt.status)
+                          : attemptOutcomeResultsLabel(submittedOutcomeState)}
                       </span>
                     </div>
                   </div>
@@ -623,15 +730,15 @@ export default async function AttemptsPage({
                       <strong>
                         {isInProgress
                           ? currentSectionName || "Continue active attempt"
-                          : submittedCopy.workspace}
+                          : `${attemptOutcomeResultsLabel(submittedOutcomeState)} · ${attemptOutcomeReviewLabel(submittedOutcomeState)}`}
                       </strong>
                       <small>
                         {attemptSourceDescriptor(attempt)}.{" "}
                         {isInProgress
                           ? "Return to the active session and continue from the latest saved state."
                           : practiceFollowUp.exam
-                            ? `${submittedCopy.helper} The next practice suggestion is resolved from live access for ${practiceFollowUp.exam.title}.`
-                            : submittedCopy.helper}
+                            ? `${submittedCopy.helper} ${submittedCopy.progress} The next practice suggestion is resolved from live access for ${practiceFollowUp.exam.title}.`
+                            : `${submittedCopy.helper} ${submittedCopy.progress}`}
                       </small>
                     </div>
                     <div className="studentInsightHeroActions">
@@ -642,14 +749,26 @@ export default async function AttemptsPage({
                       ) : (
                         <Link
                           className="button buttonPrimary"
-                          href={`/app/attempts/${attempt.id}/summary`}
+                          href={buildFilterHref(`/app/attempts/${attempt.id}/summary`, [
+                            ["subject", scopedSubjectParam],
+                            ["source", scopedSourceParam],
+                            ["teacher", selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined],
+                          ])}
                         >
                           {submittedCopy.primaryCta}
                         </Link>
                       )}
                       <Link
                         className="button buttonSecondary"
-                        href={isInProgress ? `/app/exams/${attempt.exam}` : "/app/results"}
+                        href={
+                          isInProgress
+                            ? `/app/exams/${attempt.exam}`
+                            : buildFilterHref("/app/results", [
+                                ["subject", scopedSubjectParam],
+                                ["source", scopedSourceParam],
+                                ["teacher", selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined],
+                              ])
+                        }
                       >
                         {isInProgress ? "Exam Detail" : submittedCopy.secondaryCta}
                       </Link>
@@ -732,8 +851,96 @@ export default async function AttemptsPage({
             </div>
             <p className="sectionDescription">
               Attempt follow-up is not one-size-fits-all. Some next steps start immediately, some open
-              review flows, and some premium practice sets may first need stars before you continue.
+              review flows, and some premium practice sets may first need stars before you continue. Post-submit states always move in order: submitted, evaluation pending, result published, then review available when policy allows.
             </p>
+          </section>
+
+          <section className="studentInsightsTwoColumn">
+            <article className="contentCard">
+              <div className="sectionHeading">
+                <strong>Attempt Continuity Loop</strong>
+                <span>{inProgressCount > 0 ? "Resume before branching" : "Summary before retry"}</span>
+              </div>
+              <div className="studentInsightMessageStack">
+                <div className="studentInsightMessage">
+                  <span className="placeholderDot" aria-hidden="true" />
+                  <p>
+                    Attempts history should tell the student whether to resume, inspect a summary, open results, or move into the next practice lane.
+                  </p>
+                </div>
+                <div className="studentInsightMessage">
+                  <span className="placeholderDot" aria-hidden="true" />
+                  <p>
+                    This workspace is the bridge between in-progress work and post-submit learning, so the next action should stay explicit instead of hidden in timestamps.
+                  </p>
+                </div>
+              </div>
+              <div className="studentActionSequence" aria-label="Attempt recovery order">
+                {attemptsRecoverySequence.map((step) => (
+                  <div className="studentActionSequenceCard" key={step.label}>
+                    <span>{step.label}</span>
+                    <strong>{step.detail}</strong>
+                  </div>
+                ))}
+              </div>
+              <div className="studentInsightHeroActions">
+                <Link
+                  className="button buttonSecondary"
+                  href={buildFilterHref("/app/results", [
+                    ["subject", scopedSubjectParam],
+                    ["source", scopedSourceParam],
+                    ["teacher", selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined],
+                  ])}
+                >
+                  Open Results
+                </Link>
+                <Link
+                  className="button buttonGhost"
+                  href={buildPracticeHref({
+                    subjectName: scopedSubjectParam ?? null,
+                    source: scopedSourceParam ?? null,
+                    teacher: selectedSource === "teacher" ? selectedTeacherId : null,
+                  })}
+                >
+                  Open Practice
+                </Link>
+              </div>
+            </article>
+            <article className="contentCard">
+              <div className="sectionHeading">
+                <strong>Release Order</strong>
+                <span>Student-visible flow</span>
+              </div>
+              <div className="studentInsightMessageStack">
+                <div className="studentInsightMessage">
+                  <span className="placeholderDot" aria-hidden="true" />
+                  <p>In-progress attempts should usually be resumed, not abandoned for a new lane.</p>
+                </div>
+                <div className="studentInsightMessage">
+                  <span className="placeholderDot" aria-hidden="true" />
+                  <p>Submitted attempts unlock summary first. Results and answer review may arrive later depending on release policy.</p>
+                </div>
+                <div className="studentInsightMessage">
+                  <span className="placeholderDot" aria-hidden="true" />
+                  <p>Practice follow-up is strongest after summary or review confirms what needs correction.</p>
+                </div>
+              </div>
+              <div className="studentInsightHeroActions">
+                <Link className="button buttonSecondary" href="/app/analytics">
+                  View Analytics
+                </Link>
+                <Link
+                  className="button buttonGhost"
+                  href={buildAttemptFilterHref({
+                    subject: scopedSubjectParam,
+                    source: scopedSourceParam,
+                    teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
+                  })}
+                >
+                  Stay In Attempts
+                </Link>
+              </div>
+            </article>
           </section>
             </>
           ) : null}

@@ -32,6 +32,10 @@ test.describe("Student practice workspace", () => {
     const filtersCard = page.locator("section.studentWorkspaceFiltersCard").first();
 
     if (await filtersCard.isVisible().catch(() => false)) {
+      await expect(page.getByText(/do this first/i).first()).toBeVisible();
+      await expect(page.getByRole("link", { name: /open analytics/i }).first()).toBeVisible();
+      await expect(page.getByRole("link", { name: /check results/i }).first()).toBeVisible();
+
       const practiceForm = filtersCard.locator("form.studentWorkspaceFiltersForm").first();
 
       await practiceForm.locator('select[name="practice_filter"]').selectOption("review");
@@ -64,6 +68,15 @@ test.describe("Student practice workspace", () => {
       if (await recommendedPracticeLink.isVisible().catch(() => false)) {
         await recommendedPracticeLink.click();
         await expect(page).toHaveURL(/\/app\/practice(?:\?.*)?#recommended-practice$/);
+      }
+
+      const analyticsLink = page.getByRole("link", { name: /open analytics/i }).first();
+      if (await analyticsLink.isVisible().catch(() => false)) {
+        await analyticsLink.click();
+        await expect(page).toHaveURL(/\/app\/analytics(?:\?.*)?$/);
+        await expect(page.getByRole("heading", { name: /analytics/i }).first()).toBeVisible();
+        await page.goto("/app/practice");
+        await expectStudentPracticeWorkspace(page);
       }
 
       const primaryActionCandidates = [

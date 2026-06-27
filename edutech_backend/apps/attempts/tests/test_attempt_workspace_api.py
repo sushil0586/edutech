@@ -7,10 +7,12 @@ from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
+from apps.academics.models import AssessmentFamily
 from apps.attempts.models import StudentAnswerReviewTask, StudentExamAttempt
 from apps.attempts.services import review_manual_answer, save_answer, start_attempt, submit_attempt
 from apps.exams.models import ExamSection
 from apps.exams.services import mark_exam_completed, publish_exam, sync_total_marks_from_questions
+from apps.results.models import ExamPerformanceSummary, ExamResult, StudentTopicPerformance
 from apps.results.services import generate_result_from_attempt, publish_exam_results
 from apps.question_bank.models import (
     AttachmentType,
@@ -91,6 +93,30 @@ class AttemptWorkspaceApiTestCase(TestCase):
             total_questions=1,
             is_active=True,
         )
+
+    def _assign_language_family_to_program(self):
+        family, _ = AssessmentFamily.objects.get_or_create(
+            code="language_proficiency",
+            defaults={
+                "label": "Language Proficiency",
+                "description": "Structured language simulation family.",
+                "allowed_question_types": [
+                    "mcq_single",
+                    "short_answer",
+                    "fill_in_blanks",
+                    "essay_manual_review",
+                ],
+                "scoring_defaults": {
+                    "strategy": "band_score",
+                    "negative_marking_default": False,
+                    "negative_marking_scope": "disabled",
+                    "recommended_attempt_policy": "single",
+                },
+            },
+        )
+        self.context["program"].assessment_family = family
+        self.context["program"].save(update_fields=["assessment_family", "updated_at"])
+        return family
 
     def test_attempt_detail_hides_correctness_and_returns_server_time(self):
         attempt = self._start_attempt()
@@ -369,6 +395,190 @@ class AttemptWorkspaceApiTestCase(TestCase):
             "Elasticity means resources can expand or shrink with demand.",
         )
         self.assertEqual(saved_answer.response_artifacts[0]["upload_token"], "artifact-audio-001")
+
+    def test_attempt_detail_filters_language_family_response_artifact_capabilities_by_default(self):
+        self._assign_language_family_to_program()
+        question = Question.objects.create(
+            institute=self.context["institute"],
+            program=self.context["program"],
+            subject=self.context["subject"],
+            topic=self.context["topic"],
+            created_by_teacher=self.context["teacher"],
+            question_type=QuestionType.ESSAY_MANUAL_REVIEW,
+            difficulty_level="advanced",
+            content_format=ContentFormat.RICH_TEXT_HTML,
+            question_text="Write a response using the prompt pack.",
+            explanation="Focus on written structure.",
+            default_marks=Decimal("5.00"),
+            negative_marks=Decimal("0.00"),
+            metadata={"review_guidance": "Review coherence and completion."},
+            is_active=True,
+        )
+        self.builder.create_exam_question(
+            self.exam,
+            question,
+            marks=Decimal("5.00"),
+            negative_marks=Decimal("0.00"),
+            question_order=2,
+        )
+        attempt = self._start_attempt()
+
+        response = self.client.get(f"/api/v1/attempts/{attempt.id}/detail/")
+
+        self.assertEqual(response.status_code, 200)
+        target_question = next(
+            row for row in response.data["questions"] if str(row["question"]) == str(question.id)
+        )
+        definition = target_question["question_type_definition"]
+        self.assertTrue(definition["capabilities"]["supports_response_artifacts"])
+        self.assertEqual(
+            definition["capabilities"]["allowed_response_artifact_types"],
+            ["image_upload", "document_upload"],
+        )
+        self.assertEqual(
+            definition["allowed_response_artifact_types"],
+            ["image_upload", "document_upload"],
+        )
+
+    def test_language_family_save_answer_rejects_audio_artifacts_without_explicit_policy(self):
+        self._assign_language_family_to_program()
+        question = Question.objects.create(
+            institute=self.context["institute"],
+            program=self.context["program"],
+            subject=self.context["subject"],
+            topic=self.context["topic"],
+            created_by_teacher=self.context["teacher"],
+            question_type=QuestionType.ESSAY_MANUAL_REVIEW,
+            difficulty_level="advanced",
+            content_format=ContentFormat.RICH_TEXT_HTML,
+            question_text="Respond to the prompt with written evidence only.",
+            explanation="Use a written response unless media is explicitly requested.",
+            default_marks=Decimal("5.00"),
+            negative_marks=Decimal("0.00"),
+            metadata={"review_guidance": "Review written structure and accuracy."},
+            is_active=True,
+        )
+        self.builder.create_exam_question(
+            self.exam,
+            question,
+            marks=Decimal("5.00"),
+            negative_marks=Decimal("0.00"),
+            question_order=2,
+        )
+        attempt = self._start_attempt()
+
+        response = self.client.post(
+            f"/api/v1/attempts/{attempt.id}/save-answer/",
+            {
+                "question": str(question.id),
+                "answer_text": "",
+                "answer_transcript": "Spoken transcript that should not be accepted by default.",
+                "response_artifacts": [
+                    {
+                        "asset_kind": "audio_recording",
+                        "upload_token": "artifact-audio-language-001",
+                    }
+                ],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("answer_transcript", response.data)
+
+    def test_language_family_upload_response_artifact_allows_audio_when_explicitly_enabled(self):
+        self._assign_language_family_to_program()
+        question = Question.objects.create(
+            institute=self.context["institute"],
+            program=self.context["program"],
+            subject=self.context["subject"],
+            topic=self.context["topic"],
+            created_by_teacher=self.context["teacher"],
+            question_type=QuestionType.ESSAY_MANUAL_REVIEW,
+            difficulty_level="advanced",
+            content_format=ContentFormat.RICH_TEXT_HTML,
+            question_text="Record a spoken response when requested.",
+            explanation="Use audio only for explicitly configured prompts.",
+            default_marks=Decimal("5.00"),
+            negative_marks=Decimal("0.00"),
+            metadata={
+                "review_guidance": "Review fluency, accuracy, and completion.",
+                "response_artifact_policy": {
+                    "allow_audio_recording": True,
+                    "allow_answer_transcript": True,
+                },
+            },
+            is_active=True,
+        )
+        self.builder.create_exam_question(
+            self.exam,
+            question,
+            marks=Decimal("5.00"),
+            negative_marks=Decimal("0.00"),
+            question_order=2,
+        )
+        attempt = self._start_attempt()
+
+        response = self.client.post(
+            f"/api/v1/attempts/{attempt.id}/upload-response-artifact/",
+            {
+                "question": str(question.id),
+                "asset_kind": "audio_recording",
+                "file": SimpleUploadedFile(
+                    "language-response.m4a",
+                    b"fake-audio-bytes",
+                    content_type="audio/mp4",
+                ),
+            },
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["asset_kind"], "audio_recording")
+
+    def test_language_family_upload_response_artifact_rejects_audio_without_explicit_policy(self):
+        self._assign_language_family_to_program()
+        question = Question.objects.create(
+            institute=self.context["institute"],
+            program=self.context["program"],
+            subject=self.context["subject"],
+            topic=self.context["topic"],
+            created_by_teacher=self.context["teacher"],
+            question_type=QuestionType.ESSAY_MANUAL_REVIEW,
+            difficulty_level="advanced",
+            content_format=ContentFormat.RICH_TEXT_HTML,
+            question_text="Respond in writing unless a media artifact is explicitly enabled.",
+            explanation="Audio is not enabled for this prompt.",
+            default_marks=Decimal("5.00"),
+            negative_marks=Decimal("0.00"),
+            metadata={"review_guidance": "Review written structure and evidence."},
+            is_active=True,
+        )
+        self.builder.create_exam_question(
+            self.exam,
+            question,
+            marks=Decimal("5.00"),
+            negative_marks=Decimal("0.00"),
+            question_order=2,
+        )
+        attempt = self._start_attempt()
+
+        response = self.client.post(
+            f"/api/v1/attempts/{attempt.id}/upload-response-artifact/",
+            {
+                "question": str(question.id),
+                "asset_kind": "audio_recording",
+                "file": SimpleUploadedFile(
+                    "blocked-language-response.m4a",
+                    b"fake-audio-bytes",
+                    content_type="audio/mp4",
+                ),
+            },
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("asset_kind", response.data)
 
     def test_save_answer_rejects_response_artifacts_for_objective_questions(self):
         attempt = self._start_attempt()
@@ -2472,6 +2682,114 @@ class AttemptWorkspaceApiTestCase(TestCase):
 
         response = self.client.get(f"/api/v1/attempts/{attempt.id}/review/")
         self.assertEqual(response.status_code, 403)
+
+    def test_submit_attempt_generates_immediate_result_records(self):
+        self.exam.result_publish_mode = "immediate"
+        self.exam.review_mode = "attempted_only"
+        self.exam.allow_review_after_submit = True
+        self.exam.show_result_immediately = True
+        self.exam.save(
+            update_fields=[
+                "result_publish_mode",
+                "review_mode",
+                "allow_review_after_submit",
+                "show_result_immediately",
+                "updated_at",
+            ]
+        )
+
+        attempt = self._start_attempt()
+        save_answer(
+            attempt=attempt,
+            question=self.context["question"],
+            selected_option=self.correct_option,
+        )
+        submit_attempt(attempt)
+        attempt.refresh_from_db()
+
+        result = ExamResult.objects.get(attempt=attempt)
+        self.assertTrue(result.is_published)
+        self.assertIsNotNone(result.published_at)
+        self.assertEqual(result.rank, 1)
+        self.assertEqual(result.final_score, attempt.final_score)
+
+        self.assertTrue(
+            StudentTopicPerformance.objects.filter(
+                exam=self.exam,
+                student=self.context["student"],
+            ).exists()
+        )
+        self.assertTrue(ExamPerformanceSummary.objects.filter(exam=self.exam).exists())
+
+        summary_response = self.client.get(f"/api/v1/attempts/{attempt.id}/summary/")
+        self.assertEqual(summary_response.status_code, 200)
+        self.assertTrue(summary_response.data["result_visible"])
+        self.assertTrue(summary_response.data["review_available"])
+        self.assertEqual(str(summary_response.data["final_score"]), str(attempt.final_score))
+
+        review_response = self.client.get(f"/api/v1/attempts/{attempt.id}/review/")
+        self.assertEqual(review_response.status_code, 200)
+
+    def test_immediate_result_mode_publishes_each_retry_and_recalculates_ranks(self):
+        self.exam.result_publish_mode = "immediate"
+        self.exam.attempt_policy = "unlimited_practice"
+        self.exam.review_mode = "attempted_only"
+        self.exam.allow_review_after_submit = True
+        self.exam.show_result_immediately = True
+        self.exam.save(
+            update_fields=[
+                "result_publish_mode",
+                "attempt_policy",
+                "review_mode",
+                "allow_review_after_submit",
+                "show_result_immediately",
+                "updated_at",
+            ]
+        )
+
+        first_attempt = self._start_attempt()
+        save_answer(
+            attempt=first_attempt,
+            question=self.context["question"],
+            selected_option=self.incorrect_option,
+        )
+        submit_attempt(first_attempt)
+        first_attempt.refresh_from_db()
+
+        second_attempt = self._start_attempt()
+        save_answer(
+            attempt=second_attempt,
+            question=self.context["question"],
+            selected_option=self.correct_option,
+        )
+        submit_attempt(second_attempt)
+        second_attempt.refresh_from_db()
+
+        first_result = ExamResult.objects.get(attempt=first_attempt)
+        second_result = ExamResult.objects.get(attempt=second_attempt)
+
+        self.assertTrue(first_result.is_published)
+        self.assertTrue(second_result.is_published)
+        self.assertEqual(
+            ExamResult.objects.filter(exam=self.exam, student=self.context["student"], is_active=True).count(),
+            2,
+        )
+        self.assertEqual(second_result.rank, 1)
+        self.assertEqual(first_result.rank, 2)
+        self.assertGreater(second_result.final_score, first_result.final_score)
+
+        summary_response = self.client.get(f"/api/v1/attempts/{second_attempt.id}/summary/")
+        self.assertEqual(summary_response.status_code, 200)
+        self.assertTrue(summary_response.data["result_visible"])
+        self.assertTrue(summary_response.data["review_available"])
+
+        self.assertEqual(
+            StudentTopicPerformance.objects.filter(
+                exam=self.exam,
+                student=self.context["student"],
+            ).count(),
+            1,
+        )
 
     def test_save_answer_blocks_questions_outside_current_section_in_free_section_mode(self):
         section_a = self._create_section("Section A", 1)

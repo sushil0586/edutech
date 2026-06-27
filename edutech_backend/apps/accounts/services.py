@@ -579,6 +579,7 @@ def merge_registration_context(profile, **updates):
 
 
 @transaction.atomic
+@transaction.atomic
 def complete_public_onboarding(account_profile, validated_data):
     role = account_profile.role
     user = account_profile.user
@@ -631,6 +632,12 @@ def complete_public_onboarding(account_profile, validated_data):
     )
 
     if role == AccountRole.STUDENT:
+        from apps.economy.services import (
+            apply_referral_code_for_student_signup,
+            get_or_create_student_referral_code,
+            process_signup_rewards,
+        )
+
         class_level = validated_data["class_level"].strip()
         board = validated_data["board"].strip()
         exam_interest = validated_data["exam_interest"].strip()
@@ -692,6 +699,24 @@ def complete_public_onboarding(account_profile, validated_data):
             exam_interest=exam_interest,
             subject_interests=subject_interests,
         )
+
+        # Public student onboarding is the first point where the account has a real
+        # student profile, institute context, and finalized academic placement.
+        process_signup_rewards(
+            student=student_profile,
+            created_by=user,
+        )
+
+        referral_code = (account_profile.registration_context or {}).get("referral_code", "").strip()
+        if referral_code:
+            apply_referral_code_for_student_signup(
+                student=student_profile,
+                referral_code=referral_code,
+                created_by=user,
+                metadata={"trigger": "public_onboarding"},
+            )
+
+        get_or_create_student_referral_code(student=student_profile)
 
     elif role == AccountRole.TEACHER:
         teaching_focus = validated_data["teaching_focus"].strip()

@@ -30,6 +30,8 @@ test.describe("Institute exam detail workspace", () => {
     await expect(page.getByText(/^hard blockers$/i).first()).toBeVisible();
     await expect(page.getByText(/^still pending$/i).first()).toBeVisible();
     await expect(page.getByText(/^already ready$/i).first()).toBeVisible();
+    await expect(page.getByText(/^exam publish readiness$/i).first()).toBeVisible();
+    await expect(page.getByText(/^result publish readiness$/i).first()).toBeVisible();
 
     await expect(page.getByText(/^exam actions$/i).first()).toBeVisible();
     await expect(page.getByText(/^exam configuration$/i).first()).toBeVisible();

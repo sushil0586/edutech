@@ -17,7 +17,18 @@ import {
   percentageLabel,
   titleCaseState,
 } from "@/lib/student/formatters";
-import { resolvePracticeFollowUpAction } from "@/lib/student/practice";
+import {
+  attemptOutcomeHelper,
+  attemptOutcomeJourney,
+  attemptOutcomeLabel,
+  attemptOutcomeProgressLabel,
+  attemptOutcomeResultsLabel,
+  attemptOutcomeReviewLabel,
+  attemptOutcomeTone,
+  resolveAttemptOutcomeState,
+} from "@/lib/student/attempt-outcome";
+import { buildPracticeHref, resolvePracticeFollowUpAction } from "@/lib/student/practice";
+import { buildFilterHref } from "@/lib/workspace/filter-utils";
 
 function attemptExperienceLabel(examType: string) {
   if (examType === "practice") return "practice";
@@ -57,50 +68,72 @@ function summaryStateCopy(summary: {
   result_visible: boolean;
   review_available: boolean;
 }) {
-  if (summary.exam_type === "practice" && summary.review_available) {
+  const outcomeState = resolveAttemptOutcomeState({
+    resultVisible: summary.result_visible,
+    reviewAvailable: summary.review_available,
+  });
+
+  if (summary.exam_type === "practice" && outcomeState === "review_ready") {
+    const journey = attemptOutcomeJourney(outcomeState);
     return {
       nextStep: "Review feedback",
       helper:
-        "This practice set is designed for immediate learning. Open the review now to inspect answers, accepted responses, and explanations.",
-      resultsCta: "Open Results",
+        `This practice set is designed for immediate learning. ${journey.laneHelper}`,
+      progress: attemptOutcomeProgressLabel(outcomeState),
+      resultsCta: journey.resultsCta,
+      reviewCta: journey.reviewCta,
       practiceCta: "Practice Again",
-      reviewTone: "statusLive",
+      reviewTone: attemptOutcomeTone(outcomeState),
       reviewLabel: "Instant feedback ready",
+      laneLabel: journey.laneLabel,
+      laneHelper: journey.laneHelper,
     };
   }
 
-  if (summary.review_available) {
+  if (outcomeState === "review_ready") {
+    const journey = attemptOutcomeJourney(outcomeState);
     return {
       nextStep: "Review answers",
-      helper:
-        "Your attempt has moved beyond submission. You can now inspect answers and explanations allowed by policy.",
-      resultsCta: "Open Results",
+      helper: `${attemptOutcomeHelper(outcomeState, summary.exam_type)} ${journey.laneHelper}`,
+      progress: attemptOutcomeProgressLabel(outcomeState),
+      resultsCta: journey.resultsCta,
+      reviewCta: journey.reviewCta,
       practiceCta: "Open Practice",
-      reviewTone: "statusLive",
-      reviewLabel: "Review available",
+      reviewTone: attemptOutcomeTone(outcomeState),
+      reviewLabel: attemptOutcomeLabel(outcomeState),
+      laneLabel: journey.laneLabel,
+      laneHelper: journey.laneHelper,
     };
   }
 
-  if (summary.result_visible) {
+  if (outcomeState === "published_summary_only") {
+    const journey = attemptOutcomeJourney(outcomeState);
     return {
       nextStep: "Open results",
-      helper:
-        "Your result is now visible, but detailed answer review is still locked by the current exam policy.",
-      resultsCta: "Open Results",
+      helper: `${attemptOutcomeHelper(outcomeState, summary.exam_type)} ${journey.laneHelper}`,
+      progress: attemptOutcomeProgressLabel(outcomeState),
+      resultsCta: journey.resultsCta,
+      reviewCta: journey.reviewCta,
       practiceCta: "Practice Weak Areas",
-      reviewTone: "statusWarning",
+      reviewTone: attemptOutcomeTone(outcomeState),
       reviewLabel: "Review locked",
+      laneLabel: journey.laneLabel,
+      laneHelper: journey.laneHelper,
     };
   }
 
+  const journey = attemptOutcomeJourney(outcomeState);
   return {
     nextStep: "Wait for publication",
-    helper:
-      "Your attempt was submitted successfully. Scores and review will appear only after backend result visibility rules are met.",
-    resultsCta: "Check Result Status",
+    helper: `${attemptOutcomeHelper(outcomeState, summary.exam_type)} ${journey.laneHelper}`,
+    progress: attemptOutcomeProgressLabel(outcomeState),
+    resultsCta: journey.resultsCta,
+    reviewCta: journey.reviewCta,
     practiceCta: "Open Practice",
-    reviewTone: "statusDemo",
-    reviewLabel: "Waiting for publication",
+    reviewTone: attemptOutcomeTone(outcomeState),
+    reviewLabel: attemptOutcomeLabel(outcomeState),
+    laneLabel: journey.laneLabel,
+    laneHelper: journey.laneHelper,
   };
 }
 
@@ -183,11 +216,11 @@ export default async function AttemptSummaryPage({
   searchParams,
 }: {
   params: Promise<{ attemptId: string }>;
-  searchParams: Promise<{ notice?: string }>;
+  searchParams: Promise<{ notice?: string; subject?: string; source?: string; teacher?: string }>;
 }) {
   const { attemptId } = await params;
-  const { notice } = await searchParams;
-  const { source, summary, practiceExams } = await loadAttemptSummary(attemptId);
+  const { notice, subject, source: sourceParam, teacher } = await searchParams;
+  const { source: summarySource, summary, practiceExams } = await loadAttemptSummary(attemptId);
 
   if (!summary) {
     return (
@@ -196,33 +229,33 @@ export default async function AttemptSummaryPage({
           title="Attempt Summary"
           description="This route only renders real post-submit summary data from the backend."
           statusLabel={
-            source === "unconfigured"
+            summarySource === "unconfigured"
               ? "Backend not configured"
               : "Unable to load summary"
           }
-          statusTone={source === "unconfigured" ? "warning" : "demo"}
+          statusTone={summarySource === "unconfigured" ? "warning" : "demo"}
         />
         <StudentStatePanel
-          eyebrow={source === "unconfigured" ? "Setup required" : "Load issue"}
+          eyebrow={summarySource === "unconfigured" ? "Setup required" : "Load issue"}
           title={
-            source === "unconfigured"
+            summarySource === "unconfigured"
               ? "Waiting for post-submit summary data"
               : "Attempt summary could not be loaded"
           }
           description={
-            source === "unconfigured"
+            summarySource === "unconfigured"
               ? "This route only renders real post-submit summary data from the backend. Configure the API base URL and sign in with an active student account to load the selected attempt summary."
               : "The post-submit summary view is connected to the backend, but the current request did not complete successfully."
           }
           bullets={
-            source === "unconfigured"
+            summarySource === "unconfigured"
               ? ["Attempt summary endpoint", "Active student web session"]
               : ["Backend connectivity", "Attempt summary endpoint"]
           }
           ctaHref="/app/results"
           ctaLabel="Open Results"
           statusLabel={
-            source === "unconfigured"
+            summarySource === "unconfigured"
               ? "Configuration required"
               : "Retry after backend check"
           }
@@ -232,8 +265,18 @@ export default async function AttemptSummaryPage({
   }
 
   const stateCopy = summaryStateCopy(summary);
+  const outcomeState = resolveAttemptOutcomeState({
+    resultVisible: summary.result_visible,
+    reviewAvailable: summary.review_available,
+  });
   const practiceFollowUp = resolvePracticeFollowUpAction({
     exams: practiceExams,
+  });
+  const scopedSubjectParam = subject?.trim() ? subject.trim() : undefined;
+  const scopedPracticeHref = buildPracticeHref({
+    subjectName: scopedSubjectParam ?? null,
+    source: sourceParam?.trim() ?? null,
+    teacher: teacher?.trim() ?? null,
   });
 
   return (
@@ -253,8 +296,9 @@ export default async function AttemptSummaryPage({
           <span className="studentDashboardTag">Post-Submit State</span>
           <strong>{stateCopy.nextStep}</strong>
           <small>
-            {examSourceDescriptor(summary)} · {summary.result_visible ? "Result visible" : "Result pending"} ·{" "}
-            {summary.review_available ? "Review available" : "Review locked"}
+            {examSourceDescriptor(summary)} · {attemptOutcomeResultsLabel(outcomeState)} ·{" "}
+            {attemptOutcomeReviewLabel(outcomeState)} ·{" "}
+            {stateCopy.laneLabel}
           </small>
         </div>
         <div className="studentInsightHeroActions">
@@ -263,12 +307,36 @@ export default async function AttemptSummaryPage({
             <StatusPill tone="demo">{summary.source_teacher_name}</StatusPill>
           ) : null}
           {summary.review_available ? (
-            <Link className="button buttonPrimary" href={`/app/attempts/${summary.id}/review`}>
-              Review Attempt
+            <Link
+              className="button buttonPrimary"
+              href={buildFilterHref(`/app/attempts/${summary.id}/review`, [
+                ["subject", scopedSubjectParam],
+                ["source", sourceParam?.trim()],
+                ["teacher", teacher?.trim()],
+              ])}
+            >
+              {stateCopy.reviewCta}
             </Link>
           ) : null}
-          <Link className="button buttonSecondary" href="/app/results">
+          <Link
+            className="button buttonSecondary"
+            href={buildFilterHref("/app/results", [
+              ["subject", scopedSubjectParam],
+              ["source", sourceParam?.trim()],
+              ["teacher", teacher?.trim()],
+            ])}
+          >
             {stateCopy.resultsCta}
+          </Link>
+          <Link
+            className="button buttonGhost"
+            href={buildFilterHref("/app/attempts", [
+              ["subject", scopedSubjectParam],
+              ["source", sourceParam?.trim()],
+              ["teacher", teacher?.trim()],
+            ])}
+          >
+            Open Attempts
           </Link>
         </div>
       </section>
@@ -278,7 +346,7 @@ export default async function AttemptSummaryPage({
           {
             label: "Attempt Number",
             value: summary.attempt_no,
-            note: summary.result_visible ? "Result visible" : "Result pending",
+            note: `${attemptOutcomeResultsLabel(outcomeState)} · ${attemptOutcomeReviewLabel(outcomeState)}`,
             tone: "primary",
           },
           {
@@ -310,7 +378,7 @@ export default async function AttemptSummaryPage({
         <article className="contentCard">
           <div className="sectionHeading">
             <strong>Attempt Status</strong>
-            <span className={`statusPill ${stateCopy.reviewTone}`}>{stateCopy.reviewLabel}</span>
+            <StatusPill tone={stateCopy.reviewTone}>{stateCopy.reviewLabel}</StatusPill>
           </div>
 
           <div className="studentResultBreakdown">
@@ -332,7 +400,7 @@ export default async function AttemptSummaryPage({
             <div className="studentResultHelper">
               <span>Next step</span>
               <strong>{stateCopy.nextStep}</strong>
-              <small>{stateCopy.helper}</small>
+              <small>{stateCopy.helper} {stateCopy.progress}</small>
             </div>
           </div>
         </article>
@@ -345,11 +413,19 @@ export default async function AttemptSummaryPage({
           <div className="studentInsightMessageStack">
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
-              <p>Use summary first, then move into review or results.</p>
+              <p>{stateCopy.laneHelper}</p>
             </div>
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
-              <p>Review and result visibility still depend on backend policy.</p>
+              <p>{stateCopy.progress}</p>
+            </div>
+            <div className="studentInsightMessage">
+              <span className="placeholderDot" aria-hidden="true" />
+              <p>Student visibility always moves in the same policy order: submitted, evaluation pending, result published, then review available when allowed.</p>
+            </div>
+            <div className="studentInsightMessage">
+              <span className="placeholderDot" aria-hidden="true" />
+              <p>Use attempts history to revisit this summary later, results for score visibility, and answer review only when this attempt reaches the final release stage.</p>
             </div>
           </div>
           <div className="studentInsightHeroActions">
@@ -390,14 +466,29 @@ export default async function AttemptSummaryPage({
                 />
               </form>
             ) : (
-              <Link className="button buttonSecondary" href={practiceFollowUp.action.href}>
+              <Link
+                className="button buttonSecondary"
+              href={
+                practiceFollowUp.action.mode === "link" &&
+                practiceFollowUp.action.href === "/app/practice"
+                  ? scopedPracticeHref
+                  : practiceFollowUp.action.href
+              }
+              >
                 {practiceFollowUp.action.mode === "link"
                   ? stateCopy.practiceCta
                   : practiceFollowUp.action.label}
               </Link>
             )}
-            <Link className="button buttonGhost" href="/app/dashboard">
-              Back to Dashboard
+            <Link
+              className="button buttonGhost"
+              href={buildFilterHref("/app/attempts", [
+                ["subject", scopedSubjectParam],
+                ["source", sourceParam?.trim()],
+                ["teacher", teacher?.trim()],
+              ])}
+            >
+              Open Attempts
             </Link>
           </div>
         </article>

@@ -3,7 +3,7 @@
 ## Assumptions
 
 - Target host is Ubuntu-like with `systemd` and `nginx`
-- Repo will live at `/var/www/nexora-learn`
+- Repo will live at `/var/www/nexora-learn/edutech`
 - Staging hostname is `learn.yourdomain.com`
 - Django runs on `127.0.0.1:8010`
 - Next.js runs on `127.0.0.1:3001`
@@ -19,13 +19,19 @@ cd /var/www/nexora-learn
 ## 2. Clone Repo
 
 ```bash
-git clone <your-repo-url> .
+git clone <your-repo-url> edutech
+```
+
+Expected root after clone:
+
+```text
+/var/www/nexora-learn/edutech
 ```
 
 ## 3. Backend Setup
 
 ```bash
-cd /var/www/nexora-learn/edutech_backend
+cd /var/www/nexora-learn/edutech/edutech_backend
 python3 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
@@ -61,12 +67,14 @@ CSRF_TRUSTED_ORIGINS=https://learn.yourdomain.com
 ## 4. Backend Validation And Prepare
 
 ```bash
-cd /var/www/nexora-learn/edutech_backend
+cd /var/www/nexora-learn/edutech/edutech_backend
 source .venv/bin/activate
 export DJANGO_SETTINGS_MODULE=config.settings.prod
 ./manage.py check
 ./manage.py test --keepdb
 ./manage.py makemigrations --check --dry-run
+./manage.py audit_exam_publish_readiness --only-problem-exams
+./manage.py audit_result_publish_readiness --only-problem-exams
 ./manage.py migrate
 ./manage.py collectstatic --noinput
 ```
@@ -74,7 +82,7 @@ export DJANGO_SETTINGS_MODULE=config.settings.prod
 ## 5. Frontend Setup
 
 ```bash
-cd /var/www/nexora-learn/edutech_web
+cd /var/www/nexora-learn/edutech/edutech_web
 npm install
 cp .env.production.example .env.production
 ```
@@ -98,7 +106,7 @@ Important:
 ## 6. Frontend Validation And Build
 
 ```bash
-cd /var/www/nexora-learn/edutech_web
+cd /var/www/nexora-learn/edutech/edutech_web
 npm run lint
 npm run build
 ```
@@ -106,8 +114,8 @@ npm run build
 ## 7. Install systemd Services
 
 ```bash
-sudo cp /var/www/nexora-learn/deployment/nexora-learn-backend.service /etc/systemd/system/
-sudo cp /var/www/nexora-learn/deployment/nexora-learn-web.service /etc/systemd/system/
+sudo cp /var/www/nexora-learn/edutech/deployment/nexora-learn-backend.service /etc/systemd/system/
+sudo cp /var/www/nexora-learn/edutech/deployment/nexora-learn-web.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable nexora-learn-backend
 sudo systemctl enable nexora-learn-web
@@ -126,7 +134,7 @@ Update `deployment/nexora-learn.nginx.conf` first:
 Then install it:
 
 ```bash
-sudo cp /var/www/nexora-learn/deployment/nexora-learn.nginx.conf /etc/nginx/sites-available/nexora-learn
+sudo cp /var/www/nexora-learn/edutech/deployment/nexora-learn.nginx.conf /etc/nginx/sites-available/nexora-learn
 sudo ln -s /etc/nginx/sites-available/nexora-learn /etc/nginx/sites-enabled/nexora-learn
 sudo nginx -t
 sudo systemctl reload nginx

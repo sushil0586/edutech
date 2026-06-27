@@ -121,6 +121,18 @@ The student module can be considered QA-complete when:
 - empty, error, and blocked states remain understandable
 - `npm run verify:student` passes successfully in `edutech_web`
 
+## Phase 1 Release Gate Alignment
+
+This checklist is the execution artifact for `Ticket E1` and should be used together with the Phase 1 release gate in [PHASE_1_STUDENT_EXECUTION_BACKLOG.md](/Users/ansh/Documents/Eductech/PHASE_1_STUDENT_EXECUTION_BACKLOG.md:355).
+
+The manual sign-off is only complete when these five release-gate statements are true:
+
+- attempt flow feels trustworthy during live browser usage
+- summary, results, and review stay consistent across the full result-state matrix
+- utility pages no longer feel placeholder-grade or misleading
+- no blocker student route issue remains open
+- student CTAs remain truthful to backend policy in locked, pending, published, and reviewable states
+
 ## Test Matrix
 
 Validate these state combinations during QA:
@@ -141,6 +153,41 @@ Validate these state combinations during QA:
 | Result published, review available | Review CTA visible and works |
 | Empty notifications | Empty-state message appears |
 | Sparse analytics data | Page still renders with fallback guidance |
+
+## Execution Notes
+
+Use these rules while running the browser pass:
+
+- mark a route `pass` only when both the happy path and the relevant blocked or sparse-data state were exercised
+- mark a route `partial` when the UI is acceptable but one required backend state could not be created or verified
+- mark a route `fail` when the state is broken, misleading, or blocked by a product bug
+- capture exact route, account, and backend state in notes whenever a route is `partial` or `fail`
+- when a route depends on seeded data that is missing, record that as a setup gap rather than silently skipping it
+
+## Route Sign-Off Tracker
+
+Fill this table during the pass:
+
+| Route area | Primary route(s) | Required state coverage | Status | Notes / evidence |
+| --- | --- | --- | --- | --- |
+| Login and session | `/login`, protected student routes | login, refresh persistence, logout, expired session redirect | `not run` | |
+| Dashboard | `/app/dashboard` | loaded KPIs, current exam, locked item, unlockable item, weak/strong insights | `not run` | |
+| Mock tests list | `/app/exams` | startable exam, blocked exam, star-locked exam, unlock transition | `not run` | |
+| Exam detail | `/app/exams/[examId]` | start, resume, no-attempts-left, locked-by-stars | `not run` | |
+| Exam key flow | `/app/exams/enter-key` | valid key, active-attempt redirect, locked exam key path | `not run` | |
+| Practice workspace | `/app/practice` | startable set, resumable set, star-locked set, unlock transition | `not run` | |
+| Attempt history | `/app/attempts` | active vs submitted grouping, resume, summary, result navigation | `not run` | |
+| Active attempt workspace | `/app/attempts/[attemptId]` | timer, answer save, palette nav, section switch, refresh persistence | `not run` | |
+| Submit flow | `/app/attempts/[attemptId]` to summary | deliberate submit, redirect to summary, active attempt removal | `not run` | |
+| Attempt summary | `/app/attempts/[attemptId]/summary` | hidden result, published review-locked, published review-available | `not run` | |
+| Results workspace | `/app/results` | published cards, pending cards, review gating, access-aware follow-up CTA | `not run` | |
+| Review workspace | `/app/attempts/[attemptId]/review` | allowed review, blocked review, explanation policy, follow-up CTA | `not run` | |
+| Analytics | `/app/analytics` | full data, sparse data, locked recommended practice handling | `not run` | |
+| Weak areas | `/app/weak-areas` | ranked weak topics, evidence links, locked recommended practice handling | `not run` | |
+| Wallet | `/app/wallet` | real balance, rewards, pending order, processed order, credited order | `not run` | |
+| Subscriptions | `/app/subscriptions` | plan request, pending order, activation visibility, credited state | `not run` | |
+| Notifications | `/app/notifications` | mixed read/unread actions, mark read, mark all read, empty state | `not run` | |
+| Settings and logout | `/app/settings` | truthful controls, workspace guidance, logout path | `not run` | |
 
 ## Route Checklist
 
@@ -480,27 +527,38 @@ Pay extra attention to:
 - locked premium content appearing as startable in any student surface
 - pending order or subscription states being shown as credited too early
 - hidden backend errors that only appear in the browser console
+- result-state wording drifting between summary, results, and review
+- utility pages sounding automated or “purchase-complete” before settlement actually happens
 
 ## Final Sign-Off Template
 
 Use this after the pass:
 
+- QA date:
 - Build status: `pass` / `fail`
-- Login/session: `pass` / `fail`
-- Dashboard: `pass` / `fail`
-- Mock tests: `pass` / `fail`
-- Exam detail: `pass` / `fail`
-- Active attempt: `pass` / `fail`
-- Submit and summary: `pass` / `fail`
-- Results: `pass` / `fail`
-- Review: `pass` / `fail`
-- Analytics: `pass` / `fail`
-- Weak areas: `pass` / `fail`
-- Wallet: `pass` / `fail`
-- Subscriptions: `pass` / `fail`
-- Exam key flow: `pass` / `fail`
-- Notifications: `pass` / `fail`
-- Settings/logout: `pass` / `fail`
+- `npm run verify:student`: `pass` / `fail`
+- Login/session: `pass` / `partial` / `fail`
+- Dashboard: `pass` / `partial` / `fail`
+- Mock tests: `pass` / `partial` / `fail`
+- Exam detail: `pass` / `partial` / `fail`
+- Exam key flow: `pass` / `partial` / `fail`
+- Practice workspace: `pass` / `partial` / `fail`
+- Attempt history: `pass` / `partial` / `fail`
+- Active attempt: `pass` / `partial` / `fail`
+- Submit and summary: `pass` / `partial` / `fail`
+- Results: `pass` / `partial` / `fail`
+- Review: `pass` / `partial` / `fail`
+- Analytics: `pass` / `partial` / `fail`
+- Weak areas: `pass` / `partial` / `fail`
+- Wallet: `pass` / `partial` / `fail`
+- Subscriptions: `pass` / `partial` / `fail`
+- Notifications: `pass` / `partial` / `fail`
+- Settings/logout: `pass` / `partial` / `fail`
+- Release-gate check, attempt flow feels trustworthy: `yes` / `no`
+- Release-gate check, summary/results/review are consistent: `yes` / `no`
+- Release-gate check, utility pages are truthful and credible: `yes` / `no`
+- Release-gate check, no blocker route issue remains: `yes` / `no`
+- Release-gate check, CTAs match backend policy: `yes` / `no`
 - Blocking bugs:
 - Minor issues:
 - Ready for student sign-off: `yes` / `no`

@@ -24,6 +24,7 @@ async function expectStudentAnalyticsHome(page: Page) {
   await expect(page).toHaveURL(/\/app\/analytics(?:\?.*)?$/);
   await expect(page.getByRole("heading", { name: /analytics/i }).first()).toBeVisible();
   await expect(page.getByRole("link", { name: /open action center/i }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: /open weak areas/i }).first()).toBeVisible();
 }
 
 test.describe("Student analytics deep drills", () => {
@@ -34,6 +35,23 @@ test.describe("Student analytics deep drills", () => {
   }) => {
     await loginAsRole(page, "student");
     await expectStudentWorkspace(page);
+
+    await gotoWithRetry(page, "/app/analytics");
+    await expectStudentAnalyticsHome(page);
+    await expect(
+      page.getByText(/a strong sequence is: open weak areas for the ranked topic/i).first(),
+    ).toBeVisible();
+    await expect(page.getByText(/do this first/i).first()).toBeVisible();
+    await expect(page.getByText(/if blocked/i).first()).toBeVisible();
+
+    await page.getByRole("link", { name: /open weak areas/i }).first().click();
+    await expect(page).toHaveURL(/\/app\/weak-areas(?:\?.*)?$/);
+    await expect(page.getByRole("heading", { name: /weak areas/i }).first()).toBeVisible();
+    await expect(
+      page.getByText(/a strong sequence is: inspect the top weak topic/i).first(),
+    ).toBeVisible();
+    await expect(page.getByText(/then next/i).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /open practice workspace/i }).first()).toBeVisible();
 
     await gotoWithRetry(page, "/app/analytics");
     await expectStudentAnalyticsHome(page);

@@ -1,5 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
+import {
+  expectPreviewFamilyContract,
+  fetchPrograms,
+  type ProgramRegistryRecord,
+} from "../helpers/assessment-family";
 import { getRoleCredentials } from "../fixtures/env";
 import { expectAdminWorkspace, expectStudentWorkspace } from "../helpers/navigation";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
@@ -88,6 +93,9 @@ async function createAdminAdvancedExam(
   const instituteId = await page.getByLabel(/select template institute/i).inputValue();
   expect(instituteId).not.toBe("");
   await expect(page.getByText(/not found in the selected institute/i)).toHaveCount(0);
+  const selectedProgramId = await page.getByRole("combobox", { name: /^program/i }).first().inputValue();
+  const availablePrograms = await fetchPrograms(page, instituteId);
+  const selectedProgram = availablePrograms.find((program) => program.id === selectedProgramId) ?? null;
 
   const programOptions = await page
     .getByRole("combobox", { name: /^program/i })
@@ -125,7 +133,26 @@ async function createAdminAdvancedExam(
   const firstTopicRow = firstSectionCard.locator(".advancedBuilderTopicRow").first();
   await firstTopicRow.locator('input[type="number"]').fill("1");
 
+  const previewResponsePromise = page.waitForResponse((response) =>
+    response.url().includes("/api/exams/advanced-builder/preview") && response.request().method() === "POST",
+  );
   await page.getByRole("button", { name: /preview exam/i }).click();
+  const previewResponse = await previewResponsePromise;
+  expect(previewResponse.ok()).toBe(true);
+  const previewPayload = (await previewResponse.json()) as {
+    valid: boolean;
+    resolved_exam?: { assessment_family_profile?: ProgramRegistryRecord["assessment_family_profile"] };
+    sections?: Array<{
+      family_contract?: {
+        assessment_family_code?: string | null;
+        negative_marking_scope?: string | null;
+        negative_marking_recommended?: boolean;
+        negative_marking_allowed?: boolean;
+      };
+    }>;
+  };
+  expect(previewPayload.valid).toBe(true);
+  expectPreviewFamilyContract(previewPayload, selectedProgram?.assessment_family_profile ?? null);
   await expect(page.getByText(/preview refreshed\./i)).toBeVisible({ timeout: 60000 });
   await expect(page.getByText(/run preview when you are ready/i)).toHaveCount(0);
   await expect(page.getByText(/preview resolution/i).first()).toBeVisible();

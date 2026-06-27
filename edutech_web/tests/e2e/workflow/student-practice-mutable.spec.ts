@@ -1,5 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { getRoleCredentials } from "../fixtures/env";
+import { answerCurrentAttemptQuestion } from "../helpers/attempt";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
 import {
@@ -20,7 +21,7 @@ function toDateTimeLocalValue(date: Date) {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
-async function resolveStudentDisplayName(page: Parameters<typeof test>[0]["page"]) {
+async function resolveStudentDisplayName(page: Page) {
   const studentCredentials = getRoleCredentials("student");
   expect(studentCredentials).not.toBeNull();
 
@@ -41,37 +42,12 @@ async function resolveStudentDisplayName(page: Parameters<typeof test>[0]["page"
   return studentDisplayName;
 }
 
-async function answerCurrentQuestion(page: Parameters<typeof test>[0]["page"], answerSeed: number) {
-  const radioOption = page.locator('input[name="selected_option"][type="radio"]').first();
-  const checkboxOption = page.locator('input[name="selected_option_ids"][type="checkbox"]').first();
-  const textAnswer = page.locator('textarea[name="answer_text"]').first();
-
-  if (await radioOption.count()) {
-    if (!(await radioOption.isChecked().catch(() => false))) {
-      await radioOption.click({ force: true });
-    }
-    await expect(radioOption).toBeChecked();
-    return;
-  }
-
-  if (await checkboxOption.count()) {
-    if (!(await checkboxOption.isChecked().catch(() => false))) {
-      await checkboxOption.click({ force: true });
-    }
-    await expect(checkboxOption).toBeChecked();
-    return;
-  }
-
-  if (await textAnswer.count()) {
-    await textAnswer.fill(`Playwright practice answer ${answerSeed}`);
-    return;
-  }
-
-  throw new Error("No supported answer input was found on the practice attempt page.");
+async function answerCurrentQuestion(page: Page, answerSeed: number) {
+  await answerCurrentAttemptQuestion(page, answerSeed, "Playwright practice answer");
 }
 
 async function expectPracticeTitleVisible(
-  page: Parameters<typeof test>[0]["page"],
+  page: Page,
   examTitle: string,
 ) {
   await expect(page.getByText(examTitle, { exact: false }).first()).toBeVisible();

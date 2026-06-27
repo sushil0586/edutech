@@ -94,17 +94,28 @@ export default function AttemptSummaryScreen() {
                 <ActionButton
                   label="Review Attempt"
                   onPress={() => router.replace(`/(attempt)/review/${summary.id}`)}
+                  testID="attempt-summary-review-button"
+                />
+              ) : null}
+              {summary.result_visible ? (
+                <ActionButton
+                  label="Open Results"
+                  tone={summary.review_available ? "secondary" : "primary"}
+                  onPress={() => router.replace("../../results")}
+                  testID="attempt-summary-open-results-button"
                 />
               ) : null}
               <ActionButton
                 label="Open Analytics"
-                tone={summary.review_available ? "secondary" : "primary"}
+                tone={summary.result_visible || summary.review_available ? "secondary" : "primary"}
                 onPress={() => router.replace("/(student)/(tabs)/analytics")}
+                testID="attempt-summary-open-analytics-button"
               />
               <ActionButton
                 label="Back to Dashboard"
                 tone="secondary"
                 onPress={() => router.replace("/(student)/(tabs)/dashboard")}
+                testID="attempt-summary-back-dashboard-button"
               />
             </View>
           ) : undefined

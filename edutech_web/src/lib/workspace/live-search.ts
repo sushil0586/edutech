@@ -33,6 +33,27 @@ function dedupeEntries(entries: WorkspaceSearchEntry[]) {
   return Array.from(new Map(entries.map((entry) => [entry.href, entry])).values());
 }
 
+function examSubjectDisplayLabel(exam: {
+  subject_name?: string | null;
+  subject_summary?: { display_label?: string | null } | null;
+}) {
+  return exam.subject_summary?.display_label || exam.subject_name || "General";
+}
+
+function examSubjectKeywords(exam: {
+  subject_name?: string | null;
+  subject_summary?: {
+    display_label?: string | null;
+    subjects?: Array<{ name: string }>;
+  } | null;
+}) {
+  return [
+    exam.subject_name,
+    exam.subject_summary?.display_label,
+    ...(exam.subject_summary?.subjects?.map((subject) => subject.name) ?? []),
+  ];
+}
+
 function compactKeywords(values: Array<string | null | undefined>) {
   return values.filter((value): value is string => Boolean(value));
 }
@@ -55,7 +76,7 @@ async function loadStudentLiveEntries(query: string): Promise<WorkspaceSearchEnt
           matchesQuery(query, [
             exam.title,
             exam.code,
-            exam.subject_name,
+            ...examSubjectKeywords(exam),
             exam.source_name,
             exam.source_teacher_name,
           ]),
@@ -64,8 +85,8 @@ async function loadStudentLiveEntries(query: string): Promise<WorkspaceSearchEnt
         .map((exam) => ({
           href: `/app/exams/${exam.id}`,
           title: exam.title,
-          description: `${exam.code} · ${exam.subject_name || "General"} · ${exam.status}`,
-          keywords: compactKeywords([exam.code, exam.subject_name, exam.source_name]),
+          description: `${exam.code} · ${examSubjectDisplayLabel(exam)} · ${exam.status}`,
+          keywords: compactKeywords([exam.code, ...examSubjectKeywords(exam), exam.source_name]),
           section: "Live exams",
         })),
     );
@@ -152,14 +173,14 @@ async function loadTeacherLiveEntries(baseHref: "/teacher" | "/institute", query
     entries.push(
       ...examsResult.value
         .filter((exam) =>
-          matchesQuery(query, [exam.title, exam.code, exam.subject_name, exam.cohort_name]),
+          matchesQuery(query, [exam.title, exam.code, ...examSubjectKeywords(exam), exam.cohort_name]),
         )
         .slice(0, 6)
         .map((exam) => ({
           href: `${baseHref}/exams/${exam.id}`,
           title: exam.title,
-          description: `${exam.code} · ${exam.subject_name || "General"} · ${exam.status}`,
-          keywords: compactKeywords([exam.code, exam.subject_name, exam.cohort_name]),
+          description: `${exam.code} · ${examSubjectDisplayLabel(exam)} · ${exam.status}`,
+          keywords: compactKeywords([exam.code, ...examSubjectKeywords(exam), exam.cohort_name]),
           section: "Live exams",
         })),
     );
@@ -202,6 +223,10 @@ type PortalExamLike = {
   title: string;
   code: string;
   subject_name?: string | null;
+  subject_summary?: {
+    display_label?: string | null;
+    subjects?: Array<{ name: string }>;
+  } | null;
   status?: string;
 };
 
@@ -256,13 +281,13 @@ async function loadAdminLiveEntries(query: string): Promise<WorkspaceSearchEntry
   if (examsResult.status === "fulfilled") {
     entries.push(
       ...examsResult.value
-        .filter((exam) => matchesQuery(query, [exam.title, exam.code, exam.subject_name]))
+        .filter((exam) => matchesQuery(query, [exam.title, exam.code, ...examSubjectKeywords(exam)]))
         .slice(0, 6)
         .map((exam) => ({
           href: `/admin/exams/${exam.id}`,
           title: exam.title,
-          description: `${exam.code} · ${exam.subject_name || "General"} · ${exam.status || "unknown status"}`,
-          keywords: compactKeywords([exam.code, exam.subject_name]),
+          description: `${exam.code} · ${examSubjectDisplayLabel(exam)} · ${exam.status || "unknown status"}`,
+          keywords: compactKeywords([exam.code, ...examSubjectKeywords(exam)]),
           section: "Exams",
         })),
     );

@@ -18,7 +18,10 @@ function friendlyBootstrapError(error: unknown) {
   }
 
   if (error instanceof Error) {
-    if (error.message.toLowerCase().includes("network request failed")) {
+    if (
+      error.message.toLowerCase().includes("network request failed") ||
+      error.message.toLowerCase().includes("took too long")
+    ) {
       return "We could not reconnect to Nexora while restoring your session. Please check your internet and sign in again if needed.";
     }
 

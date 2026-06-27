@@ -15,6 +15,15 @@ test.describe("Admin economy workspace", () => {
 
     await expect(page.getByRole("heading", { name: /economy/i }).first()).toBeVisible();
     await expect(page.getByText(/seed groups/i).first()).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /activate or pause live wallet, referral, and subscription catalog lanes/i }),
+    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: /create and edit live wallet pack offers/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /create and edit recurring plans, cycles, and credit rules/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /create and edit referral campaigns and reward posture/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /create and edit reward rules for signup, completion, and score ladders/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /create and edit premium access policies by content target/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /create and edit unlock rules by content target/i })).toBeVisible();
     await expect(page.getByText(/scenario coverage/i).first()).toBeVisible();
     await expect(page.getByText(/live runtime lanes/i).first()).toBeVisible();
     await expect(page.getByText(/mandatory phase 1 seeds/i).first()).toBeVisible();
@@ -27,9 +36,15 @@ test.describe("Admin economy workspace", () => {
     const studentSelect = page.locator("select").filter({ has: page.locator('option') }).nth(0);
     await expect(studentSelect).toBeVisible();
 
-    const starsInput = page.locator('input[type="number"]').first();
-    const reasonInput = page.locator('input[placeholder*="Manual adjustment"]').first();
-    const referenceInput = page.locator('input[placeholder*="Optional ticket"]').first();
+    const starsInput = page.getByLabel(/stars to grant/i);
+    await expect(page.getByRole("button", { name: /create star pack|update star pack/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /create subscription plan|update subscription plan/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /create referral program|update referral program/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /create reward rule|update reward rule/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /create access policy|update access policy/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /create unlock rule|update unlock rule/i })).toBeVisible();
+    const reasonInput = page.getByLabel(/reason/i).last();
+    const referenceInput = page.getByLabel(/reference/i).last();
 
     await expect(starsInput).toHaveValue("25");
     await starsInput.fill("30");

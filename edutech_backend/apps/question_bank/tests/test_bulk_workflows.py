@@ -507,12 +507,24 @@ class QuestionBankBulkWorkflowTestCase(TestCase):
         response = self.client.get("/api/v1/question-bank/questions/assessment-registry/")
 
         self.assertEqual(response.status_code, 200)
+        competitive_family = next(
+            item for item in response.data["assessment_families"] if item["code"] == "competitive"
+        )
+        certification_family = next(
+            item for item in response.data["assessment_families"] if item["code"] == "certification"
+        )
         self.assertTrue(
             any(item["code"] == "single_choice" for item in response.data["response_modes"])
         )
         self.assertTrue(
             any(item["code"] == "auto_option_match" for item in response.data["evaluation_modes"])
         )
+        self.assertIn("mcq_single", competitive_family["allowed_question_types"])
+        self.assertIn("matrix_match", competitive_family["allowed_question_types"])
+        self.assertTrue(competitive_family["scoring_defaults"]["negative_marking_default"])
+        self.assertEqual(competitive_family["scoring_defaults"]["negative_marking_scope"], "objective_only")
+        self.assertFalse(certification_family["scoring_defaults"]["negative_marking_default"])
+        self.assertEqual(certification_family["scoring_defaults"]["negative_marking_scope"], "disabled")
         question_type = next(
             item for item in response.data["question_types"] if item["code"] == "mcq_single"
         )

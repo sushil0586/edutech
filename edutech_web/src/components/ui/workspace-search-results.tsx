@@ -173,6 +173,41 @@ export function WorkspaceSearchResults({
         }
       />
 
+      {role === "student" ? (
+        <section className="contentCard">
+          <div className="sectionHeading">
+            <strong>What Student Search Covers</strong>
+            <span>Truthful Phase 1 scope</span>
+          </div>
+          <div className="studentInsightMessageStack">
+            <div className="studentInsightMessage">
+              <span className="placeholderDot" aria-hidden="true" />
+              <p>Student search helps you find learner routes and matching live records such as exams, attempts, results, and notifications.</p>
+            </div>
+            <div className="studentInsightMessage">
+              <span className="placeholderDot" aria-hidden="true" />
+              <p>It is not a full-text search across every question, explanation, or hidden backend object. Use it as a route finder and live-workspace shortcut.</p>
+            </div>
+            <div className="studentInsightMessage">
+              <span className="placeholderDot" aria-hidden="true" />
+              <p>In Phase 1, this is intentionally a navigation and discovery tool. If you need deeper academic diagnosis, use Analytics, Weak Areas, Results, or Practice instead.</p>
+            </div>
+            <div className="studentInsightMessage">
+              <span className="placeholderDot" aria-hidden="true" />
+              <p>A strong sequence is: use search to find the right learner route quickly, then switch to that underlying workspace for the real action instead of treating search like the action surface itself.</p>
+            </div>
+          </div>
+          <div className="studentInsightHeroActions">
+            <Link className="button buttonSecondary" href="/app/dashboard">
+              Open Dashboard
+            </Link>
+            <Link className="button buttonGhost" href="/app/analytics">
+              Open Analytics
+            </Link>
+          </div>
+        </section>
+      ) : null}
+
       <section className="contentCard workspaceFiltersCard">
         <div className="sectionHeading">
           <strong>Search Controls</strong>

@@ -1,0 +1,29 @@
+appId: com.anonymous.nexorastudentmobile
+---
+# Set these before running:
+# STUDENT_USERNAME
+# STUDENT_PASSWORD
+
+- launchApp:
+    clearState: true
+
+- tapOn: "Login"
+- tapOn:
+    text: "Username"
+- inputText: ${STUDENT_USERNAME}
+
+- tapOn:
+    text: "Enter password"
+- inputText: ${STUDENT_PASSWORD}
+- hideKeyboard
+
+- tapOn: "Login"
+
+- assertVisible: "Student Dashboard"
+
+- tapOn: "Open Exams"
+
+- assertVisible: "Student Exams"
+- tapOn: "Open Top Exam"
+
+- assertVisible: "Exam Readiness"

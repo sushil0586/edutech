@@ -11,9 +11,11 @@
     "verify:student": "npm run typecheck && npm run build",
     "test:e2e": "playwright test",
     "test:e2e:baseline": "playwright test --grep-invert @mutable",
+    "test:e2e:mobile-web": "playwright test tests/e2e/workflow/student-mobile-sanity-workspace.spec.ts tests/e2e/workflow/student-family-mobile-sanity.spec.ts tests/e2e/workflow/student-family-mobile-results-sanity.spec.ts tests/e2e/workflow/student-mobile-state-panel-sanity.spec.ts",
     "test:e2e:mutable": "PLAYWRIGHT_REAL_DATA_MODE=1 playwright test --grep @mutable",
     "test:e2e:full-round": "PLAYWRIGHT_REAL_DATA_MODE=1 playwright test",
     "test:e2e:smoke": "playwright test --grep @smoke",
+    "test:e2e:cross-browser": "PLAYWRIGHT_ENABLE_CROSS_BROWSER=1 playwright test tests/e2e/workflow/student-cross-browser-*.spec.ts tests/e2e/workflow/teacher-cross-browser-*.spec.ts tests/e2e/workflow/institute-cross-browser-*.spec.ts tests/e2e/workflow/admin-cross-browser-*.spec.ts",
     "test:e2e:headed": "playwright test --headed"
   },
   "dependencies": {

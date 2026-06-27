@@ -3,13 +3,67 @@
 ## Current verified state
 
 - Suite command: `npm run test:e2e:full-round`
-- Last verified full-round result: `40 passed`
-- Latest targeted verification: `1 passed` for institute exam detail route panel coverage
-- Browser lane: `chromium`
+- Latest targeted verification:
+  - full authored round: `109 passed`, `1 skipped`
+  - readiness-focused baseline subset: `5 passed`
+  - teacher mutable results readiness lifecycle: `1 passed`
+  - institute mutable results readiness lifecycle: `1 passed`
+  - admin advanced-builder learner-handoff readiness lifecycle: `1 passed`
+  - student published results grouped-outcome lifecycle: `1 passed`
+  - student analytics source-to-compare scope continuity: `1 passed`
+  - student analytics compare-to-timeline-to-actions scope continuity: `1 passed`
+  - student mobile navigation and route sanity: `1 passed`
+  - student cross-browser shell sanity: `3 passed`
+    - chromium: `1 passed`
+    - firefox: `1 passed`
+    - webkit: `1 passed`
+  - student cross-browser analytics and results sanity: `3 passed`
+    - chromium: `1 passed`
+    - firefox: `1 passed`
+    - webkit: `1 passed`
+  - student cross-browser attempts and post-submit summary sanity: `3 passed`
+    - chromium: `1 passed`
+    - firefox: `1 passed`
+    - webkit: `1 passed`
+  - student cross-browser exam detail and runtime sanity: `3 passed`
+    - chromium: `1 passed`
+    - firefox: `1 passed`
+    - webkit: `1 passed`
+  - admin cross-browser shell sanity: `3 passed`
+    - chromium: `1 passed`
+    - firefox: `1 passed`
+    - webkit: `1 passed`
+  - admin cross-browser deep-route sanity: `3 passed`
+    - chromium: `1 passed`
+    - firefox: `1 passed`
+    - webkit: `1 passed`
+  - teacher cross-browser shell sanity: `3 passed`
+    - chromium: `1 passed`
+    - firefox: `1 passed`
+    - webkit: `1 passed`
+  - teacher cross-browser results deep-route sanity: `3 passed`
+    - chromium: `1 passed`
+    - firefox: `1 passed`
+    - webkit: `1 passed`
+  - institute cross-browser shell sanity: `3 passed`
+    - chromium: `1 passed`
+    - firefox: `1 passed`
+    - webkit: `1 passed`
+  - institute cross-browser results deep-route sanity: `3 passed`
+    - chromium: `1 passed`
+    - firefox: `1 passed`
+    - webkit: `1 passed`
+  - post-fix targeted follow-up: `4 passed`
+    - admin economy mutable: `1 passed`
+    - admin exams workspace + admin roster mutable: `2 passed`
+    - teacher results mutable: `1 passed`
+- Browser lane: `chromium` baseline plus opt-in `firefox` and `webkit` student, teacher, institute, and admin sanity lanes
 - Execution style: serial worker model using shared seeded demo accounts
 - Coverage shape:
-  - `82` spec files
-  - `96` authored test cases
+  - `105` spec files
+  - `123` authored test cases
+  - `77` baseline/non-mutable tests
+  - `46` opt-in mutable tests
   - baseline coverage plus opt-in mutable real-data workflows
 
 ## Coverage summary by role
@@ -17,10 +71,10 @@
 | Role | Coverage focus | Test cases |
 | --- | --- | ---: |
 | Anonymous | route protection and login redirects | 3 |
-| Platform admin | dashboard, dashboard alias, search, settings, exams, advanced builder, mutable advanced builder templates, mutable advanced-builder exam creation, mutable advanced-builder learner attempt handoff, preset library, mutable preset library actions, exam creation, exam detail, mutable exam detail, exam builder, mutable exam builder, academic setup, mutable academic setup, institutes, institute CRUD, reports, people, mutable roster actions, mutable roster import, security, economy, and platform governance workspace navigation | 26 |
-| Institute admin | control center, people, academic setup, exams, dedicated exam detail, results, reports, reviews, mutable admin actions, and mutable advanced-builder exam creation | 15 |
-| Teacher | dashboard, exams, builder, question bank, results, reviews, mutable authoring and delivery actions | 13 |
-| Student | exams, practice, analytics, attempts, results, mutable live attempt flow, mutable admin-created assigned exam attempt | 7 |
+| Platform admin | dashboard, dashboard alias, search, settings, exams, advanced builder, admin cross-browser shell sanity, admin cross-browser deep-route sanity, mutable advanced builder templates, mutable advanced-builder exam creation, mutable advanced-builder learner attempt handoff, preset library, mutable preset library actions, exam creation, exam detail, mutable exam detail, exam builder, mutable exam builder, academic setup, mutable academic setup, institutes, institute CRUD, reports, people, mutable roster actions, mutable roster import, security, economy, and platform governance workspace navigation | 28 |
+| Institute admin | control center, people, academic setup, exams, dedicated exam detail, results, reports, reviews, cross-browser shell sanity, cross-browser results deep-route sanity, mutable admin actions, and mutable advanced-builder exam creation | 17 |
+| Teacher | dashboard, exams, dedicated exam detail, builder, question bank, results, reviews, cross-browser shell sanity, cross-browser results deep-route sanity, mutable authoring and delivery actions | 16 |
+| Student | exams, exam detail, exam-key entry, dashboard, profile, settings, notifications, wallet, subscriptions, search, practice, analytics, analytics scope continuity across source, compare, timeline, and action-center drills, mobile navigation sanity, cross-browser shell sanity, cross-browser analytics/results sanity, cross-browser attempts/post-submit sanity, cross-browser exam/runtime sanity, attempts, attempt runtime, post-submit summary and review, results, result state matrix, mutable live attempt flow, mutable admin-created assigned exam attempt, mutable published-result visibility flow | 22 |
 | Registration journeys | new teacher and student signup flows | 2 |
 | Cross-role access control | wrong-role redirects and workspace blocking | 3 |
 
@@ -40,19 +94,24 @@
 | Module | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
 | Dashboard workspace | focus/sort filters, quick-filter chips, and high-value handoffs into institutes, people, academic setup, and reports | Baseline | `tests/e2e/workflow/admin-dashboard-workspace.spec.ts` |
+| Cross-browser shell sanity | desktop shell route sanity across dashboard, exams, institutes, reports, and people on Chromium, Firefox, and WebKit | Baseline | `tests/e2e/workflow/admin-cross-browser-shell.spec.ts` |
+| Cross-browser deep-route sanity | desktop search, settings, and advanced-builder route sanity on Chromium, Firefox, and WebKit | Baseline | `tests/e2e/workflow/admin-cross-browser-deep-routes.spec.ts` |
 | Dashboard legacy redirect | `/admin/dashboard` alias redirects into the main admin workspace | Baseline | `tests/e2e/workflow/admin-dashboard-redirect.spec.ts` |
 | Search workspace | search controls, source/sort/group filters, quick-filter chips, reset flow, and back-to-workspace handoff | Baseline | `tests/e2e/workflow/admin-search-workspace.spec.ts` |
 | Settings workspace | governance summary cards, current live-control lanes, institute footprint, and people/academic handoffs | Baseline | `tests/e2e/workflow/admin-settings-workspace.spec.ts` |
 | Exam management workspace | exam filters, quick-filter chips, zero-match handling, exam detail drills, builder handoff, and quick-create handoff | Baseline | `tests/e2e/workflow/admin-exams-workspace.spec.ts` |
 | Advanced exam builder | stage rail visibility, builder/preset governance surfaces, stage switching, and preset-library handoff | Baseline | `tests/e2e/workflow/admin-advanced-builder-workspace.spec.ts` |
+| Advanced builder family guidance | NEET, JEE, GRE, and AWS preset lanes surface family-aware authoring notes, execution checklists, composition guidance, and summary-rail recommendations | Baseline | `tests/e2e/workflow/family-advanced-builder-guidance.spec.ts` |
 | Mutable advanced-builder platform exam creation matrix | create disposable platform-source `practice`, `quiz`, and `mock_exam` admin exams through advanced builder, verify resolved questions, and persist selected-student assignment in admin workspace/detail views | Mutable | `tests/e2e/workflow/admin-exam-creation-advanced-matrix.mutable.spec.ts` |
-| Mutable advanced-builder learner attempt handoff | create a disposable platform-source `mock_exam` through advanced builder, align institute and academic scope to the seeded learner, assign the learner, publish live, and verify start/save/submit from the student workspace | Mutable | `tests/e2e/workflow/admin-exam-creation-advanced-student-attempt.mutable.spec.ts` |
+| Mutable advanced-builder learner attempt handoff | create a disposable platform-source `mock_exam` through advanced builder, align institute and academic scope to the seeded learner, assign the learner, publish live, verify admin readiness transitions on the exam detail route, and verify start/save/submit from the student workspace | Mutable | `tests/e2e/workflow/admin-exam-creation-advanced-student-attempt.mutable.spec.ts` |
 | Mutable advanced builder templates | select institute scope, save template, export JSON bundle, import JSON bundle, and cleanup | Mutable | `tests/e2e/workflow/admin-advanced-builder-templates-mutable.spec.ts` |
 | Preset pack library | library search, scope filters, exams handoff, and advanced-builder handoff | Baseline | `tests/e2e/workflow/admin-preset-pack-library.spec.ts` |
 | Mutable preset pack library | create disposable managed preset pack, edit metadata in library, archive it, and verify cleanup | Mutable | `tests/e2e/workflow/admin-preset-pack-library-mutable.spec.ts` |
 | Create exam workspace | institute-scope switching, wizard step navigation, scope/source/economy controls, and submit-ready final step | Baseline | `tests/e2e/workflow/admin-exams-create-workspace.spec.ts` |
+| Create exam family defaults | guided wizard applies seeded NEET, JEE, GRE, and AWS family defaults, checklist guidance, and runtime/learner posture changes across steps | Baseline | `tests/e2e/workflow/admin-family-guided-create-defaults.spec.ts` |
+| Mutable guided family persistence | guided wizard persists JEE and GRE family-selected defaults into saved admin exam metadata | Mutable | `tests/e2e/workflow/admin-family-guided-persistence.mutable.spec.ts` |
 | Mutable guided platform exam creation matrix | create disposable platform-source `practice`, `quiz`, and `mock_exam` admin exams through the guided wizard and verify admin workspace/detail assignment persistence | Mutable | `tests/e2e/workflow/admin-exam-creation-wizard-matrix.mutable.spec.ts` |
-| Exam detail workspace | visible lifecycle controls, access-policy form, assigned-student and publish-history panels, plus builder handoffs | Baseline | `tests/e2e/workflow/admin-exam-detail-workspace.spec.ts` |
+| Exam detail workspace | visible lifecycle controls, result-status KPI, publish-readiness panels, access-policy form, assigned-student and publish-history panels, plus builder handoffs | Baseline | `tests/e2e/workflow/admin-exam-detail-workspace.spec.ts` |
 | Mutable exam detail | create disposable admin exam shell, validate builder handoffs, refresh/sync/key actions, and save access policy | Mutable | `tests/e2e/workflow/admin-exam-detail-mutable.spec.ts` |
 | Exam builder workspace | admin-specific step rail, linked-questions tab, academic-setup handoff, and delivery-view handoff | Baseline | `tests/e2e/workflow/admin-exam-builder-workspace.spec.ts` |
 | Mutable exam builder | create disposable admin exam shell, save settings, add/remove section, and attach/update/remove linked question | Mutable | `tests/e2e/workflow/admin-exam-builder-mutable.spec.ts` |
@@ -72,24 +131,30 @@
 | Module | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
 | Dashboard | dashboard entry, focus/sort filters, quick-filter chips, and handoffs into people, academic setup, exams, and reviews | Baseline | `tests/e2e/smoke/institute-results.spec.ts`, `tests/e2e/workflow/institute-dashboard-workspace.spec.ts` |
+| Cross-browser shell sanity | desktop shell route sanity across dashboard, exams, results, reviews, question bank, and people on Chromium, Firefox, and WebKit | Baseline | `tests/e2e/workflow/institute-cross-browser-shell.spec.ts` |
+| Cross-browser results deep-route sanity | desktop results, leaderboard, analysis, and live-monitor route sanity on Chromium, Firefox, and WebKit | Baseline | `tests/e2e/workflow/institute-cross-browser-results.spec.ts` |
 | People / roster | students and teachers tabs, search, login status filter, export, create/import controls, reset/disable actions visible | Baseline | `tests/e2e/smoke/institute-results.spec.ts` |
 | People / roster exports | student and teacher roster CSV downloads | Baseline | `tests/e2e/workflow/institute-people-export.spec.ts` |
 | Academic setup | academic setup sections, assignments, exam defaults, academic years navigation | Baseline | `tests/e2e/smoke/institute-results.spec.ts` |
 | Teacher assignments | open add/edit dialogs, validate required-field errors, validate prefilled edit state | Baseline | `tests/e2e/smoke/institute-results.spec.ts` |
 | Mutable teacher assignments | create, edit, archive, restore a disposable teacher assignment | Mutable | `tests/e2e/workflow/institute-teacher-assignments-mutable.spec.ts` |
 | Exam management | exam list, teacher/status/sort/group/page-size filters, quick-filter chips, grouped-state assertions, title sort, and handoffs into detail, builder, preset library, advanced builder, create exam, question bank, plus detail refresh/sync actions | Baseline | `tests/e2e/smoke/institute-results.spec.ts`, `tests/e2e/workflow/institute-exams-workspace.spec.ts` |
-| Exam detail workspace | dedicated exam detail route coverage for KPI panels, readiness board, actions/configuration/access/history panels, and stable detail-route ownership | Baseline | `tests/e2e/workflow/institute-exam-detail-workspace.spec.ts` |
+| Exam detail workspace | dedicated exam detail route coverage for KPI panels, heuristic readiness board, publish-readiness panels, actions/configuration/access/history panels, and stable detail-route ownership | Baseline | `tests/e2e/workflow/institute-exam-detail-workspace.spec.ts` |
 | Builder workflow | inspect builder shell, linked questions tab, and utility handoffs to delivery, results, reviews, and question bank | Baseline | `tests/e2e/workflow/institute-exam-builder-workspace.spec.ts` |
+| Advanced builder family guidance | NEET, JEE, GRE, and AWS preset lanes surface family-aware authoring notes, execution checklists, composition guidance, and summary-rail recommendations | Baseline | `tests/e2e/workflow/family-advanced-builder-guidance.spec.ts` |
 | Mutable advanced-builder exam creation matrix | create disposable `practice`, `quiz`, and `mock_exam` institute exams through advanced builder, verify resolved questions, assign a learner, and verify student visibility | Mutable | `tests/e2e/workflow/institute-exam-creation-advanced-matrix.mutable.spec.ts` |
 | Institute advanced builder template library | save template, export selected JSON bundle, import JSON bundle, and cleanup | Mutable | `tests/e2e/workflow/institute-advanced-builder-templates-mutable.spec.ts` |
 | Question bank workspace | question bank landing, search/filter workflow, detail preview expansion, route drills into import and authoring flows, baseline question/comprehension detail route coverage, bulk-action guard validation, and mutable bulk-action success paths for difficulty, availability, and tagging | Baseline + Mutable | `tests/e2e/workflow/institute-question-bank-workspace.spec.ts`, `tests/e2e/workflow/institute-question-bank-detail-workspace.spec.ts`, `tests/e2e/workflow/institute-question-bank-bulk-workspace.spec.ts`, `tests/e2e/workflow/institute-question-bank-bulk-mutable.spec.ts` |
-| Results workspace | results landing page, summary cards, filter/reset flows, publication-group filtered-state validation, drills into exam, builder, reviews, question bank, leaderboard, leaderboard KPIs/checklist/pagination plus leaderboard utility handoffs and cross-view navigation, live monitor controls and attempt drillthrough, analysis, refresh-status/workflow-card utilities, and analysis-page student/question exploration | Baseline | `tests/e2e/smoke/institute-results.spec.ts`, `tests/e2e/workflow/institute-results-workspace.spec.ts`, `tests/e2e/workflow/institute-results-leaderboard-workspace.spec.ts`, `tests/e2e/workflow/institute-results-live-workspace.spec.ts`, `tests/e2e/workflow/institute-results-analysis-workspace.spec.ts` |
+| Results workspace | results landing page, summary cards, exam/result publish-readiness cards, filter/reset flows, publication-group filtered-state validation, drills into exam, builder, reviews, question bank, leaderboard, leaderboard KPIs/checklist/pagination plus leaderboard utility handoffs and cross-view navigation, live monitor controls and attempt drillthrough, analysis, refresh-status/workflow-card utilities, and analysis-page student/question exploration | Baseline | `tests/e2e/smoke/institute-results.spec.ts`, `tests/e2e/workflow/institute-results-workspace.spec.ts`, `tests/e2e/workflow/institute-results-leaderboard-workspace.spec.ts`, `tests/e2e/workflow/institute-results-live-workspace.spec.ts`, `tests/e2e/workflow/institute-results-analysis-workspace.spec.ts` |
 | Reports workspace | report controls, full quick-filter cycling, lane switching, reporting drill surfaces, and hero handoff to results/exams | Baseline | `tests/e2e/workflow/institute-reports-workspace.spec.ts` |
 | Results attempts | attempt filters, grouping, pagination controls, inspect-attempt path or empty-state validation | Baseline | `tests/e2e/workflow/institute-results-attempts-workspace.spec.ts` |
 | Reviews workspace | results handoff, pending/reviewed filters, reset flow, exam-scoped queue actions, task-detail, and pagination checks | Baseline | `tests/e2e/workflow/institute-reviews-workspace.spec.ts` |
 | Mutable academic setup | create/edit/archive/restore academic year, program, cohort, subject, topic records | Mutable | `tests/e2e/workflow/institute-academic-setup-mutable.spec.ts` |
 | Mutable guided exam creation matrix | create disposable `practice`, `quiz`, and `mock_exam` institute exams through the guided wizard, attach one section and question, assign a learner, and verify student visibility | Mutable | `tests/e2e/workflow/institute-exam-creation-wizard-matrix.mutable.spec.ts` |
+| Guided exam family defaults | guided wizard applies seeded NEET, JEE, GRE, and AWS family defaults, checklist guidance, and runtime/learner posture changes across steps | Baseline | `tests/e2e/workflow/institute-family-guided-create-defaults.spec.ts` |
+| Mutable guided family persistence | guided wizard persists JEE and GRE family-selected defaults into saved institute exam metadata | Mutable | `tests/e2e/workflow/institute-family-guided-persistence.mutable.spec.ts` |
 | Mutable exam shell | create disposable institute exam shell, validate detail handoffs, mutable detail actions, and verify builder PDF export popup | Mutable | `tests/e2e/workflow/institute-exam-mutable.spec.ts` |
+| Mutable results workflow | create disposable institute exam shell, submit one learner attempt, and prove publish-readiness plus leaderboard state changes through results publication | Mutable | `tests/e2e/workflow/institute-results-mutable.spec.ts` |
 | Mutable question bank | create, update, delete disposable institute question | Mutable | `tests/e2e/workflow/institute-question-mutable.spec.ts` |
 | Mutable question import | preview and finalize disposable institute question-import CSV rows | Mutable | `tests/e2e/workflow/question-import-mutable.spec.ts` |
 | Mutable roster | create disposable teacher and student records, create login, reset/disable/enable login, cleanup through admin APIs | Mutable | `tests/e2e/workflow/institute-roster-mutable.spec.ts` |
@@ -100,12 +165,14 @@
 | Module | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
 | Dashboard | dashboard landing, focus filter, reset flow, quick links | Baseline | `tests/e2e/smoke/teacher-workflows.spec.ts` |
+| Cross-browser shell sanity | desktop shell route sanity across dashboard, exams, question bank, results, and reviews on Chromium, Firefox, and WebKit | Baseline | `tests/e2e/workflow/teacher-cross-browser-shell.spec.ts` |
+| Cross-browser results deep-route sanity | desktop results, leaderboard, analysis, and live-monitor route sanity on Chromium, Firefox, and WebKit | Baseline | `tests/e2e/workflow/teacher-cross-browser-results.spec.ts` |
 | Exam management | exams list, group filter, quick create, advanced builder, exam open flow | Baseline | `tests/e2e/smoke/teacher-workflows.spec.ts` |
 | Advanced builder template library | save template, export selected JSON bundle, import JSON bundle, and cleanup | Mutable | `tests/e2e/workflow/teacher-advanced-builder-templates-mutable.spec.ts` |
-| Exam detail | detail page links and utility actions exposed from live exam | Baseline | `tests/e2e/smoke/teacher-workflows.spec.ts` |
+| Exam detail | dedicated teacher exam detail route coverage for readiness panels, lifecycle controls, access-policy forms, handoff links, and publish-history visibility | Baseline | `tests/e2e/workflow/teacher-exam-detail-workspace.spec.ts` |
 | Question bank workspace | question bank landing, search/filter workflow, route drills into create and comprehension authoring | Baseline | `tests/e2e/smoke/teacher-workflows.spec.ts`, `tests/e2e/workflow/question-bank-deep.spec.ts` |
 | Builder workflow | inspect builder sections, utility handoffs to delivery/results/reviews, linked questions tab, quick attach search/selection, and results-analysis handoff back to builder | Baseline | `tests/e2e/workflow/exam-builder.spec.ts` |
-| Results workspace | filter, grouping, drills into exam, builder, reviews, question bank, leaderboard, leaderboard KPIs/checklist/pagination plus leaderboard utility handoffs and cross-view navigation, live monitor controls and attempt drillthrough, analysis, refresh-status/workflow-card utilities, and analysis-page student/question exploration | Baseline | `tests/e2e/workflow/teacher-results-workspace.spec.ts`, `tests/e2e/workflow/teacher-results-leaderboard-workspace.spec.ts`, `tests/e2e/workflow/teacher-results-live-workspace.spec.ts`, `tests/e2e/workflow/teacher-results-analysis-workspace.spec.ts` |
+| Results workspace | filter, grouping, exam/result publish-readiness cards, drills into exam, builder, reviews, question bank, leaderboard, leaderboard KPIs/checklist/pagination plus leaderboard utility handoffs and cross-view navigation, live monitor controls and attempt drillthrough, analysis, refresh-status/workflow-card utilities, and analysis-page student/question exploration | Baseline | `tests/e2e/workflow/teacher-results-workspace.spec.ts`, `tests/e2e/workflow/teacher-results-leaderboard-workspace.spec.ts`, `tests/e2e/workflow/teacher-results-live-workspace.spec.ts`, `tests/e2e/workflow/teacher-results-analysis-workspace.spec.ts` |
 | Results attempts | attempt review filters, grouping, page size, inspect-attempt path or empty-state validation | Baseline | `tests/e2e/workflow/teacher-results-attempts-workspace.spec.ts` |
 | Reviews workspace | open results, open pending/reviewed slices, reset, filter, exam-scoped queue actions, task-detail, and paging controls | Baseline | `tests/e2e/workflow/teacher-reviews-workspace.spec.ts` |
 | Mutable review decisions | create a disposable manual-review task, assign it, and submit awarded marks plus notes | Mutable | `tests/e2e/workflow/teacher-review-mutable.spec.ts` |
@@ -121,14 +188,30 @@
 | Module | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
 | Exams workspace | exams shell, filter variations, enter-key route, empty-state handling | Baseline | `tests/e2e/smoke/student-attempts.spec.ts` |
+| Exam detail workspace | exam readiness, runtime and policy surfaces, section and blueprint visibility, plus safe non-mutating handoffs into attempts, review, summary, or wallet based on live backend state | Baseline | `tests/e2e/workflow/student-exam-detail-workspace.spec.ts` |
+| Exam-key entry workspace | quick exam lookup guidance, required-field validation, and safe navigation back into the catalog or dashboard without depending on disposable access keys | Baseline | `tests/e2e/workflow/student-exam-key-workspace.spec.ts` |
+| Dashboard workspace | dashboard recommendation cards, action queue, source/subject context controls, and major handoffs into attempts, wallet, exams, analytics, and results | Baseline | `tests/e2e/workflow/student-dashboard-workspace.spec.ts` |
+| Mobile workspace sanity | phone-viewport drawer navigation and core route sanity across dashboard, tests, results, analytics, and profile | Baseline | `tests/e2e/workflow/student-mobile-sanity-workspace.spec.ts` |
+| Cross-browser shell sanity | desktop shell route sanity across dashboard, tests, analytics, results, and profile on Chromium, Firefox, and WebKit | Baseline | `tests/e2e/workflow/student-cross-browser-shell.spec.ts` |
+| Cross-browser analytics and results sanity | desktop results plus analytics compare/timeline route sanity on Chromium, Firefox, and WebKit | Baseline | `tests/e2e/workflow/student-cross-browser-analytics-results.spec.ts` |
+| Cross-browser attempts and post-submit sanity | desktop attempts plus post-submit summary/review route sanity on Chromium, Firefox, and WebKit | Baseline | `tests/e2e/workflow/student-cross-browser-attempts-summary.spec.ts` |
+| Cross-browser exam detail and runtime sanity | desktop exam detail plus conditional runtime route sanity on Chromium, Firefox, and WebKit | Baseline | `tests/e2e/workflow/student-cross-browser-exam-runtime.spec.ts` |
+| Utility and identity surfaces | dashboard, profile, settings, wallet, subscriptions, and search route coverage with truthful utility-state assertions | Baseline | `tests/e2e/workflow/student-utility-workspace.spec.ts` |
+| Notifications workspace | inbox setup/load/empty-state truthfulness, mark-read actions, mark-all flow, filters, grouping, reset, and learner-route handoffs | Baseline | `tests/e2e/workflow/student-notifications-workspace.spec.ts` |
 | Practice workspace | practice filters, reset flow, weak-areas navigation, real-data empty-state handling | Baseline | `tests/e2e/smoke/student-attempts.spec.ts`, `tests/e2e/workflow/student-practice-workspace.spec.ts` |
 | Mutable practice loop | start, resume, submit, and review a disposable practice set from the practice lane | Mutable | `tests/e2e/workflow/student-practice-mutable.spec.ts` |
 | Weak areas | weak-areas entry path from practice workspace | Baseline | `tests/e2e/smoke/student-attempts.spec.ts` |
 | Analytics | analytics landing, action-center handoff, source and subject deep drills, compare route entry plus rendered source/subject context, timeline, and subject practice-link preservation | Baseline | `tests/e2e/smoke/student-attempts.spec.ts`, `tests/e2e/workflow/student-analytics-deep.spec.ts` |
+| Analytics scope continuity | source drill preserves subject/teacher context, compare drill materializes source key into scoped query params, timeline/action-center handoffs preserve scoped filters, and subject drill keeps source-teacher scope alive | Baseline | `tests/e2e/workflow/student-analytics-scope-persistence-workspace.spec.ts` |
+| Analytics timeline and compare | standalone timeline and comparison route coverage for trend snapshot, benchmark panels, subject momentum, result ledger, and the timeline/compare/results handoff loop | Baseline | `tests/e2e/workflow/student-analytics-timeline-compare-workspace.spec.ts` |
 | Attempts | attempts workspace shell and drillthrough | Baseline | `tests/e2e/smoke/student-attempts.spec.ts` |
+| Attempt runtime workspace | active attempt console coverage for progress, palette, save/submit controls, and truthful locked-state fallback when a previously active route has already expired or been submitted | Baseline | `tests/e2e/workflow/student-attempt-runtime-workspace.spec.ts` |
+| Post-submit summary and review | post-submit state messaging, status and recommended-action surfaces, result handoff, and conditional review drillthrough when backend policy exposes learner review | Baseline | `tests/e2e/workflow/student-post-submit-workspace.spec.ts` |
 | Results workspace | results landing, hero navigation, filters, quick-filter chips, grouped source/review assertions tied to live cards, summary/review drillthroughs, and empty/live state tolerance | Baseline | `tests/e2e/workflow/student-results-workspace.spec.ts` |
+| Result state matrix | explicit learner-visible validation for pending release, published summary-only, and review-ready result states when those records exist in live student data | Baseline | `tests/e2e/workflow/student-result-state-matrix-workspace.spec.ts` |
 | Mutable live attempt | start, save, and submit a disposable teacher-assigned exam | Mutable | `tests/e2e/workflow/student-attempt-mutable.spec.ts` |
 | Mutable admin-created assigned exam attempt | start, save, and submit a disposable admin advanced-builder `mock_exam` assigned to the seeded learner | Mutable | `tests/e2e/workflow/admin-exam-creation-advanced-student-attempt.mutable.spec.ts` |
+| Mutable published student result visibility | create a disposable teacher-assigned exam, submit one learner attempt, publish results, and verify grouped outcome visibility plus summary handoff in the student results workspace | Mutable | `tests/e2e/workflow/student-results-mutable.spec.ts` |
 | Mutable exam-key flow | submit a live exam access key and open the assigned exam | Mutable | `tests/e2e/workflow/student-exam-key-mutable.spec.ts` |
 
 ### Registration journeys
@@ -270,16 +353,10 @@ These specs intentionally create or change disposable records and therefore run 
 
 - Product gap: results and reports surfaces do not yet expose dedicated export/download CTAs beyond the builder popup and existing import-template downloads
 
-### Student
-
-- results grouped outcome lane
-- compare, timeline, analytics filter persistence
-
 ### Cross-platform
 
 - Product gap: file downloads and export verification across report/results surfaces are blocked until those surfaces expose real export/download controls
-- Mobile viewport sanity checks
-- Multi-browser expansion after stable account isolation
+- Broader multi-browser expansion beyond the current student shell and deep-route sanity lanes plus the admin, teacher, and institute shell/results sanity lanes
 - Local debug bulk-import workflows now run without throttle-based skips, so roster and question-import lanes are part of the clean full-round pass.
 - Current full-round blockers to stabilize: none
 

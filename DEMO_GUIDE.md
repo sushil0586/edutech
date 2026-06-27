@@ -65,19 +65,17 @@ Important note:
 
 ### Platform admin
 
-Use Django admin and backend-managed setup screens for this part of the demo.
-
 1. Sign in with `demo-platform-admin`.
-2. Review academic setup ownership and seeded institute structure.
-3. Show that teacher and student credentials are admin-managed.
+2. Open `/admin`.
+3. Review institute ownership, seeded structure, and platform-level setup surfaces.
+4. Show that teacher and student credentials are admin-managed.
 
 ### Institute admin
 
-Use Django admin or the backend-managed setup area for this part of the demo.
-
 1. Sign in with `demo-institute-admin`.
-2. Review institute-scoped academic structure and user management.
-3. Highlight that this pilot is institute-first, not public self-signup-first.
+2. Open `/institute/dashboard`.
+3. Review institute-scoped academic structure, user management, exams, and results surfaces.
+4. Highlight that this pilot is institute-first, not public self-signup-first.
 
 ### Teacher
 
@@ -89,7 +87,7 @@ Use Django admin or the backend-managed setup area for this part of the demo.
 
 ### Student
 
-1. Sign in with `demo-student`.
+1. Sign in with `class7-student-1`.
 2. Open `/app/dashboard`.
 3. Open `/app/exams` and review available exam details.
 4. Open `/app/attempts` and walk through current and submitted states.
@@ -117,6 +115,7 @@ The seed command prepares:
 - This MVP is intentionally focused on academic learning and assessment only.
 - Scores, ranks, result visibility, and analytics stay backend-owned.
 - The current web app is the Next.js portal in `edutech_web`.
+- The primary demo path should stay inside the Next.js role workspaces unless you explicitly need Django admin for operator-only checks.
 - Public self-signup is not part of the current MVP.
 - Parent role data may exist in the backend, but a dedicated parent product surface is not yet the main demo path.
 

@@ -22,6 +22,7 @@ import {
   studentDateTimeLabel,
   titleCaseState,
 } from "@/lib/student/formatters";
+import { getExamSubjectDisplayLabel } from "@/lib/student/subject-context";
 
 function examExperienceLabel(examType: string) {
   if (examType === "practice") return "practice set";
@@ -70,6 +71,184 @@ function compactText(value: string, limit = 180) {
     return normalized;
   }
   return `${normalized.slice(0, limit).trimEnd()}...`;
+}
+
+function detailAvailabilityTone(args: {
+  canResume: boolean;
+  canStart: boolean;
+  canOpenSummary: boolean;
+  canOpenReview: boolean;
+  availabilityState: string;
+  isLocked: boolean;
+  canUnlockWithStars: boolean;
+  remainingAttempts: number;
+}) {
+  if (args.canResume || args.canStart) return "live" as const;
+  if (args.isLocked && args.canUnlockWithStars) return "warning" as const;
+  if (args.canOpenReview || args.canOpenSummary) return "demo" as const;
+  if (args.availabilityState === "upcoming") return "warning" as const;
+  if (args.remainingAttempts === 0 || args.availabilityState === "completed") return "danger" as const;
+  return "default" as const;
+}
+
+function detailPrimaryActionLabel(args: {
+  canResume: boolean;
+  canStart: boolean;
+  canOpenSummary: boolean;
+  canOpenReview: boolean;
+  isLocked: boolean;
+  canUnlockWithStars: boolean;
+  starCost: number;
+}) {
+  if (args.canResume) return "Resume";
+  if (args.canStart) return "Start";
+  if (args.isLocked && args.canUnlockWithStars) return `Unlock with ${args.starCost} stars`;
+  if (args.canOpenSummary) return "Open summary";
+  if (args.canOpenReview) return "Open review";
+  return "Not available yet";
+}
+
+function detailAvailabilityHeadline(args: {
+  examType: string;
+  canResume: boolean;
+  canStart: boolean;
+  canOpenSummary: boolean;
+  canOpenReview: boolean;
+  availabilityState: string;
+  isLocked: boolean;
+  canUnlockWithStars: boolean;
+  remainingAttempts: number;
+}) {
+  const experience = examExperienceLabel(args.examType);
+  if (args.canResume) return `You already have a live ${experience} in progress`;
+  if (args.canStart) return `You can start this ${experience} now`;
+  if (args.isLocked && args.canUnlockWithStars) return `Unlock this ${experience} before starting`;
+  if (args.isLocked) return `This ${experience} is currently blocked by access policy`;
+  if (args.canOpenReview) return `Your completed ${experience} is ready for review`;
+  if (args.canOpenSummary) return `Your latest ${experience} can be opened in summary mode`;
+  if (args.availabilityState === "upcoming") return `This ${experience} has been assigned, but the window is not open yet`;
+  if (args.remainingAttempts === 0) return `You have already used all attempts for this ${experience}`;
+  if (args.availabilityState === "completed") return `This ${experience} window has closed`;
+  return `This ${experience} is not startable right now`;
+}
+
+function detailActionGuidance(args: {
+  examType: string;
+  canResume: boolean;
+  canStart: boolean;
+  canOpenSummary: boolean;
+  canOpenReview: boolean;
+  availabilityState: string;
+  isLocked: boolean;
+  canUnlockWithStars: boolean;
+  starCost: number;
+  remainingAttempts: number;
+  lockReasonMessage: string;
+}) {
+  const experience = examExperienceLabel(args.examType);
+  if (args.canResume) {
+    return `An active attempt already exists for this ${experience}. Re-enter it instead of starting another run.`;
+  }
+  if (args.canStart) {
+    return `This ${experience} is live and ready. Starting it will create a new backend attempt under your student account immediately.`;
+  }
+  if (args.isLocked && args.canUnlockWithStars) {
+    return `${args.starCost} stars are required before this ${experience} can be started. Unlock it once and the start action will become available right away.`;
+  }
+  if (args.isLocked) {
+    return (
+      args.lockReasonMessage || `This ${experience} is currently locked by backend access policy.`
+    );
+  }
+  if (args.canOpenReview) {
+    return "Your most recent attempt is complete and the backend currently allows answer review.";
+  }
+  if (args.canOpenSummary) {
+    return "Your latest attempt is available in summary form, but answer review is still locked by policy.";
+  }
+  if (args.availabilityState === "upcoming") {
+    return `This ${experience} is assigned to you, but its scheduled start window has not opened yet.`;
+  }
+  if (args.remainingAttempts === 0) {
+    return "No additional attempts remain under the current attempt policy.";
+  }
+  if (args.availabilityState === "completed") {
+    return `The active window for this ${experience} is over. You can only revisit history if the backend still exposes it.`;
+  }
+  return `Open the exam list again after the backend state changes, or review the availability and policy details below.`;
+}
+
+function detailNextStepBullets(args: {
+  canResume: boolean;
+  canStart: boolean;
+  canOpenSummary: boolean;
+  canOpenReview: boolean;
+  isLocked: boolean;
+  canUnlockWithStars: boolean;
+  resultPublished: boolean;
+  reviewAvailable: boolean;
+  remainingAttempts: number;
+}) {
+  if (args.canResume) {
+    return [
+      "Resume is always the first action when a live attempt already exists.",
+      "No duplicate active attempt will be created from this screen.",
+      "After submission, the next stop will be the attempt summary.",
+    ];
+  }
+
+  if (args.canStart) {
+    return [
+      `You still have ${args.remainingAttempts} attempt${args.remainingAttempts === 1 ? "" : "s"} available under the current policy.`,
+      "Starting now opens the timed attempt workspace immediately.",
+      "After submission, score and review still depend on result visibility policy.",
+    ];
+  }
+
+  if (args.isLocked && args.canUnlockWithStars) {
+    return [
+      "Unlock happens before any attempt can begin.",
+      "Once unlocked, you return to this same detail page with the start action available.",
+      "Your current wallet balance and premium access history live in the wallet workspace.",
+    ];
+  }
+
+  if (args.canOpenSummary || args.canOpenReview) {
+    return [
+      "Open summary first when you need the clearest post-submit status view.",
+      args.reviewAvailable
+        ? "Answer review is currently open by backend policy."
+        : "Review is still blocked until backend visibility policy changes.",
+      args.resultPublished
+        ? "Published results are already visible in the results workspace."
+        : "Results are still hidden until publication rules are met.",
+    ];
+  }
+
+  return [
+    "Check the availability window before trying again.",
+    "Blocked or completed states are controlled by backend assignment and lifecycle rules.",
+    "Use the exams list to compare which mock tests are ready, upcoming, or locked.",
+  ];
+}
+
+function detailStartFlowGuidance(args: {
+  examType: string;
+  canResume: boolean;
+  canStart: boolean;
+  allowSectionSwitching: boolean;
+  remainingAttempts: number;
+}) {
+  const experience = examExperienceLabel(args.examType);
+  if (args.canResume) {
+    return `Resuming takes you back into the live ${experience} workspace immediately, with your saved attempt state and current timer policy restored from the backend.`;
+  }
+  if (args.canStart) {
+    return `Starting creates a fresh backend attempt right away. You will land in the timed workspace, follow the current section policy, and then return to summary after submission. You still have ${args.remainingAttempts} attempt${args.remainingAttempts === 1 ? "" : "s"} available under the current rule set.`;
+  }
+  return args.allowSectionSwitching
+    ? "When this exam becomes available, you will be able to move between sections during the attempt."
+    : "When this exam becomes available, the attempt will keep you in a more guided section sequence.";
 }
 
 async function startAttemptAction(formData: FormData) {
@@ -203,6 +382,7 @@ export default async function ExamDetailPage({
   const latestAttempt = attempts.find((attempt) => attempt.exam === detail.id) ?? null;
   const canOpenSummary = Boolean(latestAttempt);
   const canOpenReview = Boolean(latestAttempt && detail.review_available);
+  const detailSubjectLabel = getExamSubjectDisplayLabel(detail);
   const questionTypeCounts = detail.exam_questions.reduce<Record<string, number>>(
     (accumulator, question) => {
       const key = question.question_type;
@@ -221,40 +401,82 @@ export default async function ExamDetailPage({
       }
       return left.question_order - right.question_order;
     });
-  const primaryActionLabel = canResume
-    ? `Resume ${examExperienceLabel(detail.exam_type)}`
-    : canStart
-      ? `Start ${examExperienceLabel(detail.exam_type)}`
-      : canOpenSummary
-        ? "Open attempt summary"
-        : detail.economy_access.is_locked && detail.economy_access.can_unlock_with_stars
-          ? `Unlock with ${detail.economy_access.star_cost} stars`
-          : "Not available yet";
-  const actionGuidance = canResume
-    ? `An active attempt already exists for this ${examExperienceLabel(detail.exam_type)}. Re-enter it directly instead of starting again.`
-    : canStart
-      ? `This ${examExperienceLabel(detail.exam_type)} is live and ready. Starting it will create a new backend attempt for your student profile.`
-      : detail.economy_access.is_locked && detail.economy_access.can_unlock_with_stars
-        ? `${detail.economy_access.star_cost} stars are required before this ${examExperienceLabel(detail.exam_type)} can be started. Unlock it once and the start action becomes available immediately.`
-        : detail.economy_access.is_locked
-          ? detail.economy_access.lock_reason_message ||
-            `This ${examExperienceLabel(detail.exam_type)} is currently locked by access policy.`
-      : canOpenReview
-        ? "Your last attempt is complete and review is available by policy."
-        : canOpenSummary
-          ? "Your latest attempt is available in summary form, but review is still locked."
-          : detail.availability_state === "upcoming"
-            ? `This ${examExperienceLabel(detail.exam_type)} has been assigned but is not open yet.`
-            : detail.remaining_attempts === 0
-              ? "All available attempts have already been used."
-              : `This ${examExperienceLabel(detail.exam_type)} is not startable right now under the current backend state.`;
+  const primaryActionLabel = detailPrimaryActionLabel({
+    canResume,
+    canStart,
+    canOpenSummary,
+    canOpenReview,
+    isLocked: detail.economy_access.is_locked,
+    canUnlockWithStars: detail.economy_access.can_unlock_with_stars,
+    starCost: detail.economy_access.star_cost,
+  });
+  const actionHeadline = detailAvailabilityHeadline({
+    examType: detail.exam_type,
+    canResume,
+    canStart,
+    canOpenSummary,
+    canOpenReview,
+    availabilityState: detail.availability_state,
+    isLocked: detail.economy_access.is_locked,
+    canUnlockWithStars: detail.economy_access.can_unlock_with_stars,
+    remainingAttempts: detail.remaining_attempts,
+  });
+  const actionGuidance = detailActionGuidance({
+    examType: detail.exam_type,
+    canResume,
+    canStart,
+    canOpenSummary,
+    canOpenReview,
+    availabilityState: detail.availability_state,
+    isLocked: detail.economy_access.is_locked,
+    canUnlockWithStars: detail.economy_access.can_unlock_with_stars,
+    starCost: detail.economy_access.star_cost,
+    remainingAttempts: detail.remaining_attempts,
+    lockReasonMessage: detail.economy_access.lock_reason_message,
+  });
+  const nextStepBullets = detailNextStepBullets({
+    canResume,
+    canStart,
+    canOpenSummary,
+    canOpenReview,
+    isLocked: detail.economy_access.is_locked,
+    canUnlockWithStars: detail.economy_access.can_unlock_with_stars,
+    resultPublished: detail.result_published,
+    reviewAvailable: detail.review_available,
+    remainingAttempts: detail.remaining_attempts,
+  });
+  const startFlowGuidance = detailStartFlowGuidance({
+    examType: detail.exam_type,
+    canResume,
+    canStart,
+    allowSectionSwitching: detail.allow_section_switching,
+    remainingAttempts: detail.remaining_attempts,
+  });
 
   return (
     <div className="studentPage studentDashboardModern studentLearnerPage studentLearnerExamDetailPage">
       <StudentPageHeader
         title={detail.title}
         description={`${titleCaseState(detail.exam_type)} detail backed by the student exam detail endpoint, with runtime rules and next actions surfaced clearly.`}
-        action={<StatusPill tone="live">{titleCaseState(detail.availability_state)}</StatusPill>}
+        action={
+          <div className="studentInsightHeroActions">
+            <StatusPill
+              tone={detailAvailabilityTone({
+                canResume,
+                canStart,
+                canOpenSummary,
+                canOpenReview,
+                availabilityState: detail.availability_state,
+                isLocked: detail.economy_access.is_locked,
+                canUnlockWithStars: detail.economy_access.can_unlock_with_stars,
+                remainingAttempts: detail.remaining_attempts,
+              })}
+            >
+              {primaryActionLabel}
+            </StatusPill>
+            <StatusPill tone="default">{titleCaseState(detail.availability_state)}</StatusPill>
+          </div>
+        }
       />
 
       {message ? (
@@ -267,9 +489,9 @@ export default async function ExamDetailPage({
       <section className="studentInsightHeroCard studentInsightHeroCardCompact">
         <div className="studentInsightHeroCopy">
           <span className="studentDashboardTag">Exam Readiness</span>
-          <strong>{primaryActionLabel}</strong>
+          <strong>{actionHeadline}</strong>
           <small>
-            {detail.code} · {examSourceDescriptor(detail)} · {detail.subject_name ?? "Subject pending"} ·{" "}
+            {detail.code} · {examSourceDescriptor(detail)} · {detailSubjectLabel} ·{" "}
             {detail.start_at ? studentDateTimeLabel(detail.start_at) : "Backend scheduled"}
           </small>
         </div>
@@ -289,7 +511,7 @@ export default async function ExamDetailPage({
           {
             label: "Exam Code",
             value: detail.code,
-            note: detail.subject_name ?? "Subject pending",
+            note: detailSubjectLabel,
             tone: "primary",
           },
           {
@@ -410,25 +632,46 @@ export default async function ExamDetailPage({
         <article className="contentCard">
           <div className="sectionHeading">
             <strong>Primary Action</strong>
-            <StatusPill tone={canResume || canStart ? "live" : canOpenSummary ? "demo" : "warning"}>
+            <StatusPill
+              tone={detailAvailabilityTone({
+                canResume,
+                canStart,
+                canOpenSummary,
+                canOpenReview,
+                availabilityState: detail.availability_state,
+                isLocked: detail.economy_access.is_locked,
+                canUnlockWithStars: detail.economy_access.can_unlock_with_stars,
+                remainingAttempts: detail.remaining_attempts,
+              })}
+            >
               {primaryActionLabel}
             </StatusPill>
           </div>
           <div className="studentInsightMessageStack">
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
-              <p>Check attempts left before starting a fresh run.</p>
+              <p>{actionGuidance}</p>
             </div>
+          </div>
+          <div className="studentInsightMessageStack">
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
-              <p>Resume always takes priority over creating a duplicate active attempt.</p>
+              <p>{startFlowGuidance}</p>
             </div>
+          </div>
+          <div className="studentInsightMessageStack">
+            {nextStepBullets.map((bullet) => (
+              <div className="studentInsightMessage" key={bullet}>
+                <span className="placeholderDot" aria-hidden="true" />
+                <p>{bullet}</p>
+              </div>
+            ))}
           </div>
 
           <div className="studentInsightHeroActions">
             {canResume && detail.active_attempt ? (
               <Link className="button buttonPrimary" href={`/app/attempts/${detail.active_attempt.id}`}>
-                {`Resume ${examExperienceLabel(detail.exam_type)}`}
+                Resume
               </Link>
             ) : null}
 
@@ -437,7 +680,7 @@ export default async function ExamDetailPage({
                 <input name="exam_id" type="hidden" value={detail.id} />
                 <ActionSubmitButton
                   className="button buttonPrimary"
-                  idleLabel={`Start ${examExperienceLabel(detail.exam_type)}`}
+                  idleLabel="Start"
                   pendingLabel="Starting..."
                 />
               </form>
@@ -467,7 +710,7 @@ export default async function ExamDetailPage({
                   />
                   <ActionSubmitButton
                     className="button buttonPrimary"
-                    idleLabel={`Unlock with ${detail.economy_access.star_cost} Stars`}
+                    idleLabel={`Unlock with ${detail.economy_access.star_cost} stars`}
                     pendingLabel="Unlocking..."
                   />
                 </form>
@@ -480,11 +723,11 @@ export default async function ExamDetailPage({
             {!canResume && !canStart && canOpenSummary && latestAttempt ? (
               <>
                 <Link className="button buttonPrimary" href={`/app/attempts/${latestAttempt.id}/summary`}>
-                  Open Attempt Summary
+                  Open Summary
                 </Link>
                 {canOpenReview ? (
                   <Link className="button buttonSecondary" href={`/app/attempts/${latestAttempt.id}/review`}>
-                    Review Attempt
+                    Open Review
                   </Link>
                 ) : null}
               </>

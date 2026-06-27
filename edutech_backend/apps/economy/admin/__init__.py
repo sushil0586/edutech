@@ -2,6 +2,7 @@ from django.contrib import admin
 
 from apps.economy.models import (
     ContentAccessPolicy,
+    EconomyOperatorPolicyConfig,
     PaymentOrder,
     PaymentTransaction,
     ReferralCode,
@@ -45,6 +46,19 @@ class SubscriptionPlanCycleInline(RichTabularInline):
         "metadata",
         "is_active",
     )
+
+
+@admin.register(EconomyOperatorPolicyConfig)
+class EconomyOperatorPolicyConfigAdmin(RichModelAdmin):
+    list_display = (
+        "singleton_key",
+        "institute_admin_can_confirm_orders",
+        "institute_admin_max_confirm_order_amount",
+        "institute_admin_can_grant_stars",
+        "institute_admin_max_grant_stars",
+        "is_active",
+    )
+    readonly_fields = ("singleton_key", "created_at", "updated_at")
 @admin.register(StudentEconomyProfile)
 class StudentEconomyProfileAdmin(RichModelAdmin):
     list_display = (

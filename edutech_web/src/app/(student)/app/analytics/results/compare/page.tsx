@@ -3,7 +3,11 @@ import { StudentKpiGrid } from "@/components/ui/student-kpi-grid";
 import { StudentPageHeader } from "@/components/ui/student-page-header";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { StudentAnalyticsDetailHero } from "@/components/ui/student-analytics-detail";
-import { loadStudentAnalyticsBundle, sourceDescriptor } from "@/lib/student/analytics";
+import {
+  buildAnalyticsTimelineHref,
+  loadStudentAnalyticsBundle,
+  sourceDescriptor,
+} from "@/lib/student/analytics";
 import {
   benchmarkLabel,
   percentageLabel,
@@ -133,7 +137,10 @@ export default async function StudentAnalyticsResultsComparePage({
             <Link className="button buttonPrimary" href="/app/results">
               Open Results
             </Link>
-            <Link className="button buttonSecondary" href="/app/analytics/timeline">
+            <Link
+              className="button buttonSecondary"
+              href={buildAnalyticsTimelineHref({ subject, source, teacher })}
+            >
               Open Timeline
             </Link>
           </>

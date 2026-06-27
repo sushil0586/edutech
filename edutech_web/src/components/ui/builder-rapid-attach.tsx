@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import { BuilderQuestionPreviewTrigger } from "@/components/ui/builder-question-preview-trigger";
-import type { LookupQuestion, LookupTopic } from "@/lib/api/teacher-builder";
+import type { LookupProgram, LookupQuestion, LookupTopic } from "@/lib/api/teacher-builder";
 import type { CatalogSelectOption } from "@/lib/teacher/option-catalog";
 
 type BuilderRapidAttachProps = {
@@ -12,6 +12,7 @@ type BuilderRapidAttachProps = {
   difficultyOptions: CatalogSelectOption[];
   examId: string;
   nextOrder: number;
+  programFamilyProfile?: LookupProgram["assessment_family_profile"] | null;
   questionTypeLabelMap: Record<string, string>;
   questions: LookupQuestion[];
   sections: Array<{ id: string; name: string }>;
@@ -60,6 +61,7 @@ export function BuilderRapidAttach({
   difficultyOptions,
   examId,
   nextOrder,
+  programFamilyProfile = null,
   questionTypeLabelMap,
   questions,
   sections,
@@ -74,10 +76,25 @@ export function BuilderRapidAttach({
     () => new Map(topics.map((topic) => [topic.id, topic.name])),
     [topics],
   );
+  const allowedQuestionTypeCodes = useMemo(
+    () => programFamilyProfile?.allowed_question_types ?? [],
+    [programFamilyProfile],
+  );
+  const allowedQuestionTypeSet = useMemo(
+    () => new Set(allowedQuestionTypeCodes),
+    [allowedQuestionTypeCodes],
+  );
 
   const questionTypeOptions = useMemo(
-    () => Array.from(new Set(questions.map((question) => question.question_type))).sort(),
-    [questions],
+    () =>
+      Array.from(
+        new Set(
+          questions
+            .map((question) => question.question_type)
+            .filter((type) => !allowedQuestionTypeSet.size || allowedQuestionTypeSet.has(type)),
+        ),
+      ).sort(),
+    [allowedQuestionTypeSet, questions],
   );
 
   const questionMap = useMemo(
@@ -94,6 +111,10 @@ export function BuilderRapidAttach({
       const topicLabel = question.topic ? topicNameMap.get(question.topic) ?? "Untitled topic" : "No topic";
 
       if (difficultyFilter && question.difficulty_level !== difficultyFilter) {
+        continue;
+      }
+
+      if (allowedQuestionTypeSet.size && !allowedQuestionTypeSet.has(question.question_type)) {
         continue;
       }
 
@@ -124,7 +145,7 @@ export function BuilderRapidAttach({
       ...group,
       questions: [...group.questions].sort((left, right) => questionPriorityScore(left) - questionPriorityScore(right)),
     }));
-  }, [difficultyFilter, questions, searchTerm, topicNameMap, typeFilter]);
+  }, [allowedQuestionTypeSet, difficultyFilter, questions, searchTerm, topicNameMap, typeFilter]);
 
   const selectedQuestions = useMemo(
     () =>
@@ -138,6 +159,13 @@ export function BuilderRapidAttach({
   const visibleHealthyCount = groupedQuestions.reduce(
     (sum, group) => sum + group.questions.filter((question) => question.quality_signal === "healthy" && question.is_verified && question.has_explanation).length,
     0,
+  );
+  const excludedByFamilyContractCount = useMemo(
+    () =>
+      allowedQuestionTypeSet.size
+        ? questions.filter((question) => !allowedQuestionTypeSet.has(question.question_type)).length
+        : 0,
+    [allowedQuestionTypeSet, questions],
   );
   const selectedRevisionQueueCount = selectedQuestions.filter(
     (question) => question.revision_priority === "urgent" || question.revision_priority === "high",
@@ -190,6 +218,17 @@ export function BuilderRapidAttach({
       <div className="builderQuickAttachWorkspace">
         <div className="builderQuickAttachMain">
           <div className="builderQuickAttachTopbar">
+            {programFamilyProfile ? (
+              <div className="builderHintPanel">
+                <strong>{programFamilyProfile.label} attach guidance</strong>
+                <p>{programFamilyProfile.description}</p>
+                <small>
+                  {excludedByFamilyContractCount > 0
+                    ? `${excludedByFamilyContractCount} question(s) are hidden because their type falls outside the current family contract.`
+                    : "Visible questions already respect the current family contract."}
+                </small>
+              </div>
+            ) : null}
             <div className="builderGrid compact">
               <label className="fieldStack fieldStackFull">
                 <span>Search questions</span>

@@ -21,24 +21,43 @@ import {
   questionTypeLabel,
   titleCaseState,
 } from "@/lib/student/formatters";
+import {
+  attemptOutcomeJourney,
+  attemptOutcomeProgressLabel,
+  attemptOutcomeResultsLabel,
+  attemptOutcomeReviewLabel,
+  reviewVisibilityLabel,
+  reviewVisibilityTone,
+  resolveAttemptOutcomeState,
+} from "@/lib/student/attempt-outcome";
 import { questionTypeSupportsTextAnswer } from "@/lib/assessment/question-type";
 import {
+  buildPracticeHref,
   derivePracticeFocusFromReviewQuestions,
   resolvePracticeFollowUpAction,
 } from "@/lib/student/practice";
+import { buildFilterHref } from "@/lib/workspace/filter-utils";
 
 function reviewStateCopy(review: {
   show_explanations: boolean;
   show_correct_answers: boolean;
   review_mode: string;
 }) {
+  const outcomeState = resolveAttemptOutcomeState({
+    resultVisible: true,
+    reviewAvailable: true,
+  });
+  const journey = attemptOutcomeJourney(outcomeState);
+
   if (review.show_explanations) {
     return {
       nextStep: "Learn from explanations",
       helper:
-        "This review mode includes correctness and explanation visibility, so the student can use it as a learning pass after submission.",
-      summaryCta: "Back to Summary",
-      resultsCta: "Open Results",
+        `This review mode includes correctness and explanation visibility, so the student can use it as a learning pass after submission. ${journey.laneHelper}`,
+      progress: attemptOutcomeProgressLabel(outcomeState),
+      summaryCta: journey.summaryCta,
+      resultsCta: journey.resultsCta,
+      laneLabel: journey.laneLabel,
     };
   }
 
@@ -46,18 +65,22 @@ function reviewStateCopy(review: {
     return {
       nextStep: "Inspect answer outcomes",
       helper:
-        "Correctness is visible here, but detailed explanations are hidden by the current review policy.",
-      summaryCta: "Back to Summary",
-      resultsCta: "Open Results",
+        `Correctness is visible here, but detailed explanations are hidden by the current review policy. ${journey.laneHelper}`,
+      progress: attemptOutcomeProgressLabel(outcomeState),
+      summaryCta: journey.summaryCta,
+      resultsCta: journey.resultsCta,
+      laneLabel: journey.laneLabel,
     };
   }
 
-  return {
-    nextStep: "Review structure only",
-    helper:
-      "This review mode is limited. The student can revisit the attempt structure, but full solution visibility is not enabled.",
-    summaryCta: "Back to Summary",
-    resultsCta: "Check Result Status",
+    return {
+      nextStep: "Review structure only",
+      helper:
+        `This review mode is limited. The student can revisit the attempt structure, but full solution visibility is not enabled. ${journey.laneHelper}`,
+      progress: attemptOutcomeProgressLabel(outcomeState),
+      summaryCta: journey.summaryCta,
+      resultsCta: journey.resultsCta,
+      laneLabel: journey.laneLabel,
   };
 }
 
@@ -144,11 +167,11 @@ export default async function AttemptReviewPage({
   searchParams,
 }: {
   params: Promise<{ attemptId: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; subject?: string; source?: string; teacher?: string }>;
 }) {
   const { attemptId } = await params;
-  const { error } = await searchParams;
-  const { source, review, practiceExams } = await loadAttemptReview(attemptId);
+  const { error, subject, source: sourceParam, teacher } = await searchParams;
+  const { source: reviewSource, review, practiceExams } = await loadAttemptReview(attemptId);
 
   if (!review) {
     return (
@@ -157,33 +180,33 @@ export default async function AttemptReviewPage({
           title="Attempt Review"
           description="Review content is only available when the backend allows it for the submitted attempt."
           statusLabel={
-            source === "unconfigured"
+            reviewSource === "unconfigured"
               ? "Backend not configured"
               : "Review not available"
           }
-          statusTone={source === "unconfigured" ? "warning" : "demo"}
+          statusTone={reviewSource === "unconfigured" ? "warning" : "demo"}
         />
         <StudentStatePanel
-          eyebrow={source === "unconfigured" ? "Setup required" : "Review unavailable"}
+          eyebrow={reviewSource === "unconfigured" ? "Setup required" : "Review unavailable"}
           title={
-            source === "unconfigured"
+            reviewSource === "unconfigured"
               ? "Waiting for review access"
               : "Attempt review is not available right now"
           }
           description={
-            source === "unconfigured"
+            reviewSource === "unconfigured"
               ? "Review content is only available when the backend allows it for the submitted attempt and the app has a valid student session."
               : "The backend did not return review content for this attempt. Review availability may depend on result visibility or exam policy."
           }
           bullets={
-            source === "unconfigured"
+            reviewSource === "unconfigured"
               ? ["Attempt review endpoint", "Active student web session"]
               : ["Review availability rules", "Attempt review endpoint"]
           }
           ctaHref="/app/results"
           ctaLabel="Check Result Status"
           statusLabel={
-            source === "unconfigured"
+            reviewSource === "unconfigured"
               ? "Configuration required"
               : "Check result visibility"
           }
@@ -193,11 +216,53 @@ export default async function AttemptReviewPage({
   }
 
   const stateCopy = reviewStateCopy(review);
+  const outcomeState = resolveAttemptOutcomeState({
+    resultVisible: true,
+    reviewAvailable: true,
+  });
   const practiceFocus = derivePracticeFocusFromReviewQuestions(review.review_questions);
   const practiceFollowUp = resolvePracticeFollowUpAction({
     exams: practiceExams,
     subjectName: practiceFocus.subjectName,
   });
+  const scopedSubjectParam =
+    subject?.trim() || practiceFocus.subjectName?.trim() || undefined;
+  const scopedPracticeHref = buildPracticeHref({
+    subjectName: scopedSubjectParam ?? null,
+    topicName: practiceFocus.topicName ?? null,
+    source: sourceParam?.trim() ?? null,
+    teacher: teacher?.trim() ?? null,
+  });
+  const reviewRecoverySequence =
+    practiceFollowUp.exam && practiceFollowUp.action.mode === "unlock"
+      ? [
+          {
+            label: "Do this first",
+            detail: "Use review to confirm the exact wrong or skipped pattern before spending stars on the next practice lane.",
+          },
+          {
+            label: "Then next",
+            detail: "Unlock the matched practice set only if it covers the same subject or topic cluster surfaced in this review.",
+          },
+          {
+            label: "After that",
+            detail: "Return to analytics or results to compare whether the same gap still appears after the repair pass.",
+          },
+        ]
+      : [
+          {
+            label: "Do this first",
+            detail: "Use review to confirm the exact wrong or skipped pattern while the attempt is still fresh.",
+          },
+          {
+            label: "Then next",
+            detail: "Move straight into the matched practice lane for the topic or subject most exposed by this review.",
+          },
+          {
+            label: "After that",
+            detail: "Return to analytics, results, or summary to verify whether the same error pattern still needs work.",
+          },
+        ];
 
   return (
     <div className="studentPage studentDashboardModern studentLearnerPage studentLearnerAttemptReviewPage">
@@ -216,19 +281,45 @@ export default async function AttemptReviewPage({
           <span className="studentDashboardTag">Review Mode</span>
           <strong>{stateCopy.nextStep}</strong>
           <small>
-            {review.show_explanations
-              ? "Explanations visible"
-              : review.show_correct_answers
-                ? "Answers visible"
-                : "Limited review"}
+            {attemptOutcomeResultsLabel(outcomeState)} ·{" "}
+            {attemptOutcomeReviewLabel(outcomeState)} ·{" "}
+            {reviewVisibilityLabel({
+              showExplanations: review.show_explanations,
+              showCorrectAnswers: review.show_correct_answers,
+            })}{" "}
+            · Returned by backend review policy · {stateCopy.laneLabel}
           </small>
         </div>
         <div className="studentInsightHeroActions">
-          <Link className="button buttonPrimary" href={`/app/attempts/${review.id}/summary`}>
+          <Link
+            className="button buttonPrimary"
+            href={buildFilterHref(`/app/attempts/${review.id}/summary`, [
+              ["subject", scopedSubjectParam],
+              ["source", sourceParam?.trim()],
+              ["teacher", teacher?.trim()],
+            ])}
+          >
             {stateCopy.summaryCta}
           </Link>
-          <Link className="button buttonSecondary" href="/app/results">
+          <Link
+            className="button buttonSecondary"
+            href={buildFilterHref("/app/results", [
+              ["subject", scopedSubjectParam],
+              ["source", sourceParam?.trim()],
+              ["teacher", teacher?.trim()],
+            ])}
+          >
             {stateCopy.resultsCta}
+          </Link>
+          <Link
+            className="button buttonGhost"
+            href={buildFilterHref("/app/attempts", [
+              ["subject", scopedSubjectParam],
+              ["source", sourceParam?.trim()],
+              ["teacher", teacher?.trim()],
+            ])}
+          >
+            Open Attempts
           </Link>
         </div>
       </section>
@@ -265,12 +356,16 @@ export default async function AttemptReviewPage({
         <article className="contentCard">
           <div className="sectionHeading">
             <strong>Review State</strong>
-            <StatusPill tone={review.show_explanations ? "live" : review.show_correct_answers ? "warning" : "demo"}>
-              {review.show_explanations
-                ? "Solutions visible"
-                : review.show_correct_answers
-                  ? "Answers visible"
-                  : "Limited review"}
+            <StatusPill
+              tone={reviewVisibilityTone({
+                showExplanations: review.show_explanations,
+                showCorrectAnswers: review.show_correct_answers,
+              })}
+            >
+              {reviewVisibilityLabel({
+                showExplanations: review.show_explanations,
+                showCorrectAnswers: review.show_correct_answers,
+              })}
             </StatusPill>
           </div>
 
@@ -298,11 +393,19 @@ export default async function AttemptReviewPage({
           <div className="studentInsightMessageStack">
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
-              <p>Use review as a learning pass, not just a score check.</p>
+              <p>{stateCopy.helper}</p>
             </div>
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
-              <p>Move into practice after inspecting weak responses.</p>
+              <p>{stateCopy.progress}</p>
+            </div>
+            <div className="studentInsightMessage">
+              <span className="placeholderDot" aria-hidden="true" />
+              <p>This route is the final student-release stage: the attempt was submitted, the result was published, and review is now available under backend policy.</p>
+            </div>
+            <div className="studentInsightMessage">
+              <span className="placeholderDot" aria-hidden="true" />
+              <p>Use summary to confirm release state, results to compare score reporting, and attempts history to reopen this journey from the broader timeline later.</p>
             </div>
           </div>
           <div className="studentInsightHeroActions">
@@ -343,14 +446,117 @@ export default async function AttemptReviewPage({
                 />
               </form>
             ) : (
-              <Link className="button buttonSecondary" href={practiceFollowUp.action.href}>
+              <Link
+                className="button buttonSecondary"
+                href={
+                  practiceFollowUp.action.mode === "link" &&
+                  practiceFollowUp.action.href === "/app/practice"
+                    ? scopedPracticeHref
+                    : practiceFollowUp.action.href
+                }
+              >
                 {practiceFollowUp.action.mode === "link"
                   ? practiceFocus.label
                   : practiceFollowUp.action.label}
               </Link>
             )}
-            <Link className="button buttonGhost" href="/app/analytics">
+            <Link
+              className="button buttonGhost"
+              href={buildFilterHref("/app/attempts", [
+                ["subject", scopedSubjectParam],
+                ["source", sourceParam?.trim()],
+                ["teacher", teacher?.trim()],
+              ])}
+            >
+              Open Attempts
+            </Link>
+          </div>
+        </article>
+      </section>
+
+      <section className="studentInsightsTwoColumn">
+        <article className="contentCard">
+          <div className="sectionHeading">
+            <strong>Review Recovery Loop</strong>
+            <span>{practiceFocus.label}</span>
+          </div>
+          <div className="studentInsightMessageStack">
+            <div className="studentInsightMessage">
+              <span className="placeholderDot" aria-hidden="true" />
+              <p>
+                Answer review is most useful when it turns visible mistakes into one immediate correction lane instead of ending at inspection alone.
+              </p>
+            </div>
+            <div className="studentInsightMessage">
+              <span className="placeholderDot" aria-hidden="true" />
+              <p>
+                The matched practice label is derived from wrong and skipped questions, so the next step stays anchored to what this review actually exposed.
+              </p>
+            </div>
+          </div>
+          <div className="studentActionSequence" aria-label="Review recovery order">
+            {reviewRecoverySequence.map((step) => (
+              <div className="studentActionSequenceCard" key={step.label}>
+                <span>{step.label}</span>
+                <strong>{step.detail}</strong>
+              </div>
+            ))}
+          </div>
+          <div className="studentInsightHeroActions">
+            <Link className="button buttonSecondary" href="/app/analytics">
               View Analytics
+            </Link>
+            <Link
+              className="button buttonGhost"
+              href={buildFilterHref("/app/results", [
+                ["subject", scopedSubjectParam],
+                ["source", sourceParam?.trim()],
+                ["teacher", teacher?.trim()],
+              ])}
+            >
+              Open Results
+            </Link>
+          </div>
+        </article>
+        <article className="contentCard">
+          <div className="sectionHeading">
+            <strong>What To Repair</strong>
+            <span>Before another mock</span>
+          </div>
+          <div className="studentInsightMessageStack">
+            <div className="studentInsightMessage">
+              <span className="placeholderDot" aria-hidden="true" />
+              <p>Wrong answers usually indicate concept repair. Skips usually indicate confidence, pacing, or decision friction.</p>
+            </div>
+            <div className="studentInsightMessage">
+              <span className="placeholderDot" aria-hidden="true" />
+              <p>If explanations are visible, treat this screen as the learning pass. If not, use the visible correctness pattern plus summary/results to decide the next practice lane.</p>
+            </div>
+            <div className="studentInsightMessage">
+              <span className="placeholderDot" aria-hidden="true" />
+              <p>Another broad mock should usually come after the targeted practice follow-up, not before it.</p>
+            </div>
+          </div>
+          <div className="studentInsightHeroActions">
+            <Link
+              className="button buttonSecondary"
+              href={buildFilterHref(`/app/attempts/${review.id}/summary`, [
+                ["subject", scopedSubjectParam],
+                ["source", sourceParam?.trim()],
+                ["teacher", teacher?.trim()],
+              ])}
+            >
+              Back To Summary
+            </Link>
+            <Link
+              className="button buttonGhost"
+              href={buildFilterHref("/app/attempts", [
+                ["subject", scopedSubjectParam],
+                ["source", sourceParam?.trim()],
+                ["teacher", teacher?.trim()],
+              ])}
+            >
+              Stay In Attempts
             </Link>
           </div>
         </article>

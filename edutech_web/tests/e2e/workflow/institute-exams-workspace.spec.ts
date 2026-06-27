@@ -1,8 +1,8 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectInstituteWorkspace } from "../helpers/navigation";
 
-async function expectInstituteExamsWorkspace(page: Parameters<typeof test>[0]["page"]) {
+async function expectInstituteExamsWorkspace(page: Page) {
   await expect(page.getByRole("heading", { name: /exam management/i }).first()).toBeVisible();
   await expect(page.getByText(/exam controls/i).first()).toBeVisible();
   await expect(page.getByRole("link", { name: /quick create/i }).first()).toBeVisible();

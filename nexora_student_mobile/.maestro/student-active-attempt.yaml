@@ -1,0 +1,51 @@
+appId: com.anonymous.nexorastudentmobile
+---
+# Set these before running:
+# STUDENT_USERNAME
+# STUDENT_PASSWORD
+#
+# Seed expectation:
+# - the student account can log in
+# - the student account exposes the attempts lane
+# - active attempts may be empty; completed history should still be visible
+
+- launchApp:
+    clearState: true
+
+- extendedWaitUntil:
+    visible: "Login"
+    timeout: 30000
+
+- tapOn: "Login"
+- tapOn:
+    text: "Username"
+- inputText: ${STUDENT_USERNAME}
+
+- tapOn:
+    text: "Enter password"
+- inputText: ${STUDENT_PASSWORD}
+
+- hideKeyboard
+- tapOn: "Login"
+
+- extendedWaitUntil:
+    visible: "Student Dashboard"
+    timeout: 30000
+
+- tapOn: "⏷, Attempts"
+
+- assertVisible: "Student Attempts"
+- assertVisible: "Return to live work or inspect completed attempts"
+- assertVisible: "No active attempts are waiting, but completed attempt history is available below."
+- assertVisible: "ACTIVE"
+- assertVisible: "COMPLETED"
+
+- tapOn:
+    id: "attempts-open-results-button"
+
+- assertVisible: "Student Results"
+
+- tapOn:
+    text: "Attempts"
+
+- assertVisible: "Student Attempts"

@@ -424,6 +424,13 @@ class ExamSection(BaseModel):
         on_delete=models.CASCADE,
         related_name="sections",
     )
+    subject = models.ForeignKey(
+        Subject,
+        on_delete=models.SET_NULL,
+        related_name="exam_sections",
+        blank=True,
+        null=True,
+    )
     name = models.CharField(max_length=150)
     description = models.TextField(blank=True)
     section_order = models.PositiveIntegerField(default=1)
@@ -461,6 +468,11 @@ class ExamSection(BaseModel):
 
     def clean(self):
         super().clean()
+        if self.subject_id and self.exam_id:
+            if self.subject.institute_id != self.exam.institute_id:
+                raise ValidationError({"subject": "Section subject must belong to the same institute as the exam."})
+            if self.subject.program_id and self.subject.program_id != self.exam.program_id:
+                raise ValidationError({"subject": "Section subject must belong to the same program as the exam."})
         if self.total_questions < 0:
             raise ValidationError({"total_questions": "Total questions cannot be negative."})
         if self.marks_per_question is not None and self.marks_per_question < 0:

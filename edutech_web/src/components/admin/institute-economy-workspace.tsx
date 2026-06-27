@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type {
+  EconomyOperatorPolicy,
+  StudentPaymentOrder,
   StudentRewardEvent,
   StudentUnlockState,
   StudentWalletSummary,
@@ -16,10 +18,12 @@ type StudentOption = {
 
 type WalletResponse = StudentWalletSummary;
 type RewardResponse = StudentRewardEvent[];
+type OrderResponse = StudentPaymentOrder[];
 type UnlockRefreshResponse = {
   data?: StudentUnlockState[];
   message?: string;
 };
+type PolicyResponse = EconomyOperatorPolicy;
 
 function formatDateTime(value: string | null) {
   if (!value) return "Not available";
@@ -48,7 +52,9 @@ export function InstituteEconomyWorkspace({
   const [studentId, setStudentId] = useState(initialStudentId ?? students[0]?.id ?? "");
   const [reloadKey, setReloadKey] = useState(0);
   const [wallet, setWallet] = useState<StudentWalletSummary | null>(null);
+  const [policy, setPolicy] = useState<EconomyOperatorPolicy | null>(null);
   const [rewards, setRewards] = useState<StudentRewardEvent[]>([]);
+  const [orders, setOrders] = useState<StudentPaymentOrder[]>([]);
   const [refreshStates, setRefreshStates] = useState<StudentUnlockState[]>([]);
   const [reason, setReason] = useState("");
   const [stars, setStars] = useState("25");
@@ -56,8 +62,46 @@ export function InstituteEconomyWorkspace({
   const [loading, setLoading] = useState(false);
   const [granting, setGranting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [confirmingOrderId, setConfirmingOrderId] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const previousStudentIdRef = useRef(studentId);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPolicy() {
+      try {
+        const response = await fetch("/api/admin/economy/policy", {
+          method: "GET",
+          cache: "no-store",
+        });
+        const body = (await response.json().catch(() => ({}))) as PolicyResponse & {
+          detail?: string;
+        };
+        if (!response.ok) {
+          throw new Error(
+            typeof body.detail === "string"
+              ? body.detail
+              : `Policy request failed with status ${response.status}`,
+          );
+        }
+        if (!cancelled) {
+          setPolicy(body);
+        }
+      } catch {
+        if (!cancelled) {
+          setPolicy(null);
+        }
+      }
+    }
+
+    void loadPolicy();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!studentId) {
@@ -69,15 +113,23 @@ export function InstituteEconomyWorkspace({
     async function loadStudentEconomy() {
       setLoading(true);
       setError("");
-      setMessage("");
+
+      if (previousStudentIdRef.current !== studentId) {
+        setMessage("");
+        previousStudentIdRef.current = studentId;
+      }
 
       try {
-        const [walletResponse, rewardsResponse] = await Promise.all([
+        const [walletResponse, rewardsResponse, ordersResponse] = await Promise.all([
           fetch(`/api/admin/economy/student/${studentId}/wallet`, {
             method: "GET",
             cache: "no-store",
           }),
           fetch(`/api/admin/economy/student/${studentId}/rewards`, {
+            method: "GET",
+            cache: "no-store",
+          }),
+          fetch(`/api/admin/economy/student/${studentId}/orders`, {
             method: "GET",
             cache: "no-store",
           }),
@@ -87,6 +139,9 @@ export function InstituteEconomyWorkspace({
           detail?: string;
         };
         const rewardsBody = (await rewardsResponse.json().catch(() => [])) as RewardResponse & {
+          detail?: string;
+        };
+        const ordersBody = (await ordersResponse.json().catch(() => [])) as OrderResponse & {
           detail?: string;
         };
 
@@ -110,15 +165,29 @@ export function InstituteEconomyWorkspace({
           );
         }
 
+        if (!ordersResponse.ok) {
+          const orderDetail =
+            ordersBody && typeof ordersBody === "object" && "detail" in ordersBody
+              ? ordersBody.detail
+              : null;
+          throw new Error(
+            typeof orderDetail === "string"
+              ? orderDetail
+              : `Orders request failed with status ${ordersResponse.status}`,
+          );
+        }
+
         if (!cancelled) {
           setWallet(walletBody);
           setRewards(Array.isArray(rewardsBody) ? rewardsBody : []);
+          setOrders(Array.isArray(ordersBody) ? ordersBody : []);
           setRefreshStates([]);
         }
       } catch (loadError) {
         if (!cancelled) {
           setWallet(null);
           setRewards([]);
+          setOrders([]);
           setRefreshStates([]);
           setError(loadError instanceof Error ? loadError.message : "Unable to load student economy.");
         }
@@ -233,6 +302,64 @@ export function InstituteEconomyWorkspace({
     }
   }
 
+  async function handleConfirmOrder(order: StudentPaymentOrder) {
+    if (!studentId) {
+      setError("Select a student before confirming an order.");
+      return;
+    }
+
+    setConfirmingOrderId(order.id);
+    setError("");
+    setMessage("");
+
+    try {
+      const uniqueReference = `manual-${order.id}-${Date.now()}`;
+      const response = await fetch(`/api/admin/economy/orders/${order.id}/confirm`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          provider_transaction_reference: uniqueReference,
+          metadata: {
+            trigger: "admin_economy_workspace",
+          },
+        }),
+      });
+      const body = (await response.json().catch(() => ({}))) as {
+        message?: string;
+        detail?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(
+          typeof body.detail === "string"
+            ? body.detail
+            : `Order confirmation failed with status ${response.status}`,
+        );
+      }
+
+      setMessage(body.message ?? "Payment order completed successfully.");
+      setReloadKey((value) => value + 1);
+    } catch (confirmError) {
+      setError(confirmError instanceof Error ? confirmError.message : "Unable to confirm the order.");
+    } finally {
+      setConfirmingOrderId("");
+    }
+  }
+
+  const pendingOrders = orders.filter((order) => ["pending", "processing"].includes(order.status));
+  const grantStarsDisabledByPolicy = policy ? !policy.can_grant_stars : false;
+  const confirmOrdersDisabledByPolicy = policy ? !policy.can_confirm_orders : false;
+  const grantLimitLabel =
+    policy?.role === "institute_admin" && policy.max_grant_stars != null
+      ? `${policy.max_grant_stars} stars per action`
+      : "No institute-admin grant cap";
+  const orderLimitLabel =
+    policy?.role === "institute_admin" && policy.max_confirm_order_amount
+      ? `${policy.max_confirm_order_amount} ${policy.max_confirm_order_currency ?? ""}`.trim()
+      : "No institute-admin order cap";
+
   return (
     <section className="dashboardLowerGrid">
       <article className="dashboardPanel weakTopicsPanel">
@@ -243,6 +370,18 @@ export function InstituteEconomyWorkspace({
             This workspace stays tied to live institute-scoped economy endpoints. It supports wallet visibility, reward
             inspection, star grants, and unlock refresh without hardcoded pricing assumptions.
           </p>
+
+          {policy ? (
+            <div className="featurePlaceholder">
+              <p>
+                Active policy:
+                {" "}
+                {policy.role === "platform_admin"
+                  ? "Platform admin has full support-action scope. Catalog governance remains platform-owned."
+                  : `Institute admin support scope is institute-only. Grant limit: ${grantLimitLabel}. Order confirmation limit: ${orderLimitLabel}. Catalog governance remains platform-owned.`}
+              </p>
+            </div>
+          ) : null}
 
           {message ? <p className="feedbackBanner feedbackBannerSuccess">{message}</p> : null}
           {error ? <p className="feedbackBanner feedbackBannerError">{error}</p> : null}
@@ -291,11 +430,11 @@ export function InstituteEconomyWorkspace({
           <div className="resultCardActions">
             <button
               className="button buttonPrimary"
-              disabled={granting || loading || !studentId}
+              disabled={granting || loading || !studentId || grantStarsDisabledByPolicy}
               onClick={() => void handleGrantStars()}
               type="button"
             >
-              {granting ? "Granting..." : "Grant Stars"}
+              {grantStarsDisabledByPolicy ? "Grant Stars Disabled by Policy" : granting ? "Granting..." : "Grant Stars"}
             </button>
             <button
               className="button buttonSecondary"
@@ -415,6 +554,81 @@ export function InstituteEconomyWorkspace({
               ))}
             </div>
           )}
+        </div>
+      </article>
+
+      <article className="dashboardPanel weakTopicsPanel">
+        <div className="studentPageTight">
+          <span className="studentDashboardTag">Operator queue</span>
+          <h3>Pending order requests for the selected student</h3>
+          <p className="academicSectionDescription">
+            Confirm real pending star-pack or subscription requests here so wallet credit and
+            subscription activation follow the same backend settlement flow the student sees.
+          </p>
+
+          {loading ? (
+            <div className="featurePlaceholder">
+              <p>Loading order requests...</p>
+            </div>
+          ) : pendingOrders.length ? (
+            <div className="weakTopicStack">
+              {pendingOrders.map((order) => (
+                <div className="weakTopicRow" key={order.id}>
+                  <div>
+                    <strong>
+                      {order.order_type === "subscription"
+                        ? order.subscription_plan_name || "Subscription request"
+                        : order.star_pack_name || "Star pack request"}
+                    </strong>
+                    <span>
+                      {titleCase(order.order_type)} · {order.currency} {order.amount} · {titleCase(order.status)}
+                    </span>
+                  </div>
+                  <div className="resultCardActions">
+                    <button
+                      className="button buttonPrimary"
+                      disabled={confirmingOrderId === order.id || confirmOrdersDisabledByPolicy}
+                      onClick={() => void handleConfirmOrder(order)}
+                      type="button"
+                    >
+                      {confirmOrdersDisabledByPolicy
+                        ? "Confirmation Disabled by Policy"
+                        : confirmingOrderId === order.id
+                          ? "Confirming..."
+                          : "Confirm Order"}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="featurePlaceholder">
+              <p>No pending order requests are visible for the selected student right now.</p>
+            </div>
+          )}
+
+          {orders.length ? (
+            <div className="weakTopicStack">
+              {orders.slice(0, 4).map((order) => (
+                <div className="weakTopicRow" key={`${order.id}-history`}>
+                  <div>
+                    <strong>
+                      {order.order_type === "subscription"
+                        ? order.subscription_plan_name || "Subscription order"
+                        : order.star_pack_name || "Star pack order"}
+                    </strong>
+                    <span>
+                      {titleCase(order.status)} · {formatDateTime(order.updated_at)}
+                    </span>
+                  </div>
+                  <div className="weakTopicMeta">
+                    <strong>{order.currency} {order.amount}</strong>
+                    <span>{titleCase(order.order_type)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
       </article>
     </section>

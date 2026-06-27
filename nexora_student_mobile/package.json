@@ -30,7 +30,14 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "maestro:student:exams": "maestro test .maestro/student-login-and-exams.yaml",
+    "maestro:student:results": "maestro test .maestro/student-results-and-summary.yaml",
+    "maestro:student:review": "maestro test .maestro/student-review-journey.yaml",
+    "maestro:student:attempt": "maestro test .maestro/student-active-attempt.yaml",
+    "maestro:student:analytics": "maestro test .maestro/student-analytics-and-logout.yaml",
+    "maestro:student:offline-login": "maestro test .maestro/student-login-offline-error.yaml",
+    "maestro:student:offline-register": "maestro test .maestro/student-register-offline-setup-error.yaml"
   },
   "private": true
 }

@@ -7,7 +7,7 @@ import { BuilderQuestionPreviewTrigger } from "@/components/ui/builder-question-
 import { BuilderRapidAttach } from "@/components/ui/builder-rapid-attach";
 import { RichContentRenderer } from "@/components/ui/rich-content-renderer";
 import type { TeacherExamSection, TeacherExamQuestion } from "@/features/dashboard/types";
-import type { LookupQuestion, LookupTopic } from "@/lib/api/teacher-builder";
+import type { LookupProgram, LookupQuestion, LookupTopic } from "@/lib/api/teacher-builder";
 import type { CatalogSelectOption } from "@/lib/teacher/option-catalog";
 
 type BuilderAction = (formData: FormData) => void | Promise<void>;
@@ -25,6 +25,7 @@ type BuilderQuestionMappingProps = {
   activeSections: TeacherExamSection[];
   allQuestions: LookupQuestion[];
   availableQuestions: LookupQuestion[];
+  programFamilyProfile?: LookupProgram["assessment_family_profile"] | null;
   topics: LookupTopic[];
   difficultyLabelMap: Record<string, string>;
   difficultyOptions: CatalogSelectOption[];
@@ -73,6 +74,54 @@ function questionPriorityScore(question: LookupQuestion) {
   return score;
 }
 
+function getLinkedQuestionFamilyAlerts(
+  question: {
+    questionTypeCode: string;
+    typeLabel: string;
+    defaultMarks: string | null;
+    marks: string | null;
+    negative_marks: string | null;
+    question_order: number;
+  },
+  familyProfile?: LookupProgram["assessment_family_profile"] | null,
+) {
+  const alerts: string[] = [];
+  if (!familyProfile) {
+    return alerts;
+  }
+
+  const allowedQuestionTypes = familyProfile.allowed_question_types ?? [];
+  const negativeMarkingDefault = Boolean(familyProfile.scoring_defaults?.negative_marking_default);
+  const effectiveMarks = Number(question.marks ?? question.defaultMarks ?? 0);
+  const effectiveNegativeMarks = Number(question.negative_marks ?? 0);
+
+  if (allowedQuestionTypes.length > 0 && !allowedQuestionTypes.includes(question.questionTypeCode)) {
+    alerts.push(
+      `Q${question.question_order} uses ${question.typeLabel}, which sits outside the ${familyProfile.label} family contract.`,
+    );
+  }
+
+  if (negativeMarkingDefault && effectiveNegativeMarks <= 0) {
+    alerts.push(
+      `Q${question.question_order} has no negative marks even though ${familyProfile.label} usually expects them on objective scoring.`,
+    );
+  }
+
+  if (!negativeMarkingDefault && effectiveNegativeMarks > 0) {
+    alerts.push(
+      `Q${question.question_order} adds negative marks even though ${familyProfile.label} usually runs without them.`,
+    );
+  }
+
+  if (effectiveNegativeMarks > 0 && effectiveMarks > 0 && effectiveNegativeMarks >= effectiveMarks) {
+    alerts.push(
+      `Q${question.question_order} has a negative-mark value equal to or higher than its positive marks.`,
+    );
+  }
+
+  return alerts;
+}
+
 function compactText(value: string, limit = 220) {
   const normalized = value.replaceAll("\n", " ").trim();
   if (normalized.length <= limit) {
@@ -103,6 +152,7 @@ export function BuilderQuestionMapping({
   activeSections,
   allQuestions,
   availableQuestions,
+  programFamilyProfile = null,
   topics,
   difficultyLabelMap,
   difficultyOptions,
@@ -148,6 +198,7 @@ export function BuilderQuestionMapping({
           ? compactText(lookup.explanation, 220)
           : "",
       topicLabel,
+      questionTypeCode: question.question_type ?? lookup?.question_type ?? "",
       typeLabel: question.question_type
         ? questionTypeLabelMap[question.question_type] ?? titleCase(question.question_type)
         : lookup
@@ -180,16 +231,23 @@ export function BuilderQuestionMapping({
     (question) => question.quality_signal === "skip_risk",
   ).length;
   const totalPages = Math.max(1, Math.ceil(linkedQuestionDetails.length / pageSize));
+  const resolvedCurrentPage = Math.min(currentPage, totalPages);
   const currentPageQuestions = useMemo(
-    () => linkedQuestionDetails.slice((currentPage - 1) * pageSize, currentPage * pageSize),
-    [currentPage, linkedQuestionDetails],
+    () => linkedQuestionDetails.slice((resolvedCurrentPage - 1) * pageSize, resolvedCurrentPage * pageSize),
+    [linkedQuestionDetails, resolvedCurrentPage],
   );
-
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [currentPage, totalPages]);
+  const linkedQuestionFamilyAlerts = useMemo(
+    () =>
+      linkedQuestionDetails.map((question) => ({
+        questionId: question.id,
+        alerts: getLinkedQuestionFamilyAlerts(question, programFamilyProfile),
+      })),
+    [linkedQuestionDetails, programFamilyProfile],
+  );
+  const linkedQuestionFamilyAlertMap = useMemo(
+    () => new Map(linkedQuestionFamilyAlerts.map((entry) => [entry.questionId, entry.alerts])),
+    [linkedQuestionFamilyAlerts],
+  );
 
   function handleExportPdf() {
     if (typeof window === "undefined" || !linkedQuestionDetails.length) {
@@ -535,23 +593,23 @@ export function BuilderQuestionMapping({
         <div className="builderQuestionToolbarCopy">
           <strong>Question list view</strong>
           <span>
-            Showing {linkedQuestionDetails.length ? (currentPage - 1) * pageSize + 1 : 0}-
-            {Math.min(currentPage * pageSize, linkedQuestionDetails.length)} of {linkedQuestionDetails.length} linked question(s)
+            Showing {linkedQuestionDetails.length ? (resolvedCurrentPage - 1) * pageSize + 1 : 0}-
+            {Math.min(resolvedCurrentPage * pageSize, linkedQuestionDetails.length)} of {linkedQuestionDetails.length} linked question(s)
           </span>
         </div>
         <div className="builderQuestionToolbarActions">
           <button
             className="button buttonGhost"
-            disabled={currentPage <= 1}
+            disabled={resolvedCurrentPage <= 1}
             onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
             type="button"
           >
             Previous Page
           </button>
-          <span className="builderQuestionPageIndicator">Page {totalPages ? currentPage : 0} of {totalPages}</span>
+          <span className="builderQuestionPageIndicator">Page {totalPages ? resolvedCurrentPage : 0} of {totalPages}</span>
           <button
             className="button buttonGhost"
-            disabled={currentPage >= totalPages}
+            disabled={resolvedCurrentPage >= totalPages}
             onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
             type="button"
           >
@@ -571,6 +629,14 @@ export function BuilderQuestionMapping({
       <div className="builderStack">
         {currentPageQuestions.map((question) => (
           <article className="builderQuestionCard" key={question.id}>
+            {linkedQuestionFamilyAlertMap.get(question.id)?.length ? (
+              <div className="builderHintPanel">
+                <strong>Family alignment review</strong>
+                <small>
+                  {linkedQuestionFamilyAlertMap.get(question.id)?.join(" ")}
+                </small>
+              </div>
+            ) : null}
             <div className="builderQuestionCardHeader">
               <div className="builderQuestionCardCopy">
                 <div className="builderQuestionTagRow">
@@ -722,7 +788,7 @@ export function BuilderQuestionMapping({
         <div className="builderQuestionPaginationFooter">
           <button
             className="button buttonGhost"
-            disabled={currentPage <= 1}
+            disabled={resolvedCurrentPage <= 1}
             onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
             type="button"
           >
@@ -731,7 +797,7 @@ export function BuilderQuestionMapping({
           <div className="builderQuestionPaginationNumbers">
             {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => (
               <button
-                className={`button ${pageNumber === currentPage ? "buttonPrimary" : "buttonGhost"} builderQuestionPageButton`}
+                className={`button ${pageNumber === resolvedCurrentPage ? "buttonPrimary" : "buttonGhost"} builderQuestionPageButton`}
                 key={pageNumber}
                 onClick={() => setCurrentPage(pageNumber)}
                 type="button"
@@ -742,7 +808,7 @@ export function BuilderQuestionMapping({
           </div>
           <button
             className="button buttonGhost"
-            disabled={currentPage >= totalPages}
+            disabled={resolvedCurrentPage >= totalPages}
             onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
             type="button"
           >
@@ -838,6 +904,7 @@ export function BuilderQuestionMapping({
         difficultyOptions={difficultyOptions}
         examId={examId}
         nextOrder={linkedQuestionDetails.length + 1}
+        programFamilyProfile={programFamilyProfile}
         questionTypeLabelMap={questionTypeLabelMap}
         questions={availableQuestions}
         sections={activeSections.map((section) => ({ id: section.id, name: section.name }))}

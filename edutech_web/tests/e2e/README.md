@@ -32,6 +32,84 @@ npm run test:e2e:smoke
 
 If role credentials are missing, the matching smoke tests will be skipped.
 
+## Cross-browser lane
+
+The default suite stays on Chromium for speed.
+
+Enable the opt-in Firefox and WebKit lane with:
+
+- `PLAYWRIGHT_ENABLE_CROSS_BROWSER=1`
+
+Use the focused shell sanity command when you want a quick multi-engine signal:
+
+```bash
+cd edutech_web
+npm run test:e2e:cross-browser
+```
+
+This opt-in lane currently covers:
+
+- student shell route sanity
+- student results and analytics deep-route sanity
+- student attempts and post-submit summary sanity
+- student exam detail and conditional runtime sanity
+- admin shell route sanity
+- admin deep-route sanity
+- teacher shell route sanity
+- teacher results deep-route sanity
+- institute shell route sanity
+- institute results deep-route sanity
+
+## Mobile-web baseline
+
+Use the focused mobile-web lane when you want a quick small-screen Chromium signal for the student web workspace before real-device QA:
+
+```bash
+cd edutech_web
+npm run test:e2e:mobile-web
+```
+
+This lane currently covers:
+
+- student mobile navigation shell sanity
+- student mobile exams, attempts, and results route reachability
+- seeded NEET mobile exam-detail sanity
+- seeded JEE mobile exam-detail sanity
+- seeded NEET mobile results-to-summary sanity
+- seeded JEE mobile results-to-summary and truthful review-route sanity
+- truthful fallback state panels for unavailable exam detail, summary, and review routes
+
+This lane is intentionally not a replacement for:
+
+- real-device touch comfort validation
+- weak-network recovery validation
+- long-attempt comfort validation
+
+## CI regression policy
+
+Current intended CI split:
+
+- pull requests:
+  - [`.github/workflows/edutech-web-playwright-smoke.yml`](/Users/ansh/Documents/Eductech/.github/workflows/edutech-web-playwright-smoke.yml:1)
+  - runs `npm run test:e2e:smoke`
+  - purpose: fail fast on core workflow breakage
+- `main` or `master` pushes:
+  - [`.github/workflows/edutech-web-playwright-regression.yml`](/Users/ansh/Documents/Eductech/.github/workflows/edutech-web-playwright-regression.yml:1)
+  - runs `npm run test:e2e:baseline`
+  - purpose: broader non-mutable regression confidence
+- nightly:
+  - [`.github/workflows/edutech-web-playwright-regression.yml`](/Users/ansh/Documents/Eductech/.github/workflows/edutech-web-playwright-regression.yml:1)
+  - currently runs `npm run test:e2e:baseline`
+  - purpose: keep the broader always-on Chromium lane healthy before introducing heavier suites
+- manual dispatch:
+  - the regression workflow can run either `smoke` or `baseline`
+
+Why this split exists:
+
+- smoke stays fast enough for PR feedback
+- baseline protects more route, scope, and workflow surfaces on stable branches
+- mutable real-data lanes remain opt-in until they are reliable enough for always-on automation
+
 ## Mutable workflow lane
 
 Some workflow specs intentionally create or mutate real demo data and are therefore opt-in.
@@ -184,14 +262,49 @@ Detailed execution order and operating guidance live in:
 
 ## Current status
 
-Last verified runs:
+Current authored suite shape:
 
-- default suite: `40 total`
-- default suite result: `23 passed`, `17 skipped`
-- skip reason: all 17 skipped tests are opt-in mutable data workflows gated by env flags
-- baseline command: `23 passed`, `0 skipped`
-- full real-data round: `40 passed`
-- current full-round blockers: none
+- total authored tests: `123`
+- spec files: `105`
+- baseline/non-mutable tests: `77`
+- opt-in mutable tests: `46`
+
+Latest targeted verification in this repo pass:
+
+- full authored round: `109 passed`, `1 skipped`
+- readiness-focused baseline subset: `5 passed`
+- teacher mutable results readiness lifecycle: `1 passed`
+- institute mutable results readiness lifecycle: `1 passed`
+- admin advanced-builder learner-handoff readiness lifecycle: `1 passed`
+- student published results grouped-outcome lifecycle: `1 passed`
+- student analytics source-to-compare scope continuity: `1 passed`
+- student analytics compare-to-timeline-to-actions scope continuity: `1 passed`
+- student mobile navigation and route sanity: `1 passed`
+- student cross-browser shell sanity: `3 passed`
+  - chromium: `1 passed`
+  - firefox: `1 passed`
+  - webkit: `1 passed`
+- student cross-browser analytics and results sanity: `3 passed`
+  - chromium: `1 passed`
+  - firefox: `1 passed`
+  - webkit: `1 passed`
+- student cross-browser attempts and post-submit summary sanity: `3 passed`
+  - chromium: `1 passed`
+  - firefox: `1 passed`
+  - webkit: `1 passed`
+- student cross-browser exam detail and runtime sanity: `3 passed`
+  - chromium: `1 passed`
+  - firefox: `1 passed`
+  - webkit: `1 passed`
+- post-fix targeted follow-up: `4 passed`
+  - admin economy mutable: `1 passed`
+  - admin exams workspace + admin roster mutable: `2 passed`
+  - teacher results mutable: `1 passed`
+
+Historical note:
+
+- last documented full-round result in this file before the current expansion work: `40 passed`
+- the suite has grown materially since that earlier snapshot, so the counts above are the current source-of-truth for authored coverage size
 
 Default passing coverage:
 
@@ -217,6 +330,7 @@ Opt-in mutable lanes currently green when enabled:
 
 - institute academic setup mutable
 - institute exam mutable
+- institute results mutable
 - institute question-bank mutable
 - institute roster mutable
 - institute roster import mutable
@@ -231,6 +345,7 @@ Opt-in mutable lanes currently green when enabled:
 - teacher question-bank mutable
 - teacher comprehension mutable
 - teacher results mutable
+- admin advanced-builder learner handoff mutable
 
 Current mutable coverage:
 

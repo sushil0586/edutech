@@ -217,6 +217,22 @@ function buildPageHref(
   return `${basePath}?${params.toString()}`;
 }
 
+function summarizeWorkspaceFamilyScoring(scoringDefaults: Record<string, unknown> | null | undefined) {
+  if (!scoringDefaults || typeof scoringDefaults !== "object") {
+    return "Use the filter set to narrow the bank to the response formats your target exam expects.";
+  }
+
+  const negativeMarkingEnabled = Boolean(scoringDefaults.negative_marking_default);
+  const supportsNumericEntry = Boolean(scoringDefaults.supports_numeric_entry);
+
+  return [
+    negativeMarkingEnabled ? "This family usually attaches to negative-marking exams." : "This family usually attaches to no-penalty exams.",
+    supportsNumericEntry ? "Numeric-entry coverage is part of the expected bank shape." : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
 function renderAttachmentPreview(attachment: TeacherQuestion["attachments"][number]) {
   const source = attachment.file_url || attachment.file;
 
@@ -421,6 +437,20 @@ export function TeacherQuestionBankWorkspace({
 
     return subjects.filter((subject) => subject.program === programFilter);
   }, [programFilter, subjects]);
+  const selectedProgramRecord = useMemo(
+    () => programs.find((program) => program.id === programFilter) ?? null,
+    [programFilter, programs],
+  );
+  const selectedProgramFamilyProfile = selectedProgramRecord?.assessment_family_profile ?? null;
+  const filteredQuestionTypeOptions = useMemo(() => {
+    const allowedTypes = selectedProgramFamilyProfile?.allowed_question_types ?? [];
+    if (!allowedTypes.length) {
+      return questionTypeOptions;
+    }
+
+    const allowedTypeSet = new Set(allowedTypes);
+    return questionTypeOptions.filter((option) => option.value && allowedTypeSet.has(option.value));
+  }, [questionTypeOptions, selectedProgramFamilyProfile]);
 
   const selectedSubjectFilter =
     programFilter && subjectFilter && subjectOptions.some((subject) => subject.id === subjectFilter)
@@ -765,7 +795,7 @@ export function TeacherQuestionBankWorkspace({
             <span>Question type</span>
             <select defaultValue={filters.question_type ?? ""} name="question_type">
               <option value="">All types</option>
-              {questionTypeOptions.map((option) => (
+              {filteredQuestionTypeOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
@@ -854,6 +884,14 @@ export function TeacherQuestionBankWorkspace({
             </div>
           </div>
         </form>
+
+        {selectedProgramFamilyProfile ? (
+          <div className="builderHintPanel">
+            <strong>{selectedProgramFamilyProfile.label} bank lens</strong>
+            <p>{selectedProgramFamilyProfile.description}</p>
+            <small>{summarizeWorkspaceFamilyScoring(selectedProgramFamilyProfile.scoring_defaults)}</small>
+          </div>
+        ) : null}
 
         <div className="workspaceFilterQuickRow">
           <span className="workspaceFilterQuickLabel">Quick filters</span>

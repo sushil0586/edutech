@@ -48,6 +48,7 @@ from apps.exams.services import (
     EXAM_CONTENT_TYPE,
     create_advanced_exam_from_blueprint,
     cancel_exam,
+    build_exam_publish_readiness,
     default_exam_source_for_profile,
     regenerate_exam_access_key,
     mark_exam_completed,
@@ -233,6 +234,7 @@ class ExamViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
                 "code": preview["resolved_exam"]["code"],
                 "source_type": preview["resolved_exam"]["source_type"],
                 "source_teacher_id": preview["resolved_exam"]["source_teacher_id"],
+                "assessment_family_profile": preview["resolved_exam"]["assessment_family_profile"],
                 "start_at": preview["resolved_exam"]["start_at"],
                 "end_at": preview["resolved_exam"]["end_at"],
                 "academic_year_end_at": preview["resolved_exam"]["academic_year_end_at"],
@@ -240,6 +242,7 @@ class ExamViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
                 "total_questions": preview["resolved_exam"]["total_questions"],
                 "total_marks": preview["resolved_exam"]["total_marks"],
                 "question_quality": preview["resolved_exam"]["question_quality"],
+                "reporting_contract": preview["resolved_exam"]["reporting_contract"],
                 "experience_profile": preview["resolved_exam"]["experience_profile"],
             },
             "sections": [
@@ -252,6 +255,7 @@ class ExamViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
                     "actual_difficulty_breakup": section["actual_difficulty_breakup"],
                     "quality_summary": section["quality_summary"],
                     "topic_breakup": section["topic_breakup"],
+                    "family_contract": section["family_contract"],
                     "blockers": section["blockers"],
                     "warnings": section["warnings"],
                 }
@@ -337,6 +341,15 @@ class ExamViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
         return action_response(
             data=ExamReadSerializer(exam).data,
             message="Exam published successfully.",
+            status_code=status.HTTP_200_OK,
+        )
+
+    @action(detail=True, methods=["get"], url_path="publish-readiness")
+    def publish_readiness(self, request, pk=None):
+        exam = self.get_object()
+        return action_response(
+            data=build_exam_publish_readiness(exam),
+            message="Exam publish readiness evaluated successfully.",
             status_code=status.HTTP_200_OK,
         )
 

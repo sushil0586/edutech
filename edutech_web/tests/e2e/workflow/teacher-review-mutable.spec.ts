@@ -1,4 +1,4 @@
-import { expect, test, type Locator } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { getRoleCredentials } from "../fixtures/env";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
@@ -30,13 +30,13 @@ function toDateTimeLocalValue(date: Date) {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
-async function getCurrentSessionAccessToken(page: Parameters<typeof test>[0]["page"]) {
+async function getCurrentSessionAccessToken(page: Page) {
   const cookies = await page.context().cookies();
   return cookies.find((cookie) => cookie.name === "nexora_access_token")?.value?.trim() ?? "";
 }
 
 async function requestBackendJson<T>(
-  page: Parameters<typeof test>[0]["page"],
+  page: Page,
   path: string,
   init?: {
     method?: "GET" | "POST";
@@ -66,7 +66,7 @@ async function requestBackendJson<T>(
   return { response, payload, bodyText, contentType };
 }
 
-async function waitForReviewTaskInQueue(page: Parameters<typeof test>[0]["page"], examId: string) {
+async function waitForReviewTaskInQueue(page: Page, examId: string) {
   const teacherAccessToken = await getCurrentSessionAccessToken(page);
 
   for (let attempt = 0; attempt < 15; attempt += 1) {

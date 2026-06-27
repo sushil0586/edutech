@@ -20,6 +20,10 @@ function titleCase(value: string) {
   return formatFilterValue(value);
 }
 
+function examSubjectDisplayLabel(exam: Pick<TeacherExam, "subject_name" | "subject_summary">) {
+  return exam.subject_summary?.display_label || exam.subject_name || "Unassigned subject";
+}
+
 function resolveTeacherExamStatusFilter(value?: string): TeacherExamStatusFilter {
   return resolveFilterValue(value, ["live", "scheduled", "draft"], "all");
 }
@@ -35,7 +39,7 @@ function resolveTeacherExamGroupOption(value?: string): TeacherExamGroupOption {
 function buildTeacherExamGroupLabel(exam: TeacherExam, groupBy: TeacherExamGroupOption) {
   if (groupBy === "status") return titleCase(exam.status);
   if (groupBy === "type") return titleCase(exam.exam_type);
-  if (groupBy === "subject") return exam.subject_name || "Unassigned subject";
+  if (groupBy === "subject") return examSubjectDisplayLabel(exam);
   return "Exams";
 }
 
@@ -381,7 +385,7 @@ export default async function TeacherExamsPage({
                             <strong>{exam.title}</strong>
                             <span>
                               {exam.code}
-                              {exam.subject_name ? ` · ${exam.subject_name}` : ""}
+                              {examSubjectDisplayLabel(exam) ? ` · ${examSubjectDisplayLabel(exam)}` : ""}
                             </span>
                           </div>
                           <span className={`statusPill ${

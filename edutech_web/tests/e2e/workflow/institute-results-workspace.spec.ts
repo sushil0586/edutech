@@ -8,6 +8,8 @@ async function expectInstituteResultsWorkspace(page: Page) {
   await expect(
     page.getByRole("link", { name: /overview.*workflow, readiness, and exam health/i }).first(),
   ).toBeVisible();
+  await expect(page.getByText(/^exam publish readiness$/i).first()).toBeVisible();
+  await expect(page.getByText(/^result publish readiness$/i).first()).toBeVisible();
 }
 
 async function readExamCardSnapshot(resultCard: ReturnType<Page["locator"]>) {

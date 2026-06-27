@@ -14,7 +14,7 @@ import { appStyles } from "@/theme/styles";
 function friendlyLoginError(error: MobileApiError | Error) {
   const rawMessage = error.message.toLowerCase();
 
-  if (rawMessage.includes("network request failed")) {
+  if (rawMessage.includes("network request failed") || rawMessage.includes("took too long")) {
     return "We could not reach the Nexora server. Check your internet connection and try again.";
   }
 
@@ -109,6 +109,7 @@ export default function LoginScreen() {
               autoCapitalize="none"
               placeholder="Enter username"
               style={[appStyles.input, fieldErrors.username ? appStyles.inputError : null]}
+              testID="login-username-input"
               value={username}
               onChangeText={setUsername}
             />
@@ -120,6 +121,7 @@ export default function LoginScreen() {
               placeholder="Enter password"
               secureTextEntry
               style={[appStyles.input, fieldErrors.password ? appStyles.inputError : null]}
+              testID="login-password-input"
               value={password}
               onChangeText={setPassword}
             />
@@ -131,12 +133,13 @@ export default function LoginScreen() {
           label={loading ? "Signing in..." : "Login"}
           onPress={() => void submit()}
           disabled={loading || !username.trim() || !password.trim()}
+          testID="login-submit-button"
         />
       </View>
       <SectionBlock
         title="First time here?"
         subtitle="Registration stays student-only in the first mobile release"
-        action={<ActionButton label="Register" tone="secondary" onPress={() => router.push("/(auth)/register")} />}
+        action={<ActionButton label="Register" tone="secondary" onPress={() => router.push("/(auth)/register")} testID="login-register-button" />}
       >
         <Text style={appStyles.body}>
           Create a student account, then the same role gate will bring you into the mobile dashboard, exam flow, and analytics lane.

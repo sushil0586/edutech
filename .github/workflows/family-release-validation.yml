@@ -1,0 +1,104 @@
+name: Family Release Validation
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "edutech_backend/**"
+      - "edutech_web/**"
+      - "scripts/family_release_validation_bundle.sh"
+      - ".github/workflows/family-release-validation.yml"
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - "edutech_backend/**"
+      - "edutech_web/**"
+      - "scripts/family_release_validation_bundle.sh"
+      - ".github/workflows/family-release-validation.yml"
+
+concurrency:
+  group: family-release-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  family-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve validation environment
+        id: validation-env
+        shell: bash
+        run: |
+          if [ -z "${{ secrets.PLAYWRIGHT_BASE_URL }}" ]; then
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Skipping family release validation because PLAYWRIGHT_BASE_URL is not configured."
+          else
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Node
+        if: steps.validation-env.outputs.should_run == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: edutech_web/package-lock.json
+
+      - name: Setup Python
+        if: steps.validation-env.outputs.should_run == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: edutech_backend/requirements.txt
+
+      - name: Install backend dependencies
+        if: steps.validation-env.outputs.should_run == 'true'
+        working-directory: edutech_backend
+        run: |
+          python -m venv .venv
+          ./.venv/bin/pip install -r requirements.txt
+
+      - name: Install frontend dependencies
+        if: steps.validation-env.outputs.should_run == 'true'
+        working-directory: edutech_web
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        if: steps.validation-env.outputs.should_run == 'true'
+        working-directory: edutech_web
+        run: npx playwright install --with-deps chromium
+
+      - name: Run cross-role family validation bundle
+        if: steps.validation-env.outputs.should_run == 'true'
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ secrets.PLAYWRIGHT_BASE_URL }}
+          API_BASE_URL: ${{ secrets.API_BASE_URL }}
+          PLAYWRIGHT_WORKERS: "1"
+          PLAYWRIGHT_ADMIN_USERNAME: ${{ secrets.PLAYWRIGHT_ADMIN_USERNAME }}
+          PLAYWRIGHT_ADMIN_PASSWORD: ${{ secrets.PLAYWRIGHT_ADMIN_PASSWORD }}
+          PLAYWRIGHT_INSTITUTE_USERNAME: ${{ secrets.PLAYWRIGHT_INSTITUTE_USERNAME }}
+          PLAYWRIGHT_INSTITUTE_PASSWORD: ${{ secrets.PLAYWRIGHT_INSTITUTE_PASSWORD }}
+          PLAYWRIGHT_TEACHER_USERNAME: ${{ secrets.PLAYWRIGHT_TEACHER_USERNAME }}
+          PLAYWRIGHT_TEACHER_PASSWORD: ${{ secrets.PLAYWRIGHT_TEACHER_PASSWORD }}
+          PLAYWRIGHT_STUDENT_USERNAME: ${{ secrets.PLAYWRIGHT_STUDENT_USERNAME }}
+          PLAYWRIGHT_STUDENT_PASSWORD: ${{ secrets.PLAYWRIGHT_STUDENT_PASSWORD }}
+          PLAYWRIGHT_COMPETITIVE_STUDENT_USERNAME: ${{ secrets.PLAYWRIGHT_COMPETITIVE_STUDENT_USERNAME || secrets.PLAYWRIGHT_STUDENT_USERNAME }}
+          PLAYWRIGHT_COMPETITIVE_STUDENT_PASSWORD: ${{ secrets.PLAYWRIGHT_COMPETITIVE_STUDENT_PASSWORD || secrets.PLAYWRIGHT_STUDENT_PASSWORD }}
+          PLAYWRIGHT_CERTIFICATION_STUDENT_USERNAME: ${{ secrets.PLAYWRIGHT_CERTIFICATION_STUDENT_USERNAME || secrets.PLAYWRIGHT_STUDENT_USERNAME }}
+          PLAYWRIGHT_CERTIFICATION_STUDENT_PASSWORD: ${{ secrets.PLAYWRIGHT_CERTIFICATION_STUDENT_PASSWORD || secrets.PLAYWRIGHT_STUDENT_PASSWORD }}
+        run: ./scripts/family_release_validation_bundle.sh
+
+      - name: Upload family validation artifacts
+        if: always() && steps.validation-env.outputs.should_run == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: family-release-validation-report
+          path: |
+            edutech_web/playwright-report
+            edutech_web/test-results
+          if-no-files-found: ignore

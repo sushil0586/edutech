@@ -40,6 +40,7 @@ from apps.attempts.serializers import (
     AttemptSummarySerializer,
     SaveAnswerSerializer,
     StudentAnswerSerializer,
+    response_artifact_contract_for_question,
     BulkAssignReviewTaskSerializer,
     BulkModerateReviewTaskSerializer,
     BulkReviewTaskStatusNoteSerializer,
@@ -67,7 +68,6 @@ from apps.attempts.services import (
 )
 from apps.question_bank.registry import (
     get_question_type_definition,
-    question_type_allowed_response_artifact_types,
     question_type_supports_response_artifacts,
 )
 from apps.teachers.models import TeacherProfile
@@ -287,7 +287,8 @@ class StudentExamAttemptViewSet(ReadOnlyModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        allowed_asset_kinds = question_type_allowed_response_artifact_types(question.question_type)
+        artifact_contract = response_artifact_contract_for_question(question, exam=attempt.exam)
+        allowed_asset_kinds = artifact_contract["allowed_response_artifact_types"]
         if asset_kind not in allowed_asset_kinds:
             return Response(
                 {

@@ -7,6 +7,7 @@ import type { TeacherResultSummary } from "@/features/dashboard/types";
 import {
   configureTeacherExamEconomyAccess,
   fetchTeacherExamDetail,
+  fetchTeacherResultPublishReadiness,
   fetchTeacherResultSummary,
   getTeacherApiState,
   runTeacherExamAction,
@@ -27,6 +28,13 @@ function feedbackMessage(value: string | undefined) {
 function economyPolicyLabel(value: string | null | undefined, labels: Record<string, string>) {
   if (!value) return "Open access";
   return labels[value] ?? titleCase(value);
+}
+
+function examSubjectDisplayLabel(detail: {
+  subject_name: string | null;
+  subject_summary?: { display_label: string } | null;
+}) {
+  return detail.subject_summary?.display_label || detail.subject_name || "Subject pending";
 }
 
 async function teacherExamAction(formData: FormData) {
@@ -129,20 +137,23 @@ async function loadTeacherExamDetail(examId: string) {
   }
 
   try {
-    const [detail, allResultSummaries] = await Promise.all([
+    const [detail, allResultSummaries, resultPublishReadiness] = await Promise.all([
       fetchTeacherExamDetail(examId),
       fetchTeacherResultSummary(),
+      fetchTeacherResultPublishReadiness(examId).catch(() => null),
     ]);
     return {
       source: "live" as const,
       detail,
       resultSummary: allResultSummaries.find((summary) => summary.exam === examId) ?? null,
+      resultPublishReadiness,
     };
   } catch {
     return {
       source: "error" as const,
       detail: null,
       resultSummary: null as TeacherResultSummary | null,
+      resultPublishReadiness: null,
     };
   }
 }
@@ -156,7 +167,7 @@ export default async function TeacherExamDetailPage({
 }) {
   const { examId } = await params;
   const { error, message } = await searchParams;
-  const { source, detail, resultSummary } = await loadTeacherExamDetail(examId);
+  const { source, detail, resultSummary, resultPublishReadiness } = await loadTeacherExamDetail(examId);
   const optionCatalog = groupTeacherOptionCatalog(await fetchTeacherOptionCatalog().catch(() => []));
   const economyAccessPolicyOptions = optionCatalog.selectOptions("exam_economy_access_policy");
   const economyAccessPolicyLabels = optionCatalog.labelMap("exam_economy_access_policy");
@@ -259,7 +270,7 @@ export default async function TeacherExamDetailPage({
         <article className="metricCard metricCardPrimary dashboardHeroCard">
           <span>Exam Code</span>
           <strong>{detail.code}</strong>
-          <small>{detail.subject_name ?? "Subject pending"}</small>
+          <small>{examSubjectDisplayLabel(detail)}</small>
         </article>
 
         <article className="metricCard dashboardHeroCard">
@@ -442,11 +453,136 @@ export default async function TeacherExamDetailPage({
         </article>
       </section>
 
+      <section className="dashboardGrid">
+        <article className="dashboardPanel weakTopicsPanel">
+          <div className="sectionHeading">
+            <strong>Exam Publish Readiness</strong>
+            <span>{detail.publish_readiness.ready ? "Ready" : "Blocked"}</span>
+          </div>
+          <div className="questionBankTagRow">
+            <span className={`statusPill ${detail.publish_readiness.ready ? "statusLive" : "statusWarning"}`}>
+              {detail.publish_readiness.blocker_count} blocker{detail.publish_readiness.blocker_count === 1 ? "" : "s"}
+            </span>
+            <span className={`statusPill ${detail.publish_readiness.warning_count > 0 ? "statusDemo" : "statusLive"}`}>
+              {detail.publish_readiness.warning_count} warning{detail.publish_readiness.warning_count === 1 ? "" : "s"}
+            </span>
+          </div>
+          <div className="weakTopicStack">
+            {detail.publish_readiness.blockers.length ? (
+              detail.publish_readiness.blockers.map((issue: (typeof detail.publish_readiness.blockers)[number]) => (
+                <div className="weakTopicRow" key={`exam-blocker-${issue.code}`}>
+                  <div>
+                    <strong>{issue.code.replaceAll("_", " ")}</strong>
+                    <span>{issue.message}</span>
+                  </div>
+                  <div className="weakTopicMeta">
+                    <strong>Blocker</strong>
+                    <span>{issue.field}</span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="weakTopicRow">
+                <div>
+                  <strong>No exam publish blocker remains</strong>
+                  <span>This exam currently satisfies the backend publish-readiness checks.</span>
+                </div>
+                <div className="weakTopicMeta">
+                  <strong>Ready</strong>
+                  <span>Delivery allowed</span>
+                </div>
+              </div>
+            )}
+            {detail.publish_readiness.warnings.map((issue: (typeof detail.publish_readiness.warnings)[number]) => (
+              <div className="weakTopicRow" key={`exam-warning-${issue.code}`}>
+                <div>
+                  <strong>{issue.code.replaceAll("_", " ")}</strong>
+                  <span>{issue.message}</span>
+                </div>
+                <div className="weakTopicMeta">
+                  <strong>Warning</strong>
+                  <span>{issue.field}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="dashboardPanel weakTopicsPanel">
+          <div className="sectionHeading">
+            <strong>Result Publish Readiness</strong>
+            <span>{resultPublishReadiness?.ready ? "Ready" : "Review first"}</span>
+          </div>
+          {resultPublishReadiness ? (
+            <>
+              <div className="questionBankTagRow">
+                <span className={`statusPill ${resultPublishReadiness.ready ? "statusLive" : "statusWarning"}`}>
+                  {resultPublishReadiness.blocker_count} blocker{resultPublishReadiness.blocker_count === 1 ? "" : "s"}
+                </span>
+                <span className="statusPill statusDemo">
+                  {resultPublishReadiness.generated_results_count} generated
+                </span>
+                <span className="statusPill statusLive">
+                  {resultPublishReadiness.published_results_count} published
+                </span>
+              </div>
+              <div className="weakTopicStack">
+                {resultPublishReadiness.blockers.length ? (
+                  resultPublishReadiness.blockers.map(
+                    (issue: (typeof resultPublishReadiness.blockers)[number]) => (
+                    <div className="weakTopicRow" key={`result-blocker-${issue.code}`}>
+                      <div>
+                        <strong>{issue.code.replaceAll("_", " ")}</strong>
+                        <span>{issue.message}</span>
+                      </div>
+                      <div className="weakTopicMeta">
+                        <strong>Blocker</strong>
+                        <span>{issue.field}</span>
+                      </div>
+                    </div>
+                    ),
+                  )
+                ) : (
+                  <div className="weakTopicRow">
+                    <div>
+                      <strong>No result publish blocker remains</strong>
+                      <span>Lifecycle, review state, and generated results are aligned for publication.</span>
+                    </div>
+                    <div className="weakTopicMeta">
+                      <strong>Ready</strong>
+                      <span>Publication allowed</span>
+                    </div>
+                  </div>
+                )}
+                {resultPublishReadiness.warnings.map(
+                  (issue: (typeof resultPublishReadiness.warnings)[number]) => (
+                  <div className="weakTopicRow" key={`result-warning-${issue.code}`}>
+                    <div>
+                      <strong>{issue.code.replaceAll("_", " ")}</strong>
+                      <span>{issue.message}</span>
+                    </div>
+                    <div className="weakTopicMeta">
+                      <strong>Warning</strong>
+                      <span>{issue.field}</span>
+                    </div>
+                  </div>
+                  ),
+                )}
+              </div>
+            </>
+          ) : (
+            <p className="emptyText">
+              Result publish readiness is unavailable right now. Open the results workspace for the live publication view.
+            </p>
+          )}
+        </article>
+      </section>
+
       <section className="dashboardLowerGrid">
         <article className="dashboardPanel weakTopicsPanel">
           <div className="sectionHeading">
             <strong>Student Access and Stars</strong>
-            <span>{detail.subject_name ?? "Exam policy"}</span>
+            <span>{examSubjectDisplayLabel(detail)}</span>
           </div>
           <form action={teacherExamEconomyAction} className="builderForm">
             <input name="exam_id" type="hidden" value={detail.id} />

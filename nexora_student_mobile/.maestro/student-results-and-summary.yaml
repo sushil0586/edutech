@@ -1,0 +1,54 @@
+appId: com.anonymous.nexorastudentmobile
+---
+# Set these before running:
+# STUDENT_USERNAME
+# STUDENT_PASSWORD
+
+- launchApp:
+    clearState: true
+
+- extendedWaitUntil:
+    visible: "Login"
+    timeout: 30000
+
+- tapOn: "Login"
+- tapOn:
+    text: "Username"
+- inputText: ${STUDENT_USERNAME}
+
+- tapOn:
+    text: "Enter password"
+- inputText: ${STUDENT_PASSWORD}
+
+- hideKeyboard
+- tapOn: "Login"
+
+- extendedWaitUntil:
+    visible: "Student Dashboard"
+    timeout: 30000
+
+- tapOn: "⏷, Results"
+
+- assertVisible: "Student Results"
+
+- scrollUntilVisible:
+    element: "Summary"
+    direction: DOWN
+
+- tapOn: "Summary"
+
+- assertVisible: "Attempt Summary"
+
+- tapOn:
+    id: "attempt-summary-back-dashboard-button"
+
+- assertVisible: "Student Dashboard"
+
+- tapOn: "Attempts"
+
+- assertVisible: "Student Attempts"
+
+- tapOn:
+    id: "attempts-open-results-button"
+
+- assertVisible: "Student Results"

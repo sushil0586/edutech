@@ -13,7 +13,7 @@ from apps.accounts.services import (
     create_public_registration_account,
     validate_confirmed_password,
 )
-from apps.economy.models import ReferralCode
+from apps.economy.services import get_or_create_student_referral_code
 from apps.geography.services import resolve_location_selection
 
 
@@ -97,16 +97,8 @@ class AccountProfileSerializer(serializers.ModelSerializer):
             for subject_name in registered_subjects:
                 add_subject_name(subject_name)
 
-        referral_code = (
-            ReferralCode.objects.filter(
-                owner_student=student,
-                institute=student.institute,
-                is_active=True,
-            )
-            .order_by("created_at")
-            .values_list("code", flat=True)
-            .first()
-        )
+        referral_code_record = get_or_create_student_referral_code(student=student)
+        referral_code = referral_code_record.code if referral_code_record is not None else None
 
         return {
             "full_name": student.full_name,

@@ -20,6 +20,7 @@ import {
   buildAnalyticsTopicHref,
   buildQuestionAnalyticsHref,
 } from "@/lib/student/analytics";
+import { resolvePracticeFocusRecommendation } from "@/lib/student/practice";
 import {
   percentageLabel,
   questionTypeLabel,
@@ -211,46 +212,6 @@ async function loadWeakAreas() {
   }
 }
 
-function recommendedPracticeAction(exam: {
-  id: string;
-  can_resume: boolean;
-  can_start: boolean;
-  active_attempt: { id: string } | null;
-  review_available: boolean;
-  economy_access: {
-    is_locked: boolean;
-    can_unlock_with_stars: boolean;
-    star_cost: number;
-  };
-}) {
-  if (exam.can_resume && exam.active_attempt?.id) {
-    return {
-      mode: "link" as const,
-      href: `/app/attempts/${exam.active_attempt.id}`,
-      label: "Resume Practice",
-    };
-  }
-  if (exam.can_start) {
-    return {
-      mode: "start" as const,
-      href: "",
-      label: "Start Practice",
-    };
-  }
-  if (exam.economy_access.is_locked && exam.economy_access.can_unlock_with_stars) {
-    return {
-      mode: "unlock" as const,
-      href: "",
-      label: `Unlock with ${exam.economy_access.star_cost} Stars`,
-    };
-  }
-  return {
-    mode: "link" as const,
-    href: `/app/exams/${exam.id}`,
-    label: "View Practice Detail",
-  };
-}
-
 async function startPracticeAction(formData: FormData) {
   "use server";
 
@@ -362,16 +323,41 @@ export default async function WeakAreasPage({
     ),
     selectedSubject,
   );
-  const recommendedPracticeExam =
-    (topWeakTopic
-      ? scopedPracticeExams.find((exam) => exam.subject_name === topWeakTopic.subject_name)
-      : null) ??
-    scopedPracticeExams.find((exam) => !exam.economy_access.is_locked) ??
-    scopedPracticeExams[0] ??
-    null;
-  const recommendedPracticeActionState = recommendedPracticeExam
-    ? recommendedPracticeAction(recommendedPracticeExam)
-    : null;
+  const practiceFocus = resolvePracticeFocusRecommendation({
+    exams: scopedPracticeExams,
+    subjectName: topWeakTopic?.subject_name ?? null,
+    topicName: topWeakTopic?.topic_name ?? null,
+  });
+  const practiceLocked = Boolean(practiceFocus.exam) && practiceFocus.action.mode === "unlock";
+  const weakAreaActionSequence = practiceLocked
+    ? [
+        {
+          label: "Do this first",
+          detail: "Inspect the top weak topic and confirm the recovery target before spending stars.",
+        },
+        {
+          label: "Then next",
+          detail: "Unlock the matching focused practice set only if it directly covers the same weak concept cluster.",
+        },
+        {
+          label: "If blocked",
+          detail: "Use analytics drill-down and question evidence first, then return to practice when you are ready.",
+        },
+      ]
+    : [
+        {
+          label: "Do this first",
+          detail: "Inspect the top weak topic and start the matching focused practice pass right away.",
+        },
+        {
+          label: "Then next",
+          detail: "Reopen analytics or results after that practice run to see whether skips or wrong answers improved.",
+        },
+        {
+          label: "If blocked",
+          detail: "If one pass is not enough, review question evidence before attempting another full mock test.",
+        },
+      ];
   const criticalTopics = weakTopics.filter((topic) => Number(topic.percentage) < 35).length;
   const topWeakQuestionType = scopedSummary?.weak_question_types[0] ?? null;
   const biggestCause = weakTopics.reduce(
@@ -498,70 +484,149 @@ export default async function WeakAreasPage({
                   scopedSummary.improvement_trend.change_percentage,
                 )}
               </small>
+              <p className="sectionDescription">{practiceFocus.helper}</p>
             </div>
             <div className="studentInsightHeroActions">
-              {recommendedPracticeExam && recommendedPracticeActionState ? (
-                recommendedPracticeActionState.mode === "start" ? (
+              {practiceFocus.exam ? (
+                practiceFocus.action.mode === "start" ? (
                   <form action={startPracticeAction}>
-                    <input name="exam_id" type="hidden" value={recommendedPracticeExam.id} />
+                    <input name="exam_id" type="hidden" value={practiceFocus.exam.id} />
                     <ActionSubmitButton
                       className="button buttonPrimary"
-                      idleLabel={recommendedPracticeActionState.label}
+                      idleLabel={practiceFocus.action.label}
                       pendingLabel="Starting..."
                     />
                   </form>
-                ) : recommendedPracticeActionState.mode === "unlock" ? (
+                ) : practiceFocus.action.mode === "unlock" ? (
                   <form action={unlockPracticeAction}>
-                    <input name="exam_id" type="hidden" value={recommendedPracticeExam.id} />
+                    <input name="exam_id" type="hidden" value={practiceFocus.exam.id} />
                     <input
                       name="content_type"
                       type="hidden"
-                      value={recommendedPracticeExam.economy_access.content_type}
+                      value={practiceFocus.exam.economy_access.content_type}
                     />
                     <input
                       name="content_key"
                       type="hidden"
-                      value={recommendedPracticeExam.economy_access.content_key}
+                      value={practiceFocus.exam.economy_access.content_key}
                     />
                     <input
                       name="subject_id"
                       type="hidden"
-                      value={recommendedPracticeExam.economy_access.subject_id ?? ""}
+                      value={practiceFocus.exam.economy_access.subject_id ?? ""}
                     />
                     <ActionSubmitButton
                       className="button buttonPrimary"
-                      idleLabel={recommendedPracticeActionState.label}
+                      idleLabel={practiceFocus.action.label}
                       pendingLabel="Unlocking..."
                     />
                   </form>
                 ) : (
-                  <Link className="button buttonPrimary" href={recommendedPracticeActionState.href}>
-                    {recommendedPracticeActionState.label}
+                  <Link className="button buttonPrimary" href={practiceFocus.action.href}>
+                    {practiceFocus.action.label}
                   </Link>
                 )
               ) : (
-                <Link
-                  className="button buttonPrimary"
-                  href={
-                    topWeakTopic
-                      ? `/app/practice?subject=${encodeURIComponent(
-                          topWeakTopic.subject_name,
-                        )}&topic=${encodeURIComponent(topWeakTopic.topic_name ?? "")}`
-                      : "/app/practice"
-                  }
-                >
-                  Open Practice
+                <Link className="button buttonPrimary" href={practiceFocus.focusHref}>
+                  {practiceFocus.focusLabel}
                 </Link>
               )}
               <Link className="button buttonSecondary" href="/app/exams">
                 Choose Mock Test
               </Link>
-              {recommendedPracticeActionState?.mode === "unlock" ? (
+              {practiceFocus.action.mode === "unlock" ? (
                 <Link className="button buttonGhost" href="/app/wallet">
                   Open Wallet
                 </Link>
               ) : null}
             </div>
+          </section>
+
+          <section className="studentInsightsTwoColumn">
+            <article className="contentCard">
+              <div className="sectionHeading">
+                <strong>Recovery Lane</strong>
+                <span>{practiceFocus.focusLabel}</span>
+              </div>
+              <div className="studentInsightMessageStack">
+                <div className="studentInsightMessage">
+                  <span className="placeholderDot" aria-hidden="true" />
+                  <p>{practiceFocus.helper}</p>
+                </div>
+                <div className="studentInsightMessage">
+                  <span className="placeholderDot" aria-hidden="true" />
+                  <p>
+                    This page ranks what is weakest first so the student can repair one concept cluster before jumping back into a full mock.
+                  </p>
+                </div>
+                <div className="studentInsightMessage">
+                  <span className="placeholderDot" aria-hidden="true" />
+                  <p>
+                    A strong sequence is: inspect the top weak topic, run the focused practice pass, then reopen analytics or results before taking another broad test.
+                  </p>
+                </div>
+              </div>
+              <div className="studentActionSequence" aria-label="Weak area recovery order">
+                {weakAreaActionSequence.map((step) => (
+                  <div className="studentActionSequenceCard" key={step.label}>
+                    <span>{step.label}</span>
+                    <strong>{step.detail}</strong>
+                  </div>
+                ))}
+              </div>
+              <div className="studentInsightHeroActions">
+                <Link className="button buttonSecondary" href={practiceFocus.focusHref}>
+                  Open Focused Practice Workspace
+                </Link>
+                <Link className="button buttonGhost" href="/app/analytics">
+                  Open Analytics
+                </Link>
+              </div>
+            </article>
+            <article className="contentCard">
+              <div className="sectionHeading">
+                <strong>Why This Next</strong>
+                <span>Current recovery logic</span>
+              </div>
+              <div className="studentInsightMessageStack">
+                <div className="studentInsightMessage">
+                  <span className="placeholderDot" aria-hidden="true" />
+                  <p>The recommendation starts with the lowest-scoring topic in the current weak-area ranking.</p>
+                </div>
+                <div className="studentInsightMessage">
+                  <span className="placeholderDot" aria-hidden="true" />
+                  <p>The matching practice CTA then stays state-aware: resume first, then start, unlock, or detail view depending on live backend access.</p>
+                </div>
+                <div className="studentInsightMessage">
+                  <span className="placeholderDot" aria-hidden="true" />
+                  <p>If the topic still feels unclear after one focused practice pass, open the analytics drill-down first and compare the exact skipped and incorrect patterns before attempting another mock.</p>
+                </div>
+              </div>
+              <div className="studentInsightHeroActions">
+                {topWeakTopic ? (
+                  <Link
+                    className="button buttonSecondary"
+                    href={buildQuestionAnalyticsHref({
+                      subject: selectedSubject === ALL_SUBJECTS_CONTEXT ? topWeakTopic.subject_name : selectedSubject,
+                      topic: topWeakTopic.id,
+                      source: analyticsFilters.source,
+                      teacher: analyticsFilters.teacher,
+                    })}
+                  >
+                    Open Question Evidence
+                  </Link>
+                ) : null}
+                <Link
+                  className="button buttonGhost"
+                  href={buildAnalyticsResultsCompareHref(analyticsFilters)}
+                >
+                  Compare Results First
+                </Link>
+                <Link className="studentDashboardTextLink" href="/app/analytics">
+                  Open Analytics
+                </Link>
+              </div>
+            </article>
           </section>
 
           <StudentKpiGrid
@@ -752,6 +817,18 @@ export default async function WeakAreasPage({
                         >
                           View Why
                         </Link>
+                        <Link
+                          className="studentDashboardTextLink"
+                          href={buildQuestionAnalyticsHref({
+                            subject:
+                              selectedSubject === ALL_SUBJECTS_CONTEXT ? topic.subject_name : selectedSubject,
+                            topic: topic.id,
+                            source: analyticsFilters.source,
+                            teacher: analyticsFilters.teacher,
+                          })}
+                        >
+                          Question Evidence
+                        </Link>
                       </div>
                     </div>
                   );
@@ -870,6 +947,9 @@ export default async function WeakAreasPage({
                   )}
                 </div>
                 <div className="studentInsightHeroActions">
+                  <Link className="button buttonPrimary" href={practiceFocus.focusHref}>
+                    Open Practice Workspace
+                  </Link>
                   <Link className="button buttonSecondary" href="/app/exams">
                     Take Another Mock Test
                   </Link>

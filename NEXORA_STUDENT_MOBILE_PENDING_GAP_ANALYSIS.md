@@ -27,14 +27,17 @@ It already includes:
 3. secure session restore
 4. role gate
 5. dashboard
-6. exam detail
-7. live attempt runtime
-8. attempt submission
-9. attempt summary
-10. attempt review
-11. analytics
-12. profile
-13. logout
+6. exams lane
+7. attempts lane
+8. results lane
+9. exam detail
+10. live attempt runtime
+11. attempt submission
+12. attempt summary
+13. attempt review
+14. analytics
+15. profile
+16. logout
 
 ## Completed Or Strongly Improved
 
@@ -68,8 +71,27 @@ What is in place:
 - recommended next exam
 - analytics preview
 - subject lane switching
+- truthful subject-scoped exam recommendations
+- direct handoffs into exams and attempts
 
-## 3. Exam Detail
+## 3. Exams, Attempts, And Results Lanes
+
+Status:
+
+- strongly improved
+
+What is in place:
+
+- dedicated exams lane
+- dedicated attempts lane
+- dedicated results lane
+- resume-ready versus startable versus locked exam separation
+- search and state filters in the exams lane
+- active versus completed attempt separation
+- summary and review handoffs from attempts and results
+- pending publication versus review-ready result guidance
+
+## 4. Exam Detail
 
 Status:
 
@@ -82,8 +104,9 @@ What is in place:
 - section preview
 - security policy preview
 - review and resume policy visibility
+- blocked-state guidance for locked, upcoming, and exhausted-attempt exams
 
-## 4. Attempt Runtime
+## 5. Attempt Runtime
 
 Status:
 
@@ -102,8 +125,10 @@ What is in place:
 - guarded navigation between questions and sections
 - safer submit confirmation flow
 - better saved versus draft clarity
+- previous and next question controls for smaller screens
+- clearer current question position within the active section
 
-## 5. Summary, Review, And Analytics
+## 6. Summary, Review, And Analytics
 
 Status:
 
@@ -117,8 +142,9 @@ What is in place:
 - next-step coaching after submit
 - more educational review messaging
 - stronger analytics interpretation and next-action prompts
+- analytics handoff into the results lane
 
-## 6. Profile And Logout
+## 7. Profile And Logout
 
 Status:
 
@@ -158,27 +184,29 @@ Still needed:
 Why pending:
 
 - many screens already handle these states
-- but the app still needs one deliberate consistency pass
+- the main exam-first lanes are much more truthful now
+- but the app still needs one deliberate consistency pass on device
 
 Still needed:
 
 - unified empty-state tone
 - consistent retry messaging
-- better clarity for zero-data scenarios
-- consistency between auth, dashboard, attempt, summary, review, and analytics
+- better clarity for zero-data scenarios in lower-frequency states
+- consistency between auth, dashboard, exams, attempts, results, attempt runtime, summary, review, and analytics
 
 ### A3. Dashboard And Analytics Subject-Context Polish
 
 Why pending:
 
 - subject switching exists
+- dashboard exam cards now scope truthfully
 - analytics filters by subject
-- but the student may still need stronger context reminders on smaller screens
+- but smaller screens may still need stronger “overall” versus subject-specific cues
 
 Still needed:
 
-- clearer active-subject emphasis
-- stronger “overall” versus subject-specific signaling
+- clearer active-subject emphasis in the shell
+- stronger “overall” versus subject-specific signaling across exams, results, and analytics
 - explicit next-step alignment between dashboard and analytics
 
 ## Priority B: Important For Beta Quality
@@ -213,8 +241,8 @@ The student mobile app should now move into a QA-and-polish phase rather than a 
 The best next sequence is:
 
 1. run the QA checklist on real devices
-2. fix any device-specific UX problems
-3. do one final state-consistency pass
+2. validate the full exam-first journey across exams, attempts, results, summary, review, and analytics
+3. fix any device-specific UX problems
 4. then prepare for beta testing
 
 ## Final Verdict

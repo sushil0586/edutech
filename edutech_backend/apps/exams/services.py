@@ -9,6 +9,18 @@ from django.db.models import Count, Q
 from django.utils import timezone
 
 from apps.accounts.models import AccountRole
+from apps.academics.assessment_family_contracts import merge_assessment_family_contract
+
+
+EXAM_PUBLISH_BLOCKER_INVALID_STATUS = "invalid_status"
+EXAM_PUBLISH_BLOCKER_MISSING_SCHEDULE = "missing_schedule"
+EXAM_PUBLISH_BLOCKER_INVALID_SCHEDULE_WINDOW = "invalid_schedule_window"
+EXAM_PUBLISH_BLOCKER_NO_ACTIVE_QUESTIONS = "no_active_questions"
+EXAM_PUBLISH_BLOCKER_FOREIGN_INSTITUTE_QUESTION = "foreign_institute_question"
+EXAM_PUBLISH_BLOCKER_TOTAL_MARKS_MISMATCH = "total_marks_mismatch"
+EXAM_PUBLISH_BLOCKER_INVALID_QUESTION_CONFIGURATION = "invalid_question_configuration"
+EXAM_PUBLISH_WARNING_MISSING_EXPLANATION = "missing_explanation"
+EXAM_PUBLISH_WARNING_UNVERIFIED_QUESTION = "unverified_question"
 
 
 ATTEMPT_POLICY_UNLIMITED_PRACTICE = "unlimited_practice"
@@ -84,6 +96,23 @@ EXAM_EXPERIENCE_MEDIA_FLOW_CHOICES = {
     "light_reference": "Light reference media",
     "guided_section_media": "Section-guided media",
     "controlled_exam_media": "Controlled exam media",
+}
+
+PRESET_PACK_REPORTING_CONTRACTS = {
+    "gre_quant": {
+        "family_id": "gre",
+        "label": "GRE reporting contract",
+        "score_reporting_mode": "total_score_first",
+        "sectional_reporting_ready": False,
+        "recommended_review_mode": REVIEW_MODE_ATTEMPTED_ONLY,
+        "recommended_result_publish_mode": RESULT_PUBLISH_MODE_SCHEDULED,
+        "recommended_rank_visibility_mode": RANK_VISIBILITY_MODE_HIDDEN,
+        "recommended_percentile_visibility_mode": PERCENTILE_VISIBILITY_MODE_FINAL_AFTER_EXAM_CLOSURE,
+        "recommended_benchmark_visibility_mode": BENCHMARK_VISIBILITY_MODE_PEER_AVERAGE_PLUS_PERCENTILE,
+        "reporting_note": (
+            "GRE currently ships with total-score-first reporting. Section-level score storytelling remains a later-phase expansion."
+        ),
+    },
 }
 EXAM_EXPERIENCE_PROFILE_BY_TYPE = {
     "practice": {
@@ -252,10 +281,17 @@ def resolve_program_assessment_family_profile(program):
         assessment_family.code,
         {},
     )
+    contract = merge_assessment_family_contract(
+        family_code=assessment_family.code,
+        allowed_question_types=getattr(assessment_family, "allowed_question_types", []),
+        scoring_defaults=getattr(assessment_family, "scoring_defaults", {}),
+    )
 
     return {
         "code": assessment_family.code,
         "label": assessment_family.label,
+        "allowed_question_types": contract.get("allowed_question_types", []),
+        "scoring_defaults": contract.get("scoring_defaults", {}),
         "delivery_defaults": {
             **baseline_delivery,
             **{
@@ -391,7 +427,7 @@ def allowed_exam_sources_for_profile(profile):
     if profile.role == AccountRole.INSTITUTE_ADMIN:
         return {EXAM_SOURCE_INSTITUTE}
 
-    if profile.role == AccountRole.TEACHER:
+    if profile.role == AccountRole.TEACHER and subject is not None:
         return {EXAM_SOURCE_INSTITUTE, EXAM_SOURCE_TEACHER}
 
     return set()
@@ -455,6 +491,17 @@ def resolve_exam_experience_profile_from_values(
         profile["assessment_family_label"] = family_profile["label"]
         profile["analytics_preset"] = family_profile.get("analytics_preset", {})
         profile["authoring_hints"] = family_profile.get("authoring_hints", {})
+        if family_profile["code"] == "language_proficiency":
+            if "learner_summary" not in normalized_overrides:
+                profile["learner_summary"] = (
+                    "Structured language simulation with timed skill blocks, controlled prompt media, "
+                    "and rubric-guided written responses where configured."
+                )
+            if "creator_summary" not in normalized_overrides:
+                profile["creator_summary"] = (
+                    "Use reading, listening, writing, and integrated skill blocks with clear prompt guidance, "
+                    "and only promise speaking or audio-capture workflows when they are explicitly configured."
+                )
     profile["runtime_alignment"] = (
         profile["actual_timer_mode"] == profile["recommended_timer_mode"]
         and profile["actual_navigation_mode"] == profile["recommended_navigation_mode"]
@@ -756,15 +803,18 @@ def _resolve_advanced_exam_scope(actor, scope_payload, exam_payload):
     if program is None:
         raise ValidationError({"scope": "Program not found in the selected institute."})
 
-    subject = Subject.objects.filter(
-        institute=institute,
-        code=scope_payload["subject_code"],
-        is_active=True,
-    ).first()
-    if subject is None:
-        raise ValidationError({"scope": "Subject not found in the selected institute."})
-    if subject.program_id and subject.program_id != program.id:
-        raise ValidationError({"scope": "Subject must belong to the selected program."})
+    subject = None
+    subject_code = str(scope_payload.get("subject_code") or "").strip()
+    if subject_code:
+        subject = Subject.objects.filter(
+            institute=institute,
+            code=subject_code,
+            is_active=True,
+        ).first()
+        if subject is None:
+            raise ValidationError({"scope": "Subject not found in the selected institute."})
+        if subject.program_id and subject.program_id != program.id:
+            raise ValidationError({"scope": "Subject must belong to the selected program."})
 
     cohort = None
     cohort_code = (scope_payload.get("cohort_code") or "").strip()
@@ -853,6 +903,92 @@ def _resolve_advanced_exam_scope(actor, scope_payload, exam_payload):
     }
 
 
+def _ensure_teacher_assignment_for_subject(*, scope, subject):
+    from apps.teachers.models import TeacherAssignment
+
+    profile = scope["profile"]
+    if profile.role != AccountRole.TEACHER:
+        return
+
+    teacher_profile = getattr(profile, "teacher_profile", None)
+    assignment_queryset = TeacherAssignment.objects.filter(
+        institute=scope["institute"],
+        teacher=teacher_profile,
+        academic_year=scope["academic_year"],
+        program=scope["program"],
+        subject=subject,
+        is_active=True,
+    )
+    cohort = scope["cohort"]
+    if cohort is not None:
+        assignment_exists = assignment_queryset.filter(cohort__in=[cohort]).exists() or assignment_queryset.filter(
+            cohort__isnull=True
+        ).exists()
+    else:
+        assignment_exists = assignment_queryset.exists()
+    if assignment_exists:
+        return
+
+    scope_label = (
+        f"{scope['academic_year'].name} / {scope['program'].code} / {subject.code}"
+        + (f" / {cohort.code}" if cohort is not None else " / all cohorts")
+    )
+    raise ValidationError(
+        {
+            "scope": (
+                f"You are not assigned to {scope_label}. "
+                "Choose section subjects that match one of your active teacher assignments, "
+                "or ask your institute admin to add this assignment before creating the exam."
+            )
+        }
+    )
+
+
+def _resolve_section_subjects(*, scope, sections):
+    from apps.academics.models import Subject
+
+    resolved_codes = []
+    for section in sections:
+        subject_code = str(section.get("subject_code") or "").strip()
+        if not subject_code and scope.get("subject") is not None:
+            subject_code = scope["subject"].code
+            section["subject_code"] = subject_code
+        if not subject_code:
+            raise ValidationError(
+                {
+                    "composition": (
+                        f"{section.get('name', 'Section')}: subject code is required for each section "
+                        "when no exam-scope subject is supplied."
+                    )
+                }
+            )
+        resolved_codes.append(subject_code)
+
+    subject_map = {
+        subject.code: subject
+        for subject in Subject.objects.filter(
+            institute=scope["institute"],
+            code__in=set(resolved_codes),
+            is_active=True,
+        )
+    }
+    missing_codes = sorted(set(resolved_codes) - set(subject_map.keys()))
+    if missing_codes:
+        raise ValidationError({"composition": f"Unknown subject code(s): {', '.join(missing_codes)}"})
+
+    for subject in subject_map.values():
+        if subject.program_id and subject.program_id != scope["program"].id:
+            raise ValidationError(
+                {"composition": f"Subject {subject.code} must belong to the selected program."}
+            )
+        _ensure_teacher_assignment_for_subject(scope=scope, subject=subject)
+
+    return {
+        int(section["order"]): subject_map[str(section.get("subject_code") or "").strip()]
+        for section in sections
+    }
+
+
 def _resolve_exam_schedule(academic_year, exam_payload):
     start_at = exam_payload.get("start_at")
     end_at = exam_payload.get("end_at")
@@ -876,7 +1012,6 @@ def _build_question_buckets(*, institute, program, subject, topic_ids):
 
     queryset = Question.objects.filter(
         institute=institute,
-        subject=subject,
         is_active=True,
         topic_id__in=topic_ids,
     ).annotate(
@@ -908,6 +1043,8 @@ def _build_question_buckets(*, institute, program, subject, topic_ids):
 
     if program is not None:
         queryset = queryset.filter(program=program)
+    if subject is not None:
+        queryset = queryset.filter(subject=subject)
 
     def attempt_rate(question, count):
         usage = int(getattr(question, "usage_count", 0) or 0)
@@ -1080,10 +1217,12 @@ def _pick_questions_from_pool(
 def _resolve_section_blueprint(
     *,
     section_payload,
+    section_subject,
     topic_map,
     question_buckets,
     used_question_ids,
     selection_mode,
+    program_assessment_family=None,
 ):
     difficulty_mix = _normalize_difficulty_mix(section_payload["difficulty_mix"])
     requested_total = int(section_payload["question_count"])
@@ -1093,12 +1232,56 @@ def _resolve_section_blueprint(
     warnings = []
     topic_fallbacks = []
     topic_shortages = []
+    scoring_defaults = (
+        program_assessment_family.get("scoring_defaults", {})
+        if isinstance(program_assessment_family, dict)
+        else {}
+    )
+    negative_marking_scope = str(scoring_defaults.get("negative_marking_scope", "") or "").strip()
+    negative_marking_default = bool(scoring_defaults.get("negative_marking_default"))
+    section_marks = section_payload.get("marks_per_question")
+    section_negative_marks = section_payload.get("negative_marks_per_question")
+
+    if (
+        section_marks is not None
+        and section_negative_marks is not None
+        and Decimal(str(section_negative_marks)) >= Decimal(str(section_marks))
+    ):
+        raise ValidationError(
+            {
+                "composition": (
+                    f"{section_payload['name']}: negative marks per question must stay lower than "
+                    "marks per question."
+                )
+            }
+        )
+    if (
+        negative_marking_scope == "disabled"
+        and section_negative_marks is not None
+        and Decimal(str(section_negative_marks)) > Decimal("0.00")
+    ):
+        raise ValidationError(
+            {
+                "composition": (
+                    f"{section_payload['name']}: the {program_assessment_family.get('label', 'selected')} "
+                    "family does not allow section-level negative marking."
+                )
+            }
+        )
+    if (
+        negative_marking_default
+        and section_negative_marks is not None
+        and Decimal(str(section_negative_marks)) <= Decimal("0.00")
+    ):
+        warnings.append(
+            f"{section_payload['name']}: the {program_assessment_family.get('label', 'selected')} family usually expects negative marking, but this section is configured with no penalty."
+        )
 
     for topic_row in section_payload["topics"]:
-        topic = topic_map.get(topic_row["topic_code"])
+        topic = topic_map.get((section_subject.id, topic_row["topic_code"]))
         if topic is None:
             raise ValidationError(
-                {"composition": f"Topic {topic_row['topic_code']} does not belong to the selected subject."}
+                {"composition": f"Topic {topic_row['topic_code']} does not belong to section subject {section_subject.code}."}
             )
         topic_count = int(topic_row["count"])
         difficulty_targets = _allocate_counts(topic_count, difficulty_mix)
@@ -1181,6 +1364,9 @@ def _resolve_section_blueprint(
     warnings.extend(topic_fallbacks)
 
     return {
+        "subject": str(section_subject.id),
+        "subject_code": section_subject.code,
+        "subject_name": section_subject.name,
         "name": section_payload["name"],
         "description": section_payload.get("description", ""),
         "instructions": section_payload.get("instructions", ""),
@@ -1197,16 +1383,121 @@ def _resolve_section_blueprint(
         "duration_minutes": section_payload.get("duration_minutes"),
         "allow_skip_section": bool(section_payload.get("allow_skip_section", True)),
         "lock_after_submit": bool(section_payload.get("lock_after_submit", False)),
+        "family_contract": {
+            "assessment_family_code": (
+                program_assessment_family.get("code")
+                if isinstance(program_assessment_family, dict)
+                else None
+            ),
+            "assessment_family_label": (
+                program_assessment_family.get("label")
+                if isinstance(program_assessment_family, dict)
+                else None
+            ),
+            "negative_marking_scope": negative_marking_scope or None,
+            "negative_marking_default": negative_marking_default,
+            "negative_marks_per_question": section_negative_marks,
+            "marks_per_question": section_marks,
+            "negative_marking_allowed": negative_marking_scope != "disabled",
+            "negative_marking_recommended": negative_marking_default,
+            "negative_marking_aligned": not (
+                negative_marking_default
+                and section_negative_marks is not None
+                and Decimal(str(section_negative_marks)) <= Decimal("0.00")
+            ),
+        },
         "questions": section_questions,
         "blockers": blockers,
         "warnings": warnings + topic_shortages if selection_mode != QUESTION_SELECTION_MODE_STRICT else warnings,
     }
 
 
+def _apply_jee_numeric_contract(*, blueprint, section_plans, warnings):
+    preset_pack_code = str((blueprint.get("exam") or {}).get("preset_pack_code", "") or "").strip()
+    if preset_pack_code != "jee_mains_math":
+        return
+
+    total_numeric_questions = 0
+    for section_plan in section_plans:
+        section_name = str(section_plan["name"] or "")
+        numeric_section_named = "numeric" in section_name.lower()
+        numeric_questions = [
+            question for question in section_plan["questions"] if getattr(question, "question_type", "") == "numeric_answer"
+        ]
+        numeric_count = len(numeric_questions)
+        section_plan["family_contract"]["numeric_entry_supported"] = True
+        section_plan["family_contract"]["numeric_entry_present"] = numeric_count > 0
+        section_plan["family_contract"]["numeric_entry_count"] = numeric_count
+        section_plan["family_contract"]["numeric_entry_recommended"] = True
+        section_plan["family_contract"]["numeric_entry_expected"] = numeric_section_named
+        total_numeric_questions += numeric_count
+
+        if (numeric_count > 0 or numeric_section_named) and section_plan["negative_marks_per_question"] is not None:
+            try:
+                negative_marks = Decimal(str(section_plan["negative_marks_per_question"]))
+            except Exception:
+                negative_marks = Decimal("0.00")
+            if negative_marks > Decimal("0.00"):
+                raise ValidationError(
+                    {
+                        "composition": (
+                            f"{section_plan['name']}: JEE numeric-entry sections do not support negative marking in the current product contract."
+                        )
+                    }
+                )
+
+    if total_numeric_questions == 0:
+        warnings.append(
+            "JEE Mains guidance: this blueprint resolved no numeric-entry questions. Add at least one numeric-answer block to stay aligned with the current JEE contract."
+        )
+
+
+def _resolve_preset_reporting_contract(blueprint):
+    preset_pack_code = str((blueprint.get("exam") or {}).get("preset_pack_code", "") or "").strip()
+    contract = PRESET_PACK_REPORTING_CONTRACTS.get(preset_pack_code)
+    return dict(contract) if isinstance(contract, dict) else None
+
+
+def _apply_gre_reporting_contract(*, blueprint, warnings):
+    reporting_contract = _resolve_preset_reporting_contract(blueprint)
+    if reporting_contract is None or reporting_contract.get("family_id") != "gre":
+        return reporting_contract
+
+    delivery_payload = blueprint.get("delivery") or {}
+    review_mode = str(delivery_payload.get("review_mode", "") or "").strip()
+    rank_visibility_mode = str(delivery_payload.get("rank_visibility_mode", "") or "").strip()
+    percentile_visibility_mode = str(delivery_payload.get("percentile_visibility_mode", "") or "").strip()
+    benchmark_visibility_mode = str(delivery_payload.get("benchmark_visibility_mode", "") or "").strip()
+
+    if review_mode == REVIEW_MODE_SOLUTION_REVIEW:
+        warnings.append(
+            "GRE reporting guidance: keep review in attempted-only mode for now. Full solution-review storytelling is ahead of the current GRE reporting depth."
+        )
+    if rank_visibility_mode == RANK_VISIBILITY_MODE_PROVISIONAL_AFTER_SUBMIT:
+        warnings.append(
+            "GRE reporting guidance: avoid provisional rank visibility. Formal GRE comparison should stay hidden until the exam window fully closes."
+        )
+    if percentile_visibility_mode != PERCENTILE_VISIBILITY_MODE_FINAL_AFTER_EXAM_CLOSURE:
+        warnings.append(
+            "GRE reporting guidance: percentile visibility works best after exam closure because the current GRE lane is total-score-first, not section-score-first."
+        )
+    if benchmark_visibility_mode == BENCHMARK_VISIBILITY_MODE_HIDDEN:
+        warnings.append(
+            "GRE reporting guidance: keep benchmark context visible where possible. It provides better readiness framing than rank-only reporting in the current GRE lane."
+        )
+
+    return reporting_contract
+
+
 def preview_advanced_exam_blueprint(*, actor, blueprint):
     from apps.academics.models import Topic
 
     scope = _resolve_advanced_exam_scope(actor, blueprint["scope"], blueprint["exam"])
+    section_subjects = _resolve_section_subjects(
+        scope=scope,
+        sections=blueprint["composition"]["sections"],
+    )
+    program_assessment_family = resolve_program_assessment_family_profile(scope.get("program"))
     start_at, end_at, academic_year_end_at = _resolve_exam_schedule(
         scope["academic_year"],
         blueprint["exam"],
@@ -1221,24 +1512,33 @@ def preview_advanced_exam_blueprint(*, actor, blueprint):
             topic_codes.append(topic_row["topic_code"])
 
     topic_map = {
-        topic.code: topic
+        (topic.subject_id, topic.code): topic
         for topic in Topic.objects.filter(
             institute=scope["institute"],
-            subject=scope["subject"],
+            subject_id__in={subject.id for subject in section_subjects.values()},
             code__in=topic_codes,
             is_active=True,
         )
     }
-    if len(topic_map) != len(set(topic_codes)):
-        missing = sorted(set(topic_codes) - set(topic_map.keys()))
-        raise ValidationError({"composition": f"Unknown topic code(s): {', '.join(missing)}"})
+    missing = []
+    for section_payload in blueprint["composition"]["sections"]:
+        section_subject = section_subjects[int(section_payload["order"])]
+        for topic_row in section_payload["topics"]:
+            if (section_subject.id, topic_row["topic_code"]) not in topic_map:
+                missing.append(f"{section_subject.code}:{topic_row['topic_code']}")
+    if missing:
+        raise ValidationError({"composition": f"Unknown topic code(s): {', '.join(sorted(set(missing)))}"})
 
-    question_buckets = _build_question_buckets(
-        institute=scope["institute"],
-        program=scope["program"],
-        subject=scope["subject"],
-        topic_ids=[topic.id for topic in topic_map.values()],
-    )
+    question_buckets = {}
+    for subject in {section_subjects[key] for key in section_subjects}:
+        question_buckets.update(
+            _build_question_buckets(
+                institute=scope["institute"],
+                program=scope["program"],
+                subject=subject,
+                topic_ids=[topic.id for (subject_id, _), topic in topic_map.items() if subject_id == subject.id],
+            )
+        )
     used_question_ids = set()
     blockers = []
     section_plans = []
@@ -1248,12 +1548,15 @@ def preview_advanced_exam_blueprint(*, actor, blueprint):
     timed_section_duration_total = 0
 
     for section_payload in sorted(blueprint["composition"]["sections"], key=lambda row: row["order"]):
+        section_subject = section_subjects[int(section_payload["order"])]
         section_plan = _resolve_section_blueprint(
             section_payload=section_payload,
+            section_subject=section_subject,
             topic_map=topic_map,
             question_buckets=question_buckets,
             used_question_ids=used_question_ids,
             selection_mode=selection_mode,
+            program_assessment_family=program_assessment_family,
         )
         section_plans.append(section_plan)
         blockers.extend(section_plan["blockers"])
@@ -1284,6 +1587,18 @@ def preview_advanced_exam_blueprint(*, actor, blueprint):
             f"of {int(blueprint['exam']['duration_minutes'])} min."
         )
 
+    _apply_jee_numeric_contract(
+        blueprint=blueprint,
+        section_plans=section_plans,
+        warnings=warnings,
+    )
+    reporting_contract = _apply_gre_reporting_contract(
+        blueprint=blueprint,
+        warnings=warnings,
+    )
+
+    primary_subject = next(iter(section_subjects.values()), scope.get("subject"))
+
     return {
         "scope": scope,
         "resolved_exam": {
@@ -1291,6 +1606,9 @@ def preview_advanced_exam_blueprint(*, actor, blueprint):
             "code": blueprint["exam"]["code"],
             "source_type": blueprint["exam"]["source_type"],
             "source_teacher_id": str(scope["source_teacher"].id) if scope["source_teacher"] is not None else None,
+            "primary_subject": str(primary_subject.id) if primary_subject is not None else None,
+            "primary_subject_name": primary_subject.name if primary_subject is not None else None,
+            "assessment_family_profile": program_assessment_family,
             "academic_year_end_at": academic_year_end_at,
             "start_at": start_at,
             "end_at": end_at,
@@ -1298,6 +1616,7 @@ def preview_advanced_exam_blueprint(*, actor, blueprint):
             "total_questions": total_questions,
             "total_marks": total_marks,
             "question_quality": preview_quality_summary,
+            "reporting_contract": reporting_contract,
             "experience_profile": resolve_exam_experience_profile_from_values(
                 exam_type=blueprint["exam"]["exam_type"],
                 delivery_mode=blueprint["exam"]["delivery_mode"],
@@ -1306,9 +1625,7 @@ def preview_advanced_exam_blueprint(*, actor, blueprint):
                     "navigation_mode",
                     "free_exam",
                 ),
-                program_assessment_family=resolve_program_assessment_family_profile(
-                    scope.get("program"),
-                ),
+                program_assessment_family=program_assessment_family,
                 overrides=blueprint["exam"].get("experience_profile", {}),
             ),
         },
@@ -1320,6 +1637,7 @@ def preview_advanced_exam_blueprint(*, actor, blueprint):
 
 @transaction.atomic
 def create_advanced_exam_from_blueprint(*, actor, blueprint):
+    from apps.academics.models import Subject
     from apps.exams.models import Exam, ExamQuestion, ExamSection
 
     preview = preview_advanced_exam_blueprint(actor=actor, blueprint=blueprint)
@@ -1340,12 +1658,25 @@ def create_advanced_exam_from_blueprint(*, actor, blueprint):
     if existing_exam is not None and existing_exam.exam_questions.filter(is_active=True).exists():
         raise ValidationError({"exam": "Replacement is allowed only when the existing exam has no linked questions."})
 
+    primary_subject = scope["subject"]
+    if primary_subject is None:
+        primary_subject_id = resolved_exam.get("primary_subject")
+        primary_subject = (
+            Subject.objects.filter(
+                id=primary_subject_id,
+                institute=scope["institute"],
+                is_active=True,
+            ).first()
+            if primary_subject_id
+            else None
+        )
+
     exam_attrs = {
         "institute": scope["institute"],
         "academic_year": scope["academic_year"],
         "program": scope["program"],
         "cohort": scope["cohort"],
-        "subject": scope["subject"],
+        "subject": primary_subject,
         "title": exam_payload["title"],
         "code": exam_payload["code"],
         "description": exam_payload.get("description", ""),
@@ -1399,8 +1730,10 @@ def create_advanced_exam_from_blueprint(*, actor, blueprint):
         "metadata": {
             "advanced_builder": {
                 "selection_mode": blueprint["composition"]["selection_mode"],
-                "subject_code": scope["subject"].code,
+                "subject_code": scope["subject"].code if scope["subject"] is not None else "",
+                "section_subject_codes": [section_plan["subject_code"] for section_plan in preview["sections"]],
                 "preset_pack_code": exam_payload.get("preset_pack_code", ""),
+                "reporting_contract": resolved_exam.get("reporting_contract"),
             },
             "experience_profile": exam_payload.get("experience_profile", {}) or {},
             "result_visibility_policy": {
@@ -1432,6 +1765,7 @@ def create_advanced_exam_from_blueprint(*, actor, blueprint):
     for section_plan in preview["sections"]:
         section = ExamSection.objects.create(
             exam=exam,
+            subject_id=section_plan["subject"],
             name=section_plan["name"],
             description=section_plan["description"],
             section_order=section_plan["order"],
@@ -1762,7 +2096,7 @@ def choose_attempt_for_result_policy(exam, attempts):
 def validate_exam_questions(exam, exam_questions=None):
     queryset = exam_questions
     if queryset is None:
-        queryset = exam.exam_questions.filter(is_active=True).select_related("question")
+        queryset = exam.exam_questions.filter(is_active=True).select_related("question", "section", "section__subject")
 
     question_list = list(queryset)
     if not question_list:
@@ -1772,6 +2106,25 @@ def validate_exam_questions(exam, exam_questions=None):
         if exam_question.question.institute_id != exam.institute_id:
             raise ValidationError(
                 {"question": "All exam questions must belong to the same institute as the exam."}
+            )
+        if exam_question.section_id and getattr(exam_question.section, "subject_id", None):
+            if exam_question.question.subject_id != exam_question.section.subject_id:
+                raise ValidationError(
+                    {
+                        "question": (
+                            f"Question {exam_question.question_id} must match the subject for section "
+                            f"{exam_question.section.name}."
+                        )
+                    }
+                )
+        elif exam.subject_id and exam_question.question.subject_id != exam.subject_id:
+            raise ValidationError(
+                {
+                    "question": (
+                        f"Question {exam_question.question_id} must match the exam subject when no "
+                        "section subject is configured."
+                    )
+                }
             )
 
     total_marks = calculate_exam_total_marks(question_list)
@@ -1784,6 +2137,191 @@ def validate_exam_questions(exam, exam_questions=None):
                 )
             }
         )
+
+
+def _build_exam_publish_issue(*, code, field, message, level):
+    return {
+        "code": code,
+        "field": field,
+        "message": message,
+        "level": level,
+    }
+
+
+def build_exam_publish_readiness(exam, exam_questions=None):
+    from apps.question_bank.services import validate_question_options
+
+    queryset = exam_questions
+    if queryset is None:
+        queryset = exam.exam_questions.filter(is_active=True).select_related("question", "section", "section__subject")
+
+    question_list = list(queryset)
+    blockers = []
+    warnings = []
+
+    if exam.status not in {"draft", "cancelled"}:
+        blockers.append(
+            _build_exam_publish_issue(
+                code=EXAM_PUBLISH_BLOCKER_INVALID_STATUS,
+                field="status",
+                message="Only draft or cancelled exams can be scheduled or published.",
+                level="blocker",
+            )
+        )
+
+    if exam.start_at is None or exam.end_at is None:
+        blockers.append(
+            _build_exam_publish_issue(
+                code=EXAM_PUBLISH_BLOCKER_MISSING_SCHEDULE,
+                field="start_at",
+                message="Scheduled exam must have start and end timestamps defined.",
+                level="blocker",
+            )
+        )
+    elif exam.end_at <= exam.start_at:
+        blockers.append(
+            _build_exam_publish_issue(
+                code=EXAM_PUBLISH_BLOCKER_INVALID_SCHEDULE_WINDOW,
+                field="end_at",
+                message="End time must be after the start time.",
+                level="blocker",
+            )
+        )
+
+    if not question_list:
+        blockers.append(
+            _build_exam_publish_issue(
+                code=EXAM_PUBLISH_BLOCKER_NO_ACTIVE_QUESTIONS,
+                field="questions",
+                message="Exam must contain at least one active question.",
+                level="blocker",
+            )
+        )
+    else:
+        total_marks = calculate_exam_total_marks(question_list)
+        if total_marks != exam.total_marks:
+            blockers.append(
+                _build_exam_publish_issue(
+                    code=EXAM_PUBLISH_BLOCKER_TOTAL_MARKS_MISMATCH,
+                    field="total_marks",
+                    message=(
+                        f"Exam total marks ({exam.total_marks}) must match active exam question total "
+                        f"({total_marks})."
+                    ),
+                    level="blocker",
+                )
+            )
+
+        explanation_warning_count = 0
+        unverified_warning_count = 0
+        invalid_question_count = 0
+
+        for exam_question in question_list:
+            question = exam_question.question
+            section = getattr(exam_question, "section", None)
+            section_subject = getattr(section, "subject", None) if section is not None else None
+            if question.institute_id != exam.institute_id:
+                blockers.append(
+                    _build_exam_publish_issue(
+                        code=EXAM_PUBLISH_BLOCKER_FOREIGN_INSTITUTE_QUESTION,
+                        field="question",
+                        message="All exam questions must belong to the same institute as the exam.",
+                        level="blocker",
+                    )
+                )
+                continue
+
+            if section_subject is not None and question.subject_id != section_subject.id:
+                blockers.append(
+                    _build_exam_publish_issue(
+                        code=EXAM_PUBLISH_BLOCKER_INVALID_QUESTION_CONFIGURATION,
+                        field="question",
+                        message=(
+                            f"Question '{question.id}' does not match the subject assigned to section "
+                            f"'{section.name}'."
+                        ),
+                        level="blocker",
+                    )
+                )
+                continue
+            if section is None and exam.subject_id and question.subject_id != exam.subject_id:
+                blockers.append(
+                    _build_exam_publish_issue(
+                        code=EXAM_PUBLISH_BLOCKER_INVALID_QUESTION_CONFIGURATION,
+                        field="question",
+                        message=(
+                            f"Question '{question.id}' does not match the exam subject for an unsectioned "
+                            "question link."
+                        ),
+                        level="blocker",
+                    )
+                )
+                continue
+
+            try:
+                validate_question_options(
+                    question.question_type,
+                    question.options.filter(is_active=True),
+                )
+            except ValidationError as exc:
+                invalid_question_count += 1
+                blockers.append(
+                    _build_exam_publish_issue(
+                        code=EXAM_PUBLISH_BLOCKER_INVALID_QUESTION_CONFIGURATION,
+                        field="question",
+                        message=(
+                            f"Question '{question.id}' is not publish-ready: "
+                            f"{'; '.join(exc.messages)}"
+                        ),
+                        level="blocker",
+                    )
+                )
+
+            if not str(question.explanation or "").strip():
+                explanation_warning_count += 1
+            if not bool(question.is_verified):
+                unverified_warning_count += 1
+
+        if explanation_warning_count:
+            warnings.append(
+                _build_exam_publish_issue(
+                    code=EXAM_PUBLISH_WARNING_MISSING_EXPLANATION,
+                    field="question",
+                    message=(
+                        f"{explanation_warning_count} linked question(s) are missing explanation text."
+                    ),
+                    level="warning",
+                )
+            )
+        if unverified_warning_count:
+            warnings.append(
+                _build_exam_publish_issue(
+                    code=EXAM_PUBLISH_WARNING_UNVERIFIED_QUESTION,
+                    field="question",
+                    message=(
+                        f"{unverified_warning_count} linked question(s) are not marked verified."
+                    ),
+                    level="warning",
+                )
+            )
+
+    return {
+        "ready": not blockers,
+        "blocker_count": len(blockers),
+        "warning_count": len(warnings),
+        "blockers": blockers,
+        "warnings": warnings,
+    }
+
+
+def _raise_exam_publish_readiness_errors(readiness):
+    if readiness["ready"]:
+        return
+
+    field_errors = {}
+    for blocker in readiness["blockers"]:
+        field_errors.setdefault(blocker["field"], []).append(blocker["message"])
+    raise ValidationError(field_errors)
 
 
 @transaction.atomic
@@ -1871,17 +2409,7 @@ def mark_exam_completed(exam, *, changed_by=None, remarks=""):
 def publish_exam(exam, changed_by=None, remarks=""):
     from apps.reports.services import notify_exam_published
 
-    if exam.status not in {"draft", "cancelled"}:
-        raise ValidationError({"status": "Only draft or cancelled exams can be scheduled/published."})
-
-    if exam.start_at is None or exam.end_at is None:
-        raise ValidationError(
-            {"start_at": "Scheduled exam must have start and end timestamps defined."}
-        )
-    if exam.end_at <= exam.start_at:
-        raise ValidationError({"end_at": "End time must be after the start time."})
-
-    validate_exam_questions(exam)
+    _raise_exam_publish_readiness_errors(build_exam_publish_readiness(exam))
 
     exam = _record_status_change(
         exam,

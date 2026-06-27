@@ -49,7 +49,9 @@ test.describe("Admin exam create workspace", () => {
     await page.getByRole("button", { name: /^continue$/i }).click();
     await expect(page.getByText(/scope and identity/i).first()).toBeVisible();
     await expect
-      .poll(async () => title.evaluate((element) => element.validationMessage))
+      .poll(async () =>
+        title.evaluate((element) => (element as HTMLInputElement).validationMessage),
+      )
       .not.toBe("");
 
     await title.fill("PW Admin Wizard Baseline");

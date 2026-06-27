@@ -1,5 +1,6 @@
-import { expect, test, type Locator } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { getRoleCredentials } from "../fixtures/env";
+import { answerCurrentAttemptQuestion } from "../helpers/attempt";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
 import {
@@ -15,6 +16,24 @@ function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function teacherExamReadinessPanel(page: Page) {
+  return page.locator("article").filter({
+    has: page.getByText(/^exam publish readiness$/i),
+  }).first();
+}
+
+function teacherResultReadinessPanel(page: Page) {
+  return page.locator("article").filter({
+    has: page.getByText(/^result publish readiness$/i),
+  }).first();
+}
+
+function teacherResultsWorkspaceReadinessCard(page: Page, title: RegExp) {
+  return page.locator(".teacherResultsReadinessCard").filter({
+    has: page.getByText(title),
+  }).first();
+}
+
 function toDateTimeLocalValue(date: Date) {
   const year = date.getFullYear();
   const month = `${date.getMonth() + 1}`.padStart(2, "0");
@@ -24,7 +43,7 @@ function toDateTimeLocalValue(date: Date) {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
-async function selectFirstNonEmptyOption(page: Parameters<typeof test>[0]["page"], selector: string) {
+async function selectFirstNonEmptyOption(page: Page, selector: string) {
   const locator = page.locator(selector);
   const values = await locator.locator("option").evaluateAll((options) =>
     options.map((option) => (option as HTMLOptionElement).value),
@@ -142,6 +161,12 @@ test.describe("Teacher mutable results actions", () => {
       examId = examIdMatch?.[1] ?? null;
       expect(examId).not.toBeNull();
 
+      await page.goto(`/teacher/exams/${examId}`);
+      await expect(page.getByRole("heading", { name: new RegExp(escapeRegExp(examTitle), "i") }).first()).toBeVisible();
+      await expect(teacherExamReadinessPanel(page)).toContainText(/blocked/i);
+      await expect(teacherExamReadinessPanel(page)).toContainText(/blocker/i);
+      await expect(teacherResultReadinessPanel(page)).toContainText(/review first|blocked/i);
+
       await page.goto(`/teacher/exams/${examId}/builder?tab=questions`);
       await expect(page.getByText(/attach one question manually/i)).toBeVisible();
 
@@ -235,6 +260,8 @@ test.describe("Teacher mutable results actions", () => {
         await expect(page).toHaveURL(/message=/);
       }
 
+      await expect(teacherExamReadinessPanel(page)).toContainText(/ready/i);
+
       await loginAsRole(page, "student");
       await expectStudentWorkspace(page);
       await page.goto(`/app/exams/${examId}`);
@@ -242,9 +269,7 @@ test.describe("Teacher mutable results actions", () => {
       await page.getByRole("button", { name: /start (mock test|practice set|exam)/i }).click();
 
       await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+(?:\?.*)?$/);
-      const radioOption = page.locator('input[name="selected_option"][type="radio"]').first();
-      await expect(radioOption).toBeVisible();
-      await radioOption.check();
+      await answerCurrentAttemptQuestion(page, uniqueSeed, "Playwright teacher result answer");
       await page.getByRole("button", { name: /^save answer$/i }).click();
       await expectOneOf(
         page.locator(".feedbackBannerSuccess").filter({
@@ -264,6 +289,18 @@ test.describe("Teacher mutable results actions", () => {
       await expectTeacherWorkspace(page);
       await page.goto(`/teacher/results?exam=${examId}`);
       await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
+      await expect(
+        teacherResultsWorkspaceReadinessCard(page, /^exam publish readiness$/i),
+      ).toContainText(/blocked/i);
+      await expect(
+        teacherResultsWorkspaceReadinessCard(page, /^exam publish readiness$/i),
+      ).toContainText(/invalid status/i);
+      await expect(
+        teacherResultsWorkspaceReadinessCard(page, /^result publish readiness$/i),
+      ).toContainText(/blocked/i);
+      await expect(
+        teacherResultsWorkspaceReadinessCard(page, /^result publish readiness$/i),
+      ).toContainText(/0 generated/i);
 
       const markCompletedButton = page.getByRole("button", { name: /mark exam completed/i });
       if (await markCompletedButton.count()) {
@@ -292,6 +329,16 @@ test.describe("Teacher mutable results actions", () => {
         await expect(page.getByText(/all result workflow steps are complete/i).first()).toBeVisible();
         await expect(page.getByText(/student-visible result state is already active\./i).first()).toBeVisible();
       }
+
+      await expect(
+        teacherResultsWorkspaceReadinessCard(page, /^result publish readiness$/i),
+      ).toContainText(/ready/i);
+      await expect(
+        teacherResultsWorkspaceReadinessCard(page, /^result publish readiness$/i),
+      ).toContainText(/1 generated/i);
+      await expect(
+        teacherResultsWorkspaceReadinessCard(page, /^result publish readiness$/i),
+      ).toContainText(/1 published/i);
 
       await page.getByRole("link", { name: /open leaderboard/i }).first().click();
       await expect(page).toHaveURL(/\/teacher\/results\/leaderboard\?[^#]*exam=/);

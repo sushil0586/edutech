@@ -1654,6 +1654,10 @@ class CredentialManagementApiTestCase(TestCase):
         self.assertIn("recent_exams", student_summary_response.data)
         if student_summary_response.data["recent_exams"]:
             self.assertIn("source_label", student_summary_response.data["recent_exams"][0])
+            self.assertIn("primary_subject_name", student_summary_response.data["recent_exams"][0])
+            self.assertIn("is_multi_subject", student_summary_response.data["recent_exams"][0])
+            self.assertIn("section_subjects", student_summary_response.data["recent_exams"][0])
+            self.assertIn("subject_summary", student_summary_response.data["recent_exams"][0])
 
         self._authenticate_with_token("teacher-cred-existing", "Teacher@123")
         teacher_summary_response = self.client.get("/api/v1/teacher/insights/summary/")

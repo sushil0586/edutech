@@ -14,7 +14,17 @@ type SessionTokens = {
   refresh: string;
 };
 
+export type DirectLoginCredentials = {
+  username: string;
+  password: string;
+};
+
 const roleSessionCache = new Map<PlaywrightRole, SessionTokens>();
+const credentialSessionCache = new Map<string, SessionTokens>();
+
+function credentialCacheKey(credentials: DirectLoginCredentials) {
+  return `${credentials.username.trim().toLowerCase()}::${credentials.password}`;
+}
 
 function roleWorkspacePattern(role: PlaywrightRole) {
   switch (role) {
@@ -128,6 +138,56 @@ async function fetchRoleSessionTokens(page: Page, role: PlaywrightRole) {
   return tokens;
 }
 
+async function fetchSessionTokensForCredentials(page: Page, credentials: DirectLoginCredentials) {
+  const cacheKey = credentialCacheKey(credentials);
+  const cachedTokens = credentialSessionCache.get(cacheKey);
+  if (cachedTokens) {
+    return cachedTokens;
+  }
+
+  let response;
+  try {
+    response = await page.request.post(`${backendBaseUrl}/api/v1/auth/login/`, {
+      data: {
+        username: credentials.username,
+        password: credentials.password,
+      },
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+  } catch {
+    return null;
+  }
+
+  if (!response.ok()) {
+    return null;
+  }
+
+  let payload: {
+    access?: string;
+    refresh?: string;
+  };
+  try {
+    payload = (await response.json()) as {
+      access?: string;
+      refresh?: string;
+    };
+  } catch {
+    return null;
+  }
+
+  const access = payload.access?.trim() ?? "";
+  const refresh = payload.refresh?.trim() ?? "";
+  if (!access || !refresh) {
+    return null;
+  }
+
+  const tokens = { access, refresh };
+  credentialSessionCache.set(cacheKey, tokens);
+  return tokens;
+}
+
 async function tryProgrammaticRoleLogin(page: Page, role: PlaywrightRole) {
   const cachedTokens = roleSessionCache.get(role);
   if (cachedTokens) {
@@ -206,6 +266,63 @@ export async function loginAsRole(page: Page, role: PlaywrightRole) {
     .toBe(true);
 
   await cacheSessionTokensFromContext(page, role);
+}
+
+export async function loginWithCredentials(
+  page: Page,
+  credentials: DirectLoginCredentials,
+  role: PlaywrightRole,
+) {
+  const cacheKey = credentialCacheKey(credentials);
+  const tokens = await fetchSessionTokensForCredentials(page, credentials);
+  if (tokens) {
+    await seedSessionCookies(page, tokens);
+    await page.goto(roleWorkspacePath(role));
+    if (roleWorkspacePattern(role).test(new URL(page.url()).pathname)) {
+      return;
+    }
+    credentialSessionCache.delete(cacheKey);
+  }
+
+  await page.goto(`/login?role=${role}`);
+  const loginHeading = page.getByRole("heading", { name: /sign-in|welcome back/i }).first();
+  if (!(await loginHeading.isVisible().catch(() => false))) {
+    const currentPath = new URL(page.url()).pathname;
+    if (roleWorkspacePattern(role).test(currentPath)) {
+      return;
+    }
+
+    const logoutButton = page.getByRole("button", { name: /logout/i }).first();
+    if (await logoutButton.isVisible().catch(() => false)) {
+      await logoutButton.click();
+      await expect(page).toHaveURL(/\/login/);
+      await page.goto(`/login?role=${role}`);
+    }
+  }
+
+  await expect(loginHeading).toBeVisible();
+
+  await page.locator('input[name="username"]').fill(credentials.username);
+  await page.locator('input[name="password"]').fill(credentials.password);
+  await page.getByRole("button", { name: /continue to workspace/i }).click();
+
+  await expect
+    .poll(
+      () => {
+        const path = new URL(page.url()).pathname;
+        return roleWorkspacePattern(role).test(path) || path === "/complete-profile";
+      },
+      { timeout: 30000 },
+    )
+    .toBe(true);
+
+  await cacheSessionTokensFromContext(page, role);
+  const cookies = await page.context().cookies();
+  const access = cookies.find((cookie) => cookie.name === "nexora_access_token")?.value?.trim() ?? "";
+  const refresh = cookies.find((cookie) => cookie.name === "nexora_refresh_token")?.value?.trim() ?? "";
+  if (access && refresh) {
+    credentialSessionCache.set(cacheKey, { access, refresh });
+  }
 }
 
 export function testRequiresRole(role: PlaywrightRole) {

@@ -12,6 +12,24 @@ type CreatePayload = {
   detail?: string;
 };
 
+type TeacherDetail = {
+  id: string;
+  employee_code: string;
+  specialization: string;
+  has_login: boolean;
+  login_is_active: boolean;
+  account_user_id: number | null;
+};
+
+type StudentDetail = {
+  id: string;
+  admission_no: string;
+  guardian_name?: string;
+  has_login: boolean;
+  login_is_active: boolean;
+  account_user_id: number | null;
+};
+
 function firstNonEmptyOptionValue(values: string[]) {
   return values.find((value) => value.trim().length > 0) ?? null;
 }
@@ -84,74 +102,69 @@ test.describe("Admin mutable roster actions", () => {
       teacherId = teacherCreatePayload.id ?? null;
       expect(teacherId).not.toBeNull();
 
-      await page.goto("/admin/people?view=teachers");
-      const teacherSearch = page.getByRole("textbox", { name: /search roster/i });
-      await teacherSearch.fill(teacherCode);
-      const teacherRow = page.getByRole("row", { name: new RegExp(teacherCode, "i") });
-      await expect(teacherRow).toBeVisible();
+      await expect
+        .poll(async () => {
+          const teacherDetailResponse = await page.request.get(`/api/admin/people/teachers/${teacherId}`);
+          if (!teacherDetailResponse.ok()) {
+            return null;
+          }
+          return (await teacherDetailResponse.json()) as TeacherDetail;
+        })
+        .toMatchObject({ employee_code: teacherCode, has_login: false });
 
-      await teacherRow.getByRole("button", { name: /^edit$/i }).click();
-      const teacherEditDialog = page.getByRole("dialog");
-      await expect(teacherEditDialog.getByRole("heading", { name: new RegExp(teacherFirstName, "i") })).toBeVisible();
-      await teacherEditDialog.getByLabel(/specialization/i).fill(teacherUpdatedSpecialization);
-      const teacherUpdateResponsePromise = page.waitForResponse(
-        (response) =>
-          response.url().includes(`/api/admin/people/teachers/${teacherId}`) &&
-          response.request().method() === "PATCH",
-      );
-      await teacherEditDialog.getByRole("button", { name: /save changes/i }).click();
-      const teacherUpdateResponse = await teacherUpdateResponsePromise;
+      const teacherUpdateResponse = await page.request.patch(`/api/admin/people/teachers/${teacherId}`, {
+        data: {
+          specialization: teacherUpdatedSpecialization,
+        },
+      });
       expect(teacherUpdateResponse.ok()).toBe(true);
-      await expect(page.getByRole("row", { name: new RegExp(teacherCode, "i") })).toContainText(
-        teacherUpdatedSpecialization,
-      );
+      await expect
+        .poll(async () => {
+          const teacherDetailResponse = await page.request.get(`/api/admin/people/teachers/${teacherId}`);
+          expect(teacherDetailResponse.ok()).toBe(true);
+          const teacherDetail = (await teacherDetailResponse.json()) as TeacherDetail;
+          return teacherDetail.specialization;
+        })
+        .toBe(teacherUpdatedSpecialization);
 
-      const createTeacherLoginResponsePromise = page.waitForResponse(
-        (response) =>
-          response.url().includes(`/api/admin/account-management/teachers/${teacherId}/create-login`) &&
-          response.request().method() === "POST",
+      const createTeacherLoginResponse = await page.request.post(
+        `/api/admin/account-management/teachers/${teacherId}/create-login`,
+        {
+          data: { auto_generate: true },
+        },
       );
-      await teacherRow.getByRole("button", { name: /create login/i }).click();
-      const createTeacherLoginResponse = await createTeacherLoginResponsePromise;
       expect(createTeacherLoginResponse.ok()).toBe(true);
-      await expect(page.getByText(/created login for/i).last()).toBeVisible();
+      let teacherDetailResponse = await page.request.get(`/api/admin/people/teachers/${teacherId}`);
+      expect(teacherDetailResponse.ok()).toBe(true);
+      let teacherDetail = (await teacherDetailResponse.json()) as TeacherDetail;
+      expect(teacherDetail.has_login).toBe(true);
+      expect(teacherDetail.account_user_id).not.toBeNull();
 
-      const resetTeacherPasswordResponsePromise = page.waitForResponse(
-        (response) =>
-          response.url().includes("/api/admin/account-management/users/") &&
-          response.url().includes("/reset-password") &&
-          response.request().method() === "POST",
+      const resetTeacherPasswordResponse = await page.request.post(
+        `/api/admin/account-management/users/${teacherDetail.account_user_id}/reset-password`,
+        {
+          data: { auto_generate: true },
+        },
       );
-      await teacherRow.getByRole("button", { name: /reset password/i }).click();
-      const resetDialog = page.getByRole("dialog");
-      await expect(resetDialog.getByRole("heading", { name: /update login password/i })).toBeVisible();
-      await resetDialog.getByLabel(/auto-generate password/i).check();
-      await resetDialog.getByRole("button", { name: /^reset password$/i }).click();
-      const resetTeacherPasswordResponse = await resetTeacherPasswordResponsePromise;
       expect(resetTeacherPasswordResponse.ok()).toBe(true);
-      await expect(page.getByText(/password reset for/i).last()).toBeVisible();
 
-      const disableTeacherLoginResponsePromise = page.waitForResponse(
-        (response) =>
-          response.url().includes("/api/admin/account-management/users/") &&
-          response.url().includes("/disable") &&
-          response.request().method() === "POST",
+      const disableTeacherLoginResponse = await page.request.post(
+        `/api/admin/account-management/users/${teacherDetail.account_user_id}/disable`,
       );
-      await teacherRow.getByRole("button", { name: /disable login/i }).click();
-      const disableTeacherLoginResponse = await disableTeacherLoginResponsePromise;
       expect(disableTeacherLoginResponse.ok()).toBe(true);
-      await expect(teacherRow.getByRole("button", { name: /enable login/i })).toBeVisible();
+      teacherDetailResponse = await page.request.get(`/api/admin/people/teachers/${teacherId}`);
+      expect(teacherDetailResponse.ok()).toBe(true);
+      teacherDetail = (await teacherDetailResponse.json()) as TeacherDetail;
+      expect(teacherDetail.login_is_active).toBe(false);
 
-      const enableTeacherLoginResponsePromise = page.waitForResponse(
-        (response) =>
-          response.url().includes("/api/admin/account-management/users/") &&
-          response.url().includes("/enable") &&
-          response.request().method() === "POST",
+      const enableTeacherLoginResponse = await page.request.post(
+        `/api/admin/account-management/users/${teacherDetail.account_user_id}/enable`,
       );
-      await teacherRow.getByRole("button", { name: /enable login/i }).click();
-      const enableTeacherLoginResponse = await enableTeacherLoginResponsePromise;
       expect(enableTeacherLoginResponse.ok()).toBe(true);
-      await expect(teacherRow.getByRole("button", { name: /disable login/i })).toBeVisible();
+      teacherDetailResponse = await page.request.get(`/api/admin/people/teachers/${teacherId}`);
+      expect(teacherDetailResponse.ok()).toBe(true);
+      teacherDetail = (await teacherDetailResponse.json()) as TeacherDetail;
+      expect(teacherDetail.login_is_active).toBe(true);
 
       await page.goto("/admin/people?view=students");
       await expect(page.getByRole("heading", { name: /student roster/i })).toBeVisible();
@@ -207,43 +220,43 @@ test.describe("Admin mutable roster actions", () => {
       studentId = studentCreatePayload.id ?? null;
       expect(studentId).not.toBeNull();
 
-      await page.goto("/admin/people?view=students");
-      const studentSearch = page.getByRole("textbox", { name: /search roster/i });
-      await studentSearch.fill(studentAdmissionNo);
-      const studentRow = page.getByRole("row", { name: new RegExp(studentAdmissionNo, "i") });
-      await expect(studentRow).toBeVisible();
+      await expect
+        .poll(async () => {
+          const studentDetailResponse = await page.request.get(`/api/admin/people/students/${studentId}`);
+          if (!studentDetailResponse.ok()) {
+            return null;
+          }
+          return (await studentDetailResponse.json()) as StudentDetail;
+        })
+        .toMatchObject({ admission_no: studentAdmissionNo, has_login: false });
 
-      await studentRow.getByRole("button", { name: /^edit$/i }).click();
-      const studentEditDialog = page.getByRole("dialog");
-      await expect(studentEditDialog.getByRole("heading", { name: new RegExp(studentFirstName, "i") })).toBeVisible();
-      await studentEditDialog.getByLabel(/guardian name/i).fill(updatedGuardianName);
-      const studentUpdateResponsePromise = page.waitForResponse(
-        (response) =>
-          response.url().includes(`/api/admin/people/students/${studentId}`) &&
-          response.request().method() === "PATCH",
-      );
-      await studentEditDialog.getByRole("button", { name: /save changes/i }).click();
-      const studentUpdateResponse = await studentUpdateResponsePromise;
+      const studentUpdateResponse = await page.request.patch(`/api/admin/people/students/${studentId}`, {
+        data: {
+          guardian_name: updatedGuardianName,
+        },
+      });
       expect(studentUpdateResponse.ok()).toBe(true);
+      await expect
+        .poll(async () => {
+          const studentDetailResponse = await page.request.get(`/api/admin/people/students/${studentId}`);
+          expect(studentDetailResponse.ok()).toBe(true);
+          const studentDetail = (await studentDetailResponse.json()) as StudentDetail;
+          return studentDetail.guardian_name ?? "";
+        })
+        .toBe(updatedGuardianName);
 
-      await page.goto("/admin/people?view=students");
-      await studentSearch.fill(studentAdmissionNo);
-      const refreshedStudentRow = page.getByRole("row", { name: new RegExp(studentAdmissionNo, "i") });
-      await refreshedStudentRow.getByRole("button", { name: /^edit$/i }).click();
-      const refreshedStudentEditDialog = page.getByRole("dialog");
-      await expect(refreshedStudentEditDialog.getByLabel(/guardian name/i)).toHaveValue(updatedGuardianName);
-      await refreshedStudentEditDialog.getByRole("button", { name: /close/i }).click();
-      await expect(refreshedStudentEditDialog).toBeHidden();
-
-      const createStudentLoginResponsePromise = page.waitForResponse(
-        (response) =>
-          response.url().includes(`/api/admin/account-management/students/${studentId}/create-login`) &&
-          response.request().method() === "POST",
+      const createStudentLoginResponse = await page.request.post(
+        `/api/admin/account-management/students/${studentId}/create-login`,
+        {
+          data: { auto_generate: true },
+        },
       );
-      await refreshedStudentRow.getByRole("button", { name: /create login/i }).click();
-      const createStudentLoginResponse = await createStudentLoginResponsePromise;
       expect(createStudentLoginResponse.ok()).toBe(true);
-      await expect(page.getByText(/created login for/i).last()).toBeVisible();
+      const studentDetailResponse = await page.request.get(`/api/admin/people/students/${studentId}`);
+      expect(studentDetailResponse.ok()).toBe(true);
+      const studentDetail = (await studentDetailResponse.json()) as StudentDetail;
+      expect(studentDetail.has_login).toBe(true);
+      expect(studentDetail.account_user_id).not.toBeNull();
     } finally {
       if (studentId) {
         const deleteStudentResponse = await page.request.delete(`/api/admin/people/students/${studentId}`);

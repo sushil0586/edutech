@@ -90,11 +90,19 @@ export default function AttemptReviewScreen() {
             <View style={appStyles.rowWrap}>
               <ActionButton
                 label="Back to Summary"
+                testID="attempt-review-back-summary-button"
                 onPress={() => router.replace(`/(attempt)/summary/${review.id}`)}
+              />
+              <ActionButton
+                label="Open Results"
+                tone="secondary"
+                testID="attempt-review-open-results-button"
+                onPress={() => router.replace("../../results")}
               />
               <ActionButton
                 label="Open Analytics"
                 tone="secondary"
+                testID="attempt-review-open-analytics-button"
                 onPress={() => router.replace("/(student)/(tabs)/analytics")}
               />
             </View>

@@ -1,0 +1,107 @@
+name: Edutech Web Playwright Regression
+
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: "Which regression suite to run"
+        required: false
+        default: "baseline"
+        type: choice
+        options:
+          - baseline
+          - smoke
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - "edutech_web/**"
+      - ".github/workflows/edutech-web-playwright-regression.yml"
+  schedule:
+    - cron: "30 2 * * *"
+
+concurrency:
+  group: edutech-web-playwright-regression-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: edutech_web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve regression environment
+        id: regression-env
+        shell: bash
+        run: |
+          if [ -z "${{ secrets.PLAYWRIGHT_BASE_URL }}" ]; then
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Skipping Playwright regression run because PLAYWRIGHT_BASE_URL is not configured."
+          else
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "suite=${{ inputs.suite }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "suite=baseline" >> "$GITHUB_OUTPUT"
+          else
+            echo "suite=baseline" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Node
+        if: steps.regression-env.outputs.should_run == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: edutech_web/package-lock.json
+
+      - name: Install dependencies
+        if: steps.regression-env.outputs.should_run == 'true'
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        if: steps.regression-env.outputs.should_run == 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Run regression suite
+        if: steps.regression-env.outputs.should_run == 'true'
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ secrets.PLAYWRIGHT_BASE_URL }}
+          PLAYWRIGHT_WORKERS: "1"
+          PLAYWRIGHT_INSTITUTE_USERNAME: ${{ secrets.PLAYWRIGHT_INSTITUTE_USERNAME }}
+          PLAYWRIGHT_INSTITUTE_PASSWORD: ${{ secrets.PLAYWRIGHT_INSTITUTE_PASSWORD }}
+          PLAYWRIGHT_TEACHER_USERNAME: ${{ secrets.PLAYWRIGHT_TEACHER_USERNAME }}
+          PLAYWRIGHT_TEACHER_PASSWORD: ${{ secrets.PLAYWRIGHT_TEACHER_PASSWORD }}
+          PLAYWRIGHT_STUDENT_USERNAME: ${{ secrets.PLAYWRIGHT_STUDENT_USERNAME }}
+          PLAYWRIGHT_STUDENT_PASSWORD: ${{ secrets.PLAYWRIGHT_STUDENT_PASSWORD }}
+        shell: bash
+        run: |
+          case "${{ steps.regression-env.outputs.suite }}" in
+            smoke)
+              npm run test:e2e:smoke
+              ;;
+            baseline)
+              npm run test:e2e:baseline
+              ;;
+            *)
+              echo "Unknown regression suite: ${{ steps.regression-env.outputs.suite }}" >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Upload Playwright report
+        if: always() && steps.regression-env.outputs.should_run == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: edutech-web-playwright-regression-report
+          path: |
+            edutech_web/playwright-report
+            edutech_web/test-results
+          if-no-files-found: ignore

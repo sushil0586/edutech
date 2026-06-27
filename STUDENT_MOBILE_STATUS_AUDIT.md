@@ -23,13 +23,16 @@ It already contains a real student lane with:
 3. secure session persistence
 4. role gate
 5. student dashboard
-6. exam detail
-7. live attempt flow
-8. attempt summary
-9. attempt review
-10. analytics
-11. profile
-12. logout
+6. exams lane
+7. attempts lane
+8. results lane
+9. exam detail
+10. live attempt flow
+11. attempt summary
+12. attempt review
+13. analytics
+14. profile
+15. logout
 
 ## Current Verdict
 
@@ -62,6 +65,9 @@ Auth:
 Student shell:
 
 - `/(student)/(tabs)/dashboard`
+- `/(student)/(tabs)/exams`
+- `/(student)/(tabs)/attempts`
+- `/(student)/(tabs)/results`
 - `/(student)/(tabs)/analytics`
 - `/(student)/(tabs)/profile`
 - `/(student)/exam/[examId]`
@@ -107,6 +113,11 @@ Analytics:
 - `GET /api/v1/student/results/`
 - `GET /api/v1/results/topic-performance/?student={studentId}`
 
+Results and post-submit follow-up:
+
+- `GET /api/v1/student/results/`
+- result visibility and review availability are used by the results and attempts lanes for summary/review handoffs
+
 ## What Is Strong Already
 
 ## 1. Student Flow Coverage
@@ -116,14 +127,17 @@ A student can already do the main journey:
 1. register
 2. log in
 3. open dashboard
-4. view available exams
-5. open an exam
-6. start or resume attempt
-7. answer questions
-8. submit
-9. see summary
-10. review answers
-11. open analytics
+4. browse exams
+5. reopen active attempts
+6. inspect completed attempts
+7. open an exam
+8. start or resume attempt
+9. answer questions
+10. submit
+11. see summary
+12. review answers
+13. inspect results
+14. open analytics
 
 This is a very solid base.
 
@@ -141,10 +155,26 @@ It already shows:
 - locked exams
 - recommended exam
 - subject lane switching
+- subject-scoped exam recommendations that now match the active lane
 
 This makes it useful for a real student session.
 
-## 3. Attempt Runtime Is Substantial
+## 3. Exam-Centered Lanes Exist
+
+The student shell is no longer just dashboard plus analytics.
+
+It now includes:
+
+- dedicated exams lane
+- dedicated attempts lane
+- dedicated results lane
+- exam search and state filters
+- active versus completed attempt separation
+- pending publication versus review-ready result separation
+
+That makes the mobile app a more truthful student exam companion, not only a dashboard wrapper.
+
+## 4. Attempt Runtime Is Substantial
 
 The attempt screen already supports:
 
@@ -158,10 +188,12 @@ The attempt screen already supports:
 - clear response
 - save answer
 - submit attempt
+- previous and next question controls for smaller screens
+- clearer current-question progress inside the active section
 
 This is one of the strongest parts of the current mobile build.
 
-## 4. Review Flow Exists
+## 5. Review Flow Exists
 
 The review screen is implemented.
 
@@ -176,7 +208,7 @@ It already handles:
 
 This is important because some earlier docs still describe review as pending.
 
-## 5. Session Architecture Is Good
+## 6. Session Architecture Is Good
 
 The app uses:
 
@@ -219,16 +251,16 @@ The app is functional, but students need cleaner feedback for:
 
 Right now this appears more developer-correct than learner-friendly.
 
-## 3. Analytics Needs Another Pass
+## 3. Device QA And Final Interaction Polish Need Another Pass
 
-Analytics is working, but compared with the web experience it still feels lighter and more utilitarian.
+The app is now broad enough in the exam journey that the main remaining risk is device confidence rather than missing screens.
 
-Student mobile should eventually emphasize:
+Student mobile still needs:
 
-- trend clarity
-- weak-topic actions
-- recent exam insights
-- next recommended practice steps
+- small-screen exam runtime validation
+- long-attempt comfort checks
+- weak-network validation on exams, attempts, results, and analytics
+- final spacing and action-hierarchy polish on real devices
 
 ## 4. Loading, Empty, and Error States Need Final Polish
 
@@ -236,6 +268,9 @@ The app has state handling in many places, but the student experience still need
 
 - slow network
 - no available exams
+- no matching exams after filters
+- no active attempts
+- no completed attempts
 - no results yet
 - empty review data
 - expired session
@@ -248,8 +283,8 @@ Current repo docs understate what is already implemented.
 
 For example:
 
-- `nexora_student_mobile/README.md` still lists only dashboard, exam detail, live attempt, and analytics
-- `NEXORA_STUDENT_MOBILE_PENDING_GAP_ANALYSIS.md` still says review screen is not implemented
+- older planning docs still describe the app as only dashboard, exam detail, live attempt, and analytics
+- newer exams, attempts, results, and truthfulness work must stay reflected in planning and QA documents
 
 This can cause confusion when planning next work.
 
@@ -257,24 +292,26 @@ This can cause confusion when planning next work.
 
 If we continue student-mobile work, the recommended order should be:
 
-1. improve registration UX
-2. do a full student loading/error/empty-state pass
-3. tighten analytics presentation
-4. test the entire student exam journey on device
-5. then consider broader mobile expansion
+1. test the full exam-first student journey on device
+2. do a full loading/error/empty-state pass on the implemented lanes
+3. improve registration UX
+4. then consider broader mobile expansion
 
 ## Suggested Immediate Next Build
 
 Best next task:
 
-Convert student registration into a proper guided mobile form using backend options for:
+Run the real-device QA checklist specifically against:
 
-- institute/school code
-- class level
-- board
-- exam interest
+- exams
+- attempts
+- results
+- live runtime
+- summary
+- review
+- analytics
 
-This will give the student app a much more production-like first impression.
+This will tell us whether the current exam-first mobile surface is beta-ready in practice, not only in code.
 
 ## Final Verdict
 

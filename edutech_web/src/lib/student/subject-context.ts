@@ -29,6 +29,20 @@ export type StudentTeacherSourceOption = {
   name: string;
 };
 
+type SubjectSummaryCarrier = {
+  subject_name?: string | null;
+  primary_subject_name?: string | null;
+  section_subjects?: Array<{
+    name?: string | null;
+  }> | null;
+  subject_summary?: {
+    display_label?: string | null;
+    subjects?: Array<{
+      name?: string | null;
+    }> | null;
+  } | null;
+};
+
 type StudentProfileWorkspaceContext = {
   student_context?: {
     subject_options?: StudentSubjectOption[] | null;
@@ -210,6 +224,48 @@ export function matchesSelectedSubject(
   return normalizeContextValue(subjectName) === normalizeContextValue(selectedSubject);
 }
 
+function appendUniqueSubjectName(target: string[], seen: Set<string>, value?: string | null) {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return;
+  }
+
+  const normalized = normalizeContextValue(trimmed);
+  if (seen.has(normalized)) {
+    return;
+  }
+
+  seen.add(normalized);
+  target.push(trimmed);
+}
+
+export function getExamSubjectNames(exam: SubjectSummaryCarrier) {
+  const names: string[] = [];
+  const seen = new Set<string>();
+
+  appendUniqueSubjectName(names, seen, exam.subject_name);
+  appendUniqueSubjectName(names, seen, exam.primary_subject_name);
+
+  exam.subject_summary?.subjects?.forEach((subject) => {
+    appendUniqueSubjectName(names, seen, subject?.name);
+  });
+
+  exam.section_subjects?.forEach((subject) => {
+    appendUniqueSubjectName(names, seen, subject?.name);
+  });
+
+  return names;
+}
+
+export function getExamSubjectDisplayLabel(exam: SubjectSummaryCarrier) {
+  const summaryLabel = exam.subject_summary?.display_label?.trim();
+  if (summaryLabel) {
+    return summaryLabel;
+  }
+
+  return getExamSubjectNames(exam)[0] ?? "Subject pending";
+}
+
 export function matchesSelectedSource(
   record: {
     source_type: string;
@@ -268,6 +324,16 @@ export function filterStudentSummaryBySubject<T extends {
     source_teacher_id?: string | null;
     source_teacher_name: string | null;
     subject_name: string | null;
+    primary_subject_name?: string | null;
+    section_subjects?: Array<{
+      name?: string | null;
+    }> | null;
+    subject_summary?: {
+      display_label?: string | null;
+      subjects?: Array<{
+        name?: string | null;
+      }> | null;
+    } | null;
   }>;
   source_breakdown: Array<{
     source_type: string;
@@ -372,7 +438,9 @@ export function filterStudentSummaryBySubject<T extends {
   return {
     ...summary,
     recent_exams: summary.recent_exams.filter((exam) =>
-      exam.subject_name ? matchesSelectedSubject(exam.subject_name, selectedSubject) : false,
+      getExamSubjectNames(exam).some((subjectName) =>
+        matchesSelectedSubject(subjectName, selectedSubject),
+      ),
     ) as T["recent_exams"],
     source_breakdown: sourceBreakdown,
     source_subject_breakdown: scopedSourceSubjectBreakdown,
@@ -424,14 +492,16 @@ export function filterStudentSummaryBySource<T extends {
 }
 
 export function filterStudentExamsBySubject<
-  T extends { subject_name: string | null },
+  T extends SubjectSummaryCarrier,
 >(exams: T[], selectedSubject: string) {
   if (isOverallSubjectContext(selectedSubject)) {
     return exams;
   }
 
   return exams.filter((exam) =>
-    exam.subject_name ? matchesSelectedSubject(exam.subject_name, selectedSubject) : false,
+    getExamSubjectNames(exam).some((subjectName) =>
+      matchesSelectedSubject(subjectName, selectedSubject),
+    ),
   );
 }
 
@@ -448,8 +518,81 @@ export function filterStudentRecordsBySource<
 }
 
 export function getMetadataSubjectName(metadata: Record<string, unknown>) {
+  const displayLabel = getMetadataSubjectDisplayLabel(metadata);
+  return displayLabel === "Subject pending" ? "" : displayLabel;
+}
+
+export function getMetadataSubjectNames(metadata: Record<string, unknown>) {
+  const names: string[] = [];
+  const seen = new Set<string>();
+
   const subjectName = metadata.subject_name;
-  return typeof subjectName === "string" ? subjectName.trim() : "";
+  appendUniqueSubjectName(names, seen, typeof subjectName === "string" ? subjectName : null);
+
+  const primarySubjectName = metadata.primary_subject_name;
+  appendUniqueSubjectName(
+    names,
+    seen,
+    typeof primarySubjectName === "string" ? primarySubjectName : null,
+  );
+
+  const subjectSummary = metadata.subject_summary;
+  if (subjectSummary && typeof subjectSummary === "object") {
+    const displayLabel = (subjectSummary as { display_label?: unknown }).display_label;
+    if (typeof displayLabel === "string" && displayLabel.includes("+")) {
+      // Prefer concrete subject names over summary labels like "Physics + Chemistry".
+    } else {
+      appendUniqueSubjectName(
+        names,
+        seen,
+        typeof displayLabel === "string" ? displayLabel : null,
+      );
+    }
+
+    const subjects = (subjectSummary as { subjects?: unknown }).subjects;
+    if (Array.isArray(subjects)) {
+      subjects.forEach((subject) => {
+        if (subject && typeof subject === "object") {
+          appendUniqueSubjectName(
+            names,
+            seen,
+            typeof (subject as { name?: unknown }).name === "string"
+              ? ((subject as { name?: string }).name ?? null)
+              : null,
+          );
+        }
+      });
+    }
+  }
+
+  const sectionSubjects = metadata.section_subjects;
+  if (Array.isArray(sectionSubjects)) {
+    sectionSubjects.forEach((subject) => {
+      if (subject && typeof subject === "object") {
+        appendUniqueSubjectName(
+          names,
+          seen,
+          typeof (subject as { name?: unknown }).name === "string"
+            ? ((subject as { name?: string }).name ?? null)
+            : null,
+        );
+      }
+    });
+  }
+
+  return names;
+}
+
+export function getMetadataSubjectDisplayLabel(metadata: Record<string, unknown>) {
+  const subjectSummary = metadata.subject_summary;
+  if (subjectSummary && typeof subjectSummary === "object") {
+    const displayLabel = (subjectSummary as { display_label?: unknown }).display_label;
+    if (typeof displayLabel === "string" && displayLabel.trim()) {
+      return displayLabel.trim();
+    }
+  }
+
+  return getMetadataSubjectNames(metadata)[0] ?? "Subject pending";
 }
 
 export function filterStudentRecordsByMetadataSubject<
@@ -460,7 +603,9 @@ export function filterStudentRecordsByMetadataSubject<
   }
 
   return records.filter((record) => {
-    const subjectName = getMetadataSubjectName(record.metadata);
-    return subjectName ? matchesSelectedSubject(subjectName, selectedSubject) : false;
+    const subjectNames = getMetadataSubjectNames(record.metadata);
+    return subjectNames.some((subjectName) =>
+      matchesSelectedSubject(subjectName, selectedSubject),
+    );
   });
 }

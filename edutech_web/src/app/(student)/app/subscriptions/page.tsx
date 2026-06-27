@@ -138,7 +138,7 @@ export default async function SubscriptionsPage({
     <div className="studentPage studentDashboardModern studentLearnerPage studentLearnerAccountPage studentLearnerSubscriptionsPage">
       <StudentPageHeader
         title="Subscriptions"
-        description="Compare recurring plans, track active subscriptions, and choose when a subscription is better than a one-time star purchase."
+        description="Compare recurring plans, track visible subscription records, and create subscription requests where the configured settlement flow supports them."
         statusLabel={
           data.source === "live"
             ? `${data.subscriptions.length} active records visible`
@@ -177,6 +177,37 @@ export default async function SubscriptionsPage({
         />
       ) : (
         <>
+          <section className="studentInsightHeroCard studentInsightHeroCardCompact">
+            <div className="studentInsightHeroCopy">
+              <span className="studentDashboardTag">Subscription State</span>
+              <strong>
+                {data.subscriptions.length
+                  ? "Recurring plans are already visible on this account"
+                  : "No active subscription is visible yet"}
+              </strong>
+              <small>
+                {subscriptionOrders.filter((order) => ["pending", "processing"].includes(order.status)).length} pending request
+                {subscriptionOrders.filter((order) => ["pending", "processing"].includes(order.status)).length === 1 ? "" : "s"} ·{" "}
+                {data.plans.reduce((count, plan) => count + plan.cycles.length, 0)} available cycle
+                {data.plans.reduce((count, plan) => count + plan.cycles.length, 0) === 1 ? "" : "s"}
+              </small>
+              <p className="sectionDescription">
+                This page is a truthful plan-selection and tracking surface. It can create real subscription order requests and show live subscription records, but final activation and credit timing still depend on the configured settlement flow.
+              </p>
+            </div>
+            <div className="studentInsightHeroActions">
+              <Link className="button buttonPrimary" href="/app/wallet">
+                Open Wallet
+              </Link>
+              <Link className="button buttonSecondary" href="/app/exams">
+                Browse Premium Exams
+              </Link>
+              <Link className="button buttonGhost" href="/app/practice">
+                Open Practice
+              </Link>
+            </div>
+          </section>
+
           <StudentKpiGrid
             items={[
               {
@@ -229,6 +260,40 @@ export default async function SubscriptionsPage({
                     <strong>One-time packs</strong>
                     <small>Use wallet packs if you only need occasional premium unlocks.</small>
                   </article>
+                </div>
+              </section>
+
+              <section className="contentCard">
+                <div className="sectionHeading">
+                  <strong>What This Page Can And Cannot Do</strong>
+                </div>
+                <div className="detailGrid">
+                  <article className="detailCard">
+                    <span>Visible here</span>
+                    <strong>Plan comparison</strong>
+                    <small>Review real cycles, recurring intervals, and configured star-credit rules from the backend.</small>
+                  </article>
+                  <article className="detailCard">
+                    <span>Visible here</span>
+                    <strong>Request tracking</strong>
+                    <small>See whether a chosen plan is still only requested, already processed, or linked to wallet credit activity.</small>
+                  </article>
+                  <article className="detailCard">
+                    <span>Not guaranteed here</span>
+                    <strong>Immediate activation</strong>
+                    <small>Choosing a plan does not promise instant subscription activation or instant wallet credit.</small>
+                  </article>
+                  <article className="detailCard">
+                    <span>Best next route</span>
+                    <strong>Wallet or premium content</strong>
+                    <small>Use wallet to compare one-time value, then return to exams or practice when you are ready to spend stars.</small>
+                  </article>
+                </div>
+                <div className="studentInsightMessageStack">
+                  <div className="studentInsightMessage">
+                    <span className="placeholderDot" aria-hidden="true" />
+                    <p>A safe order is: compare cycles here, confirm whether a request is still pending or already credited, then go back to wallet, exams, or practice to use the resulting value.</p>
+                  </div>
                 </div>
               </section>
 
@@ -389,6 +454,12 @@ export default async function SubscriptionsPage({
                   Review the available cycles and choose the plan that matches how often you expect
                   to unlock premium content.
                 </p>
+                <div className="studentInsightMessageStack">
+                  <div className="studentInsightMessage">
+                    <span className="placeholderDot" aria-hidden="true" />
+                    <p>Choosing a plan here creates a real request, but activation and wallet credit still depend on the configured settlement flow.</p>
+                  </div>
+                </div>
                 <div className="dashboardRailStack">
                   {data.plans.map((plan) => (
                     <div className="dashboardOfferCard" key={plan.id}>
@@ -412,7 +483,7 @@ export default async function SubscriptionsPage({
                                   )}
                                 </span>
                               </div>
-                              <form action={createSubscriptionOrderAction}>
+                          <form action={createSubscriptionOrderAction}>
                                 <input
                                   name="subscription_plan_cycle_id"
                                   type="hidden"
@@ -420,7 +491,7 @@ export default async function SubscriptionsPage({
                                 />
                                 <ActionSubmitButton
                                   className="button buttonPrimary"
-                                  idleLabel="Choose Plan"
+                                  idleLabel="Request Plan"
                                   pendingLabel="Creating..."
                                 />
                               </form>

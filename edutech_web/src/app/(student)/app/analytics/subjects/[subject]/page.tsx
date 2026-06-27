@@ -148,7 +148,14 @@ export default async function StudentAnalyticsSubjectPage({
         ]}
         actions={
           <>
-            <Link className="button buttonPrimary" href={buildAnalyticsActionsHref({ subject })}>
+            <Link
+              className="button buttonPrimary"
+              href={buildAnalyticsActionsHref({
+                subject,
+                source: query.source ?? null,
+                teacher: query.teacher ?? null,
+              })}
+            >
               Open Action Center
             </Link>
             <Link className="button buttonSecondary" href={`/app/practice?subject=${encodeURIComponent(subject)}`}>

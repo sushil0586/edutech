@@ -52,6 +52,7 @@ from apps.results.serializers import (
 )
 from apps.reports.models import AuditLog
 from apps.results.services import (
+    build_result_publish_readiness,
     calculate_exam_performance_summary,
     calculate_exam_ranks,
     ensure_attempt_can_be_force_submitted,
@@ -253,6 +254,24 @@ class ExamResultViewSet(ModelViewSet):
         return action_response(
             data=ExamResultSerializer(results, many=True).data,
             message="Exam results published successfully.",
+            status_code=status.HTTP_200_OK,
+        )
+
+    @action(detail=False, methods=["get"], url_path=r"exam/(?P<exam_id>[^/.]+)/publish-readiness")
+    def publish_readiness(self, request, exam_id=None):
+        try:
+            exam = get_scoped_object_or_403(
+                scope_exam_queryset(Exam.objects.all(), request.user),
+                user=request.user,
+                value=exam_id,
+                not_found_message="Exam not found in your scope.",
+            )
+        except PermissionDenied as exc:
+            return Response({"exam": str(exc)}, status=status.HTTP_403_FORBIDDEN)
+
+        return action_response(
+            data=build_result_publish_readiness(exam),
+            message="Result publish readiness evaluated successfully.",
             status_code=status.HTTP_200_OK,
         )
 

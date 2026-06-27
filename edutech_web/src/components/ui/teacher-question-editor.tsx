@@ -139,6 +139,29 @@ function normalizeInitialRubricCriteria(criteria?: TeacherQuestionRubricCriterio
     }));
 }
 
+function summarizeQuestionFamilyScoring(scoringDefaults: Record<string, unknown> | null | undefined) {
+  if (!scoringDefaults || typeof scoringDefaults !== "object") {
+    return "Standard positive scoring is assumed unless the program defines a stronger exam-family contract.";
+  }
+
+  const negativeMarkingEnabled = Boolean(scoringDefaults.negative_marking_default);
+  const supportsNumericEntry = Boolean(scoringDefaults.supports_numeric_entry);
+  const supportsPartialScoring = Boolean(scoringDefaults.supports_partial_scoring);
+  const attemptPolicy =
+    typeof scoringDefaults.recommended_attempt_policy === "string"
+      ? String(scoringDefaults.recommended_attempt_policy).replaceAll("_", " ")
+      : "";
+
+  return [
+    negativeMarkingEnabled ? "Negative marking is part of the default scoring posture." : "Negative marking is usually off for this family.",
+    supportsNumericEntry ? "Numeric-entry authoring is expected where the syllabus needs it." : "",
+    supportsPartialScoring ? "Partial scoring can be relevant for supported question types." : "",
+    attemptPolicy ? `Most linked exams will lean toward ${attemptPolicy} attempts.` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
 export function TeacherQuestionEditor({
   action,
   headerEyebrow = "Teacher workspace",
@@ -188,6 +211,7 @@ export function TeacherQuestionEditor({
   const [topicId, setTopicId] = useState(initialQuestion?.topic ?? "");
   const [passageId, setPassageId] = useState(initialQuestion?.passage ?? "");
   const [defaultMarksValue, setDefaultMarksValue] = useState(initialQuestion?.default_marks ?? "1.00");
+  const [negativeMarksValue, setNegativeMarksValue] = useState(initialQuestion?.negative_marks ?? "0.00");
   const [options, setOptions] = useState<EditableOption[]>(
     normalizeInitialOptions(initialQuestionTypeDefinition, initialQuestion?.options),
   );
@@ -197,7 +221,6 @@ export function TeacherQuestionEditor({
   const questionTypeDefinition = getQuestionTypeDefinition(questionType, questionTypeDefinitions);
   const hasOptions = questionTypeSupportsOptions(questionTypeDefinition);
   const supportsMultipleSelection = questionTypeSupportsMultipleSelection(questionTypeDefinition);
-  const isTrueFalse = questionTypeIsTrueFalse(questionTypeDefinition);
   const presentationProfile = buildQuestionTypePresentationProfile(questionTypeDefinition);
   const programError = getQuestionBankFieldError(validationErrors, "program");
   const subjectError = getQuestionBankFieldError(validationErrors, "subject");
@@ -221,6 +244,56 @@ export function TeacherQuestionEditor({
   const negativeMarksError = getQuestionBankFieldError(validationErrors, "negative_marks");
   const generalErrors = getQuestionBankGeneralErrors(validationErrors);
   const fieldErrorEntries = getQuestionBankFieldErrorEntries(validationErrors);
+  const selectedProgramRecord = useMemo(
+    () => programs.find((program) => program.id === programId) ?? null,
+    [programId, programs],
+  );
+  const selectedProgramFamilyProfile = selectedProgramRecord?.assessment_family_profile ?? null;
+  const allowedQuestionTypeCodes = useMemo(
+    () => selectedProgramFamilyProfile?.allowed_question_types ?? [],
+    [selectedProgramFamilyProfile],
+  );
+  const allowedQuestionTypeSet = useMemo(
+    () => new Set(allowedQuestionTypeCodes),
+    [allowedQuestionTypeCodes],
+  );
+  const filteredQuestionTypeOptions = useMemo(() => {
+    if (!allowedQuestionTypeSet.size) {
+      return questionTypeOptions;
+    }
+
+    const allowedOptions = questionTypeOptions.filter(
+      (option) => option.value && allowedQuestionTypeSet.has(option.value),
+    );
+    if (allowedOptions.some((option) => option.value === questionType)) {
+      return allowedOptions;
+    }
+
+    const currentDefinition = getQuestionTypeDefinition(questionType, questionTypeDefinitions);
+    if (!questionType) {
+      return allowedOptions;
+    }
+
+    return [
+      {
+        value: questionType,
+        label: currentDefinition
+          ? `${currentDefinition.label} (current selection outside family default)`
+          : `${questionType} (current selection outside family default)`,
+      },
+      ...allowedOptions,
+    ];
+  }, [allowedQuestionTypeSet, questionType, questionTypeDefinitions, questionTypeOptions]);
+  const familyQuestionTypeDefinitions = useMemo(() => {
+    if (!allowedQuestionTypeSet.size) {
+      return [] as TeacherQuestionTypeDefinition[];
+    }
+    return questionTypeDefinitions.filter((definition) => allowedQuestionTypeSet.has(definition.code));
+  }, [allowedQuestionTypeSet, questionTypeDefinitions]);
+  const questionTypeAllowedForFamily = !allowedQuestionTypeSet.size || allowedQuestionTypeSet.has(questionType);
+  const negativeMarkingDefault = Boolean(selectedProgramFamilyProfile?.scoring_defaults?.negative_marking_default);
+  const numericEntryExpected = Boolean(selectedProgramFamilyProfile?.scoring_defaults?.supports_numeric_entry);
+  const selectedTypeIsNumeric = Boolean(questionTypeDefinition?.capabilities?.is_numeric_response);
 
   const subjectOptions = useMemo(() => {
     if (!programId) {
@@ -619,16 +692,21 @@ export function TeacherQuestionEditor({
                 <select
                   aria-invalid={Boolean(questionTypeError)}
                   className={questionTypeError ? "setupFieldInvalid" : undefined}
-                  defaultValue={initialQuestionType}
+                  value={questionType}
                   name="question_type"
                   onChange={(event) => syncOptions(event.target.value)}
                 >
-                  {questionTypeOptions.map((option) => (
+                  {filteredQuestionTypeOptions.map((option) => (
                     <option key={option.value || "blank"} value={option.value}>
                       {option.label}
                     </option>
                   ))}
                 </select>
+                <small>
+                  {selectedProgramFamilyProfile
+                    ? `Question types are filtered to the ${selectedProgramFamilyProfile.label} family contract.`
+                    : "Choose the response pattern that best matches how the learner should answer."}
+                </small>
                 {questionTypeError ? <small className="setupFieldError">{questionTypeError}</small> : null}
               </label>
 
@@ -667,6 +745,24 @@ export function TeacherQuestionEditor({
                 {contentFormatError ? <small className="setupFieldError">{contentFormatError}</small> : null}
               </label>
             </div>
+
+            {selectedProgramFamilyProfile ? (
+              <div className="builderEmptyState">
+                <strong>{selectedProgramFamilyProfile.label} family guidance</strong>
+                <p>{selectedProgramFamilyProfile.description}</p>
+                <small>{summarizeQuestionFamilyScoring(selectedProgramFamilyProfile.scoring_defaults)}</small>
+                {familyQuestionTypeDefinitions.length ? (
+                  <small>
+                    Allowed types: {familyQuestionTypeDefinitions.map((definition) => definition.label).join(", ")}.
+                  </small>
+                ) : null}
+                {!questionTypeAllowedForFamily ? (
+                  <small className="setupFieldError">
+                    The current question type sits outside this family contract. Keep it only if this question is intentionally exceptional.
+                  </small>
+                ) : null}
+              </div>
+            ) : null}
           </section>
 
           <section className="builderSectionCard">
@@ -802,15 +898,35 @@ export function TeacherQuestionEditor({
                 <input
                   aria-invalid={Boolean(negativeMarksError)}
                   className={negativeMarksError ? "setupFieldInvalid" : undefined}
-                  defaultValue={initialQuestion?.negative_marks ?? "0.00"}
                   min="0"
                   name="negative_marks"
+                  onChange={(event) => setNegativeMarksValue(event.target.value)}
                   step="0.01"
                   type="number"
+                  value={negativeMarksValue}
                 />
+                <small>
+                  {selectedProgramFamilyProfile
+                    ? negativeMarkingDefault
+                      ? "This family usually expects negative marking on objective questions."
+                      : "This family usually avoids negative marking unless the exam intentionally diverges."
+                    : "Set the penalty only when the downstream exam policy requires it."}
+                </small>
                 {negativeMarksError ? <small className="setupFieldError">{negativeMarksError}</small> : null}
               </label>
             </div>
+
+            {selectedProgramFamilyProfile && questionTypeDefinition?.supports_negative_marking === false && Number(negativeMarksValue || 0) > 0 ? (
+              <p className="feedbackBanner feedbackBannerError">
+                {questionTypeDefinition.label} does not support negative marking, but a penalty is currently set.
+              </p>
+            ) : null}
+
+            {selectedProgramFamilyProfile && negativeMarkingDefault && Number(negativeMarksValue || 0) <= 0 && questionTypeDefinition?.supports_negative_marking ? (
+              <p className="feedbackBanner">
+                This family usually uses negative marking. Leaving it at zero is fine only if this question is for a no-penalty section.
+              </p>
+            ) : null}
 
             <div className="toggleGrid">
               <label><input defaultChecked={initialQuestion?.is_active ?? true} name="is_active" type="checkbox" /> Active</label>
@@ -833,6 +949,11 @@ export function TeacherQuestionEditor({
                   Answer mode: {questionTypeDefinition.answer_mode.replaceAll("_", " ")}. Evaluation:{" "}
                   {questionTypeDefinition.evaluation_mode.replaceAll("_", " ")}.
                 </small>
+                {numericEntryExpected && !selectedTypeIsNumeric ? (
+                  <small>
+                    This program family often needs numeric-entry support. Switch to a numeric response type when the exam pattern calls for exact-number solving.
+                  </small>
+                ) : null}
               </div>
             ) : null}
           </section>

@@ -41,7 +41,10 @@ test.describe("Student smoke journeys", () => {
       await expect(page.getByRole("heading", { name: /enter exam key/i }).first()).toBeVisible();
       await page.goto("/app/exams");
     }
-    await page.getByRole("link", { name: /open practice/i }).click();
+    const practiceEntry = (await page.getByRole("link", { name: /open practice/i }).count())
+      ? page.getByRole("link", { name: /open practice/i }).first()
+      : page.getByRole("link", { name: /^practice$/i }).first();
+    await practiceEntry.click();
 
     await expect(page).toHaveURL(/\/app\/practice/);
     await expect(page.getByRole("heading", { name: /^practice$/i }).first()).toBeVisible();
@@ -113,7 +116,7 @@ test.describe("Student smoke journeys", () => {
       await expect(page.getByText(/group: source/i)).toBeVisible();
       await page.getByRole("link", { name: /reset filters/i }).click();
       await expect(page).not.toHaveURL(/result_group=source/);
-      await expect(page.getByRole("link", { name: /view analytics/i })).toBeVisible();
+      await expect(page.getByRole("link", { name: /view analytics/i }).first()).toBeVisible();
     }
     await expectOneOf(
       page.getByRole("link", { name: /open exams/i }),
@@ -147,7 +150,7 @@ test.describe("Student smoke journeys", () => {
       await expect(page.getByText(/group: status/i)).toBeVisible();
       await page.getByRole("link", { name: /reset filters/i }).click();
       await expect(page).not.toHaveURL(/attempt_group=status/);
-      await expect(page.getByRole("link", { name: /open practice/i })).toBeVisible();
+      await expect(page.getByRole("link", { name: /open practice/i }).first()).toBeVisible();
     }
     await expectOneOf(
       page.getByRole("link", { name: /open exams/i }),

@@ -116,6 +116,18 @@ The teacher module can be considered QA-complete when:
 - no page overpromises data or actions that the backend does not support
 - `npm run verify:student` passes successfully in `edutech_web`
 
+## Phase 2 Release Gate Alignment
+
+This checklist is the execution artifact for the teacher and pilot hardening wave in [PHASE_2_TEACHER_PILOT_HARDENING_BACKLOG.md](/Users/ansh/Documents/Eductech/PHASE_2_TEACHER_PILOT_HARDENING_BACKLOG.md:1).
+
+The manual sign-off is only complete when these five release-gate statements are true:
+
+- teacher exam creation and builder flows feel reliable in live usage
+- result readiness and publication states are understandable from the UI alone
+- assignment, accommodation, and monitoring flows remain truthful
+- role boundaries do not leak across teacher-facing workflows
+- manual and automated evidence both exist for pilot-critical paths
+
 ## Test Matrix
 
 Validate these state combinations during QA:
@@ -134,6 +146,36 @@ Validate these state combinations during QA:
 | No question bank data | Empty-state guidance instead of broken filters |
 | Import template unavailable | Import route explains dependency failure |
 | Live monitor unavailable | Results page still renders partial analytics truthfully |
+
+## Execution Notes
+
+Use these rules while running the browser pass:
+
+- mark a route `pass` only when both the normal flow and the relevant empty, blocked, or partial-data state were exercised
+- mark a route `partial` when the UI is acceptable but one required backend state could not be created or verified
+- mark a route `fail` when the state is broken, misleading, or blocked by a product defect
+- capture exact exam, route, and backend state in notes whenever a route is `partial` or `fail`
+- when required seeded data is missing, record that as a setup gap instead of silently skipping the route
+
+## Route Sign-Off Tracker
+
+Fill this table during the pass:
+
+| Route area | Primary route(s) | Required state coverage | Status | Notes / evidence |
+| --- | --- | --- | --- | --- |
+| Login and session | `/login`, protected teacher routes | login, refresh persistence, logout, expired session redirect | `not run` | |
+| Dashboard | `/teacher/dashboard` | loaded KPIs, hero actions, sparse data state, empty data state | `not run` | |
+| Exams list | `/teacher/exams` | draft exam, scheduled or live exam, lifecycle CTAs, empty state | `not run` | |
+| Create exam | `/teacher/exams/new` | live scope lookups, save, redirect to builder | `not run` | |
+| Exam detail | `/teacher/exams/[examId]` | lifecycle actions, access key controls, history updates | `not run` | |
+| Exam builder | `/teacher/exams/[examId]/builder` | settings save, section add/remove, attach, bulk attach, inline link edits | `not run` | |
+| Assignment and accommodation | builder assignment area | assignment mode, persistence, accommodation save, empty student scope | `not run` | |
+| Question bank | `/teacher/question-bank` | filters, bulk action, stable list behavior, empty state | `not run` | |
+| Question create and edit | `/teacher/question-bank/new`, detail route | create, edit, save, duplicate behavior | `not run` | |
+| Tags and attachments | question detail route | tag add/remove, upload, preview, remove | `not run` | |
+| Import questions | `/teacher/question-bank/import` | valid CSV, preview, finalize, invalid CSV behavior | `not run` | |
+| Results workspace | `/teacher/results` | no summary, awaiting completion, ready to publish, published | `not run` | |
+| Monitoring and intervention | `/teacher/results` | monitor KPIs, attempt detail, intervention note, force-submit truth | `not run` | |
 
 ## Route Checklist
 
@@ -394,21 +436,36 @@ Pay extra attention to these known-risk areas:
 - results screens hiding exams that have no summary yet
 - question import preview and finalize disagreeing on payload validity
 - teacher pages reverting to inconsistent pre-student-style layout patterns
+- assignment or accommodation counts drifting between exams list, detail, and builder
+- monitoring views sounding definitive when the backend only has partial attempt telemetry
 
 ## Sign-Off Template
 
 Use this format when signing off:
 
+- QA date:
 - Environment tested:
 - Backend branch or commit:
 - Frontend branch or commit:
-- Teacher routes covered:
-- Exam builder:
-- Assignment and accommodation:
-- Question bank:
-- Question import:
-- Results and monitoring:
 - Verification run:
+- Login/session: `pass` / `partial` / `fail`
+- Dashboard: `pass` / `partial` / `fail`
+- Exams list: `pass` / `partial` / `fail`
+- Create exam: `pass` / `partial` / `fail`
+- Exam detail: `pass` / `partial` / `fail`
+- Exam builder: `pass` / `partial` / `fail`
+- Assignment and accommodation: `pass` / `partial` / `fail`
+- Question bank: `pass` / `partial` / `fail`
+- Question create and edit: `pass` / `partial` / `fail`
+- Tags and attachments: `pass` / `partial` / `fail`
+- Question import: `pass` / `partial` / `fail`
+- Results workspace: `pass` / `partial` / `fail`
+- Monitoring and intervention: `pass` / `partial` / `fail`
+- Release-gate check, builder flows feel reliable: `yes` / `no`
+- Release-gate check, result readiness is understandable: `yes` / `no`
+- Release-gate check, assignment and monitoring remain truthful: `yes` / `no`
+- Release-gate check, role boundaries hold: `yes` / `no`
+- Release-gate check, manual and automated evidence both exist: `yes` / `no`
 - Blocking issues:
 - Follow-up fixes needed:
 - Final recommendation:

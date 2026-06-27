@@ -11,6 +11,7 @@ import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { TeacherRubricReviewFields } from "@/components/ui/teacher-rubric-review-fields";
 import { TeacherPageHeader } from "@/components/ui/teacher-page-header";
 import type {
+  ReadinessIssue,
   TeacherQuestionAnalysisPage,
   TeacherResultSummary,
 } from "@/features/dashboard/types";
@@ -21,10 +22,12 @@ import {
   fetchTeacherAttemptInterventions,
   fetchTeacherAttemptQuestionAnalysis,
   fetchTeacherExamAttemptPage,
+  fetchTeacherExamPublishReadiness,
   fetchTeacherExamLeaderboard,
   fetchTeacherExams,
   fetchTeacherLiveExamMonitor,
   fetchTeacherQuestionAnalysis,
+  fetchTeacherResultPublishReadiness,
   fetchTeacherResultSummary,
   fetchTeacherTopicPerformance,
   forceSubmitTeacherAttempt,
@@ -153,6 +156,17 @@ type ResultReadinessSnapshot = {
   blockers: string[];
   pendingDependencies: string[];
   readySignals: string[];
+};
+
+type ReadinessPanel = {
+  title: string;
+  summary: string;
+  ready: boolean;
+  blockerCount: number;
+  warningCount: number;
+  blockers: ReadinessIssue[];
+  warnings: ReadinessIssue[];
+  stats: string[];
 };
 
 type ResultsWorkspaceConfig = {
@@ -1234,6 +1248,26 @@ function buildResultReadinessSnapshot(args: {
   };
 }
 
+function buildReadinessPanel(args: {
+  title: string;
+  ready: boolean;
+  blockers: ReadinessIssue[];
+  warnings: ReadinessIssue[];
+  summary: string;
+  stats?: string[];
+}): ReadinessPanel {
+  return {
+    title: args.title,
+    summary: args.summary,
+    ready: args.ready,
+    blockerCount: args.blockers.length,
+    warningCount: args.warnings.length,
+    blockers: args.blockers,
+    warnings: args.warnings,
+    stats: args.stats ?? [],
+  };
+}
+
 function examPublicationState(summary: TeacherResultSummary | null) {
   if (!summary) return { label: "No summary", tone: "statusWarning" };
   if (summary.results_published) return { label: "Published", tone: "statusLive" };
@@ -2114,6 +2148,8 @@ type WorkspaceContext = {
   monitor: Awaited<ReturnType<typeof fetchTeacherLiveExamMonitor>> | null;
   readiness: ReturnType<typeof resultReadinessState>;
   readinessSnapshot: ResultReadinessSnapshot;
+  examReadinessPanel: ReadinessPanel | null;
+  resultReadinessPanel: ReadinessPanel | null;
   workflowSteps: ResultWorkflowStep[];
   recommendedWorkflowStep: ResultWorkflowStep | null;
   canRefreshLifecycle: boolean;
@@ -2515,6 +2551,8 @@ function renderOverviewView(context: WorkspaceContext) {
     selectedRecheckCount,
     latestPublishLog,
     examLifecycleStatus,
+    examReadinessPanel,
+    resultReadinessPanel,
     baseHrefArgs,
   } = context;
   const assessmentLens = resolveAssessmentAnalyticsLens(selectedExam);
@@ -2591,6 +2629,76 @@ function renderOverviewView(context: WorkspaceContext) {
         </div>
 
         <div className="teacherResultsReadinessBoard">
+          {examReadinessPanel ? (
+            <article className="teacherResultsReadinessCard">
+              <div className="teacherResultsReadinessCardTop">
+                <strong>{examReadinessPanel.title}</strong>
+                <span className={`statusPill ${examReadinessPanel.ready ? "statusLive" : "statusWarning"}`}>
+                  {examReadinessPanel.ready ? "Ready" : "Blocked"}
+                </span>
+              </div>
+              <p>{examReadinessPanel.summary}</p>
+              <div className="questionBankTagRow">
+                {examReadinessPanel.stats.map((item: string) => (
+                  <span className="questionBankTagChip" key={item}>
+                    {item}
+                  </span>
+                ))}
+              </div>
+              {examReadinessPanel.blockers.length ? (
+                <ul>
+                  {examReadinessPanel.blockers
+                    .slice(0, 3)
+                    .map((issue: ReadinessIssue) => (
+                    <li key={`exam-${issue.code}`}>{issue.code.replaceAll("_", " ")}: {issue.message}</li>
+                    ))}
+                </ul>
+              ) : (
+                <p>No backend exam-publish blocker remains for this selected exam.</p>
+              )}
+              {examReadinessPanel.warnings.length ? (
+                <p>
+                  Warning: {examReadinessPanel.warnings[0].code.replaceAll("_", " ")}. {examReadinessPanel.warnings[0].message}
+                </p>
+              ) : null}
+            </article>
+          ) : null}
+
+          {resultReadinessPanel ? (
+            <article className="teacherResultsReadinessCard teacherResultsReadinessCardReady">
+              <div className="teacherResultsReadinessCardTop">
+                <strong>{resultReadinessPanel.title}</strong>
+                <span className={`statusPill ${resultReadinessPanel.ready ? "statusLive" : "statusWarning"}`}>
+                  {resultReadinessPanel.ready ? "Ready" : "Blocked"}
+                </span>
+              </div>
+              <p>{resultReadinessPanel.summary}</p>
+              <div className="questionBankTagRow">
+                {resultReadinessPanel.stats.map((item: string) => (
+                  <span className="questionBankTagChip" key={item}>
+                    {item}
+                  </span>
+                ))}
+              </div>
+              {resultReadinessPanel.blockers.length ? (
+                <ul>
+                  {resultReadinessPanel.blockers
+                    .slice(0, 3)
+                    .map((issue: ReadinessIssue) => (
+                    <li key={`result-${issue.code}`}>{issue.code.replaceAll("_", " ")}: {issue.message}</li>
+                    ))}
+                </ul>
+              ) : (
+                <p>No backend result-publication blocker remains for this selected exam.</p>
+              )}
+              {resultReadinessPanel.warnings.length ? (
+                <p>
+                  Warning: {resultReadinessPanel.warnings[0].code.replaceAll("_", " ")}. {resultReadinessPanel.warnings[0].message}
+                </p>
+              ) : null}
+            </article>
+          ) : null}
+
           <article className="teacherResultsReadinessHero">
             <span className="studentDashboardTag">Assessment lens</span>
             <strong>{assessmentLens.familyLabel} profile</strong>
@@ -5247,6 +5355,8 @@ export async function ResultsWorkspacePage({
 
   const detailData = await Promise.allSettled([
     fetchTeacherLiveExamMonitor(selectedExam.id),
+    fetchTeacherExamPublishReadiness(selectedExam.id),
+    fetchTeacherResultPublishReadiness(selectedExam.id),
     fetchTeacherExamLeaderboard(selectedExam.id, {
       page: leaderboardPage,
       pageSize: leaderboardPageSize,
@@ -5270,9 +5380,11 @@ export async function ResultsWorkspacePage({
   ]);
 
   const monitor = detailData[0]?.status === "fulfilled" ? detailData[0].value : null;
+  const examPublishReadiness = detailData[1]?.status === "fulfilled" ? detailData[1].value : null;
+  const resultPublishReadiness = detailData[2]?.status === "fulfilled" ? detailData[2].value : null;
   const leaderboardPageData =
-    detailData[1]?.status === "fulfilled"
-      ? detailData[1].value
+    detailData[3]?.status === "fulfilled"
+      ? detailData[3].value
       : {
           count: 0,
           next: null,
@@ -5287,8 +5399,8 @@ export async function ResultsWorkspacePage({
           },
         };
   const attemptsPageData =
-    detailData[2]?.status === "fulfilled"
-      ? detailData[2].value
+    detailData[4]?.status === "fulfilled"
+      ? detailData[4].value
       : {
           count: 0,
           next: null,
@@ -5301,12 +5413,12 @@ export async function ResultsWorkspacePage({
           selected_attempt: null,
         };
   const questionAnalysisPageData =
-    detailData[3]?.status === "fulfilled"
-      ? detailData[3].value
+    detailData[5]?.status === "fulfilled"
+      ? detailData[5].value
       : { count: 0, next: null, previous: null, results: [] };
   const topicPerformancePageData =
-    detailData[4]?.status === "fulfilled"
-      ? detailData[4].value
+    detailData[6]?.status === "fulfilled"
+      ? detailData[6].value
       : { count: 0, next: null, previous: null, results: [] };
 
   const totalAttempts = summaries.reduce((sum, item) => sum + item.total_attempted, 0);
@@ -5346,6 +5458,36 @@ export async function ResultsWorkspacePage({
     rankedLeaderboardReady,
     selectedPendingCount,
   });
+  const examReadinessPanel = examPublishReadiness
+    ? buildReadinessPanel({
+        title: "Exam publish readiness",
+        ready: examPublishReadiness.ready,
+        blockers: examPublishReadiness.blockers,
+        warnings: examPublishReadiness.warnings,
+        summary: examPublishReadiness.ready
+          ? "Schedule, marks, and linked-question structure are aligned for exam publication."
+          : "Backend publish blockers still exist on the exam lifecycle side.",
+        stats: [
+          `${examPublishReadiness.blocker_count} blocker${examPublishReadiness.blocker_count === 1 ? "" : "s"}`,
+          `${examPublishReadiness.warning_count} warning${examPublishReadiness.warning_count === 1 ? "" : "s"}`,
+        ],
+      })
+    : null;
+  const resultReadinessPanel = resultPublishReadiness
+    ? buildReadinessPanel({
+        title: "Result publish readiness",
+        ready: resultPublishReadiness.ready,
+        blockers: resultPublishReadiness.blockers,
+        warnings: resultPublishReadiness.warnings,
+        summary: resultPublishReadiness.ready
+          ? "Generated results, review state, and lifecycle are aligned for publication."
+          : "Backend publication blockers still exist on the results side.",
+        stats: [
+          `${resultPublishReadiness.generated_results_count} generated`,
+          `${resultPublishReadiness.published_results_count} published`,
+        ],
+      })
+    : null;
   const workflowSteps = buildResultWorkflow({
     selectedExamId: selectedExam.id,
     selectedSummary,
@@ -5485,6 +5627,8 @@ export async function ResultsWorkspacePage({
     thresholdReachedAttempts,
     latestPublishLog,
     examLifecycleStatus,
+    examReadinessPanel,
+    resultReadinessPanel,
     baseHrefArgs: {
       examId: selectedExam.id,
       attemptId: selectedAttemptId,
