@@ -5,6 +5,7 @@ from io import StringIO
 
 from django.core.management import call_command
 from django.core.management.base import CommandError
+from django.core.exceptions import ValidationError
 
 from apps.question_bank.models import (
     InstituteQuestionAccess,
@@ -13,6 +14,13 @@ from apps.question_bank.models import (
     Question,
     QuestionOption,
 )
+from apps.economy.models import (
+    QuestionBankOwnershipType,
+    QuestionBankPackage,
+    QuestionBankPackageScope,
+    QuestionBankPackageType,
+)
+from apps.economy.services import grant_institute_question_bank_entitlement
 from apps.question_bank.services import (
     link_master_question_to_institute,
     materialize_master_question_for_source_institute,
@@ -83,6 +91,31 @@ class MasterQuestionSharingTestCase(TestCase):
             email="platform@example.com",
         )
 
+    def _grant_public_question_package(self, *, topic=None):
+        package = QuestionBankPackage.objects.create(
+            institute=self.public_institute,
+            name="Class 7 Science Library",
+            code=f"SCI_LIBRARY_{QuestionBankPackage.objects.count() + 1}",
+            package_type=QuestionBankPackageType.SUBJECT_LIBRARY,
+            ownership_type=QuestionBankOwnershipType.PLATFORM,
+        )
+        QuestionBankPackageScope.objects.create(
+            institute=self.public_institute,
+            package=package,
+            program=self.public_program,
+            subject=self.public_subject,
+            topic=topic or self.public_topic,
+            question_source_type="platform_only",
+            question_type="mcq_single",
+            difficulty_level="intermediate",
+            master_visibility="shared_by_request",
+        )
+        grant_institute_question_bank_entitlement(
+            institute=self.private_institute,
+            question_bank_package=package,
+        )
+        return package
+
     def test_sync_master_question_from_institute_question_creates_canonical_record(self):
         question = Question.objects.create(
             institute=self.public_institute,
@@ -110,6 +143,59 @@ class MasterQuestionSharingTestCase(TestCase):
         self.assertEqual(master.visibility, "shared_by_request")
         self.assertEqual(master.options.count(), 2)
 
+    def test_private_institute_question_cannot_promote_itself_to_platform_or_shared_visibility(self):
+        question = Question.objects.create(
+            institute=self.private_institute,
+            program=self.private_program,
+            subject=self.private_subject,
+            topic=self.private_topic,
+            created_by_teacher=self.private_teacher,
+            question_type="mcq_single",
+            difficulty_level="intermediate",
+            question_text="A private institute question should stay private.",
+            explanation="Private institute content must not self-promote into shared platform lanes.",
+            default_marks="1.00",
+            negative_marks="0.25",
+            is_verified=True,
+            metadata={
+                "source_type": "platform",
+                "question_visibility": "public",
+            },
+        )
+        QuestionOption.objects.create(question=question, option_text="Correct", option_order=1, is_correct=True)
+        QuestionOption.objects.create(question=question, option_text="Wrong", option_order=2, is_correct=False)
+
+        master = sync_master_question_from_institute_question(question)
+
+        self.assertEqual(master.source_type, "teacher")
+        self.assertEqual(master.visibility, "private")
+
+    def test_private_institute_admin_authored_question_stays_institute_private_in_master_library(self):
+        question = Question.objects.create(
+            institute=self.private_institute,
+            program=self.private_program,
+            subject=self.private_subject,
+            topic=self.private_topic,
+            question_type="mcq_single",
+            difficulty_level="intermediate",
+            question_text="An institute-authored question should remain institute-private.",
+            explanation="Institute-authored private content must not leak into public/shared visibility.",
+            default_marks="1.00",
+            negative_marks="0.25",
+            is_verified=True,
+            metadata={
+                "source_type": "platform",
+                "question_visibility": "shared_by_request",
+            },
+        )
+        QuestionOption.objects.create(question=question, option_text="Correct", option_order=1, is_correct=True)
+        QuestionOption.objects.create(question=question, option_text="Wrong", option_order=2, is_correct=False)
+
+        master = sync_master_question_from_institute_question(question)
+
+        self.assertEqual(master.source_type, "institute")
+        self.assertEqual(master.visibility, "private")
+
     def test_request_does_not_auto_link_public_question_to_private_institute(self):
         question = Question.objects.create(
             institute=self.public_institute,
@@ -127,6 +213,7 @@ class MasterQuestionSharingTestCase(TestCase):
             metadata={"question_visibility": "shared_by_request"},
         )
         master = sync_master_question_from_institute_question(question)
+        self._grant_public_question_package()
 
         access = request_master_question_access(
             master_question=master,
@@ -145,6 +232,37 @@ class MasterQuestionSharingTestCase(TestCase):
                 master_question=master,
             ).exists()
         )
+
+    def test_request_requires_matching_platform_package_entitlement(self):
+        question = Question.objects.create(
+            institute=self.public_institute,
+            program=self.public_program,
+            subject=self.public_subject,
+            topic=self.public_topic,
+            created_by_teacher=self.public_teacher,
+            question_type="mcq_single",
+            difficulty_level="intermediate",
+            question_text="A shared question outside package access",
+            explanation="Explanation.",
+            default_marks="1.00",
+            negative_marks="0.25",
+            is_verified=True,
+            metadata={"question_visibility": "shared_by_request"},
+        )
+        master = sync_master_question_from_institute_question(question)
+
+        with self.assertRaisesMessage(
+            ValidationError,
+            "outside the institute's active subscribed question-bank packages",
+        ):
+            request_master_question_access(
+                master_question=master,
+                institute=self.private_institute,
+                requested_by_teacher=self.private_teacher,
+                local_program=self.private_program,
+                local_subject=self.private_subject,
+                local_topic=self.private_topic,
+            )
 
     def test_linking_public_question_creates_institute_operational_copy(self):
         question = Question.objects.create(
@@ -165,6 +283,7 @@ class MasterQuestionSharingTestCase(TestCase):
         QuestionOption.objects.create(question=question, option_text="Oxygen", option_order=1, is_correct=True)
         QuestionOption.objects.create(question=question, option_text="Carbon dioxide", option_order=2, is_correct=False)
         master = sync_master_question_from_institute_question(question)
+        self._grant_public_question_package()
 
         access = link_master_question_to_institute(
             master_question=master,
@@ -363,6 +482,7 @@ class MasterQuestionSharingTestCase(TestCase):
         QuestionOption.objects.create(question=question, option_text="Xylem", option_order=1, is_correct=True)
         QuestionOption.objects.create(question=question, option_text="Phloem", option_order=2, is_correct=False)
         master = sync_master_question_from_institute_question(question)
+        self._grant_public_question_package()
 
         stdout = StringIO()
         call_command(
@@ -402,6 +522,7 @@ class MasterQuestionSharingTestCase(TestCase):
         QuestionOption.objects.create(question=question, option_text="Chlorophyll", option_order=1, is_correct=True)
         QuestionOption.objects.create(question=question, option_text="Starch", option_order=2, is_correct=False)
         master = sync_master_question_from_institute_question(question)
+        self._grant_public_question_package()
 
         call_command(
             "link_master_questions_to_institute",

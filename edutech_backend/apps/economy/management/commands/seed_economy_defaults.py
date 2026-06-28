@@ -5,10 +5,16 @@ from django.db import transaction
 
 from apps.economy.models import (
     ContentAccessPolicy,
+    QuestionBankAccessMode,
+    QuestionBankOwnershipType,
+    QuestionBankPackage,
+    QuestionBankPackageGrantMode,
+    QuestionBankPackageType,
     ReferralProgram,
     RewardRule,
     StarPack,
     SubscriptionPlan,
+    SubscriptionPlanQuestionBankPackage,
     SubscriptionPlanCycle,
     SubscriptionStarCreditRule,
     UnlockRule,
@@ -189,6 +195,33 @@ BASE_SUBSCRIPTION_PLAN_SEEDS = [
                 ],
             }
         ],
+    },
+]
+
+BASE_QUESTION_BANK_PACKAGE_SEEDS = [
+    {
+        "seed_code": "starter-question-bank-access",
+        "plan_seed_code": "starter",
+        "name": "Starter Question Bank Access",
+        "code": "starter-question-bank-access",
+        "description": "Starter package baseline for subscription-backed question-bank access.",
+        "package_type": QuestionBankPackageType.SUBJECT_LIBRARY,
+        "access_mode": QuestionBankAccessMode.MATERIALIZE_ON_ENTITLEMENT,
+        "grant_mode": QuestionBankPackageGrantMode.INCLUDED,
+        "sort_order": 10,
+        "metadata": {"phase": "phase_1", "template": True},
+    },
+    {
+        "seed_code": "scholar-question-bank-access",
+        "plan_seed_code": "scholar",
+        "name": "Scholar Question Bank Access",
+        "code": "scholar-question-bank-access",
+        "description": "Scholar package baseline for broader subscription-backed question-bank access.",
+        "package_type": QuestionBankPackageType.SUBJECT_LIBRARY,
+        "access_mode": QuestionBankAccessMode.MATERIALIZE_ON_ENTITLEMENT,
+        "grant_mode": QuestionBankPackageGrantMode.INCLUDED,
+        "sort_order": 20,
+        "metadata": {"phase": "phase_1", "template": True},
     },
 ]
 
@@ -412,6 +445,8 @@ class Command(BaseCommand):
             "subscription_plans": {"created": 0, "updated": 0},
             "subscription_cycles": {"created": 0, "updated": 0},
             "subscription_credit_rules": {"created": 0, "updated": 0},
+            "question_bank_packages": {"created": 0, "updated": 0},
+            "subscription_plan_question_bank_packages": {"created": 0, "updated": 0},
             "content_access_policies": {"created": 0, "updated": 0},
             "unlock_rules": {"created": 0, "updated": 0},
         }
@@ -451,6 +486,8 @@ class Command(BaseCommand):
         return institutes
 
     def _seed_institute(self, *, institute, summary, include_future_templates):
+        seeded_plans_by_seed_code = {}
+
         for payload in self._reward_rule_seeds(include_future_templates=include_future_templates):
             self._upsert_seeded_record(
                 model=RewardRule,
@@ -522,6 +559,7 @@ class Command(BaseCommand):
             )
             if plan is None:
                 continue
+            seeded_plans_by_seed_code[payload["seed_code"]] = plan
             for cycle_payload in payload["cycles"]:
                 cycle, cycle_created = self._upsert_seeded_record(
                     model=SubscriptionPlanCycle,
@@ -563,6 +601,58 @@ class Command(BaseCommand):
                         },
                         summary=summary["subscription_credit_rules"],
                     )
+
+        package_ownership_type = (
+            QuestionBankOwnershipType.PLATFORM
+            if (institute.metadata or {}).get("is_public_content_hub")
+            else QuestionBankOwnershipType.INSTITUTE
+        )
+        for payload in self._question_bank_package_seeds():
+            package, created = self._upsert_seeded_record(
+                model=QuestionBankPackage,
+                institute=institute,
+                seed_code=payload["seed_code"],
+                defaults={
+                    "name": payload["name"],
+                    "code": payload["code"],
+                    "description": payload["description"],
+                    "package_type": payload["package_type"],
+                    "ownership_type": package_ownership_type,
+                    "access_mode": payload["access_mode"],
+                    "is_public_catalog": True,
+                    "sort_order": payload["sort_order"],
+                    "is_active": payload.get("is_active", True),
+                    "metadata": self._seed_metadata(payload["seed_code"], payload.get("metadata")),
+                },
+                summary=summary["question_bank_packages"],
+                return_instance=True,
+            )
+            if package is None:
+                continue
+            plan = seeded_plans_by_seed_code.get(payload["plan_seed_code"])
+            if plan is None:
+                continue
+            self._upsert_seeded_record(
+                model=SubscriptionPlanQuestionBankPackage,
+                institute=institute,
+                seed_code=f"{payload['plan_seed_code']}::{payload['seed_code']}",
+                defaults={
+                    "subscription_plan": plan,
+                    "question_bank_package": package,
+                    "grant_mode": payload.get("grant_mode", QuestionBankPackageGrantMode.INCLUDED),
+                    "is_default": True,
+                    "is_active": payload.get("is_active", True),
+                    "metadata": self._seed_metadata(
+                        f"{payload['plan_seed_code']}::{payload['seed_code']}",
+                        {
+                            **(payload.get("metadata") or {}),
+                            "plan_seed_code": payload["plan_seed_code"],
+                            "package_seed_code": payload["seed_code"],
+                        },
+                    ),
+                },
+                summary=summary["subscription_plan_question_bank_packages"],
+            )
 
         for payload in self._content_access_policy_seeds(
             include_future_templates=include_future_templates
@@ -643,6 +733,9 @@ class Command(BaseCommand):
         if include_future_templates:
             seeds.extend(ADVANCED_CONTENT_ACCESS_POLICY_SEEDS)
         return seeds
+
+    def _question_bank_package_seeds(self):
+        return list(BASE_QUESTION_BANK_PACKAGE_SEEDS)
 
     def _unlock_rule_seeds(self, *, include_future_templates):
         seeds = list(BASE_UNLOCK_RULE_SEEDS)

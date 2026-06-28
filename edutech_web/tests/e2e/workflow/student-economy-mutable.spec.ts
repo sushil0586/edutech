@@ -44,6 +44,7 @@ test.describe("Student mutable economy actions", () => {
     await expect(page.getByRole("heading", { name: /wallet/i }).first()).toBeVisible();
     await expect(page.getByText(/what this page can and cannot do/i).first()).toBeVisible();
     await expect(page.getByText(/instant settlement/i).first()).toBeVisible();
+    const walletBefore = await readMetricCardNumber(page, /available stars/i);
 
     const requestPackButton = page.getByRole("button", { name: /request pack/i }).first();
     if (await requestPackButton.isVisible().catch(() => false)) {
@@ -73,6 +74,7 @@ test.describe("Student mutable economy actions", () => {
           has: page.getByText(/order lifecycle detail/i),
         }).getByText(/pending|recorded/i).first(),
       ).toBeVisible();
+      expect(await readMetricCardNumber(page, /available stars/i)).toBe(walletBefore);
       await expect(
         page.getByText(/does not promise instant settlement/i).first(),
       ).toBeVisible();
@@ -90,6 +92,7 @@ test.describe("Student mutable economy actions", () => {
     const requestPlanButton = page.getByRole("button", { name: /request plan/i }).first();
     if (await requestPlanButton.isVisible().catch(() => false)) {
       exercisedPlanRequest = true;
+      const walletBeforePlanRequest = await readMetricCardNumber(page, /available stars/i);
       await requestPlanButton.click();
       await expect(page).toHaveURL(/\/app\/subscriptions\?message=/);
       await expect(
@@ -108,6 +111,7 @@ test.describe("Student mutable economy actions", () => {
       await expect(
         page.getByText(/does not promise instant subscription activation or instant wallet credit/i).first(),
       ).toBeVisible();
+      expect(await readMetricCardNumber(page, /available stars/i)).toBe(walletBeforePlanRequest);
     } else {
       await expect(
         page.getByText(/subscription plans will appear here once your institute configures them/i).first(),
@@ -226,6 +230,67 @@ test.describe("Student mutable economy actions", () => {
       await expect(page.getByText(/active student subscriptions/i).first()).toBeVisible();
       await expectAnyVisible(page, [/credited/i, /linked to credit/i, /active/i]);
     }
+  });
+
+  test("@workflow @mutable student wallet ledger reflects an admin grant after operator action", async ({
+    page,
+  }) => {
+    test.setTimeout(180000);
+
+    await loginAsRole(page, "student");
+    await expectStudentWorkspace(page);
+
+    await page.goto("/app/profile");
+    await expect(page.getByRole("heading", { name: /profile/i }).first()).toBeVisible();
+    const studentProfileCard = page.locator(".detailCard").filter({
+      has: page.getByText(/^student profile$/i),
+    }).first();
+    await expect(studentProfileCard).toBeVisible();
+    const studentId = (await studentProfileCard.locator("strong").textContent())?.trim() ?? "";
+    expect(studentId).toBeTruthy();
+
+    await page.goto("/app/wallet");
+    await expect(page.getByRole("heading", { name: /wallet/i }).first()).toBeVisible();
+    const walletBefore = await readMetricCardNumber(page, /available stars/i);
+
+    await loginAsRole(page, "admin");
+    await expectAdminWorkspace(page);
+
+    await page.goto("/admin/economy");
+    await expect(page.getByRole("heading", { name: /economy/i }).first()).toBeVisible();
+    const supportCard = supportActionsCard(page);
+    await expect(supportCard).toBeVisible();
+    const studentSelect = supportCard.locator("select").first();
+    await studentSelect.selectOption(studentId);
+
+    const grantAmount = 6;
+    const uniqueSeed = Date.now();
+    const grantReason = `Playwright support grant ${uniqueSeed}`;
+    await supportCard.getByLabel(/stars to grant/i).fill(String(grantAmount));
+    await supportCard.locator('input[placeholder*="Manual adjustment"]').first().fill(grantReason);
+    await supportCard.locator('input[placeholder*="Optional ticket"]').first().fill(`PW-GRANT-${uniqueSeed}`);
+
+    const grantResponsePromise = page.waitForResponse(
+      (response) =>
+        response.url().includes("/api/admin/economy/grant-stars") &&
+        response.request().method() === "POST",
+    );
+    await supportCard.getByRole("button", { name: /grant stars/i }).click();
+    const grantResponse = await grantResponsePromise;
+    expect(grantResponse.ok()).toBe(true);
+    await expect(page.getByText(/stars granted successfully\./i)).toBeVisible();
+
+    await loginAsRole(page, "student");
+    await expectStudentWorkspace(page);
+    await page.goto("/app/wallet");
+    await expect(page.getByRole("heading", { name: /wallet/i }).first()).toBeVisible();
+
+    await expect
+      .poll(async () => readMetricCardNumber(page, /available stars/i), { timeout: 20000 })
+      .toBeGreaterThanOrEqual(walletBefore + grantAmount);
+    await expect(page.getByText(grantReason).first()).toBeVisible();
+    await expect(page.getByText(/support grant/i).first()).toBeVisible();
+    await expect(page.getByText(/\+6\b/i).first()).toBeVisible();
   });
 });
 

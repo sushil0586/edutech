@@ -20,6 +20,16 @@ test.describe("Admin economy workspace", () => {
     ).toBeVisible();
     await expect(page.getByRole("heading", { name: /create and edit live wallet pack offers/i })).toBeVisible();
     await expect(page.getByRole("heading", { name: /create and edit recurring plans, cycles, and credit rules/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /institute subscription request queue/i })).toBeVisible();
+    await expect(page.getByText(/question-bank package link/i).first()).toBeVisible();
+    await expect(page.getByText(/linked packages:/i).first()).toBeVisible();
+    await expect(page.getByText(/renewal posture:/i).first()).toBeVisible();
+    await expect(page.getByText(/entitlement reconciliation:/i).first()).toBeVisible();
+    await expect(page.getByText(/remediation:/i).first()).toBeVisible();
+    const lastApplyResult = page.getByText(/last apply result/i).first();
+    if (await lastApplyResult.count()) {
+      await expect(lastApplyResult).toBeVisible();
+    }
     await expect(page.getByRole("heading", { name: /create and edit referral campaigns and reward posture/i })).toBeVisible();
     await expect(page.getByRole("heading", { name: /create and edit reward rules for signup, completion, and score ladders/i })).toBeVisible();
     await expect(page.getByRole("heading", { name: /create and edit premium access policies by content target/i })).toBeVisible();

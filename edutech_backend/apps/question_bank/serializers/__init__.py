@@ -9,6 +9,8 @@ from apps.academics.services import QUESTION_DIFFICULTY_NAMESPACE, validate_opti
 from apps.academics.models import Topic
 from apps.question_bank.models import (
     ContentFormat,
+    InstituteQuestionAccessStatus,
+    MasterQuestion,
     Question,
     QuestionAttachment,
     QuestionOption,
@@ -31,8 +33,10 @@ from apps.question_bank.rich_text import sanitize_content_by_format
 from apps.question_bank.services import (
     IMPORT_PASSAGE_TEMPLATE_COLUMNS,
     IMPORT_TEMPLATE_COLUMNS,
+    institute_has_question_authoring_access,
     sync_master_question_from_institute_question,
     validate_academic_mapping,
+    validate_institute_question_authoring_access,
     validate_question_passage_assignment,
     validate_question_options,
 )
@@ -604,6 +608,9 @@ class QuestionSerializer(serializers.ModelSerializer):
     revision_priority = serializers.SerializerMethodField()
     quality_note = serializers.SerializerMethodField()
     question_type_definition = serializers.SerializerMethodField()
+    is_shared_library_link = serializers.SerializerMethodField()
+    shared_library_access_active = serializers.SerializerMethodField()
+    shared_library_access_state = serializers.SerializerMethodField()
 
     class Meta:
         model = Question
@@ -652,6 +659,9 @@ class QuestionSerializer(serializers.ModelSerializer):
             "quality_signal",
             "revision_priority",
             "quality_note",
+            "is_shared_library_link",
+            "shared_library_access_active",
+            "shared_library_access_state",
             "has_explanation",
             "created_at",
             "updated_at",
@@ -698,6 +708,22 @@ class QuestionSerializer(serializers.ModelSerializer):
 
     def get_question_type_definition(self, obj):
         return get_question_type_definition_payload(obj.question_type)
+
+    def get_is_shared_library_link(self, obj):
+        master_question = getattr(obj, "master_question", None)
+        if master_question is None:
+            return False
+        return str(getattr(master_question, "source_type", "") or "").strip() == "platform"
+
+    def get_shared_library_access_active(self, obj):
+        if not self.get_is_shared_library_link(obj):
+            return None
+        return institute_has_question_authoring_access(obj.institute, question=obj)
+
+    def get_shared_library_access_state(self, obj):
+        if not self.get_is_shared_library_link(obj):
+            return "not_applicable"
+        return "active" if self.get_shared_library_access_active(obj) else "inactive"
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -995,6 +1021,12 @@ class QuestionSerializer(serializers.ModelSerializer):
                     {"passage_order": "Question order inside the comprehension set must be positive."}
                 )
 
+        if instance is not None:
+            validate_institute_question_authoring_access(
+                institute=institute,
+                question=instance,
+            )
+
         return attrs
 
     @transaction.atomic
@@ -1072,6 +1104,9 @@ class QuestionListSerializer(serializers.ModelSerializer):
     revision_priority = serializers.SerializerMethodField()
     quality_note = serializers.SerializerMethodField()
     question_type_definition = serializers.SerializerMethodField()
+    is_shared_library_link = serializers.SerializerMethodField()
+    shared_library_access_active = serializers.SerializerMethodField()
+    shared_library_access_state = serializers.SerializerMethodField()
 
     class Meta:
         model = Question
@@ -1115,6 +1150,9 @@ class QuestionListSerializer(serializers.ModelSerializer):
             "quality_signal",
             "revision_priority",
             "quality_note",
+            "is_shared_library_link",
+            "shared_library_access_active",
+            "shared_library_access_state",
         )
         read_only_fields = fields
 
@@ -1176,6 +1214,147 @@ class QuestionListSerializer(serializers.ModelSerializer):
 
     def get_question_type_definition(self, obj):
         return get_question_type_definition_payload(obj.question_type)
+
+    def get_is_shared_library_link(self, obj):
+        master_question = getattr(obj, "master_question", None)
+        if master_question is None:
+            return False
+        return str(getattr(master_question, "source_type", "") or "").strip() == "platform"
+
+    def get_shared_library_access_active(self, obj):
+        if not self.get_is_shared_library_link(obj):
+            return None
+        return institute_has_question_authoring_access(obj.institute, question=obj)
+
+    def get_shared_library_access_state(self, obj):
+        if not self.get_is_shared_library_link(obj):
+            return "not_applicable"
+        return "active" if self.get_shared_library_access_active(obj) else "inactive"
+
+
+class MasterQuestionLibrarySerializer(serializers.ModelSerializer):
+    source_institute_code = serializers.CharField(source="source_institute.code", read_only=True)
+    source_institute_name = serializers.CharField(source="source_institute.name", read_only=True)
+    source_program_code = serializers.CharField(source="source_program.code", read_only=True)
+    source_program_name = serializers.CharField(source="source_program.name", read_only=True)
+    source_subject_code = serializers.CharField(source="source_subject.code", read_only=True)
+    source_subject_name = serializers.CharField(source="source_subject.name", read_only=True)
+    source_topic_code = serializers.SerializerMethodField()
+    source_topic_name = serializers.SerializerMethodField()
+    option_count = serializers.SerializerMethodField()
+    has_access = serializers.SerializerMethodField()
+    has_entitlement = serializers.SerializerMethodField()
+    access_availability = serializers.SerializerMethodField()
+    quota_limited = serializers.SerializerMethodField()
+    quota_exhausted = serializers.SerializerMethodField()
+    quota_note = serializers.SerializerMethodField()
+    matching_packages = serializers.SerializerMethodField()
+    access_status = serializers.SerializerMethodField()
+
+    class Meta:
+        model = MasterQuestion
+        fields = (
+            "id",
+            "source_institute_code",
+            "source_institute_name",
+            "source_program_code",
+            "source_program_name",
+            "source_subject_code",
+            "source_subject_name",
+            "source_topic_code",
+            "source_topic_name",
+            "question_type",
+            "difficulty_level",
+            "content_format",
+            "question_text",
+            "explanation",
+            "default_marks",
+            "negative_marks",
+            "is_verified",
+            "source_type",
+            "visibility",
+            "metadata",
+            "option_count",
+            "has_access",
+            "has_entitlement",
+            "access_availability",
+            "quota_limited",
+            "quota_exhausted",
+            "quota_note",
+            "matching_packages",
+            "access_status",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = fields
+
+    def get_source_topic_code(self, obj):
+        topic = getattr(obj, "source_topic", None)
+        return getattr(topic, "code", None)
+
+    def get_source_topic_name(self, obj):
+        topic = getattr(obj, "source_topic", None)
+        return getattr(topic, "name", None)
+
+    def get_option_count(self, obj):
+        annotated = getattr(obj, "option_count", None)
+        if annotated is not None:
+            return annotated
+        return obj.options.filter(is_active=True).count()
+
+    def get_has_access(self, obj):
+        access_map = self.context.get("master_question_access_map", {})
+        return access_map.get(str(obj.id))
+
+    def get_has_entitlement(self, obj):
+        entitlement_map = self.context.get("master_question_entitlement_map", {})
+        return entitlement_map.get(str(obj.id))
+
+    def get_access_availability(self, obj):
+        availability_map = self.context.get("master_question_availability_map", {})
+        return availability_map.get(str(obj.id), "")
+
+    def get_quota_limited(self, obj):
+        quota_limited_map = self.context.get("master_question_quota_limited_map", {})
+        return quota_limited_map.get(str(obj.id))
+
+    def get_quota_exhausted(self, obj):
+        quota_exhausted_map = self.context.get("master_question_quota_exhausted_map", {})
+        return quota_exhausted_map.get(str(obj.id))
+
+    def get_quota_note(self, obj):
+        quota_note_map = self.context.get("master_question_quota_note_map", {})
+        return quota_note_map.get(str(obj.id), "")
+
+    def get_matching_packages(self, obj):
+        package_map = self.context.get("master_question_package_map", {})
+        return package_map.get(str(obj.id), [])
+
+    def get_access_status(self, obj):
+        status_map = self.context.get("master_question_status_map", {})
+        return status_map.get(str(obj.id), "")
+
+
+class MasterQuestionAccessActionSerializer(serializers.Serializer):
+    target_institute_code = serializers.CharField(max_length=50, required=False, allow_blank=True, default="")
+    local_program_code = serializers.CharField(max_length=50, required=False, allow_blank=True, default="")
+    local_subject_code = serializers.CharField(max_length=50, required=False, allow_blank=True, default="")
+    local_topic_code = serializers.CharField(max_length=50, required=False, allow_blank=True, default="")
+    source_teacher_employee_code = serializers.CharField(
+        max_length=50,
+        required=False,
+        allow_blank=True,
+        default="",
+    )
+    notes = serializers.CharField(required=False, allow_blank=True, default="")
+
+
+class MasterQuestionAccessActionResponseSerializer(serializers.Serializer):
+    master_question_id = serializers.UUIDField()
+    institute_code = serializers.CharField()
+    status = serializers.ChoiceField(choices=InstituteQuestionAccessStatus.choices)
+    linked_question_id = serializers.UUIDField(required=False, allow_null=True)
+    matching_package_codes = serializers.ListField(child=serializers.CharField(), required=False)
 
 
 class QuestionImportPreviewRowSerializer(serializers.Serializer):

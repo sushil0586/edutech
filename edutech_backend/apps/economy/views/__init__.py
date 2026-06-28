@@ -1,9 +1,13 @@
+import csv
+from collections import defaultdict
+
+from django.http import HttpResponse
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.accounts.permissions import IsPlatformAdmin, IsPlatformOrInstituteAdmin, IsStudent
+from apps.accounts.permissions import CanBuildExams, CanManageQuestionBank, IsPlatformAdmin, IsPlatformOrInstituteAdmin, IsStudent
 from apps.accounts.scopes import (
     get_scoped_object_or_403,
     scope_queryset_for_institute,
@@ -12,7 +16,12 @@ from apps.accounts.scopes import (
 )
 from apps.economy.models import (
     ContentAccessPolicy,
+    InstituteQuestionEntitlement,
+    InstituteQuestionFeatureEntitlement,
+    InstituteSubscriptionRequest,
+    InstituteQuestionUsageLedger,
     PaymentOrder,
+    QuestionBankPackage,
     ReferralProgram,
     RewardRule,
     StarLedger,
@@ -29,7 +38,16 @@ from apps.economy.governance import (
     get_economy_operator_policy,
 )
 from apps.economy.serializers import (
+    AdminApplySubscriptionPlanToInstituteSerializer,
     AdminContentAccessPolicySerializer,
+    AdminInstituteQuestionEntitlementSerializer,
+    AdminInstituteQuestionFeatureEntitlementSerializer,
+    AdminInstituteQuestionFeatureEntitlementStatusUpdateSerializer,
+    AdminInstituteQuestionEntitlementStatusUpdateSerializer,
+    AdminQuestionBankPackageUpsertSerializer,
+    CreateInstituteSubscriptionRequestSerializer,
+    AdminInstituteQuestionUsageLedgerSerializer,
+    AdminQuestionBankPackageSerializer,
     AdminRewardRuleSerializer,
     AdminReferralProgramSerializer,
     AdminStarPackSerializer,
@@ -42,8 +60,11 @@ from apps.economy.serializers import (
     EconomyCatalogItemStatusUpdateSerializer,
     EconomyPolicyAuditLogSerializer,
     EconomyOperatorPolicyConfigSerializer,
+    InstituteRequestableSubscriptionPlanSerializer,
+    InstituteSubscriptionRequestSerializer,
     PaymentOrderSerializer,
     PaymentTransactionSerializer,
+    ReviewInstituteSubscriptionRequestSerializer,
     SpendStarsForContentSerializer,
     StarLedgerSerializer,
     StarPackSerializer,
@@ -54,17 +75,24 @@ from apps.economy.serializers import (
     SubscriptionPlanSerializer,
 )
 from apps.economy.services import (
+    apply_subscription_plan_question_bank_links_to_institute,
     complete_payment_order,
     create_star_pack_payment_order,
     create_subscription_payment_order,
+    create_institute_subscription_request,
     evaluate_and_sync_unlock_state,
+    get_entitlement_quota_summary,
     get_or_create_student_economy_profile,
     grant_admin_stars,
     list_active_star_packs,
     list_active_subscription_plans,
+    list_requestable_subscription_plans_for_institute,
     list_student_payment_orders,
     list_student_subscriptions,
+    review_institute_subscription_request,
     spend_stars_for_content,
+    update_institute_question_feature_entitlement_status,
+    update_institute_question_bank_entitlement_status,
 )
 from apps.reports.models import AuditLog
 from apps.students.models import StudentProfile
@@ -133,6 +161,155 @@ def _economy_catalog_group_payload(*, item_type, queryset):
         "inactive": total - active,
         "items": [_serialize_economy_catalog_item(item_type, item) for item in queryset],
     }
+
+
+def _serialize_audit_value(value):
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return value
+
+
+def _question_bank_package_report_rows(*, packages, entitlements, usage_entries):
+    entitlement_groups = defaultdict(list)
+    for entitlement in entitlements:
+        entitlement_groups[str(entitlement.question_bank_package_id)].append(entitlement)
+
+    usage_groups = defaultdict(list)
+    for entry in usage_entries:
+        if entry.question_bank_package_id:
+            usage_groups[str(entry.question_bank_package_id)].append(entry)
+
+    rows = []
+    for package in packages:
+        package_id = str(package.id)
+        package_entitlements = entitlement_groups.get(package_id, [])
+        package_usage_entries = usage_groups.get(package_id, [])
+        active_scopes = [scope for scope in package.scopes.all() if scope.is_active]
+        subject_labels = sorted({scope.subject.name for scope in active_scopes if scope.subject_id})
+        topic_labels = sorted({scope.topic.name for scope in active_scopes if scope.topic_id})
+        program_labels = sorted({scope.program.name for scope in active_scopes if scope.program_id})
+
+        usage_by_action = defaultdict(int)
+        for entry in package_usage_entries:
+            usage_by_action[str(entry.action_type or "").strip() or "unknown"] += entry.quantity or 0
+
+        active_count = sum(1 for entitlement in package_entitlements if entitlement.status == "active")
+        paused_count = sum(1 for entitlement in package_entitlements if entitlement.status == "paused")
+        revoked_count = sum(1 for entitlement in package_entitlements if entitlement.status == "revoked")
+        expired_count = sum(1 for entitlement in package_entitlements if entitlement.status == "expired")
+        near_limit_count = 0
+        limit_reached_count = 0
+        for entitlement in package_entitlements:
+            quota_summary = get_entitlement_quota_summary(entitlement)
+            if quota_summary["quota_watch_state"] == "near_limit":
+                near_limit_count += 1
+            elif quota_summary["quota_watch_state"] == "limit_reached":
+                limit_reached_count += 1
+
+        rows.append(
+            {
+                "package_id": package_id,
+                "package_code": package.code,
+                "package_name": package.name,
+                "owner_institute_code": package.institute.code,
+                "owner_institute_name": package.institute.name,
+                "package_type": package.package_type,
+                "ownership_type": package.ownership_type,
+                "access_mode": package.access_mode,
+                "is_public_catalog": package.is_public_catalog,
+                "scope_count": len(active_scopes),
+                "program_labels": program_labels,
+                "subject_labels": subject_labels,
+                "topic_labels": topic_labels,
+                "linked_plan_count": len([link for link in package.subscription_plan_links.all() if link.is_active]),
+                "entitlement_total": len(package_entitlements),
+                "entitlement_active": active_count,
+                "entitlement_paused": paused_count,
+                "entitlement_revoked": revoked_count,
+                "entitlement_expired": expired_count,
+                "entitlement_near_limit": near_limit_count,
+                "entitlement_limit_reached": limit_reached_count,
+                "usage_total_units": sum(entry.quantity or 0 for entry in package_usage_entries),
+                "usage_question_linked": usage_by_action["question_linked"],
+                "usage_exam_created": usage_by_action["exam_created"],
+                "usage_exam_published": usage_by_action["exam_published"],
+                "usage_entitlement_override": usage_by_action["entitlement_override"],
+                "usage_question_unlinked": usage_by_action["question_unlinked"],
+                "usage_question_materialized": usage_by_action["question_materialized"],
+            }
+        )
+
+    return rows
+
+
+def _question_bank_package_report_csv_response(*, rows):
+    response = HttpResponse(content_type="text/csv; charset=utf-8")
+    response["Content-Disposition"] = 'attachment; filename="question-bank-package-report.csv"'
+    writer = csv.writer(response)
+    writer.writerow(
+        [
+            "package_code",
+            "package_name",
+            "owner_institute_code",
+            "owner_institute_name",
+            "package_type",
+            "ownership_type",
+            "access_mode",
+            "is_public_catalog",
+            "scope_count",
+            "program_labels",
+            "subject_labels",
+            "topic_labels",
+            "linked_plan_count",
+            "entitlement_total",
+            "entitlement_active",
+            "entitlement_paused",
+            "entitlement_revoked",
+            "entitlement_expired",
+            "entitlement_near_limit",
+            "entitlement_limit_reached",
+            "usage_total_units",
+            "usage_question_linked",
+            "usage_exam_created",
+            "usage_exam_published",
+            "usage_entitlement_override",
+            "usage_question_unlinked",
+            "usage_question_materialized",
+        ]
+    )
+    for row in rows:
+        writer.writerow(
+            [
+                row["package_code"],
+                row["package_name"],
+                row["owner_institute_code"],
+                row["owner_institute_name"],
+                row["package_type"],
+                row["ownership_type"],
+                row["access_mode"],
+                "yes" if row["is_public_catalog"] else "no",
+                row["scope_count"],
+                " | ".join(row["program_labels"]),
+                " | ".join(row["subject_labels"]),
+                " | ".join(row["topic_labels"]),
+                row["linked_plan_count"],
+                row["entitlement_total"],
+                row["entitlement_active"],
+                row["entitlement_paused"],
+                row["entitlement_revoked"],
+                row["entitlement_expired"],
+                row["entitlement_near_limit"],
+                row["entitlement_limit_reached"],
+                row["usage_total_units"],
+                row["usage_question_linked"],
+                row["usage_exam_created"],
+                row["usage_exam_published"],
+                row["usage_entitlement_override"],
+                row["usage_question_unlinked"],
+                row["usage_question_materialized"],
+            ]
+        )
+    return response
 
 
 class StudentWalletView(APIView):
@@ -529,6 +706,492 @@ class AdminEconomyCatalogItemStatusView(APIView):
         )
 
 
+class AdminQuestionBankPackageListView(APIView):
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+
+    def get(self, request):
+        queryset = (
+            QuestionBankPackage.objects.select_related("institute")
+            .prefetch_related(
+                "scopes__program",
+                "scopes__subject",
+                "scopes__topic",
+                "institute_entitlements",
+                "subscription_plan_links",
+            )
+            .order_by("institute__name", "sort_order", "name")
+        )
+        return Response(
+            AdminQuestionBankPackageSerializer(queryset, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+    def post(self, request):
+        serializer = AdminQuestionBankPackageUpsertSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        instance = serializer.save()
+        refreshed_instance = (
+            QuestionBankPackage.objects.select_related("institute")
+            .prefetch_related(
+                "scopes__program",
+                "scopes__subject",
+                "scopes__topic",
+                "institute_entitlements",
+                "subscription_plan_links",
+                "usage_entries",
+            )
+            .get(pk=instance.pk)
+        )
+        create_audit_log(
+            user=request.user,
+            action="economy_question_bank_package_create",
+            entity_type="question_bank_package",
+            entity_id=refreshed_instance.id,
+            message=f"Question bank package created: {refreshed_instance.name}.",
+            metadata={
+                "package_code": refreshed_instance.code,
+                "package_type": refreshed_instance.package_type,
+                "ownership_type": refreshed_instance.ownership_type,
+                "scope_count": len([scope for scope in refreshed_instance.scopes.all() if scope.is_active]),
+            },
+            request=request,
+        )
+        return action_response(
+            data=AdminQuestionBankPackageSerializer(refreshed_instance).data,
+            message="Question bank package created successfully.",
+            status_code=status.HTTP_201_CREATED,
+        )
+
+
+class AdminQuestionBankPackageDetailView(APIView):
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+
+    def patch(self, request, package_id):
+        instance = get_scoped_object_or_403(
+            QuestionBankPackage.objects.select_related("institute").prefetch_related(
+                "scopes__program",
+                "scopes__subject",
+                "scopes__topic",
+                "institute_entitlements",
+                "subscription_plan_links",
+                "usage_entries",
+            ),
+            user=request.user,
+            value=package_id,
+            not_found_message="Question bank package not found.",
+        )
+        previous_state = {
+            "name": instance.name,
+            "code": instance.code,
+            "description": instance.description,
+            "package_type": instance.package_type,
+            "ownership_type": instance.ownership_type,
+            "access_mode": instance.access_mode,
+            "is_public_catalog": instance.is_public_catalog,
+            "sort_order": instance.sort_order,
+            "is_active": instance.is_active,
+            "scope_count": len([scope for scope in instance.scopes.all() if scope.is_active]),
+        }
+        serializer = AdminQuestionBankPackageUpsertSerializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        updated_instance = serializer.save()
+        refreshed_instance = (
+            QuestionBankPackage.objects.select_related("institute")
+            .prefetch_related(
+                "scopes__program",
+                "scopes__subject",
+                "scopes__topic",
+                "institute_entitlements",
+                "subscription_plan_links",
+                "usage_entries",
+            )
+            .get(pk=updated_instance.pk)
+        )
+        current_scope_count = len([scope for scope in refreshed_instance.scopes.all() if scope.is_active])
+        create_audit_log(
+            user=request.user,
+            action="economy_question_bank_package_update",
+            entity_type="question_bank_package",
+            entity_id=refreshed_instance.id,
+            message=f"Question bank package updated: {refreshed_instance.name}.",
+            metadata={
+                "changed_fields": {
+                    key: {
+                        "before": previous_state[key],
+                        "after": (
+                            current_scope_count
+                            if key == "scope_count"
+                            else getattr(refreshed_instance, key)
+                        ),
+                    }
+                    for key in previous_state
+                }
+            },
+            request=request,
+        )
+        return action_response(
+            data=AdminQuestionBankPackageSerializer(refreshed_instance).data,
+            message="Question bank package updated successfully.",
+            status_code=status.HTTP_200_OK,
+        )
+
+
+class AdminInstituteQuestionEntitlementListView(APIView):
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+
+    def get(self, request):
+        queryset = (
+            InstituteQuestionEntitlement.objects.select_related(
+                "institute",
+                "question_bank_package",
+                "question_bank_package__institute",
+                "subscription_plan",
+                "subscription_plan_cycle",
+                "granted_by",
+                "revoked_by",
+            )
+            .prefetch_related(
+                "question_bank_package__scopes__program",
+                "question_bank_package__scopes__subject",
+                "question_bank_package__scopes__topic",
+            )
+            .order_by("-created_at")
+        )
+        return Response(
+            AdminInstituteQuestionEntitlementSerializer(queryset, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class AdminInstituteQuestionEntitlementDetailView(APIView):
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+
+    def patch(self, request, entitlement_id):
+        instance = get_scoped_object_or_403(
+            InstituteQuestionEntitlement.objects.select_related(
+                "institute",
+                "question_bank_package",
+                "question_bank_package__institute",
+                "subscription_plan",
+                "subscription_plan_cycle",
+                "granted_by",
+                "revoked_by",
+            ),
+            user=request.user,
+            value=entitlement_id,
+            not_found_message="Question bank entitlement not found.",
+        )
+        previous_state = {
+            "status": instance.status,
+            "notes": instance.notes,
+            "starts_at": instance.starts_at,
+            "ends_at": instance.ends_at,
+            "revoked_by": str(instance.revoked_by_id) if instance.revoked_by_id else None,
+        }
+        serializer = AdminInstituteQuestionEntitlementStatusUpdateSerializer(
+            data=request.data,
+            context={"instance": instance},
+        )
+        serializer.is_valid(raise_exception=True)
+        updated_instance = update_institute_question_bank_entitlement_status(
+            entitlement=instance,
+            status=serializer.validated_data["status"],
+            changed_by=request.user,
+            notes=serializer.validated_data.get("notes", instance.notes),
+            starts_at=serializer.validated_data.get("starts_at"),
+            ends_at=serializer.validated_data.get("ends_at"),
+            starts_at_provided="starts_at" in serializer.validated_data,
+            ends_at_provided="ends_at" in serializer.validated_data,
+        )
+        refreshed_instance = InstituteQuestionEntitlement.objects.select_related(
+            "institute",
+            "question_bank_package",
+            "question_bank_package__institute",
+            "subscription_plan",
+            "subscription_plan_cycle",
+            "granted_by",
+            "revoked_by",
+        ).prefetch_related(
+            "question_bank_package__scopes__program",
+            "question_bank_package__scopes__subject",
+            "question_bank_package__scopes__topic",
+        ).get(pk=updated_instance.pk)
+        create_audit_log(
+            user=request.user,
+            action="economy_question_bank_entitlement_update",
+            entity_type="institute_question_entitlement",
+            entity_id=refreshed_instance.id,
+            message=(
+                f"Question bank entitlement {refreshed_instance.id} status updated "
+                f"from {previous_state['status']} to {refreshed_instance.status}."
+            ),
+            metadata={
+                "changed_fields": {
+                    "status": {
+                        "before": previous_state["status"],
+                        "after": refreshed_instance.status,
+                    },
+                    "notes": {
+                        "before": previous_state["notes"],
+                        "after": refreshed_instance.notes,
+                    },
+                    "starts_at": {
+                        "before": _serialize_audit_value(previous_state["starts_at"]),
+                        "after": _serialize_audit_value(refreshed_instance.starts_at),
+                    },
+                    "ends_at": {
+                        "before": _serialize_audit_value(previous_state["ends_at"]),
+                        "after": _serialize_audit_value(refreshed_instance.ends_at),
+                    },
+                    "revoked_by": {
+                        "before": previous_state["revoked_by"],
+                        "after": str(refreshed_instance.revoked_by_id) if refreshed_instance.revoked_by_id else None,
+                    },
+                }
+            },
+            request=request,
+        )
+        return action_response(
+            data=AdminInstituteQuestionEntitlementSerializer(refreshed_instance).data,
+            message="Question bank entitlement updated successfully.",
+            status_code=status.HTTP_200_OK,
+        )
+
+
+class AdminInstituteQuestionFeatureEntitlementListView(APIView):
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+
+    def get(self, request):
+        queryset = (
+            InstituteQuestionFeatureEntitlement.objects.select_related(
+                "institute",
+                "source_package",
+                "source_subscription_plan",
+            )
+            .order_by("feature_code", "-created_at")
+        )
+        return Response(
+            AdminInstituteQuestionFeatureEntitlementSerializer(queryset, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class AdminInstituteQuestionFeatureEntitlementDetailView(APIView):
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+
+    def patch(self, request, entitlement_id):
+        instance = get_scoped_object_or_403(
+            InstituteQuestionFeatureEntitlement.objects.select_related(
+                "institute",
+                "source_package",
+                "source_subscription_plan",
+            ),
+            user=request.user,
+            value=entitlement_id,
+            not_found_message="Question bank feature entitlement not found.",
+        )
+        previous_state = {"status": instance.status}
+        serializer = AdminInstituteQuestionFeatureEntitlementStatusUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        updated_instance = update_institute_question_feature_entitlement_status(
+            entitlement=instance,
+            status=serializer.validated_data["status"],
+        )
+        refreshed_instance = InstituteQuestionFeatureEntitlement.objects.select_related(
+            "institute",
+            "source_package",
+            "source_subscription_plan",
+        ).get(pk=updated_instance.pk)
+        create_audit_log(
+            user=request.user,
+            action="economy_question_feature_entitlement_update",
+            entity_type="institute_question_feature_entitlement",
+            entity_id=refreshed_instance.id,
+            message=(
+                f"Question feature entitlement {refreshed_instance.id} status updated "
+                f"from {previous_state['status']} to {refreshed_instance.status}."
+            ),
+            metadata={
+                "changed_fields": {
+                    "status": {
+                        "before": previous_state["status"],
+                        "after": refreshed_instance.status,
+                    },
+                }
+            },
+            request=request,
+        )
+        return action_response(
+            data=AdminInstituteQuestionFeatureEntitlementSerializer(refreshed_instance).data,
+            message="Question bank feature entitlement updated successfully.",
+            status_code=status.HTTP_200_OK,
+        )
+
+
+class AdminInstituteQuestionUsageLedgerListView(APIView):
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+
+    def get(self, request):
+        queryset = (
+            InstituteQuestionUsageLedger.objects.select_related(
+                "institute",
+                "question_bank_package",
+                "entitlement",
+                "master_question",
+                "question",
+                "exam",
+                "performed_by",
+            )
+            .order_by("-effective_at", "-created_at")
+        )
+
+        institute_id = str(request.query_params.get("institute", "") or "").strip()
+        package_id = str(request.query_params.get("question_bank_package", "") or "").strip()
+        action_type = str(request.query_params.get("action_type", "") or "").strip()
+
+        if institute_id:
+            queryset = queryset.filter(institute_id=institute_id)
+        if package_id:
+            queryset = queryset.filter(question_bank_package_id=package_id)
+        if action_type:
+            queryset = queryset.filter(action_type=action_type)
+
+        return Response(
+            AdminInstituteQuestionUsageLedgerSerializer(queryset, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class AdminQuestionBankPackageReportView(APIView):
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+
+    def get(self, request):
+        institute_id = str(request.query_params.get("institute", "") or "").strip()
+        package_id = str(request.query_params.get("question_bank_package", "") or "").strip()
+        response_format = str(
+            request.query_params.get("export", "") or request.query_params.get("format", "") or ""
+        ).strip().lower()
+
+        package_queryset = QuestionBankPackage.objects.select_related("institute").prefetch_related(
+            "scopes__program",
+            "scopes__subject",
+            "scopes__topic",
+            "subscription_plan_links",
+        ).order_by("sort_order", "name")
+        entitlement_queryset = InstituteQuestionEntitlement.objects.select_related(
+            "institute",
+            "question_bank_package",
+            "question_bank_package__institute",
+        ).order_by("-created_at")
+        usage_queryset = InstituteQuestionUsageLedger.objects.select_related(
+            "institute",
+            "question_bank_package",
+            "entitlement",
+        ).order_by("-effective_at", "-created_at")
+
+        if institute_id:
+            entitlement_queryset = entitlement_queryset.filter(institute_id=institute_id)
+            usage_queryset = usage_queryset.filter(institute_id=institute_id)
+            referenced_package_ids = set(
+                entitlement_queryset.values_list("question_bank_package_id", flat=True)
+            ) | set(usage_queryset.exclude(question_bank_package_id__isnull=True).values_list("question_bank_package_id", flat=True))
+            package_queryset = package_queryset.filter(id__in=referenced_package_ids)
+
+        if package_id:
+            package_queryset = package_queryset.filter(id=package_id)
+            entitlement_queryset = entitlement_queryset.filter(question_bank_package_id=package_id)
+            usage_queryset = usage_queryset.filter(question_bank_package_id=package_id)
+
+        package_list = list(package_queryset)
+        entitlement_list = list(entitlement_queryset)
+        usage_list = list(usage_queryset)
+        rows = _question_bank_package_report_rows(
+            packages=package_list,
+            entitlements=entitlement_list,
+            usage_entries=usage_list,
+        )
+
+        if response_format == "csv":
+            return _question_bank_package_report_csv_response(rows=rows)
+
+        return Response(rows, status=status.HTTP_200_OK)
+
+
+class InstituteScopedQuestionBankEntitlementListView(APIView):
+    permission_classes = [IsAuthenticated, CanManageQuestionBank]
+
+    def get(self, request):
+        queryset = scope_queryset_for_institute(
+            InstituteQuestionEntitlement.objects.select_related(
+                "institute",
+                "question_bank_package",
+                "question_bank_package__institute",
+                "subscription_plan",
+                "subscription_plan_cycle",
+                "granted_by",
+                "revoked_by",
+            ).prefetch_related(
+                "question_bank_package__scopes__program",
+                "question_bank_package__scopes__subject",
+                "question_bank_package__scopes__topic",
+            ).order_by("-created_at"),
+            request.user,
+        )
+        return Response(
+            AdminInstituteQuestionEntitlementSerializer(queryset, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class InstituteScopedQuestionBankUsageLedgerListView(APIView):
+    permission_classes = [IsAuthenticated, IsPlatformOrInstituteAdmin]
+
+    def get(self, request):
+        queryset = scope_queryset_for_institute(
+            InstituteQuestionUsageLedger.objects.select_related(
+                "institute",
+                "question_bank_package",
+                "entitlement",
+                "master_question",
+                "question",
+                "exam",
+                "performed_by",
+            ).order_by("-effective_at", "-created_at"),
+            request.user,
+        )
+
+        package_id = str(request.query_params.get("question_bank_package", "") or "").strip()
+        action_type = str(request.query_params.get("action_type", "") or "").strip()
+
+        if package_id:
+            queryset = queryset.filter(question_bank_package_id=package_id)
+        if action_type:
+            queryset = queryset.filter(action_type=action_type)
+
+        return Response(
+            AdminInstituteQuestionUsageLedgerSerializer(queryset, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class InstituteScopedQuestionBankFeatureEntitlementListView(APIView):
+    permission_classes = [IsAuthenticated, CanBuildExams]
+
+    def get(self, request):
+        queryset = scope_queryset_for_institute(
+            InstituteQuestionFeatureEntitlement.objects.select_related(
+                "institute",
+                "source_package",
+                "source_subscription_plan",
+            ).order_by("feature_code", "-created_at"),
+            request.user,
+        )
+        return Response(
+            AdminInstituteQuestionFeatureEntitlementSerializer(queryset, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+
 class AdminStarPackListCreateView(APIView):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
 
@@ -623,6 +1286,7 @@ class AdminSubscriptionPlanListCreateView(APIView):
     def get(self, request):
         queryset = SubscriptionPlan.objects.select_related("institute").prefetch_related(
             "cycles__star_credit_rules",
+            "question_bank_package_links__question_bank_package__institute",
         ).order_by("institute__name", "name")
         return Response(
             AdminSubscriptionPlanSerializer(queryset, many=True).data,
@@ -635,7 +1299,10 @@ class AdminSubscriptionPlanListCreateView(APIView):
         instance = serializer.save()
         refreshed_instance = (
             SubscriptionPlan.objects.select_related("institute")
-            .prefetch_related("cycles__star_credit_rules")
+            .prefetch_related(
+                "cycles__star_credit_rules",
+                "question_bank_package_links__question_bank_package__institute",
+            )
             .get(pk=instance.pk)
         )
         create_audit_log(
@@ -663,7 +1330,10 @@ class AdminSubscriptionPlanDetailView(APIView):
 
     def patch(self, request, plan_id):
         instance = get_scoped_object_or_403(
-            SubscriptionPlan.objects.select_related("institute").prefetch_related("cycles__star_credit_rules"),
+            SubscriptionPlan.objects.select_related("institute").prefetch_related(
+                "cycles__star_credit_rules",
+                "question_bank_package_links__question_bank_package__institute",
+            ),
             user=request.user,
             value=plan_id,
             not_found_message="Subscription plan not found.",
@@ -681,7 +1351,10 @@ class AdminSubscriptionPlanDetailView(APIView):
         updated_instance = serializer.save()
         refreshed_instance = (
             SubscriptionPlan.objects.select_related("institute")
-            .prefetch_related("cycles__star_credit_rules")
+            .prefetch_related(
+                "cycles__star_credit_rules",
+                "question_bank_package_links__question_bank_package__institute",
+            )
             .get(pk=updated_instance.pk)
         )
         changed_fields = {
@@ -709,6 +1382,192 @@ class AdminSubscriptionPlanDetailView(APIView):
         return action_response(
             data=AdminSubscriptionPlanSerializer(refreshed_instance).data,
             message="Subscription plan updated successfully.",
+            status_code=status.HTTP_200_OK,
+        )
+
+
+class AdminSubscriptionPlanApplyToInstituteView(APIView):
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+
+    def post(self, request, plan_id):
+        plan = get_scoped_object_or_403(
+            SubscriptionPlan.objects.select_related("institute").prefetch_related(
+                "question_bank_package_links__question_bank_package__institute",
+            ),
+            user=request.user,
+            value=plan_id,
+            not_found_message="Subscription plan not found.",
+        )
+        serializer = AdminApplySubscriptionPlanToInstituteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        target_institute_id = serializer.validated_data["institute"]
+        target_institute = get_scoped_object_or_403(
+            SubscriptionPlan._meta.get_field("institute").remote_field.model.objects.all(),
+            user=request.user,
+            value=target_institute_id,
+            not_found_message="Institute not found.",
+        )
+        entitlements = apply_subscription_plan_question_bank_links_to_institute(
+            subscription_plan=plan,
+            target_institute=target_institute,
+            grant_modes=serializer.validated_data.get("grant_modes"),
+            granted_by=request.user,
+            notes=serializer.validated_data.get("notes", ""),
+        )
+        create_audit_log(
+            user=request.user,
+            action="economy_subscription_plan_apply_to_institute",
+            entity_type="subscription_plan",
+            entity_id=plan.id,
+            message=f"Subscription plan {plan.name} applied to institute {target_institute.code}.",
+            metadata={
+                "target_institute_id": str(target_institute.id),
+                "target_institute_code": target_institute.code,
+                "grant_modes": serializer.validated_data.get("grant_modes", []),
+                "entitlement_count": len(entitlements),
+                "question_bank_package_codes": [entitlement.question_bank_package.code for entitlement in entitlements],
+            },
+            request=request,
+        )
+        return action_response(
+            data={
+                "subscription_plan_id": str(plan.id),
+                "subscription_plan_code": plan.code,
+                "target_institute_id": str(target_institute.id),
+                "target_institute_code": target_institute.code,
+                "entitlement_count": len(entitlements),
+                "question_bank_package_codes": [entitlement.question_bank_package.code for entitlement in entitlements],
+            },
+            message="Subscription plan question-bank links applied successfully.",
+            status_code=status.HTTP_200_OK,
+        )
+
+
+class InstituteRequestableSubscriptionPlanListView(APIView):
+    permission_classes = [IsAuthenticated, IsPlatformOrInstituteAdmin]
+
+    def get(self, request):
+        profile = getattr(request.user, "account_profile", None)
+        if profile is None or not profile.is_active or profile.institute_id is None:
+            return Response({"detail": "An institute-scoped account is required."}, status=status.HTTP_403_FORBIDDEN)
+        queryset = list_requestable_subscription_plans_for_institute(institute=profile.institute)
+        return Response(
+            InstituteRequestableSubscriptionPlanSerializer(queryset, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class InstituteSubscriptionRequestListCreateView(APIView):
+    permission_classes = [IsAuthenticated, IsPlatformOrInstituteAdmin]
+
+    def get(self, request):
+        queryset = scope_queryset_for_institute(
+            InstituteSubscriptionRequest.objects.select_related(
+                "institute",
+                "subscription_plan_cycle",
+                "subscription_plan_cycle__plan",
+                "requested_by",
+                "reviewed_by",
+            ).order_by("-created_at"),
+            request.user,
+        )
+        return Response(
+            InstituteSubscriptionRequestSerializer(queryset, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+    def post(self, request):
+        profile = getattr(request.user, "account_profile", None)
+        if profile is None or not profile.is_active or profile.institute_id is None:
+            return Response({"detail": "An institute-scoped account is required."}, status=status.HTTP_403_FORBIDDEN)
+        serializer = CreateInstituteSubscriptionRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        subscription_request, created = create_institute_subscription_request(
+            institute=profile.institute,
+            subscription_plan_cycle=serializer.validated_data["subscription_plan_cycle"],
+            requested_by=request.user,
+            grant_modes=serializer.validated_data.get("grant_modes"),
+            notes=serializer.validated_data.get("notes", ""),
+            metadata=serializer.validated_data.get("metadata") or {},
+        )
+        refreshed = InstituteSubscriptionRequest.objects.select_related(
+            "institute",
+            "subscription_plan_cycle",
+            "subscription_plan_cycle__plan",
+            "requested_by",
+            "reviewed_by",
+        ).get(pk=subscription_request.pk)
+        create_audit_log(
+            user=request.user,
+            action="economy_institute_subscription_request_create",
+            entity_type="institute_subscription_request",
+            entity_id=refreshed.id,
+            message=f"Institute subscription request created for {refreshed.subscription_plan_cycle.plan.code}.",
+            metadata={
+                "created": created,
+                "subscription_plan_cycle_id": str(refreshed.subscription_plan_cycle_id),
+                "subscription_plan_code": refreshed.subscription_plan_cycle.plan.code,
+                "grant_modes": refreshed.grant_modes,
+            },
+            request=request,
+        )
+        return action_response(
+            data=InstituteSubscriptionRequestSerializer(refreshed).data,
+            message="Subscription request submitted successfully." if created else "A matching pending subscription request already exists.",
+            status_code=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
+
+class AdminInstituteSubscriptionRequestReviewView(APIView):
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+
+    def post(self, request, request_id):
+        instance = get_scoped_object_or_403(
+            InstituteSubscriptionRequest.objects.select_related(
+                "institute",
+                "subscription_plan_cycle",
+                "subscription_plan_cycle__plan",
+                "requested_by",
+                "reviewed_by",
+            ),
+            user=request.user,
+            value=request_id,
+            not_found_message="Institute subscription request not found.",
+        )
+        serializer = ReviewInstituteSubscriptionRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        reviewed_request, entitlements = review_institute_subscription_request(
+            subscription_request=instance,
+            decision=serializer.validated_data["decision"],
+            reviewed_by=request.user,
+            operator_notes=serializer.validated_data.get("operator_notes", ""),
+        )
+        refreshed = InstituteSubscriptionRequest.objects.select_related(
+            "institute",
+            "subscription_plan_cycle",
+            "subscription_plan_cycle__plan",
+            "requested_by",
+            "reviewed_by",
+        ).get(pk=reviewed_request.pk)
+        create_audit_log(
+            user=request.user,
+            action="economy_institute_subscription_request_review",
+            entity_type="institute_subscription_request",
+            entity_id=refreshed.id,
+            message=(
+                f"Institute subscription request for {refreshed.subscription_plan_cycle.plan.code} "
+                f"was {serializer.validated_data['decision']}d."
+            ),
+            metadata={
+                "decision": serializer.validated_data["decision"],
+                "entitlement_count": len(entitlements),
+                "question_bank_package_codes": [entitlement.question_bank_package.code for entitlement in entitlements],
+            },
+            request=request,
+        )
+        return action_response(
+            data=InstituteSubscriptionRequestSerializer(refreshed).data,
+            message="Subscription request reviewed successfully.",
             status_code=status.HTTP_200_OK,
         )
 

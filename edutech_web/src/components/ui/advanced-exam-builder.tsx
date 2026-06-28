@@ -164,6 +164,8 @@ type AdvancedExamBuilderProps = {
   instituteCode: string;
   templateInstituteId?: string;
   scopeInstituteId?: string;
+  hasTemplateLibraryAccess?: boolean;
+  templateLibraryDisabledMessage?: string;
   scopeLabel: string;
   successBasePath: string;
   academicYears: AcademicYearOption[];
@@ -1168,6 +1170,8 @@ export function AdvancedExamBuilder({
   instituteCode,
   templateInstituteId = "",
   scopeInstituteId = "",
+  hasTemplateLibraryAccess = true,
+  templateLibraryDisabledMessage = "",
   scopeLabel,
   successBasePath,
   academicYears,
@@ -1480,7 +1484,7 @@ export function AdvancedExamBuilder({
     async function loadBuilderAssets() {
       try {
         const [templates, presetPackResults] = await Promise.all([
-          fetchSavedTemplates(),
+          hasTemplateLibraryAccess ? fetchSavedTemplates() : Promise.resolve([]),
           fetchPresetPacks(),
         ]);
         if (!ignore) {
@@ -1503,7 +1507,7 @@ export function AdvancedExamBuilder({
     return () => {
       ignore = true;
     };
-  }, [audience, instituteCode]);
+  }, [audience, hasTemplateLibraryAccess, instituteCode]);
 
   useEffect(() => {
     let ignore = false;
@@ -2682,6 +2686,10 @@ export function AdvancedExamBuilder({
   }
 
   async function saveCurrentTemplate() {
+    if (!hasTemplateLibraryAccess) {
+      setError(templateLibraryDisabledMessage || "Template library access is not enabled.");
+      return;
+    }
     const normalizedName = templateName.trim();
     const resolvedTemplateName = normalizedName || recommendedExamMetadata.templateName;
     if (!resolvedTemplateName) {
@@ -2769,6 +2777,10 @@ export function AdvancedExamBuilder({
   }
 
   async function deleteSavedTemplate(templateId: string) {
+    if (!hasTemplateLibraryAccess) {
+      setError(templateLibraryDisabledMessage || "Template library access is not enabled.");
+      return;
+    }
     try {
       const response = await fetch(`/api/exams/advanced-templates/${templateId}`, {
         method: "DELETE",
@@ -2804,6 +2816,10 @@ export function AdvancedExamBuilder({
   }
 
   async function updateSavedTemplate(template: SavedBuilderTemplate) {
+    if (!hasTemplateLibraryAccess) {
+      setError(templateLibraryDisabledMessage || "Template library access is not enabled.");
+      return;
+    }
     const normalizedName = editingTemplateName.trim();
     if (!normalizedName) {
       setError("Template name is required.");
@@ -2845,6 +2861,10 @@ export function AdvancedExamBuilder({
   }
 
   async function duplicateSavedTemplate(template: SavedBuilderTemplate) {
+    if (!hasTemplateLibraryAccess) {
+      setError(templateLibraryDisabledMessage || "Template library access is not enabled.");
+      return;
+    }
     const duplicateAudience = audience === "teacher" ? "teacher" : "institute";
     const duplicateName = buildDuplicateTemplateName(
       template.name,
@@ -2917,6 +2937,10 @@ export function AdvancedExamBuilder({
   }
 
   function exportSelectedTemplates() {
+    if (!hasTemplateLibraryAccess) {
+      setError(templateLibraryDisabledMessage || "Template library access is not enabled.");
+      return;
+    }
     const templatesToExport = savedTemplates.filter((template) =>
       selectedManageableTemplateIds.includes(template.id),
     );
@@ -2952,6 +2976,10 @@ export function AdvancedExamBuilder({
   }
 
   async function importTemplateBundle(file: File) {
+    if (!hasTemplateLibraryAccess) {
+      setError(templateLibraryDisabledMessage || "Template library access is not enabled.");
+      return;
+    }
     try {
       const raw = await file.text();
       const payload = JSON.parse(raw) as Partial<TemplateExportBundle> | { templates?: unknown };
@@ -3023,6 +3051,10 @@ export function AdvancedExamBuilder({
   }
 
   async function duplicateSelectedTemplates() {
+    if (!hasTemplateLibraryAccess) {
+      setError(templateLibraryDisabledMessage || "Template library access is not enabled.");
+      return;
+    }
     const templatesToDuplicate = savedTemplates.filter((template) =>
       selectedManageableTemplateIds.includes(template.id),
     );
@@ -3081,6 +3113,10 @@ export function AdvancedExamBuilder({
   }
 
   async function archiveSelectedTemplates() {
+    if (!hasTemplateLibraryAccess) {
+      setError(templateLibraryDisabledMessage || "Template library access is not enabled.");
+      return;
+    }
     const templateIdsToArchive = [...selectedManageableTemplateIds];
     if (templateIdsToArchive.length === 0) {
       setError("Select at least one editable template first.");
@@ -3562,38 +3598,45 @@ export function AdvancedExamBuilder({
                   </div>
                 ) : null}
 
-                <div className="advancedBuilderSavedTemplateBar">
-                  <label className="advancedBuilderField advancedBuilderSavedTemplateField">
-                    <span>Save current setup as a template</span>
-                    <input
-                      placeholder="Class 7 Math weekly mock"
-                      value={templateName || recommendedExamMetadata.templateName}
-                      onChange={(event) => setTemplateName(event.target.value)}
-                    />
-                  </label>
-                  <label className="advancedBuilderField advancedBuilderSavedTemplateScope">
-                    <span>Save for</span>
-                    <select
-                      value={effectiveTemplateAudience}
-                      onChange={(event) => setTemplateAudience(event.target.value as TemplateAudience)}
+                {hasTemplateLibraryAccess ? (
+                  <div className="advancedBuilderSavedTemplateBar">
+                    <label className="advancedBuilderField advancedBuilderSavedTemplateField">
+                      <span>Save current setup as a template</span>
+                      <input
+                        placeholder="Class 7 Math weekly mock"
+                        value={templateName || recommendedExamMetadata.templateName}
+                        onChange={(event) => setTemplateName(event.target.value)}
+                      />
+                    </label>
+                    <label className="advancedBuilderField advancedBuilderSavedTemplateScope">
+                      <span>Save for</span>
+                      <select
+                        value={effectiveTemplateAudience}
+                        onChange={(event) => setTemplateAudience(event.target.value as TemplateAudience)}
+                      >
+                        {saveAudienceOptions.map((option) => (
+                          <option key={option} value={option}>
+                            {audienceLabel(option)} templates
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <button
+                      className="button buttonSecondary"
+                      onClick={() => startTransition(() => void saveCurrentTemplate())}
+                      type="button"
                     >
-                      {saveAudienceOptions.map((option) => (
-                        <option key={option} value={option}>
-                          {audienceLabel(option)} templates
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <button
-                    className="button buttonSecondary"
-                    onClick={() => startTransition(() => void saveCurrentTemplate())}
-                    type="button"
-                  >
-                    Save Template
-                  </button>
-                </div>
+                      Save Template
+                    </button>
+                  </div>
+                ) : (
+                  <p className="advancedBuilderInlineStatus">
+                    {templateLibraryDisabledMessage ||
+                      "Template library access is not enabled for this institute subscription."}
+                  </p>
+                )}
 
-                {allSavedTemplates.length > 0 ? (
+                {hasTemplateLibraryAccess && allSavedTemplates.length > 0 ? (
                   <div className="advancedBuilderSavedTemplateList">
                     <div className="advancedBuilderSavedTemplateLibraryBar">
                       <label className="advancedBuilderField advancedBuilderSavedTemplateField">

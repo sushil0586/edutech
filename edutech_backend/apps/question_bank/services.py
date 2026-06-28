@@ -7,6 +7,11 @@ from decimal import Decimal, InvalidOperation
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
+from apps.economy.services import (
+    institute_has_master_question_access,
+    record_master_question_link_usage,
+    validate_institute_question_quota_access,
+)
 from apps.academics.services import (
     QUESTION_CONTENT_FORMAT_NAMESPACE,
     QUESTION_DIFFICULTY_NAMESPACE,
@@ -201,6 +206,34 @@ def validate_question_passage_assignment(
         raise ValidationError({"topic": "Topic must match the selected comprehension set topic."})
 
 
+def institute_has_question_authoring_access(institute, *, question):
+    if institute is None or question is None:
+        return False
+
+    master_question = getattr(question, "master_question", None)
+    if master_question is None:
+        return True
+
+    if getattr(master_question, "source_type", "") != MasterQuestionSourceType.PLATFORM:
+        return True
+
+    return institute_has_master_question_access(institute, master_question=master_question)
+
+
+def validate_institute_question_authoring_access(*, institute, question):
+    if institute_has_question_authoring_access(institute, question=question):
+        return
+
+    raise ValidationError(
+        {
+            "question": (
+                "This linked shared-library question is no longer covered by the institute's active "
+                "question-bank entitlements."
+            )
+        }
+    )
+
+
 def _normalize_options(options):
     normalized = []
     for option in options:
@@ -285,13 +318,13 @@ def _derive_master_source_type(question):
         return MasterQuestionSourceType.PLATFORM
     if question.created_by_teacher_id:
         return MasterQuestionSourceType.TEACHER
-    if metadata.get("source_type") == "platform":
-        return MasterQuestionSourceType.PLATFORM
     return MasterQuestionSourceType.INSTITUTE
 
 
 def _derive_master_visibility(question):
     metadata = question.metadata if isinstance(question.metadata, dict) else {}
+    if not (question.institute.metadata or {}).get("is_public_content_hub"):
+        return MasterQuestionVisibility.PRIVATE
     if metadata.get("question_visibility") in {
         MasterQuestionVisibility.PRIVATE,
         MasterQuestionVisibility.SHARED_BY_REQUEST,
@@ -365,6 +398,14 @@ def request_master_question_access(
     local_topic=None,
     notes="",
 ):
+    if not institute_has_master_question_access(institute, master_question=master_question):
+        raise ValidationError(
+            {
+                "master_question": (
+                    "This platform question is outside the institute's active subscribed question-bank packages."
+                )
+            }
+        )
     access, _ = InstituteQuestionAccess.objects.update_or_create(
         institute=institute,
         master_question=master_question,
@@ -393,6 +434,30 @@ def link_master_question_to_institute(
     local_topic=None,
     notes="",
 ):
+    if not institute_has_master_question_access(institute, master_question=master_question):
+        raise ValidationError(
+            {
+                "master_question": (
+                    "This platform question is outside the institute's active subscribed question-bank packages."
+                )
+            }
+        )
+    existing_access = (
+        InstituteQuestionAccess.objects.filter(
+            institute=institute,
+            master_question=master_question,
+            is_active=True,
+            status=InstituteQuestionAccessStatus.LINKED,
+            linked_question__isnull=False,
+        )
+        .select_related("linked_question")
+        .first()
+    )
+    if existing_access is None:
+        validate_institute_question_quota_access(
+            institute=institute,
+            master_question=master_question,
+        )
     subject = local_subject or master_question.source_subject
     topic = local_topic or master_question.source_topic
     program = local_program or master_question.source_program or getattr(subject, "program", None)
@@ -448,6 +513,16 @@ def link_master_question_to_institute(
             "status": InstituteQuestionAccessStatus.LINKED,
             "notes": notes,
             "is_active": True,
+        },
+    )
+    record_master_question_link_usage(
+        institute=institute,
+        master_question=master_question,
+        question=question,
+        performed_by=approved_by,
+        metadata={
+            "access_status": access.status,
+            "requested_by_teacher_id": str(requested_by_teacher.id) if requested_by_teacher else "",
         },
     )
     return access

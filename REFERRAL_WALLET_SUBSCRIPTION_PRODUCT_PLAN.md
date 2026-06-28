@@ -14,6 +14,7 @@ It is an assessment-platform economy plan built around:
 
 References:
 
+- [FINAL_PENDING_EXECUTION_PLAN.md](/Users/ansh/Documents/Eductech/FINAL_PENDING_EXECUTION_PLAN.md:1)
 - [NEXORA_FINAL_IMPLEMENTATION_SOURCE_OF_TRUTH.md](/Users/ansh/Documents/Eductech/NEXORA_FINAL_IMPLEMENTATION_SOURCE_OF_TRUTH.md:1)
 - [NEXORA_ECONOMY_PHASE_2_FRONTEND_PLAN.md](/Users/ansh/Documents/Eductech/NEXORA_ECONOMY_PHASE_2_FRONTEND_PLAN.md:1)
 - [NEXORA_ECONOMY_SEED_MATRIX.md](/Users/ansh/Documents/Eductech/NEXORA_ECONOMY_SEED_MATRIX.md:1)
@@ -43,6 +44,7 @@ Still pending relative to the full product vision:
 
 - broader governance and policy decisions around which economy actions should remain platform-controlled
 - governance hardening and wider config audit across learner surfaces
+- commercial question-bank and shared-library operational closeout should now be tracked from [FINAL_PENDING_EXECUTION_PLAN.md](/Users/ansh/Documents/Eductech/FINAL_PENDING_EXECUTION_PLAN.md:1)
 
 ## 1. Product Position
 

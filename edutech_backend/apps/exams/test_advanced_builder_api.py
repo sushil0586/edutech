@@ -3,14 +3,30 @@ from decimal import Decimal
 from rest_framework.test import APIClient, APITestCase
 
 from apps.academics.models import AssessmentFamily
+from apps.economy.models import (
+    InstituteQuestionFeatureEntitlement,
+    InstituteQuestionEntitlementStatus,
+    QuestionBankOwnershipType,
+    QuestionBankPackage,
+    QuestionBankPackageScope,
+    QuestionBankPackageType,
+)
+from apps.economy.services import (
+    grant_institute_feature_entitlement,
+    grant_institute_question_bank_entitlement,
+)
 from apps.economy.models import ContentAccessPolicy, UnlockRule
 from apps.exams.models import Exam, ExamQuestion, ExamSection, ExamSourceType
+from apps.question_bank.models import Question, QuestionOption
+from apps.question_bank.services import link_master_question_to_institute, sync_master_question_from_institute_question
 from apps.question_bank.models import QuestionType
 from apps.teachers.models import TeacherAssignment
 from common.tests.builders import AcademicAssessmentBuilder
 
 
 class AdvancedExamBuilderApiTests(APITestCase):
+    ADVANCED_BUILDER_FEATURE_CODE = "ADVANCED_EXAM_BUILDER"
+
     def setUp(self):
         self.client = APIClient()
         self.builder = AcademicAssessmentBuilder()
@@ -74,6 +90,20 @@ class AdvancedExamBuilderApiTests(APITestCase):
             advanced=6,
             subject=self.second_subject,
         )
+        self._grant_advanced_builder_feature()
+
+    def _grant_advanced_builder_feature(self):
+        entitlement, _ = grant_institute_feature_entitlement(
+            institute=self.context["institute"],
+            feature_code=self.ADVANCED_BUILDER_FEATURE_CODE,
+        )
+        return entitlement
+
+    def _revoke_advanced_builder_feature(self):
+        InstituteQuestionFeatureEntitlement.objects.filter(
+            institute=self.context["institute"],
+            feature_code=self.ADVANCED_BUILDER_FEATURE_CODE,
+        ).update(status=InstituteQuestionEntitlementStatus.REVOKED)
 
     def _seed_questions_for_topic(self, topic, *, foundation, intermediate, advanced, subject=None):
         counts = {
@@ -215,6 +245,38 @@ class AdvancedExamBuilderApiTests(APITestCase):
         self.assertEqual(
             response.data["resolved_exam"]["end_at"].date(),
             self.context["academic_year"].end_date,
+        )
+
+    def test_preview_rejects_teacher_when_advanced_builder_feature_is_not_entitled(self):
+        self._revoke_advanced_builder_feature()
+        self.client.force_authenticate(user=self.teacher_user)
+
+        response = self.client.post(
+            "/api/v1/exams/advanced-builder/preview/",
+            self._payload(),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(
+            response.data["detail"],
+            "Advanced exam builder is not enabled for your institute subscription.",
+        )
+
+    def test_preview_rejects_institute_admin_when_advanced_builder_feature_is_not_entitled(self):
+        self._revoke_advanced_builder_feature()
+        self.client.force_authenticate(user=self.admin_user)
+
+        response = self.client.post(
+            "/api/v1/exams/advanced-builder/preview/",
+            self._payload(),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(
+            response.data["detail"],
+            "Advanced exam builder is not enabled for your institute subscription.",
         )
 
     def test_preview_uses_program_assessment_family_profile_defaults(self):
@@ -749,4 +811,177 @@ class AdvancedExamBuilderApiTests(APITestCase):
         self.assertIn("composition", response.data)
         self.assertTrue(
             any("Timed sections add up to 50 min" in item for item in response.data["composition"])
+        )
+
+    def test_preview_excludes_linked_shared_library_question_when_entitlement_is_paused(self):
+        third_subject = self.builder.create_subject(
+            self.context["institute"],
+            self.context["program"],
+            name="Social Science",
+            code="SST10",
+            sort_order=3,
+        )
+        third_topic = self.builder.create_topic(
+            self.context["institute"],
+            third_subject,
+            name="Civics",
+            code="SST-CIV-01",
+            sort_order=1,
+        )
+        TeacherAssignment.objects.create(
+            institute=self.context["institute"],
+            teacher=self.teacher,
+            academic_year=self.context["academic_year"],
+            program=self.context["program"],
+            cohort=self.context["cohort"],
+            subject=third_subject,
+            is_primary=False,
+        )
+
+        public_institute = self.builder.create_institute(
+            code="PUBADV1",
+            name="Advanced Builder Public Hub",
+            metadata={"is_public_content_hub": True},
+        )
+        public_program = self.builder.create_program(
+            public_institute,
+            code=self.context["program"].code,
+            name=self.context["program"].name,
+        )
+        public_subject = self.builder.create_subject(
+            public_institute,
+            public_program,
+            code=third_subject.code,
+            name=third_subject.name,
+        )
+        public_topic = self.builder.create_topic(
+            public_institute,
+            public_subject,
+            code=third_topic.code,
+            name=third_topic.name,
+        )
+        public_teacher = self.builder.create_teacher(public_institute, employee_code="PUB-ADV-TCH")
+        source_question = Question.objects.create(
+            institute=public_institute,
+            program=public_program,
+            subject=public_subject,
+            topic=public_topic,
+            created_by_teacher=public_teacher,
+            question_type="mcq_single",
+            difficulty_level="intermediate",
+            question_text="Linked question for builder entitlement enforcement",
+            explanation="Only licensed use should resolve.",
+            default_marks="2.00",
+            negative_marks="0.25",
+            is_verified=True,
+            metadata={"question_visibility": "shared_by_request"},
+        )
+        QuestionOption.objects.create(question=source_question, option_text="Option A", option_order=1, is_correct=True)
+        QuestionOption.objects.create(question=source_question, option_text="Option B", option_order=2, is_correct=False)
+        master_question = sync_master_question_from_institute_question(source_question)
+
+        package = QuestionBankPackage.objects.create(
+            institute=public_institute,
+            name="Advanced Builder Package",
+            code="ADVANCED_BUILDER_PACKAGE",
+            package_type=QuestionBankPackageType.SUBJECT_LIBRARY,
+            ownership_type=QuestionBankOwnershipType.PLATFORM,
+        )
+        QuestionBankPackageScope.objects.create(
+            institute=public_institute,
+            package=package,
+            program=public_program,
+            subject=public_subject,
+            topic=public_topic,
+            question_source_type="platform_only",
+            question_type="mcq_single",
+            difficulty_level="intermediate",
+            master_visibility="shared_by_request",
+        )
+        entitlement, _ = grant_institute_question_bank_entitlement(
+            institute=self.context["institute"],
+            question_bank_package=package,
+        )
+        link_master_question_to_institute(
+            master_question=master_question,
+            institute=self.context["institute"],
+            approved_by=None,
+            requested_by_teacher=self.teacher,
+            local_program=self.context["program"],
+            local_subject=third_subject,
+            local_topic=third_topic,
+        )
+        entitlement.status = InstituteQuestionEntitlementStatus.PAUSED
+        entitlement.save(update_fields=["status", "updated_at"])
+
+        self.client.force_authenticate(user=self.teacher_user)
+        payload = {
+            "scope": {
+                "institute_code": self.context["institute"].code,
+                "academic_year_name": self.context["academic_year"].name,
+                "program_code": self.context["program"].code,
+                "cohort_code": self.context["cohort"].code,
+                "subject_code": third_subject.code,
+            },
+            "exam": {
+                "title": "Entitlement Paused Builder Test",
+                "code": "ADV-BUILDER-08",
+                "description": "Should not resolve paused linked content",
+                "exam_type": "test",
+                "delivery_mode": "online",
+                "status": "draft",
+                "duration_minutes": 30,
+                "instructions": "Test paused entitlements.",
+            },
+            "composition": {
+                "selection_mode": "strict",
+                "sections": [
+                    {
+                        "name": "Section A",
+                        "order": 1,
+                        "question_count": 1,
+                        "marks_per_question": "2.00",
+                        "negative_marks_per_question": "0.25",
+                        "difficulty_mix": {
+                            "foundation": 0,
+                            "intermediate": 100,
+                            "advanced": 0,
+                        },
+                        "topics": [
+                            {"topic_code": third_topic.code, "count": 1},
+                        ],
+                    }
+                ],
+            },
+            "delivery": {
+                "timer_mode": "global",
+                "navigation_mode": "free_exam",
+                "attempt_policy": "single",
+                "max_attempts": 1,
+                "result_publish_mode": "after_review",
+                "review_mode": "attempted_only",
+                "security_mode": "normal",
+                "assignment_mode": "scope",
+            },
+            "economy": {
+                "policy_type": "free",
+                "star_cost": 0,
+                "entitlement_code": "",
+                "priority": 10,
+            },
+        }
+
+        response = self.client.post(
+            "/api/v1/exams/advanced-builder/preview/",
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("composition", response.data)
+        self.assertTrue(
+            any(
+                "short by 1" in item or "only 0 could be resolved" in item
+                for item in response.data["composition"]
+            )
         )

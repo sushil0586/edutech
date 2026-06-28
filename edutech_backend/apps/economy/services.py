@@ -11,11 +11,21 @@ from apps.economy.models import (
     BillingInterval,
     ContentAccessPolicy,
     EconomyBalanceSource,
+    InstituteSubscriptionRequest,
+    InstituteSubscriptionRequestStatus,
+    InstituteQuestionEntitlement,
+    InstituteQuestionEntitlementGrantMode,
+    InstituteQuestionEntitlementStatus,
+    InstituteQuestionFeatureEntitlement,
+    InstituteQuestionUsageActionType,
+    InstituteQuestionUsageLedger,
     LedgerEntryDirection,
     PaymentOrder,
     PaymentOrderStatus,
     PaymentTransaction,
     PaymentTransactionStatus,
+    QuestionBankPackage,
+    QuestionBankAccessMode,
     ReferralCode,
     ReferralEvent,
     ReferralProgram,
@@ -32,6 +42,7 @@ from apps.economy.models import (
     StudentUnlockState,
     SubscriptionBillingEvent,
     SubscriptionPlan,
+    SubscriptionPlanQuestionBankPackage,
     SubscriptionPlanCycle,
     SubscriptionStarCreditRule,
     UnlockRule,
@@ -39,6 +50,7 @@ from apps.economy.models import (
     UnlockStateStatus,
 )
 from apps.academics.models import Subject
+from apps.question_bank.models import MasterQuestionSourceType, MasterQuestionVisibility
 from apps.results.models import ExamResult
 
 
@@ -418,6 +430,24 @@ def list_active_subscription_plans(*, institute):
         SubscriptionPlan.objects.filter(institute=institute, is_active=True)
         .prefetch_related("cycles__star_credit_rules")
         .order_by("name")
+    )
+
+
+def list_requestable_subscription_plans_for_institute(*, institute):
+    return (
+        SubscriptionPlan.objects.filter(
+            is_active=True,
+            question_bank_package_links__is_active=True,
+        )
+        .filter(Q(institute=institute) | Q(institute__metadata__is_public_content_hub=True))
+        .select_related("institute")
+        .prefetch_related(
+            "cycles__star_credit_rules",
+            "question_bank_package_links__question_bank_package__institute",
+            "question_bank_package_links__question_bank_package__scopes",
+        )
+        .distinct()
+        .order_by("institute__name", "name")
     )
 
 
@@ -901,6 +931,1167 @@ def process_exam_result_rewards(*, result, created_by=None, processed_at=None):
             created_events.append(event)
 
     return created_events
+
+
+def _active_institute_question_entitlements_queryset(*, institute, at_time=None):
+    now = at_time or timezone.now()
+    return InstituteQuestionEntitlement.objects.filter(
+        institute=institute,
+        is_active=True,
+        status=InstituteQuestionEntitlementStatus.ACTIVE,
+    ).filter(
+        Q(starts_at__isnull=True) | Q(starts_at__lte=now),
+        Q(ends_at__isnull=True) | Q(ends_at__gte=now),
+    )
+
+
+def _active_institute_question_feature_entitlements_queryset(*, institute, at_time=None):
+    now = at_time or timezone.now()
+    return InstituteQuestionFeatureEntitlement.objects.filter(
+        institute=institute,
+        is_active=True,
+        status=InstituteQuestionEntitlementStatus.ACTIVE,
+    ).filter(
+        Q(starts_at__isnull=True) | Q(starts_at__lte=now),
+        Q(ends_at__isnull=True) | Q(ends_at__gte=now),
+    )
+
+
+def active_institute_question_entitlements(institute, *, at_time=None):
+    return (
+        _active_institute_question_entitlements_queryset(institute=institute, at_time=at_time)
+        .select_related("question_bank_package", "subscription_plan", "subscription_plan_cycle")
+        .order_by("question_bank_package__sort_order", "question_bank_package__name", "created_at")
+    )
+
+
+def active_institute_question_feature_entitlements(institute, *, at_time=None):
+    return (
+        _active_institute_question_feature_entitlements_queryset(institute=institute, at_time=at_time)
+        .select_related("source_package", "source_subscription_plan")
+        .order_by("feature_code", "created_at")
+    )
+
+
+def list_accessible_question_bank_packages(*, institute, at_time=None):
+    package_ids = _active_institute_question_entitlements_queryset(
+        institute=institute,
+        at_time=at_time,
+    ).values_list("question_bank_package_id", flat=True)
+    return QuestionBankPackage.objects.filter(
+        id__in=package_ids,
+        is_active=True,
+    ).order_by("sort_order", "name")
+
+
+def institute_has_question_bank_package(institute, *, question_bank_package, at_time=None):
+    package_id = getattr(question_bank_package, "id", question_bank_package)
+    return _active_institute_question_entitlements_queryset(
+        institute=institute,
+        at_time=at_time,
+    ).filter(question_bank_package_id=package_id).exists()
+
+
+def institute_has_question_bank_feature(institute, feature_code, *, at_time=None):
+    normalized_code = str(feature_code or "").strip().upper()
+    if not normalized_code:
+        return False
+    return _active_institute_question_feature_entitlements_queryset(
+        institute=institute,
+        at_time=at_time,
+    ).filter(feature_code=normalized_code).exists()
+
+
+def package_scope_matches_master_question(*, scope, master_question):
+    if scope.program_id and scope.program_id != getattr(master_question, "source_program_id", None):
+        return False
+    if scope.subject_id and scope.subject_id != getattr(master_question, "source_subject_id", None):
+        return False
+    if scope.topic_id and scope.topic_id != getattr(master_question, "source_topic_id", None):
+        return False
+    if scope.difficulty_level and scope.difficulty_level != getattr(master_question, "difficulty_level", ""):
+        return False
+    if scope.question_type and scope.question_type != getattr(master_question, "question_type", ""):
+        return False
+    if scope.master_visibility and scope.master_visibility != getattr(master_question, "visibility", ""):
+        return False
+
+    scope_source_type = str(getattr(scope, "question_source_type", "") or "").strip()
+    master_source_type = str(getattr(master_question, "source_type", "") or "").strip()
+    if scope_source_type == "platform_only" and master_source_type != MasterQuestionSourceType.PLATFORM:
+        return False
+    if scope_source_type == "teacher_only" and master_source_type != MasterQuestionSourceType.TEACHER:
+        return False
+    if scope_source_type == "institute_only" and master_source_type != MasterQuestionSourceType.INSTITUTE:
+        return False
+    if scope_source_type == "non_platform" and master_source_type == MasterQuestionSourceType.PLATFORM:
+        return False
+
+    scope_metadata = getattr(scope, "metadata", {}) or {}
+    master_metadata = getattr(master_question, "metadata", {}) or {}
+    seed_lane_filters = scope_metadata.get("master_question_seed_lanes")
+    if seed_lane_filters:
+        normalized_seed_lanes = {
+            str(seed_lane).strip()
+            for seed_lane in seed_lane_filters
+            if str(seed_lane).strip()
+        }
+        if normalized_seed_lanes:
+            master_seed_lane = str(master_metadata.get("seed_lane", "")).strip()
+            if master_seed_lane not in normalized_seed_lanes:
+                return False
+
+    return True
+
+
+def find_matching_question_bank_packages_for_master_question(institute, *, master_question, at_time=None):
+    entitlements = active_institute_question_entitlements(institute, at_time=at_time).prefetch_related(
+        "question_bank_package__scopes"
+    )
+    matches = []
+    for entitlement in entitlements:
+        package = entitlement.question_bank_package
+        package_scopes = list(package.scopes.filter(is_active=True))
+        if any(package_scope_matches_master_question(scope=scope, master_question=master_question) for scope in package_scopes):
+            matches.append(package)
+    return matches
+
+
+def find_matching_question_bank_entitlements_for_master_question(institute, *, master_question, at_time=None):
+    entitlements = active_institute_question_entitlements(institute, at_time=at_time).prefetch_related(
+        "question_bank_package__scopes"
+    )
+    matches = []
+    for entitlement in entitlements:
+        package_scopes = list(entitlement.question_bank_package.scopes.filter(is_active=True))
+        if any(package_scope_matches_master_question(scope=scope, master_question=master_question) for scope in package_scopes):
+            matches.append(entitlement)
+    return matches
+
+
+def _matching_scopes_for_master_question(*, entitlement, master_question):
+    package_scopes = list(entitlement.question_bank_package.scopes.filter(is_active=True))
+    return [
+        scope
+        for scope in package_scopes
+        if package_scope_matches_master_question(scope=scope, master_question=master_question)
+    ]
+
+
+def _linked_usage_entries_for_scope(*, entitlement, scope):
+    queryset = InstituteQuestionUsageLedger.objects.select_related("master_question").filter(
+        institute=entitlement.institute,
+        question_bank_package=entitlement.question_bank_package,
+        entitlement=entitlement,
+        is_active=True,
+        action_type=InstituteQuestionUsageActionType.QUESTION_LINKED,
+        master_question__isnull=False,
+    )
+    return [
+        entry
+        for entry in queryset
+        if entry.master_question
+        and package_scope_matches_master_question(scope=scope, master_question=entry.master_question)
+    ]
+
+
+def _coerce_positive_float(value):
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return None
+    return numeric if numeric > 0 else None
+
+
+def _coerce_positive_int(value):
+    try:
+        numeric = int(value)
+    except (TypeError, ValueError):
+        return None
+    return numeric if numeric > 0 else None
+
+
+def _quota_warning_threshold_for_limit(*, entitlement, scope, limit_value):
+    scope_metadata = scope.metadata or {}
+    package_metadata = (entitlement.question_bank_package.metadata or {}) if entitlement.question_bank_package_id else {}
+
+    absolute_override = _coerce_positive_float(
+        scope_metadata.get("quota_warning_remaining")
+        or package_metadata.get("quota_warning_remaining")
+    )
+    if absolute_override is not None:
+        return int(absolute_override)
+
+    percent_override = _coerce_positive_float(
+        scope_metadata.get("quota_warning_percent")
+        or package_metadata.get("quota_warning_percent")
+    )
+    if percent_override is None:
+        percent_override = 10.0
+
+    if percent_override > 1:
+        percent_override = percent_override / 100.0
+
+    computed = int(limit_value * percent_override)
+    if computed <= 0:
+        computed = 1
+    if computed > limit_value:
+        computed = limit_value
+    return computed
+
+
+def _publish_warning_threshold_for_limit(*, entitlement, limit_value):
+    entitlement_metadata = entitlement.metadata or {}
+    package_metadata = (entitlement.question_bank_package.metadata or {}) if entitlement.question_bank_package_id else {}
+
+    absolute_override = _coerce_positive_int(
+        entitlement_metadata.get("publish_warning_remaining")
+        or package_metadata.get("publish_warning_remaining")
+    )
+    if absolute_override is not None:
+        return min(absolute_override, limit_value)
+
+    percent_override = _coerce_positive_float(
+        entitlement_metadata.get("publish_warning_percent")
+        or package_metadata.get("publish_warning_percent")
+    )
+    if percent_override is None:
+        percent_override = 10.0
+
+    if percent_override > 1:
+        percent_override = percent_override / 100.0
+
+    computed = int(limit_value * percent_override)
+    if computed <= 0:
+        computed = 1
+    if computed > limit_value:
+        computed = limit_value
+    return computed
+
+
+def get_entitlement_quota_summary(entitlement):
+    package = entitlement.question_bank_package
+    active_scopes = list(package.scopes.filter(is_active=True))
+    quota_scopes = [
+        scope
+        for scope in active_scopes
+        if scope.max_questions_total is not None or scope.max_questions_per_topic is not None
+    ]
+    if package.access_mode != QuestionBankAccessMode.QUOTA_LIMITED or not quota_scopes:
+        return {
+            "quota_configured": False,
+            "quota_status": "not_applicable",
+            "quota_watch_state": "not_applicable",
+            "quota_usage_total": 0,
+            "quota_remaining_min": None,
+            "quota_scope_summary": [],
+        }
+
+    usage_total = 0
+    scope_summaries = []
+    limit_reached = False
+    near_limit = False
+    remaining_min = None
+
+    for scope in quota_scopes:
+        linked_entries = _linked_usage_entries_for_scope(entitlement=entitlement, scope=scope)
+        usage_total += sum(entry.quantity for entry in linked_entries)
+
+        parts = []
+        if scope.program_id:
+            parts.append(scope.program.name)
+        if scope.subject_id:
+            parts.append(scope.subject.name)
+        if scope.topic_id:
+            parts.append(scope.topic.name)
+        scope_label = " -> ".join(parts) if parts else "Scoped package segment"
+
+        metrics = []
+        scope_remaining_values = []
+        if scope.max_questions_total is not None:
+            total_used = sum(entry.quantity for entry in linked_entries)
+            total_remaining = max(scope.max_questions_total - total_used, 0)
+            scope_remaining_values.append(
+                (
+                    total_remaining,
+                    _quota_warning_threshold_for_limit(
+                        entitlement=entitlement,
+                        scope=scope,
+                        limit_value=scope.max_questions_total,
+                    ),
+                )
+            )
+            metrics.append(f"{total_used}/{scope.max_questions_total} linked")
+            metrics.append(f"{total_remaining} total remaining")
+            if total_remaining <= 0:
+                limit_reached = True
+
+        if scope.max_questions_per_topic is not None:
+            usage_by_topic = {}
+            for entry in linked_entries:
+                topic_id = getattr(entry.master_question, "source_topic_id", None)
+                usage_by_topic[topic_id] = usage_by_topic.get(topic_id, 0) + entry.quantity
+            highest_topic_usage = max(usage_by_topic.values(), default=0)
+            per_topic_remaining = max(scope.max_questions_per_topic - highest_topic_usage, 0)
+            scope_remaining_values.append(
+                (
+                    per_topic_remaining,
+                    _quota_warning_threshold_for_limit(
+                        entitlement=entitlement,
+                        scope=scope,
+                        limit_value=scope.max_questions_per_topic,
+                    ),
+                )
+            )
+            metrics.append(
+                f"{highest_topic_usage}/{scope.max_questions_per_topic} used in busiest topic"
+            )
+            metrics.append(f"{per_topic_remaining} per-topic remaining")
+            if per_topic_remaining <= 0:
+                limit_reached = True
+
+        for remaining_value, warning_threshold in scope_remaining_values:
+            if remaining_min is None or remaining_value < remaining_min:
+                remaining_min = remaining_value
+            if remaining_value > 0 and remaining_value <= warning_threshold:
+                near_limit = True
+
+        summary = f"{scope_label} ({', '.join(metrics)})" if metrics else scope_label
+        scope_summaries.append(summary)
+
+    watch_state = "healthy"
+    if limit_reached:
+        watch_state = "limit_reached"
+    elif near_limit:
+        watch_state = "near_limit"
+
+    return {
+        "quota_configured": True,
+        "quota_status": "limit_reached" if limit_reached else "available",
+        "quota_watch_state": watch_state,
+        "quota_usage_total": usage_total,
+        "quota_remaining_min": remaining_min,
+        "quota_scope_summary": scope_summaries,
+    }
+
+
+def entitlement_has_available_question_quota(*, entitlement, master_question):
+    package = entitlement.question_bank_package
+    if package.access_mode != QuestionBankAccessMode.QUOTA_LIMITED:
+        return True
+
+    matching_scopes = _matching_scopes_for_master_question(
+        entitlement=entitlement,
+        master_question=master_question,
+    )
+    if not matching_scopes:
+        return False
+
+    for scope in matching_scopes:
+        linked_entries = _linked_usage_entries_for_scope(entitlement=entitlement, scope=scope)
+
+        if scope.max_questions_total is not None:
+            total_used = sum(entry.quantity for entry in linked_entries)
+            if total_used >= scope.max_questions_total:
+                continue
+
+        if scope.max_questions_per_topic is not None:
+            target_topic_id = getattr(master_question, "source_topic_id", None)
+            topic_used = sum(
+                entry.quantity
+                for entry in linked_entries
+                if getattr(entry.master_question, "source_topic_id", None) == target_topic_id
+            )
+            if topic_used >= scope.max_questions_per_topic:
+                continue
+
+        return True
+
+    return False
+
+
+def resolve_question_bank_entitlement_for_master_question_use(
+    institute,
+    *,
+    master_question,
+    at_time=None,
+):
+    matching_entitlements = find_matching_question_bank_entitlements_for_master_question(
+        institute,
+        master_question=master_question,
+        at_time=at_time,
+    )
+    if not matching_entitlements:
+        return None
+
+    for entitlement in matching_entitlements:
+        if entitlement_has_available_question_quota(
+            entitlement=entitlement,
+            master_question=master_question,
+        ):
+            return entitlement
+
+    return None
+
+
+def get_master_question_access_summary(institute, *, master_question, at_time=None):
+    matching_entitlements = find_matching_question_bank_entitlements_for_master_question(
+        institute,
+        master_question=master_question,
+        at_time=at_time,
+    )
+    if not matching_entitlements:
+        return {
+            "has_entitlement": False,
+            "has_access": False,
+            "access_availability": "subscription_required",
+            "quota_limited": False,
+            "quota_exhausted": False,
+            "quota_note": "No matching subscribed package was found for this local scope.",
+        }
+
+    available_entitlement = None
+    for entitlement in matching_entitlements:
+        if entitlement_has_available_question_quota(
+            entitlement=entitlement,
+            master_question=master_question,
+        ):
+            available_entitlement = entitlement
+            break
+
+    if available_entitlement is None:
+        return {
+            "has_entitlement": True,
+            "has_access": False,
+            "access_availability": "quota_exhausted",
+            "quota_limited": any(
+                entitlement.question_bank_package.access_mode == QuestionBankAccessMode.QUOTA_LIMITED
+                for entitlement in matching_entitlements
+            ),
+            "quota_exhausted": True,
+            "quota_note": "Matching subscribed packages were found, but their question quota is exhausted.",
+        }
+
+    if available_entitlement.question_bank_package.access_mode != QuestionBankAccessMode.QUOTA_LIMITED:
+        return {
+            "has_entitlement": True,
+            "has_access": True,
+            "access_availability": "available",
+            "quota_limited": False,
+            "quota_exhausted": False,
+            "quota_note": "",
+        }
+
+    matching_scopes = _matching_scopes_for_master_question(
+        entitlement=available_entitlement,
+        master_question=master_question,
+    )
+    remaining_candidates = []
+    for scope in matching_scopes:
+        linked_entries = _linked_usage_entries_for_scope(entitlement=available_entitlement, scope=scope)
+        scope_limits = []
+
+        if scope.max_questions_total is not None:
+            total_used = sum(entry.quantity for entry in linked_entries)
+            scope_limits.append(max(scope.max_questions_total - total_used, 0))
+
+        if scope.max_questions_per_topic is not None:
+            target_topic_id = getattr(master_question, "source_topic_id", None)
+            topic_used = sum(
+                entry.quantity
+                for entry in linked_entries
+                if getattr(entry.master_question, "source_topic_id", None) == target_topic_id
+            )
+            scope_limits.append(max(scope.max_questions_per_topic - topic_used, 0))
+
+        if scope_limits:
+            remaining_candidates.append(min(scope_limits))
+
+    quota_note = ""
+    if remaining_candidates:
+        quota_note = f"Matching package quota available. Remaining question allowance: {max(remaining_candidates)}."
+
+    return {
+        "has_entitlement": True,
+        "has_access": True,
+        "access_availability": "available",
+        "quota_limited": True,
+        "quota_exhausted": False,
+        "quota_note": quota_note,
+    }
+
+
+def validate_institute_question_quota_access(*, institute, master_question, at_time=None):
+    entitlement = resolve_question_bank_entitlement_for_master_question_use(
+        institute,
+        master_question=master_question,
+        at_time=at_time,
+    )
+    if entitlement is not None:
+        return entitlement
+
+    raise ValidationError(
+        {
+            "master_question": (
+                "This platform question is outside the institute's active subscribed question-bank packages "
+                "or the matching package quota has been exhausted."
+            )
+        }
+    )
+
+
+def institute_has_master_question_access(institute, *, master_question, at_time=None):
+    source_type = str(getattr(master_question, "source_type", "") or "").strip()
+    visibility = str(getattr(master_question, "visibility", "") or "").strip()
+    if source_type != MasterQuestionSourceType.PLATFORM:
+        return True
+    if visibility == MasterQuestionVisibility.PRIVATE:
+        return False
+    return bool(
+        find_matching_question_bank_packages_for_master_question(
+            institute,
+            master_question=master_question,
+            at_time=at_time,
+        )
+    )
+
+
+def record_institute_question_usage(
+    *,
+    institute,
+    question_bank_package,
+    action_type,
+    effective_at=None,
+    entitlement=None,
+    master_question=None,
+    question=None,
+    exam=None,
+    quantity=1,
+    performed_by=None,
+    metadata=None,
+):
+    performed_by_user = performed_by
+    account_profile = getattr(performed_by_user, "account_profile", None)
+    if account_profile is not None and getattr(account_profile, "user", None) is not None:
+        performed_by_user = account_profile.user
+    else:
+        performed_by_user = getattr(performed_by_user, "user", performed_by_user)
+    return InstituteQuestionUsageLedger.objects.create(
+        institute=institute,
+        question_bank_package=question_bank_package,
+        entitlement=entitlement,
+        action_type=action_type,
+        master_question=master_question,
+        question=question,
+        exam=exam,
+        quantity=quantity,
+        performed_by=performed_by_user,
+        effective_at=effective_at or timezone.now(),
+        metadata=metadata or {},
+    )
+
+
+def record_master_question_link_usage(
+    *,
+    institute,
+    master_question,
+    question,
+    performed_by=None,
+    effective_at=None,
+    metadata=None,
+):
+    existing_entry = InstituteQuestionUsageLedger.objects.filter(
+        institute=institute,
+        action_type=InstituteQuestionUsageActionType.QUESTION_LINKED,
+        master_question=master_question,
+        question=question,
+        is_active=True,
+    ).first()
+    if existing_entry is not None:
+        return existing_entry
+
+    entitlement = resolve_question_bank_entitlement_for_master_question_use(
+        institute,
+        master_question=master_question,
+        at_time=effective_at,
+    )
+    if entitlement is None:
+        return None
+    return record_institute_question_usage(
+        institute=institute,
+        question_bank_package=entitlement.question_bank_package,
+        entitlement=entitlement,
+        action_type=InstituteQuestionUsageActionType.QUESTION_LINKED,
+        effective_at=effective_at,
+        master_question=master_question,
+        question=question,
+        performed_by=performed_by,
+        metadata=metadata or {},
+    )
+
+
+def record_exam_question_bank_usage(
+    *,
+    exam,
+    action_type,
+    performed_by=None,
+    effective_at=None,
+    metadata=None,
+):
+    supported_actions = {
+        InstituteQuestionUsageActionType.EXAM_CREATED,
+        InstituteQuestionUsageActionType.EXAM_PUBLISHED,
+    }
+    if action_type not in supported_actions:
+        raise ValidationError({"action_type": "Unsupported exam usage action."})
+    grouped_entries = group_exam_question_bank_usage_buckets(exam=exam)
+    if not grouped_entries:
+        return []
+
+    recorded_entries = []
+    for bucket in grouped_entries:
+        performed_by_user = performed_by
+        account_profile = getattr(performed_by_user, "account_profile", None)
+        if account_profile is not None and getattr(account_profile, "user", None) is not None:
+            performed_by_user = account_profile.user
+        else:
+            performed_by_user = getattr(performed_by_user, "user", performed_by_user)
+        payload = {
+            "question_ids": bucket["question_ids"],
+            "master_question_ids": bucket["master_question_ids"],
+            "linked_question_count": len(bucket["question_ids"]),
+            **(metadata or {}),
+        }
+        existing_entry = InstituteQuestionUsageLedger.objects.filter(
+            institute=exam.institute,
+            question_bank_package=bucket["package"],
+            entitlement=bucket["entitlement"],
+            action_type=action_type,
+            exam=exam,
+            is_active=True,
+        ).first()
+        if existing_entry is not None:
+            existing_entry.quantity = len(bucket["question_ids"])
+            existing_entry.performed_by = performed_by_user
+            existing_entry.effective_at = effective_at or existing_entry.effective_at
+            existing_entry.metadata = payload
+            existing_entry.save(update_fields=["quantity", "performed_by", "effective_at", "metadata", "updated_at"])
+            recorded_entries.append(existing_entry)
+            continue
+
+        recorded_entries.append(
+            record_institute_question_usage(
+                institute=exam.institute,
+                question_bank_package=bucket["package"],
+                entitlement=bucket["entitlement"],
+                action_type=action_type,
+                effective_at=effective_at,
+                exam=exam,
+                quantity=len(bucket["question_ids"]),
+                performed_by=performed_by_user,
+                metadata=payload,
+            )
+        )
+
+    return recorded_entries
+
+
+@transaction.atomic
+def grant_institute_question_bank_entitlement(
+    *,
+    institute,
+    question_bank_package,
+    granted_via=InstituteQuestionEntitlementGrantMode.ADMIN_GRANT,
+    subscription_plan=None,
+    subscription_plan_cycle=None,
+    starts_at=None,
+    ends_at=None,
+    granted_by=None,
+    notes="",
+    metadata=None,
+):
+    live_statuses = [
+        InstituteQuestionEntitlementStatus.DRAFT,
+        InstituteQuestionEntitlementStatus.ACTIVE,
+        InstituteQuestionEntitlementStatus.PAUSED,
+    ]
+    entitlement = (
+        InstituteQuestionEntitlement.objects.select_for_update()
+        .filter(
+            institute=institute,
+            question_bank_package=question_bank_package,
+            status__in=live_statuses,
+        )
+        .first()
+    )
+    if entitlement is None:
+        entitlement = InstituteQuestionEntitlement.objects.create(
+            institute=institute,
+            question_bank_package=question_bank_package,
+            status=InstituteQuestionEntitlementStatus.ACTIVE,
+            granted_via=granted_via,
+            subscription_plan=subscription_plan,
+            subscription_plan_cycle=subscription_plan_cycle,
+            starts_at=starts_at,
+            ends_at=ends_at,
+            granted_by=granted_by,
+            notes=notes,
+            metadata=metadata or {},
+        )
+        record_institute_question_usage(
+            institute=institute,
+            question_bank_package=question_bank_package,
+            entitlement=entitlement,
+            action_type=InstituteQuestionUsageActionType.ENTITLEMENT_OVERRIDE,
+            performed_by=granted_by,
+            metadata={
+                "operation": "grant_entitlement",
+                "created": True,
+                "granted_via": granted_via,
+                **(metadata or {}),
+            },
+        )
+        return entitlement, True
+
+    entitlement.status = InstituteQuestionEntitlementStatus.ACTIVE
+    entitlement.granted_via = granted_via
+    entitlement.subscription_plan = subscription_plan
+    entitlement.subscription_plan_cycle = subscription_plan_cycle
+    entitlement.starts_at = starts_at
+    entitlement.ends_at = ends_at
+    if granted_by is not None:
+        entitlement.granted_by = granted_by
+    entitlement.revoked_by = None
+    entitlement.notes = notes
+    entitlement.metadata = metadata or {}
+    entitlement.save()
+    record_institute_question_usage(
+        institute=institute,
+        question_bank_package=question_bank_package,
+        entitlement=entitlement,
+        action_type=InstituteQuestionUsageActionType.ENTITLEMENT_OVERRIDE,
+        performed_by=granted_by,
+        metadata={
+            "operation": "grant_entitlement",
+            "created": False,
+            "granted_via": granted_via,
+            **(metadata or {}),
+        },
+    )
+    return entitlement, False
+
+
+@transaction.atomic
+def update_institute_question_bank_entitlement_status(
+    *,
+    entitlement,
+    status,
+    changed_by=None,
+    notes=None,
+    starts_at=None,
+    ends_at=None,
+    starts_at_provided=False,
+    ends_at_provided=False,
+):
+    previous_status = entitlement.status
+    if starts_at_provided:
+        entitlement.starts_at = starts_at
+    if ends_at_provided:
+        entitlement.ends_at = ends_at
+
+    if entitlement.starts_at and entitlement.ends_at and entitlement.ends_at <= entitlement.starts_at:
+        raise ValidationError("Entitlement end time must be later than the start time.")
+
+    entitlement.status = status
+    if notes is not None:
+        entitlement.notes = notes
+
+    if status == InstituteQuestionEntitlementStatus.REVOKED:
+        entitlement.revoked_by = changed_by
+        if not ends_at_provided and entitlement.ends_at is None:
+            entitlement.ends_at = timezone.now()
+    elif status == InstituteQuestionEntitlementStatus.ACTIVE:
+        entitlement.revoked_by = None
+
+    entitlement.save()
+    record_institute_question_usage(
+        institute=entitlement.institute,
+        question_bank_package=entitlement.question_bank_package,
+        entitlement=entitlement,
+        action_type=InstituteQuestionUsageActionType.ENTITLEMENT_OVERRIDE,
+        performed_by=changed_by,
+        metadata={
+            "operation": "status_change",
+            "before_status": previous_status,
+            "after_status": status,
+        },
+    )
+    return entitlement
+
+
+def group_exam_question_bank_usage_buckets(*, exam):
+    from apps.exams.models import ExamQuestion
+
+    exam_questions = list(
+        ExamQuestion.objects.select_related("question")
+        .filter(exam=exam, is_active=True, question__is_active=True)
+        .order_by("question_order", "created_at")
+    )
+    if not exam_questions:
+        return []
+
+    question_ids = [exam_question.question_id for exam_question in exam_questions if exam_question.question_id]
+    if not question_ids:
+        return []
+
+    link_entries = list(
+        InstituteQuestionUsageLedger.objects.select_related(
+            "question_bank_package",
+            "entitlement",
+            "master_question",
+        )
+        .filter(
+            institute=exam.institute,
+            action_type=InstituteQuestionUsageActionType.QUESTION_LINKED,
+            question_id__in=question_ids,
+            is_active=True,
+        )
+        .order_by("created_at")
+    )
+    if not link_entries:
+        return []
+
+    grouped_entries = {}
+    for entry in link_entries:
+        grouping_key = (
+            str(entry.question_bank_package_id),
+            str(entry.entitlement_id) if entry.entitlement_id else "",
+        )
+        bucket = grouped_entries.setdefault(
+            grouping_key,
+            {
+                "package": entry.question_bank_package,
+                "entitlement": entry.entitlement,
+                "question_ids": [],
+                "master_question_ids": [],
+            },
+        )
+        if entry.question_id and str(entry.question_id) not in bucket["question_ids"]:
+            bucket["question_ids"].append(str(entry.question_id))
+        if entry.master_question_id and str(entry.master_question_id) not in bucket["master_question_ids"]:
+            bucket["master_question_ids"].append(str(entry.master_question_id))
+
+    return list(grouped_entries.values())
+
+
+def get_entitlement_exam_publish_policy_summary(entitlement, *, current_exam=None):
+    entitlement_metadata = entitlement.metadata or {}
+    package_metadata = (entitlement.question_bank_package.metadata or {}) if entitlement.question_bank_package_id else {}
+    configured_limit = _coerce_positive_int(
+        entitlement_metadata.get("max_exam_publish_count")
+        or package_metadata.get("max_exam_publish_count")
+    )
+    if configured_limit is None:
+        return {
+            "publish_limit_configured": False,
+            "publish_limit_total": None,
+            "publish_usage_count": 0,
+            "publish_remaining_count": None,
+            "publish_watch_state": "not_applicable",
+        }
+
+    usage_queryset = InstituteQuestionUsageLedger.objects.filter(
+        institute=entitlement.institute,
+        question_bank_package=entitlement.question_bank_package,
+        entitlement=entitlement,
+        action_type=InstituteQuestionUsageActionType.EXAM_PUBLISHED,
+        exam__isnull=False,
+        is_active=True,
+    )
+    if current_exam is not None:
+        usage_queryset = usage_queryset.exclude(exam=current_exam)
+    usage_count = usage_queryset.count()
+    remaining_count = max(configured_limit - usage_count, 0)
+    warning_threshold = _publish_warning_threshold_for_limit(
+        entitlement=entitlement,
+        limit_value=configured_limit,
+    )
+
+    watch_state = "healthy"
+    if remaining_count <= 0:
+        watch_state = "limit_reached"
+    elif remaining_count <= warning_threshold:
+        watch_state = "near_limit"
+
+    return {
+        "publish_limit_configured": True,
+        "publish_limit_total": configured_limit,
+        "publish_usage_count": usage_count,
+        "publish_remaining_count": remaining_count,
+        "publish_watch_state": watch_state,
+    }
+
+
+@transaction.atomic
+def grant_institute_feature_entitlement(
+    *,
+    institute,
+    feature_code,
+    source_package=None,
+    source_subscription_plan=None,
+    starts_at=None,
+    ends_at=None,
+    metadata=None,
+):
+    normalized_code = str(feature_code or "").strip().upper()
+    live_statuses = [
+        InstituteQuestionEntitlementStatus.DRAFT,
+        InstituteQuestionEntitlementStatus.ACTIVE,
+        InstituteQuestionEntitlementStatus.PAUSED,
+    ]
+    entitlement = (
+        InstituteQuestionFeatureEntitlement.objects.select_for_update()
+        .filter(
+            institute=institute,
+            feature_code=normalized_code,
+            status__in=live_statuses,
+        )
+        .first()
+    )
+    if entitlement is None:
+        entitlement = InstituteQuestionFeatureEntitlement.objects.create(
+            institute=institute,
+            feature_code=normalized_code,
+            status=InstituteQuestionEntitlementStatus.ACTIVE,
+            source_package=source_package,
+            source_subscription_plan=source_subscription_plan,
+            starts_at=starts_at,
+            ends_at=ends_at,
+            metadata=metadata or {},
+        )
+        return entitlement, True
+
+    entitlement.status = InstituteQuestionEntitlementStatus.ACTIVE
+    entitlement.source_package = source_package
+    entitlement.source_subscription_plan = source_subscription_plan
+    entitlement.starts_at = starts_at
+    entitlement.ends_at = ends_at
+    entitlement.metadata = metadata or {}
+    entitlement.save()
+    return entitlement, False
+
+
+@transaction.atomic
+def update_institute_question_feature_entitlement_status(
+    *,
+    entitlement,
+    status,
+):
+    if not isinstance(entitlement, InstituteQuestionFeatureEntitlement):
+        entitlement = InstituteQuestionFeatureEntitlement.objects.select_for_update().get(pk=entitlement)
+    else:
+        entitlement = InstituteQuestionFeatureEntitlement.objects.select_for_update().get(pk=entitlement.pk)
+
+    entitlement.status = status
+    if status == InstituteQuestionEntitlementStatus.REVOKED:
+        entitlement.ends_at = entitlement.ends_at or timezone.now()
+    entitlement.save()
+    return entitlement
+
+
+@transaction.atomic
+def apply_subscription_plan_question_bank_links_to_institute(
+    *,
+    subscription_plan,
+    target_institute,
+    grant_modes=None,
+    granted_by=None,
+    notes="",
+    activation_context_metadata=None,
+):
+    if not isinstance(subscription_plan, SubscriptionPlan):
+        subscription_plan = SubscriptionPlan.objects.select_for_update().get(pk=subscription_plan)
+    else:
+        subscription_plan = SubscriptionPlan.objects.select_for_update().get(pk=subscription_plan.pk)
+
+    allowed_grant_modes = {str(mode or "").strip() for mode in (grant_modes or ("included", "trial"))}
+    if not allowed_grant_modes:
+        raise ValidationError({"grant_modes": "At least one grant mode must be provided."})
+
+    active_links = list(
+        SubscriptionPlanQuestionBankPackage.objects.select_related("question_bank_package")
+        .filter(
+            subscription_plan=subscription_plan,
+            is_active=True,
+            grant_mode__in=allowed_grant_modes,
+        )
+        .order_by("question_bank_package__sort_order", "question_bank_package__name")
+    )
+
+    entitlements = []
+    for link in active_links:
+        package = link.question_bank_package
+        entitlement, _ = grant_institute_question_bank_entitlement(
+            institute=target_institute,
+            question_bank_package=package,
+            granted_via=InstituteQuestionEntitlementGrantMode.SUBSCRIPTION,
+            subscription_plan=subscription_plan,
+            granted_by=granted_by,
+            notes=notes or f"Applied from subscription plan {subscription_plan.code}.",
+            metadata={
+                "subscription_plan_id": str(subscription_plan.id),
+                "subscription_plan_code": subscription_plan.code,
+                "grant_mode": link.grant_mode,
+                "is_default": link.is_default,
+                "link_metadata": link.metadata or {},
+                **(activation_context_metadata or {}),
+            },
+        )
+        entitlements.append(entitlement)
+
+    return entitlements
+
+
+@transaction.atomic
+def create_institute_subscription_request(
+    *,
+    institute,
+    subscription_plan_cycle,
+    requested_by=None,
+    grant_modes=None,
+    notes="",
+    metadata=None,
+):
+    if not isinstance(subscription_plan_cycle, SubscriptionPlanCycle):
+        subscription_plan_cycle = (
+            SubscriptionPlanCycle.objects.select_related("plan", "institute")
+            .filter(pk=subscription_plan_cycle, is_active=True)
+            .first()
+        )
+    if subscription_plan_cycle is None:
+        raise ValidationError({"subscription_plan_cycle": "Subscription cycle not found."})
+
+    cycle_institute = subscription_plan_cycle.institute
+    cycle_is_public_hub = bool((cycle_institute.metadata or {}).get("is_public_content_hub"))
+    if subscription_plan_cycle.institute_id != institute.id and not cycle_is_public_hub:
+        raise ValidationError(
+            {"subscription_plan_cycle": "Subscription cycle must belong to the institute or the public hub."}
+        )
+    if not subscription_plan_cycle.plan.question_bank_package_links.filter(is_active=True).exists():
+        raise ValidationError(
+            {"subscription_plan_cycle": "Selected plan does not expose any active question-bank packages."}
+        )
+
+    normalized_grant_modes = [str(mode).strip() for mode in (grant_modes or ["included", "trial"]) if str(mode).strip()]
+    active_package_links = list(
+        subscription_plan_cycle.plan.question_bank_package_links.select_related("question_bank_package")
+        .filter(is_active=True, grant_mode__in=normalized_grant_modes)
+        .order_by("question_bank_package__sort_order", "question_bank_package__name")
+    )
+    pending_request = (
+        InstituteSubscriptionRequest.objects.select_for_update()
+        .filter(
+            institute=institute,
+            subscription_plan_cycle=subscription_plan_cycle,
+            status=InstituteSubscriptionRequestStatus.PENDING,
+            is_active=True,
+        )
+        .first()
+    )
+    if pending_request is not None:
+        return pending_request, False
+
+    request = InstituteSubscriptionRequest.objects.create(
+        institute=institute,
+        subscription_plan_cycle=subscription_plan_cycle,
+        status=InstituteSubscriptionRequestStatus.PENDING,
+        requested_by=requested_by,
+        grant_modes=normalized_grant_modes,
+        notes=notes,
+        metadata={
+            **(metadata or {}),
+            "requested_package_codes": [link.question_bank_package.code for link in active_package_links],
+            "requested_package_names": [link.question_bank_package.name for link in active_package_links],
+            "requested_package_count": len(active_package_links),
+            "subscription_plan_code": subscription_plan_cycle.plan.code,
+        },
+    )
+    return request, True
+
+
+@transaction.atomic
+def review_institute_subscription_request(
+    *,
+    subscription_request,
+    decision,
+    reviewed_by=None,
+    operator_notes="",
+):
+    if not isinstance(subscription_request, InstituteSubscriptionRequest):
+        subscription_request = (
+            InstituteSubscriptionRequest.objects.select_for_update()
+            .select_related("institute", "subscription_plan_cycle", "subscription_plan_cycle__plan")
+            .get(pk=subscription_request)
+        )
+    else:
+        subscription_request = (
+            InstituteSubscriptionRequest.objects.select_for_update()
+            .select_related("institute", "subscription_plan_cycle", "subscription_plan_cycle__plan")
+            .get(pk=subscription_request.pk)
+        )
+
+    if subscription_request.status != InstituteSubscriptionRequestStatus.PENDING:
+        raise ValidationError({"subscription_request": "Only pending requests can be reviewed."})
+
+    normalized_decision = str(decision or "").strip().lower()
+    if normalized_decision not in {"approve", "reject"}:
+        raise ValidationError({"decision": "Decision must be approve or reject."})
+
+    subscription_request.reviewed_by = reviewed_by
+    subscription_request.reviewed_at = timezone.now()
+    subscription_request.operator_notes = operator_notes
+
+    entitlements = []
+    if normalized_decision == "approve":
+        entitlements = apply_subscription_plan_question_bank_links_to_institute(
+            subscription_plan=subscription_request.subscription_plan_cycle.plan,
+            target_institute=subscription_request.institute,
+            grant_modes=subscription_request.grant_modes or ["included", "trial"],
+            granted_by=reviewed_by,
+            notes=operator_notes or (
+                f"Applied from institute request for {subscription_request.subscription_plan_cycle.plan.code}."
+            ),
+            activation_context_metadata={
+                "subscription_request_id": str(subscription_request.id),
+                "subscription_plan_cycle_id": str(subscription_request.subscription_plan_cycle_id),
+                "review_decision": "approved",
+                "reviewed_by_id": str(reviewed_by.id) if reviewed_by is not None else None,
+            },
+        )
+        subscription_request.status = InstituteSubscriptionRequestStatus.FULFILLED
+        merged_metadata = dict(subscription_request.metadata or {})
+        merged_metadata.update(
+            {
+                "decision": "approved",
+                "entitlement_count": len(entitlements),
+                "entitlement_ids": [str(entitlement.id) for entitlement in entitlements],
+                "question_bank_package_codes": [
+                    entitlement.question_bank_package.code for entitlement in entitlements
+                ],
+                "question_bank_package_names": [
+                    entitlement.question_bank_package.name for entitlement in entitlements
+                ],
+            }
+        )
+        subscription_request.metadata = merged_metadata
+    else:
+        subscription_request.status = InstituteSubscriptionRequestStatus.REJECTED
+        merged_metadata = dict(subscription_request.metadata or {})
+        merged_metadata["decision"] = "rejected"
+        subscription_request.metadata = merged_metadata
+
+    subscription_request.save()
+    return subscription_request, entitlements
 
 
 def active_student_entitlements(student, *, at_time=None):

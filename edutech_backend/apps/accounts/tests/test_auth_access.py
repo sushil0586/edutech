@@ -10,6 +10,11 @@ from apps.accounts.models import AccountProfile
 from apps.attempts.models import ReviewTaskStatus, StudentAnswerReviewTask
 from apps.attempts.services import save_answer, start_attempt, submit_attempt
 from apps.economy.models import ContentAccessPolicy
+from apps.economy.models import InstituteQuestionEntitlement
+from apps.economy.models import InstituteQuestionEntitlementStatus
+from apps.economy.models import QuestionBankOwnershipType
+from apps.economy.models import QuestionBankPackage
+from apps.economy.models import QuestionBankPackageType
 from apps.economy.services import grant_admin_stars
 from apps.exams.models import ExamSection, ExamSourceType
 from apps.exams.services import publish_exam, sync_total_marks_from_questions
@@ -1801,6 +1806,87 @@ class CredentialManagementApiTestCase(TestCase):
 
         attempt_response = self.client.get("/api/v1/attempts/")
         self.assertEqual(attempt_response.status_code, 401)
+
+    def test_student_exam_visibility_contract_is_not_changed_by_question_bank_entitlements(self):
+        def create_source_exam(*, code, title, source_type):
+            exam = self.builder.create_exam(
+                self.context["institute"],
+                self.context["academic_year"],
+                self.context["program"],
+                self.context["cohort"],
+                self.context["subject"],
+                title=title,
+                code=code,
+                source_type=source_type,
+                source_teacher=self.context["teacher"] if source_type == ExamSourceType.TEACHER else None,
+            )
+            self.builder.add_question_to_exam(exam, self.context["question"], question_order=1)
+            exam = sync_total_marks_from_questions(exam)
+            exam.passing_marks = Decimal("1.00")
+            exam.save(update_fields=["passing_marks", "updated_at"])
+            publish_exam(
+                exam,
+                changed_by=self.context["teacher"],
+                remarks=f"{title} publish",
+            )
+            return exam
+
+        platform_exam = create_source_exam(
+            code="VIS-CONTRACT-PLATFORM-01",
+            title="Visibility Contract Platform Mock",
+            source_type=ExamSourceType.PLATFORM,
+        )
+        institute_exam = create_source_exam(
+            code="VIS-CONTRACT-INSTITUTE-01",
+            title="Visibility Contract Institute Mock",
+            source_type=ExamSourceType.INSTITUTE,
+        )
+
+        public_hub = self.builder.create_institute(
+            code="PUBVIS1",
+            name="Visibility Public Hub",
+            metadata={"is_public_content_hub": True},
+        )
+        entitled_package = QuestionBankPackage.objects.create(
+            institute=public_hub,
+            name="Visibility Contract Package",
+            code="VISIBILITY_CONTRACT_PACKAGE",
+            package_type=QuestionBankPackageType.SUBJECT_LIBRARY,
+            ownership_type=QuestionBankOwnershipType.PLATFORM,
+        )
+        entitlement = InstituteQuestionEntitlement.objects.create(
+            institute=self.context["institute"],
+            question_bank_package=entitled_package,
+            status=InstituteQuestionEntitlementStatus.ACTIVE,
+        )
+
+        self._authenticate_with_token("student-cred-existing", "Student@123")
+
+        before_codes = {item["code"] for item in self.client.get("/api/v1/student/exams/available/").data}
+        before_platform_codes = {
+            item["code"] for item in self.client.get("/api/v1/student/exams/available/?source=platform").data
+        }
+        before_institute_codes = {
+            item["code"] for item in self.client.get("/api/v1/student/exams/available/?source=institute").data
+        }
+        self.assertIn(platform_exam.code, before_codes)
+        self.assertIn(institute_exam.code, before_codes)
+        self.assertIn(platform_exam.code, before_platform_codes)
+        self.assertIn(institute_exam.code, before_institute_codes)
+
+        entitlement.status = InstituteQuestionEntitlementStatus.PAUSED
+        entitlement.save(update_fields=["status", "updated_at"])
+
+        after_codes = {item["code"] for item in self.client.get("/api/v1/student/exams/available/").data}
+        after_platform_codes = {
+            item["code"] for item in self.client.get("/api/v1/student/exams/available/?source=platform").data
+        }
+        after_institute_codes = {
+            item["code"] for item in self.client.get("/api/v1/student/exams/available/?source=institute").data
+        }
+        self.assertEqual(before_codes, after_codes)
+        self.assertEqual(before_platform_codes, after_platform_codes)
+        self.assertEqual(before_institute_codes, after_institute_codes)
 
     def test_student_attempt_answers_hide_correctness_when_review_is_not_allowed(self):
         locked_exam = self.builder.create_exam(

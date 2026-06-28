@@ -4,8 +4,9 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from apps.academics.models import Subject
+from apps.academics.models import Program, Subject, Topic, TopicDifficulty
 from apps.institutes.models import Institute
+from apps.question_bank.models import MasterQuestionVisibility, QuestionType
 from apps.students.models import StudentProfile
 from common.models import BaseModel
 
@@ -86,6 +87,12 @@ class StudentSubscriptionStatus(models.TextChoices):
     EXPIRED = "expired", "Expired"
 
 
+class InstituteSubscriptionRequestStatus(models.TextChoices):
+    PENDING = "pending", "Pending"
+    FULFILLED = "fulfilled", "Fulfilled"
+    REJECTED = "rejected", "Rejected"
+
+
 class AccessPolicyType(models.TextChoices):
     FREE = "free", "Free"
     STARS_ONLY = "stars_only", "Stars Only"
@@ -114,6 +121,56 @@ class EntitlementStatus(models.TextChoices):
     EXPIRED = "expired", "Expired"
     REVOKED = "revoked", "Revoked"
     CONSUMED = "consumed", "Consumed"
+
+
+class QuestionBankPackageType(models.TextChoices):
+    SUBJECT_LIBRARY = "subject_library", "Subject Library"
+    TOPIC_BUNDLE = "topic_bundle", "Topic Bundle"
+    EXAM_FAMILY_BUNDLE = "exam_family_bundle", "Exam Family Bundle"
+    CUSTOM_BUNDLE = "custom_bundle", "Custom Bundle"
+    FEATURE_BUNDLE = "feature_bundle", "Feature Bundle"
+
+
+class QuestionBankOwnershipType(models.TextChoices):
+    PLATFORM = "platform", "Platform"
+    INSTITUTE = "institute", "Institute"
+
+
+class QuestionBankAccessMode(models.TextChoices):
+    FULL_SCOPE = "full_scope", "Full Scope"
+    QUOTA_LIMITED = "quota_limited", "Quota Limited"
+    LINK_ON_DEMAND = "link_on_demand", "Link On Demand"
+    MATERIALIZE_ON_ENTITLEMENT = "materialize_on_entitlement", "Materialize On Entitlement"
+
+
+class QuestionBankPackageGrantMode(models.TextChoices):
+    INCLUDED = "included", "Included"
+    OPTIONAL_ADDON = "optional_addon", "Optional Addon"
+    TRIAL = "trial", "Trial"
+
+
+class InstituteQuestionEntitlementStatus(models.TextChoices):
+    DRAFT = "draft", "Draft"
+    ACTIVE = "active", "Active"
+    PAUSED = "paused", "Paused"
+    EXPIRED = "expired", "Expired"
+    REVOKED = "revoked", "Revoked"
+
+
+class InstituteQuestionEntitlementGrantMode(models.TextChoices):
+    SUBSCRIPTION = "subscription", "Subscription"
+    ADMIN_GRANT = "admin_grant", "Admin Grant"
+    TRIAL = "trial", "Trial"
+    MIGRATION = "migration", "Migration"
+
+
+class InstituteQuestionUsageActionType(models.TextChoices):
+    QUESTION_LINKED = "question_linked", "Question Linked"
+    QUESTION_MATERIALIZED = "question_materialized", "Question Materialized"
+    EXAM_CREATED = "exam_created", "Exam Created"
+    EXAM_PUBLISHED = "exam_published", "Exam Published"
+    QUESTION_UNLINKED = "question_unlinked", "Question Unlinked"
+    ENTITLEMENT_OVERRIDE = "entitlement_override", "Entitlement Override"
 
 
 class ContentTargetMixin(models.Model):
@@ -688,6 +745,590 @@ class SubscriptionStarCreditRule(BaseModel):
             raise ValidationError({"plan_cycle": "Plan cycle must belong to the selected institute."})
         if self.stars_credited <= 0:
             raise ValidationError({"stars_credited": "Stars credited must be greater than zero."})
+
+
+class QuestionBankPackage(BaseModel):
+    institute = models.ForeignKey(
+        Institute,
+        on_delete=models.CASCADE,
+        related_name="question_bank_packages",
+    )
+    name = models.CharField(max_length=255)
+    code = models.CharField(max_length=80)
+    description = models.TextField(blank=True)
+    package_type = models.CharField(max_length=40, choices=QuestionBankPackageType.choices)
+    ownership_type = models.CharField(
+        max_length=20,
+        choices=QuestionBankOwnershipType.choices,
+        default=QuestionBankOwnershipType.PLATFORM,
+    )
+    access_mode = models.CharField(
+        max_length=40,
+        choices=QuestionBankAccessMode.choices,
+        default=QuestionBankAccessMode.FULL_SCOPE,
+    )
+    is_public_catalog = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=100)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["sort_order", "name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["institute", "code"],
+                name="unique_question_bank_package_code_per_institute",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["institute", "code"]),
+            models.Index(fields=["institute", "package_type"]),
+            models.Index(fields=["is_public_catalog", "is_active"]),
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.ownership_type == QuestionBankOwnershipType.PLATFORM:
+            if not (self.institute.metadata or {}).get("is_public_content_hub"):
+                raise ValidationError(
+                    {
+                        "ownership_type": (
+                            "Platform-owned question bank packages must belong to the public content hub institute."
+                        )
+                    }
+                )
+        elif (self.institute.metadata or {}).get("is_public_content_hub"):
+            raise ValidationError(
+                {
+                    "ownership_type": (
+                        "Institute-owned question bank packages cannot belong to the public content hub institute."
+                    )
+                }
+            )
+
+    def save(self, *args, **kwargs):
+        self.name = self.name.strip()
+        self.code = self.code.strip().upper()
+        self.description = self.description.strip()
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
+class QuestionBankPackageScope(BaseModel):
+    institute = models.ForeignKey(
+        Institute,
+        on_delete=models.CASCADE,
+        related_name="question_bank_package_scopes",
+    )
+    package = models.ForeignKey(
+        QuestionBankPackage,
+        on_delete=models.CASCADE,
+        related_name="scopes",
+    )
+    program = models.ForeignKey(
+        Program,
+        on_delete=models.SET_NULL,
+        related_name="question_bank_package_scopes",
+        blank=True,
+        null=True,
+    )
+    subject = models.ForeignKey(
+        Subject,
+        on_delete=models.SET_NULL,
+        related_name="question_bank_package_scopes",
+        blank=True,
+        null=True,
+    )
+    topic = models.ForeignKey(
+        Topic,
+        on_delete=models.SET_NULL,
+        related_name="question_bank_package_scopes",
+        blank=True,
+        null=True,
+    )
+    question_source_type = models.CharField(max_length=30, default="platform_only")
+    difficulty_level = models.CharField(
+        max_length=20,
+        choices=TopicDifficulty.choices,
+        blank=True,
+    )
+    question_type = models.CharField(
+        max_length=30,
+        choices=QuestionType.choices,
+        blank=True,
+    )
+    master_visibility = models.CharField(
+        max_length=30,
+        choices=MasterQuestionVisibility.choices,
+        blank=True,
+    )
+    max_questions_total = models.PositiveIntegerField(blank=True, null=True)
+    max_questions_per_topic = models.PositiveIntegerField(blank=True, null=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["package__sort_order", "subject__name", "topic__name", "created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "package",
+                    "program",
+                    "subject",
+                    "topic",
+                    "difficulty_level",
+                    "question_type",
+                    "master_visibility",
+                ],
+                name="unique_question_bank_package_scope_row",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["package", "is_active"]),
+            models.Index(fields=["institute", "subject", "topic"]),
+            models.Index(fields=["institute", "question_source_type"]),
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.package_id and self.package.institute_id != self.institute_id:
+            raise ValidationError({"package": "Package must belong to the selected institute."})
+        if self.program_id and self.program.institute_id != self.institute_id:
+            raise ValidationError({"program": "Program must belong to the selected institute."})
+        if self.subject_id and self.subject.institute_id != self.institute_id:
+            raise ValidationError({"subject": "Subject must belong to the selected institute."})
+        if self.topic_id and self.topic.institute_id != self.institute_id:
+            raise ValidationError({"topic": "Topic must belong to the selected institute."})
+        if self.subject_id and self.program_id and self.subject.program_id:
+            if self.subject.program_id != self.program_id:
+                raise ValidationError({"subject": "Subject must belong to the selected program."})
+        if self.topic_id and self.subject_id and self.topic.subject_id != self.subject_id:
+            raise ValidationError({"topic": "Topic must belong to the selected subject."})
+        if self.max_questions_total is not None and self.max_questions_total <= 0:
+            raise ValidationError({"max_questions_total": "Maximum questions total must be greater than zero."})
+        if self.max_questions_per_topic is not None and self.max_questions_per_topic <= 0:
+            raise ValidationError(
+                {"max_questions_per_topic": "Maximum questions per topic must be greater than zero."}
+            )
+        if not any([self.program_id, self.subject_id, self.topic_id]):
+            raise ValidationError(
+                {
+                    "topic": (
+                        "At least one of program, subject, or topic must be provided to define package scope."
+                    )
+                }
+            )
+
+
+class SubscriptionPlanQuestionBankPackage(BaseModel):
+    institute = models.ForeignKey(
+        Institute,
+        on_delete=models.CASCADE,
+        related_name="subscription_plan_question_bank_packages",
+    )
+    subscription_plan = models.ForeignKey(
+        SubscriptionPlan,
+        on_delete=models.CASCADE,
+        related_name="question_bank_package_links",
+    )
+    question_bank_package = models.ForeignKey(
+        QuestionBankPackage,
+        on_delete=models.CASCADE,
+        related_name="subscription_plan_links",
+    )
+    grant_mode = models.CharField(
+        max_length=30,
+        choices=QuestionBankPackageGrantMode.choices,
+        default=QuestionBankPackageGrantMode.INCLUDED,
+    )
+    is_default = models.BooleanField(default=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["subscription_plan__name", "question_bank_package__sort_order"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["subscription_plan", "question_bank_package"],
+                name="unique_subscription_plan_question_bank_package",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["institute", "subscription_plan"]),
+            models.Index(fields=["institute", "question_bank_package"]),
+            models.Index(fields=["grant_mode", "is_active"]),
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.subscription_plan_id and self.subscription_plan.institute_id != self.institute_id:
+            raise ValidationError({"subscription_plan": "Subscription plan must belong to the selected institute."})
+        if self.question_bank_package_id and self.question_bank_package.institute_id != self.institute_id:
+            raise ValidationError(
+                {"question_bank_package": "Question bank package must belong to the selected institute."}
+            )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
+class InstituteSubscriptionRequest(BaseModel):
+    institute = models.ForeignKey(
+        Institute,
+        on_delete=models.CASCADE,
+        related_name="subscription_requests",
+    )
+    subscription_plan_cycle = models.ForeignKey(
+        "economy.SubscriptionPlanCycle",
+        on_delete=models.CASCADE,
+        related_name="institute_subscription_requests",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=InstituteSubscriptionRequestStatus.choices,
+        default=InstituteSubscriptionRequestStatus.PENDING,
+    )
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="institute_subscription_requests",
+        blank=True,
+        null=True,
+    )
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="reviewed_institute_subscription_requests",
+        blank=True,
+        null=True,
+    )
+    reviewed_at = models.DateTimeField(blank=True, null=True)
+    grant_modes = models.JSONField(default=list, blank=True)
+    notes = models.TextField(blank=True)
+    operator_notes = models.TextField(blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["institute", "status"]),
+            models.Index(fields=["subscription_plan_cycle", "status"]),
+            models.Index(fields=["is_active"]),
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.subscription_plan_cycle_id:
+            cycle_institute = self.subscription_plan_cycle.institute
+            cycle_is_public_hub = bool((cycle_institute.metadata or {}).get("is_public_content_hub"))
+            if self.subscription_plan_cycle.institute_id != self.institute_id and not cycle_is_public_hub:
+                raise ValidationError(
+                    {"subscription_plan_cycle": "Subscription cycle must belong to the institute or the public hub."}
+                )
+            if not self.subscription_plan_cycle.is_active or not self.subscription_plan_cycle.plan.is_active:
+                raise ValidationError({"subscription_plan_cycle": "Subscription cycle must be active."})
+        if self.requested_by_id and getattr(self.requested_by, "account_profile", None):
+            profile = self.requested_by.account_profile
+            if getattr(profile, "institute_id", None) not in {None, self.institute_id}:
+                raise ValidationError({"requested_by": "Requesting user must belong to the same institute."})
+        grant_modes = self.grant_modes if isinstance(self.grant_modes, list) else []
+        allowed_modes = {"included", "trial", "optional_addon"}
+        invalid_modes = [mode for mode in grant_modes if str(mode) not in allowed_modes]
+        if invalid_modes:
+            raise ValidationError({"grant_modes": f"Unsupported grant mode(s): {', '.join(map(str, invalid_modes))}."})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
+class InstituteQuestionEntitlement(BaseModel):
+    institute = models.ForeignKey(
+        Institute,
+        on_delete=models.CASCADE,
+        related_name="question_bank_entitlements",
+    )
+    question_bank_package = models.ForeignKey(
+        QuestionBankPackage,
+        on_delete=models.CASCADE,
+        related_name="institute_entitlements",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=InstituteQuestionEntitlementStatus.choices,
+        default=InstituteQuestionEntitlementStatus.DRAFT,
+    )
+    granted_via = models.CharField(
+        max_length=20,
+        choices=InstituteQuestionEntitlementGrantMode.choices,
+        default=InstituteQuestionEntitlementGrantMode.ADMIN_GRANT,
+    )
+    subscription_plan = models.ForeignKey(
+        SubscriptionPlan,
+        on_delete=models.SET_NULL,
+        related_name="question_bank_entitlements",
+        blank=True,
+        null=True,
+    )
+    subscription_plan_cycle = models.ForeignKey(
+        SubscriptionPlanCycle,
+        on_delete=models.SET_NULL,
+        related_name="question_bank_entitlements",
+        blank=True,
+        null=True,
+    )
+    starts_at = models.DateTimeField(blank=True, null=True)
+    ends_at = models.DateTimeField(blank=True, null=True)
+    granted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="granted_question_bank_entitlements",
+        blank=True,
+        null=True,
+    )
+    revoked_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="revoked_question_bank_entitlements",
+        blank=True,
+        null=True,
+    )
+    notes = models.TextField(blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["institute", "question_bank_package"],
+                condition=models.Q(
+                    status__in=[
+                        InstituteQuestionEntitlementStatus.DRAFT,
+                        InstituteQuestionEntitlementStatus.ACTIVE,
+                        InstituteQuestionEntitlementStatus.PAUSED,
+                    ]
+                ),
+                name="unique_live_institute_question_bank_entitlement",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["institute", "status"]),
+            models.Index(fields=["question_bank_package", "status"]),
+            models.Index(fields=["subscription_plan", "status"]),
+            models.Index(fields=["starts_at", "ends_at"]),
+        ]
+
+    def clean(self):
+        super().clean()
+        package = self.question_bank_package if self.question_bank_package_id else None
+        if self.question_bank_package_id:
+            if (
+                package.ownership_type != QuestionBankOwnershipType.PLATFORM
+                and package.institute_id != self.institute_id
+            ):
+                raise ValidationError(
+                    {
+                        "question_bank_package": (
+                            "Institute-owned question bank packages must belong to the selected institute."
+                        )
+                    }
+                )
+        if self.subscription_plan_id:
+            plan_institute = self.subscription_plan.institute
+            plan_is_public_hub = bool((plan_institute.metadata or {}).get("is_public_content_hub"))
+            package_is_platform = bool(package and package.ownership_type == QuestionBankOwnershipType.PLATFORM)
+            if self.subscription_plan.institute_id != self.institute_id and not (plan_is_public_hub and package_is_platform):
+                raise ValidationError({"subscription_plan": "Subscription plan must belong to the selected institute."})
+        if self.subscription_plan_cycle_id:
+            cycle_institute = self.subscription_plan_cycle.institute
+            cycle_is_public_hub = bool((cycle_institute.metadata or {}).get("is_public_content_hub"))
+            package_is_platform = bool(package and package.ownership_type == QuestionBankOwnershipType.PLATFORM)
+            if self.subscription_plan_cycle.institute_id != self.institute_id and not (cycle_is_public_hub and package_is_platform):
+                raise ValidationError(
+                    {"subscription_plan_cycle": "Subscription plan cycle must belong to the selected institute."}
+                )
+        if self.subscription_plan_id and self.subscription_plan_cycle_id:
+            if self.subscription_plan_cycle.plan_id != self.subscription_plan_id:
+                raise ValidationError(
+                    {"subscription_plan_cycle": "Subscription plan cycle must belong to the selected subscription plan."}
+                )
+        if self.starts_at and self.ends_at and self.ends_at <= self.starts_at:
+            raise ValidationError({"ends_at": "End time must be after start time."})
+
+    def save(self, *args, **kwargs):
+        self.notes = self.notes.strip()
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
+class InstituteQuestionFeatureEntitlement(BaseModel):
+    institute = models.ForeignKey(
+        Institute,
+        on_delete=models.CASCADE,
+        related_name="question_bank_feature_entitlements",
+    )
+    feature_code = models.CharField(max_length=80)
+    status = models.CharField(
+        max_length=20,
+        choices=InstituteQuestionEntitlementStatus.choices,
+        default=InstituteQuestionEntitlementStatus.DRAFT,
+    )
+    source_package = models.ForeignKey(
+        QuestionBankPackage,
+        on_delete=models.SET_NULL,
+        related_name="feature_entitlements",
+        blank=True,
+        null=True,
+    )
+    source_subscription_plan = models.ForeignKey(
+        SubscriptionPlan,
+        on_delete=models.SET_NULL,
+        related_name="feature_entitlements",
+        blank=True,
+        null=True,
+    )
+    starts_at = models.DateTimeField(blank=True, null=True)
+    ends_at = models.DateTimeField(blank=True, null=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["feature_code", "-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["institute", "feature_code"],
+                condition=models.Q(
+                    status__in=[
+                        InstituteQuestionEntitlementStatus.DRAFT,
+                        InstituteQuestionEntitlementStatus.ACTIVE,
+                        InstituteQuestionEntitlementStatus.PAUSED,
+                    ]
+                ),
+                name="unique_live_institute_question_feature_entitlement",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["institute", "feature_code", "status"]),
+            models.Index(fields=["source_package", "status"]),
+            models.Index(fields=["starts_at", "ends_at"]),
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.source_package_id:
+            package = self.source_package
+            if (
+                package.ownership_type != QuestionBankOwnershipType.PLATFORM
+                and package.institute_id != self.institute_id
+            ):
+                raise ValidationError(
+                    {"source_package": "Institute-owned source package must belong to the selected institute."}
+                )
+        if self.source_subscription_plan_id and self.source_subscription_plan.institute_id != self.institute_id:
+            raise ValidationError(
+                {"source_subscription_plan": "Source subscription plan must belong to the selected institute."}
+            )
+        if self.starts_at and self.ends_at and self.ends_at <= self.starts_at:
+            raise ValidationError({"ends_at": "End time must be after start time."})
+
+    def save(self, *args, **kwargs):
+        self.feature_code = self.feature_code.strip().upper()
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
+class InstituteQuestionUsageLedger(BaseModel):
+    institute = models.ForeignKey(
+        Institute,
+        on_delete=models.CASCADE,
+        related_name="question_bank_usage_entries",
+    )
+    question_bank_package = models.ForeignKey(
+        QuestionBankPackage,
+        on_delete=models.CASCADE,
+        related_name="usage_entries",
+    )
+    entitlement = models.ForeignKey(
+        InstituteQuestionEntitlement,
+        on_delete=models.SET_NULL,
+        related_name="usage_entries",
+        blank=True,
+        null=True,
+    )
+    action_type = models.CharField(
+        max_length=30,
+        choices=InstituteQuestionUsageActionType.choices,
+    )
+    master_question = models.ForeignKey(
+        "question_bank.MasterQuestion",
+        on_delete=models.SET_NULL,
+        related_name="question_bank_usage_entries",
+        blank=True,
+        null=True,
+    )
+    question = models.ForeignKey(
+        "question_bank.Question",
+        on_delete=models.SET_NULL,
+        related_name="question_bank_usage_entries",
+        blank=True,
+        null=True,
+    )
+    exam = models.ForeignKey(
+        "exams.Exam",
+        on_delete=models.SET_NULL,
+        related_name="question_bank_usage_entries",
+        blank=True,
+        null=True,
+    )
+    quantity = models.PositiveIntegerField(default=1)
+    performed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="performed_question_bank_usage_entries",
+        blank=True,
+        null=True,
+    )
+    effective_at = models.DateTimeField()
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["-effective_at", "-created_at"]
+        indexes = [
+            models.Index(fields=["institute", "action_type"]),
+            models.Index(fields=["question_bank_package", "action_type"]),
+            models.Index(fields=["entitlement", "action_type"]),
+            models.Index(fields=["effective_at"]),
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.question_bank_package_id:
+            package = self.question_bank_package
+            if (
+                package.ownership_type != QuestionBankOwnershipType.PLATFORM
+                and package.institute_id != self.institute_id
+            ):
+                raise ValidationError(
+                    {
+                        "question_bank_package": (
+                            "Institute-owned question bank packages must belong to the selected institute."
+                        )
+                    }
+                )
+        if self.entitlement_id:
+            if self.entitlement.institute_id != self.institute_id:
+                raise ValidationError({"entitlement": "Entitlement must belong to the selected institute."})
+            if self.question_bank_package_id and self.entitlement.question_bank_package_id != self.question_bank_package_id:
+                raise ValidationError(
+                    {"entitlement": "Entitlement must reference the selected question bank package."}
+                )
+        if self.question_id and self.question.institute_id != self.institute_id:
+            raise ValidationError({"question": "Question must belong to the selected institute."})
+        if self.exam_id and self.exam.institute_id != self.institute_id:
+            raise ValidationError({"exam": "Exam must belong to the selected institute."})
+        if self.quantity <= 0:
+            raise ValidationError({"quantity": "Quantity must be greater than zero."})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
 
 
 class PaymentOrder(BaseModel):

@@ -4,6 +4,8 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from apps.attempts.services import save_answer, start_attempt, submit_attempt
+from apps.economy.models import InstituteQuestionEntitlementStatus, InstituteQuestionFeatureEntitlement
+from apps.economy.services import grant_institute_feature_entitlement
 from apps.question_bank.models import Question, QuestionPassage, QuestionTag, QuestionTagMap
 from apps.question_bank.services import (
     IMPORT_PASSAGE_PREVIEW_SCHEMA_VERSION,
@@ -14,6 +16,8 @@ from common.tests.builders import AcademicAssessmentBuilder
 
 
 class QuestionBankBulkWorkflowTestCase(TestCase):
+    BULK_IMPORT_FEATURE_CODE = "QUESTION_BANK_BULK_IMPORT"
+
     def setUp(self):
         self.builder = AcademicAssessmentBuilder()
         self.context = self.builder.build_full_flow_entities()
@@ -26,6 +30,20 @@ class QuestionBankBulkWorkflowTestCase(TestCase):
         )
         self.client = APIClient()
         self.client.force_authenticate(user=self.teacher_user)
+        self._grant_bulk_import_feature()
+
+    def _grant_bulk_import_feature(self):
+        entitlement, _ = grant_institute_feature_entitlement(
+            institute=self.context["institute"],
+            feature_code=self.BULK_IMPORT_FEATURE_CODE,
+        )
+        return entitlement
+
+    def _revoke_bulk_import_feature(self):
+        InstituteQuestionFeatureEntitlement.objects.filter(
+            institute=self.context["institute"],
+            feature_code=self.BULK_IMPORT_FEATURE_CODE,
+        ).update(status=InstituteQuestionEntitlementStatus.REVOKED)
 
     def test_compact_question_list_loads_for_teacher_scope(self):
         response = self.client.get(
@@ -574,6 +592,35 @@ class QuestionBankBulkWorkflowTestCase(TestCase):
         self.assertEqual(imported_question.subject_id, self.context["subject"].id)
         self.assertEqual(imported_question.topic_id, self.context["topic"].id)
         self.assertEqual(QuestionTagMap.objects.filter(question=imported_question).count(), 2)
+
+    def test_question_import_endpoints_require_bulk_import_feature_entitlement(self):
+        self._revoke_bulk_import_feature()
+
+        template_response = self.client.get("/api/v1/question-bank/questions/import-template/")
+        self.assertEqual(template_response.status_code, 403)
+        self.assertEqual(
+            template_response.data["detail"],
+            "Question bank bulk import is not enabled for your institute subscription.",
+        )
+
+        csv_content = (
+            "subject,topic,question_type,difficulty_level,question_text,option_1,option_2,option_3,option_4,"
+            "correct_answer,accepted_answers,numeric_tolerance,review_guidance,default_marks,negative_marks,explanation,tags\n"
+            "Mathematics,Algebra,mcq_single,intermediate,What is 2 + 2?,3,4,5,,2,,,,1.00,0.00,4 is correct.,arithmetic\n"
+        )
+        preview_response = self.client.post(
+            "/api/v1/question-bank/questions/preview-import/",
+            {
+                "institute": str(self.context["institute"].id),
+                "file": self._csv_file(csv_content),
+            },
+            format="multipart",
+        )
+        self.assertEqual(preview_response.status_code, 403)
+        self.assertEqual(
+            preview_response.data["detail"],
+            "Question bank bulk import is not enabled for your institute subscription.",
+        )
 
     def test_preview_import_returns_row_level_validation_errors(self):
         csv_content = (

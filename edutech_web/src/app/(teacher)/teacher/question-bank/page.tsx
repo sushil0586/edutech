@@ -5,6 +5,7 @@ import { TeacherPageHeader } from "@/components/ui/teacher-page-header";
 import { TeacherQuestionBankWorkspace } from "@/components/ui/teacher-question-bank-workspace";
 import {
   createTeacherQuestionTagMap,
+  fetchTeacherMasterQuestionLibrary,
   fetchTeacherOptionCatalog,
   deleteTeacherQuestionTagMap,
   fetchTeacherPrograms,
@@ -16,8 +17,32 @@ import {
   fetchTeacherTopics,
   performTeacherQuestionBulkAction,
 } from "@/lib/api/teacher-builder";
+import { fetchPortalList } from "@/lib/api/portal";
 import { requireTeacherSession } from "@/lib/auth/session";
 import { groupTeacherOptionCatalog } from "@/lib/teacher/option-catalog";
+
+const QUESTION_BANK_SHARED_LIBRARY_FEATURE_CODE = "QUESTION_BANK_SHARED_LIBRARY";
+
+type InstituteQuestionFeatureEntitlement = {
+  id: string;
+  feature_code: string;
+  status: string;
+  source_package_name?: string | null;
+};
+
+type InstituteQuestionBankEntitlement = {
+  id: string;
+  status: string;
+  question_bank_package_name: string;
+  question_bank_package_code: string;
+  question_bank_package_type: string;
+  question_bank_package_ownership_type: string;
+  question_bank_package_access_mode: string;
+  subscription_plan_name?: string | null;
+  starts_at?: string | null;
+  ends_at?: string | null;
+  scope_summary: string[];
+};
 
 function asPositiveInteger(value: string | undefined, fallback: number) {
   const parsed = Number(value);
@@ -206,6 +231,12 @@ export default async function TeacherQuestionBankPage({
     fetchTeacherPrograms(),
     fetchTeacherQuestionTags(),
     fetchTeacherQuestionPassagePage({ page_size: 20 }),
+    fetchPortalList<InstituteQuestionBankEntitlement>(
+      "/api/v1/economy/admin/institute-question-bank-entitlements/",
+    ),
+    fetchPortalList<InstituteQuestionFeatureEntitlement>(
+      "/api/v1/economy/admin/institute-question-bank-feature-entitlements/",
+    ),
   ]);
 
   const optionCatalogEntries =
@@ -216,6 +247,15 @@ export default async function TeacherQuestionBankPage({
     bootstrapResults[2].status === "fulfilled" ? bootstrapResults[2].value : [];
   const passagePage =
     bootstrapResults[3].status === "fulfilled" ? bootstrapResults[3].value : null;
+  const questionBankEntitlements =
+    bootstrapResults[4].status === "fulfilled" ? bootstrapResults[4].value : [];
+  const featureEntitlements =
+    bootstrapResults[5].status === "fulfilled" ? bootstrapResults[5].value : [];
+  const hasSharedLibraryAccess = featureEntitlements.some(
+    (entitlement) =>
+      entitlement.feature_code === QUESTION_BANK_SHARED_LIBRARY_FEATURE_CODE &&
+      entitlement.status === "active",
+  );
   const validProgram = programs.some((entry) => entry.id === program) ? program : "";
   const subjects = await fetchTeacherSubjects({
     program: validProgram || undefined,
@@ -229,6 +269,8 @@ export default async function TeacherQuestionBankPage({
 
   const validTopic =
     validSubject && topics.some((entry) => entry.id === topic) ? topic : "";
+  const selectedSubjectRecord = subjects.find((entry) => entry.id === validSubject) ?? null;
+  const selectedTopicRecord = topics.find((entry) => entry.id === validTopic) ?? null;
 
   if (program !== validProgram || subject !== validSubject || topic !== validTopic) {
     redirect(
@@ -251,8 +293,7 @@ export default async function TeacherQuestionBankPage({
     );
   }
 
-  let loadIssue = "";
-  const questionPage = await fetchTeacherQuestionPage({
+  const questionPageResult = await fetchTeacherQuestionPage({
     page,
     page_size: 20,
     search: search || undefined,
@@ -266,13 +307,43 @@ export default async function TeacherQuestionBankPage({
     revision_priority: revisionPriority || undefined,
     ordering,
     missing_explanation: missingExplanation,
-  }).catch((caughtError) => {
-    loadIssue = readLoadError(
-      caughtError,
-      "Teacher question bank request failed before results could load.",
-    );
-    return null;
-  });
+  })
+    .then((data) => ({ data, error: "" }))
+    .catch((caughtError) => ({
+      data: null,
+      error: readLoadError(
+        caughtError,
+        "Teacher question bank request failed before results could load.",
+      ),
+    }));
+  const questionPage = questionPageResult.data;
+  const loadIssue = questionPageResult.error;
+
+  const masterLibraryResult = hasSharedLibraryAccess
+    ? await fetchTeacherMasterQuestionLibrary({
+        page: 1,
+        page_size: 8,
+        search: search || undefined,
+        subject_code: selectedSubjectRecord?.code ?? undefined,
+        topic_code: selectedTopicRecord?.code ?? undefined,
+        question_type: questionType || undefined,
+        difficulty_level: difficultyLevel || undefined,
+        ordering,
+      })
+        .then((data) => ({ data, error: "" }))
+        .catch((caughtError) => ({
+          data: null,
+          error: readLoadError(
+            caughtError,
+            "Shared platform library could not be loaded right now.",
+          ),
+        }))
+    : { data: null, error: "" };
+  const masterLibraryPage = masterLibraryResult.data;
+  const masterLibraryLoadError = masterLibraryResult.error;
+  const sharedLibraryDisabledMessage = hasSharedLibraryAccess
+    ? ""
+    : "Shared platform library is not enabled for your institute subscription yet.";
 
   if (!questionPage) {
     return (
@@ -445,6 +516,7 @@ export default async function TeacherQuestionBankPage({
         attachmentTypeLabelMap={optionCatalog.labelMap("question_attachment_type")}
         difficultyLabelMap={optionCatalog.labelMap("question_difficulty")}
         difficultyOptions={optionCatalog.selectOptions("question_difficulty")}
+        featureEntitlements={featureEntitlements}
         filters={{
           search,
           program: validProgram,
@@ -460,8 +532,13 @@ export default async function TeacherQuestionBankPage({
         }}
         hasNextPage={Boolean(questionPage.next)}
         hasPreviousPage={Boolean(questionPage.previous)}
+        canLinkSharedLibrary={false}
+        masterLibraryLoadError={masterLibraryLoadError}
+        masterLibraryQuestions={masterLibraryPage?.results ?? []}
+        sharedLibraryDisabledMessage={sharedLibraryDisabledMessage}
         page={page}
         programs={programs}
+        questionBankEntitlements={questionBankEntitlements}
         questionTypeLabelMap={optionCatalog.labelMap("question_type")}
         questionTypeOptions={optionCatalog.selectOptions("question_type")}
         questions={questionPage.results}

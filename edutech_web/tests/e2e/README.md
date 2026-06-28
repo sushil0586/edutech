@@ -220,6 +220,67 @@ PLAYWRIGHT_ENABLE_MUTABLE_STUDENT_PRACTICE_ACTIONS=1 \
 npx playwright test tests/e2e/workflow/student-practice-mutable.spec.ts
 ```
 
+Dedicated subscription request workflow with automatic demo-state reset:
+
+```bash
+cd edutech_web
+npm run test:e2e:mutable:subscription-request
+```
+
+What this does:
+
+- resets demo institute subscription request rows and requestable package entitlements
+- runs the institute submit -> admin reject -> institute submit -> admin approve flow
+- verifies approval materializes real institute package entitlements
+
+Dedicated shared-library entitlement enforcement workflow:
+
+```bash
+cd edutech_web
+npm run test:e2e:mutable:shared-library-enforcement
+```
+
+What this does:
+
+- seeds demo shared-library package and feature access for the demo institute
+- runs institute shared-library entitlement enforcement coverage
+- runs teacher shared-library entitlement enforcement coverage
+- temporarily pauses matching package entitlements
+- verifies authoring surfaces switch to truthful blocked state
+- restores entitlements at the end of each test
+
+Dedicated shared-library authoring workflow bundle:
+
+```bash
+cd edutech_web
+npm run test:e2e:mutable:shared-library-workflow
+```
+
+What this does:
+
+- seeds demo shared-library access, blocked-state, and quota-demo coverage
+- verifies teacher and institute no-entitlement truthfulness
+- verifies institute link-to-local-bank flow
+- verifies institute shared-library to exam-builder flow
+- verifies teacher request-access flow
+- verifies teacher and institute quota-exhausted blocking
+- reseeds between mutable slices so link and request candidates are not consumed by earlier mutations
+
+Commercialization regression bundle:
+
+```bash
+cd edutech_web
+npm run test:e2e:mutable:commercialization-bundle
+```
+
+What this does:
+
+- runs the full subscription request reject/approve workflow
+- verifies entitlement activation after approval
+- seeds shared-library package and feature access
+- runs institute and teacher entitlement-enforcement checks
+- gives one compact regression bundle for the commercial question-bank lane
+
 ```bash
 cd edutech_web
 PLAYWRIGHT_ENABLE_MUTABLE_IMPORT_ACTIONS=1 \

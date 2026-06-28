@@ -19,8 +19,11 @@ EXAM_PUBLISH_BLOCKER_NO_ACTIVE_QUESTIONS = "no_active_questions"
 EXAM_PUBLISH_BLOCKER_FOREIGN_INSTITUTE_QUESTION = "foreign_institute_question"
 EXAM_PUBLISH_BLOCKER_TOTAL_MARKS_MISMATCH = "total_marks_mismatch"
 EXAM_PUBLISH_BLOCKER_INVALID_QUESTION_CONFIGURATION = "invalid_question_configuration"
+EXAM_PUBLISH_BLOCKER_INACTIVE_SHARED_LIBRARY_ENTITLEMENT = "inactive_shared_library_entitlement"
+EXAM_PUBLISH_BLOCKER_SHARED_LIBRARY_PUBLISH_LIMIT_REACHED = "shared_library_publish_limit_reached"
 EXAM_PUBLISH_WARNING_MISSING_EXPLANATION = "missing_explanation"
 EXAM_PUBLISH_WARNING_UNVERIFIED_QUESTION = "unverified_question"
+EXAM_PUBLISH_WARNING_SHARED_LIBRARY_PUBLISH_LIMIT_NEAR = "shared_library_publish_limit_near"
 
 
 ATTEMPT_POLICY_UNLIMITED_PRACTICE = "unlimited_practice"
@@ -427,7 +430,7 @@ def allowed_exam_sources_for_profile(profile):
     if profile.role == AccountRole.INSTITUTE_ADMIN:
         return {EXAM_SOURCE_INSTITUTE}
 
-    if profile.role == AccountRole.TEACHER and subject is not None:
+    if profile.role == AccountRole.TEACHER:
         return {EXAM_SOURCE_INSTITUTE, EXAM_SOURCE_TEACHER}
 
     return set()
@@ -861,7 +864,7 @@ def _resolve_advanced_exam_scope(actor, scope_payload, exam_payload):
         if source_teacher is None:
             raise ValidationError({"scope": "Teacher not found in the selected institute."})
 
-    if profile.role == AccountRole.TEACHER:
+    if profile.role == AccountRole.TEACHER and subject is not None:
         teacher_profile = getattr(profile, "teacher_profile", None)
         assignment_queryset = TeacherAssignment.objects.filter(
             institute=institute,
@@ -1009,11 +1012,14 @@ def _resolve_exam_schedule(academic_year, exam_payload):
 
 def _build_question_buckets(*, institute, program, subject, topic_ids):
     from apps.question_bank.models import Question
+    from apps.question_bank.services import institute_has_question_authoring_access
 
     queryset = Question.objects.filter(
         institute=institute,
         is_active=True,
         topic_id__in=topic_ids,
+    ).select_related(
+        "master_question",
     ).annotate(
         usage_count=Count("student_answers", filter=Q(student_answers__is_active=True), distinct=True),
         correct_count=Count(
@@ -1089,6 +1095,8 @@ def _build_question_buckets(*, institute, program, subject, topic_ids):
 
     by_topic = {}
     for question in queryset:
+        if not institute_has_question_authoring_access(institute, question=question):
+            continue
         signal, priority = quality_signal(question)
         question.preview_quality_signal = signal
         question.preview_revision_priority = priority
@@ -1638,6 +1646,8 @@ def preview_advanced_exam_blueprint(*, actor, blueprint):
 @transaction.atomic
 def create_advanced_exam_from_blueprint(*, actor, blueprint):
     from apps.academics.models import Subject
+    from apps.economy.models import InstituteQuestionUsageActionType
+    from apps.economy.services import record_exam_question_bank_usage
     from apps.exams.models import Exam, ExamQuestion, ExamSection
 
     preview = preview_advanced_exam_blueprint(actor=actor, blueprint=blueprint)
@@ -1811,6 +1821,16 @@ def create_advanced_exam_from_blueprint(*, actor, blueprint):
         required_score_percentage=unlock_payload.get("required_score_percentage"),
         admin_override_allowed=bool(unlock_payload.get("admin_override_allowed", True)),
         priority=int(unlock_payload.get("priority", 100) or 100),
+    )
+    record_exam_question_bank_usage(
+        exam=exam,
+        action_type=InstituteQuestionUsageActionType.EXAM_CREATED,
+        performed_by=scope["source_teacher"],
+        metadata={
+            "operation": "advanced_builder_create",
+            "source_type": exam.source_type,
+            "status": exam.status,
+        },
     )
     exam.refresh_from_db()
     return {
@@ -2149,7 +2169,14 @@ def _build_exam_publish_issue(*, code, field, message, level):
 
 
 def build_exam_publish_readiness(exam, exam_questions=None):
-    from apps.question_bank.services import validate_question_options
+    from apps.question_bank.services import (
+        institute_has_question_authoring_access,
+        validate_question_options,
+    )
+    from apps.economy.services import (
+        get_entitlement_exam_publish_policy_summary,
+        group_exam_question_bank_usage_buckets,
+    )
 
     queryset = exam_questions
     if queryset is None:
@@ -2231,6 +2258,20 @@ def build_exam_publish_readiness(exam, exam_questions=None):
                 )
                 continue
 
+            if not institute_has_question_authoring_access(exam.institute, question=question):
+                blockers.append(
+                    _build_exam_publish_issue(
+                        code=EXAM_PUBLISH_BLOCKER_INACTIVE_SHARED_LIBRARY_ENTITLEMENT,
+                        field="question",
+                        message=(
+                            f"Question '{question.id}' is linked from the shared library but the institute no longer "
+                            "has an active entitlement for it."
+                        ),
+                        level="blocker",
+                    )
+                )
+                continue
+
             if section_subject is not None and question.subject_id != section_subject.id:
                 blockers.append(
                     _build_exam_publish_issue(
@@ -2304,6 +2345,47 @@ def build_exam_publish_readiness(exam, exam_questions=None):
                     level="warning",
                 )
             )
+
+        for usage_bucket in group_exam_question_bank_usage_buckets(exam=exam):
+            entitlement = usage_bucket.get("entitlement")
+            package = usage_bucket.get("package")
+            if entitlement is None or package is None:
+                continue
+
+            publish_policy = get_entitlement_exam_publish_policy_summary(
+                entitlement,
+                current_exam=exam,
+            )
+            if not publish_policy["publish_limit_configured"]:
+                continue
+
+            if publish_policy["publish_watch_state"] == "limit_reached":
+                blockers.append(
+                    _build_exam_publish_issue(
+                        code=EXAM_PUBLISH_BLOCKER_SHARED_LIBRARY_PUBLISH_LIMIT_REACHED,
+                        field="question",
+                        message=(
+                            f"Shared-library package '{package.code}' has already used its configured publish allowance "
+                            f"({publish_policy['publish_usage_count']}/{publish_policy['publish_limit_total']})."
+                        ),
+                        level="blocker",
+                    )
+                )
+                continue
+
+            if publish_policy["publish_watch_state"] == "near_limit":
+                warnings.append(
+                    _build_exam_publish_issue(
+                        code=EXAM_PUBLISH_WARNING_SHARED_LIBRARY_PUBLISH_LIMIT_NEAR,
+                        field="question",
+                        message=(
+                            f"Shared-library package '{package.code}' is close to its publish allowance. "
+                            f"{publish_policy['publish_remaining_count']} publish slot(s) remain before the cap "
+                            f"of {publish_policy['publish_limit_total']} is reached."
+                        ),
+                        level="warning",
+                    )
+                )
 
     return {
         "ready": not blockers,
@@ -2407,6 +2489,8 @@ def mark_exam_completed(exam, *, changed_by=None, remarks=""):
 
 @transaction.atomic
 def publish_exam(exam, changed_by=None, remarks=""):
+    from apps.economy.models import InstituteQuestionUsageActionType
+    from apps.economy.services import record_exam_question_bank_usage
     from apps.reports.services import notify_exam_published
 
     _raise_exam_publish_readiness_errors(build_exam_publish_readiness(exam))
@@ -2417,6 +2501,15 @@ def publish_exam(exam, changed_by=None, remarks=""):
         new_status="scheduled",
         changed_by=changed_by,
         remarks=remarks,
+    )
+    record_exam_question_bank_usage(
+        exam=exam,
+        action_type=InstituteQuestionUsageActionType.EXAM_PUBLISHED,
+        performed_by=changed_by,
+        metadata={
+            "operation": "publish_exam",
+            "status": exam.status,
+        },
     )
     notify_exam_published(exam, changed_by=changed_by)
     return exam

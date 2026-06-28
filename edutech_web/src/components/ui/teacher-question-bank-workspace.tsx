@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { formatTopicOptionLabel, sortTopicOptions } from "@/lib/academics/topic-options";
 import { buildQuestionTypePresentationProfile } from "@/lib/assessment/question-type-presentation";
 import type {
   LookupProgram,
+  MasterQuestionLibraryQuestion,
   QuestionTagLite,
   LookupSubject,
   LookupTopic,
@@ -20,6 +21,33 @@ type TeacherFilterOption = {
   id: string;
   full_name: string;
   employee_code: string;
+};
+
+type ScopedQuestionBankEntitlement = {
+  id: string;
+  status: string;
+  question_bank_package_name: string;
+  question_bank_package_code: string;
+  question_bank_package_type: string;
+  question_bank_package_ownership_type: string;
+  question_bank_package_access_mode: string;
+  subscription_plan_name?: string | null;
+  starts_at?: string | null;
+  ends_at?: string | null;
+  scope_summary: string[];
+  quota_configured?: boolean;
+  quota_status?: string;
+  quota_watch_state?: string;
+  quota_usage_total?: number;
+  quota_remaining_min?: number | null;
+  quota_scope_summary?: string[];
+};
+
+type ScopedQuestionBankFeatureEntitlement = {
+  id: string;
+  feature_code: string;
+  status: string;
+  source_package_name?: string | null;
 };
 
 function percentage(value: string) {
@@ -70,6 +98,163 @@ function isReadOnlyLibraryQuestion(question: TeacherQuestionSummary | TeacherQue
     question.metadata?.link_mode === "source_materialization" ||
     typeof question.metadata?.linked_from_master === "string"
   );
+}
+
+function sharedLibraryAccessTone(question: TeacherQuestionSummary | TeacherQuestion) {
+  if (!question.is_shared_library_link) {
+    return "statusDefault";
+  }
+  return question.shared_library_access_active ? "statusSuccess" : "statusWarn";
+}
+
+function sharedLibraryAccessLabel(question: TeacherQuestionSummary | TeacherQuestion) {
+  if (!question.is_shared_library_link) {
+    return "";
+  }
+  if (question.shared_library_access_active) {
+    return "Licensed source active";
+  }
+  return "Licensed source paused";
+}
+
+function questionOwnershipLabel(question: TeacherQuestionSummary | TeacherQuestion) {
+  if (question.is_shared_library_link) {
+    return isReadOnlyLibraryQuestion(question) ? "Linked licensed copy" : "Licensed platform question";
+  }
+  if (question.created_by_teacher) {
+    return "Teacher private";
+  }
+  return "Institute private";
+}
+
+function questionOwnershipTone(question: TeacherQuestionSummary | TeacherQuestion) {
+  if (question.is_shared_library_link) {
+    return question.shared_library_access_active ? "statusSuccess" : "statusWarn";
+  }
+  return "statusDefault";
+}
+
+function questionOwnershipNote(question: TeacherQuestionSummary | TeacherQuestion) {
+  if (question.is_shared_library_link) {
+    if (isReadOnlyLibraryQuestion(question)) {
+      return question.shared_library_access_active
+        ? "This row came from a licensed platform source and is now a linked read-only local copy. Duplicate it before editing."
+        : "This row came from a licensed platform source, but the institute entitlement is currently paused. Existing visibility remains for audit and review."
+    }
+    return question.shared_library_access_active
+      ? "This question stays connected to an active licensed platform source."
+      : "This licensed question is still visible locally, but no new shared-library actions should be expected until access is restored."
+  }
+  if (question.created_by_teacher) {
+    const teacherName =
+      "created_by_teacher_name" in question && question.created_by_teacher_name
+        ? question.created_by_teacher_name
+        : "a teacher in this institute";
+    return `Private teacher-authored content owned by ${teacherName}.`
+  }
+  return "Private institute-owned content available only inside this institute."
+}
+
+function questionSourceStateLabel(question: TeacherQuestionSummary | TeacherQuestion) {
+  if (question.is_shared_library_link) {
+    return isReadOnlyLibraryQuestion(question) ? "Linked source" : "Licensed source";
+  }
+  return question.created_by_teacher ? "Teacher-authored local" : "Institute-authored local";
+}
+
+function questionSourceStateTone(question: TeacherQuestionSummary | TeacherQuestion) {
+  if (question.is_shared_library_link) {
+    return question.shared_library_access_active ? "statusSuccess" : "statusWarn";
+  }
+  return "statusDefault";
+}
+
+function questionEditStateLabel(question: TeacherQuestionSummary | TeacherQuestion) {
+  if (isReadOnlyLibraryQuestion(question)) {
+    return "Read-only linked";
+  }
+  if (question.is_shared_library_link && !question.shared_library_access_active) {
+    return "Reuse blocked";
+  }
+  return "Editable local";
+}
+
+function questionEditStateTone(question: TeacherQuestionSummary | TeacherQuestion) {
+  if (isReadOnlyLibraryQuestion(question)) {
+    return "statusDemo";
+  }
+  if (question.is_shared_library_link && !question.shared_library_access_active) {
+    return "statusWarn";
+  }
+  return "statusSuccess";
+}
+
+function sharedLibraryFilterLabel(value: string) {
+  if (value === "linked") return "linked licensed";
+  if (value === "active") return "licensed active";
+  if (value === "inactive") return "licensed paused";
+  if (value === "local-only") return "local only";
+  return "all";
+}
+
+function masterLibraryAccessLabel(question: MasterQuestionLibraryQuestion) {
+  if (question.access_availability === "quota_exhausted") {
+    return "Quota exhausted";
+  }
+  if (question.has_access) {
+    return question.quota_limited ? "Access available · quota tracked" : "Access available";
+  }
+  return "Subscription required";
+}
+
+function masterLibraryAccessTone(question: MasterQuestionLibraryQuestion) {
+  if (question.access_availability === "quota_exhausted") {
+    return "statusWarn";
+  }
+  if (question.has_access) {
+    return "statusSuccess";
+  }
+  return "statusWarn";
+}
+
+function masterLibraryAccessStateLabel(question: MasterQuestionLibraryQuestion) {
+  const accessState = question.access_status || (question.has_access ? "entitled" : "not_requested");
+  return accessState.replaceAll("_", " ");
+}
+
+function masterLibraryAvailabilityNote(question: MasterQuestionLibraryQuestion) {
+  if (question.access_status === "linked") {
+    return "This licensed source is already linked into the local bank.";
+  }
+  if (question.access_status === "requested") {
+    return "An access request is already pending for this licensed source.";
+  }
+  if (question.access_availability === "quota_exhausted") {
+    return question.quota_note || "Matching subscribed packages were found, but their question quota is exhausted.";
+  }
+  if (question.has_access) {
+    return question.quota_note || "The institute can currently link this licensed source into the local bank.";
+  }
+  if (question.matching_packages.length > 0) {
+    return "Matching package lanes exist, but this source is not currently requestable from the active authoring scope.";
+  }
+  return "No matching subscribed package was found for this local scope.";
+}
+
+function masterLibraryActionLabel(question: MasterQuestionLibraryQuestion) {
+  if (question.access_status === "linked") {
+    return "Already linked";
+  }
+  if (question.access_status === "requested") {
+    return "Request pending";
+  }
+  if (question.access_availability === "quota_exhausted") {
+    return "Quota exhausted";
+  }
+  if (question.matching_packages.length > 0) {
+    return "Scope mismatch";
+  }
+  return "Subscription required";
 }
 
 function getQuestionEditorHref(question: TeacherQuestionSummary | TeacherQuestion, basePath: string) {
@@ -203,7 +388,7 @@ function getPassageTitle(question: TeacherQuestionSummary | TeacherQuestion) {
 
 function buildPageHref(
   page: number,
-  filters: Record<string, string>,
+  filters: Record<string, string | undefined>,
   basePath: string,
 ) {
   const params = new URLSearchParams();
@@ -215,6 +400,54 @@ function buildPageHref(
   });
   params.set("page", String(page));
   return `${basePath}?${params.toString()}`;
+}
+
+function buildWorkspaceStatusHref(
+  basePath: string,
+  filters: Record<string, string>,
+  page: number,
+  status: { message?: string; error?: string },
+) {
+  return buildPageHref(
+    page,
+    {
+      ...filters,
+      message: status.message,
+      error: status.error,
+    },
+    basePath,
+  );
+}
+
+async function readActionError(response: Response) {
+  try {
+    const payload = (await response.json()) as Record<string, unknown>;
+    const detail = payload.detail;
+    if (typeof detail === "string" && detail.trim()) {
+      return detail.trim();
+    }
+
+    const firstValue = Object.values(payload).find((value) => {
+      if (typeof value === "string" && value.trim()) {
+        return true;
+      }
+      if (Array.isArray(value) && value.length > 0) {
+        return true;
+      }
+      return false;
+    });
+
+    if (typeof firstValue === "string" && firstValue.trim()) {
+      return firstValue.trim();
+    }
+    if (Array.isArray(firstValue) && firstValue.length > 0) {
+      return String(firstValue[0]);
+    }
+  } catch {
+    return "";
+  }
+
+  return "";
 }
 
 function summarizeWorkspaceFamilyScoring(scoringDefaults: Record<string, unknown> | null | undefined) {
@@ -296,6 +529,12 @@ export function TeacherQuestionBankWorkspace({
   hasPreviousPage,
   hasNextPage,
   previewThemeClass = "",
+  masterLibraryQuestions = [],
+  masterLibraryLoadError = "",
+  sharedLibraryDisabledMessage = "",
+  canLinkSharedLibrary = false,
+  questionBankEntitlements = [],
+  featureEntitlements = [],
 }: {
   academicsApiBasePath?: string;
   attachmentTypeLabelMap: Record<string, string>;
@@ -318,6 +557,12 @@ export function TeacherQuestionBankWorkspace({
   hasPreviousPage: boolean;
   hasNextPage: boolean;
   previewThemeClass?: string;
+  masterLibraryQuestions?: MasterQuestionLibraryQuestion[];
+  masterLibraryLoadError?: string;
+  sharedLibraryDisabledMessage?: string;
+  canLinkSharedLibrary?: boolean;
+  questionBankEntitlements?: ScopedQuestionBankEntitlement[];
+  featureEntitlements?: ScopedQuestionBankFeatureEntitlement[];
 }) {
   const portalTarget = typeof document === "undefined" ? null : document.body;
   const isBrowser = typeof window !== "undefined";
@@ -352,9 +597,20 @@ export function TeacherQuestionBankWorkspace({
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [statusFilter, setStatusFilter] = useState("");
+  const [sharedLibraryFilter, setSharedLibraryFilter] = useState("");
   const [isCompact, setIsCompact] = useState(false);
   const [hasLoadedPreferences, setHasLoadedPreferences] = useState(false);
+  const [pendingMasterQuestionId, setPendingMasterQuestionId] = useState<string | null>(null);
+  const [isPendingMasterAction, startMasterActionTransition] = useTransition();
   const topicInventory = loadedTopicInventory ?? topics;
+  const activeQuestionBankEntitlements = useMemo(
+    () => questionBankEntitlements.filter((entitlement) => entitlement.status === "active"),
+    [questionBankEntitlements],
+  );
+  const activeFeatureEntitlements = useMemo(
+    () => featureEntitlements.filter((entitlement) => entitlement.status === "active"),
+    [featureEntitlements],
+  );
 
   useEffect(() => {
     if (!isBrowser) {
@@ -367,6 +623,7 @@ export function TeacherQuestionBankWorkspace({
       window.localStorage.getItem(`${storageKeyPrefix}-favorites-only`) === "true",
     );
     setStatusFilter(window.localStorage.getItem(`${storageKeyPrefix}-status`) ?? "");
+    setSharedLibraryFilter(window.localStorage.getItem(`${storageKeyPrefix}-shared-library`) ?? "");
     setIsCompact(window.localStorage.getItem(`${storageKeyPrefix}-compact`) === "true");
     setHasLoadedPreferences(true);
   }, [isBrowser, storageKeyPrefix]);
@@ -429,6 +686,14 @@ export function TeacherQuestionBankWorkspace({
 
     window.localStorage.setItem(`${storageKeyPrefix}-status`, statusFilter);
   }, [hasLoadedPreferences, isBrowser, statusFilter, storageKeyPrefix]);
+
+  useEffect(() => {
+    if (!isBrowser || !hasLoadedPreferences) {
+      return;
+    }
+
+    window.localStorage.setItem(`${storageKeyPrefix}-shared-library`, sharedLibraryFilter);
+  }, [hasLoadedPreferences, isBrowser, sharedLibraryFilter, storageKeyPrefix]);
 
   const subjectOptions = useMemo(() => {
     if (!programFilter) {
@@ -574,13 +839,33 @@ export function TeacherQuestionBankWorkspace({
         return false;
       }
 
+      if (sharedLibraryFilter === "linked" && !question.is_shared_library_link) {
+        return false;
+      }
+
+      if (sharedLibraryFilter === "active") {
+        if (!question.is_shared_library_link || !question.shared_library_access_active) {
+          return false;
+        }
+      }
+
+      if (sharedLibraryFilter === "inactive") {
+        if (!question.is_shared_library_link || question.shared_library_access_active !== false) {
+          return false;
+        }
+      }
+
+      if (sharedLibraryFilter === "local-only" && question.is_shared_library_link) {
+        return false;
+      }
+
       if (!statusFilter) {
         return true;
       }
 
       return getStatus(question) === statusFilter;
     });
-  }, [favoriteIds, questions, showFavoritesOnly, statusFilter]);
+  }, [favoriteIds, questions, sharedLibraryFilter, showFavoritesOnly, statusFilter]);
 
   const recentTopics = useMemo(
     () =>
@@ -689,8 +974,249 @@ export function TeacherQuestionBankWorkspace({
     });
   }
 
+  function runMasterLibraryAction(
+    question: MasterQuestionLibraryQuestion,
+    action: "request-access" | "link",
+  ) {
+    const subject = subjects.find((entry) => entry.id === selectedSubjectFilter) ?? null;
+    const topic = topicInventory.find((entry) => entry.id === selectedTopicFilter) ?? null;
+
+    startMasterActionTransition(() => {
+      setPendingMasterQuestionId(question.id);
+
+      void fetch(`/api/teacher/question-bank/master-library/${question.id}/${action}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          local_subject_code: subject?.code ?? question.source_subject_code,
+          local_topic_code: topic?.code ?? question.source_topic_code ?? "",
+        }),
+      })
+        .then(async (response) => {
+          if (!response.ok) {
+            const message = await readActionError(response);
+            window.location.href = buildWorkspaceStatusHref(basePath, filters, page, {
+              error: message || "Unable to complete the shared-library action right now.",
+            });
+            return;
+          }
+
+          window.location.href = buildWorkspaceStatusHref(basePath, filters, page, {
+            message:
+              action === "link"
+                ? "Shared question linked into the local bank."
+                : "Shared question access request submitted.",
+          });
+        })
+        .catch(() => {
+          window.location.href = buildWorkspaceStatusHref(basePath, filters, page, {
+            error: "Unable to complete the shared-library action right now.",
+          });
+        })
+        .finally(() => {
+          setPendingMasterQuestionId((current) => (current === question.id ? null : current));
+        });
+    });
+  }
+
   return (
     <div className="questionBankShell">
+      <section className="contentCard">
+        <div className="sectionHeading">
+          <h2>Subscription visibility</h2>
+          <span>Licensed package lanes and feature unlocks for this authoring scope</span>
+        </div>
+
+        <div className="questionBankChipRow">
+          <span className={`statusPill ${activeQuestionBankEntitlements.length ? "statusSuccess" : "statusWarn"}`}>
+            {activeQuestionBankEntitlements.length} active package{activeQuestionBankEntitlements.length === 1 ? "" : "s"}
+          </span>
+          <span className={`statusPill ${activeFeatureEntitlements.length ? "statusSuccess" : "statusDefault"}`}>
+            {activeFeatureEntitlements.length} active feature{activeFeatureEntitlements.length === 1 ? "" : "s"}
+          </span>
+          <span className={`statusPill ${sharedLibraryDisabledMessage ? "statusWarn" : "statusSuccess"}`}>
+            {sharedLibraryDisabledMessage ? "Shared library locked" : "Shared library enabled"}
+          </span>
+        </div>
+
+        {activeQuestionBankEntitlements.length ? (
+          <div className="questionBankList">
+            {activeQuestionBankEntitlements.slice(0, 4).map((entitlement) => (
+              <article className="questionBankCard" key={entitlement.id}>
+                <div className="questionBankCardHeader">
+                  <div className="questionBankCardCopy">
+                    <strong>{entitlement.question_bank_package_name}</strong>
+                    <div className="questionBankChipRow">
+                      <span className="questionBankMetaChip">{entitlement.question_bank_package_type.replaceAll("_", " ")}</span>
+                      <span className="questionBankMetaChip">{entitlement.question_bank_package_access_mode.replaceAll("_", " ")}</span>
+                      <span className="questionBankMetaChip">{entitlement.question_bank_package_ownership_type.replaceAll("_", " ")}</span>
+                      {entitlement.quota_configured ? (
+                        <span className={`questionBankMetaChip ${entitlement.quota_watch_state === "limit_reached" || entitlement.quota_watch_state === "near_limit" ? "statusWarn" : "statusSuccess"}`}>
+                          {entitlement.quota_watch_state === "limit_reached"
+                            ? "Quota attention"
+                            : entitlement.quota_watch_state === "near_limit"
+                              ? "Quota watch"
+                              : "Quota tracked"}
+                        </span>
+                      ) : null}
+                      {entitlement.subscription_plan_name ? (
+                        <span className="questionBankMetaChip">{entitlement.subscription_plan_name}</span>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+                <div className="questionBankCardFooter">
+                  <div className="questionBankCardMetaNote">
+                    <span>
+                      {entitlement.scope_summary.length
+                        ? entitlement.scope_summary.slice(0, 2).join(" · ")
+                        : "This package is active, but no readable scope summary was returned."}
+                    </span>
+                    {entitlement.quota_configured ? (
+                      <span>
+                        {entitlement.quota_scope_summary?.slice(0, 2).join(" · ") ||
+                          `Quota tracking is active for this package. ${entitlement.quota_usage_total ?? 0} linked question actions recorded.`}
+                      </span>
+                    ) : null}
+                    {entitlement.quota_configured && typeof entitlement.quota_remaining_min === "number" ? (
+                      <span>Lowest remaining allowance: {entitlement.quota_remaining_min}</span>
+                    ) : null}
+                    {entitlement.ends_at ? (
+                      <span>Valid until {new Date(entitlement.ends_at).toLocaleDateString("en-IN")}</span>
+                    ) : (
+                      <span>No expiry is currently attached to this entitlement.</span>
+                    )}
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="builderEmptyState">
+            <strong>No active package entitlement is visible in this scope</strong>
+            <p>Private institute and teacher questions still work, but licensed platform question lanes will stay unavailable until an active package is attached to the institute.</p>
+          </div>
+        )}
+
+        {activeFeatureEntitlements.length ? (
+          <div className="questionBankChipRow">
+            {activeFeatureEntitlements.map((entitlement) => (
+              <span className="questionBankMetaChip" key={entitlement.id}>
+                {entitlement.feature_code}
+                {entitlement.source_package_name ? ` · ${entitlement.source_package_name}` : ""}
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </section>
+
+      <section className="contentCard">
+        <div className="sectionHeading">
+          <h2>Shared platform library</h2>
+          <span>{masterLibraryQuestions.length} curated question{masterLibraryQuestions.length === 1 ? "" : "s"} in current lane</span>
+        </div>
+
+        {sharedLibraryDisabledMessage ? (
+          <p className="feedbackBanner">{sharedLibraryDisabledMessage}</p>
+        ) : null}
+
+        {masterLibraryLoadError ? (
+          <p className="feedbackBanner feedbackBannerError">{masterLibraryLoadError}</p>
+        ) : null}
+
+        {!sharedLibraryDisabledMessage && !masterLibraryLoadError && !masterLibraryQuestions.length ? (
+          <div className="builderEmptyState">
+            <strong>No shared library questions match this scope</strong>
+            <p>Try broadening the subject or topic filters, or publish new platform-owned source questions into the matching package lane.</p>
+          </div>
+        ) : null}
+
+        {!sharedLibraryDisabledMessage && masterLibraryQuestions.length ? (
+          <div className="questionBankList">
+            {masterLibraryQuestions.map((question) => {
+              const isBusy = isPendingMasterAction && pendingMasterQuestionId === question.id;
+              const accessState = question.access_status || (question.has_access ? "entitled" : "not_requested");
+              const availabilityState = question.access_availability || "subscription_required";
+              const canRequestAccess =
+                !canLinkSharedLibrary &&
+                question.matching_packages.length > 0 &&
+                availabilityState !== "quota_exhausted" &&
+                accessState !== "requested" &&
+                accessState !== "linked";
+              const canLink = canLinkSharedLibrary && question.has_access && accessState !== "linked";
+
+              return (
+                <article className="questionBankCard" key={question.id}>
+                  <div className="questionBankCardHeader">
+                    <div className="questionBankCardCopy">
+                      <strong>{question.question_text.replaceAll("\n", " ").trim() || "Untitled shared question"}</strong>
+                      <div className="questionBankChipRow">
+                        <span className="questionBankMetaChip">{question.source_institute_name}</span>
+                        <span className="questionBankMetaChip">{question.source_subject_name}</span>
+                        {question.source_topic_name ? (
+                          <span className="questionBankMetaChip">{question.source_topic_name}</span>
+                        ) : null}
+                        <span className="questionBankMetaChip">{question.question_type.replaceAll("_", " ")}</span>
+                        <span className="questionBankMetaChip">{question.difficulty_level}</span>
+                        <span className={`statusPill ${masterLibraryAccessTone(question)}`}>
+                          {masterLibraryAccessLabel(question)}
+                        </span>
+                        <span className="statusPill statusDemo">{masterLibraryAccessStateLabel(question)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="questionBankCardFooter">
+                    <div className="questionBankCardMetaNote">
+                      <span>{question.explanation.trim() || "No editorial explanation is visible yet."}</span>
+                      <span>{masterLibraryAvailabilityNote(question)}</span>
+                      <span>
+                        {question.matching_packages.length
+                          ? `Matching packages: ${question.matching_packages.map((entry) => entry.name).join(", ")}`
+                          : "No matching subscribed package was found for this local scope."}
+                      </span>
+                      {question.quota_note && question.access_availability !== "quota_exhausted" ? (
+                        <span>{question.quota_note}</span>
+                      ) : null}
+                    </div>
+
+                    <div className="questionBankCardActions">
+                      {canRequestAccess ? (
+                        <button
+                          className="button buttonSecondary"
+                          disabled={isBusy}
+                          onClick={() => runMasterLibraryAction(question, "request-access")}
+                          type="button"
+                        >
+                          {isBusy ? "Submitting..." : "Request Access"}
+                        </button>
+                      ) : null}
+                      {canLink ? (
+                        <button
+                          className="button buttonPrimary"
+                          disabled={isBusy}
+                          onClick={() => runMasterLibraryAction(question, "link")}
+                          type="button"
+                        >
+                          {isBusy ? "Linking..." : "Link to Local Bank"}
+                        </button>
+                      ) : null}
+                      {!canRequestAccess && !canLink ? (
+                        <span className="button buttonGhost questionBankButtonDisabled">
+                          {masterLibraryActionLabel(question)}
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        ) : null}
+      </section>
+
       <section className="contentCard questionBankFilterSurface">
         <div className="sectionHeading">
           <strong>Find questions faster</strong>
@@ -863,6 +1389,20 @@ export function TeacherQuestionBankWorkspace({
             </select>
           </label>
 
+          <label className="fieldStack questionBankStatusField">
+            <span>Shared library</span>
+            <select
+              value={sharedLibraryFilter}
+              onChange={(event) => setSharedLibraryFilter(event.target.value)}
+            >
+              <option value="">All source states</option>
+              <option value="linked">Linked licensed questions</option>
+              <option value="active">Licensed source active</option>
+              <option value="inactive">Licensed source paused</option>
+              <option value="local-only">Local-only questions</option>
+            </select>
+          </label>
+
           <div className="questionBankFilterActions">
             <label className="questionBankToggle">
               <input
@@ -892,6 +1432,16 @@ export function TeacherQuestionBankWorkspace({
             <small>{summarizeWorkspaceFamilyScoring(selectedProgramFamilyProfile.scoring_defaults)}</small>
           </div>
         ) : null}
+
+        <div className="builderHintPanel">
+          <strong>Mixed-source guidance</strong>
+          <p>
+            Local questions stay editable inside the institute. Linked licensed copies are visible locally but should be duplicated before editing. Licensed source paused means the old row may still be visible, but new linked reuse should be treated as blocked until the package lane is restored.
+          </p>
+          <small>
+            Use the source-state filters to separate local-only authoring from active licensed reuse and paused licensed follow-up.
+          </small>
+        </div>
 
         <div className="workspaceFilterQuickRow">
           <span className="workspaceFilterQuickLabel">Quick filters</span>
@@ -938,6 +1488,34 @@ export function TeacherQuestionBankWorkspace({
               type="button"
             >
               Verified
+            </button>
+            <button
+              className={`workspaceQuickChip${sharedLibraryFilter === "inactive" ? " workspaceQuickChipActive" : ""}`}
+              onClick={() => setSharedLibraryFilter("inactive")}
+              type="button"
+            >
+              Licensed Paused
+            </button>
+            <button
+              className={`workspaceQuickChip${sharedLibraryFilter === "active" ? " workspaceQuickChipActive" : ""}`}
+              onClick={() => setSharedLibraryFilter("active")}
+              type="button"
+            >
+              Licensed Active
+            </button>
+            <button
+              className={`workspaceQuickChip${sharedLibraryFilter === "linked" ? " workspaceQuickChipActive" : ""}`}
+              onClick={() => setSharedLibraryFilter("linked")}
+              type="button"
+            >
+              Linked Licensed
+            </button>
+            <button
+              className={`workspaceQuickChip${sharedLibraryFilter === "local-only" ? " workspaceQuickChipActive" : ""}`}
+              onClick={() => setSharedLibraryFilter("local-only")}
+              type="button"
+            >
+              Local Only
             </button>
             <Link
               className={`workspaceQuickChip${
@@ -1020,6 +1598,9 @@ export function TeacherQuestionBankWorkspace({
           <span className="statusPill statusDefault">
             Local status: {statusFilter || "all"}
           </span>
+          <span className="statusPill statusDefault">
+            Source state: {sharedLibraryFilterLabel(sharedLibraryFilter)}
+          </span>
         </div>
 
         <div className="questionBankInlineControls">
@@ -1042,7 +1623,7 @@ export function TeacherQuestionBankWorkspace({
             </label>
           </div>
           <span className="questionBankInlineHint">
-            Local view controls do not change backend filters.
+            Local view controls do not change backend filters or pagination.
           </span>
         </div>
 
@@ -1234,6 +1815,20 @@ export function TeacherQuestionBankWorkspace({
                         {passageTitle ? (
                           <span className="questionBankMetaChip">Comprehension: {passageTitle}</span>
                         ) : null}
+                        <span className={`statusPill ${questionSourceStateTone(question)}`}>
+                          {questionSourceStateLabel(question)}
+                        </span>
+                        <span className={`statusPill ${questionOwnershipTone(question)}`}>
+                          {questionOwnershipLabel(question)}
+                        </span>
+                        {question.is_shared_library_link ? (
+                          <span className={`statusPill ${sharedLibraryAccessTone(question)}`}>
+                            {sharedLibraryAccessLabel(question)}
+                          </span>
+                        ) : null}
+                        <span className={`statusPill ${questionEditStateTone(question)}`}>
+                          {questionEditStateLabel(question)}
+                        </span>
                         <span className="questionBankMetaChip">
                           {questionTypeLabelMap[question.question_type] ?? question.question_type}
                         </span>
@@ -1314,6 +1909,10 @@ export function TeacherQuestionBankWorkspace({
                           : "Explanation still missing"}
                       </span>
                       <span>
+                        Source state: {questionSourceStateLabel(question)} · {questionEditStateLabel(question)}
+                      </span>
+                      <span>{questionOwnershipNote(question)}</span>
+                      <span>
                         {question.quality_note}
                       </span>
                       <span>
@@ -1324,6 +1923,11 @@ export function TeacherQuestionBankWorkspace({
                     </div>
 
                     <div className="questionBankCardActions">
+                      {isReadOnlyLibraryQuestion(question) ? (
+                        <span className="questionBankMetaChip">
+                          Linked licensed copy · duplicate before editing
+                        </span>
+                      ) : null}
                       <button
                         className="button buttonPrimary"
                         onClick={() => {
@@ -1451,6 +2055,20 @@ export function TeacherQuestionBankWorkspace({
                         Comprehension: {getPassageTitle(previewQuestion)}
                       </span>
                     ) : null}
+                    <span className={`statusPill ${questionSourceStateTone(previewQuestion)}`}>
+                      {questionSourceStateLabel(previewQuestion)}
+                    </span>
+                    <span className={`statusPill ${questionOwnershipTone(previewQuestion)}`}>
+                      {questionOwnershipLabel(previewQuestion)}
+                    </span>
+                    {previewQuestion.is_shared_library_link ? (
+                      <span className={`statusPill ${sharedLibraryAccessTone(previewQuestion)}`}>
+                        {sharedLibraryAccessLabel(previewQuestion)}
+                      </span>
+                    ) : null}
+                    <span className={`statusPill ${questionEditStateTone(previewQuestion)}`}>
+                      {questionEditStateLabel(previewQuestion)}
+                    </span>
                     <span className="questionBankMetaChip">
                       {questionTypeLabelMap[previewQuestion.question_type] ?? previewQuestion.question_type}
                     </span>
@@ -1481,6 +2099,14 @@ export function TeacherQuestionBankWorkspace({
                       </span>
                     </div>
                   ) : null}
+
+                  <section className="questionPreviewSection">
+                    <strong>Ownership and access</strong>
+                    <p>{questionOwnershipNote(previewQuestion)}</p>
+                    <p>
+                      Source state: {questionSourceStateLabel(previewQuestion)} · Edit posture: {questionEditStateLabel(previewQuestion)}
+                    </p>
+                  </section>
 
                   <section className="questionPreviewSection">
                     <strong>Question text</strong>

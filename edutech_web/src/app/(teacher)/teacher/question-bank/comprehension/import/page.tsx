@@ -1,11 +1,49 @@
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { TeacherPageHeader } from "@/components/ui/teacher-page-header";
 import { TeacherQuestionPassageImportWorkspace } from "@/components/ui/teacher-question-passage-import-workspace";
+import { fetchPortalList } from "@/lib/api/portal";
 import { fetchTeacherQuestionPassageImportTemplate } from "@/lib/api/teacher-builder";
 import { requireTeacherSession } from "@/lib/auth/session";
 
+const QUESTION_BANK_BULK_IMPORT_FEATURE_CODE = "QUESTION_BANK_BULK_IMPORT";
+
+type InstituteQuestionFeatureEntitlement = {
+  id: string;
+  feature_code: string;
+  status: string;
+};
+
 export default async function TeacherQuestionPassageImportPage() {
   await requireTeacherSession();
+
+  const featureEntitlements = await fetchPortalList<InstituteQuestionFeatureEntitlement>(
+    "/api/v1/economy/admin/institute-question-bank-feature-entitlements/",
+  ).catch(() => []);
+  const hasBulkImportAccess = featureEntitlements.some(
+    (entitlement) =>
+      entitlement.feature_code === QUESTION_BANK_BULK_IMPORT_FEATURE_CODE &&
+      entitlement.status === "active",
+  );
+
+  if (!hasBulkImportAccess) {
+    return (
+      <div className="studentPage studentPageTight studentDashboardModern teacherConsolePage teacherQuestionImportPageVivid">
+        <TeacherPageHeader
+          title="Import Comprehension Sets"
+          description="Bring shared reading passages into the teacher bank with a preview-first workflow backed by the live backend validators."
+        />
+        <StudentStatePanel
+          eyebrow="Feature entitlement required"
+          title="Question-bank bulk import is not enabled for your institute yet"
+          description="Teacher comprehension import now follows the live institute feature entitlement. Ask your institute admin or platform operator to activate Question Bank Bulk Import before using this workspace."
+          bullets={["Institute-level feature activation", "Teacher comprehension import access"]}
+          ctaHref="/teacher/question-bank"
+          ctaLabel="Back To Question Bank"
+          statusLabel="Subscription controlled"
+        />
+      </div>
+    );
+  }
 
   const template = await fetchTeacherQuestionPassageImportTemplate().catch(() => null);
 

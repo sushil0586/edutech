@@ -1,10 +1,14 @@
 from rest_framework.test import APIClient, APITestCase
 
 from apps.exams.models import AdvancedExamTemplate
+from apps.economy.models import InstituteQuestionFeatureEntitlement
+from apps.economy.services import grant_institute_feature_entitlement
 from common.tests.builders import AcademicAssessmentBuilder
 
 
 class AdvancedExamTemplateApiTests(APITestCase):
+    TEMPLATE_LIBRARY_FEATURE_CODE = "EXAM_BLUEPRINT_EXPORT"
+
     def setUp(self):
         self.client = APIClient()
         self.builder = AcademicAssessmentBuilder()
@@ -31,6 +35,20 @@ class AdvancedExamTemplateApiTests(APITestCase):
             self.context["institute"],
             username="template-admin",
         )
+        self._grant_template_library_feature()
+
+    def _grant_template_library_feature(self):
+        entitlement, _ = grant_institute_feature_entitlement(
+            institute=self.context["institute"],
+            feature_code=self.TEMPLATE_LIBRARY_FEATURE_CODE,
+        )
+        return entitlement
+
+    def _revoke_template_library_feature(self):
+        InstituteQuestionFeatureEntitlement.objects.filter(
+            institute=self.context["institute"],
+            feature_code=self.TEMPLATE_LIBRARY_FEATURE_CODE,
+        ).delete()
 
     def _payload(self, *, name="Weekly Math Mock"):
         return {
@@ -151,6 +169,27 @@ class AdvancedExamTemplateApiTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["count"], 1)
         self.assertEqual(response.data["results"][0]["name"], "Institute Shared Template")
+
+    def test_teacher_cannot_list_templates_without_template_library_feature(self):
+        self._revoke_template_library_feature()
+        self.client.force_authenticate(user=self.teacher_user)
+
+        response = self.client.get("/api/v1/exams/advanced-templates/")
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_teacher_cannot_save_template_without_template_library_feature(self):
+        self._revoke_template_library_feature()
+        self.client.force_authenticate(user=self.teacher_user)
+
+        response = self.client.post(
+            "/api/v1/exams/advanced-templates/",
+            self._payload(name="Blocked Template"),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(AdvancedExamTemplate.objects.filter(name="Blocked Template").exists())
 
     def test_teacher_can_delete_template_in_scope(self):
         template = AdvancedExamTemplate.objects.create(

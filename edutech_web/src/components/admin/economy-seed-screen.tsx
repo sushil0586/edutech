@@ -224,7 +224,7 @@ function audienceCopy(audience: EconomySeedScreenProps["audience"]) {
       description:
         "Institute admins can use this screen to understand which economy scenarios already have runtime support, which defaults should exist, and which governance lanes remain platform-controlled.",
       boundary:
-        "Institute admins can review the full scenario model here, but economy imports are platform-level only for now. Pack, subscription, referral, reward-rule, and unlock catalog seeding should not be initiated from institute scope.",
+        "Institute admins can review the full scenario model here, but seed execution and bulk imports are still platform-level only. Catalog governance is live for platform admin, while institute scope remains support and visibility oriented.",
     };
   }
 
@@ -232,9 +232,9 @@ function audienceCopy(audience: EconomySeedScreenProps["audience"]) {
     eyebrow: "Seed Governance",
     title: "Control the full economy seed model from one platform screen",
     description:
-      "This planning screen covers all economy seed scenarios: reward ladders, referral, paid packs, subscriptions, content access, unlock rules, and admin support actions. Platform admin remains the only import owner for now.",
+      "This planning screen covers all economy seed scenarios: reward ladders, referral, paid packs, subscriptions, content access, unlock rules, and admin support actions. Platform admin already owns the live governance lanes and remains the only bulk import owner for now.",
     boundary:
-      "Platform admin owns economy imports for now, and the seed layer for packs, plans, referral programs, reward rules, and advanced policy templates should still be executed through backend commands until governance endpoints exist.",
+      "Platform admin owns economy imports for now. Packs, plans, referral programs, reward rules, unlock rules, and support policy controls are already available through live governance screens, but repeatable seed/bootstrap execution still flows through backend commands.",
   };
 }
 
@@ -421,8 +421,9 @@ export function EconomySeedScreen({ audience }: EconomySeedScreenProps) {
             <span className="studentDashboardTag">Command path</span>
             <h3>Recommended seed command flow</h3>
             <p className="academicSectionDescription">
-              The economy configuration layer should remain platform-controlled and command-driven until dedicated
-              governance endpoints exist for packs, plans, policy templates, and unlock catalogs.
+              The economy configuration layer is now split intentionally: platform admin uses live governance screens
+              for day-to-day CRUD and policy control, while bootstrap seeding and repeatable environment setup remain
+              command-driven.
             </p>
             <div className="featurePlaceholder">
               <p>
@@ -442,8 +443,8 @@ export function EconomySeedScreen({ audience }: EconomySeedScreenProps) {
                     <strong>{command}</strong>
                     <span>
                       {command.includes("seed_economy_defaults")
-                        ? "Recommended next command to implement"
-                        : "Already available today"}
+                        ? "Recommended environment bootstrap helper"
+                        : "Available bootstrap command today"}
                     </span>
                   </div>
                   <div className="weakTopicMeta">

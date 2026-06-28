@@ -339,6 +339,9 @@ export type TeacherQuestion = {
   quality_signal: "healthy" | "watch" | "hard" | "skip_risk" | "ambiguous" | "revision_candidate" | "emerging";
   revision_priority: "none" | "watch" | "medium" | "high" | "urgent";
   quality_note: string;
+  is_shared_library_link: boolean;
+  shared_library_access_active: boolean | null;
+  shared_library_access_state: "active" | "inactive" | "not_applicable";
   has_explanation: boolean;
   created_at: string;
   updated_at: string;
@@ -388,9 +391,61 @@ export type TeacherQuestionSummary = {
   quality_signal: "healthy" | "watch" | "hard" | "skip_risk" | "ambiguous" | "revision_candidate" | "emerging";
   revision_priority: "none" | "watch" | "medium" | "high" | "urgent";
   quality_note: string;
+  is_shared_library_link: boolean;
+  shared_library_access_active: boolean | null;
+  shared_library_access_state: "active" | "inactive" | "not_applicable";
 };
 
 export type TeacherQuestionPage = PaginatedResponse<TeacherQuestionSummary>;
+
+export type MasterQuestionLibraryPackage = {
+  code: string;
+  name: string;
+};
+
+export type MasterQuestionLibraryQuestion = {
+  id: string;
+  source_institute_code: string;
+  source_institute_name: string;
+  source_program_code: string;
+  source_program_name: string;
+  source_subject_code: string;
+  source_subject_name: string;
+  source_topic_code: string | null;
+  source_topic_name: string | null;
+  question_type: string;
+  difficulty_level: string;
+  content_format: string;
+  question_text: string;
+  explanation: string;
+  default_marks: string;
+  negative_marks: string;
+  is_verified: boolean;
+  source_type: string;
+  visibility: string;
+  metadata: Record<string, unknown>;
+  option_count: number;
+  has_access: boolean | null;
+  has_entitlement: boolean | null;
+  access_availability: string;
+  quota_limited: boolean | null;
+  quota_exhausted: boolean | null;
+  quota_note: string;
+  matching_packages: MasterQuestionLibraryPackage[];
+  access_status: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type MasterQuestionLibraryPage = PaginatedResponse<MasterQuestionLibraryQuestion>;
+
+export type MasterQuestionAccessActionResponse = {
+  master_question_id: string;
+  institute_code: string;
+  status: string;
+  linked_question_id?: string | null;
+  matching_package_codes?: string[];
+};
 
 export type TeacherQuestionPassageQuestion = {
   id: string;
@@ -780,6 +835,64 @@ export async function fetchTeacherQuestionPage(filters?: {
       quality_signal: filters?.quality_signal,
       revision_priority: filters?.revision_priority,
     })}`,
+  );
+}
+
+export async function fetchTeacherMasterQuestionLibrary(filters?: {
+  page?: number;
+  page_size?: number;
+  subject_code?: string | null;
+  topic_code?: string | null;
+  question_type?: string | null;
+  difficulty_level?: string | null;
+  search?: string | null;
+  ordering?: string | null;
+}) {
+  return requestTeacherBuilderJson<MasterQuestionLibraryPage>(
+    `/api/v1/question-bank/master-library/${toQueryString({
+      page: filters?.page,
+      page_size: filters?.page_size,
+      subject_code: filters?.subject_code,
+      topic_code: filters?.topic_code,
+      question_type: filters?.question_type,
+      difficulty_level: filters?.difficulty_level,
+      search: filters?.search,
+      ordering: filters?.ordering,
+    })}`,
+  );
+}
+
+export async function requestTeacherMasterQuestionAccess(
+  questionId: string,
+  payload: {
+    local_subject_code?: string;
+    local_topic_code?: string;
+    notes?: string;
+  },
+) {
+  return requestTeacherBuilderJson<MasterQuestionAccessActionResponse>(
+    `/api/v1/question-bank/master-library/${questionId}/request-access`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export async function linkTeacherMasterQuestionAccess(
+  questionId: string,
+  payload: {
+    local_subject_code?: string;
+    local_topic_code?: string;
+    notes?: string;
+  },
+) {
+  return requestTeacherBuilderJson<MasterQuestionAccessActionResponse>(
+    `/api/v1/question-bank/master-library/${questionId}/link`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
   );
 }
 

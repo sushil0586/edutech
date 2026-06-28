@@ -59,6 +59,7 @@ from apps.exams.services import (
     sync_exam_access_policy,
     sync_total_marks_from_questions,
 )
+from apps.economy.services import institute_has_question_bank_feature
 from apps.teachers.models import TeacherProfile
 from apps.students.models import StudentProfile
 from apps.reports.services import create_audit_log
@@ -67,6 +68,7 @@ from common.viewsets import SoftDeleteModelViewSetMixin
 
 
 class ExamViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
+    ADVANCED_BUILDER_FEATURE_CODE = "ADVANCED_EXAM_BUILDER"
     permission_classes = [IsAuthenticated, CanBuildExams]
     filterset_fields = [
         "institute",
@@ -210,12 +212,27 @@ class ExamViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
         except DjangoValidationError as exc:
             return Response(exc.message_dict, status=status.HTTP_400_BAD_REQUEST)
 
+    def _enforce_advanced_builder_feature_access(self, profile):
+        if profile is None or profile.role == AccountRole.PLATFORM_ADMIN:
+            return
+        if profile.role not in {AccountRole.INSTITUTE_ADMIN, AccountRole.TEACHER}:
+            return
+        institute = getattr(profile, "institute", None)
+        if institute is None:
+            raise PermissionDenied("Advanced exam builder requires an institute-scoped account.")
+        if institute_has_question_bank_feature(institute, self.ADVANCED_BUILDER_FEATURE_CODE):
+            return
+        raise PermissionDenied(
+            "Advanced exam builder is not enabled for your institute subscription."
+        )
+
     @action(detail=False, methods=["post"], url_path="advanced-builder/preview")
     def advanced_builder_preview(self, request):
         serializer = AdvancedExamBuilderSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         blueprint = serializer.validated_data
         profile = get_account_profile(request.user)
+        self._enforce_advanced_builder_feature_access(profile)
         if blueprint["exam"].get("source_type") in {None, ""}:
             blueprint["exam"]["source_type"] = default_exam_source_for_profile(profile)
 
@@ -234,6 +251,8 @@ class ExamViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
                 "code": preview["resolved_exam"]["code"],
                 "source_type": preview["resolved_exam"]["source_type"],
                 "source_teacher_id": preview["resolved_exam"]["source_teacher_id"],
+                "primary_subject": preview["resolved_exam"]["primary_subject"],
+                "primary_subject_name": preview["resolved_exam"]["primary_subject_name"],
                 "assessment_family_profile": preview["resolved_exam"]["assessment_family_profile"],
                 "start_at": preview["resolved_exam"]["start_at"],
                 "end_at": preview["resolved_exam"]["end_at"],
@@ -249,6 +268,9 @@ class ExamViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
                 {
                     "name": section["name"],
                     "order": section["order"],
+                    "subject": section["subject"],
+                    "subject_code": section["subject_code"],
+                    "subject_name": section["subject_name"],
                     "requested": section["requested"],
                     "resolved": section["resolved"],
                     "difficulty_mix": section["difficulty_mix"],
@@ -270,6 +292,7 @@ class ExamViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
         serializer.is_valid(raise_exception=True)
         blueprint = serializer.validated_data
         profile = get_account_profile(request.user)
+        self._enforce_advanced_builder_feature_access(profile)
         if blueprint["exam"].get("source_type") in {None, ""}:
             blueprint["exam"]["source_type"] = default_exam_source_for_profile(profile)
 
@@ -651,6 +674,7 @@ class ExamViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
 
 
 class AdvancedExamTemplateViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
+    TEMPLATE_LIBRARY_FEATURE_CODE = "EXAM_BLUEPRINT_EXPORT"
     permission_classes = [IsAuthenticated, CanBuildExams]
     serializer_class = AdvancedExamTemplateSerializer
     filterset_fields = ["institute", "audience_context", "is_active"]
@@ -682,7 +706,22 @@ class AdvancedExamTemplateViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
             return
         raise PermissionDenied("You do not have permission to manage this template.")
 
+    def _enforce_template_library_feature_access(self, profile):
+        if profile is None or profile.role == AccountRole.PLATFORM_ADMIN:
+            return
+        if profile.role not in {AccountRole.INSTITUTE_ADMIN, AccountRole.TEACHER}:
+            return
+        institute = getattr(profile, "institute", None)
+        if institute is None:
+            raise PermissionDenied("Advanced exam templates require an institute-scoped account.")
+        if institute_has_question_bank_feature(institute, self.TEMPLATE_LIBRARY_FEATURE_CODE):
+            return
+        raise PermissionDenied(
+            "Advanced exam template library is not enabled for your institute subscription."
+        )
+
     def get_queryset(self):
+        self._enforce_template_library_feature_access(self._profile())
         queryset = AdvancedExamTemplate.objects.select_related(
             "institute",
             "created_by_teacher",
@@ -709,6 +748,7 @@ class AdvancedExamTemplateViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
 
     def perform_create(self, serializer):
         profile = self._profile()
+        self._enforce_template_library_feature_access(profile)
         institute = None
         if profile is not None and profile.role == AccountRole.PLATFORM_ADMIN:
             requested_institute_id = str(self.request.data.get("institute_id", "")).strip()

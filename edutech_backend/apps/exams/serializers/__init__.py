@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator
@@ -44,6 +45,7 @@ from apps.question_bank.registry import (
     question_type_allowed_response_artifact_types,
 )
 from apps.question_bank.models import AttachmentType, QuestionAttachment, QuestionOption
+from apps.question_bank.services import validate_institute_question_authoring_access
 
 
 def _question_program_assessment_family_code(question, *, exam_question=None):
@@ -354,6 +356,16 @@ class ExamQuestionSerializer(serializers.ModelSerializer):
             )
 
         if exam is not None and question is not None:
+            try:
+                validate_institute_question_authoring_access(
+                    institute=exam.institute,
+                    question=question,
+                )
+            except ValidationError as exc:
+                if hasattr(exc, "message_dict"):
+                    raise serializers.ValidationError(exc.message_dict)
+                raise serializers.ValidationError({"question": exc.messages})
+
             question_type_definition = get_question_type_definition(question.question_type)
             family_contract_errors = validate_program_assessment_family_question_contract(
                 program=exam.program,

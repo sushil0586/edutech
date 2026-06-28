@@ -108,22 +108,23 @@ export function EconomyPolicySettingsCard({
       }
 
       setMessage(body.message ?? "Economy operator policy updated successfully.");
-      if (body.data?.latest_audit !== undefined) {
-        setLatestAudit(body.data.latest_audit ?? null);
-        if (body.data.latest_audit) {
+      const latestAuditEntry = body.data?.latest_audit;
+      if (latestAuditEntry !== undefined) {
+        setLatestAudit(latestAuditEntry ?? null);
+        if (latestAuditEntry) {
           setAuditHistory((current) => {
-            const changedFields = (body.data?.latest_audit?.metadata?.changed_fields ??
+            const changedFields = (latestAuditEntry.metadata?.changed_fields ??
               {}) as Record<string, { before: unknown; after: unknown }>;
             const nextEntry: EconomyPolicyAuditEntry = {
-              id: body.data.latest_audit.id,
-              user: body.data.latest_audit.user,
-              user_label: body.data.latest_audit.user_label,
-              action: body.data.latest_audit.action,
+              id: latestAuditEntry.id,
+              user: latestAuditEntry.user,
+              user_label: latestAuditEntry.user_label,
+              action: latestAuditEntry.action,
               entity_type: "economy_operator_policy_config",
               entity_id: initialConfig?.id ?? "",
-              message: body.data.latest_audit.message,
+              message: latestAuditEntry.message,
               metadata: { changed_fields: changedFields },
-              created_at: body.data.latest_audit.created_at,
+              created_at: latestAuditEntry.created_at,
             };
             const withoutCurrent = current.filter((entry) => entry.id !== nextEntry.id);
             return [nextEntry, ...withoutCurrent].slice(0, 20);

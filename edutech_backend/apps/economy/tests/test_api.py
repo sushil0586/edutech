@@ -1,11 +1,24 @@
+from datetime import timedelta
 from decimal import Decimal
 
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.economy.models import (
     EconomyOperatorPolicyConfig,
+    InstituteQuestionEntitlement,
+    InstituteQuestionFeatureEntitlement,
+    InstituteQuestionEntitlementStatus,
+    InstituteSubscriptionRequest,
+    InstituteSubscriptionRequestStatus,
+    InstituteQuestionUsageActionType,
+    InstituteQuestionUsageLedger,
     PaymentOrder,
+    QuestionBankOwnershipType,
+    QuestionBankPackage,
+    QuestionBankPackageScope,
+    QuestionBankPackageType,
     ReferralProgram,
     RewardRule,
     StarPack,
@@ -13,11 +26,16 @@ from apps.economy.models import (
     StudentUnlockState,
     SubscriptionPlan,
     SubscriptionPlanCycle,
+    SubscriptionPlanQuestionBankPackage,
     SubscriptionStarCreditRule,
 )
 from apps.economy.governance import get_or_create_economy_operator_policy_config
 from apps.reports.models import AuditLog
-from apps.economy.services import credit_stars, get_or_create_student_economy_profile
+from apps.economy.services import (
+    credit_stars,
+    get_or_create_student_economy_profile,
+    grant_institute_question_bank_entitlement,
+)
 from common.tests.builders import AcademicAssessmentBuilder
 
 
@@ -38,6 +56,13 @@ class EconomyApiTestCase(TestCase):
             username="economy-institute-admin",
             password="Admin@123",
             email="economy-admin@example.com",
+        )
+        self.teacher_user, _ = self.builder.create_teacher_account(
+            institute=self.context["institute"],
+            teacher_profile=self.context["teacher"],
+            username="economy-teacher",
+            password="Teacher@123",
+            email="economy-teacher@example.com",
         )
         self.platform_admin_user, _ = self.builder.create_platform_admin_account(
             username="economy-platform-admin",
@@ -206,6 +231,1148 @@ class EconomyApiTestCase(TestCase):
         self.assertEqual(
             response.data["subscription_plans"]["items"][0]["secondary_label"],
             "1 active cycle",
+        )
+
+    def test_platform_admin_can_view_question_bank_packages_and_entitlements(self):
+        public_hub = self.builder.create_institute(
+            code="PUBECON1",
+            name="Economy Public Hub",
+            metadata={"is_public_content_hub": True},
+        )
+        program = self.builder.create_program(public_hub, code="CLS10", name="Class 10")
+        subject = self.builder.create_subject(public_hub, program, code="MATH10", name="Mathematics")
+        topic = self.builder.create_topic(public_hub, subject, code="ALG-LINEAR", name="Linear Equations")
+        package = QuestionBankPackage.objects.create(
+            institute=public_hub,
+            name="Demo Shared Library Access",
+            code="demo_shared_library_access",
+            description="Platform shared library package.",
+            package_type=QuestionBankPackageType.SUBJECT_LIBRARY,
+            ownership_type=QuestionBankOwnershipType.PLATFORM,
+            access_mode="link_on_demand",
+        )
+        QuestionBankPackageScope.objects.create(
+            institute=public_hub,
+            package=package,
+            program=program,
+            subject=subject,
+            topic=topic,
+            max_questions_total=500,
+            max_questions_per_topic=500,
+        )
+        InstituteQuestionEntitlement.objects.create(
+            institute=self.context["institute"],
+            question_bank_package=package,
+            status=InstituteQuestionEntitlementStatus.ACTIVE,
+            granted_via="admin_grant",
+            granted_by=self.platform_admin_user,
+        )
+        plan = SubscriptionPlan.objects.create(
+            institute=public_hub,
+            name="Shared Library Plan",
+            code="shared_library_plan",
+            description="Plan linked to the demo package.",
+        )
+        SubscriptionPlanQuestionBankPackage.objects.create(
+            institute=public_hub,
+            subscription_plan=plan,
+            question_bank_package=package,
+            grant_mode="included",
+            is_default=True,
+        )
+
+        self.client.force_authenticate(user=self.platform_admin_user)
+
+        package_response = self.client.get("/api/v1/economy/admin/question-bank-packages/")
+        entitlement_response = self.client.get("/api/v1/economy/admin/question-bank-entitlements/")
+
+        self.assertEqual(package_response.status_code, 200)
+        self.assertEqual(entitlement_response.status_code, 200)
+        self.assertTrue(
+            any(item["code"] == "DEMO_SHARED_LIBRARY_ACCESS" for item in package_response.data)
+        )
+        package_item = next(
+            item for item in package_response.data if item["code"] == "DEMO_SHARED_LIBRARY_ACCESS"
+        )
+        self.assertEqual(
+            package_item["display_name"],
+            "Demo Shared Library Access (DEMO_SHARED_LIBRARY_ACCESS)",
+        )
+        self.assertIn("Mathematics", package_item["coverage_subject_labels"])
+        self.assertIn("Linear Equations", package_item["coverage_topic_labels"])
+        self.assertEqual(package_item["program_count"], 1)
+        self.assertEqual(package_item["subject_count"], 1)
+        self.assertEqual(package_item["topic_count"], 1)
+        self.assertEqual(package_item["default_plan_count"], 1)
+        self.assertIn("Platform Owned", package_item["commercial_labels"])
+        self.assertIn("Public Catalog", package_item["commercial_labels"])
+        self.assertEqual(package_item["coverage_summary"], "1 subject · 1 topic · 1 scope row")
+        self.assertTrue(
+            any(item["question_bank_package_code"] == "DEMO_SHARED_LIBRARY_ACCESS" for item in entitlement_response.data)
+        )
+
+    def test_platform_admin_can_create_question_bank_package_with_scope(self):
+        public_hub = self.builder.create_institute(
+            code="PUBPKG01",
+            name="Economy Public Hub Packages",
+            metadata={"is_public_content_hub": True},
+        )
+        program = self.builder.create_program(public_hub, code="CLS10", name="Class 10")
+        subject = self.builder.create_subject(public_hub, program, code="MATH10", name="Mathematics")
+        topic = self.builder.create_topic(public_hub, subject, code="ALG10", name="Linear Equations")
+
+        self.client.force_authenticate(user=self.platform_admin_user)
+        response = self.client.post(
+            "/api/v1/economy/admin/question-bank-packages/",
+            {
+                "institute": str(public_hub.id),
+                "name": "Class 10 Math Core",
+                "code": "cls10_math_core",
+                "description": "Core package for Class 10 math",
+                "package_type": "subject_library",
+                "ownership_type": "platform",
+                "access_mode": "link_on_demand",
+                "is_public_catalog": True,
+                "sort_order": 10,
+                "metadata": {},
+                "is_active": True,
+                "scopes": [
+                    {
+                        "program": str(program.id),
+                        "subject": str(subject.id),
+                        "topic": str(topic.id),
+                        "question_source_type": "platform_only",
+                        "difficulty_level": "intermediate",
+                        "question_type": "mcq_single",
+                        "master_visibility": "public",
+                        "max_questions_total": 500,
+                        "max_questions_per_topic": 200,
+                        "metadata": {},
+                        "is_active": True,
+                    }
+                ],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["data"]["code"], "CLS10_MATH_CORE")
+        self.assertEqual(response.data["data"]["scope_count"], 1)
+        self.assertTrue(
+            AuditLog.objects.filter(
+                user=self.platform_admin_user,
+                action="economy_question_bank_package_create",
+                entity_type="question_bank_package",
+            ).exists()
+        )
+
+    def test_platform_admin_can_update_question_bank_package_and_scope_rows(self):
+        public_hub = self.builder.create_institute(
+            code="PUBPKG02",
+            name="Economy Public Hub Packages 2",
+            metadata={"is_public_content_hub": True},
+        )
+        program = self.builder.create_program(public_hub, code="CLS11", name="Class 11")
+        subject = self.builder.create_subject(public_hub, program, code="PHY11", name="Physics")
+        topic = self.builder.create_topic(public_hub, subject, code="MOTION11", name="Motion")
+        package = QuestionBankPackage.objects.create(
+            institute=public_hub,
+            name="Physics Starter",
+            code="physics_starter",
+            package_type=QuestionBankPackageType.SUBJECT_LIBRARY,
+            ownership_type=QuestionBankOwnershipType.PLATFORM,
+            access_mode="link_on_demand",
+        )
+        scope = QuestionBankPackageScope.objects.create(
+            institute=public_hub,
+            package=package,
+            program=program,
+            subject=subject,
+            topic=topic,
+            question_source_type="platform_only",
+        )
+
+        self.client.force_authenticate(user=self.platform_admin_user)
+        response = self.client.patch(
+            f"/api/v1/economy/admin/question-bank-packages/{package.id}/",
+            {
+                "name": "Physics Starter Updated",
+                "access_mode": "quota_limited",
+                "sort_order": 25,
+                "scopes": [
+                    {
+                        "id": str(scope.id),
+                        "program": str(program.id),
+                        "subject": str(subject.id),
+                        "topic": str(topic.id),
+                        "question_source_type": "platform_only",
+                        "difficulty_level": "advanced",
+                        "question_type": "mcq_single",
+                        "master_visibility": "public",
+                        "max_questions_total": 300,
+                        "max_questions_per_topic": 150,
+                        "metadata": {},
+                        "is_active": True,
+                    }
+                ],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        package.refresh_from_db()
+        scope.refresh_from_db()
+        self.assertEqual(package.name, "Physics Starter Updated")
+        self.assertEqual(package.access_mode, "quota_limited")
+        self.assertEqual(package.sort_order, 25)
+        self.assertEqual(scope.difficulty_level, "advanced")
+        self.assertEqual(scope.max_questions_total, 300)
+        self.assertEqual(scope.max_questions_per_topic, 150)
+        self.assertTrue(
+            AuditLog.objects.filter(
+                user=self.platform_admin_user,
+                action="economy_question_bank_package_update",
+                entity_type="question_bank_package",
+                entity_id=str(package.id),
+            ).exists()
+        )
+
+    def test_platform_admin_can_view_question_bank_usage_entries(self):
+        public_hub = self.builder.create_institute(
+            code="PUBECON_USAGE",
+            name="Economy Public Hub Usage",
+            metadata={"is_public_content_hub": True},
+        )
+        package = QuestionBankPackage.objects.create(
+            institute=public_hub,
+            name="Demo Shared Library Access",
+            code="demo_shared_library_access",
+            description="Platform shared library package.",
+            package_type=QuestionBankPackageType.SUBJECT_LIBRARY,
+            ownership_type=QuestionBankOwnershipType.PLATFORM,
+            access_mode="link_on_demand",
+        )
+        grant_institute_question_bank_entitlement(
+            institute=self.context["institute"],
+            question_bank_package=package,
+            granted_by=self.platform_admin_user,
+            notes="Operator grant",
+        )
+
+        self.client.force_authenticate(user=self.platform_admin_user)
+        response = self.client.get("/api/v1/economy/admin/question-bank-usage/")
+
+        self.assertEqual(response.status_code, 200)
+        target_entry = next(
+            (item for item in response.data if item["question_bank_package_code"] == "DEMO_SHARED_LIBRARY_ACCESS"),
+            None,
+        )
+        self.assertIsNotNone(target_entry)
+        self.assertEqual(target_entry["action_type"], InstituteQuestionUsageActionType.ENTITLEMENT_OVERRIDE)
+        self.assertEqual(str(target_entry["institute"]), str(self.context["institute"].id))
+
+    def test_platform_admin_can_pause_reactivate_and_revoke_question_bank_entitlement(self):
+        public_hub = self.builder.create_institute(
+            code="PUBECON_STATUS",
+            name="Economy Public Hub Status",
+            metadata={"is_public_content_hub": True},
+        )
+        package = QuestionBankPackage.objects.create(
+            institute=public_hub,
+            name="Demo Shared Library Access",
+            code="demo_shared_library_access",
+            description="Platform shared library package.",
+            package_type=QuestionBankPackageType.SUBJECT_LIBRARY,
+            ownership_type=QuestionBankOwnershipType.PLATFORM,
+            access_mode="link_on_demand",
+        )
+        entitlement, _ = grant_institute_question_bank_entitlement(
+            institute=self.context["institute"],
+            question_bank_package=package,
+            granted_by=self.platform_admin_user,
+            notes="Initial grant",
+        )
+
+        self.client.force_authenticate(user=self.platform_admin_user)
+
+        pause_response = self.client.patch(
+            f"/api/v1/economy/admin/question-bank-entitlements/{entitlement.id}/",
+            {"status": "paused", "notes": "Paused for support review"},
+            format="json",
+        )
+        self.assertEqual(pause_response.status_code, 200)
+        entitlement.refresh_from_db()
+        self.assertEqual(entitlement.status, InstituteQuestionEntitlementStatus.PAUSED)
+        self.assertEqual(entitlement.notes, "Paused for support review")
+
+        reactivate_response = self.client.patch(
+            f"/api/v1/economy/admin/question-bank-entitlements/{entitlement.id}/",
+            {"status": "active", "notes": "Reactivated"},
+            format="json",
+        )
+        self.assertEqual(reactivate_response.status_code, 200)
+        entitlement.refresh_from_db()
+        self.assertEqual(entitlement.status, InstituteQuestionEntitlementStatus.ACTIVE)
+        self.assertEqual(entitlement.notes, "Reactivated")
+        self.assertIsNone(entitlement.revoked_by)
+
+        revoke_response = self.client.patch(
+            f"/api/v1/economy/admin/question-bank-entitlements/{entitlement.id}/",
+            {"status": "revoked", "notes": "Revoked permanently"},
+            format="json",
+        )
+        self.assertEqual(revoke_response.status_code, 200)
+        entitlement.refresh_from_db()
+        self.assertEqual(entitlement.status, InstituteQuestionEntitlementStatus.REVOKED)
+        self.assertEqual(entitlement.notes, "Revoked permanently")
+        self.assertEqual(entitlement.revoked_by_id, self.platform_admin_user.id)
+        self.assertTrue(
+            AuditLog.objects.filter(
+                user=self.platform_admin_user,
+                action="economy_question_bank_entitlement_update",
+                entity_type="institute_question_entitlement",
+                entity_id=str(entitlement.id),
+            ).exists()
+        )
+
+    def test_platform_admin_can_update_question_bank_entitlement_lifecycle_window(self):
+        public_hub = self.builder.create_institute(
+            code="PUBECON_WINDOW1",
+            name="Economy Public Hub Window 1",
+            metadata={"is_public_content_hub": True},
+        )
+        package = QuestionBankPackage.objects.create(
+            institute=public_hub,
+            name="Demo Shared Library Access",
+            code="demo_shared_library_access_window",
+            description="Platform shared library package.",
+            package_type=QuestionBankPackageType.SUBJECT_LIBRARY,
+            ownership_type=QuestionBankOwnershipType.PLATFORM,
+            access_mode="link_on_demand",
+        )
+        entitlement, _ = grant_institute_question_bank_entitlement(
+            institute=self.context["institute"],
+            question_bank_package=package,
+            granted_by=self.platform_admin_user,
+            notes="Initial lifecycle grant",
+        )
+        starts_at = timezone.now() + timedelta(days=1)
+        ends_at = starts_at + timedelta(days=30)
+
+        self.client.force_authenticate(user=self.platform_admin_user)
+        response = self.client.patch(
+            f"/api/v1/economy/admin/question-bank-entitlements/{entitlement.id}/",
+            {
+                "status": "active",
+                "starts_at": starts_at.isoformat(),
+                "ends_at": ends_at.isoformat(),
+                "notes": "Window scheduled for monthly access",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        entitlement.refresh_from_db()
+        self.assertEqual(entitlement.status, InstituteQuestionEntitlementStatus.ACTIVE)
+        self.assertEqual(entitlement.notes, "Window scheduled for monthly access")
+        self.assertIsNotNone(entitlement.starts_at)
+        self.assertIsNotNone(entitlement.ends_at)
+        self.assertEqual(entitlement.starts_at.isoformat(), starts_at.isoformat())
+        self.assertEqual(entitlement.ends_at.isoformat(), ends_at.isoformat())
+
+    def test_platform_admin_cannot_set_invalid_question_bank_entitlement_window(self):
+        public_hub = self.builder.create_institute(
+            code="PUBECON_WINDOW2",
+            name="Economy Public Hub Window 2",
+            metadata={"is_public_content_hub": True},
+        )
+        package = QuestionBankPackage.objects.create(
+            institute=public_hub,
+            name="Demo Shared Library Access",
+            code="demo_shared_library_access_window_invalid",
+            description="Platform shared library package.",
+            package_type=QuestionBankPackageType.SUBJECT_LIBRARY,
+            ownership_type=QuestionBankOwnershipType.PLATFORM,
+            access_mode="link_on_demand",
+        )
+        entitlement, _ = grant_institute_question_bank_entitlement(
+            institute=self.context["institute"],
+            question_bank_package=package,
+            granted_by=self.platform_admin_user,
+        )
+        starts_at = timezone.now() + timedelta(days=7)
+        ends_at = starts_at - timedelta(days=1)
+
+        self.client.force_authenticate(user=self.platform_admin_user)
+        response = self.client.patch(
+            f"/api/v1/economy/admin/question-bank-entitlements/{entitlement.id}/",
+            {
+                "status": "active",
+                "starts_at": starts_at.isoformat(),
+                "ends_at": ends_at.isoformat(),
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("ends_at", response.data)
+
+    def test_institute_admin_cannot_view_platform_question_bank_usage_list(self):
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get("/api/v1/economy/admin/question-bank-usage/")
+        self.assertEqual(response.status_code, 403)
+
+    def test_institute_admin_cannot_update_platform_question_bank_entitlement(self):
+        public_hub = self.builder.create_institute(
+            code="PUBECON_STATUS2",
+            name="Economy Public Hub Status 2",
+            metadata={"is_public_content_hub": True},
+        )
+        package = QuestionBankPackage.objects.create(
+            institute=public_hub,
+            name="Demo Shared Library Access",
+            code="demo_shared_library_access",
+            description="Platform shared library package.",
+            package_type=QuestionBankPackageType.SUBJECT_LIBRARY,
+            ownership_type=QuestionBankOwnershipType.PLATFORM,
+            access_mode="link_on_demand",
+        )
+        entitlement, _ = grant_institute_question_bank_entitlement(
+            institute=self.context["institute"],
+            question_bank_package=package,
+            granted_by=self.platform_admin_user,
+        )
+
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.patch(
+            f"/api/v1/economy/admin/question-bank-entitlements/{entitlement.id}/",
+            {"status": "paused"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_institute_admin_cannot_view_platform_question_bank_operator_lists(self):
+        self.client.force_authenticate(user=self.admin_user)
+
+        package_response = self.client.get("/api/v1/economy/admin/question-bank-packages/")
+        entitlement_response = self.client.get("/api/v1/economy/admin/question-bank-entitlements/")
+        usage_response = self.client.get("/api/v1/economy/admin/question-bank-usage/")
+
+        self.assertEqual(package_response.status_code, 403)
+        self.assertEqual(entitlement_response.status_code, 403)
+        self.assertEqual(usage_response.status_code, 403)
+
+    def test_institute_admin_can_view_only_own_institute_question_bank_entitlements(self):
+        public_hub = self.builder.create_institute(
+            code="PUBECON_INST1",
+            name="Economy Public Hub Institute 1",
+            metadata={"is_public_content_hub": True},
+        )
+        program = self.builder.create_program(public_hub, code="CLS10", name="Class 10")
+        subject = self.builder.create_subject(public_hub, program, code="MATH10", name="Mathematics")
+        topic = self.builder.create_topic(public_hub, subject, code="ALG-ENT-01", name="Linear Equations")
+        other_institute = self.builder.create_institute(
+            code="SCH-OTHER-ENT",
+            name="Other Institute",
+        )
+        package = QuestionBankPackage.objects.create(
+            institute=public_hub,
+            name="Demo Shared Library Access",
+            code="demo_shared_library_access",
+            description="Platform shared library package.",
+            package_type=QuestionBankPackageType.SUBJECT_LIBRARY,
+            ownership_type=QuestionBankOwnershipType.PLATFORM,
+            access_mode="link_on_demand",
+        )
+        QuestionBankPackageScope.objects.create(
+            institute=public_hub,
+            package=package,
+            program=program,
+            subject=subject,
+            topic=topic,
+            max_questions_total=500,
+            max_questions_per_topic=250,
+        )
+        own_entitlement, _ = grant_institute_question_bank_entitlement(
+            institute=self.context["institute"],
+            question_bank_package=package,
+            granted_by=self.platform_admin_user,
+        )
+        grant_institute_question_bank_entitlement(
+            institute=other_institute,
+            question_bank_package=package,
+            granted_by=self.platform_admin_user,
+        )
+
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get("/api/v1/economy/admin/institute-question-bank-entitlements/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(str(response.data[0]["id"]), str(own_entitlement.id))
+        self.assertEqual(str(response.data[0]["institute"]), str(self.context["institute"].id))
+        self.assertEqual(response.data[0]["question_bank_package_type"], "subject_library")
+        self.assertEqual(response.data[0]["question_bank_package_ownership_type"], "platform")
+        self.assertEqual(response.data[0]["question_bank_package_access_mode"], "link_on_demand")
+        self.assertEqual(response.data[0]["scope_count"], 1)
+        self.assertIn("Mathematics", response.data[0]["scope_subject_labels"])
+        self.assertIn("Linear Equations", response.data[0]["scope_topic_labels"])
+        self.assertTrue(
+            any("Class 10 -> Mathematics -> Linear Equations" in item for item in response.data[0]["scope_summary"])
+        )
+        self.assertFalse(response.data[0]["quota_configured"])
+        self.assertEqual(response.data[0]["quota_status"], "not_applicable")
+        self.assertEqual(response.data[0]["quota_watch_state"], "not_applicable")
+        self.assertEqual(response.data[0]["quota_usage_total"], 0)
+        self.assertIsNone(response.data[0]["quota_remaining_min"])
+        self.assertEqual(response.data[0]["quota_scope_summary"], [])
+
+    def test_teacher_can_view_scoped_question_bank_entitlements(self):
+        public_hub = self.builder.create_institute(
+            code="PUBECON_TEACH",
+            name="Teacher Question Hub",
+            metadata={"is_public_content_hub": True},
+        )
+        program = self.builder.create_program(public_hub, code="CLS9", name="Class 9")
+        subject = self.builder.create_subject(public_hub, program, code="SCI9", name="Science")
+        topic = self.builder.create_topic(public_hub, subject, code="SCI-CELL-01", name="Cell Basics")
+        package = QuestionBankPackage.objects.create(
+            institute=public_hub,
+            name="Teacher Scoped Science Library",
+            code="teacher_scoped_science_library",
+            description="Teacher-scoped shared science package.",
+            package_type=QuestionBankPackageType.SUBJECT_LIBRARY,
+            ownership_type=QuestionBankOwnershipType.PLATFORM,
+            access_mode="quota_limited",
+        )
+        QuestionBankPackageScope.objects.create(
+            institute=public_hub,
+            package=package,
+            program=program,
+            subject=subject,
+            topic=topic,
+            max_questions_total=300,
+        )
+        own_entitlement, _ = grant_institute_question_bank_entitlement(
+            institute=self.context["institute"],
+            question_bank_package=package,
+            granted_by=self.platform_admin_user,
+        )
+
+        self.client.force_authenticate(user=self.teacher_user)
+        response = self.client.get("/api/v1/economy/admin/institute-question-bank-entitlements/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(str(response.data[0]["id"]), str(own_entitlement.id))
+        self.assertEqual(response.data[0]["question_bank_package_name"], "Teacher Scoped Science Library")
+        self.assertEqual(response.data[0]["question_bank_package_access_mode"], "quota_limited")
+        self.assertTrue(response.data[0]["quota_configured"])
+        self.assertEqual(response.data[0]["quota_status"], "available")
+        self.assertEqual(response.data[0]["quota_watch_state"], "healthy")
+        self.assertEqual(response.data[0]["quota_remaining_min"], 300)
+
+    def test_platform_admin_can_view_question_bank_package_report(self):
+        public_hub = self.builder.create_institute(
+            code="PUBECONRPT",
+            name="Economy Public Hub Report",
+            metadata={"is_public_content_hub": True},
+        )
+        program = self.builder.create_program(public_hub, code="CLS10", name="Class 10")
+        subject = self.builder.create_subject(public_hub, program, code="MATH10", name="Mathematics")
+        topic = self.builder.create_topic(public_hub, subject, code="ALG-RPT-01", name="Linear Equations")
+        package = QuestionBankPackage.objects.create(
+            institute=public_hub,
+            name="Report Library",
+            code="report_library",
+            description="Package report fixture.",
+            package_type=QuestionBankPackageType.SUBJECT_LIBRARY,
+            ownership_type=QuestionBankOwnershipType.PLATFORM,
+            access_mode="quota_limited",
+        )
+        QuestionBankPackageScope.objects.create(
+            institute=public_hub,
+            package=package,
+            program=program,
+            subject=subject,
+            topic=topic,
+            max_questions_total=10,
+        )
+        entitlement, _ = grant_institute_question_bank_entitlement(
+            institute=self.context["institute"],
+            question_bank_package=package,
+            granted_by=self.platform_admin_user,
+        )
+        InstituteQuestionUsageLedger.objects.create(
+            institute=self.context["institute"],
+            question_bank_package=package,
+            entitlement=entitlement,
+            action_type=InstituteQuestionUsageActionType.QUESTION_LINKED,
+            quantity=3,
+            effective_at=timezone.now(),
+            metadata={},
+        )
+        InstituteQuestionUsageLedger.objects.create(
+            institute=self.context["institute"],
+            question_bank_package=package,
+            entitlement=entitlement,
+            action_type=InstituteQuestionUsageActionType.EXAM_PUBLISHED,
+            quantity=1,
+            effective_at=timezone.now(),
+            metadata={},
+        )
+
+        self.client.force_authenticate(user=self.platform_admin_user)
+        response = self.client.get(
+            "/api/v1/economy/admin/question-bank-package-report/",
+            {"institute": str(self.context["institute"].id)},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        target_row = next((item for item in response.data if item["package_code"] == "REPORT_LIBRARY"), None)
+        self.assertIsNotNone(target_row)
+        self.assertEqual(target_row["entitlement_active"], 1)
+        self.assertEqual(target_row["usage_question_linked"], 3)
+        self.assertEqual(target_row["usage_exam_published"], 1)
+        self.assertIn("Mathematics", target_row["subject_labels"])
+
+    def test_platform_admin_can_export_question_bank_package_report_csv(self):
+        public_hub = self.builder.create_institute(
+            code="PUBECONCSV",
+            name="Economy Public Hub CSV",
+            metadata={"is_public_content_hub": True},
+        )
+        program = self.builder.create_program(public_hub, code="CLS9", name="Class 9")
+        subject = self.builder.create_subject(public_hub, program, code="SCI9", name="Science")
+        topic = self.builder.create_topic(public_hub, subject, code="CELL-CSV-01", name="Cell Basics")
+        package = QuestionBankPackage.objects.create(
+            institute=public_hub,
+            name="CSV Library",
+            code="csv_library",
+            package_type=QuestionBankPackageType.SUBJECT_LIBRARY,
+            ownership_type=QuestionBankOwnershipType.PLATFORM,
+        )
+        QuestionBankPackageScope.objects.create(
+            institute=public_hub,
+            package=package,
+            program=program,
+            subject=subject,
+            topic=topic,
+        )
+
+        self.client.force_authenticate(user=self.platform_admin_user)
+        response = self.client.get(
+            "/api/v1/economy/admin/question-bank-package-report/",
+            {"export": "csv"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "text/csv; charset=utf-8")
+        self.assertIn("attachment;", response["Content-Disposition"])
+        self.assertIn("CSV_LIBRARY", response.content.decode("utf-8"))
+
+    def test_institute_admin_can_view_requestable_subscription_plans_and_submit_request(self):
+        public_hub = self.builder.create_institute(
+            code="PUBPLANREQ",
+            name="Plan Request Hub",
+            metadata={"is_public_content_hub": True},
+        )
+        package = QuestionBankPackage.objects.create(
+            institute=public_hub,
+            name="Institute Access Library",
+            code="institute_access_library",
+            package_type=QuestionBankPackageType.SUBJECT_LIBRARY,
+            ownership_type=QuestionBankOwnershipType.PLATFORM,
+        )
+        plan = SubscriptionPlan.objects.create(
+            institute=public_hub,
+            name="Institute Content Plan",
+            code="INSTITUTE_CONTENT_PLAN",
+            is_active=True,
+        )
+        cycle = SubscriptionPlanCycle.objects.create(
+            institute=public_hub,
+            plan=plan,
+            billing_interval="monthly",
+            interval_count=1,
+            price_amount="1499.00",
+            is_active=True,
+        )
+        SubscriptionPlanQuestionBankPackage.objects.create(
+            institute=public_hub,
+            subscription_plan=plan,
+            question_bank_package=package,
+            grant_mode="included",
+            is_default=True,
+            is_active=True,
+        )
+
+        self.client.force_authenticate(user=self.admin_user)
+        catalog_response = self.client.get("/api/v1/economy/admin/institute-requestable-subscription-plans/")
+        self.assertEqual(catalog_response.status_code, 200)
+        self.assertTrue(any(item["code"] == "INSTITUTE_CONTENT_PLAN" for item in catalog_response.data))
+        plan_payload = next(item for item in catalog_response.data if item["code"] == "INSTITUTE_CONTENT_PLAN")
+        self.assertEqual(len(plan_payload["question_bank_package_links"]), 1)
+        self.assertEqual(
+            plan_payload["question_bank_package_links"][0]["question_bank_package_display_name"],
+            "Institute Access Library (INSTITUTE_ACCESS_LIBRARY)",
+        )
+        self.assertIn(
+            "Platform Owned",
+            plan_payload["question_bank_package_links"][0]["question_bank_package_commercial_labels"],
+        )
+        self.assertEqual(
+            plan_payload["question_bank_package_links"][0]["question_bank_package_coverage_summary"],
+            "0 scope rows",
+        )
+
+        request_response = self.client.post(
+            "/api/v1/economy/admin/institute-subscription-requests/",
+            {
+                "subscription_plan_cycle": str(cycle.id),
+                "grant_modes": ["included"],
+                "notes": "Need package access for shared-library launch.",
+            },
+            format="json",
+        )
+        self.assertEqual(request_response.status_code, 201)
+        self.assertEqual(request_response.data["data"]["status"], InstituteSubscriptionRequestStatus.PENDING)
+        self.assertEqual(request_response.data["data"]["subscription_plan_code"], "INSTITUTE_CONTENT_PLAN")
+        self.assertEqual(request_response.data["data"]["activation_summary"]["requested_package_count"], 1)
+        self.assertIn("INSTITUTE_ACCESS_LIBRARY", request_response.data["data"]["activation_summary"]["package_codes"])
+
+    def test_platform_admin_can_review_subscription_request_and_apply_entitlements(self):
+        public_hub = self.builder.create_institute(
+            code="PUBPLANREV",
+            name="Plan Review Hub",
+            metadata={"is_public_content_hub": True},
+        )
+        package = QuestionBankPackage.objects.create(
+            institute=public_hub,
+            name="Review Access Library",
+            code="review_access_library",
+            package_type=QuestionBankPackageType.SUBJECT_LIBRARY,
+            ownership_type=QuestionBankOwnershipType.PLATFORM,
+        )
+        plan = SubscriptionPlan.objects.create(
+            institute=public_hub,
+            name="Reviewable Content Plan",
+            code="REVIEWABLE_CONTENT_PLAN",
+            is_active=True,
+        )
+        cycle = SubscriptionPlanCycle.objects.create(
+            institute=public_hub,
+            plan=plan,
+            billing_interval="monthly",
+            interval_count=1,
+            price_amount="999.00",
+            is_active=True,
+        )
+        SubscriptionPlanQuestionBankPackage.objects.create(
+            institute=public_hub,
+            subscription_plan=plan,
+            question_bank_package=package,
+            grant_mode="included",
+            is_default=True,
+            is_active=True,
+        )
+        subscription_request = InstituteSubscriptionRequest.objects.create(
+            institute=self.context["institute"],
+            subscription_plan_cycle=cycle,
+            requested_by=self.admin_user,
+            grant_modes=["included"],
+            notes="Please activate this package lane.",
+        )
+
+        self.client.force_authenticate(user=self.platform_admin_user)
+        review_response = self.client.post(
+            f"/api/v1/economy/admin/institute-subscription-requests/{subscription_request.id}/review/",
+            {
+                "decision": "approve",
+                "operator_notes": "Approved and applied to institute.",
+            },
+            format="json",
+        )
+        self.assertEqual(review_response.status_code, 200)
+        subscription_request.refresh_from_db()
+        self.assertEqual(subscription_request.status, InstituteSubscriptionRequestStatus.FULFILLED)
+        self.assertEqual(subscription_request.reviewed_by_id, self.platform_admin_user.id)
+        self.assertEqual(review_response.data["data"]["activation_summary"]["entitlement_count"], 1)
+        self.assertIn("REVIEW_ACCESS_LIBRARY", review_response.data["data"]["activation_summary"]["package_codes"])
+        self.assertTrue(
+            InstituteQuestionEntitlement.objects.filter(
+                institute=self.context["institute"],
+                question_bank_package=package,
+                status=InstituteQuestionEntitlementStatus.ACTIVE,
+                subscription_plan=plan,
+            ).exists()
+        )
+        entitlement = InstituteQuestionEntitlement.objects.get(
+            institute=self.context["institute"],
+            question_bank_package=package,
+            subscription_plan=plan,
+        )
+        self.assertEqual(
+            entitlement.metadata.get("subscription_request_id"),
+            str(subscription_request.id),
+        )
+
+    def test_institute_admin_can_view_only_own_institute_question_bank_usage(self):
+        public_hub = self.builder.create_institute(
+            code="PUBECON_INST2",
+            name="Economy Public Hub Institute 2",
+            metadata={"is_public_content_hub": True},
+        )
+        other_institute = self.builder.create_institute(
+            code="SCH-OTHER-USG",
+            name="Other Institute Usage",
+        )
+        package = QuestionBankPackage.objects.create(
+            institute=public_hub,
+            name="Demo Shared Library Access",
+            code="demo_shared_library_access",
+            description="Platform shared library package.",
+            package_type=QuestionBankPackageType.SUBJECT_LIBRARY,
+            ownership_type=QuestionBankOwnershipType.PLATFORM,
+            access_mode="link_on_demand",
+        )
+        grant_institute_question_bank_entitlement(
+            institute=self.context["institute"],
+            question_bank_package=package,
+            granted_by=self.platform_admin_user,
+        )
+        grant_institute_question_bank_entitlement(
+            institute=other_institute,
+            question_bank_package=package,
+            granted_by=self.platform_admin_user,
+        )
+
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get("/api/v1/economy/admin/institute-question-bank-usage/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(str(response.data[0]["institute"]), str(self.context["institute"].id))
+        self.assertEqual(
+            response.data[0]["action_type"],
+            InstituteQuestionUsageActionType.ENTITLEMENT_OVERRIDE,
+        )
+
+    def test_platform_admin_can_view_and_update_question_bank_feature_entitlements(self):
+        public_hub = self.builder.create_institute(
+            code="PUBFEAT1",
+            name="Public Feature Hub",
+            metadata={"is_public_content_hub": True},
+        )
+        package = QuestionBankPackage.objects.create(
+            institute=public_hub,
+            name="Advanced Builder Feature Bundle",
+            code="ADV_BUILDER_FEATURE",
+            package_type=QuestionBankPackageType.FEATURE_BUNDLE,
+            ownership_type=QuestionBankOwnershipType.PLATFORM,
+        )
+        plan = SubscriptionPlan.objects.create(
+            institute=self.context["institute"],
+            name="Feature Access Plan",
+            code="FEATURE_ACCESS_PLAN",
+        )
+        entitlement = InstituteQuestionFeatureEntitlement.objects.create(
+            institute=self.context["institute"],
+            feature_code="ADVANCED_EXAM_BUILDER",
+            status=InstituteQuestionEntitlementStatus.ACTIVE,
+            source_package=package,
+            source_subscription_plan=plan,
+        )
+
+        self.client.force_authenticate(user=self.platform_admin_user)
+        list_response = self.client.get("/api/v1/economy/admin/question-bank-feature-entitlements/")
+
+        self.assertEqual(list_response.status_code, 200)
+        self.assertEqual(len(list_response.data), 1)
+        self.assertEqual(list_response.data[0]["feature_code"], "ADVANCED_EXAM_BUILDER")
+        self.assertEqual(list_response.data[0]["source_package_code"], "ADV_BUILDER_FEATURE")
+
+        patch_response = self.client.patch(
+            f"/api/v1/economy/admin/question-bank-feature-entitlements/{entitlement.id}/",
+            {"status": InstituteQuestionEntitlementStatus.PAUSED},
+            format="json",
+        )
+        self.assertEqual(patch_response.status_code, 200)
+        self.assertEqual(patch_response.data["data"]["status"], InstituteQuestionEntitlementStatus.PAUSED)
+
+    def test_institute_admin_cannot_view_platform_question_bank_feature_entitlement_lists(self):
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get("/api/v1/economy/admin/question-bank-feature-entitlements/")
+        self.assertEqual(response.status_code, 403)
+
+    def test_institute_admin_can_view_scoped_question_bank_feature_entitlements(self):
+        public_hub = self.builder.create_institute(
+            code="PUBFEAT2",
+            name="Scoped Feature Hub",
+            metadata={"is_public_content_hub": True},
+        )
+        package = QuestionBankPackage.objects.create(
+            institute=public_hub,
+            name="Advanced Builder Feature Bundle",
+            code="ADV_BUILDER_SCOPE",
+            package_type=QuestionBankPackageType.FEATURE_BUNDLE,
+            ownership_type=QuestionBankOwnershipType.PLATFORM,
+        )
+        InstituteQuestionFeatureEntitlement.objects.create(
+            institute=self.context["institute"],
+            feature_code="ADVANCED_EXAM_BUILDER",
+            status=InstituteQuestionEntitlementStatus.ACTIVE,
+            source_package=package,
+        )
+        other_institute = self.builder.create_institute(code="OTHERFEAT1", name="Other Feature Institute")
+        InstituteQuestionFeatureEntitlement.objects.create(
+            institute=other_institute,
+            feature_code="QUESTION_BANK_EXPORT",
+            status=InstituteQuestionEntitlementStatus.ACTIVE,
+            source_package=package,
+        )
+
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get("/api/v1/economy/admin/institute-question-bank-feature-entitlements/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["feature_code"], "ADVANCED_EXAM_BUILDER")
+        self.assertEqual(str(response.data[0]["institute"]), str(self.context["institute"].id))
+
+    def test_teacher_can_view_scoped_question_bank_feature_entitlements(self):
+        public_hub = self.builder.create_institute(
+            code="PUBFEAT3",
+            name="Teacher Scoped Feature Hub",
+            metadata={"is_public_content_hub": True},
+        )
+        package = QuestionBankPackage.objects.create(
+            institute=public_hub,
+            name="Advanced Builder Teacher Feature Bundle",
+            code="ADV_BUILDER_TEACHER",
+            package_type=QuestionBankPackageType.FEATURE_BUNDLE,
+            ownership_type=QuestionBankOwnershipType.PLATFORM,
+        )
+        InstituteQuestionFeatureEntitlement.objects.create(
+            institute=self.context["institute"],
+            feature_code="ADVANCED_EXAM_BUILDER",
+            status=InstituteQuestionEntitlementStatus.ACTIVE,
+            source_package=package,
+        )
+
+        self.client.force_authenticate(user=self.teacher_user)
+        response = self.client.get("/api/v1/economy/admin/institute-question-bank-feature-entitlements/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["feature_code"], "ADVANCED_EXAM_BUILDER")
+
+    def test_platform_admin_can_view_subscription_plans_with_question_bank_package_links(self):
+        public_hub = self.builder.create_institute(
+            code="PUBECON2",
+            name="Economy Public Hub 2",
+            metadata={"is_public_content_hub": True},
+        )
+        package = QuestionBankPackage.objects.create(
+            institute=public_hub,
+            name="Demo Shared Library Access",
+            code="demo_shared_library_access",
+            description="Platform shared library package.",
+            package_type=QuestionBankPackageType.SUBJECT_LIBRARY,
+            ownership_type=QuestionBankOwnershipType.PLATFORM,
+            access_mode="link_on_demand",
+        )
+        plan = SubscriptionPlan.objects.create(
+            institute=public_hub,
+            name="Question Bank Premium",
+            code="QB_PREMIUM_VISIBILITY",
+            description="Plan with package link visibility.",
+        )
+        SubscriptionPlanCycle.objects.create(
+            institute=public_hub,
+            plan=plan,
+            billing_interval="monthly",
+            interval_count=1,
+            price_amount="299.00",
+            currency="INR",
+        )
+        SubscriptionPlanQuestionBankPackage.objects.create(
+            institute=public_hub,
+            subscription_plan=plan,
+            question_bank_package=package,
+            grant_mode="included",
+            is_default=True,
+        )
+
+        self.client.force_authenticate(user=self.platform_admin_user)
+        response = self.client.get("/api/v1/economy/admin/subscription-plans/")
+
+        self.assertEqual(response.status_code, 200)
+        target_plan = next((item for item in response.data if item["code"] == "QB_PREMIUM_VISIBILITY"), None)
+        self.assertIsNotNone(target_plan)
+        self.assertEqual(len(target_plan["question_bank_package_links"]), 1)
+        self.assertEqual(
+            target_plan["question_bank_package_links"][0]["question_bank_package_code"],
+            "DEMO_SHARED_LIBRARY_ACCESS",
+        )
+
+    def test_platform_admin_can_create_and_update_subscription_plan_question_bank_links(self):
+        public_hub = self.builder.create_institute(
+            code="PUBECON3",
+            name="Economy Public Hub 3",
+            metadata={"is_public_content_hub": True},
+        )
+        package = QuestionBankPackage.objects.create(
+            institute=public_hub,
+            name="Demo Shared Library Access",
+            code="demo_shared_library_access",
+            description="Platform shared library package.",
+            package_type=QuestionBankPackageType.SUBJECT_LIBRARY,
+            ownership_type=QuestionBankOwnershipType.PLATFORM,
+            access_mode="link_on_demand",
+        )
+
+        self.client.force_authenticate(user=self.platform_admin_user)
+
+        create_response = self.client.post(
+            "/api/v1/economy/admin/subscription-plans/",
+            {
+                "institute": str(public_hub.id),
+                "name": "Question Bank Linked Plan",
+                "code": "QB_LINKED_PLAN",
+                "description": "Plan with package link authoring.",
+                "metadata": {},
+                "is_active": True,
+                "cycles": [
+                    {
+                        "billing_interval": "monthly",
+                        "interval_count": 1,
+                        "price_amount": "299.00",
+                        "currency": "INR",
+                        "metadata": {},
+                        "is_active": True,
+                        "star_credit_rules": [
+                            {
+                                "stars_credited": 500,
+                                "credit_on_activation": True,
+                                "credit_on_renewal": True,
+                                "metadata": {},
+                                "is_active": True,
+                            }
+                        ],
+                    }
+                ],
+                "question_bank_package_links": [
+                    {
+                        "question_bank_package": str(package.id),
+                        "grant_mode": "included",
+                        "is_default": True,
+                        "metadata": {"source": "test"},
+                        "is_active": True,
+                    }
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(create_response.status_code, 201)
+        plan_id = create_response.data["data"]["id"]
+        self.assertEqual(len(create_response.data["data"]["question_bank_package_links"]), 1)
+        self.assertEqual(
+            create_response.data["data"]["question_bank_package_links"][0]["question_bank_package_code"],
+            "DEMO_SHARED_LIBRARY_ACCESS",
+        )
+
+        update_response = self.client.patch(
+            f"/api/v1/economy/admin/subscription-plans/{plan_id}/",
+            {
+                "question_bank_package_links": [],
+            },
+            format="json",
+        )
+        self.assertEqual(update_response.status_code, 200)
+        self.assertEqual(update_response.data["data"]["question_bank_package_links"], [])
+        self.assertFalse(
+            SubscriptionPlanQuestionBankPackage.objects.get(
+                subscription_plan_id=plan_id,
+                question_bank_package=package,
+            ).is_active
+        )
+
+    def test_platform_admin_can_apply_subscription_plan_question_bank_links_to_target_institute(self):
+        public_hub = self.builder.create_institute(
+            code="PUBECON4",
+            name="Economy Public Hub 4",
+            metadata={"is_public_content_hub": True},
+        )
+        target_institute = self.builder.create_institute(
+            code="SCH904",
+            name="Linked Subscription School",
+        )
+        included_package = QuestionBankPackage.objects.create(
+            institute=public_hub,
+            name="Demo Shared Library Access",
+            code="demo_shared_library_access",
+            description="Platform shared library package.",
+            package_type=QuestionBankPackageType.SUBJECT_LIBRARY,
+            ownership_type=QuestionBankOwnershipType.PLATFORM,
+            access_mode="link_on_demand",
+        )
+        addon_package = QuestionBankPackage.objects.create(
+            institute=public_hub,
+            name="Addon Practice Library",
+            code="addon_practice_library",
+            description="Optional addon package.",
+            package_type=QuestionBankPackageType.SUBJECT_LIBRARY,
+            ownership_type=QuestionBankOwnershipType.PLATFORM,
+            access_mode="link_on_demand",
+        )
+        plan = SubscriptionPlan.objects.create(
+            institute=public_hub,
+            name="Question Bank Premium",
+            code="QB_PREMIUM_SYNC",
+            description="Plan with linked packages.",
+        )
+        SubscriptionPlanQuestionBankPackage.objects.create(
+            institute=public_hub,
+            subscription_plan=plan,
+            question_bank_package=included_package,
+            grant_mode="included",
+            is_default=True,
+        )
+        SubscriptionPlanQuestionBankPackage.objects.create(
+            institute=public_hub,
+            subscription_plan=plan,
+            question_bank_package=addon_package,
+            grant_mode="optional_addon",
+            is_default=False,
+        )
+
+        self.client.force_authenticate(user=self.platform_admin_user)
+        response = self.client.post(
+            f"/api/v1/economy/admin/subscription-plans/{plan.id}/apply-to-institute/",
+            {
+                "institute": str(target_institute.id),
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["data"]["entitlement_count"], 1)
+        self.assertEqual(
+            response.data["data"]["question_bank_package_codes"],
+            ["DEMO_SHARED_LIBRARY_ACCESS"],
+        )
+        entitlement = InstituteQuestionEntitlement.objects.get(
+            institute=target_institute,
+            question_bank_package=included_package,
+        )
+        self.assertEqual(entitlement.subscription_plan_id, plan.id)
+        self.assertEqual(entitlement.granted_via, "subscription")
+        self.assertFalse(
+            InstituteQuestionEntitlement.objects.filter(
+                institute=target_institute,
+                question_bank_package=addon_package,
+            ).exists()
         )
 
     def test_platform_admin_can_toggle_catalog_item_status(self):
