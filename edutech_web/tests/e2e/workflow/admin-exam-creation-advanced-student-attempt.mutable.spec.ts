@@ -362,7 +362,7 @@ async function attemptExamAsStudent(page: Page, examId: string, examTitle: strin
     page.getByRole("heading", { name: new RegExp(escapeRegExp(examTitle), "i") }).first(),
   ).toBeVisible();
 
-  const startButton = page.getByRole("button", { name: /start mock test/i });
+  const startButton = page.getByRole("button", { name: /^(start|start mock test)$/i });
   await expect(startButton).toBeVisible();
   await startButton.click();
 

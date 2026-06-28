@@ -724,7 +724,6 @@ test.describe("Institute shared-library publish readiness", () => {
       expect(nearLimitResponse.ok()).toBe(true);
 
       seedExamId = await createInstituteExamWithLinkedQuestion(page, {
-        examIdHint: "seed",
         examTitle: seedExamTitle,
         examCode: seedExamCode,
         sectionName: seedSectionName,
@@ -734,7 +733,6 @@ test.describe("Institute shared-library publish readiness", () => {
       await publishInstituteExam(page, seedExamId);
 
       draftExamId = await createInstituteExamWithLinkedQuestion(page, {
-        examIdHint: "draft",
         examTitle: draftExamTitle,
         examCode: draftExamCode,
         sectionName: draftSectionName,

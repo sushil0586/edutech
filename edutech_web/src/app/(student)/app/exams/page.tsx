@@ -73,8 +73,8 @@ function actionLabel(args: {
   if (args.canResume) return "Resume";
   if (args.canStart) return "Start";
   if (args.isLocked && args.canUnlockWithStars) return `Unlock with ${args.starCost} stars`;
-  if (args.hasAttemptHistory) return "Open summary";
   if (args.reviewAvailable && args.hasAttemptHistory) return "Open review";
+  if (args.hasAttemptHistory) return "Open summary";
   return "View detail";
 }
 
@@ -174,7 +174,7 @@ function examAvailabilityGuidance(exam: {
   }
 
   if (exam.review_available) {
-    return "Attempt history is available here. Open summary first for the clearest status view, then move into review when policy allows it.";
+    return "Attempt history is available here. Open the latest attempt to see the summary or review experience that is currently allowed by policy.";
   }
 
   if (exam.remaining_attempts === 0) {

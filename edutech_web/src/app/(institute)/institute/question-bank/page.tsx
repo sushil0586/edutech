@@ -560,6 +560,7 @@ export default async function InstituteQuestionBankPage({
         hasNextPage={Boolean(questionPage.next)}
         hasPreviousPage={Boolean(questionPage.previous)}
         canLinkSharedLibrary={hasSharedLibraryAccess}
+        sharedLibraryMode="direct_link"
         masterLibraryLoadError={masterLibraryLoadError}
         masterLibraryQuestions={masterLibraryPage?.results ?? []}
         sharedLibraryDisabledMessage={sharedLibraryDisabledMessage}

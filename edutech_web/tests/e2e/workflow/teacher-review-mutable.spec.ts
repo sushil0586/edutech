@@ -324,7 +324,9 @@ test.describe("Teacher mutable review actions", () => {
 
       await page.goto(`/app/exams/${examId}`);
       await expect(page.getByRole("heading", { name: new RegExp(escapeRegExp(examTitle), "i") }).first()).toBeVisible();
-      await page.getByRole("button", { name: /start (mock test|practice set|exam)/i }).click();
+      await page
+        .getByRole("button", { name: /^(start|start (mock test|practice set|exam))$/i })
+        .click();
 
       await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+(?:\?.*)?$/);
       const attemptUrl = page.url().split("?")[0] ?? page.url();

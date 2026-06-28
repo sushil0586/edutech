@@ -533,6 +533,7 @@ export function TeacherQuestionBankWorkspace({
   masterLibraryLoadError = "",
   sharedLibraryDisabledMessage = "",
   canLinkSharedLibrary = false,
+  sharedLibraryMode = "request_only",
   questionBankEntitlements = [],
   featureEntitlements = [],
 }: {
@@ -561,6 +562,7 @@ export function TeacherQuestionBankWorkspace({
   masterLibraryLoadError?: string;
   sharedLibraryDisabledMessage?: string;
   canLinkSharedLibrary?: boolean;
+  sharedLibraryMode?: "request_only" | "direct_link";
   questionBankEntitlements?: ScopedQuestionBankEntitlement[];
   featureEntitlements?: ScopedQuestionBankFeatureEntitlement[];
 }) {
@@ -611,6 +613,12 @@ export function TeacherQuestionBankWorkspace({
     () => featureEntitlements.filter((entitlement) => entitlement.status === "active"),
     [featureEntitlements],
   );
+  const sharedLibraryModeLabel =
+    sharedLibraryMode === "direct_link" ? "Direct link when entitled" : "Request-only";
+  const sharedLibraryModeNote =
+    sharedLibraryMode === "direct_link"
+      ? "Institute admins can link licensed shared-library questions directly when the feature lane and matching package entitlement are active."
+      : "Teachers can inspect licensed shared-library questions, but access escalation stays request-led even when matching package coverage exists.";
 
   useEffect(() => {
     if (!isBrowser) {
@@ -1036,9 +1044,23 @@ export function TeacherQuestionBankWorkspace({
           <span className={`statusPill ${activeFeatureEntitlements.length ? "statusSuccess" : "statusDefault"}`}>
             {activeFeatureEntitlements.length} active feature{activeFeatureEntitlements.length === 1 ? "" : "s"}
           </span>
+          <span className={`statusPill ${sharedLibraryMode === "direct_link" ? "statusSuccess" : "statusDemo"}`}>
+            {sharedLibraryModeLabel}
+          </span>
           <span className={`statusPill ${sharedLibraryDisabledMessage ? "statusWarn" : "statusSuccess"}`}>
             {sharedLibraryDisabledMessage ? "Shared library locked" : "Shared library enabled"}
           </span>
+        </div>
+
+        <div className="questionBankCardMetaNote">
+          <span>{sharedLibraryModeNote}</span>
+          {sharedLibraryDisabledMessage ? (
+            <span>{sharedLibraryDisabledMessage}</span>
+          ) : canLinkSharedLibrary ? (
+            <span>Matching licensed rows can move into the local bank immediately, but paused packages and quota limits can still block reuse or publishing later.</span>
+          ) : (
+            <span>Matching package coverage helps request review, but it does not grant direct teacher-side linking in this lane.</span>
+          )}
         </div>
 
         {activeQuestionBankEntitlements.length ? (

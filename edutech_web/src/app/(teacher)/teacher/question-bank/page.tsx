@@ -533,6 +533,7 @@ export default async function TeacherQuestionBankPage({
         hasNextPage={Boolean(questionPage.next)}
         hasPreviousPage={Boolean(questionPage.previous)}
         canLinkSharedLibrary={false}
+        sharedLibraryMode="request_only"
         masterLibraryLoadError={masterLibraryLoadError}
         masterLibraryQuestions={masterLibraryPage?.results ?? []}
         sharedLibraryDisabledMessage={sharedLibraryDisabledMessage}

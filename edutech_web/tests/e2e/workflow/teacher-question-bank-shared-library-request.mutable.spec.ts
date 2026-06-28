@@ -329,7 +329,7 @@ test.describe("Teacher shared-library mutable request flow", () => {
       const targetPackage = pickPublicHubPackageByCode(packages, targetPackageCodeFromRow);
       expect(targetPackage).not.toBeNull();
 
-      targetPackageCode = targetPackage.code;
+      targetPackageCode = targetPackage!.code;
 
       const entitlementsResponse = await page.request.get(
         `${backendBaseUrl}/api/v1/economy/admin/question-bank-entitlements/`,

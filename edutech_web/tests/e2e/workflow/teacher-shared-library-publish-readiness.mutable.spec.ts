@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
+import { resetAndSeedDemoSharedLibraryWorkflow } from "../helpers/demo-shared-library";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
 import { expectTeacherWorkspace } from "../helpers/navigation";
 
@@ -75,12 +76,18 @@ type CreatedExam = {
 
 type CompactQuestionRow = {
   id: string;
+  program?: string | null;
+  subject?: string | null;
   shared_library_access_state?: string | null;
   shared_library_access_active?: boolean;
 };
 
 type UsageLedgerRow = {
   id: string;
+  entitlement?: string | null;
+  action_type?: string | null;
+  question?: string | null;
+  exam?: string | null;
 };
 
 async function findSeededLinkedInventoryCard(cards: Locator, questionPrefix: string) {
@@ -138,7 +145,12 @@ function pickPublicHubPackageByCode(packages: QuestionBankPackageRow[], packageC
   );
 }
 
-async function createTeacherExamShell(page: Page, payload: { title: string; code: string }) {
+async function createTeacherExamShell(page: Page, payload: {
+  title: string;
+  code: string;
+  programId?: string | null;
+  subjectId?: string | null;
+}) {
   const accessToken = await getAccessToken(page);
   expect(accessToken).not.toBe("");
 
@@ -172,11 +184,17 @@ async function createTeacherExamShell(page: Page, payload: { title: string; code
   expect(academicYearId).not.toBe("");
 
   const preferredSubject =
-    subjects.results.find((subject) => /mathematics/i.test(subject.name)) ?? subjects.results[0] ?? null;
+    (payload.subjectId ? subjects.results.find((subject) => subject.id === payload.subjectId) ?? null : null) ??
+    subjects.results.find((subject) => /mathematics/i.test(subject.name)) ??
+    subjects.results[0] ??
+    null;
   expect(preferredSubject).not.toBeNull();
 
   const matchingProgram =
-    programs.results.find((program) => program.id === preferredSubject!.program) ?? programs.results[0] ?? null;
+    (payload.programId ? programs.results.find((program) => program.id === payload.programId) ?? null : null) ??
+    programs.results.find((program) => program.id === preferredSubject!.program) ??
+    programs.results[0] ??
+    null;
   expect(matchingProgram).not.toBeNull();
 
   const response = await page.request.post(`${teacherApiBaseUrl}/api/v1/exams/`, {
@@ -237,10 +255,14 @@ async function createTeacherExamWithLinkedQuestion(page: Page, options: {
   examCode: string;
   sectionName: string;
   searchProbe: string;
+  programId?: string | null;
+  subjectId?: string | null;
 }) {
   const createdExam = await createTeacherExamShell(page, {
     title: options.examTitle,
     code: options.examCode,
+    programId: options.programId ?? null,
+    subjectId: options.subjectId ?? null,
   });
   const examId = createdExam.id;
   expect(examId).not.toBeNull();
@@ -341,6 +363,14 @@ function teacherExamReadinessPanel(page: Page) {
 }
 
 test.describe("Teacher shared-library publish readiness", () => {
+  test.beforeEach(() => {
+    resetAndSeedDemoSharedLibraryWorkflow();
+  });
+
+  test.afterEach(() => {
+    resetAndSeedDemoSharedLibraryWorkflow();
+  });
+
   test.skip(
     testRequiresRole("teacher") || testRequiresRole("admin"),
     "Teacher or admin Playwright credentials are not configured.",
@@ -405,7 +435,7 @@ test.describe("Teacher shared-library publish readiness", () => {
     const linkedQuestionText =
       ((await linkedInventoryCard!.locator("strong").first().textContent()) ?? "").replace(/\s+/g, " ").trim();
     expect(linkedQuestionText).not.toBe("");
-    const searchProbe = linkedQuestionText.slice(0, 60);
+    const searchProbe = linkedQuestionText;
 
     const masterLibraryResponse = await page.request.get(
       `${teacherApiBaseUrl}/api/v1/question-bank/master-library/`,
@@ -443,8 +473,9 @@ test.describe("Teacher shared-library publish readiness", () => {
       `/api/v1/question-bank/questions/?compact=1&search=${encodeURIComponent(searchProbe)}`,
       teacherAccessToken,
     );
-    linkedQuestionId =
-      compactQuestionListAfterLink.results.find((row) => row.shared_library_access_active)?.id ?? "";
+    const linkedQuestionRow =
+      compactQuestionListAfterLink.results.find((row) => row.shared_library_access_active) ?? null;
+    linkedQuestionId = linkedQuestionRow?.id ?? "";
     expect(linkedQuestionId).not.toBe("");
 
     examId = await createTeacherExamWithLinkedQuestion(page, {
@@ -452,6 +483,8 @@ test.describe("Teacher shared-library publish readiness", () => {
       examCode,
       sectionName,
       searchProbe,
+      programId: linkedQuestionRow?.program ?? null,
+      subjectId: linkedQuestionRow?.subject ?? null,
     });
     if (!examId) {
       test.skip(
@@ -459,7 +492,8 @@ test.describe("Teacher shared-library publish readiness", () => {
         "The linked shared question is no longer attachable in the teacher builder for this paused-only lane.",
       );
     }
-    await configureTeacherExamSchedule(page, examId);
+    const activeExamId = examId!;
+    await configureTeacherExamSchedule(page, activeExamId);
 
     await loginAsRole(page, "admin");
     const adminAccessToken = await getAccessToken(page);
@@ -523,8 +557,8 @@ test.describe("Teacher shared-library publish readiness", () => {
         );
       }
 
-      await page.goto(`/teacher/exams/${examId}`);
-      await expect(page).toHaveURL(new RegExp(`/teacher/exams/${examId}(?:\\?.*)?$`));
+      await page.goto(`/teacher/exams/${activeExamId}`);
+      await expect(page).toHaveURL(new RegExp(`/teacher/exams/${activeExamId}(?:\\?.*)?$`));
 
       const readinessPanel = teacherExamReadinessPanel(page);
       await expect(readinessPanel).toBeVisible();
@@ -609,7 +643,7 @@ test.describe("Teacher shared-library publish readiness", () => {
     const linkedQuestionText =
       ((await linkedInventoryCard!.locator("strong").first().textContent()) ?? "").replace(/\s+/g, " ").trim();
     expect(linkedQuestionText).not.toBe("");
-    const searchProbe = linkedQuestionText.slice(0, 60);
+    const searchProbe = linkedQuestionText;
 
     const masterLibraryResponse = await page.request.get(
       `${teacherApiBaseUrl}/api/v1/question-bank/master-library/`,
@@ -654,6 +688,7 @@ test.describe("Teacher shared-library publish readiness", () => {
     const targetPackage = pickPublicHubPackageByCode(packages, packageCode);
     expect(targetPackage).not.toBeNull();
     packageId = targetPackage!.id;
+    const activePackageId = packageId!;
     originalMetadata = (targetPackage!.metadata as Record<string, unknown> | null) ?? {};
 
     try {
@@ -661,19 +696,42 @@ test.describe("Teacher shared-library publish readiness", () => {
       await expectTeacherWorkspace(page);
       const teacherPublishAccessToken = await getAccessToken(page);
       expect(teacherPublishAccessToken).not.toBe("");
-      const baselineUsageEntries = await getJson<UsageLedgerRow[]>(
+      const linkedQuestionRow =
+        (await getJson<PaginatedResponse<CompactQuestionRow>>(
+          page,
+          `/api/v1/question-bank/questions/?compact=1&search=${encodeURIComponent(searchProbe)}`,
+          teacherPublishAccessToken,
+        )).results.find((row) => row.shared_library_access_active) ?? null;
+      expect(linkedQuestionRow).not.toBeNull();
+
+      const linkUsageEntries = await getJson<UsageLedgerRow[]>(
         page,
-        `/api/v1/economy/admin/institute-question-bank-usage/?question_bank_package=${packageId}&action_type=exam_published`,
+        `/api/v1/economy/admin/institute-question-bank-usage/?question_bank_package=${activePackageId}&action_type=question_linked`,
         adminAccessToken,
       );
-      baselinePublishUsageCount = baselineUsageEntries.length;
+      const activeLinkUsageEntry =
+        linkUsageEntries.find(
+          (row) => row.question === linkedQuestionRow?.id && typeof row.entitlement === "string" && row.entitlement,
+        ) ?? null;
+      expect(activeLinkUsageEntry).not.toBeNull();
+      const activeEntitlementId = activeLinkUsageEntry?.entitlement ?? null;
+      expect(activeEntitlementId).not.toBeNull();
+
+      const baselineUsageEntries = await getJson<UsageLedgerRow[]>(
+        page,
+        `/api/v1/economy/admin/institute-question-bank-usage/?question_bank_package=${activePackageId}&action_type=exam_published`,
+        adminAccessToken,
+      );
+      baselinePublishUsageCount = baselineUsageEntries.filter(
+        (row) => row.entitlement === activeEntitlementId,
+      ).length;
 
       const nearLimitMetadata = {
         ...(originalMetadata ?? {}),
         max_exam_publish_count: baselinePublishUsageCount + 2,
       };
       const nearLimitResponse = await page.request.patch(
-        `${teacherApiBaseUrl}/api/v1/economy/admin/question-bank-packages/${packageId}/`,
+        `${teacherApiBaseUrl}/api/v1/economy/admin/question-bank-packages/${activePackageId}/`,
         {
           headers: {
             Authorization: `Bearer ${adminAccessToken}`,
@@ -691,6 +749,8 @@ test.describe("Teacher shared-library publish readiness", () => {
         examCode: seedExamCode,
         sectionName: seedSectionName,
         searchProbe,
+        programId: linkedQuestionRow?.program ?? null,
+        subjectId: linkedQuestionRow?.subject ?? null,
       });
       if (!seedExamId) {
         test.skip(
@@ -698,14 +758,17 @@ test.describe("Teacher shared-library publish readiness", () => {
           "The linked shared question is no longer attachable in the teacher builder for this paused-only lane.",
         );
       }
-      await configureTeacherExamSchedule(page, seedExamId);
-      await publishTeacherExam(page, seedExamId);
+      const activeSeedExamId = seedExamId!;
+      await configureTeacherExamSchedule(page, activeSeedExamId);
+      await publishTeacherExam(page, activeSeedExamId);
 
       draftExamId = await createTeacherExamWithLinkedQuestion(page, {
         examTitle: draftExamTitle,
         examCode: draftExamCode,
         sectionName: draftSectionName,
         searchProbe,
+        programId: linkedQuestionRow?.program ?? null,
+        subjectId: linkedQuestionRow?.subject ?? null,
       });
       if (!draftExamId) {
         test.skip(
@@ -713,9 +776,10 @@ test.describe("Teacher shared-library publish readiness", () => {
           "The linked shared question is no longer attachable in the teacher builder for this paused-only lane.",
         );
       }
-      await configureTeacherExamSchedule(page, draftExamId);
+      const activeDraftExamId = draftExamId!;
+      await configureTeacherExamSchedule(page, activeDraftExamId);
 
-      await page.goto(`/teacher/exams/${draftExamId}`);
+      await page.goto(`/teacher/exams/${activeDraftExamId}`);
       const readinessPanel = teacherExamReadinessPanel(page);
       await expect(readinessPanel).toBeVisible();
       await expect(readinessPanel).toContainText(/warning/i);
@@ -727,7 +791,7 @@ test.describe("Teacher shared-library publish readiness", () => {
         max_exam_publish_count: baselinePublishUsageCount + 1,
       };
       const reachedLimitResponse = await page.request.patch(
-        `${teacherApiBaseUrl}/api/v1/economy/admin/question-bank-packages/${packageId}/`,
+        `${teacherApiBaseUrl}/api/v1/economy/admin/question-bank-packages/${activePackageId}/`,
         {
           headers: {
             Authorization: `Bearer ${adminAccessToken}`,

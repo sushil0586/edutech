@@ -266,7 +266,9 @@ test.describe("Teacher mutable results actions", () => {
       await expectStudentWorkspace(page);
       await page.goto(`/app/exams/${examId}`);
       await expect(page.getByRole("heading", { name: new RegExp(escapeRegExp(examTitle), "i") }).first()).toBeVisible();
-      await page.getByRole("button", { name: /start (mock test|practice set|exam)/i }).click();
+      await page
+        .getByRole("button", { name: /^(start|start (mock test|practice set|exam))$/i })
+        .click();
 
       await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+(?:\?.*)?$/);
       await answerCurrentAttemptQuestion(page, uniqueSeed, "Playwright teacher result answer");

@@ -300,7 +300,7 @@ test.describe("Institute shared-library mutable link flow", () => {
 
       const targetPackage = pickPublicHubPackageByCode(packages, initialPackageCodes[0] ?? "");
       expect(targetPackage).not.toBeNull();
-      targetPackageCode = targetPackage.code;
+      targetPackageCode = targetPackage!.code;
 
       const entitlementsResponse = await page.request.get(
         `${backendBaseUrl}/api/v1/economy/admin/question-bank-entitlements/`,

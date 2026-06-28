@@ -173,10 +173,11 @@ test.describe("Student referral onboarding mutable flow", () => {
     if (!alternateSchool) {
       test.skip(true, "No alternate public registration institute is currently available for cross-institute referral coverage.");
     }
+    const ensuredAlternateSchool = alternateSchool!;
 
     const identity = await registerBaseRole(page, "student", {
       referralCode,
-      schoolName: alternateSchool.label,
+      schoolName: ensuredAlternateSchool.label,
     });
 
     await expect(page).toHaveURL(/\/complete-profile/);
@@ -225,17 +226,18 @@ test.describe("Student referral onboarding mutable flow", () => {
     if (!targetProgram) {
       test.skip(true, "No active referral program is currently available for the student's institute.");
     }
+    const ensuredTargetProgram = targetProgram!;
 
     try {
-      const pauseResponse = await page.request.patch(`/api/admin/economy/referral-programs/${targetProgram.id}`, {
+      const pauseResponse = await page.request.patch(`/api/admin/economy/referral-programs/${ensuredTargetProgram.id}`, {
         data: {
-          institute: targetProgram.institute,
-          name: targetProgram.name,
-          referrer_stars: targetProgram.referrer_stars,
-          referee_stars: targetProgram.referee_stars,
-          reward_side: targetProgram.reward_side,
-          valid_from: targetProgram.valid_from,
-          valid_until: targetProgram.valid_until,
+          institute: ensuredTargetProgram.institute,
+          name: ensuredTargetProgram.name,
+          referrer_stars: ensuredTargetProgram.referrer_stars,
+          referee_stars: ensuredTargetProgram.referee_stars,
+          reward_side: ensuredTargetProgram.reward_side,
+          valid_from: ensuredTargetProgram.valid_from,
+          valid_until: ensuredTargetProgram.valid_until,
           metadata: {},
           is_active: false,
         },
@@ -256,17 +258,17 @@ test.describe("Student referral onboarding mutable flow", () => {
       await expect(page.getByText(identity.email).first()).toBeVisible();
     } finally {
       await loginAsRole(page, "admin");
-      await page.request.patch(`/api/admin/economy/referral-programs/${targetProgram.id}`, {
+      await page.request.patch(`/api/admin/economy/referral-programs/${ensuredTargetProgram.id}`, {
         data: {
-          institute: targetProgram.institute,
-          name: targetProgram.name,
-          referrer_stars: targetProgram.referrer_stars,
-          referee_stars: targetProgram.referee_stars,
-          reward_side: targetProgram.reward_side,
-          valid_from: targetProgram.valid_from,
-          valid_until: targetProgram.valid_until,
+          institute: ensuredTargetProgram.institute,
+          name: ensuredTargetProgram.name,
+          referrer_stars: ensuredTargetProgram.referrer_stars,
+          referee_stars: ensuredTargetProgram.referee_stars,
+          reward_side: ensuredTargetProgram.reward_side,
+          valid_from: ensuredTargetProgram.valid_from,
+          valid_until: ensuredTargetProgram.valid_until,
           metadata: {},
-          is_active: targetProgram.is_active,
+          is_active: ensuredTargetProgram.is_active,
         },
       });
     }

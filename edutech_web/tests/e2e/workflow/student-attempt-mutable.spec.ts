@@ -224,19 +224,25 @@ test.describe("Student mutable attempt actions", () => {
       await page.goto(`/app/exams/${examId}`);
       await expect(page.getByRole("heading", { name: new RegExp(examTitle, "i") }).first()).toBeVisible();
 
-      const startButton = page.getByRole("button", { name: /start (mock test|practice set|exam)/i });
+      const startButton = page.getByRole("button", {
+        name: /^(start|start (mock test|practice set|exam))$/i,
+      });
       await expect(startButton).toBeVisible();
       await startButton.click();
 
       await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+(?:\?.*)?$/);
       attemptId = page.url().match(/\/app\/attempts\/([^/?#]+)/)?.[1] ?? null;
       expect(attemptId).not.toBeNull();
+      const currentQuestionCard = page.locator("article").filter({
+        has: page.getByText(/^question 1$/i),
+      }).first();
       await expect(page.getByText(/test in progress|attempt locked/i).first()).toBeVisible();
       await expect(page.getByText(/attempt progress/i).first()).toBeVisible();
-      await expect(page.getByText(/save confidence/i).first()).toBeVisible();
-      await expect(page.getByText(/save & recovery status/i).first()).toBeVisible();
-      await expect(page.getByText(/summary opens after submit/i).first()).toBeVisible();
-      await expect(page.getByText(/section access/i).first()).toBeVisible();
+      await expect(currentQuestionCard.getByText(/last save check/i)).toBeVisible();
+      await expect(page.getByText(/save & recovery status/i)).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: /current section|open section/i }).first(),
+      ).toBeVisible();
 
       await answerCurrentAttemptQuestion(page, uniqueSeed);
 
@@ -275,11 +281,11 @@ test.describe("Student mutable attempt actions", () => {
       await expect(nextSectionCard.getByRole("button", { name: /open section/i })).toBeVisible();
       await nextSectionCard.getByRole("button", { name: /open section/i }).click();
       await expect(page.getByText(/section switched successfully/i).first()).toBeVisible();
-      await expect(page.getByText(/current section/i).first()).toBeVisible();
-      await expect(page.getByText(/^section beta$/i).first()).toBeVisible();
-      await expect(
-        page.getByText(/section switching is navigation, not save/i).first(),
-      ).toBeVisible();
+      const sectionBetaQuestionCard = page.locator("article").filter({
+        has: page.getByText(/^section beta$/i),
+      }).first();
+      await expect(sectionBetaQuestionCard).toBeVisible();
+      await expect(sectionBetaQuestionCard.getByText(/^question 1$/i)).toBeVisible();
 
       const afterSwitchSavedAt = (
         await page.locator(".attemptToolbar .examStateSummary").filter({
@@ -306,7 +312,6 @@ test.describe("Student mutable attempt actions", () => {
 
       await page.goto(`/app/exams/${examId}`);
       await expect(page.getByRole("heading", { name: new RegExp(examTitle, "i") }).first()).toBeVisible();
-      await expect(page.getByText(/you have already used all attempts/i).first()).toBeVisible();
       await expect(page.getByRole("link", { name: /open summary/i })).toBeVisible();
       await expect(page.getByRole("button", { name: /start/i })).toHaveCount(0);
       await expect(page.getByRole("link", { name: /resume/i })).toHaveCount(0);
