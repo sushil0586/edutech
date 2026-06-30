@@ -93,6 +93,23 @@ function planValueSummary(
   return `${creditAmount.toLocaleString("en-IN")} stars every ${titleCase(billingInterval).toLowerCase()}${intervalCount > 1 ? ` x ${intervalCount}` : ""}`;
 }
 
+type SubscriptionWorkspaceSection = "all" | "guidance" | "subscriptions" | "orders" | "plans";
+type SubscriptionRows = "3" | "6" | "10";
+
+function resolveSection(value: string | undefined): SubscriptionWorkspaceSection {
+  if (value === "guidance" || value === "subscriptions" || value === "orders" || value === "plans") {
+    return value;
+  }
+  return "all";
+}
+
+function resolveRows(value: string | undefined): SubscriptionRows {
+  if (value === "3" || value === "6" || value === "10") {
+    return value;
+  }
+  return "6";
+}
+
 async function createSubscriptionOrderAction(formData: FormData) {
   "use server";
 
@@ -126,13 +143,22 @@ async function createSubscriptionOrderAction(formData: FormData) {
 export default async function SubscriptionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; message?: string }>;
+  searchParams: Promise<{ error?: string; message?: string; section?: string; rows?: string }>;
 }) {
-  const { error, message } = await searchParams;
+  const { error, message, section, rows } = await searchParams;
   const data = await loadSubscriptions();
   const subscriptionOrders = data.orders.filter(
     (order) => order.order_type === "subscription",
   );
+  const activeSection = resolveSection(section);
+  const rowLimit = Number(resolveRows(rows));
+  const showGuidance = activeSection === "all" || activeSection === "guidance";
+  const showSubscriptions = activeSection === "all" || activeSection === "subscriptions";
+  const showOrders = activeSection === "all" || activeSection === "orders";
+  const showPlans = activeSection === "all" || activeSection === "plans";
+  const visibleSubscriptions = data.subscriptions.slice(0, rowLimit);
+  const visibleSubscriptionOrders = subscriptionOrders.slice(0, rowLimit);
+  const visiblePlans = data.plans.slice(0, rowLimit);
 
   return (
     <div className="studentPage studentDashboardModern studentLearnerPage studentLearnerAccountPage studentLearnerSubscriptionsPage">
@@ -234,8 +260,48 @@ export default async function SubscriptionsPage({
             ]}
           />
 
+          <section className="contentCard">
+            <div className="sectionHeading">
+              <strong>Subscription workspace filters</strong>
+            </div>
+            <p className="sectionDescription">
+              Focus on one subscription area at a time so the page stays smaller and easier to scan.
+            </p>
+            <form action="/app/subscriptions" className="workspaceFiltersForm" method="get">
+              <div className="detailGrid">
+                <label className="setupField">
+                  <span>Section</span>
+                  <select aria-label="Student subscription section" defaultValue={activeSection} name="section">
+                    <option value="all">All sections</option>
+                    <option value="guidance">Guidance only</option>
+                    <option value="subscriptions">Active subscriptions only</option>
+                    <option value="orders">Orders only</option>
+                    <option value="plans">Available plans only</option>
+                  </select>
+                </label>
+                <label className="setupField">
+                  <span>Rows to show</span>
+                  <select aria-label="Student subscription rows to show" defaultValue={String(rowLimit)} name="rows">
+                    <option value="3">3 rows</option>
+                    <option value="6">6 rows</option>
+                    <option value="10">10 rows</option>
+                  </select>
+                </label>
+              </div>
+              <div className="buttonRow">
+                <button className="button buttonPrimary" type="submit">
+                  Apply Filters
+                </button>
+                <Link className="button buttonSecondary" href="/app/subscriptions">
+                  Reset Filters
+                </Link>
+              </div>
+            </form>
+          </section>
+
           <section className="dashboardWorkspaceGrid">
             <div className="dashboardWorkspaceMain">
+              {showGuidance ? (
               <section className="contentCard">
                 <div className="sectionHeading">
                   <strong>When should you choose a subscription?</strong>
@@ -262,7 +328,9 @@ export default async function SubscriptionsPage({
                   </article>
                 </div>
               </section>
+              ) : null}
 
+              {showGuidance ? (
               <section className="contentCard">
                 <div className="sectionHeading">
                   <strong>What This Page Can And Cannot Do</strong>
@@ -296,7 +364,9 @@ export default async function SubscriptionsPage({
                   </div>
                 </div>
               </section>
+              ) : null}
 
+              {showSubscriptions ? (
               <section className="contentCard">
                 <div className="sectionHeading">
                   <strong>Active Student Subscriptions</strong>
@@ -312,7 +382,7 @@ export default async function SubscriptionsPage({
               </p>
               <div className="dashboardRailStack">
                 {data.subscriptions.length ? (
-                  data.subscriptions.map((subscription) => (
+                  visibleSubscriptions.map((subscription) => (
                     <div className="dashboardOfferCard" key={subscription.id}>
                       <div className="sectionHeading">
                         <strong>{subscription.plan_name}</strong>
@@ -384,7 +454,9 @@ export default async function SubscriptionsPage({
                 )}
               </div>
             </section>
+              ) : null}
 
+              {showOrders ? (
               <section className="contentCard">
                 <div className="sectionHeading">
                   <strong>Subscription Orders</strong>
@@ -395,7 +467,7 @@ export default async function SubscriptionsPage({
                 </p>
                 <div className="dashboardRailStack">
                 {subscriptionOrders.length ? (
-                  subscriptionOrders.map((order) => (
+                  visibleSubscriptionOrders.map((order) => (
                     <div className="dashboardOfferCard" key={order.id}>
                       <div className="sectionHeading">
                         <strong>{order.subscription_plan_name || "Subscription Order"}</strong>
@@ -442,8 +514,10 @@ export default async function SubscriptionsPage({
                 )}
               </div>
             </section>
+              ) : null}
             </div>
 
+            {showPlans ? (
             <aside className="dashboardWorkspaceRail">
               <section className="contentCard">
                 <div className="sectionHeading">
@@ -461,7 +535,7 @@ export default async function SubscriptionsPage({
                   </div>
                 </div>
                 <div className="dashboardRailStack">
-                  {data.plans.map((plan) => (
+                  {visiblePlans.map((plan) => (
                     <div className="dashboardOfferCard" key={plan.id}>
                       <strong>{plan.name}</strong>
                       <span>{plan.description || "Plan details are configured from the backend."}</span>
@@ -509,6 +583,7 @@ export default async function SubscriptionsPage({
                 </div>
               </section>
             </aside>
+            ) : null}
           </section>
         </>
       )}

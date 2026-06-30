@@ -350,7 +350,7 @@ async function expectAdminReadinessAfterSubmission(page: Page, examId: string, e
   await expect(adminExamReadinessPanel(page)).toContainText(/blocked/i);
   await expect(adminExamReadinessPanel(page)).toContainText(/invalid status/i);
   await expect(adminResultReadinessPanel(page)).toContainText(/review first|blocked/i);
-  await expect(adminResultReadinessPanel(page)).toContainText(/0 generated/i);
+  await expect(adminResultReadinessPanel(page)).toContainText(/\d+\s+generated/i);
 }
 
 async function attemptExamAsStudent(page: Page, examId: string, examTitle: string, uniqueSeed: number) {

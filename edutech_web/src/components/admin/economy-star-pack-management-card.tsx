@@ -168,63 +168,88 @@ export function EconomyStarPackManagementCard({
         {message ? <p className="feedbackBanner feedbackBannerSuccess">{message}</p> : null}
         {error ? <p className="feedbackBanner feedbackBannerError">{error}</p> : null}
 
-        <div className="setupFormGrid setupFormGridDense">
-          <label className="setupField">
-            <span>Institute</span>
-            <select value={instituteId} onChange={(event) => setInstituteId(event.target.value)}>
-              {institutes.map((institute) => (
-                <option key={institute.id} value={institute.id}>
-                  {institute.name} ({institute.code}){institute.is_active ? "" : " - inactive"}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="setupField">
-            <span>Pack name</span>
-            <input type="text" value={name} onChange={(event) => setName(event.target.value)} />
-          </label>
-          <label className="setupField">
-            <span>Pack code</span>
-            <input type="text" value={code} onChange={(event) => setCode(event.target.value)} />
-          </label>
-          <label className="setupField">
-            <span>Stars credited</span>
-            <input min="1" type="number" value={starsCredited} onChange={(event) => setStarsCredited(event.target.value)} />
-          </label>
-          <label className="setupField">
-            <span>Price amount</span>
-            <input min="0.01" step="0.01" type="number" value={priceAmount} onChange={(event) => setPriceAmount(event.target.value)} />
-          </label>
-          <label className="setupField">
-            <span>Currency</span>
-            <input type="text" value={currency} onChange={(event) => setCurrency(event.target.value.toUpperCase())} />
-          </label>
-          <label className="setupField">
-            <span>Sort order</span>
-            <input min="0" type="number" value={sortOrder} onChange={(event) => setSortOrder(event.target.value)} />
-          </label>
-          <label className="setupField">
-            <span>Active status</span>
-            <select value={isActive ? "yes" : "no"} onChange={(event) => setIsActive(event.target.value === "yes")}>
-              <option value="yes">Active</option>
-              <option value="no">Paused</option>
-            </select>
-          </label>
-        </div>
+        <section className="featurePlaceholder economySubscriptionEditorPanel">
+          <strong>{editingId ? "Edit star pack" : "New star pack"}</strong>
+          <p className="academicSectionDescription">Define the wallet offer first, then tune the commercial values students will actually buy.</p>
 
-        <div className="resultCardActions">
+          <div className="economyCompactStats">
+            <span>{starPacks.length} pack{starPacks.length === 1 ? "" : "s"} in scope</span>
+            <span>{starPacks.filter((item) => item.is_active).length} active</span>
+          </div>
+
+          <div className="economyFormSection">
+            <div className="economyFormSectionHeader">
+              <strong>Pack identity</strong>
+              <span>Define which institute owns the offer and how the pack is identified in the wallet catalog.</span>
+            </div>
+            <div className="economyCommerceGridPrimary">
+              <label className="setupField">
+                <span>Institute</span>
+                <select value={instituteId} onChange={(event) => setInstituteId(event.target.value)}>
+                  {institutes.map((institute) => (
+                    <option key={institute.id} value={institute.id}>
+                      {institute.name} ({institute.code}){institute.is_active ? "" : " - inactive"}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="setupField">
+                <span>Pack name</span>
+                <input type="text" value={name} onChange={(event) => setName(event.target.value)} />
+              </label>
+              <label className="setupField">
+                <span>Pack code</span>
+                <input type="text" value={code} onChange={(event) => setCode(event.target.value)} />
+              </label>
+              <label className="setupField">
+                <span>Active status</span>
+                <select value={isActive ? "yes" : "no"} onChange={(event) => setIsActive(event.target.value === "yes")}>
+                  <option value="yes">Active</option>
+                  <option value="no">Paused</option>
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div className="economyFormSection">
+            <div className="economyFormSectionHeader">
+              <strong>Commercial values</strong>
+              <span>Set the credit quantity, customer price, ordering, and currency posture for this offer.</span>
+            </div>
+            <div className="economyCommerceGridSecondary">
+              <label className="setupField">
+                <span>Stars credited</span>
+                <input min="1" type="number" value={starsCredited} onChange={(event) => setStarsCredited(event.target.value)} />
+              </label>
+              <label className="setupField">
+                <span>Price amount</span>
+                <input min="0.01" step="0.01" type="number" value={priceAmount} onChange={(event) => setPriceAmount(event.target.value)} />
+              </label>
+              <label className="setupField">
+                <span>Currency</span>
+                <input type="text" value={currency} onChange={(event) => setCurrency(event.target.value.toUpperCase())} />
+              </label>
+              <label className="setupField">
+                <span>Sort order</span>
+                <input min="0" type="number" value={sortOrder} onChange={(event) => setSortOrder(event.target.value)} />
+              </label>
+            </div>
+          </div>
+
+          <div className="economyEditorActionBar">
           <button className="button buttonPrimary" disabled={saving} onClick={() => void handleSubmit()} type="button">
             {saving ? "Saving..." : editingId ? "Update Star Pack" : "Create Star Pack"}
           </button>
           <button className="button buttonGhost" disabled={saving} onClick={resetForm} type="button">
             Clear Form
           </button>
-        </div>
+          </div>
+        </section>
 
         <div className="weakTopicStack">
           {starPacks.map((starPack) => (
-            <div className="weakTopicRow" key={starPack.id}>
-              <div>
+            <div className="weakTopicRow economyCommerceCatalogRow" key={starPack.id}>
+              <div className="economyCommerceCatalogMain">
                 <strong>{starPack.name}</strong>
                 <span>
                   {starPack.institute_name} · {starPack.code}
@@ -232,9 +257,16 @@ export function EconomyStarPackManagementCard({
                 <span>
                   {starPack.stars_credited} stars · {starPack.currency} {starPack.price_amount} · sort {starPack.sort_order}
                 </span>
+                <details className="economyCatalogDetailDisclosure">
+                  <summary>View offer details</summary>
+                  <div className="economyCatalogDetailStack">
+                    <span>Institute: {starPack.institute_name}</span>
+                    <span>Wallet code: {starPack.code}</span>
+                  </div>
+                </details>
                 <span>Updated {formatDateTime(starPack.updated_at)}</span>
               </div>
-              <div className="weakTopicMeta">
+              <div className="weakTopicMeta economyCommerceCatalogMeta">
                 <strong>{starPack.is_active ? "Active" : "Paused"}</strong>
                 <button className="button buttonGhost" onClick={() => loadForEdit(starPack)} type="button">
                   Edit

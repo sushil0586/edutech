@@ -14,6 +14,7 @@ import {
   fetchStudentInsightSummary,
   fetchStudentAttempts,
   getStudentApiState,
+  StudentApiError,
   spendStarsForContent,
   startStudentAttempt,
 } from "@/lib/api/student";
@@ -314,7 +315,35 @@ async function loadExamDetail(examId: string) {
   try {
     const detail = await fetchStudentExamDetail(examId);
     return { source: "live" as const, detail };
-  } catch {
+  } catch (error) {
+    const errorStatus =
+      error instanceof StudentApiError
+        ? error.status
+        : typeof error === "object" &&
+            error !== null &&
+            "status" in error &&
+            typeof (error as { status?: unknown }).status === "number"
+          ? (error as { status: number }).status
+          : null;
+    const normalizedMessage =
+      error instanceof Error && typeof error.message === "string"
+        ? error.message.toLowerCase()
+        : "";
+
+    if (errorStatus !== null || normalizedMessage.length > 0) {
+      const looksLikeVisibilityOrAssignmentBlock =
+        errorStatus === 401 ||
+        errorStatus === 403 ||
+        errorStatus === 404 ||
+        normalizedMessage.includes("not assigned") ||
+        normalizedMessage.includes("not available") ||
+        normalizedMessage.includes("permission") ||
+        normalizedMessage.includes("not found");
+
+      if (looksLikeVisibilityOrAssignmentBlock) {
+        return { source: "blocked" as const, detail: null };
+      }
+    }
     return { source: "error" as const, detail: null };
   }
 }
@@ -339,25 +368,39 @@ export default async function ExamDetailPage({
           statusLabel={
             source === "unconfigured"
               ? "Backend not configured"
-              : "Unable to load exam detail"
+              : source === "blocked"
+                ? "Not available to this student"
+                : "Unable to load exam detail"
           }
-          statusTone={source === "unconfigured" ? "warning" : "demo"}
+          statusTone={source === "unconfigured" ? "warning" : source === "blocked" ? "warning" : "demo"}
         />
         <StudentStatePanel
-          eyebrow={source === "unconfigured" ? "Setup required" : "Load issue"}
+          eyebrow={
+            source === "unconfigured"
+              ? "Setup required"
+              : source === "blocked"
+                ? "Access limited"
+                : "Load issue"
+          }
           title={
             source === "unconfigured"
               ? "Waiting for live exam detail"
-              : "Exam detail could not be loaded"
+              : source === "blocked"
+                ? "This exam is not available in your workspace"
+                : "Exam detail could not be loaded"
           }
           description={
             source === "unconfigured"
               ? "This route only renders real exam readiness data from the backend. Configure the API base URL and sign in with an active student account to load the selected exam."
-              : "The exam detail workspace is connected to the backend, but the current request did not complete successfully."
+              : source === "blocked"
+                ? "This exam is either not assigned to your student account, belongs to a different access scope, or is no longer visible under the current exam policy."
+                : "The exam detail workspace is connected to the backend, but the current request did not complete successfully."
           }
           bullets={
             source === "unconfigured"
               ? ["Exam detail endpoint", "Active student web session"]
+              : source === "blocked"
+                ? ["Student assignment scope", "Exam visibility policy"]
               : ["Backend connectivity", "Exam detail endpoint"]
           }
           ctaHref="/app/exams"
@@ -365,6 +408,8 @@ export default async function ExamDetailPage({
           statusLabel={
             source === "unconfigured"
               ? "Configuration required"
+              : source === "blocked"
+                ? "Check assigned exams"
               : "Retry after backend check"
           }
         />

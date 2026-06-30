@@ -5519,6 +5519,19 @@ button {
   box-shadow: var(--shadow-xs);
 }
 
+.workspaceTabsListSticky {
+  position: sticky;
+  z-index: 12;
+}
+
+.workspaceTabsListPrimarySticky {
+  top: 12px;
+}
+
+.workspaceTabsListSecondarySticky {
+  top: 86px;
+}
+
 .workspaceTabButton {
   display: inline-flex;
   align-items: center;
@@ -13117,6 +13130,10 @@ button {
     padding: var(--space-2);
   }
 
+  .workspaceTabsListSticky {
+    position: static;
+  }
+
   .workspaceTabButton {
     width: 100%;
     justify-content: space-between;
@@ -14490,6 +14507,757 @@ body::after {
 .adminAppMain .buttonPrimary {
   border: 1px solid rgba(118, 126, 255, 0.28);
   background: linear-gradient(135deg, #4d82ff, #6a5df6);
+}
+
+.adminEconomyPage {
+  gap: 26px;
+}
+
+.adminEconomyPage .workspaceTabsShell {
+  gap: 22px;
+}
+
+.adminEconomyPage .studentInsightHeroCardCompact,
+.adminEconomyPage .dashboardPanel.weakTopicsPanel,
+.adminEconomyPage .featurePlaceholder {
+  border-radius: 28px;
+}
+
+.adminEconomyPage .dashboardPanel.weakTopicsPanel,
+.adminEconomyPage .featurePlaceholder {
+  padding: 0;
+  overflow: hidden;
+}
+
+.adminEconomyPage .dashboardPanel.weakTopicsPanel > .studentPageTight,
+.adminEconomyPage .featurePlaceholder {
+  gap: 16px;
+}
+
+.adminEconomyPage .featurePlaceholder > strong,
+.adminEconomyPage .dashboardPanel.weakTopicsPanel h3 {
+  display: block;
+  color: #16233f;
+  letter-spacing: -0.02em;
+}
+
+.adminEconomyPage .featurePlaceholder > strong {
+  font-size: 1.18rem;
+  line-height: 1.25;
+}
+
+.adminEconomyPage .dashboardPanel.weakTopicsPanel h3 {
+  font-size: 1.16rem;
+  line-height: 1.24;
+}
+
+.adminEconomyPage .studentDashboardTag {
+  align-self: start;
+}
+
+.adminEconomyPage .economySubscriptionEditorPanel,
+.adminEconomyPage .economyPackageEditorPanel {
+  padding: 22px 24px;
+}
+
+.adminEconomyPage .featurePlaceholder:not(.economySubscriptionEditorPanel):not(.economyPackageEditorPanel) {
+  padding: 22px 24px;
+}
+
+.adminEconomyPage .economyFormSection {
+  margin-top: 8px;
+}
+
+.adminEconomyPage .economyFormSectionHeader strong,
+.adminEconomyPage .economySectionHeaderSplit strong {
+  color: #17284a;
+  font-size: 1rem;
+  line-height: 1.3;
+}
+
+.adminEconomyPage .economyCatalogDetailDisclosure summary {
+  padding: 11px 13px;
+}
+
+.adminEconomyPage .economyEditorActionBar {
+  padding-top: 4px;
+}
+
+.adminEconomyPage .workspaceTabsListSticky {
+  top: 90px;
+}
+
+.adminEconomyPage .resultsSummaryGrid {
+  gap: 16px;
+}
+
+.adminEconomyPage .metricCard.dashboardHeroCard,
+.adminEconomyPage .studentMetricCard {
+  min-height: 132px;
+}
+
+.instituteEconomyPage {
+  gap: 24px;
+}
+
+.instituteEconomyPage .studentInsightHeroCardCompact,
+.instituteEconomyPage .dashboardPanel.weakTopicsPanel,
+.instituteEconomyPage .featurePlaceholder {
+  border-radius: 28px;
+}
+
+.instituteEconomyPage .dashboardPanel.weakTopicsPanel,
+.instituteEconomyPage .featurePlaceholder {
+  padding: 0;
+  overflow: hidden;
+}
+
+.instituteEconomyPage .dashboardPanel.weakTopicsPanel > .studentPageTight,
+.instituteEconomyPage .featurePlaceholder {
+  gap: 16px;
+}
+
+.instituteEconomyPage .featurePlaceholder > strong,
+.instituteEconomyPage .dashboardPanel.weakTopicsPanel h3 {
+  display: block;
+  color: #16233f;
+  letter-spacing: -0.02em;
+}
+
+.instituteEconomyPage .featurePlaceholder > strong {
+  font-size: 1.16rem;
+  line-height: 1.24;
+}
+
+.instituteEconomyPage .dashboardPanel.weakTopicsPanel h3 {
+  font-size: 1.14rem;
+  line-height: 1.24;
+}
+
+.instituteEconomyPage .studentDashboardTag {
+  align-self: start;
+}
+
+.instituteEconomyPage .economySubscriptionEditorPanel,
+.instituteEconomyPage .featurePlaceholder:not(.economySubscriptionEditorPanel) {
+  padding: 22px 24px;
+}
+
+.instituteEconomyPage .economyFormSection {
+  margin-top: 8px;
+}
+
+.instituteEconomyPage .economyFormSectionHeader strong {
+  color: #17284a;
+  font-size: 1rem;
+  line-height: 1.3;
+}
+
+.instituteEconomyPage .resultsSummaryGrid {
+  gap: 16px;
+}
+
+.instituteEconomyPage .metricCard.dashboardHeroCard,
+.instituteEconomyPage .studentMetricCard {
+  min-height: 128px;
+}
+
+.economyWorkspaceSplitGrid {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.9fr) minmax(0, 1.1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.economyVisibilitySummaryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.economyVisibilityFilterStack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.economyVisibilityFilterRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  align-items: end;
+}
+
+.economyVisibilityFilterField {
+  min-width: 0;
+}
+
+.economyVisibilityFilterField span {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.economyVisibilityFilterField select,
+.economyVisibilityFilterField input {
+  width: 100%;
+  min-height: 48px;
+}
+
+.economyVisibilityActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.economyDisclosureCard {
+  margin-top: 12px;
+  border: 1px solid rgba(198, 210, 238, 0.72);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(246, 249, 255, 0.88));
+  overflow: hidden;
+}
+
+.economyDisclosureCard summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 15px 18px;
+  font-weight: 700;
+  color: #203252;
+}
+
+.economyDisclosureCard summary::-webkit-details-marker {
+  display: none;
+}
+
+.economyDisclosureCard summary::after {
+  content: "+";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid rgba(173, 188, 232, 0.78);
+  background: rgba(255, 255, 255, 0.94);
+  color: #4766d6;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.economyDisclosureCard[open] summary::after {
+  content: "-";
+}
+
+.economyDisclosureContent {
+  padding: 0 18px 18px;
+}
+
+.economyEntitlementDraftGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.economyEntitlementNotesField {
+  grid-column: span 2;
+}
+
+.economyEntitlementRow,
+.economyFeatureRow,
+.economyUsageRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+  align-items: stretch;
+}
+
+.economyEntitlementMain,
+.economyFeatureMain,
+.economyUsageMain {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.economyEntitlementMeta,
+.economyFeatureMeta,
+.economyUsageMeta {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  justify-items: end;
+  align-content: start;
+  padding-left: 12px;
+  border-left: 1px solid rgba(197, 208, 236, 0.7);
+}
+
+.economyEntitlementActionStack {
+  display: grid;
+  gap: 10px;
+  margin-top: 4px;
+  width: 100%;
+}
+
+.economyEntitlementActionStack .button,
+.economyFeatureMeta .button {
+  width: 100%;
+}
+
+.economySupportRequestStack {
+  display: grid;
+  gap: 18px;
+}
+
+.economySupportRequestGroup {
+  display: grid;
+  gap: 14px;
+  padding: 16px 18px;
+  border: 1px solid rgba(196, 208, 236, 0.72);
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(246, 249, 255, 0.84));
+}
+
+.economySupportRequestGroup h4 {
+  margin: 0;
+  color: #17284a;
+  font-size: 1.05rem;
+}
+
+.economySupportRequestRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+  align-items: start;
+}
+
+.economySupportRequestMain,
+.economySupportRequestMeta {
+  min-width: 0;
+}
+
+.economySupportRequestMeta {
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+  align-content: start;
+  padding-left: 12px;
+  border-left: 1px solid rgba(197, 208, 236, 0.7);
+}
+
+.economySupportRequestActions {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.economySupportRequestActions .button {
+  width: 100%;
+}
+
+.economySupportEmptyState {
+  margin: 0;
+}
+
+.economyPackageEditorPanel,
+.economySubscriptionEditorPanel,
+.economyPackageScopeCard,
+.economyPackageCatalogRow,
+.economySubscriptionPackageFamilyCard,
+.economySubscriptionCycleCard,
+.economySubscriptionCatalogRow,
+.economyCommerceCatalogRow {
+  border: 1px solid rgba(193, 205, 236, 0.68);
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(245, 248, 255, 0.84));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.82),
+    0 10px 30px rgba(105, 125, 179, 0.08);
+}
+
+.economyFormSection {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+  padding: 16px 18px;
+  border: 1px solid rgba(199, 210, 236, 0.68);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(246, 249, 255, 0.88));
+}
+
+.economyFormSectionHeader {
+  display: grid;
+  gap: 6px;
+}
+
+.economySectionHeaderSplit {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.economyFormSectionHeader span {
+  color: #64748f;
+  font-size: 0.92rem;
+}
+
+.economyCompactStats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.economyCompactStats span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(194, 207, 241, 0.66);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(240, 245, 255, 0.88));
+  color: #35527d;
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.economyCatalogDetailDisclosure {
+  margin-top: 6px;
+  border: 1px solid rgba(197, 208, 236, 0.68);
+  border-radius: 14px;
+  background: rgba(248, 250, 255, 0.88);
+  overflow: hidden;
+}
+
+.economyCatalogDetailDisclosure summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 10px 12px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #35527d;
+}
+
+.economyCatalogDetailDisclosure summary::-webkit-details-marker {
+  display: none;
+}
+
+.economyCatalogDetailDisclosure summary::after {
+  content: "Expand";
+  float: right;
+  color: #5f73ad;
+  font-weight: 600;
+}
+
+.economyCatalogDetailDisclosure[open] summary::after {
+  content: "Collapse";
+}
+
+.economyCatalogDetailStack {
+  display: grid;
+  gap: 6px;
+  padding: 0 12px 12px;
+}
+
+.economyEditorActionBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.economyPackageFormGridPrimary,
+.economyPackageFormGridSecondary,
+.economyPackageScopeGrid {
+  display: grid;
+  gap: 14px;
+}
+
+.economyPackageFormGridPrimary {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.economyPackageFormGridSecondary {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.economyPackageDescriptionField {
+  margin-top: 4px;
+}
+
+.economyPackageScopeCard {
+  padding: 18px;
+}
+
+.economyPackageScopeHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.economyPackageScopeTitle {
+  display: grid;
+  gap: 6px;
+}
+
+.economyPackageScopeTitle span {
+  color: #64748f;
+  font-size: 0.92rem;
+}
+
+.economyPackageScopeActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.economyPackageScopeGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.economyPackageScopeGridCompact {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.economyPackageCatalogRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 18px;
+  padding: 18px;
+}
+
+.economyPackageCatalogMain,
+.economyPackageCatalogMeta {
+  display: grid;
+  gap: 6px;
+}
+
+.economyPackageCatalogMeta {
+  justify-items: end;
+  align-content: start;
+  text-align: right;
+}
+
+.economyPackageCatalogMeta span {
+  color: #64748f;
+  font-size: 0.88rem;
+}
+
+.economySubscriptionPlanGridPrimary,
+.economySubscriptionCycleGrid,
+.economySubscriptionRuleGrid,
+.economySubscriptionPackageLinkControls,
+.economyCommerceGridPrimary,
+.economyCommerceGridSecondary,
+.economyCommerceGridTertiary {
+  display: grid;
+  gap: 14px;
+}
+
+.economySubscriptionPlanGridPrimary {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.economyCommerceGridPrimary {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.economyCommerceGridSecondary {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.economyCommerceGridTertiary {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.economySubscriptionDescriptionField {
+  margin-top: 4px;
+}
+
+.economySubscriptionPackageRow,
+.economySubscriptionCatalogRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+  align-items: stretch;
+}
+
+.economySubscriptionPackageLinkControls {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+}
+
+.economySubscriptionCycleGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.economySubscriptionRuleGrid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.economySubscriptionCatalogMain,
+.economySubscriptionCatalogMeta {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.economyCommerceCatalogRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+  align-items: stretch;
+}
+
+.economyCommerceCatalogMain,
+.economyCommerceCatalogMeta {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.economySubscriptionCatalogMeta {
+  justify-items: end;
+  align-content: start;
+  text-align: right;
+  padding-left: 12px;
+  border-left: 1px solid rgba(197, 208, 236, 0.7);
+}
+
+.economyCommerceCatalogMeta {
+  justify-items: end;
+  align-content: start;
+  text-align: right;
+  padding-left: 12px;
+  border-left: 1px solid rgba(197, 208, 236, 0.7);
+ }
+
+@media (max-width: 1100px) {
+  .economyPackageFormGridSecondary,
+  .economyPackageScopeGrid,
+  .economyPackageScopeGridCompact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .economySubscriptionCycleGrid,
+  .economySubscriptionRuleGrid,
+  .economyCommerceGridSecondary,
+  .economyCommerceGridTertiary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .economyPackageCatalogRow {
+    grid-template-columns: 1fr;
+  }
+
+  .economySubscriptionPackageRow,
+  .economySubscriptionCatalogRow,
+  .economyCommerceCatalogRow,
+  .economyWorkspaceSplitGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .economyPackageCatalogMeta {
+    justify-items: start;
+    text-align: left;
+  }
+
+  .economyEntitlementNotesField {
+    grid-column: span 1;
+  }
+
+  .economyEntitlementMeta,
+  .economyFeatureMeta,
+  .economyUsageMeta {
+    min-width: 0;
+    justify-items: start;
+    text-align: left;
+    padding-left: 0;
+    border-left: 0;
+    border-top: 1px solid rgba(197, 208, 236, 0.7);
+    padding-top: 12px;
+  }
+
+  .economySubscriptionCatalogMeta {
+    justify-items: start;
+    text-align: left;
+    padding-left: 0;
+    border-left: 0;
+    border-top: 1px solid rgba(197, 208, 236, 0.7);
+    padding-top: 12px;
+  }
+
+  .economyCommerceCatalogMeta {
+    justify-items: start;
+    text-align: left;
+    padding-left: 0;
+    border-left: 0;
+    border-top: 1px solid rgba(197, 208, 236, 0.7);
+    padding-top: 12px;
+  }
+
+  .economySupportRequestMeta {
+    justify-items: start;
+    text-align: left;
+    padding-left: 0;
+    border-left: 0;
+    border-top: 1px solid rgba(197, 208, 236, 0.7);
+    padding-top: 12px;
+  }
+}
+
+@media (max-width: 760px) {
+  .economyPackageFormGridPrimary,
+  .economyPackageFormGridSecondary,
+  .economyPackageScopeGrid,
+  .economyPackageScopeGridCompact,
+  .economySubscriptionPlanGridPrimary,
+  .economySubscriptionCycleGrid,
+  .economySubscriptionRuleGrid,
+  .economySubscriptionPackageLinkControls,
+  .economyCommerceGridPrimary,
+  .economyCommerceGridSecondary,
+  .economyCommerceGridTertiary,
+  .economyVisibilityFilterRow,
+  .economyEntitlementDraftGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .economyEntitlementRow,
+  .economyFeatureRow,
+  .economyUsageRow,
+  .economySupportRequestRow {
+    grid-template-columns: 1fr;
+  }
+
+  .economyPackageScopeHeader {
+    flex-direction: column;
+  }
+
+  .economyPackageScopeActions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .economySectionHeaderSplit,
+  .economyEditorActionBar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .adminEconomyPage .economySubscriptionEditorPanel,
+  .adminEconomyPage .economyPackageEditorPanel,
+  .instituteEconomyPage .economySubscriptionEditorPanel,
+  .adminEconomyPage .featurePlaceholder:not(.economySubscriptionEditorPanel):not(.economyPackageEditorPanel) {
+    padding: 18px;
+  }
 }
 
 .adminAppMain .buttonSecondary {

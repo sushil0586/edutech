@@ -47,8 +47,11 @@ test.describe("Student mutable attempt actions", () => {
     let examId: string | null = null;
     let attemptId: string | null = null;
     const now = new Date();
-    const startAt = new Date(now.getTime() - 5 * 60 * 1000);
-    const endAt = new Date(now.getTime() + 90 * 60 * 1000);
+    // Keep the exam window comfortably open across timezone/parsing differences
+    // on shared stage environments so student-start coverage never depends on
+    // minute-boundary or locale drift.
+    const startAt = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const endAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
     const resultPublishAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
     await loginAsRole(page, "student");
@@ -75,6 +78,19 @@ test.describe("Student mutable attempt actions", () => {
     try {
       await page.goto("/teacher/exams/new");
       await expect(page.getByRole("heading", { name: /create exam/i }).first()).toBeVisible();
+
+      const examSubjectSelect = page.locator('select[name="subject"]');
+      if (await examSubjectSelect.count()) {
+        const subjectOptions = await examSubjectSelect.locator("option").evaluateAll((options) =>
+          options
+            .map((option) => ({
+              value: (option as HTMLOptionElement).value,
+            }))
+            .filter((option) => option.value.trim().length > 0),
+        );
+        expect(subjectOptions.length).toBeGreaterThan(0);
+        await examSubjectSelect.selectOption(subjectOptions[0]!.value);
+      }
 
       await page.getByRole("textbox", { name: /exam title/i }).fill(examTitle);
       await page.getByRole("textbox", { name: /exam code/i }).fill(examCode);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 type InstituteOption = {
   id: string;
@@ -59,6 +59,11 @@ export function EconomyUnlockRuleManagementCard({
   subjects: SubjectOption[];
 }) {
   const [rules, setRules] = useState(initialRules);
+  const [workspaceView, setWorkspaceView] = useState<"editor" | "catalog" | "all">("editor");
+  const [catalogInstituteFilter, setCatalogInstituteFilter] = useState("all");
+  const [catalogRuleTypeFilter, setCatalogRuleTypeFilter] = useState("all");
+  const [catalogStatusFilter, setCatalogStatusFilter] = useState<"all" | "active" | "paused">("active");
+  const [catalogRowsToShow, setCatalogRowsToShow] = useState<"4" | "8" | "12">("8");
   const [editingId, setEditingId] = useState("");
   const [instituteId, setInstituteId] = useState(institutes[0]?.id ?? "");
   const [subjectId, setSubjectId] = useState("");
@@ -78,6 +83,26 @@ export function EconomyUnlockRuleManagementCard({
   const [error, setError] = useState("");
 
   const filteredSubjects = subjects.filter((subject) => subject.institute === instituteId);
+  const filteredRules = useMemo(() => {
+    return rules.filter((rule) => {
+      if (catalogInstituteFilter !== "all" && rule.institute !== catalogInstituteFilter) {
+        return false;
+      }
+      if (catalogRuleTypeFilter !== "all" && rule.rule_type !== catalogRuleTypeFilter) {
+        return false;
+      }
+      if (catalogStatusFilter === "active" && !rule.is_active) {
+        return false;
+      }
+      if (catalogStatusFilter === "paused" && rule.is_active) {
+        return false;
+      }
+      return true;
+    });
+  }, [catalogInstituteFilter, catalogRuleTypeFilter, catalogStatusFilter, rules]);
+  const visibleRules = filteredRules.slice(0, Number(catalogRowsToShow));
+  const activeRuleCount = rules.filter((item) => item.is_active).length;
+  const entitlementRuleCount = rules.filter((item) => item.rule_type === "entitlement").length;
 
   function resetForm() {
     setEditingId("");
@@ -97,6 +122,7 @@ export function EconomyUnlockRuleManagementCard({
   }
 
   function loadForEdit(rule: AdminUnlockRule) {
+    setWorkspaceView("editor");
     setEditingId(rule.id);
     setInstituteId(rule.institute);
     setSubjectId(rule.subject ?? "");
@@ -209,43 +235,42 @@ export function EconomyUnlockRuleManagementCard({
         {message ? <p className="feedbackBanner feedbackBannerSuccess">{message}</p> : null}
         {error ? <p className="feedbackBanner feedbackBannerError">{error}</p> : null}
 
-        <div className="setupFormGrid setupFormGridDense">
+        <div className="setupFormGrid setupFormGridDense" style={{ marginBottom: 16 }}>
           <label className="setupField">
-            <span>Institute</span>
-            <select value={instituteId} onChange={(event) => setInstituteId(event.target.value)}>
+            <span>Workspace view</span>
+            <select
+              aria-label="Unlock rule workspace view"
+              value={workspaceView}
+              onChange={(event) => setWorkspaceView(event.target.value as "editor" | "catalog" | "all")}
+            >
+              <option value="editor">Editor only</option>
+              <option value="catalog">Catalog only</option>
+              <option value="all">Editor and catalog</option>
+            </select>
+          </label>
+          <label className="setupField">
+            <span>Catalog institute filter</span>
+            <select
+              aria-label="Unlock rule institute filter"
+              value={catalogInstituteFilter}
+              onChange={(event) => setCatalogInstituteFilter(event.target.value)}
+            >
+              <option value="all">All institutes</option>
               {institutes.map((institute) => (
                 <option key={institute.id} value={institute.id}>
-                  {institute.name} ({institute.code}){institute.is_active ? "" : " - inactive"}
+                  {institute.name} ({institute.code})
                 </option>
               ))}
             </select>
           </label>
           <label className="setupField">
-            <span>Subject</span>
-            <select value={subjectId} onChange={(event) => setSubjectId(event.target.value)}>
-              <option value="">All subjects / no subject scope</option>
-              {filteredSubjects.map((subject) => (
-                <option key={subject.id} value={subject.id}>
-                  {subject.name}{subject.is_active ? "" : " - inactive"}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="setupField">
-            <span>Content type</span>
-            <input type="text" value={contentType} onChange={(event) => setContentType(event.target.value)} />
-          </label>
-          <label className="setupField">
-            <span>Content key</span>
-            <input type="text" value={contentKey} onChange={(event) => setContentKey(event.target.value)} />
-          </label>
-          <label className="setupField">
-            <span>Content label</span>
-            <input type="text" value={contentLabel} onChange={(event) => setContentLabel(event.target.value)} />
-          </label>
-          <label className="setupField">
-            <span>Rule type</span>
-            <select value={ruleType} onChange={(event) => setRuleType(event.target.value)}>
+            <span>Catalog rule type</span>
+            <select
+              aria-label="Unlock rule type filter"
+              value={catalogRuleTypeFilter}
+              onChange={(event) => setCatalogRuleTypeFilter(event.target.value)}
+            >
+              <option value="all">All rule types</option>
               <option value="stars_balance">Stars balance</option>
               <option value="entitlement">Entitlement</option>
               <option value="exam_completion">Exam completion</option>
@@ -255,54 +280,214 @@ export function EconomyUnlockRuleManagementCard({
             </select>
           </label>
           <label className="setupField">
-            <span>Required star balance</span>
-            <input min="0" type="number" value={requiredStarBalance} onChange={(event) => setRequiredStarBalance(event.target.value)} />
-          </label>
-          <label className="setupField">
-            <span>Required entitlement code</span>
-            <input type="text" value={requiredEntitlementCode} onChange={(event) => setRequiredEntitlementCode(event.target.value)} />
-          </label>
-          <label className="setupField">
-            <span>Required completion count</span>
-            <input min="0" type="number" value={requiredCompletionCount} onChange={(event) => setRequiredCompletionCount(event.target.value)} />
-          </label>
-          <label className="setupField">
-            <span>Required score %</span>
-            <input min="0" max="100" step="0.01" type="number" value={requiredScorePercentage} onChange={(event) => setRequiredScorePercentage(event.target.value)} />
-          </label>
-          <label className="setupField">
-            <span>Admin override allowed</span>
-            <select value={adminOverrideAllowed ? "yes" : "no"} onChange={(event) => setAdminOverrideAllowed(event.target.value === "yes")}>
-              <option value="yes">Yes</option>
-              <option value="no">No</option>
+            <span>Catalog status</span>
+            <select
+              aria-label="Unlock rule status filter"
+              value={catalogStatusFilter}
+              onChange={(event) => setCatalogStatusFilter(event.target.value as "all" | "active" | "paused")}
+            >
+              <option value="active">Active only</option>
+              <option value="all">All statuses</option>
+              <option value="paused">Paused only</option>
             </select>
           </label>
           <label className="setupField">
-            <span>Priority</span>
-            <input min="0" type="number" value={priority} onChange={(event) => setPriority(event.target.value)} />
-          </label>
-          <label className="setupField">
-            <span>Active status</span>
-            <select value={isActive ? "yes" : "no"} onChange={(event) => setIsActive(event.target.value === "yes")}>
-              <option value="yes">Active</option>
-              <option value="no">Paused</option>
+            <span>Catalog rows to show</span>
+            <select
+              aria-label="Unlock rule rows to show"
+              value={catalogRowsToShow}
+              onChange={(event) => setCatalogRowsToShow(event.target.value as "4" | "8" | "12")}
+            >
+              <option value="4">4 rows</option>
+              <option value="8">8 rows</option>
+              <option value="12">12 rows</option>
             </select>
           </label>
         </div>
 
-        <div className="resultCardActions">
-          <button className="button buttonPrimary" disabled={saving} onClick={() => void handleSubmit()} type="button">
-            {saving ? "Saving..." : editingId ? "Update Unlock Rule" : "Create Unlock Rule"}
-          </button>
-          <button className="button buttonGhost" disabled={saving} onClick={resetForm} type="button">
-            Clear Form
-          </button>
-        </div>
+        <section className="resultsSummaryGrid" style={{ marginBottom: 16 }}>
+          <article className="metricCard metricCardPrimary dashboardHeroCard">
+            <span>Total unlock rules</span>
+            <strong>{rules.length}</strong>
+            <small>Visible to platform operators.</small>
+          </article>
+          <article className="metricCard dashboardHeroCard">
+            <span>Active unlock rules</span>
+            <strong>{activeRuleCount}</strong>
+            <small>Currently enforcing an unlock condition.</small>
+          </article>
+          <article className="metricCard dashboardHeroCard">
+            <span>Entitlement rules</span>
+            <strong>{entitlementRuleCount}</strong>
+            <small>Access linked to entitlement possession.</small>
+          </article>
+          <article className="metricCard dashboardHeroCard">
+            <span>Filtered catalog rows</span>
+            <strong>{filteredRules.length}</strong>
+            <small>Before row trimming is applied.</small>
+          </article>
+        </section>
 
+        {workspaceView === "editor" || workspaceView === "all" ? (
+          <section className="featurePlaceholder economySubscriptionEditorPanel">
+            <strong>{editingId ? "Edit unlock rule" : "New unlock rule"}</strong>
+            <p className="academicSectionDescription">
+              Define the content target first, then configure which learner state unlocks it and whether support can
+              override the gate.
+            </p>
+
+            <div className="economyCompactStats">
+              <span>{rules.length} unlock rule{rules.length === 1 ? "" : "s"} in scope</span>
+              <span>{activeRuleCount} active</span>
+            </div>
+
+            <div className="economyFormSection">
+              <div className="economyFormSectionHeader">
+                <strong>Content target and scope</strong>
+                <span>
+                  Choose which institute and optional subject scope this unlock rule governs, then identify the target
+                  content.
+                </span>
+              </div>
+              <div className="economyCommerceGridPrimary">
+                <label className="setupField">
+                  <span>Institute</span>
+                  <select aria-label="Unlock institute" value={instituteId} onChange={(event) => setInstituteId(event.target.value)}>
+                    {institutes.map((institute) => (
+                      <option key={institute.id} value={institute.id}>
+                        {institute.name} ({institute.code}){institute.is_active ? "" : " - inactive"}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="setupField">
+                  <span>Subject</span>
+                  <select aria-label="Unlock subject" value={subjectId} onChange={(event) => setSubjectId(event.target.value)}>
+                    <option value="">All subjects / no subject scope</option>
+                    {filteredSubjects.map((subject) => (
+                      <option key={subject.id} value={subject.id}>
+                        {subject.name}{subject.is_active ? "" : " - inactive"}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="setupField">
+                  <span>Content type</span>
+                  <input aria-label="Unlock content type" type="text" value={contentType} onChange={(event) => setContentType(event.target.value)} />
+                </label>
+                <label className="setupField">
+                  <span>Content key</span>
+                  <input aria-label="Unlock content key" type="text" value={contentKey} onChange={(event) => setContentKey(event.target.value)} />
+                </label>
+                <label className="setupField">
+                  <span>Content label</span>
+                  <input aria-label="Unlock content label" type="text" value={contentLabel} onChange={(event) => setContentLabel(event.target.value)} />
+                </label>
+                <label className="setupField">
+                  <span>Rule type</span>
+                  <select aria-label="Unlock rule type editor" value={ruleType} onChange={(event) => setRuleType(event.target.value)}>
+                    <option value="stars_balance">Stars balance</option>
+                    <option value="entitlement">Entitlement</option>
+                    <option value="exam_completion">Exam completion</option>
+                    <option value="score_threshold">Score threshold</option>
+                    <option value="admin_approval">Admin approval</option>
+                    <option value="composite">Composite</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            <div className="economyFormSection">
+              <div className="economyFormSectionHeader">
+                <strong>Unlock requirements</strong>
+                <span>
+                  Set the commercial, entitlement, completion, score, and override conditions that unlock this
+                  content.
+                </span>
+              </div>
+              <div className="economyCommerceGridTertiary">
+                <label className="setupField">
+                  <span>Required star balance</span>
+                  <input
+                    aria-label="Unlock required star balance"
+                    min="0"
+                    type="number"
+                    value={requiredStarBalance}
+                    onChange={(event) => setRequiredStarBalance(event.target.value)}
+                  />
+                </label>
+                <label className="setupField">
+                  <span>Required entitlement code</span>
+                  <input
+                    aria-label="Unlock required entitlement code"
+                    type="text"
+                    value={requiredEntitlementCode}
+                    onChange={(event) => setRequiredEntitlementCode(event.target.value)}
+                  />
+                </label>
+                <label className="setupField">
+                  <span>Required completion count</span>
+                  <input
+                    aria-label="Unlock required completion count"
+                    min="0"
+                    type="number"
+                    value={requiredCompletionCount}
+                    onChange={(event) => setRequiredCompletionCount(event.target.value)}
+                  />
+                </label>
+                <label className="setupField">
+                  <span>Required score %</span>
+                  <input
+                    aria-label="Unlock required score percentage"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    type="number"
+                    value={requiredScorePercentage}
+                    onChange={(event) => setRequiredScorePercentage(event.target.value)}
+                  />
+                </label>
+                <label className="setupField">
+                  <span>Admin override allowed</span>
+                  <select
+                    aria-label="Unlock admin override allowed"
+                    value={adminOverrideAllowed ? "yes" : "no"}
+                    onChange={(event) => setAdminOverrideAllowed(event.target.value === "yes")}
+                  >
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                  </select>
+                </label>
+                <label className="setupField">
+                  <span>Priority</span>
+                  <input aria-label="Unlock priority" min="0" type="number" value={priority} onChange={(event) => setPriority(event.target.value)} />
+                </label>
+                <label className="setupField">
+                  <span>Active status</span>
+                  <select aria-label="Unlock active status" value={isActive ? "yes" : "no"} onChange={(event) => setIsActive(event.target.value === "yes")}>
+                    <option value="yes">Active</option>
+                    <option value="no">Paused</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            <div className="economyEditorActionBar">
+              <button className="button buttonPrimary" disabled={saving} onClick={() => void handleSubmit()} type="button">
+                {saving ? "Saving..." : editingId ? "Update Unlock Rule" : "Create Unlock Rule"}
+              </button>
+              <button className="button buttonGhost" disabled={saving} onClick={resetForm} type="button">
+                Clear Form
+              </button>
+            </div>
+          </section>
+        ) : null}
+
+        {workspaceView === "catalog" || workspaceView === "all" ? (
         <div className="weakTopicStack">
-          {rules.map((rule) => (
-            <div className="weakTopicRow" key={rule.id}>
-              <div>
+          {visibleRules.map((rule) => (
+            <div className="weakTopicRow economyCommerceCatalogRow" key={rule.id}>
+              <div className="economyCommerceCatalogMain">
                 <strong>{rule.content_label || `${rule.content_type}:${rule.content_key}`}</strong>
                 <span>
                   {rule.institute_name} · {rule.rule_type.replaceAll("_", " ")}
@@ -316,7 +501,7 @@ export function EconomyUnlockRuleManagementCard({
                 </span>
                 <span>Updated {formatDateTime(rule.updated_at)}</span>
               </div>
-              <div className="weakTopicMeta">
+              <div className="weakTopicMeta economyCommerceCatalogMeta">
                 <strong>{rule.is_active ? "Active" : "Paused"}</strong>
                 <button className="button buttonGhost" onClick={() => loadForEdit(rule)} type="button">
                   Edit
@@ -324,8 +509,13 @@ export function EconomyUnlockRuleManagementCard({
               </div>
             </div>
           ))}
-          {rules.length === 0 ? <p>No unlock rules exist yet.</p> : null}
+          {visibleRules.length === 0 ? (
+            <div className="featurePlaceholder">
+              <p>No unlock rules match the current catalog filters.</p>
+            </div>
+          ) : null}
         </div>
+        ) : null}
       </div>
     </article>
   );

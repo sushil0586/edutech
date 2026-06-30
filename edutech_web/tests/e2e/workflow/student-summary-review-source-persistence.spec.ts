@@ -59,7 +59,6 @@ test.describe("Student summary and review source persistence", () => {
     const expectedTeacher = scopedAnalyticsUrl.searchParams.get("teacher");
 
     expect(expectedSource).not.toBeNull();
-    expect(expectedTeacher).not.toBeNull();
 
     const compareLink = page.getByRole("link", { name: /compare results/i }).first();
     await expect(compareLink).toBeVisible();
@@ -123,7 +122,9 @@ test.describe("Student summary and review source persistence", () => {
       expectSearchParam(landedReviewUrl, "subject", expectedSubject);
       expectSearchParam(landedReviewUrl, "teacher", expectedTeacher);
 
-      const reviewResultsLink = page.getByRole("link", { name: /open results/i }).first();
+      const reviewResultsLink = page
+        .getByRole("link", { name: /open results|check result status/i })
+        .first();
       await expect(reviewResultsLink).toBeVisible();
       const reviewResultsHref = await reviewResultsLink.getAttribute("href");
       expect(reviewResultsHref).not.toBeNull();

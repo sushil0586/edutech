@@ -754,12 +754,14 @@ export async function fetchTeacherOptionCatalog() {
 }
 
 export async function fetchTeacherStudents(filters: {
+  institute?: string | null;
   academic_year: string;
   program: string;
   cohort?: string | null;
 }) {
   const response = await requestTeacherBuilderJson<PaginatedResponse<LookupStudent>>(
     `/api/v1/students/${toQueryString({
+      institute: filters.institute,
       is_active: true,
       academic_year: filters.academic_year,
       program: filters.program,

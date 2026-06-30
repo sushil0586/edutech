@@ -99,17 +99,17 @@ test.describe("Student exam detail workspace", () => {
     await expect(primaryActionRegion).toBeVisible();
 
     await expectOneOfVisible([
-      primaryActionRegion.getByRole("link", { name: /resume .*|open attempt summary|open answer review|open wallet/i }).first(),
-      primaryActionRegion.getByRole("button", { name: /start .*|unlock with .*stars|not available yet/i }).first(),
+      primaryActionRegion.getByRole("link", { name: /resume .*|open attempt summary|open answer review|open summary|open review|open wallet/i }).first(),
+      primaryActionRegion.getByRole("button", { name: /start$|start .*|unlock with .*stars|not available yet/i }).first(),
     ]);
 
     const safeHandoff = await (async () => {
-      const reviewLink = primaryActionRegion.getByRole("link", { name: /open answer review/i }).first();
+      const reviewLink = primaryActionRegion.getByRole("link", { name: /open answer review|open review/i }).first();
       if (await reviewLink.isVisible().catch(() => false)) {
         return reviewLink;
       }
 
-      const summaryLink = primaryActionRegion.getByRole("link", { name: /open attempt summary/i }).first();
+      const summaryLink = primaryActionRegion.getByRole("link", { name: /open attempt summary|open summary/i }).first();
       if (await summaryLink.isVisible().catch(() => false)) {
         return summaryLink;
       }

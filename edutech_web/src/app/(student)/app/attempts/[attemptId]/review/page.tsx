@@ -172,6 +172,9 @@ export default async function AttemptReviewPage({
   const { attemptId } = await params;
   const { error, subject, source: sourceParam, teacher } = await searchParams;
   const { source: reviewSource, review, practiceExams } = await loadAttemptReview(attemptId);
+  const scopedSubjectQueryParam = subject?.trim() || undefined;
+  const scopedSourceQueryParam = sourceParam?.trim() || undefined;
+  const scopedTeacherQueryParam = teacher?.trim() || undefined;
 
   if (!review) {
     return (
@@ -203,7 +206,11 @@ export default async function AttemptReviewPage({
               ? ["Attempt review endpoint", "Active student web session"]
               : ["Review availability rules", "Attempt review endpoint"]
           }
-          ctaHref="/app/results"
+          ctaHref={buildFilterHref("/app/results", [
+            ["subject", scopedSubjectQueryParam],
+            ["source", scopedSourceQueryParam],
+            ["teacher", scopedTeacherQueryParam],
+          ])}
           ctaLabel="Check Result Status"
           statusLabel={
             reviewSource === "unconfigured"
@@ -226,12 +233,12 @@ export default async function AttemptReviewPage({
     subjectName: practiceFocus.subjectName,
   });
   const scopedSubjectParam =
-    subject?.trim() || practiceFocus.subjectName?.trim() || undefined;
+    scopedSubjectQueryParam || practiceFocus.subjectName?.trim() || undefined;
   const scopedPracticeHref = buildPracticeHref({
     subjectName: scopedSubjectParam ?? null,
     topicName: practiceFocus.topicName ?? null,
-    source: sourceParam?.trim() ?? null,
-    teacher: teacher?.trim() ?? null,
+    source: scopedSourceQueryParam ?? null,
+    teacher: scopedTeacherQueryParam ?? null,
   });
   const reviewRecoverySequence =
     practiceFollowUp.exam && practiceFollowUp.action.mode === "unlock"
@@ -295,8 +302,8 @@ export default async function AttemptReviewPage({
             className="button buttonPrimary"
             href={buildFilterHref(`/app/attempts/${review.id}/summary`, [
               ["subject", scopedSubjectParam],
-              ["source", sourceParam?.trim()],
-              ["teacher", teacher?.trim()],
+              ["source", scopedSourceQueryParam],
+              ["teacher", scopedTeacherQueryParam],
             ])}
           >
             {stateCopy.summaryCta}
@@ -305,8 +312,8 @@ export default async function AttemptReviewPage({
             className="button buttonSecondary"
             href={buildFilterHref("/app/results", [
               ["subject", scopedSubjectParam],
-              ["source", sourceParam?.trim()],
-              ["teacher", teacher?.trim()],
+              ["source", scopedSourceQueryParam],
+              ["teacher", scopedTeacherQueryParam],
             ])}
           >
             {stateCopy.resultsCta}
@@ -315,8 +322,8 @@ export default async function AttemptReviewPage({
             className="button buttonGhost"
             href={buildFilterHref("/app/attempts", [
               ["subject", scopedSubjectParam],
-              ["source", sourceParam?.trim()],
-              ["teacher", teacher?.trim()],
+              ["source", scopedSourceQueryParam],
+              ["teacher", scopedTeacherQueryParam],
             ])}
           >
             Open Attempts
@@ -464,8 +471,8 @@ export default async function AttemptReviewPage({
               className="button buttonGhost"
               href={buildFilterHref("/app/attempts", [
                 ["subject", scopedSubjectParam],
-                ["source", sourceParam?.trim()],
-                ["teacher", teacher?.trim()],
+                ["source", scopedSourceQueryParam],
+                ["teacher", scopedTeacherQueryParam],
               ])}
             >
               Open Attempts
@@ -510,8 +517,8 @@ export default async function AttemptReviewPage({
               className="button buttonGhost"
               href={buildFilterHref("/app/results", [
                 ["subject", scopedSubjectParam],
-                ["source", sourceParam?.trim()],
-                ["teacher", teacher?.trim()],
+                ["source", scopedSourceQueryParam],
+                ["teacher", scopedTeacherQueryParam],
               ])}
             >
               Open Results
@@ -542,8 +549,8 @@ export default async function AttemptReviewPage({
               className="button buttonSecondary"
               href={buildFilterHref(`/app/attempts/${review.id}/summary`, [
                 ["subject", scopedSubjectParam],
-                ["source", sourceParam?.trim()],
-                ["teacher", teacher?.trim()],
+                ["source", scopedSourceQueryParam],
+                ["teacher", scopedTeacherQueryParam],
               ])}
             >
               Back To Summary
@@ -552,8 +559,8 @@ export default async function AttemptReviewPage({
               className="button buttonGhost"
               href={buildFilterHref("/app/attempts", [
                 ["subject", scopedSubjectParam],
-                ["source", sourceParam?.trim()],
-                ["teacher", teacher?.trim()],
+                ["source", scopedSourceQueryParam],
+                ["teacher", scopedTeacherQueryParam],
               ])}
             >
               Stay In Attempts

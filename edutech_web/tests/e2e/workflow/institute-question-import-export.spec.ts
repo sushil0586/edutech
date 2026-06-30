@@ -33,6 +33,21 @@ async function captureDownload(page: Page, trigger: () => Promise<void>) {
   return downloadPromise;
 }
 
+async function expectInstituteImportBlockedState(page: Page) {
+  const blockedTitle = page.getByRole("heading", {
+    name: /question-bank bulk import is not enabled for this institute yet/i,
+  });
+
+  if ((await blockedTitle.count()) === 0) {
+    return false;
+  }
+
+  await expect(page.getByText(/feature entitlement required/i)).toBeVisible();
+  await expect(page.getByText(/subscription controlled/i)).toBeVisible();
+  await expect(page.getByRole("link", { name: /open economy oversight|back to question bank/i })).toBeVisible();
+  return true;
+}
+
 test.describe("Institute question import downloads", () => {
   test.skip(
     testRequiresRole("institute"),
@@ -49,6 +64,12 @@ test.describe("Institute question import downloads", () => {
 
     await page.goto("/institute/question-bank/import");
     await expect(page.getByRole("heading", { name: /import questions/i }).first()).toBeVisible();
+    if (await expectInstituteImportBlockedState(page)) {
+      await page.goto("/institute/question-bank/comprehension/import");
+      await expect(page.getByRole("heading", { name: /import comprehension sets/i }).first()).toBeVisible();
+      await expectInstituteImportBlockedState(page);
+      return;
+    }
 
     const questionTemplate = await captureDownload(page, async () => {
       await page.getByRole("button", { name: /^download template$/i }).click();
@@ -96,6 +117,12 @@ test.describe("Institute question import downloads", () => {
 
     await page.goto("/institute/question-bank/import");
     await expect(page.getByRole("heading", { name: /import questions/i }).first()).toBeVisible();
+    if (await expectInstituteImportBlockedState(page)) {
+      await page.goto("/institute/question-bank/comprehension/import");
+      await expect(page.getByRole("heading", { name: /import comprehension sets/i }).first()).toBeVisible();
+      await expectInstituteImportBlockedState(page);
+      return;
+    }
     await expect(page.getByText(/expected csv headers/i)).toBeVisible();
     await expect(page.getByText(/single correct mcq/i)).toBeVisible();
 

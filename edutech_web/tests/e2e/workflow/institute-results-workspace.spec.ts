@@ -2,6 +2,17 @@ import { expect, test, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectInstituteWorkspace } from "../helpers/navigation";
 
+async function expectAnyVisible(page: Page, patterns: RegExp[]) {
+  for (const pattern of patterns) {
+    const locator = page.getByText(pattern).first();
+    if (await locator.isVisible().catch(() => false)) {
+      await expect(locator).toBeVisible();
+      return;
+    }
+  }
+  throw new Error(`Expected one of these patterns to be visible: ${patterns.map(String).join(", ")}`);
+}
+
 async function expectInstituteResultsWorkspace(page: Page) {
   await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
   await expect(page.getByRole("combobox", { name: /exam state/i })).toBeVisible();
@@ -180,7 +191,12 @@ test.describe("Institute results workspace", () => {
     await page.goto(liveMonitorHref!);
     await expect(page).toHaveURL(/\/institute\/results\/live(?:\?.*)?$/);
     await expect(page.getByText(/^live monitor$/i).first()).toBeVisible();
-    await expect(page.getByText(/intervention queue/i).first()).toBeVisible();
+    await expectAnyVisible(page, [
+      /intervention queue/i,
+      /live monitor unavailable/i,
+      /no active warning pressure returned from live monitoring/i,
+      /active alerts/i,
+    ]);
 
     await page.goto("/institute/results");
     await expectInstituteResultsWorkspace(page);

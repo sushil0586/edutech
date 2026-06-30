@@ -45,7 +45,9 @@ test.describe("Admin search workspace", () => {
     await page.getByRole("link", { name: /^live records$/i }).click();
     await expect(page).toHaveURL(/source=live/);
 
-    await page.getByRole("link", { name: /^workspace pages$/i }).click();
+    const workspacePagesLink = page.getByRole("link", { name: /^workspace pages$/i });
+    await expect(workspacePagesLink).toHaveAttribute("href", /source=catalog/);
+    await workspacePagesLink.click();
     await expect(page).toHaveURL(/source=catalog/);
 
     await page.getByRole("link", { name: /group by section/i }).click();

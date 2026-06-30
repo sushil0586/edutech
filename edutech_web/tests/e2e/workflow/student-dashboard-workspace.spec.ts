@@ -6,18 +6,36 @@ async function gotoWithRetry(page: Page, url: string, attempts = 3) {
   let lastError: unknown = null;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
-      await page.goto(url);
+      await page.goto(url, { waitUntil: "domcontentloaded" });
       return;
     } catch (error) {
       lastError = error;
       const message = error instanceof Error ? error.message : String(error);
-      if (!message.includes("ERR_CONNECTION_REFUSED") || attempt === attempts) {
+      if (message.includes("ERR_ABORTED") && page.url().includes(url)) {
+        return;
+      }
+      if (
+        (!message.includes("ERR_CONNECTION_REFUSED") && !message.includes("ERR_ABORTED")) ||
+        attempt === attempts
+      ) {
         throw error;
       }
       await page.waitForTimeout(1500 * attempt);
     }
   }
   throw lastError;
+}
+
+async function followLinkTarget(
+  page: Page,
+  locator: ReturnType<Page["getByRole"]> | ReturnType<Page["locator"]>,
+  expectedUrl: RegExp,
+) {
+  await expect(locator).toBeVisible();
+  const href = await locator.getAttribute("href");
+  expect(href).toBeTruthy();
+  await gotoWithRetry(page, href!);
+  await expect(page).toHaveURL(expectedUrl);
 }
 
 test.describe("Student dashboard workspace", () => {
@@ -108,17 +126,13 @@ test.describe("Student dashboard workspace", () => {
     }
 
     const attemptTimelineLink = page.getByRole("link", { name: /open attempt timeline/i }).first();
-    await expect(attemptTimelineLink).toBeVisible();
-    await attemptTimelineLink.click();
-    await expect(page).toHaveURL(/\/app\/attempts(?:\?.*)?$/);
+    await followLinkTarget(page, attemptTimelineLink, /\/app\/attempts(?:\?.*)?$/);
 
     await gotoWithRetry(page, "/app/dashboard");
     await expect(page.getByText(/action queue/i).first()).toBeVisible();
 
     const walletLink = page.getByRole("link", { name: /open wallet/i }).first();
-    await expect(walletLink).toBeVisible();
-    await walletLink.click();
-    await expect(page).toHaveURL(/\/app\/wallet(?:\?.*)?$/);
+    await followLinkTarget(page, walletLink, /\/app\/wallet(?:\?.*)?$/);
 
     await gotoWithRetry(page, "/app/dashboard");
     await expect(page.getByText(/recommended for you/i).first()).toBeVisible();
@@ -127,25 +141,34 @@ test.describe("Student dashboard workspace", () => {
       .locator(".studentDashboardRecommendation")
       .getByRole("link")
       .first();
-    await expect(primaryRecommendationAction).toBeVisible();
-    await primaryRecommendationAction.click();
-    await expect(page).toHaveURL(
+    await followLinkTarget(
+      page,
+      primaryRecommendationAction,
       /\/app\/(attempts\/[^/?#]+(?:\/summary)?|results|exams\/[^/?#]+)(?:\?.*)?$/,
     );
 
     await gotoWithRetry(page, "/app/dashboard");
     await expect(page.getByText(/available for you/i).first()).toBeVisible();
-    await page.getByRole("link", { name: /view all/i }).first().click();
-    await expect(page).toHaveURL(/\/app\/exams(?:\?.*)?$/);
+    await followLinkTarget(
+      page,
+      page.getByRole("link", { name: /^view all$/i }).first(),
+      /\/app\/exams(?:\?.*)?$/,
+    );
 
     await gotoWithRetry(page, "/app/dashboard");
     await expect(page.getByText(/your progress/i).first()).toBeVisible();
-    await page.getByRole("link", { name: /view detailed report/i }).first().click();
-    await expect(page).toHaveURL(/\/app\/analytics(?:\?.*)?$/);
+    await followLinkTarget(
+      page,
+      page.getByRole("link", { name: /view detailed report/i }).first(),
+      /\/app\/analytics(?:\?.*)?$/,
+    );
 
     await gotoWithRetry(page, "/app/dashboard");
     await expect(page.getByText(/latest activity/i).first()).toBeVisible();
-    await page.getByRole("link", { name: /^view all$/i }).last().click();
-    await expect(page).toHaveURL(/\/app\/results(?:\?.*)?$/);
+    await followLinkTarget(
+      page,
+      page.getByRole("link", { name: /^view all$/i }).last(),
+      /\/app\/results(?:\?.*)?$/,
+    );
   });
 });

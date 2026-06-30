@@ -40,6 +40,14 @@ test.describe("Institute family preset builder handoff", () => {
 
       await page.goto(`/institute/exams/advanced?preset_pack=${encodeURIComponent(presetId)}`);
       await expect(page.getByRole("heading", { name: /advanced exam builder/i }).first()).toBeVisible();
+      const blockedHeading = page.getByRole("heading", {
+        name: /advanced exam builder is not enabled for this institute yet/i,
+      }).first();
+      if (await blockedHeading.isVisible().catch(() => false)) {
+        await expect(page.getByText(/feature entitlement required/i).first()).toBeVisible();
+        await expect(page.getByText(/active institute feature entitlement/i).first()).toBeVisible();
+        return;
+      }
       await expect(
         page.getByText(new RegExp(`active pack:\\s*${pack!.label}`, "i")),
       ).toBeVisible({ timeout: 30000 });

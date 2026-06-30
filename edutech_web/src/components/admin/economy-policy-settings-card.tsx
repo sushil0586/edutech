@@ -159,46 +159,52 @@ export function EconomyPolicySettingsCard({
         {message ? <p className="feedbackBanner feedbackBannerSuccess">{message}</p> : null}
         {error ? <p className="feedbackBanner feedbackBannerError">{error}</p> : null}
 
-        <div className="setupFormGrid setupFormGridDense">
-          <label className="setupField">
-            <span>Institute admin can grant stars</span>
-            <select
-              value={canGrantStars ? "yes" : "no"}
-              onChange={(event) => setCanGrantStars(event.target.value === "yes")}
-            >
-              <option value="yes">Yes</option>
-              <option value="no">No</option>
-            </select>
-          </label>
-          <label className="setupField">
-            <span>Max stars per grant</span>
-            <input
-              min="1"
-              type="number"
-              value={maxGrantStars}
-              onChange={(event) => setMaxGrantStars(event.target.value)}
-            />
-          </label>
-          <label className="setupField">
-            <span>Institute admin can confirm orders</span>
-            <select
-              value={canConfirmOrders ? "yes" : "no"}
-              onChange={(event) => setCanConfirmOrders(event.target.value === "yes")}
-            >
-              <option value="yes">Yes</option>
-              <option value="no">No</option>
-            </select>
-          </label>
-          <label className="setupField">
-            <span>Max order amount ({currency})</span>
-            <input
-              min="0.01"
-              step="0.01"
-              type="number"
-              value={maxConfirmAmount}
-              onChange={(event) => setMaxConfirmAmount(event.target.value)}
-            />
-          </label>
+        <div className="economyFormSection">
+          <div className="economyFormSectionHeader">
+            <strong>Support-operability limits</strong>
+            <span>Control how far institute admins can act in support lanes without getting platform-level catalog authority.</span>
+          </div>
+          <div className="economyCommerceGridPrimary">
+            <label className="setupField">
+              <span>Institute admin can grant stars</span>
+              <select
+                value={canGrantStars ? "yes" : "no"}
+                onChange={(event) => setCanGrantStars(event.target.value === "yes")}
+              >
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </select>
+            </label>
+            <label className="setupField">
+              <span>Max stars per grant</span>
+              <input
+                min="1"
+                type="number"
+                value={maxGrantStars}
+                onChange={(event) => setMaxGrantStars(event.target.value)}
+              />
+            </label>
+            <label className="setupField">
+              <span>Institute admin can confirm orders</span>
+              <select
+                value={canConfirmOrders ? "yes" : "no"}
+                onChange={(event) => setCanConfirmOrders(event.target.value === "yes")}
+              >
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </select>
+            </label>
+            <label className="setupField">
+              <span>Max order amount ({currency})</span>
+              <input
+                min="0.01"
+                step="0.01"
+                type="number"
+                value={maxConfirmAmount}
+                onChange={(event) => setMaxConfirmAmount(event.target.value)}
+              />
+            </label>
+          </div>
         </div>
 
         <div className="resultCardActions">
@@ -214,12 +220,12 @@ export function EconomyPolicySettingsCard({
               {auditHistory.slice(0, 5).map((entry) => {
                 const changedFieldNames = Object.keys(entry.metadata?.changed_fields ?? {});
                 return (
-                  <div className="weakTopicRow" key={entry.id}>
-                    <div>
+                  <div className="weakTopicRow economyCommerceCatalogRow" key={entry.id}>
+                    <div className="economyCommerceCatalogMain">
                       <strong>{entry.user_label || "Unknown user"}</strong>
                       <span>{entry.message}</span>
                     </div>
-                    <div className="weakTopicMeta">
+                    <div className="weakTopicMeta economyCommerceCatalogMeta">
                       <strong>{formatDateTime(entry.created_at)}</strong>
                       <span>
                         {changedFieldNames.length > 0

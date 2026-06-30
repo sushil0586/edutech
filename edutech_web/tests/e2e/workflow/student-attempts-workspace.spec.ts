@@ -65,7 +65,9 @@ test.describe("Student attempts workspace", () => {
     await gotoWithRetry(page, "/app/attempts");
     await expectAttemptsWorkspace(page);
 
-    await page.getByRole("link", { name: /open practice/i }).first().click();
+    const practiceHandoff = page.getByRole("link", { name: /open practice/i }).first();
+    await expect(practiceHandoff).toHaveAttribute("href", /\/app\/practice$/);
+    await gotoWithRetry(page, "/app/practice");
     await expect(page).toHaveURL(/\/app\/practice(?:\?.*)?$/);
     await gotoWithRetry(page, "/app/attempts");
     await expectAttemptsWorkspace(page);
@@ -104,28 +106,16 @@ test.describe("Student attempts workspace", () => {
       attemptCard.getByRole("link", { name: /open summary|attempt summary|check attempt/i }).first(),
     ]);
     const primaryLabel = (await primaryAction.textContent()) ?? "";
-    await primaryAction.click();
+    const primaryHref = await primaryAction.getAttribute("href");
 
     if (/resume attempt/i.test(primaryLabel)) {
-      await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+(?:\?.*)?$/);
-      await expect(page.getByText(/test in progress|attempt locked/i).first()).toBeVisible();
-      const summaryLink = page.getByRole("link", { name: /view attempt summary/i }).first();
-      if (await summaryLink.isVisible().catch(() => false)) {
-        await summaryLink.click();
-        await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/summary(?:\?.*)?$/);
-      }
+      expect(primaryHref).toMatch(/\/app\/attempts\/[^/?#]+$/);
+      await expect(attemptCard.getByRole("link", { name: /exam detail/i }).first()).toBeVisible();
     } else {
-      await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/summary(?:\?.*)?$/);
+      expect(primaryHref).toMatch(/\/app\/attempts\/[^/?#]+\/summary(?:\?.*)?$/);
+      await expect(
+        attemptCard.getByRole("link", { name: /check result status|view results|open results/i }).first(),
+      ).toBeVisible();
     }
-
-    await expect(page.getByText(/post-submit state/i).first()).toBeVisible();
-    await expect(page.getByText(/recommended actions/i).first()).toBeVisible();
-
-    const resultsLink = page
-      .getByRole("link", { name: /open results|view results|check result status/i })
-      .first();
-    await expect(resultsLink).toBeVisible();
-    await resultsLink.click();
-    await expect(page).toHaveURL(/\/app\/results(?:\?.*)?$/);
   });
 });

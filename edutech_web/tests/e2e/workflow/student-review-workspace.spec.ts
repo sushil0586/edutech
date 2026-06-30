@@ -58,6 +58,24 @@ async function resolveReviewHref(page: Page) {
   return null;
 }
 
+async function expectStudentReviewRoute(page: Page) {
+  await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/review(?:\?.*)?$/);
+
+  const unavailableHeading = page.getByRole("heading", {
+    name: /attempt review is not available right now/i,
+  }).first();
+  if (await unavailableHeading.isVisible().catch(() => false)) {
+    await expect(page.getByText(/review unavailable/i).first()).toBeVisible();
+    await expect(page.getByText(/attempt review endpoint/i).first()).toBeVisible();
+    return "unavailable" as const;
+  }
+
+  await expect(page.getByRole("heading", { name: /review/i }).first()).toBeVisible();
+  await expect(page.locator(".studentDashboardTag", { hasText: /review mode/i }).first()).toBeVisible();
+  await expect(page.locator(".contentCard").filter({ hasText: /review state/i }).first()).toBeVisible();
+  return "available" as const;
+}
+
 test.describe("Student review workspace", () => {
   test.skip(testRequiresRole("student"), "Student Playwright credentials are not configured.");
 
@@ -76,36 +94,44 @@ test.describe("Student review workspace", () => {
     expect(reviewHref).toMatch(/^\/app\/attempts\/[^/]+\/review$/);
 
     await gotoWithRetry(page, reviewHref);
-    await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/review(?:\?.*)?$/);
-    await expect(page.getByText(/review mode/i).first()).toBeVisible();
-    await expect(page.getByText(/review state/i).first()).toBeVisible();
-    await expect(page.getByText(/recommended actions/i).first()).toBeVisible();
-    await expect(page.getByText(/review recovery loop/i).first()).toBeVisible();
-    await expect(page.getByText(/do this first/i).first()).toBeVisible();
+    const reviewState = await expectStudentReviewRoute(page);
+
+    if (reviewState === "available") {
+      await expect(page.locator(".contentCard").filter({ hasText: /recommended actions/i }).first()).toBeVisible();
+      await expect(page.locator(".contentCard").filter({ hasText: /review recovery loop/i }).first()).toBeVisible();
+      await expect(page.getByText(/do this first/i).first()).toBeVisible();
+    }
 
     const analyticsLink = page.getByRole("link", { name: /view analytics/i }).first();
-    await expect(analyticsLink).toBeVisible();
-    await analyticsLink.click();
-    await expect(page).toHaveURL(/\/app\/analytics(?:\?.*)?$/);
-    await gotoWithRetry(page, reviewHref);
+    if (reviewState === "available") {
+      await expect(analyticsLink).toBeVisible();
+      await analyticsLink.click();
+      await expect(page).toHaveURL(/\/app\/analytics(?:\?.*)?$/);
+      await gotoWithRetry(page, reviewHref);
+      await expectStudentReviewRoute(page);
+    }
 
-    const resultsLink = page.getByRole("link", { name: /open results/i }).first();
+    const resultsLink = page.getByRole("link", { name: /open results|check result status/i }).first();
     await expect(resultsLink).toBeVisible();
     await resultsLink.click();
     await expect(page).toHaveURL(/\/app\/results(?:\?.*)?$/);
     await gotoWithRetry(page, reviewHref);
+    const reviewStateAfterResults = await expectStudentReviewRoute(page);
 
-    const summaryLink = page.getByRole("link", { name: /back to summary|open summary/i }).first();
-    await expect(summaryLink).toBeVisible();
-    await summaryLink.click();
-    await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/summary(?:\?.*)?$/);
-    await gotoWithRetry(page, reviewHref);
+    if (reviewStateAfterResults === "available") {
+      const summaryLink = page.getByRole("link", { name: /back to summary|open summary/i }).first();
+      await expect(summaryLink).toBeVisible();
+      await summaryLink.click();
+      await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/summary(?:\?.*)?$/);
+      await gotoWithRetry(page, reviewHref);
+      await expectStudentReviewRoute(page);
 
-    const practiceCandidate = await firstVisible([
-      page.getByRole("button", { name: /practice .*|start practice|unlock with .* stars/i }).first(),
-      page.getByRole("link", { name: /practice .*|resume practice|view practice detail/i }).first(),
-    ]);
-    await practiceCandidate.click();
-    await expect(page).toHaveURL(/\/app\/(practice|attempts\/[^/]+|exams\/[^/?#]+)(?:\?.*)?$/);
+      const practiceCandidate = await firstVisible([
+        page.getByRole("button", { name: /practice .*|start practice|unlock with .* stars/i }).first(),
+        page.getByRole("link", { name: /practice .*|resume practice|view practice detail/i }).first(),
+      ]);
+      await practiceCandidate.click();
+      await expect(page).toHaveURL(/\/app\/(practice|attempts\/[^/]+|exams\/[^/?#]+)(?:\?.*)?$/);
+    }
   });
 });

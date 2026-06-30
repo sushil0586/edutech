@@ -23,9 +23,9 @@ test.describe("Institute question bank detail routes", () => {
 
     await expect(page).toHaveURL(/\/institute\/question-bank\/[^/?#]+(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /edit question|duplicate question/i }).first()).toBeVisible();
-    await expect(page.getByText(/tags and reuse metadata/i).first()).toBeVisible();
-    await expect(page.getByText(/attachments and media/i).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /back to question bank|back to bank/i }).first()).toBeVisible();
+    await expect(page.getByText(/question identity/i).first()).toBeVisible();
+    await expect(page.getByText(/content and scoring/i).first()).toBeVisible();
+    await expect(page.getByText(/answer structure/i).first()).toBeVisible();
 
     await page.goto("/institute/question-bank");
 

@@ -48,6 +48,21 @@ async function resolveSummaryHref(page: Page) {
   return null;
 }
 
+async function expectReviewRouteOrUnavailable(page: Page) {
+  await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/review(?:\?.*)?$/);
+  const unavailableHeading = page.getByRole("heading", {
+    name: /attempt review is not available right now/i,
+  }).first();
+  if (await unavailableHeading.isVisible().catch(() => false)) {
+    await expect(page.getByText(/review unavailable/i).first()).toBeVisible();
+    return "unavailable" as const;
+  }
+
+  await expect(page.getByRole("heading", { name: /review/i }).first()).toBeVisible();
+  await expect(page.locator(".contentCard").filter({ hasText: /review state/i }).first()).toBeVisible();
+  return "available" as const;
+}
+
 test.describe("Student cross-browser attempts and summary sanity", () => {
   test.skip(testRequiresRole("student"), "Student Playwright credentials are not configured.");
 
@@ -88,9 +103,7 @@ test.describe("Student cross-browser attempts and summary sanity", () => {
       .first();
     if (await reviewLink.isVisible().catch(() => false)) {
       await reviewLink.click();
-      await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/review(?:\?.*)?$/);
-      await expect(page.getByText(/review mode/i).first()).toBeVisible();
-      await expect(page.getByText(/review state/i).first()).toBeVisible();
+      await expectReviewRouteOrUnavailable(page);
     }
   });
 });

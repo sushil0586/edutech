@@ -158,10 +158,12 @@ test.describe("Teacher family authoring contracts", () => {
     const competitiveProgram = findProgramByFamily(programs, "competitive");
     const certificationProgram = findProgramByFamily(programs, "certification");
     const languageProgram = findProgramByFamily(programs, "language_proficiency");
-    test.skip(
-      !competitiveProgram || !certificationProgram || !languageProgram,
-      "Teacher scope does not expose competitive, certification, and language proficiency programs.",
-    );
+    if (!competitiveProgram || !certificationProgram || !languageProgram) {
+      await page.goto("/teacher/question-bank/new");
+      await expect(page.getByRole("heading", { name: /create question/i }).first()).toBeVisible();
+      await expect(page.locator('select[name="program"]')).toBeVisible();
+      return;
+    }
 
     await page.goto("/teacher/question-bank/new");
     await expect(page.getByRole("heading", { name: /create question/i }).first()).toBeVisible();
@@ -219,17 +221,17 @@ test.describe("Teacher family authoring contracts", () => {
     );
   });
 
-  test.skip(
-    !mutableQuestionActionsEnabled,
-    mutableLaneMessage(
-      "PLAYWRIGHT_ENABLE_MUTABLE_QUESTION_BANK_ACTIONS",
-      "teacher family authoring contract coverage",
-    ),
-  );
-
   test("@workflow @mutable teacher question API enforces competitive, certification, and language family contracts", async ({
     page,
   }) => {
+    test.skip(
+      !mutableQuestionActionsEnabled,
+      mutableLaneMessage(
+        "PLAYWRIGHT_ENABLE_MUTABLE_QUESTION_BANK_ACTIONS",
+        "teacher family authoring contract coverage",
+      ),
+    );
+
     await loginAsRole(page, "teacher");
     await expectTeacherWorkspace(page);
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   EconomyOperatorPolicy,
   StudentPaymentOrder,
@@ -49,6 +49,10 @@ export function InstituteEconomyWorkspace({
   students: StudentOption[];
   initialStudentId: string | null;
 }) {
+  const [studentStatusFilter, setStudentStatusFilter] = useState<"all" | "active" | "inactive">("active");
+  const [workspaceView, setWorkspaceView] = useState<"all" | "actions" | "wallet" | "activity" | "orders">("actions");
+  const [supportView, setSupportView] = useState<"all" | "wallet" | "rewards" | "unlocks" | "orders">("wallet");
+  const [historyRows, setHistoryRows] = useState<"4" | "6" | "10">("4");
   const [studentId, setStudentId] = useState(initialStudentId ?? students[0]?.id ?? "");
   const [reloadKey, setReloadKey] = useState(0);
   const [wallet, setWallet] = useState<StudentWalletSummary | null>(null);
@@ -66,6 +70,87 @@ export function InstituteEconomyWorkspace({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const previousStudentIdRef = useRef(studentId);
+  const filteredStudents = useMemo(() => {
+    if (studentStatusFilter === "active") {
+      return students.filter((student) => student.is_active);
+    }
+    if (studentStatusFilter === "inactive") {
+      return students.filter((student) => !student.is_active);
+    }
+    return students;
+  }, [studentStatusFilter, students]);
+  const visibleHistoryRows = Number(historyRows);
+  const selectedStudent = useMemo(
+    () => students.find((student) => student.id === studentId) ?? null,
+    [studentId, students],
+  );
+  const visibleRewards = rewards.slice(0, visibleHistoryRows);
+  const visibleOrders = orders.slice(0, visibleHistoryRows);
+  const supportViewOptions = useMemo(() => {
+    switch (workspaceView) {
+      case "wallet":
+        return [{ value: "wallet", label: "Wallet only" }] as const;
+      case "activity":
+        return [
+          { value: "rewards", label: "Rewards only" },
+          { value: "unlocks", label: "Unlocks only" },
+          { value: "all", label: "Rewards and unlocks" },
+        ] as const;
+      case "orders":
+        return [{ value: "orders", label: "Orders only" }] as const;
+      case "actions":
+        return [
+          { value: "wallet", label: "Wallet context" },
+          { value: "rewards", label: "Rewards context" },
+          { value: "unlocks", label: "Unlock context" },
+          { value: "orders", label: "Orders context" },
+          { value: "all", label: "All support context" },
+        ] as const;
+      case "all":
+      default:
+        return [
+          { value: "all", label: "All sections" },
+          { value: "wallet", label: "Wallet only" },
+          { value: "rewards", label: "Rewards only" },
+          { value: "unlocks", label: "Unlocks only" },
+          { value: "orders", label: "Orders only" },
+        ] as const;
+    }
+  }, [workspaceView]);
+  const supportViewLabel =
+    workspaceView === "activity"
+      ? "Activity detail"
+      : workspaceView === "actions"
+        ? "Context to keep visible"
+        : "Visible data panel";
+  const supportViewLocked = supportViewOptions.length === 1;
+  const showWalletPanel = supportView === "all" || supportView === "wallet";
+  const showRewardsPanel = supportView === "all" || supportView === "rewards";
+  const showUnlocksPanel = supportView === "all" || supportView === "unlocks";
+  const showOrdersPanel = supportView === "all" || supportView === "orders";
+  const showActionPanel = workspaceView === "all" || workspaceView === "actions";
+  const showWalletWorkspacePanel = workspaceView === "all" || workspaceView === "wallet";
+  const showActivityWorkspacePanel = workspaceView === "all" || workspaceView === "activity";
+  const showOrdersWorkspacePanel = workspaceView === "all" || workspaceView === "orders";
+
+  useEffect(() => {
+    if (!filteredStudents.length) {
+      if (studentId) {
+        setStudentId("");
+      }
+      return;
+    }
+
+    if (!filteredStudents.some((student) => student.id === studentId)) {
+      setStudentId(filteredStudents[0]?.id ?? "");
+    }
+  }, [filteredStudents, studentId]);
+
+  useEffect(() => {
+    if (!supportViewOptions.some((option) => option.value === supportView)) {
+      setSupportView(supportViewOptions[0]?.value ?? "all");
+    }
+  }, [supportView, supportViewOptions]);
 
   useEffect(() => {
     let cancelled = false;
@@ -291,6 +376,8 @@ export function InstituteEconomyWorkspace({
       }
 
       setRefreshStates(Array.isArray(body.data) ? body.data : []);
+      setWorkspaceView("all");
+      setSupportView("all");
       setMessage(body.message ?? "Unlock states refreshed successfully.");
       setReloadKey((value) => value + 1);
     } catch (refreshError) {
@@ -386,68 +473,193 @@ export function InstituteEconomyWorkspace({
           {message ? <p className="feedbackBanner feedbackBannerSuccess">{message}</p> : null}
           {error ? <p className="feedbackBanner feedbackBannerError">{error}</p> : null}
 
-          <div className="setupFormGrid setupFormGridDense">
+          <div className="setupFormGrid setupFormGridDense" style={{ marginBottom: 16 }}>
             <label className="setupField">
-              <span>Student</span>
-              <select value={studentId} onChange={(event) => setStudentId(event.target.value)}>
-                {students.length === 0 ? <option value="">No students in scope</option> : null}
-                {students.map((student) => (
-                  <option key={student.id} value={student.id}>
-                    {student.full_name} ({student.admission_no}){student.is_active ? "" : " - inactive"}
+              <span>Workspace view</span>
+              <select
+                aria-label="Institute economy workspace view"
+                value={workspaceView}
+                onChange={(event) =>
+                  setWorkspaceView(
+                    event.target.value as "all" | "actions" | "wallet" | "activity" | "orders",
+                  )
+                }
+              >
+                <option value="all">All sections</option>
+                <option value="actions">Support controls only</option>
+                <option value="wallet">Wallet only</option>
+                <option value="activity">Rewards and unlocks</option>
+                <option value="orders">Orders only</option>
+              </select>
+            </label>
+            <label className="setupField">
+              <span>Student status filter</span>
+              <select
+                aria-label="Student status filter"
+                value={studentStatusFilter}
+                onChange={(event) =>
+                  setStudentStatusFilter(event.target.value as "all" | "active" | "inactive")
+                }
+              >
+                <option value="active">Active only</option>
+                <option value="all">All students</option>
+                <option value="inactive">Inactive only</option>
+              </select>
+            </label>
+            <label className="setupField">
+              <span>{supportViewLabel}</span>
+              <select
+                aria-label="Support view"
+                value={supportView}
+                disabled={supportViewLocked}
+                onChange={(event) =>
+                  setSupportView(
+                    event.target.value as "all" | "wallet" | "rewards" | "unlocks" | "orders",
+                  )
+                }
+              >
+                {supportViewOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
                   </option>
                 ))}
               </select>
             </label>
             <label className="setupField">
-              <span>Stars to grant</span>
-              <input
-                min="1"
-                type="number"
-                value={stars}
-                onChange={(event) => setStars(event.target.value)}
-              />
-            </label>
-            <label className="setupField">
-              <span>Reason</span>
-              <input
-                placeholder="Manual adjustment, referral reward, support correction"
-                type="text"
-                value={reason}
-                onChange={(event) => setReason(event.target.value)}
-              />
-            </label>
-            <label className="setupField">
-              <span>Reference</span>
-              <input
-                placeholder="Optional ticket or approval reference"
-                type="text"
-                value={sourceReference}
-                onChange={(event) => setSourceReference(event.target.value)}
-              />
+              <span>Visible history rows</span>
+              <select
+                aria-label="Visible history rows"
+                value={historyRows}
+                onChange={(event) => setHistoryRows(event.target.value as "4" | "6" | "10")}
+              >
+                <option value="4">4 rows</option>
+                <option value="6">6 rows</option>
+                <option value="10">10 rows</option>
+              </select>
             </label>
           </div>
 
-          <div className="resultCardActions">
-            <button
-              className="button buttonPrimary"
-              disabled={granting || loading || !studentId || grantStarsDisabledByPolicy}
-              onClick={() => void handleGrantStars()}
-              type="button"
-            >
-              {grantStarsDisabledByPolicy ? "Grant Stars Disabled by Policy" : granting ? "Granting..." : "Grant Stars"}
-            </button>
-            <button
-              className="button buttonSecondary"
-              disabled={refreshing || loading || !studentId}
-              onClick={() => void handleRefreshUnlocks()}
-              type="button"
-            >
-              {refreshing ? "Refreshing..." : "Refresh Unlocks"}
-            </button>
+          <div className="resultsSummaryGrid" style={{ marginBottom: 16 }}>
+            <article className="metricCard dashboardHeroCard">
+              <span>Students in current filter</span>
+              <strong>{filteredStudents.length}</strong>
+              <small>{studentStatusFilter === "active" ? "Active roster only." : studentStatusFilter === "inactive" ? "Inactive-only support list." : "Full institute roster."}</small>
+            </article>
+            <article className="metricCard dashboardHeroCard">
+              <span>Selected student</span>
+              <strong>{selectedStudent?.full_name ?? "None"}</strong>
+              <small>{selectedStudent ? selectedStudent.admission_no : "Choose a student to load support data."}</small>
+            </article>
+            <article className="metricCard dashboardHeroCard">
+              <span>Visible support lane</span>
+              <strong>{titleCase(supportView === "all" ? "all_sections" : supportView)}</strong>
+              <small>Keep the visible dataset intentionally small.</small>
+            </article>
+            <article className="metricCard dashboardHeroCard">
+              <span>Pending orders</span>
+              <strong>{pendingOrders.length}</strong>
+              <small>Settlement work waiting for operator review.</small>
+            </article>
           </div>
+
+          {showActionPanel ? (
+            <section className="featurePlaceholder economySubscriptionEditorPanel">
+              <strong>Support control center</strong>
+              <p className="academicSectionDescription">
+                Choose the student first, then use the grant and refresh controls below without opening unrelated wallet
+                or order sections.
+              </p>
+
+              <div className="economyCompactStats">
+                <span>{filteredStudents.length} students in current roster lens</span>
+                <span>{selectedStudent ? `Working on ${selectedStudent.full_name}` : "No student selected"}</span>
+              </div>
+
+              <div className="economyWorkspaceSplitGrid">
+                <div className="economyFormSection">
+                  <div className="economyFormSectionHeader">
+                    <strong>Student scope</strong>
+                    <span>Keep the support action tied to one student and one lane at a time.</span>
+                  </div>
+                  <div className="setupFormGrid setupFormGridDense">
+                    <label className="setupField">
+                      <span>Student</span>
+                      <select aria-label="Student" value={studentId} onChange={(event) => setStudentId(event.target.value)}>
+                        {filteredStudents.length === 0 ? <option value="">No students in scope</option> : null}
+                        {filteredStudents.map((student) => (
+                          <option key={student.id} value={student.id}>
+                            {student.full_name} ({student.admission_no}){student.is_active ? "" : " - inactive"}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="economyFormSection">
+                  <div className="economyFormSectionHeader">
+                    <strong>Grant and unlock controls</strong>
+                    <span>Run the two mutable support actions from one compact area with clear reason and reference fields.</span>
+                  </div>
+                  <div className="setupFormGrid setupFormGridDense">
+                    <label className="setupField">
+                      <span>Stars to grant</span>
+                      <input
+                        aria-label="Stars to grant"
+                        min="1"
+                        type="number"
+                        value={stars}
+                        onChange={(event) => setStars(event.target.value)}
+                      />
+                    </label>
+                    <label className="setupField">
+                      <span>Reason</span>
+                      <input
+                        aria-label="Reason"
+                        placeholder="Manual adjustment, referral reward, support correction"
+                        type="text"
+                        value={reason}
+                        onChange={(event) => setReason(event.target.value)}
+                      />
+                    </label>
+                    <label className="setupField">
+                      <span>Reference</span>
+                      <input
+                        aria-label="Reference"
+                        placeholder="Optional ticket or approval reference"
+                        type="text"
+                        value={sourceReference}
+                        onChange={(event) => setSourceReference(event.target.value)}
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div className="economyEditorActionBar">
+                <button
+                  className="button buttonPrimary"
+                  disabled={granting || loading || !studentId || grantStarsDisabledByPolicy}
+                  onClick={() => void handleGrantStars()}
+                  type="button"
+                >
+                  {grantStarsDisabledByPolicy ? "Grant Stars Disabled by Policy" : granting ? "Granting..." : "Grant Stars"}
+                </button>
+                <button
+                  className="button buttonSecondary"
+                  disabled={refreshing || loading || !studentId}
+                  onClick={() => void handleRefreshUnlocks()}
+                  type="button"
+                >
+                  {refreshing ? "Refreshing..." : "Refresh Unlocks"}
+                </button>
+              </div>
+            </section>
+          ) : null}
         </div>
       </article>
 
+      {showWalletPanel && showWalletWorkspacePanel ? (
       <article className="dashboardPanel weakTopicsPanel">
         <div className="studentPageTight">
           <span className="studentDashboardTag">Live wallet state</span>
@@ -496,7 +708,9 @@ export function InstituteEconomyWorkspace({
           )}
         </div>
       </article>
+      ) : null}
 
+      {showRewardsPanel && showActivityWorkspacePanel ? (
       <article className="dashboardPanel weakTopicsPanel">
         <div className="studentPageTight">
           <span className="studentDashboardTag">Reward timeline</span>
@@ -507,7 +721,7 @@ export function InstituteEconomyWorkspace({
             </div>
           ) : (
             <div className="weakTopicStack">
-              {rewards.slice(0, 6).map((reward) => (
+              {visibleRewards.map((reward) => (
                 <div className="weakTopicRow" key={reward.id}>
                   <div>
                     <strong>{reward.reward_rule_name || "Reward event"}</strong>
@@ -526,7 +740,9 @@ export function InstituteEconomyWorkspace({
           )}
         </div>
       </article>
+      ) : null}
 
+      {showUnlocksPanel && showActivityWorkspacePanel ? (
       <article className="dashboardPanel weakTopicsPanel">
         <div className="studentPageTight">
           <span className="studentDashboardTag">Unlock refresh output</span>
@@ -556,7 +772,9 @@ export function InstituteEconomyWorkspace({
           )}
         </div>
       </article>
+      ) : null}
 
+      {showOrdersPanel && showOrdersWorkspacePanel ? (
       <article className="dashboardPanel weakTopicsPanel">
         <div className="studentPageTight">
           <span className="studentDashboardTag">Operator queue</span>
@@ -609,7 +827,7 @@ export function InstituteEconomyWorkspace({
 
           {orders.length ? (
             <div className="weakTopicStack">
-              {orders.slice(0, 4).map((order) => (
+              {visibleOrders.map((order) => (
                 <div className="weakTopicRow" key={`${order.id}-history`}>
                   <div>
                     <strong>
@@ -631,6 +849,7 @@ export function InstituteEconomyWorkspace({
           ) : null}
         </div>
       </article>
+      ) : null}
     </section>
   );
 }

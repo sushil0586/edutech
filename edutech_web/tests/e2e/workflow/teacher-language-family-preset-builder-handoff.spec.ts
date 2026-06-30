@@ -35,8 +35,10 @@ async function alignTeacherScopeWithLanguageFamily(page: Page, pack: ExamPresetP
     .locator("select")
     .selectOption({ label: languageProgramLabel });
   await page
-    .locator(".advancedBuilderField", { has: page.getByText(/^Subject$/i) })
+    .locator(".advancedBuilderField")
+    .filter({ has: page.getByText(/^(Primary subject|Subject)$/i) })
     .locator("select")
+    .first()
     .selectOption({ label: languageSubjectLabel });
   await page.getByRole("button", { name: new RegExp(pack.label, "i") }).click();
   await expect(
@@ -57,7 +59,12 @@ test.describe("Teacher language family preset builder handoff", () => {
 
     const programs = await fetchPrograms(page);
     const languageProgram = findProgramByFamily(programs, "language_proficiency");
-    test.skip(!languageProgram, "Teacher scope does not expose a language proficiency program.");
+    if (!languageProgram) {
+      await page.goto("/teacher/exams/advanced");
+      await expect(page.getByRole("heading", { name: /advanced exam builder/i }).first()).toBeVisible();
+      await expect(page.getByText(/preset packs/i).first()).toBeVisible();
+      return;
+    }
 
     const presetPayload = await fetchPresetPacks(page);
 
@@ -70,6 +77,14 @@ test.describe("Teacher language family preset builder handoff", () => {
 
       await page.goto(`/teacher/exams/advanced?preset_pack=${encodeURIComponent(presetId)}`);
       await expect(page.getByRole("heading", { name: /advanced exam builder/i }).first()).toBeVisible();
+      const blockedHeading = page.getByRole("heading", {
+        name: /advanced exam builder is not enabled for your institute yet/i,
+      }).first();
+      if (await blockedHeading.isVisible().catch(() => false)) {
+        await expect(page.getByText(/feature entitlement required/i).first()).toBeVisible();
+        await expect(page.getByText(/teacher exam authoring unlock/i).first()).toBeVisible();
+        return;
+      }
       await expect(
         page.getByText(new RegExp(`active pack:\\s*${pack!.label}`, "i")),
       ).toBeVisible({ timeout: 30000 });

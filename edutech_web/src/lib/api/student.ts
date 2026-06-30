@@ -37,6 +37,24 @@ export type StudentApiState = {
   apiConfigured: boolean;
 };
 
+export class StudentApiError extends Error {
+  status: number;
+  payload: Record<string, unknown> | null;
+
+  constructor(
+    message: string,
+    options: {
+      status: number;
+      payload?: Record<string, unknown> | null;
+    },
+  ) {
+    super(message);
+    this.name = "StudentApiError";
+    this.status = options.status;
+    this.payload = options.payload ?? null;
+  }
+}
+
 export function getStudentApiState(): StudentApiState {
   return {
     apiBaseUrl: API_BASE_URL,
@@ -69,9 +87,10 @@ async function performStudentRequest<T>(
 
   if (!response.ok) {
     let message = `Student API request failed for ${path} with ${response.status}`;
+    let payload: Record<string, unknown> | null = null;
 
     try {
-      const payload = (await response.json()) as Record<string, unknown>;
+      payload = (await response.json()) as Record<string, unknown>;
       const detail = payload.detail;
       const apiMessage = payload.message;
 
@@ -98,7 +117,10 @@ async function performStudentRequest<T>(
       // Fall back to the default message if the body is not JSON.
     }
 
-    throw new Error(message);
+    throw new StudentApiError(message, {
+      status: response.status,
+      payload,
+    });
   }
 
   return (await response.json()) as T;

@@ -41,6 +41,21 @@ function resultCardByTitle(page: Page, title: string) {
   }).first();
 }
 
+async function expectReviewRouteOrUnavailable(page: Page) {
+  await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/review(?:\?.*)?$/);
+  const unavailableHeading = page.getByRole("heading", {
+    name: /attempt review is not available right now/i,
+  }).first();
+  if (await unavailableHeading.isVisible().catch(() => false)) {
+    await expect(page.getByText(/review unavailable/i).first()).toBeVisible();
+    return "unavailable" as const;
+  }
+
+  await expect(page.getByRole("heading", { name: /review/i }).first()).toBeVisible();
+  await expect(page.locator(".contentCard").filter({ hasText: /review state/i }).first()).toBeVisible();
+  return "available" as const;
+}
+
 test.describe("Student result state matrix workspace", () => {
   test.skip(testRequiresRole("student"), "Student Playwright credentials are not configured.");
 
@@ -133,10 +148,14 @@ test.describe("Student result state matrix workspace", () => {
         (await reviewReadyCard.locator(".studentResultSurfaceHead strong").first().textContent())?.trim() ?? "";
       if (reviewReadyTitle) {
         await reviewReadyCard.getByRole("link", { name: /open answer review/i }).click();
-        await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/review(?:\?.*)?$/);
-        await expect(page.getByText(/review mode/i).first()).toBeVisible();
-        await expect(page.getByText(/review available/i).first()).toBeVisible();
-        await expect(page.getByRole("link", { name: /open summary/i }).first()).toBeVisible();
+        const reviewState = await expectReviewRouteOrUnavailable(page);
+
+        if (reviewState === "available") {
+          await expect(page.getByText(/review available/i).first()).toBeVisible();
+          await expect(page.getByRole("link", { name: /open summary/i }).first()).toBeVisible();
+        } else {
+          await expect(page.getByRole("link", { name: /check result status/i }).first()).toBeVisible();
+        }
 
         await gotoWithRetry(page, "/app/results?result_group=review");
         await expectStudentResultsWorkspace(page);

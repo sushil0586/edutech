@@ -142,6 +142,9 @@ CLASS_7_CBSE_CORE = {
                     "children": [
                         ("Life Processes in Animals", "SCI-LIFE-ANIMALS", 10),
                         ("Life Processes in Plants", "SCI-LIFE-PLANTS", 20),
+                        ("Respiration in Organisms", "SCI-LIFE-RESPIRATION", 30),
+                        ("Transportation in Animals and Plants", "SCI-LIFE-TRANSPORT", 40),
+                        ("Reproduction in Plants", "SCI-LIFE-PLANT-REPRODUCTION", 50),
                     ],
                 },
                 {
@@ -160,6 +163,16 @@ CLASS_7_CBSE_CORE = {
                     "sort_order": 70,
                     "children": [
                         ("Earth, Moon, and the Sun", "SCI-SPACE-EARTHMOONSUN", 10),
+                    ],
+                },
+                {
+                    "name": "Environment and Public Health",
+                    "code": "SCI-ENV",
+                    "description": "Forest ecosystems, sanitation, wastewater, and environmental responsibility.",
+                    "sort_order": 80,
+                    "children": [
+                        ("Forests: Our Lifeline", "SCI-ENV-FORESTS", 10),
+                        ("Wastewater Story", "SCI-ENV-WASTEWATER", 20),
                     ],
                 },
             ],

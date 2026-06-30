@@ -111,10 +111,16 @@ test.describe("Student cross-browser exam detail and runtime sanity", () => {
     await gotoWithRetry(page, attemptHref);
     await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+(?:\?.*)?$/);
 
-    const activeBanner = page.getByText(/test in progress/i).first();
-    const lockedBanner = page.getByText(/attempt locked/i).first();
-    const activeVisible = await activeBanner.isVisible().catch(() => false);
-    const lockedVisible = await lockedBanner.isVisible().catch(() => false);
+    const activeVisible = await page
+      .getByRole("button", { name: /^save answer$/i })
+      .first()
+      .isVisible()
+      .catch(() => false);
+    const lockedVisible = await page
+      .getByRole("link", { name: /refresh attempt state|refresh mock state|view attempt summary|view mock summary/i })
+      .first()
+      .isVisible()
+      .catch(() => false);
 
     expect(activeVisible || lockedVisible).toBe(true);
 

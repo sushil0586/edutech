@@ -5,8 +5,10 @@ import {
   expectPreviewFamilyContract,
   fetchAssessmentRegistry,
   fetchPrograms,
+  fetchSubjects,
   type AssessmentRegistryResponse,
   type ProgramRegistryRecord,
+  type SubjectRegistryRecord,
 } from "../helpers/assessment-family";
 import { expectAdminWorkspace } from "../helpers/navigation";
 
@@ -31,22 +33,29 @@ async function alignAdminFamilyScope(
   page: Page,
   options: {
     packLabel: string;
-    programLabel: string;
-    subjectLabel: string;
+    program: ProgramRegistryRecord;
+    subject: SubjectRegistryRecord;
     familyCode: string;
   },
 ) {
-  await page
+  const programSelect = page
     .locator(".advancedBuilderField", { has: page.getByText(/^Program$/i) })
-    .locator("select")
-    .selectOption({ label: options.programLabel });
-  await page
-    .locator(".advancedBuilderField", { has: page.getByText(/^Subject$/i) })
-    .locator("select")
-    .selectOption({ label: options.subjectLabel });
+    .locator("select");
+  const subjectSelect = page
+    .locator(".advancedBuilderField", { has: page.getByText(/^Primary subject$/i) })
+    .locator("select");
+
+  await programSelect.selectOption(options.program.id);
+  await expect.poll(async () => {
+    return subjectSelect.locator("option").evaluateAll((nodes) =>
+      nodes.map((node) => (node as HTMLOptionElement).value).filter(Boolean),
+    );
+  }).toContain(options.subject.id);
+  await subjectSelect.selectOption(options.subject.id);
   await expect(page.getByText(new RegExp(`Assessment family:\\s*${options.familyCode}`, "i")).first()).toBeVisible();
-  await page.getByRole("button", { name: new RegExp(options.packLabel, "i") }).click();
-  await expect(page.getByText(new RegExp(`active pack:\\s*${options.packLabel}`, "i")).first()).toBeVisible();
+  const presetButton = page.getByRole("button", { name: new RegExp(options.packLabel, "i") }).first();
+  await expect(presetButton).toBeVisible();
+  await presetButton.click();
 }
 
 async function previewFamilyExam(page: Page) {
@@ -93,6 +102,7 @@ async function preparePreviewableDraft(page: Page, seed: string) {
 
   const firstSectionCard = page.locator(".advancedBuilderSectionCard").first();
   await firstSectionCard.getByLabel(/question count/i).fill("1");
+  await firstSectionCard.getByLabel(/negative marks/i).fill("0");
 
   const topicRows = firstSectionCard.locator(".advancedBuilderTopicRow");
   for (let index = await topicRows.count() - 1; index >= 1; index -= 1) {
@@ -119,17 +129,19 @@ test.describe("Admin family authoring contracts", () => {
     await page.goto("/admin/exams/advanced?preset_pack=jee_mains_math");
     await expect(page.getByRole("heading", { name: /advanced exam builder/i }).first()).toBeVisible();
     await applyAdminTemplateScope(page);
-    await alignAdminFamilyScope(page, {
-      packLabel: "JEE Mains Math",
-      programLabel: "Demo NEET Track",
-      subjectLabel: "NEET Biology",
-      familyCode: "competitive",
-    });
-
     const competitiveInstituteId = await page.getByLabel(/select template institute/i).inputValue();
     const competitivePrograms = await fetchPrograms(page, competitiveInstituteId);
     const competitiveProgram = findProgramByFamily(competitivePrograms, "competitive");
     expect(competitiveProgram).not.toBeNull();
+    const competitiveSubjects = await fetchSubjects(page, competitiveProgram!.id, competitiveInstituteId);
+    const competitiveSubject = competitiveSubjects[0] ?? null;
+    expect(competitiveSubject).not.toBeNull();
+    await alignAdminFamilyScope(page, {
+      packLabel: "JEE Mains Math",
+      program: competitiveProgram!,
+      subject: competitiveSubject!,
+      familyCode: "competitive",
+    });
 
     await expect(page.getByText(/family profile/i).first()).toBeVisible();
     await expect(page.getByRole("heading", { name: /competitive defaults/i }).first()).toBeVisible();
@@ -157,17 +169,19 @@ test.describe("Admin family authoring contracts", () => {
     await page.goto("/admin/exams/advanced?preset_pack=aws_practitioner");
     await expect(page.getByRole("heading", { name: /advanced exam builder/i }).first()).toBeVisible();
     await applyAdminTemplateScope(page);
-    await alignAdminFamilyScope(page, {
-      packLabel: "AWS Practitioner",
-      programLabel: "Demo AWS Track",
-      subjectLabel: "AWS Cloud Practitioner",
-      familyCode: "certification",
-    });
-
     const certificationInstituteId = await page.getByLabel(/select template institute/i).inputValue();
     const certificationPrograms = await fetchPrograms(page, certificationInstituteId);
     const certificationProgram = findProgramByFamily(certificationPrograms, "certification");
     expect(certificationProgram).not.toBeNull();
+    const certificationSubjects = await fetchSubjects(page, certificationProgram!.id, certificationInstituteId);
+    const certificationSubject = certificationSubjects[0] ?? null;
+    expect(certificationSubject).not.toBeNull();
+    await alignAdminFamilyScope(page, {
+      packLabel: "AWS Practitioner",
+      program: certificationProgram!,
+      subject: certificationSubject!,
+      familyCode: "certification",
+    });
 
     await expect(page.getByRole("heading", { name: /certification defaults/i }).first()).toBeVisible();
     await expect(page.getByText(/assessment family:\s*certification/i).first()).toBeVisible();

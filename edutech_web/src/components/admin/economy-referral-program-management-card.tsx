@@ -187,55 +187,79 @@ export function EconomyReferralProgramManagementCard({
         {message ? <p className="feedbackBanner feedbackBannerSuccess">{message}</p> : null}
         {error ? <p className="feedbackBanner feedbackBannerError">{error}</p> : null}
 
-        <div className="setupFormGrid setupFormGridDense">
-          <label className="setupField">
-            <span>Institute</span>
-            <select value={instituteId} onChange={(event) => setInstituteId(event.target.value)}>
-              {institutes.map((institute) => (
-                <option key={institute.id} value={institute.id}>
-                  {institute.name} ({institute.code}){institute.is_active ? "" : " - inactive"}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="setupField">
-            <span>Program name</span>
-            <input type="text" value={name} onChange={(event) => setName(event.target.value)} />
-          </label>
-          <label className="setupField">
-            <span>Reward side</span>
-            <select value={rewardSide} onChange={(event) => setRewardSide(event.target.value)}>
-              <option value="both">Both</option>
-              <option value="referrer">Referrer only</option>
-              <option value="referee">Referee only</option>
-            </select>
-          </label>
-          <label className="setupField">
-            <span>Referrer stars</span>
-            <input min="0" type="number" value={referrerStars} onChange={(event) => setReferrerStars(event.target.value)} />
-          </label>
-          <label className="setupField">
-            <span>Referee stars</span>
-            <input min="0" type="number" value={refereeStars} onChange={(event) => setRefereeStars(event.target.value)} />
-          </label>
-          <label className="setupField">
-            <span>Valid from</span>
-            <input type="datetime-local" value={validFrom} onChange={(event) => setValidFrom(event.target.value)} />
-          </label>
-          <label className="setupField">
-            <span>Valid until</span>
-            <input type="datetime-local" value={validUntil} onChange={(event) => setValidUntil(event.target.value)} />
-          </label>
-          <label className="setupField">
-            <span>Active status</span>
-            <select value={isActive ? "yes" : "no"} onChange={(event) => setIsActive(event.target.value === "yes")}>
-              <option value="yes">Active</option>
-              <option value="no">Paused</option>
-            </select>
-          </label>
+        <section className="featurePlaceholder economySubscriptionEditorPanel">
+          <strong>{editingId ? "Edit referral campaign" : "New referral campaign"}</strong>
+          <p className="academicSectionDescription">Set the campaign identity first, then decide who gets rewarded and when the campaign is valid.</p>
+
+          <div className="economyCompactStats">
+            <span>{programs.length} campaign{programs.length === 1 ? "" : "s"} in scope</span>
+            <span>{programs.filter((item) => item.is_active).length} active</span>
+          </div>
+
+        <div className="economyFormSection">
+          <div className="economyFormSectionHeader">
+            <strong>Campaign identity</strong>
+            <span>Name the referral program and decide which institute owns it and whether it is active.</span>
+          </div>
+          <div className="economyCommerceGridPrimary">
+            <label className="setupField">
+              <span>Institute</span>
+              <select value={instituteId} onChange={(event) => setInstituteId(event.target.value)}>
+                {institutes.map((institute) => (
+                  <option key={institute.id} value={institute.id}>
+                    {institute.name} ({institute.code}){institute.is_active ? "" : " - inactive"}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="setupField">
+              <span>Program name</span>
+              <input type="text" value={name} onChange={(event) => setName(event.target.value)} />
+            </label>
+            <label className="setupField">
+              <span>Reward side</span>
+              <select value={rewardSide} onChange={(event) => setRewardSide(event.target.value)}>
+                <option value="both">Both</option>
+                <option value="referrer">Referrer only</option>
+                <option value="referee">Referee only</option>
+              </select>
+            </label>
+            <label className="setupField">
+              <span>Active status</span>
+              <select value={isActive ? "yes" : "no"} onChange={(event) => setIsActive(event.target.value === "yes")}>
+                <option value="yes">Active</option>
+                <option value="no">Paused</option>
+              </select>
+            </label>
+          </div>
         </div>
 
-        <div className="resultCardActions">
+        <div className="economyFormSection">
+          <div className="economyFormSectionHeader">
+            <strong>Reward values and dates</strong>
+            <span>Set how many stars each side receives and the lifecycle window for the campaign.</span>
+          </div>
+          <div className="economyCommerceGridSecondary">
+            <label className="setupField">
+              <span>Referrer stars</span>
+              <input min="0" type="number" value={referrerStars} onChange={(event) => setReferrerStars(event.target.value)} />
+            </label>
+            <label className="setupField">
+              <span>Referee stars</span>
+              <input min="0" type="number" value={refereeStars} onChange={(event) => setRefereeStars(event.target.value)} />
+            </label>
+            <label className="setupField">
+              <span>Valid from</span>
+              <input type="datetime-local" value={validFrom} onChange={(event) => setValidFrom(event.target.value)} />
+            </label>
+            <label className="setupField">
+              <span>Valid until</span>
+              <input type="datetime-local" value={validUntil} onChange={(event) => setValidUntil(event.target.value)} />
+            </label>
+          </div>
+        </div>
+
+        <div className="economyEditorActionBar">
           <button className="button buttonPrimary" disabled={saving} onClick={() => void handleSubmit()} type="button">
             {saving ? "Saving..." : editingId ? "Update Referral Program" : "Create Referral Program"}
           </button>
@@ -243,11 +267,12 @@ export function EconomyReferralProgramManagementCard({
             Clear Form
           </button>
         </div>
+        </section>
 
         <div className="weakTopicStack">
           {programs.map((program) => (
-            <div className="weakTopicRow" key={program.id}>
-              <div>
+            <div className="weakTopicRow economyCommerceCatalogRow" key={program.id}>
+              <div className="economyCommerceCatalogMain">
                 <strong>{program.name}</strong>
                 <span>
                   {program.institute_name} · {program.reward_side.replaceAll("_", " ")}
@@ -255,9 +280,17 @@ export function EconomyReferralProgramManagementCard({
                 <span>
                   Referrer {program.referrer_stars} · Referee {program.referee_stars}
                 </span>
+                <details className="economyCatalogDetailDisclosure">
+                  <summary>View campaign details</summary>
+                  <div className="economyCatalogDetailStack">
+                    <span>Reward side: {program.reward_side.replaceAll("_", " ")}</span>
+                    <span>{program.valid_from ? `Starts ${formatDateTime(program.valid_from)}` : "No start date"}</span>
+                    <span>{program.valid_until ? `Ends ${formatDateTime(program.valid_until)}` : "No end date"}</span>
+                  </div>
+                </details>
                 <span>Updated {formatDateTime(program.updated_at)}</span>
               </div>
-              <div className="weakTopicMeta">
+              <div className="weakTopicMeta economyCommerceCatalogMeta">
                 <strong>{program.is_active ? "Active" : "Paused"}</strong>
                 <button className="button buttonGhost" onClick={() => loadForEdit(program)} type="button">
                   Edit

@@ -31,11 +31,11 @@ export async function answerCurrentAttemptQuestion(page: Page, answerSeed: numbe
     .locator('input[name="selected_option"][type="radio"]:visible')
     .or(page.getByRole("radio"))
     .first();
+  const textAnswer = page.locator('textarea[name="answer_text"]:visible').first();
   const checkboxOption = page
     .locator('input[name="selected_option_ids"][type="checkbox"]:visible')
     .or(page.getByRole("checkbox"))
     .first();
-  const textAnswer = page.locator('textarea[name="answer_text"]:visible').first();
 
   if (await radioOption.count()) {
     await ensureToggleChecked(radioOption);
@@ -43,14 +43,15 @@ export async function answerCurrentAttemptQuestion(page: Page, answerSeed: numbe
     return;
   }
 
-  if (await checkboxOption.count()) {
-    await ensureToggleChecked(checkboxOption);
-    await expect(checkboxOption).toBeChecked();
+  if (await textAnswer.count()) {
+    await textAnswer.fill(`${prefix} ${answerSeed}`);
+    await expect(textAnswer).toHaveValue(`${prefix} ${answerSeed}`);
     return;
   }
 
-  if (await textAnswer.count()) {
-    await textAnswer.fill(`${prefix} ${answerSeed}`);
+  if (await checkboxOption.count()) {
+    await ensureToggleChecked(checkboxOption);
+    await expect(checkboxOption).toBeChecked();
     return;
   }
 

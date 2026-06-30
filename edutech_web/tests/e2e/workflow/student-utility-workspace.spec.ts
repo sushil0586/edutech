@@ -110,21 +110,24 @@ test.describe("Student utility workspace coverage", () => {
       await filtersCard.locator('select').nth(0).selectOption("unread");
       await page.waitForURL(/\/app\/notifications\?[^#]*status=unread/);
 
-      const groupingSelect = page.locator("label.studentNotificationGroupingControl select");
-      await groupingSelect.selectOption("type");
-      await expect(page).toHaveURL(/\/app\/notifications\?[^#]*status=unread/);
-      await expect(groupingSelect).toHaveValue("type");
-
       const noMatches = page.getByText(/no notifications match the current filters/i).first();
       if (await noMatches.isVisible().catch(() => false)) {
-        await expect(page.getByRole("link", { name: /clear filters/i }).first()).toBeVisible();
+        const clearFiltersLink = page.getByRole("link", { name: /clear filters/i }).first();
+        await expect(clearFiltersLink).toBeVisible();
+        await clearFiltersLink.click();
+        await expect(page).toHaveURL(/\/app\/notifications(?:\?.*)?$/);
       } else {
+        const groupingSelect = page.locator("label.studentNotificationGroupingControl select");
+        await expect(groupingSelect).toBeVisible();
+        await groupingSelect.selectOption("type");
+        await expect(page).toHaveURL(/\/app\/notifications\?[^#]*status=unread/);
+        await expect(groupingSelect).toHaveValue("type");
         await expect(page.getByText(/matching notifications/i).first()).toBeVisible();
         await expectAnyVisible(page, [/open exam detail/i, /open attempt summary/i, /open notification detail/i]);
-      }
 
-      await filtersCard.getByRole("link", { name: /^reset$/i }).click();
-      await expect(page).toHaveURL(/\/app\/notifications(?:\?.*)?$/);
+        await filtersCard.getByRole("link", { name: /^reset$/i }).click();
+        await expect(page).toHaveURL(/\/app\/notifications(?:\?.*)?$/);
+      }
     }
 
     await gotoWithRetry(page, "/app/wallet");
@@ -160,6 +163,8 @@ test.describe("Student utility workspace coverage", () => {
     await expect(page).toHaveURL(/\/app\/subscriptions(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /subscriptions/i }).first()).toBeVisible();
     await expect(page.getByText(/subscription state/i).first()).toBeVisible();
+    await expect(page.getByLabel(/student subscription section/i)).toBeVisible();
+    await expect(page.getByLabel(/student subscription rows to show/i)).toBeVisible();
     await expect(page.getByText(/what this page can and cannot do/i).first()).toBeVisible();
     await expect(page.getByText(/a safe order is: compare cycles here/i).first()).toBeVisible();
     await expect(page.getByText(/immediate activation/i).first()).toBeVisible();
@@ -181,6 +186,19 @@ test.describe("Student utility workspace coverage", () => {
       /billing events will appear here after the subscription is confirmed and credited/i,
       /latest credit state/i,
     ]);
+
+    await page.getByLabel(/student subscription section/i).selectOption("orders");
+    await page.getByLabel(/student subscription rows to show/i).selectOption("3");
+    await page.getByRole("button", { name: /apply filters/i }).click();
+    await expect(page).toHaveURL(/\/app\/subscriptions\?[^#]*section=orders/);
+    await expect(page).toHaveURL(/\/app\/subscriptions\?[^#]*rows=3/);
+    await expect(
+      page.getByText(/this section shows whether your chosen plan is still only requested, already processed, or fully linked to wallet credit activity/i).first(),
+    ).toBeVisible();
+    await expect(
+      page.getByText(/review the available cycles and choose the plan that matches how often you expect to unlock premium content/i).first(),
+    ).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: /what this page can and cannot do/i })).toHaveCount(0);
 
     await gotoWithRetry(page, "/app/search");
     await expect(page).toHaveURL(/\/app\/search(?:\?.*)?$/);

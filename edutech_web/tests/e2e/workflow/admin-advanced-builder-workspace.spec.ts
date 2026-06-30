@@ -31,7 +31,14 @@ test.describe("Admin advanced exam builder workspace", () => {
     await expect(page.getByRole("button", { name: /save template/i })).toBeVisible();
     await expect(page.getByLabel(/academic year/i)).toBeVisible();
     await expect(page.getByText(/^program$/i).first()).toBeVisible();
-    await expect(page.getByText(/^subject$/i).first()).toBeVisible();
+    await expect(page.getByText(/^primary subject$/i).first()).toBeVisible();
+    await expect(
+      page
+        .locator(".advancedBuilderField")
+        .filter({ has: page.getByText(/^primary subject$/i) })
+        .locator("select")
+        .first(),
+    ).toBeVisible();
     await expect(page.getByLabel(/exam title/i)).toBeVisible();
 
     await page.getByRole("button", { name: /auto fill basics/i }).click();

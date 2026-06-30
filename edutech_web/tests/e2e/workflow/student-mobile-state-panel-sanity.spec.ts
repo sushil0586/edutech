@@ -21,8 +21,12 @@ test.describe("Student mobile state-panel sanity", () => {
     await page.goto(`/app/exams/${missingExamId}`);
     await expect(page).toHaveURL(/\/app\/exams\/[^/?#]+(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /exam detail/i }).first()).toBeVisible();
-    await expect(page.getByText(/exam detail could not be loaded/i).first()).toBeVisible();
-    await expect(page.getByText(/backend connectivity/i).first()).toBeVisible();
+    await expect(
+      page.getByText(/exam detail could not be loaded|this exam is not available in your workspace/i).first(),
+    ).toBeVisible();
+    await expect(
+      page.getByText(/backend connectivity|student assignment scope|exam visibility policy/i).first(),
+    ).toBeVisible();
     await expect(page.getByRole("link", { name: /back to exams/i }).first()).toBeVisible();
 
     await page.goto(`/app/attempts/${missingAttemptId}/summary`);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 type InstituteOption = {
   id: string;
@@ -301,6 +301,10 @@ export function EconomySubscriptionPlanManagementCard({
   entitlements: InstituteQuestionEntitlement[];
 }) {
   const [plans, setPlans] = useState(initialPlans);
+  const [workspaceView, setWorkspaceView] = useState<"editor" | "catalog" | "all">("editor");
+  const [catalogInstituteFilter, setCatalogInstituteFilter] = useState("all");
+  const [catalogStatusFilter, setCatalogStatusFilter] = useState<"all" | "active" | "paused">("active");
+  const [catalogRowsToShow, setCatalogRowsToShow] = useState<"4" | "8" | "12">("8");
   const [editingId, setEditingId] = useState("");
   const [instituteId, setInstituteId] = useState(institutes[0]?.id ?? "");
   const [name, setName] = useState("");
@@ -324,6 +328,23 @@ export function EconomySubscriptionPlanManagementCard({
   const availablePackagesByFamily = groupPackagesByFamily(
     availableQuestionBankPackages.map((pkg) => ({ pkg })),
   );
+  const filteredPlans = useMemo(() => {
+    return plans.filter((plan) => {
+      if (catalogInstituteFilter !== "all" && plan.institute !== catalogInstituteFilter) {
+        return false;
+      }
+      if (catalogStatusFilter === "active" && !plan.is_active) {
+        return false;
+      }
+      if (catalogStatusFilter === "paused" && plan.is_active) {
+        return false;
+      }
+      return true;
+    });
+  }, [catalogInstituteFilter, catalogStatusFilter, plans]);
+  const visiblePlans = filteredPlans.slice(0, Number(catalogRowsToShow));
+  const activePlanCount = plans.filter((plan) => plan.is_active).length;
+  const linkedPackageLaneCount = plans.reduce((count, plan) => count + plan.question_bank_package_links.length, 0);
 
   function resetForm() {
     setEditingId("");
@@ -337,6 +358,7 @@ export function EconomySubscriptionPlanManagementCard({
   }
 
   function loadForEdit(plan: AdminSubscriptionPlan) {
+    setWorkspaceView("editor");
     setEditingId(plan.id);
     setInstituteId(plan.institute);
     setName(plan.name);
@@ -670,264 +692,397 @@ export function EconomySubscriptionPlanManagementCard({
           </div>
         ) : null}
 
-        <div className="setupFormGrid setupFormGridDense">
+        <div className="setupFormGrid setupFormGridDense" style={{ marginBottom: 16 }}>
           <label className="setupField">
-            <span>Institute</span>
-            <select value={instituteId} onChange={(event) => setInstituteId(event.target.value)}>
+            <span>Workspace view</span>
+            <select
+              aria-label="Subscription plan workspace view"
+              value={workspaceView}
+              onChange={(event) => setWorkspaceView(event.target.value as "editor" | "catalog" | "all")}
+            >
+              <option value="editor">Editor only</option>
+              <option value="catalog">Catalog only</option>
+              <option value="all">Editor and catalog</option>
+            </select>
+          </label>
+          <label className="setupField">
+            <span>Catalog institute filter</span>
+            <select
+              aria-label="Subscription plan institute filter"
+              value={catalogInstituteFilter}
+              onChange={(event) => setCatalogInstituteFilter(event.target.value)}
+            >
+              <option value="all">All institutes</option>
               {institutes.map((institute) => (
                 <option key={institute.id} value={institute.id}>
-                  {institute.name} ({institute.code}){institute.is_active ? "" : " - inactive"}
+                  {institute.name} ({institute.code})
                 </option>
               ))}
             </select>
           </label>
           <label className="setupField">
-            <span>Plan name</span>
-            <input type="text" value={name} onChange={(event) => setName(event.target.value)} />
+            <span>Catalog status</span>
+            <select
+              aria-label="Subscription plan status filter"
+              value={catalogStatusFilter}
+              onChange={(event) => setCatalogStatusFilter(event.target.value as "all" | "active" | "paused")}
+            >
+              <option value="active">Active only</option>
+              <option value="all">All statuses</option>
+              <option value="paused">Paused only</option>
+            </select>
           </label>
           <label className="setupField">
-            <span>Plan code</span>
-            <input type="text" value={code} onChange={(event) => setCode(event.target.value)} />
-          </label>
-          <label className="setupField">
-            <span>Active status</span>
-            <select value={isActive ? "yes" : "no"} onChange={(event) => setIsActive(event.target.value === "yes")}>
-              <option value="yes">Active</option>
-              <option value="no">Paused</option>
+            <span>Catalog rows to show</span>
+            <select
+              aria-label="Subscription plan rows to show"
+              value={catalogRowsToShow}
+              onChange={(event) => setCatalogRowsToShow(event.target.value as "4" | "8" | "12")}
+            >
+              <option value="4">4 rows</option>
+              <option value="8">8 rows</option>
+              <option value="12">12 rows</option>
             </select>
           </label>
         </div>
 
-        <label className="setupField">
-          <span>Description</span>
-          <textarea rows={3} value={description} onChange={(event) => setDescription(event.target.value)} />
-        </label>
+        <section className="resultsSummaryGrid" style={{ marginBottom: 16 }}>
+          <article className="metricCard metricCardPrimary dashboardHeroCard">
+            <span>Total plans</span>
+            <strong>{plans.length}</strong>
+            <small>Visible to platform operators.</small>
+          </article>
+          <article className="metricCard dashboardHeroCard">
+            <span>Active plans</span>
+            <strong>{activePlanCount}</strong>
+            <small>Currently live recurring offers.</small>
+          </article>
+          <article className="metricCard dashboardHeroCard">
+            <span>Linked package lanes</span>
+            <strong>{linkedPackageLaneCount}</strong>
+            <small>Commercial access rows across all plans.</small>
+          </article>
+          <article className="metricCard dashboardHeroCard">
+            <span>Filtered catalog rows</span>
+            <strong>{filteredPlans.length}</strong>
+            <small>Before row trimming is applied.</small>
+          </article>
+        </section>
 
-        <div className="featurePlaceholder">
-          <strong>Question-bank package access</strong>
-          <p>Attach same-institute packages that should activate with this plan.</p>
-          {questionBankPackageLinks.length > 0 ? (
-            <p className="academicSectionDescription">
-              Linked summary:{" "}
-              {questionBankPackageLinks
-                .map((link) => `${link.question_bank_package_code} (${titleCase(link.grant_mode)}${link.is_default ? " · default" : ""})`)
-                .join(" · ")}
-            </p>
-          ) : null}
-          <div className="weakTopicStack">
-            {availablePackagesByFamily.length > 0 ? (
-              availablePackagesByFamily.map(([familyLabel, familyPackages]) => (
-                <section className="featurePlaceholder" key={familyLabel}>
-                  <strong>{familyLabel} package family</strong>
-                  <p>{familyPackages.length} active package lane{familyPackages.length === 1 ? "" : "s"} currently available for linking.</p>
-                  <div className="weakTopicStack">
-                    {familyPackages.map(({ pkg }) => {
-                      const linkedPackage =
-                        questionBankPackageLinks.find((link) => link.question_bank_package === pkg.id) ?? null;
-                      return (
-                        <div className="weakTopicRow" key={pkg.id}>
-                          <div>
-                            <label className="selectionRow">
-                              <input
-                                checked={Boolean(linkedPackage)}
-                                onChange={(event) => toggleQuestionBankPackageLink(pkg, event.target.checked)}
-                                type="checkbox"
-                              />
-                              <div>
-                                <strong>{pkg.display_name || pkg.name}</strong>
-                                <span>
-                                  {pkg.code} · {pkg.institute_code}
-                                </span>
-                                <span>
-                                  {pkg.commercial_labels.length > 0
-                                    ? pkg.commercial_labels.join(" · ")
-                                    : `${pkg.ownership_type.replaceAll("_", " ")} · ${pkg.access_mode.replaceAll("_", " ")}`}
-                                </span>
-                                <span>{pkg.coverage_summary}</span>
-                                <span>{describeCoverageLabels(pkg)}</span>
-                                {pkg.package_family_label ? <span>Family: {pkg.package_family_label}</span> : null}
-                                {pkg.recommended_for_labels.length > 0 ? (
-                                  <span>Recommended for: {pkg.recommended_for_labels.slice(0, 4).join(", ")}</span>
-                                ) : null}
-                              </div>
-                            </label>
-                          </div>
-                          {linkedPackage ? (
-                            <div className="setupFormGrid setupFormGridDense">
-                              <label className="setupField">
-                                <span>Grant mode</span>
-                                <select
-                                  value={linkedPackage.grant_mode}
-                                  onChange={(event) =>
-                                    updateQuestionBankPackageLink(pkg.id, { grant_mode: event.target.value })
-                                  }
-                                >
-                                  <option value="included">Included</option>
-                                  <option value="optional_addon">Optional Addon</option>
-                                  <option value="trial">Trial</option>
-                                </select>
-                              </label>
-                              <label className="setupField">
-                                <span>Default link</span>
-                                <select
-                                  value={linkedPackage.is_default ? "yes" : "no"}
-                                  onChange={(event) =>
-                                    updateQuestionBankPackageLink(pkg.id, { is_default: event.target.value === "yes" })
-                                  }
-                                >
-                                  <option value="yes">Yes</option>
-                                  <option value="no">No</option>
-                                </select>
+        {workspaceView === "editor" || workspaceView === "all" ? (
+        <section className="featurePlaceholder economySubscriptionEditorPanel">
+          <strong>{editingId ? "Edit subscription plan" : "New subscription plan"}</strong>
+          <p className="academicSectionDescription">
+            Set the plan identity first, then attach package access and recurring commercial rules below.
+          </p>
+
+          <div className="economyFormSection">
+            <div className="economyFormSectionHeader">
+              <strong>Plan identity</strong>
+              <span>Choose the institute, plan naming, lifecycle state, and the operator-facing description.</span>
+            </div>
+
+            <div className="economySubscriptionPlanGridPrimary">
+              <label className="setupField">
+                <span>Institute</span>
+                <select value={instituteId} onChange={(event) => setInstituteId(event.target.value)}>
+                  {institutes.map((institute) => (
+                    <option key={institute.id} value={institute.id}>
+                      {institute.name} ({institute.code}){institute.is_active ? "" : " - inactive"}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="setupField">
+                <span>Plan name</span>
+                <input type="text" value={name} onChange={(event) => setName(event.target.value)} />
+              </label>
+              <label className="setupField">
+                <span>Plan code</span>
+                <input type="text" value={code} onChange={(event) => setCode(event.target.value)} />
+              </label>
+              <label className="setupField">
+                <span>Active status</span>
+                <select value={isActive ? "yes" : "no"} onChange={(event) => setIsActive(event.target.value === "yes")}>
+                  <option value="yes">Active</option>
+                  <option value="no">Paused</option>
+                </select>
+              </label>
+            </div>
+
+            <label className="setupField economySubscriptionDescriptionField">
+              <span>Description</span>
+              <textarea rows={3} value={description} onChange={(event) => setDescription(event.target.value)} />
+            </label>
+          </div>
+
+          <div className="economyFormSection">
+            <div className="economyFormSectionHeader">
+              <strong>Question-bank package access</strong>
+              <span>Attach same-institute packages that should activate with this plan and set how they are granted.</span>
+            </div>
+            <div className="economyCompactStats">
+              <span>{questionBankPackageLinks.length} linked package lane{questionBankPackageLinks.length === 1 ? "" : "s"}</span>
+              <span>
+                {questionBankPackageLinks.filter((link) => link.is_default).length} default link
+                {questionBankPackageLinks.filter((link) => link.is_default).length === 1 ? "" : "s"}
+              </span>
+            </div>
+            {questionBankPackageLinks.length > 0 ? (
+              <p className="academicSectionDescription">
+                Linked summary:{" "}
+                {questionBankPackageLinks
+                  .map((link) => `${link.question_bank_package_code} (${titleCase(link.grant_mode)}${link.is_default ? " · default" : ""})`)
+                  .join(" · ")}
+              </p>
+            ) : null}
+            <div className="weakTopicStack">
+              {availablePackagesByFamily.length > 0 ? (
+                availablePackagesByFamily.map(([familyLabel, familyPackages]) => (
+                  <section className="featurePlaceholder economySubscriptionPackageFamilyCard" key={familyLabel}>
+                    <strong>{familyLabel} package family</strong>
+                    <p>{familyPackages.length} active package lane{familyPackages.length === 1 ? "" : "s"} currently available for linking.</p>
+                    <div className="weakTopicStack">
+                      {familyPackages.map(({ pkg }) => {
+                        const linkedPackage =
+                          questionBankPackageLinks.find((link) => link.question_bank_package === pkg.id) ?? null;
+                        return (
+                          <div className="weakTopicRow economySubscriptionPackageRow" key={pkg.id}>
+                            <div>
+                              <label className="selectionRow">
+                                <input
+                                  checked={Boolean(linkedPackage)}
+                                  onChange={(event) => toggleQuestionBankPackageLink(pkg, event.target.checked)}
+                                  type="checkbox"
+                                />
+                                <div>
+                                  <strong>{pkg.display_name || pkg.name}</strong>
+                                  <span>
+                                    {pkg.code} · {pkg.institute_code}
+                                  </span>
+                                  <span>
+                                    {pkg.commercial_labels.length > 0
+                                      ? pkg.commercial_labels.join(" · ")
+                                      : `${pkg.ownership_type.replaceAll("_", " ")} · ${pkg.access_mode.replaceAll("_", " ")}`}
+                                  </span>
+                                  <span>{pkg.coverage_summary}</span>
+                                  <span>{describeCoverageLabels(pkg)}</span>
+                                  {pkg.package_family_label ? <span>Family: {pkg.package_family_label}</span> : null}
+                                  {pkg.recommended_for_labels.length > 0 ? (
+                                    <span>Recommended for: {pkg.recommended_for_labels.slice(0, 4).join(", ")}</span>
+                                  ) : null}
+                                </div>
                               </label>
                             </div>
-                          ) : null}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </section>
-              ))
-            ) : (
-              <p>No active question-bank packages are available for the selected institute yet.</p>
-            )}
+                            {linkedPackage ? (
+                              <div className="economySubscriptionPackageLinkControls">
+                                <label className="setupField">
+                                  <span>Grant mode</span>
+                                  <select
+                                    value={linkedPackage.grant_mode}
+                                    onChange={(event) =>
+                                      updateQuestionBankPackageLink(pkg.id, { grant_mode: event.target.value })
+                                    }
+                                  >
+                                    <option value="included">Included</option>
+                                    <option value="optional_addon">Optional Addon</option>
+                                    <option value="trial">Trial</option>
+                                  </select>
+                                </label>
+                                <label className="setupField">
+                                  <span>Default link</span>
+                                  <select
+                                    value={linkedPackage.is_default ? "yes" : "no"}
+                                    onChange={(event) =>
+                                      updateQuestionBankPackageLink(pkg.id, { is_default: event.target.value === "yes" })
+                                    }
+                                  >
+                                    <option value="yes">Yes</option>
+                                    <option value="no">No</option>
+                                  </select>
+                                </label>
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </section>
+                ))
+              ) : (
+                <p>No active question-bank packages are available for the selected institute yet.</p>
+              )}
+            </div>
           </div>
-        </div>
-
-        <div className="weakTopicStack">
-          {cycles.map((cycle, cycleIndex) => (
-            <div className="featurePlaceholder" key={cycle.id ?? `cycle-${cycleIndex}`}>
-              <strong>Cycle {cycleIndex + 1}</strong>
-              <div className="setupFormGrid setupFormGridDense">
-                <label className="setupField">
-                  <span>Billing interval</span>
-                  <select
-                    value={cycle.billing_interval}
-                    onChange={(event) => updateCycle(cycleIndex, { billing_interval: event.target.value })}
-                  >
-                    <option value="monthly">Monthly</option>
-                    <option value="quarterly">Quarterly</option>
-                    <option value="yearly">Yearly</option>
-                    <option value="custom">Custom</option>
-                  </select>
-                </label>
-                <label className="setupField">
-                  <span>Interval count</span>
-                  <input
-                    min="1"
-                    type="number"
-                    value={cycle.interval_count}
-                    onChange={(event) => updateCycle(cycleIndex, { interval_count: Number(event.target.value) })}
-                  />
-                </label>
-                <label className="setupField">
-                  <span>Price amount</span>
-                  <input
-                    min="0.01"
-                    step="0.01"
-                    type="number"
-                    value={cycle.price_amount}
-                    onChange={(event) => updateCycle(cycleIndex, { price_amount: event.target.value })}
-                  />
-                </label>
-                <label className="setupField">
-                  <span>Currency</span>
-                  <input
-                    type="text"
-                    value={cycle.currency}
-                    onChange={(event) => updateCycle(cycleIndex, { currency: event.target.value.toUpperCase() })}
-                  />
-                </label>
-                <label className="setupField">
-                  <span>Cycle status</span>
-                  <select
-                    value={cycle.is_active ? "yes" : "no"}
-                    onChange={(event) => updateCycle(cycleIndex, { is_active: event.target.value === "yes" })}
-                  >
-                    <option value="yes">Active</option>
-                    <option value="no">Paused</option>
-                  </select>
-                </label>
+          <div className="economyFormSection">
+            <div className="economySectionHeaderSplit">
+              <div className="economyFormSectionHeader">
+                <strong>Billing cycles and credit rules</strong>
+                <span>Define the recurring billing posture first, then attach activation and renewal star credits.</span>
               </div>
-
-              <div className="weakTopicStack">
-                {cycle.star_credit_rules.map((rule, ruleIndex) => (
-                  <div className="weakTopicRow" key={rule.id ?? `rule-${cycleIndex}-${ruleIndex}`}>
-                    <div className="setupFormGrid setupFormGridDense">
-                      <label className="setupField">
-                        <span>Stars credited</span>
-                        <input
-                          min="1"
-                          type="number"
-                          value={rule.stars_credited}
-                          onChange={(event) =>
-                            updateRule(cycleIndex, ruleIndex, { stars_credited: Number(event.target.value) })
-                          }
-                        />
-                      </label>
-                      <label className="setupField">
-                        <span>Credit on activation</span>
-                        <select
-                          value={rule.credit_on_activation ? "yes" : "no"}
-                          onChange={(event) =>
-                            updateRule(cycleIndex, ruleIndex, { credit_on_activation: event.target.value === "yes" })
-                          }
-                        >
-                          <option value="yes">Yes</option>
-                          <option value="no">No</option>
-                        </select>
-                      </label>
-                      <label className="setupField">
-                        <span>Credit on renewal</span>
-                        <select
-                          value={rule.credit_on_renewal ? "yes" : "no"}
-                          onChange={(event) =>
-                            updateRule(cycleIndex, ruleIndex, { credit_on_renewal: event.target.value === "yes" })
-                          }
-                        >
-                          <option value="yes">Yes</option>
-                          <option value="no">No</option>
-                        </select>
-                      </label>
-                      <label className="setupField">
-                        <span>Rule status</span>
-                        <select
-                          value={rule.is_active ? "yes" : "no"}
-                          onChange={(event) => updateRule(cycleIndex, ruleIndex, { is_active: event.target.value === "yes" })}
-                        >
-                          <option value="yes">Active</option>
-                          <option value="no">Paused</option>
-                        </select>
-                      </label>
+              <button className="button buttonGhost" onClick={addCycle} type="button">
+                Add Cycle
+              </button>
+            </div>
+            <div className="economyCompactStats">
+              <span>{cycles.length} cycle{cycles.length === 1 ? "" : "s"} configured</span>
+              <span>{cycles.reduce((count, cycle) => count + cycle.star_credit_rules.length, 0)} credit rule rows</span>
+            </div>
+            <div className="weakTopicStack">
+              {cycles.map((cycle, cycleIndex) => (
+                <div className="featurePlaceholder economySubscriptionCycleCard" key={cycle.id ?? `cycle-${cycleIndex}`}>
+                  <div className="economyPackageScopeHeader">
+                    <div className="economyPackageScopeTitle">
+                      <strong>Cycle {cycleIndex + 1}</strong>
+                      <span>Set the billing posture and the credits students should receive on activation or renewal.</span>
                     </div>
                   </div>
-                ))}
-              </div>
 
-              <div className="resultCardActions">
-                <button className="button buttonGhost" onClick={() => addRule(cycleIndex)} type="button">
-                  Add Credit Rule
-                </button>
-              </div>
+                  <div className="economySubscriptionCycleGrid">
+                    <label className="setupField">
+                      <span>Billing interval</span>
+                      <select
+                        value={cycle.billing_interval}
+                        onChange={(event) => updateCycle(cycleIndex, { billing_interval: event.target.value })}
+                      >
+                        <option value="monthly">Monthly</option>
+                        <option value="quarterly">Quarterly</option>
+                        <option value="yearly">Yearly</option>
+                        <option value="custom">Custom</option>
+                      </select>
+                    </label>
+                    <label className="setupField">
+                      <span>Interval count</span>
+                      <input
+                        min="1"
+                        type="number"
+                        value={cycle.interval_count}
+                        onChange={(event) => updateCycle(cycleIndex, { interval_count: Number(event.target.value) })}
+                      />
+                    </label>
+                    <label className="setupField">
+                      <span>Price amount</span>
+                      <input
+                        min="0.01"
+                        step="0.01"
+                        type="number"
+                        value={cycle.price_amount}
+                        onChange={(event) => updateCycle(cycleIndex, { price_amount: event.target.value })}
+                      />
+                    </label>
+                    <label className="setupField">
+                      <span>Currency</span>
+                      <input
+                        type="text"
+                        value={cycle.currency}
+                        onChange={(event) => updateCycle(cycleIndex, { currency: event.target.value.toUpperCase() })}
+                      />
+                    </label>
+                    <label className="setupField">
+                      <span>Cycle status</span>
+                      <select
+                        value={cycle.is_active ? "yes" : "no"}
+                        onChange={(event) => updateCycle(cycleIndex, { is_active: event.target.value === "yes" })}
+                      >
+                        <option value="yes">Active</option>
+                        <option value="no">Paused</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  <div className="economyFormSection">
+                    <div className="economySectionHeaderSplit">
+                      <div className="economyFormSectionHeader">
+                        <strong>Credit rules</strong>
+                        <span>Each row controls how many stars are credited on activation, renewal, or both.</span>
+                      </div>
+                      <button className="button buttonGhost" onClick={() => addRule(cycleIndex)} type="button">
+                        Add Credit Rule
+                      </button>
+                    </div>
+                    <div className="weakTopicStack">
+                      {cycle.star_credit_rules.map((rule, ruleIndex) => (
+                        <div className="weakTopicRow economySubscriptionRuleRow" key={rule.id ?? `rule-${cycleIndex}-${ruleIndex}`}>
+                          <div className="economySubscriptionRuleGrid">
+                            <label className="setupField">
+                              <span>Stars credited</span>
+                              <input
+                                min="1"
+                                type="number"
+                                value={rule.stars_credited}
+                                onChange={(event) =>
+                                  updateRule(cycleIndex, ruleIndex, { stars_credited: Number(event.target.value) })
+                                }
+                              />
+                            </label>
+                            <label className="setupField">
+                              <span>Credit on activation</span>
+                              <select
+                                value={rule.credit_on_activation ? "yes" : "no"}
+                                onChange={(event) =>
+                                  updateRule(cycleIndex, ruleIndex, { credit_on_activation: event.target.value === "yes" })
+                                }
+                              >
+                                <option value="yes">Yes</option>
+                                <option value="no">No</option>
+                              </select>
+                            </label>
+                            <label className="setupField">
+                              <span>Credit on renewal</span>
+                              <select
+                                value={rule.credit_on_renewal ? "yes" : "no"}
+                                onChange={(event) =>
+                                  updateRule(cycleIndex, ruleIndex, { credit_on_renewal: event.target.value === "yes" })
+                                }
+                              >
+                                <option value="yes">Yes</option>
+                                <option value="no">No</option>
+                              </select>
+                            </label>
+                            <label className="setupField">
+                              <span>Rule status</span>
+                              <select
+                                value={rule.is_active ? "yes" : "no"}
+                                onChange={(event) => updateRule(cycleIndex, ruleIndex, { is_active: event.target.value === "yes" })}
+                              >
+                                <option value="yes">Active</option>
+                                <option value="no">Paused</option>
+                              </select>
+                            </label>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </div>
 
-        <div className="resultCardActions">
-          <button className="button buttonGhost" onClick={addCycle} type="button">
-            Add Cycle
-          </button>
-          <button className="button buttonPrimary" disabled={saving} onClick={() => void handleSubmit()} type="button">
-            {saving ? "Saving..." : editingId ? "Update Subscription Plan" : "Create Subscription Plan"}
-          </button>
-          <button className="button buttonGhost" disabled={saving} onClick={resetForm} type="button">
-            Clear Form
-          </button>
-        </div>
+          <div className="economyEditorActionBar">
+            <button className="button buttonPrimary" disabled={saving} onClick={() => void handleSubmit()} type="button">
+              {saving ? "Saving..." : editingId ? "Update Subscription Plan" : "Create Subscription Plan"}
+            </button>
+            <button className="button buttonGhost" disabled={saving} onClick={resetForm} type="button">
+              Clear Form
+            </button>
+          </div>
+        </section>
+        ) : null}
 
-        <div className="weakTopicStack">
-          {plans.map((plan) => (
-            <div className="weakTopicRow" key={plan.id}>
-              <div>
+        {workspaceView === "catalog" || workspaceView === "all" ? (
+        <section className="featurePlaceholder">
+          <strong>Current subscription plan catalog</strong>
+          <p>{filteredPlans.length} subscription plan{filteredPlans.length === 1 ? "" : "s"} match the current filter set.</p>
+          <div className="weakTopicStack">
+          {visiblePlans.map((plan) => (
+            <div className="weakTopicRow economySubscriptionCatalogRow" key={plan.id}>
+              <div className="economySubscriptionCatalogMain">
+                {(() => {
+                  const framing = summarizePlanCommercialFraming(plan, questionBankPackagesById);
+                  const reconciliation = getPlanEntitlementReconciliation(plan);
+                  return (
+                    <>
                 <strong>{plan.name}</strong>
                 <span>
                   {plan.institute_name} · {plan.code}
@@ -941,64 +1096,49 @@ export function EconomySubscriptionPlanManagementCard({
                 </span>
                 <span>Commercial lanes: {buildGrantModeSummary(plan)}</span>
                 <span>Billing posture: {buildCycleSummary(plan)}</span>
-                <span>
-                  {(() => {
-                    const framing = summarizePlanCommercialFraming(plan, questionBankPackagesById);
-                    return `Package scope: ${framing.scopeSummary}`;
-                  })()}
-                </span>
-                <span>
-                  {(() => {
-                    const framing = summarizePlanCommercialFraming(plan, questionBankPackagesById);
-                    return `Families: ${framing.familySummary}`;
-                  })()}
-                </span>
-                <span>
-                  {(() => {
-                    const framing = summarizePlanCommercialFraming(plan, questionBankPackagesById);
-                    return `Recommended for: ${framing.recommendedSummary}`;
-                  })()}
-                </span>
-                <span>Linked packages: {describeLinkedPackages(plan)}</span>
-                {plan.question_bank_package_links.length > 0 ? (
-                  <span>
-                    Package coverage:{" "}
-                    {plan.question_bank_package_links
-                      .filter((link) => link.is_active)
-                      .map((link) => {
-                        const pkg = questionBankPackagesById.get(link.question_bank_package);
-                        return pkg
-                          ? `${pkg.code} - ${pkg.coverage_summary}`
-                          : `${link.question_bank_package_code} - Coverage unavailable`;
-                      })
-                      .join(" · ")}
-                  </span>
-                ) : null}
                 <span>Renewal posture: {describeRenewalPosture(plan)}</span>
-                <span>
-                  {(() => {
-                    const reconciliation = getPlanEntitlementReconciliation(plan);
-                    return `Entitlement reconciliation: ${describeReconciliationSummary(reconciliation)} (${reconciliation.instituteCode})`;
-                  })()}
-                </span>
-                {(() => {
-                  const reconciliation = getPlanEntitlementReconciliation(plan);
-                  return reconciliation.missingPackageCodes.length > 0 ? (
-                    <span>Missing active entitlements: {reconciliation.missingPackageCodes.join(", ")}</span>
-                  ) : null;
-                })()}
-                {(() => {
-                  const reconciliation = getPlanEntitlementReconciliation(plan);
-                  return (
-                    <span>
-                      Remediation:{" "}
-                      {describeRemediationGuidance(reconciliation)}
-                    </span>
+                <span>Entitlement reconciliation: {describeReconciliationSummary(reconciliation)}</span>
+                <details className="economyCatalogDetailDisclosure">
+                  <summary>View commercial details</summary>
+                  <div className="economyCatalogDetailStack">
+                    <span>Package scope: {framing.scopeSummary}</span>
+                    <span>Families: {framing.familySummary}</span>
+                    <span>Recommended for: {framing.recommendedSummary}</span>
+                    <span>Linked packages: {describeLinkedPackages(plan)}</span>
+                    {plan.question_bank_package_links.length > 0 ? (
+                      <span>
+                        Package coverage:{" "}
+                        {plan.question_bank_package_links
+                          .filter((link) => link.is_active)
+                          .map((link) => {
+                            const pkg = questionBankPackagesById.get(link.question_bank_package);
+                            return pkg
+                              ? `${pkg.code} - ${pkg.coverage_summary}`
+                              : `${link.question_bank_package_code} - Coverage unavailable`;
+                          })
+                          .join(" · ")}
+                      </span>
+                    ) : null}
+                  </div>
+                </details>
+                <details className="economyCatalogDetailDisclosure">
+                  <summary>View access reconciliation</summary>
+                  <div className="economyCatalogDetailStack">
+                    <span>Institute: {reconciliation.instituteCode}</span>
+                    {reconciliation.missingPackageCodes.length > 0 ? (
+                      <span>Missing active entitlements: {reconciliation.missingPackageCodes.join(", ")}</span>
+                    ) : (
+                      <span>No package entitlement gaps are currently visible.</span>
+                    )}
+                    <span>Remediation: {describeRemediationGuidance(reconciliation)}</span>
+                  </div>
+                </details>
+                <span>Updated {formatDateTime(plan.updated_at)}</span>
+                    </>
                   );
                 })()}
-                <span>Updated {formatDateTime(plan.updated_at)}</span>
               </div>
-              <div className="weakTopicMeta">
+              <div className="weakTopicMeta economySubscriptionCatalogMeta">
                 <strong>{plan.is_active ? "Active" : "Paused"}</strong>
                 <label className="setupField">
                   <span>Apply to institute</span>
@@ -1035,8 +1175,14 @@ export function EconomySubscriptionPlanManagementCard({
               </div>
             </div>
           ))}
-          {plans.length === 0 ? <p>No subscription plans exist yet.</p> : null}
-        </div>
+          {visiblePlans.length === 0 ? (
+            <div className="featurePlaceholder">
+              <p>No subscription plans match the current catalog filters.</p>
+            </div>
+          ) : null}
+          </div>
+        </section>
+        ) : null}
       </div>
     </article>
   );

@@ -282,21 +282,6 @@ function describeUsageMix(usage: Record<string, number> | undefined) {
   return `Usage mix: linked ${linked} · exam created ${created} · exam published ${published} · entitlement events ${override}`;
 }
 
-function groupPackageCardsByFamily<
-  T extends {
-    pkg: AdminQuestionBankPackage;
-  },
->(items: T[]) {
-  const grouped = new Map<string, T[]>();
-  for (const item of items) {
-    const family = item.pkg.package_family_label || "General";
-    const current = grouped.get(family) ?? [];
-    current.push(item);
-    grouped.set(family, current);
-  }
-  return Array.from(grouped.entries()).sort(([left], [right]) => left.localeCompare(right));
-}
-
 export function EconomyQuestionBankVisibilityCard({
   packages,
   entitlements: initialEntitlements,
@@ -326,23 +311,22 @@ export function EconomyQuestionBankVisibilityCard({
   );
   const [updatingEntitlementId, setUpdatingEntitlementId] = useState("");
   const [updatingFeatureEntitlementId, setUpdatingFeatureEntitlementId] = useState("");
-  const [selectedInstitute, setSelectedInstitute] = useState("all");
+  const [selectedPanel, setSelectedPanel] = useState<"packages" | "entitlements" | "features" | "usage">(
+    "entitlements",
+  );
   const [selectedPackage, setSelectedPackage] = useState("all");
+  const [selectedFamily, setSelectedFamily] = useState("all");
+  const [selectedOwnership, setSelectedOwnership] = useState("all");
+  const [selectedAccessMode, setSelectedAccessMode] = useState("all");
+  const [selectedPackageStatus, setSelectedPackageStatus] = useState("all");
+  const [selectedEntitlementStatus, setSelectedEntitlementStatus] = useState("all");
+  const [selectedGrantMode, setSelectedGrantMode] = useState("all");
+  const [selectedFeatureStatus, setSelectedFeatureStatus] = useState("all");
+  const [selectedUsageAction, setSelectedUsageAction] = useState("all");
+  const [resultLimit, setResultLimit] = useState("10");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [downloadingReport, setDownloadingReport] = useState(false);
-
-  const instituteOptions = Array.from(
-    new Map(
-      entitlements.map((entitlement) => [
-        entitlement.institute,
-        {
-          id: entitlement.institute,
-          label: `${entitlement.institute_name} (${entitlement.institute_code})`,
-        },
-      ]),
-    ).values(),
-  ).sort((left, right) => left.label.localeCompare(right.label));
 
   const packageOptions = packages
     .map((pkg) => ({
@@ -351,14 +335,27 @@ export function EconomyQuestionBankVisibilityCard({
     }))
     .sort((left, right) => left.label.localeCompare(right.label));
 
+  const familyOptions = Array.from(
+    new Set(packages.map((pkg) => pkg.package_family_label).filter((value): value is string => Boolean(value))),
+  ).sort((left, right) => left.localeCompare(right));
+  const ownershipOptions = Array.from(new Set(packages.map((pkg) => pkg.ownership_type))).sort();
+  const accessModeOptions = Array.from(new Set(packages.map((pkg) => pkg.access_mode))).sort();
+  const entitlementStatusOptions = Array.from(new Set(entitlements.map((entitlement) => entitlement.status))).sort();
+  const grantModeOptions = Array.from(new Set(entitlements.map((entitlement) => entitlement.granted_via))).sort();
+  const featureStatusOptions = Array.from(
+    new Set(featureEntitlements.map((entitlement) => entitlement.status)),
+  ).sort();
+  const usageActionOptions = Array.from(new Set(usageEntries.map((entry) => entry.action_type))).sort();
+  const resultLimitNumber = Number(resultLimit) || 10;
+
   const filteredEntitlements = entitlements.filter((entitlement) => {
-    if (selectedInstitute !== "all" && entitlement.institute !== selectedInstitute) return false;
     if (selectedPackage !== "all" && entitlement.question_bank_package !== selectedPackage) return false;
+    if (selectedEntitlementStatus !== "all" && entitlement.status !== selectedEntitlementStatus) return false;
+    if (selectedGrantMode !== "all" && entitlement.granted_via !== selectedGrantMode) return false;
     return true;
   });
 
   const filteredFeatureEntitlements = featureEntitlements.filter((entitlement) => {
-    if (selectedInstitute !== "all" && entitlement.institute !== selectedInstitute) return false;
     if (
       selectedPackage !== "all" &&
       entitlement.source_package &&
@@ -369,12 +366,13 @@ export function EconomyQuestionBankVisibilityCard({
     if (selectedPackage !== "all" && !entitlement.source_package) {
       return false;
     }
+    if (selectedFeatureStatus !== "all" && entitlement.status !== selectedFeatureStatus) return false;
     return true;
   });
 
   const filteredUsageEntries = usageEntries.filter((entry) => {
-    if (selectedInstitute !== "all" && entry.institute !== selectedInstitute) return false;
     if (selectedPackage !== "all" && entry.question_bank_package !== selectedPackage) return false;
+    if (selectedUsageAction !== "all" && entry.action_type !== selectedUsageAction) return false;
     return true;
   });
 
@@ -413,6 +411,16 @@ export function EconomyQuestionBankVisibilityCard({
 
   const packageCards = packages
     .filter((pkg) => selectedPackage === "all" || pkg.id === selectedPackage)
+    .filter((pkg) => selectedFamily === "all" || pkg.package_family_label === selectedFamily)
+    .filter((pkg) => selectedOwnership === "all" || pkg.ownership_type === selectedOwnership)
+    .filter((pkg) => selectedAccessMode === "all" || pkg.access_mode === selectedAccessMode)
+    .filter((pkg) =>
+      selectedPackageStatus === "all"
+        ? true
+        : selectedPackageStatus === "active"
+          ? pkg.is_active
+          : !pkg.is_active,
+    )
     .map((pkg) => {
       const scopedEntitlements = filteredEntitlements.filter(
         (entitlement) => entitlement.question_bank_package === pkg.id,
@@ -428,7 +436,10 @@ export function EconomyQuestionBankVisibilityCard({
         usageCount: usageByPackageId[pkg.id] ?? 0,
       };
     });
-  const packageCardsByFamily = groupPackageCardsByFamily(packageCards);
+  const visiblePackageCards = packageCards.slice(0, resultLimitNumber);
+  const visibleEntitlements = filteredEntitlements.slice(0, resultLimitNumber);
+  const visibleFeatureEntitlements = filteredFeatureEntitlements.slice(0, resultLimitNumber);
+  const visibleUsageEntries = filteredUsageEntries.slice(0, resultLimitNumber);
 
   async function handleEntitlementStatusChange(
     entitlement: AdminInstituteQuestionEntitlement,
@@ -568,15 +579,15 @@ export function EconomyQuestionBankVisibilityCard({
     try {
       const params = new URLSearchParams();
       params.set("export", "csv");
-      if (selectedInstitute !== "all") {
-        params.set("institute", selectedInstitute);
-      }
       if (selectedPackage !== "all") {
         params.set("question_bank_package", selectedPackage);
       }
 
       const response = await fetch(`/api/admin/economy/question-bank-package-report?${params.toString()}`);
       if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error("Package report export is not available on the current backend deployment yet.");
+        }
         throw new Error(`Package report export failed with status ${response.status}`);
       }
 
@@ -616,64 +627,169 @@ export function EconomyQuestionBankVisibilityCard({
 
         <section className="featurePlaceholder">
           <strong>Operational summary</strong>
-          <p>Use this lens to verify catalog readiness, institute access posture, and actual package consumption.</p>
-          <div className="studentMetricsGrid">
+          <p>Review one dataset at a time and keep the visible result set intentionally small.</p>
+          <div className="economyVisibilitySummaryGrid">
             <div className="studentMetricCard">
-              <span className="studentMetricLabel">Active packages</span>
-              <strong>{packageCards.filter(({ pkg }) => pkg.is_active).length}</strong>
-              <small>{packageCards.length} currently in filtered scope</small>
+              <span className="studentMetricLabel">Packages</span>
+              <strong>{packageCards.length}</strong>
+              <small>{packageCards.filter(({ pkg }) => pkg.is_active).length} active after filters</small>
             </div>
             <div className="studentMetricCard">
-              <span className="studentMetricLabel">Active entitlements</span>
-              <strong>{activeEntitlements.length}</strong>
-              <small>{expiringEntitlements.length} expiring soon</small>
+              <span className="studentMetricLabel">Entitlements</span>
+              <strong>{filteredEntitlements.length}</strong>
+              <small>{activeEntitlements.length} active · {pausedEntitlements.length} paused</small>
             </div>
             <div className="studentMetricCard">
               <span className="studentMetricLabel">Feature grants</span>
-              <strong>{activeFeatureEntitlements.length}</strong>
-              <small>{filteredFeatureEntitlements.length} visible feature rows</small>
+              <strong>{filteredFeatureEntitlements.length}</strong>
+              <small>{activeFeatureEntitlements.length} active feature rows</small>
             </div>
             <div className="studentMetricCard">
               <span className="studentMetricLabel">Usage events</span>
               <strong>{filteredUsageEntries.length}</strong>
               <small>{linkedQuestionEvents.length} shared-question link events</small>
             </div>
-            <div className="studentMetricCard">
-              <span className="studentMetricLabel">Exam creation usage</span>
-              <strong>{examCreatedUsageCount}</strong>
-              <small>Licensed questions materialized into draft exams</small>
-            </div>
-            <div className="studentMetricCard">
-              <span className="studentMetricLabel">Exam publish usage</span>
-              <strong>{examPublishedUsageCount}</strong>
-              <small>Licensed package usage that reached publish flow</small>
-            </div>
           </div>
-          <div className="formGrid formGrid2" style={{ marginTop: 16 }}>
-            <label className="fieldLabel">
-              <span>Filter by institute</span>
-              <select value={selectedInstitute} onChange={(event) => setSelectedInstitute(event.target.value)}>
-                <option value="all">All institutes</option>
-                {instituteOptions.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="fieldLabel">
-              <span>Filter by package</span>
-              <select value={selectedPackage} onChange={(event) => setSelectedPackage(event.target.value)}>
-                <option value="all">All packages</option>
-                {packageOptions.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+
+          <div className="economyVisibilityFilterStack">
+            <div className="economyVisibilityFilterRow">
+              <label className="setupField economyVisibilityFilterField">
+                <span>Show dataset</span>
+                <select value={selectedPanel} onChange={(event) => setSelectedPanel(event.target.value as typeof selectedPanel)}>
+                  <option value="entitlements">Entitlements</option>
+                  <option value="packages">Packages</option>
+                  <option value="features">Feature grants</option>
+                  <option value="usage">Usage evidence</option>
+                </select>
+              </label>
+              <label className="setupField economyVisibilityFilterField">
+                <span>Package</span>
+                <select value={selectedPackage} onChange={(event) => setSelectedPackage(event.target.value)}>
+                  <option value="all">All packages</option>
+                  {packageOptions.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="setupField economyVisibilityFilterField">
+                <span>Rows to show</span>
+                <select value={resultLimit} onChange={(event) => setResultLimit(event.target.value)}>
+                  <option value="10">10 rows</option>
+                  <option value="25">25 rows</option>
+                  <option value="50">50 rows</option>
+                </select>
+              </label>
+            </div>
+
+            {selectedPanel === "packages" ? (
+              <div className="economyVisibilityFilterRow">
+                <label className="setupField economyVisibilityFilterField">
+                  <span>Package family</span>
+                  <select value={selectedFamily} onChange={(event) => setSelectedFamily(event.target.value)}>
+                    <option value="all">All families</option>
+                    {familyOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="setupField economyVisibilityFilterField">
+                  <span>Ownership</span>
+                  <select value={selectedOwnership} onChange={(event) => setSelectedOwnership(event.target.value)}>
+                    <option value="all">All ownership types</option>
+                    {ownershipOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {titleCase(option)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="setupField economyVisibilityFilterField">
+                  <span>Access mode</span>
+                  <select value={selectedAccessMode} onChange={(event) => setSelectedAccessMode(event.target.value)}>
+                    <option value="all">All access modes</option>
+                    {accessModeOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {titleCase(option)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="setupField economyVisibilityFilterField">
+                  <span>Package status</span>
+                  <select value={selectedPackageStatus} onChange={(event) => setSelectedPackageStatus(event.target.value)}>
+                    <option value="all">Active and paused</option>
+                    <option value="active">Active only</option>
+                    <option value="paused">Paused only</option>
+                  </select>
+                </label>
+              </div>
+            ) : null}
+
+            {selectedPanel === "entitlements" ? (
+              <div className="economyVisibilityFilterRow">
+                <label className="setupField economyVisibilityFilterField">
+                  <span>Entitlement status</span>
+                  <select value={selectedEntitlementStatus} onChange={(event) => setSelectedEntitlementStatus(event.target.value)}>
+                    <option value="all">All statuses</option>
+                    {entitlementStatusOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {titleCase(option)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="setupField economyVisibilityFilterField">
+                  <span>Granted via</span>
+                  <select value={selectedGrantMode} onChange={(event) => setSelectedGrantMode(event.target.value)}>
+                    <option value="all">All grant paths</option>
+                    {grantModeOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {titleCase(option)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            ) : null}
+
+            {selectedPanel === "features" ? (
+              <div className="economyVisibilityFilterRow">
+                <label className="setupField economyVisibilityFilterField">
+                  <span>Feature status</span>
+                  <select value={selectedFeatureStatus} onChange={(event) => setSelectedFeatureStatus(event.target.value)}>
+                    <option value="all">All feature statuses</option>
+                    {featureStatusOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {titleCase(option)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            ) : null}
+
+            {selectedPanel === "usage" ? (
+              <div className="economyVisibilityFilterRow">
+                <label className="setupField economyVisibilityFilterField">
+                  <span>Usage action</span>
+                  <select value={selectedUsageAction} onChange={(event) => setSelectedUsageAction(event.target.value)}>
+                    <option value="all">All usage actions</option>
+                    {usageActionOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {titleCase(option)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            ) : null}
           </div>
-          <div className="buttonRow" style={{ marginTop: 16 }}>
+
+          <div className="economyVisibilityActions">
             <button
               className="button buttonSecondary"
               disabled={downloadingReport}
@@ -682,88 +798,106 @@ export function EconomyQuestionBankVisibilityCard({
             >
               {downloadingReport ? "Downloading..." : "Export Package Report"}
             </button>
+            <button
+              className="button buttonGhost"
+              onClick={() => {
+                setSelectedPanel("entitlements");
+                setSelectedPackage("all");
+                setSelectedFamily("all");
+                setSelectedOwnership("all");
+                setSelectedAccessMode("all");
+                setSelectedPackageStatus("all");
+                setSelectedEntitlementStatus("all");
+                setSelectedGrantMode("all");
+                setSelectedFeatureStatus("all");
+                setSelectedUsageAction("all");
+                setResultLimit("10");
+              }}
+              type="button"
+            >
+              Reset Filters
+            </button>
           </div>
         </section>
 
-        <section className="featurePlaceholder">
-          <strong>Question-bank packages</strong>
-          <p>{packageCards.length} packages currently visible in the active operator filter.</p>
-          <div>
-            {packageCardsByFamily.length > 0 ? (
-              packageCardsByFamily.slice(0, 4).map(([familyLabel, familyCards]) => (
-                <section className="featurePlaceholder" key={familyLabel} style={{ marginBottom: 12 }}>
-                  <strong>{familyLabel} package family</strong>
-                  <p>{familyCards.length} package lane{familyCards.length === 1 ? "" : "s"} currently visible in the active operator filter.</p>
-                  <div className="weakTopicStack">
-                    {familyCards.slice(0, 6).map(({ pkg, activeScopedEntitlements, usageCount }) => (
-                      <div className="weakTopicRow" key={pkg.id}>
-                        <div>
-                          <strong>{pkg.display_name || pkg.name}</strong>
-                          <span>
-                            {pkg.code} · {pkg.institute_code} · {prettify(pkg.ownership_type)}
-                          </span>
-                          <span>
-                            {pkg.commercial_labels.length > 0
-                              ? pkg.commercial_labels.join(" · ")
-                              : `${prettify(pkg.package_type)} · ${prettify(pkg.access_mode)} · ${pkg.is_public_catalog ? "Public catalog" : "Hidden catalog"}`}
-                          </span>
-                          <span>{pkg.coverage_summary}</span>
+        {selectedPanel === "packages" ? (
+          <section className="featurePlaceholder">
+            <strong>Question-bank packages</strong>
+            <p>{packageCards.length} packages match the current filters. Showing the first {visiblePackageCards.length} rows.</p>
+            <div className="weakTopicStack">
+              {visiblePackageCards.length > 0 ? (
+                visiblePackageCards.map(({ pkg, activeScopedEntitlements, usageCount }) => (
+                  <div className="weakTopicRow" key={pkg.id}>
+                    <div>
+                      <strong>{pkg.display_name || pkg.name}</strong>
+                      <span>
+                        {pkg.code} · {pkg.institute_code} · {prettify(pkg.ownership_type)}
+                      </span>
+                      <span>
+                        {pkg.commercial_labels.length > 0
+                          ? pkg.commercial_labels.join(" · ")
+                          : `${prettify(pkg.package_type)} · ${prettify(pkg.access_mode)} · ${pkg.is_public_catalog ? "Public catalog" : "Hidden catalog"}`}
+                      </span>
+                      <span>{pkg.coverage_summary}</span>
+                      <span>{describeUsageMix(usageByPackageCode[pkg.code])}</span>
+                      <details className="economyCatalogDetailDisclosure">
+                        <summary>View package scope details</summary>
+                        <div className="economyCatalogDetailStack">
                           {pkg.coverage_subject_labels.length > 0 ? (
-                            <span>Subjects: {pkg.coverage_subject_labels.slice(0, 4).join(", ")}</span>
+                            <span>Subjects: {pkg.coverage_subject_labels.slice(0, 6).join(", ")}</span>
                           ) : pkg.coverage_program_labels.length > 0 ? (
-                            <span>Programs: {pkg.coverage_program_labels.slice(0, 4).join(", ")}</span>
+                            <span>Programs: {pkg.coverage_program_labels.slice(0, 6).join(", ")}</span>
                           ) : pkg.scopes.length > 0 ? (
                             <span>{describeScope(pkg.scopes[0]) || "Scope configured"}</span>
                           ) : (
                             <span>No scope rows configured</span>
                           )}
                           {pkg.coverage_topic_labels.length > 0 ? (
-                            <span>Topics: {pkg.coverage_topic_labels.slice(0, 4).join(", ")}</span>
+                            <span>Topics: {pkg.coverage_topic_labels.slice(0, 6).join(", ")}</span>
                           ) : null}
                           {pkg.package_family_label ? <span>Family: {pkg.package_family_label}</span> : null}
                           {pkg.recommended_for_labels.length > 0 ? (
-                            <span>Recommended for: {pkg.recommended_for_labels.slice(0, 4).join(", ")}</span>
+                            <span>Recommended for: {pkg.recommended_for_labels.slice(0, 6).join(", ")}</span>
                           ) : null}
-                          {pkg.scopes.length > 1 ? (
-                            <span>Top scopes: {pkg.scopes.slice(0, 3).map((scope) => describeScope(scope) || "Scoped segment").join(" · ")}</span>
-                          ) : null}
-                          <span>{describeUsageMix(usageByPackageCode[pkg.code])}</span>
                         </div>
-                        <div className="weakTopicMeta">
-                          <strong>{pkg.is_active ? "Active" : "Paused"}</strong>
-                          <span>{pkg.scope_count} scopes</span>
-                          <span>{pkg.subject_count} subjects</span>
-                          <span>{pkg.topic_count} topics</span>
-                          <span>{activeScopedEntitlements.length} active entitlements</span>
-                          <span>{pkg.default_plan_count}/{pkg.linked_plan_count} default/linked plans</span>
-                          <span>{usageCount} usage units</span>
-                          <span className={`statusTag statusTag${titleCase(ownershipTone(pkg.ownership_type))}`}>
-                            {titleCase(pkg.ownership_type)} owner
-                          </span>
-                        </div>
-                      </div>
-                    ))}
+                      </details>
+                    </div>
+                    <div className="weakTopicMeta">
+                      <strong>{pkg.is_active ? "Active" : "Paused"}</strong>
+                      <span>{pkg.scope_count} scopes</span>
+                      <span>{pkg.subject_count} subjects</span>
+                      <span>{pkg.topic_count} topics</span>
+                      <span>{activeScopedEntitlements.length} active entitlements</span>
+                      <span>{pkg.default_plan_count}/{pkg.linked_plan_count} default/linked plans</span>
+                      <span>{usageCount} usage units</span>
+                      <span className={`statusTag statusTag${titleCase(ownershipTone(pkg.ownership_type))}`}>
+                        {titleCase(pkg.ownership_type)} owner
+                      </span>
+                    </div>
                   </div>
-                </section>
-              ))
-            ) : (
-              <p>No question-bank packages are currently visible.</p>
-            )}
-          </div>
-        </section>
+                ))
+              ) : (
+                <p>No question-bank packages are currently visible.</p>
+              )}
+            </div>
+          </section>
+        ) : null}
 
-        <section className="featurePlaceholder">
-          <strong>Institute question entitlements</strong>
-          <p>
-            {filteredEntitlements.length} entitlement rows visible. {pausedEntitlements.length} paused and{" "}
-            {revokedEntitlements.length} revoked rows remain in operator scope. {nearLimitEntitlements.length} active
-            rows are near quota limit.
-          </p>
-          <div className="weakTopicStack">
-            {filteredEntitlements.length > 0 ? (
-              filteredEntitlements.slice(0, 12).map((entitlement) => (
-                <div className="weakTopicRow" key={entitlement.id} data-testid={`entitlement-row-${entitlement.id}`}>
-                  <div>
+        {selectedPanel === "entitlements" ? (
+          <section className="featurePlaceholder">
+            <strong>Institute question entitlements</strong>
+            <p>
+              {filteredEntitlements.length} entitlement rows match the current filters. {revokedEntitlements.length} revoked and {nearLimitEntitlements.length} near-limit rows remain visible.
+            </p>
+            <div className="weakTopicStack">
+              {visibleEntitlements.length > 0 ? (
+                visibleEntitlements.map((entitlement) => (
+                <div
+                  className="weakTopicRow economyEntitlementRow"
+                  key={entitlement.id}
+                  data-testid={`entitlement-row-${entitlement.id}`}
+                >
+                  <div className="economyEntitlementMain">
                     <strong>{entitlement.institute_name}</strong>
                     <span>
                       {entitlement.question_bank_package_code} · owner {entitlement.package_owner_institute_code}
@@ -802,8 +936,8 @@ export function EconomyQuestionBankVisibilityCard({
                     ) : null}
                     <span>{describeUsageMix(usageByPackageCode[entitlement.question_bank_package_code])}</span>
                     {entitlement.notes ? <span>Operator notes: {entitlement.notes}</span> : null}
-                    <div className="formGrid formGrid3" style={{ marginTop: 12 }}>
-                      <label className="fieldLabel">
+                    <div className="economyEntitlementDraftGrid">
+                      <label className="setupField">
                         <span>Starts at</span>
                         <input
                           type="datetime-local"
@@ -813,7 +947,7 @@ export function EconomyQuestionBankVisibilityCard({
                           }
                         />
                       </label>
-                      <label className="fieldLabel">
+                      <label className="setupField">
                         <span>Ends at</span>
                         <input
                           type="datetime-local"
@@ -823,7 +957,7 @@ export function EconomyQuestionBankVisibilityCard({
                           }
                         />
                       </label>
-                      <label className="fieldLabel">
+                      <label className="setupField economyEntitlementNotesField">
                         <span>Operator notes</span>
                         <input
                           type="text"
@@ -836,7 +970,7 @@ export function EconomyQuestionBankVisibilityCard({
                       </label>
                     </div>
                   </div>
-                  <div className="weakTopicMeta">
+                  <div className="weakTopicMeta economyEntitlementMeta">
                     <strong>{entitlement.is_active ? "Row active" : "Row inactive"}</strong>
                     <span>{entitlement.institute_code}</span>
                     <span>{entitlement.question_bank_package_name}</span>
@@ -854,49 +988,52 @@ export function EconomyQuestionBankVisibilityCard({
                     <span className={`statusTag statusTag${titleCase(lifecycleTone(getEntitlementLifecycleLabel(entitlement)))}`}>
                       {getEntitlementLifecycleLabel(entitlement)}
                     </span>
-                    <button
-                      className="button buttonGhost"
-                      disabled={updatingEntitlementId === entitlement.id}
-                      onClick={() =>
-                        void handleEntitlementStatusChange(
-                          entitlement,
-                          entitlement.status as "active" | "paused" | "revoked",
-                        )
-                      }
-                      type="button"
-                    >
-                      {updatingEntitlementId === entitlement.id ? "Updating..." : "Save Lifecycle"}
-                    </button>
-                    {entitlement.status === "active" ? (
+                    <div className="economyEntitlementActionStack">
                       <button
                         className="button buttonGhost"
                         disabled={updatingEntitlementId === entitlement.id}
-                        onClick={() => void handleEntitlementStatusChange(entitlement, "paused")}
+                        onClick={() =>
+                          void handleEntitlementStatusChange(
+                            entitlement,
+                            entitlement.status as "active" | "paused" | "revoked",
+                          )
+                        }
                         type="button"
                       >
-                        {updatingEntitlementId === entitlement.id ? "Updating..." : "Pause Entitlement"}
+                        {updatingEntitlementId === entitlement.id ? "Updating..." : "Save Lifecycle"}
                       </button>
-                    ) : null}
-                    {entitlement.status === "paused" ? (
-                      <button
-                        className="button buttonGhost"
-                        disabled={updatingEntitlementId === entitlement.id}
-                        onClick={() => void handleEntitlementStatusChange(entitlement, "active")}
-                        type="button"
-                      >
-                        {updatingEntitlementId === entitlement.id ? "Updating..." : "Reactivate Entitlement"}
-                      </button>
-                    ) : null}
-                    {entitlement.status !== "revoked" ? (
-                      <button
-                        className="button buttonDanger"
-                        disabled={updatingEntitlementId === entitlement.id}
-                        onClick={() => void handleEntitlementStatusChange(entitlement, "revoked")}
-                        type="button"
-                      >
-                        {updatingEntitlementId === entitlement.id ? "Updating..." : "Revoke Entitlement"}
-                      </button>
-                    ) : null}
+
+                      {entitlement.status === "active" ? (
+                        <button
+                          className="button buttonGhost"
+                          disabled={updatingEntitlementId === entitlement.id}
+                          onClick={() => void handleEntitlementStatusChange(entitlement, "paused")}
+                          type="button"
+                        >
+                          {updatingEntitlementId === entitlement.id ? "Updating..." : "Pause Entitlement"}
+                        </button>
+                      ) : null}
+                      {entitlement.status === "paused" ? (
+                        <button
+                          className="button buttonGhost"
+                          disabled={updatingEntitlementId === entitlement.id}
+                          onClick={() => void handleEntitlementStatusChange(entitlement, "active")}
+                          type="button"
+                        >
+                          {updatingEntitlementId === entitlement.id ? "Updating..." : "Reactivate Entitlement"}
+                        </button>
+                      ) : null}
+                      {entitlement.status !== "revoked" ? (
+                        <button
+                          className="button buttonDanger"
+                          disabled={updatingEntitlementId === entitlement.id}
+                          onClick={() => void handleEntitlementStatusChange(entitlement, "revoked")}
+                          type="button"
+                        >
+                          {updatingEntitlementId === entitlement.id ? "Updating..." : "Revoke Entitlement"}
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
               ))
@@ -904,16 +1041,18 @@ export function EconomyQuestionBankVisibilityCard({
               <p>No institute entitlements are currently visible.</p>
             )}
           </div>
-        </section>
+          </section>
+        ) : null}
 
-        <section className="featurePlaceholder">
-          <strong>Institute feature entitlements</strong>
-          <p>{filteredFeatureEntitlements.length} feature entitlement rows currently visible to platform admin.</p>
-          <div className="weakTopicStack">
-            {filteredFeatureEntitlements.length > 0 ? (
-              filteredFeatureEntitlements.slice(0, 12).map((entitlement) => (
-                <div className="weakTopicRow" key={entitlement.id}>
-                  <div>
+        {selectedPanel === "features" ? (
+          <section className="featurePlaceholder">
+            <strong>Institute feature entitlements</strong>
+            <p>{filteredFeatureEntitlements.length} feature entitlement rows match the current filters.</p>
+            <div className="weakTopicStack">
+              {visibleFeatureEntitlements.length > 0 ? (
+                visibleFeatureEntitlements.map((entitlement) => (
+                <div className="weakTopicRow economyFeatureRow" key={entitlement.id}>
+                  <div className="economyFeatureMain">
                     <strong>{entitlement.institute_name}</strong>
                     <span>
                       Feature: {titleCase(entitlement.feature_code)}
@@ -931,8 +1070,24 @@ export function EconomyQuestionBankVisibilityCard({
                         ? `Source plan: ${entitlement.source_subscription_plan_code}`
                         : "No source subscription plan linked"}
                     </span>
+                    <details className="economyCatalogDetailDisclosure">
+                      <summary>View feature grant details</summary>
+                      <div className="economyCatalogDetailStack">
+                        {entitlement.source_package_name ? <span>Source package name: {entitlement.source_package_name}</span> : null}
+                        {entitlement.source_subscription_plan_name ? (
+                          <span>Source plan name: {entitlement.source_subscription_plan_name}</span>
+                        ) : null}
+                        <span>
+                          {entitlement.ends_at
+                            ? `Ends ${formatDateLabel(entitlement.ends_at)}`
+                            : entitlement.starts_at
+                              ? `Starts ${formatDateLabel(entitlement.starts_at)}`
+                              : "No lifecycle window"}
+                        </span>
+                      </div>
+                    </details>
                   </div>
-                  <div className="weakTopicMeta">
+                  <div className="weakTopicMeta economyFeatureMeta">
                     <strong>{entitlement.institute_code}</strong>
                     <span>
                       {entitlement.ends_at
@@ -941,6 +1096,7 @@ export function EconomyQuestionBankVisibilityCard({
                           ? `Starts ${formatDateLabel(entitlement.starts_at)}`
                           : "No lifecycle window"}
                     </span>
+                    <div className="economyEntitlementActionStack">
                     {entitlement.status === "active" ? (
                       <button
                         className="button buttonGhost"
@@ -971,6 +1127,7 @@ export function EconomyQuestionBankVisibilityCard({
                         {updatingFeatureEntitlementId === entitlement.id ? "Updating..." : "Revoke Feature"}
                       </button>
                     ) : null}
+                    </div>
                   </div>
                 </div>
               ))
@@ -978,19 +1135,20 @@ export function EconomyQuestionBankVisibilityCard({
               <p>No institute feature entitlements are currently visible.</p>
             )}
           </div>
-        </section>
+          </section>
+        ) : null}
 
-        <section className="featurePlaceholder">
-          <strong>Recent package consumption evidence</strong>
-          <p>
-            {filteredUsageEntries.length} usage rows currently visible. This is the quickest way to prove whether a
-            package is only configured or is actually being consumed.
-          </p>
-          <div className="weakTopicStack">
-            {filteredUsageEntries.length > 0 ? (
-              filteredUsageEntries.slice(0, 15).map((entry) => (
-                <div className="weakTopicRow" key={entry.id}>
-                  <div>
+        {selectedPanel === "usage" ? (
+          <section className="featurePlaceholder">
+            <strong>Recent package consumption evidence</strong>
+            <p>
+              {filteredUsageEntries.length} usage rows match the current filters. Use this panel only when you need proof of actual package consumption.
+            </p>
+            <div className="weakTopicStack">
+              {visibleUsageEntries.length > 0 ? (
+                visibleUsageEntries.map((entry) => (
+                <div className="weakTopicRow economyUsageRow" key={entry.id}>
+                  <div className="economyUsageMain">
                     <strong>{entry.institute_name}</strong>
                     <span>
                       {entry.question_bank_package_code || "No package"} · {titleCase(entry.action_type)}
@@ -1010,8 +1168,18 @@ export function EconomyQuestionBankVisibilityCard({
                         : "No actor captured"}{" "}
                       · {formatDateLabel(entry.effective_at)}
                     </span>
+                    <details className="economyCatalogDetailDisclosure">
+                      <summary>View evidence detail</summary>
+                      <div className="economyCatalogDetailStack">
+                        {entry.exam_title ? <span>Exam title: {entry.exam_title}</span> : null}
+                        {entry.question_text ? <span>Question snapshot: {entry.question_text}</span> : null}
+                        {!entry.question_text && entry.master_question_text ? (
+                          <span>Master question snapshot: {entry.master_question_text}</span>
+                        ) : null}
+                      </div>
+                    </details>
                   </div>
-                  <div className="weakTopicMeta">
+                  <div className="weakTopicMeta economyUsageMeta">
                     <strong>{entry.quantity}</strong>
                     <span>{entry.institute_code}</span>
                     <span>{entry.entitlement_status ? titleCase(entry.entitlement_status) : "No entitlement row"}</span>
@@ -1027,7 +1195,8 @@ export function EconomyQuestionBankVisibilityCard({
               Review institute subscriptions
             </Link>
           </div>
-        </section>
+          </section>
+        ) : null}
       </div>
     </article>
   );

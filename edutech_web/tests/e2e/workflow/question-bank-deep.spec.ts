@@ -32,27 +32,39 @@ test.describe("Teacher workflow deep regression", () => {
 
     await page.goto("/teacher/question-bank/import");
     await expect(page.getByRole("heading", { name: /import questions/i }).first()).toBeVisible();
-    await expect(page.getByText(/expected csv headers/i)).toBeVisible();
-    await expect(page.getByText(/single correct mcq/i)).toBeVisible();
+    const importBlocked = await page
+      .getByText(/question-bank bulk import is not enabled for your institute yet/i)
+      .first()
+      .isVisible()
+      .catch(() => false);
 
-    await page.getByRole("button", { name: /preview import/i }).click();
-    await expect(page.locator(".feedbackBannerError")).toContainText(
-      /choose a csv file before previewing the import/i,
-    );
+    if (!importBlocked) {
+      await expect(page.getByText(/expected csv headers/i)).toBeVisible();
+      await expect(page.getByText(/single correct mcq/i)).toBeVisible();
 
-    const fileInput = page.getByTestId("question-import-file-input");
-    await fileInput.setInputFiles({
-      name: "question-import-placeholder.csv",
-      mimeType: "text/csv",
-      buffer: Buffer.from("question_text\nplaceholder\n"),
-    });
+      await page.getByRole("button", { name: /preview import/i }).click();
+      await expect(page.locator(".feedbackBannerError")).toContainText(
+        /choose a csv file before previewing the import/i,
+      );
 
-    const clearButton = page.getByRole("button", { name: /^clear$/i });
-    await expect(clearButton).toBeEnabled();
+      const fileInput = page.getByTestId("question-import-file-input");
+      await fileInput.setInputFiles({
+        name: "question-import-placeholder.csv",
+        mimeType: "text/csv",
+        buffer: Buffer.from("question_text\nplaceholder\n"),
+      });
 
-    await clearButton.click();
-    await expect(page.locator(".feedbackBannerError")).not.toBeVisible();
-    await expect(clearButton).toBeDisabled();
+      const clearButton = page.getByRole("button", { name: /^clear$/i });
+      await expect(clearButton).toBeEnabled();
+
+      await clearButton.click();
+      await expect(page.locator(".feedbackBannerError")).not.toBeVisible();
+      await expect(clearButton).toBeDisabled();
+    } else {
+      await expect(page.getByText(/feature entitlement required/i).first()).toBeVisible();
+      await expect(page.getByText(/subscription controlled/i).first()).toBeVisible();
+      await expect(page.getByRole("link", { name: /back to question bank/i })).toBeVisible();
+    }
 
     await page.goto("/teacher/question-bank/comprehension/new");
     await expect(page.getByRole("heading", { name: /create comprehension set/i }).first()).toBeVisible();
@@ -73,12 +85,24 @@ test.describe("Teacher workflow deep regression", () => {
 
     await page.goto("/teacher/question-bank/comprehension/import");
     await expect(page.getByRole("heading", { name: /import comprehension sets/i }).first()).toBeVisible();
-    await expect(page.getByText(/expected csv headers/i)).toBeVisible();
-    await expect(page.getByText(/markdown passage/i)).toBeVisible();
+    const comprehensionImportBlocked = await page
+      .getByText(/question-bank bulk import is not enabled for your institute yet/i)
+      .first()
+      .isVisible()
+      .catch(() => false);
 
-    await page.getByRole("button", { name: /preview import/i }).click();
-    await expect(page.locator(".feedbackBannerError")).toContainText(
-      /choose a csv file before previewing the import/i,
-    );
+    if (!comprehensionImportBlocked) {
+      await expect(page.getByText(/expected csv headers/i)).toBeVisible();
+      await expect(page.getByText(/markdown passage/i)).toBeVisible();
+
+      await page.getByRole("button", { name: /preview import/i }).click();
+      await expect(page.locator(".feedbackBannerError")).toContainText(
+        /choose a csv file before previewing the import/i,
+      );
+    } else {
+      await expect(page.getByText(/feature entitlement required/i).first()).toBeVisible();
+      await expect(page.getByText(/subscription controlled/i).first()).toBeVisible();
+      await expect(page.getByRole("link", { name: /back to question bank/i })).toBeVisible();
+    }
   });
 });

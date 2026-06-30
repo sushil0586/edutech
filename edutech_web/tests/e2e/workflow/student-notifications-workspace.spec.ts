@@ -150,7 +150,7 @@ test.describe("Student notifications workspace", () => {
       const href = await actionLink.getAttribute("href");
       expect(href).toBeTruthy();
       if (href) {
-        await actionLink.click();
+        await gotoWithRetry(page, href);
         await expect(page).toHaveURL(new RegExp(href.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
       }
     }

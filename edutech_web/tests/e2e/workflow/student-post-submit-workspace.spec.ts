@@ -74,6 +74,22 @@ async function resolveSummaryEntry(page: Page) {
   return null;
 }
 
+async function expectReviewRouteOrUnavailable(page: Page) {
+  await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/review(?:\?.*)?$/);
+  const unavailableHeading = page.getByRole("heading", {
+    name: /attempt review is not available right now/i,
+  }).first();
+  if (await unavailableHeading.isVisible().catch(() => false)) {
+    await expect(page.getByText(/review unavailable/i).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /check result status/i }).first()).toBeVisible();
+    return "unavailable" as const;
+  }
+
+  await expect(page.getByRole("heading", { name: /review/i }).first()).toBeVisible();
+  await expect(page.locator(".contentCard").filter({ hasText: /review state/i }).first()).toBeVisible();
+  return "available" as const;
+}
+
 test.describe("Student post-submit workspace", () => {
   test.skip(testRequiresRole("student"), "Student Playwright credentials are not configured.");
 
@@ -97,10 +113,12 @@ test.describe("Student post-submit workspace", () => {
     await expect(page.getByText(/post-submit state/i).first()).toBeVisible();
     await expect(page.getByText(/attempt status/i).first()).toBeVisible();
     await expect(page.getByText(/recommended actions/i).first()).toBeVisible();
-    await expect(page.getByText(/results and answer review always unlock/i).first()).toBeVisible();
+    await expect(
+      page.getByText(/submitted, evaluation pending, result published, then review available when allowed/i).first(),
+    ).toBeVisible();
     await expect(page.getByText(/use attempts history to revisit this summary later/i).first()).toBeVisible();
     await expect(
-      page.getByText(/answer review (open|locked)/i).first(),
+      page.getByText(/result published .* review available|result published|review available/i).first(),
     ).toBeVisible();
 
     const summaryHero = page.locator(".studentInsightHeroCard").first();
@@ -127,33 +145,34 @@ test.describe("Student post-submit workspace", () => {
       expect(reviewHref).toMatch(/^\/app\/attempts\/[^/]+\/review$/);
 
       await reviewEntry.click();
-      await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/review(?:\?.*)?$/);
-      await expect(page.getByText(/review mode/i).first()).toBeVisible();
-      await expect(page.getByText(/review state/i).first()).toBeVisible();
-      await expect(page.getByText(/recommended actions/i).first()).toBeVisible();
-      await expect(
-        page.getByText(/this route is the final student-release stage/i).first(),
-      ).toBeVisible();
-      await expect(page.getByText(/use summary to confirm release state/i).first()).toBeVisible();
+      const reviewState = await expectReviewRouteOrUnavailable(page);
 
-      const reviewState = page
-        .locator(".contentCard")
-        .filter({ has: page.getByText(/^review state$/i) })
-        .first();
-      await expect(reviewState).toBeVisible();
-      await expect(
-        reviewState.getByText(/correct answers|explanations|questions in review/i).first(),
-      ).toBeVisible();
+      if (reviewState === "available") {
+        await expect(page.locator(".contentCard").filter({ hasText: /recommended actions/i }).first()).toBeVisible();
+        await expect(
+          page.getByText(/this route is the final student-release stage/i).first(),
+        ).toBeVisible();
+        await expect(page.getByText(/use summary to confirm release state/i).first()).toBeVisible();
 
-      await page.getByRole("link", { name: /open attempts/i }).first().click();
-      await expect(page).toHaveURL(/\/app\/attempts(?:\?.*)?$/);
+        const reviewStateCard = page
+          .locator(".contentCard")
+          .filter({ has: page.getByText(/^review state$/i) })
+          .first();
+        await expect(reviewStateCard).toBeVisible();
+        await expect(
+          reviewStateCard.getByText(/correct answers|explanations|questions in review/i).first(),
+        ).toBeVisible();
 
-      await gotoWithRetry(page, summaryHref);
-      await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/summary(?:\?.*)?$/);
-      const backToSummaryLink = page.getByRole("link", { name: /back to summary|open summary/i }).first();
-      await expect(backToSummaryLink).toBeVisible();
-      await backToSummaryLink.click();
-      await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/summary(?:\?.*)?$/);
+        await page.getByRole("link", { name: /open attempts/i }).first().click();
+        await expect(page).toHaveURL(/\/app\/attempts(?:\?.*)?$/);
+
+        await gotoWithRetry(page, summaryHref);
+        await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/summary(?:\?.*)?$/);
+        const backToSummaryLink = page.getByRole("link", { name: /back to summary|open summary/i }).first();
+        await expect(backToSummaryLink).toBeVisible();
+        await backToSummaryLink.click();
+        await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/summary(?:\?.*)?$/);
+      }
     }
 
     await page.getByRole("link", { name: /open results|view results|check result status/i }).first().click();

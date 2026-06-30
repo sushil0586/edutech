@@ -15,6 +15,7 @@ import {
   studentDateTimeLabel,
   titleCaseState,
 } from "@/lib/student/formatters";
+import { buildFilterHref } from "@/lib/workspace/filter-utils";
 import {
   ALL_SUBJECTS_CONTEXT,
   filterStudentRecordsByMetadataSubject,
@@ -134,7 +135,14 @@ export default async function StudentAnalyticsResultsComparePage({
         ]}
         actions={
           <>
-            <Link className="button buttonPrimary" href="/app/results">
+            <Link
+              className="button buttonPrimary"
+              href={buildFilterHref("/app/results", [
+                ["subject", subject],
+                ["source", source],
+                ["teacher", teacher],
+              ])}
+            >
               Open Results
             </Link>
             <Link

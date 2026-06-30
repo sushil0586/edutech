@@ -80,24 +80,32 @@ test.describe("Student attempt runtime workspace", () => {
     await attemptSource.entry.click();
     await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+(?:\?.*)?$/);
 
-    const activeBanner = page.getByText(/test in progress/i).first();
-    const lockedBanner = page.getByText(/attempt locked/i).first();
-    const activeVisible = await activeBanner.isVisible().catch(() => false);
-    const lockedVisible = await lockedBanner.isVisible().catch(() => false);
+    const activeVisible = await page
+      .getByRole("button", { name: /^save answer$/i })
+      .first()
+      .isVisible()
+      .catch(() => false);
+    const lockedVisible = await page
+      .getByRole("link", { name: /refresh attempt state|refresh mock state|view attempt summary|view mock summary/i })
+      .first()
+      .isVisible()
+      .catch(() => false);
 
     expect(activeVisible || lockedVisible).toBe(true);
 
     if (activeVisible) {
+      const saveConfidenceCard = page
+        .locator(".examStateSummary")
+        .filter({
+          has: page.getByText(/save confidence|checkpoint confidence/i),
+        })
+        .first();
       await expect(page.getByText(/attempt progress/i).first()).toBeVisible();
       await expect(page.getByText(/section progress/i).first()).toBeVisible();
-      await expect(page.getByText(/save confidence/i).first()).toBeVisible();
+      await expect(saveConfidenceCard).toBeVisible();
       await expect(page.getByText(/overall progress/i).first()).toBeVisible();
       await expect(page.getByText(/last confirmed save/i).first()).toBeVisible();
-      await expect(page.getByText(/summary opens after submit/i).first()).toBeVisible();
-      await expect(page.getByText(/runtime focus/i).first()).toBeVisible();
-      await expect(
-        page.getByText(/use this strip as the quick check before you jump, switch sections, or submit/i).first(),
-      ).toBeVisible();
+      await expect(page.getByText(/summary opens after submit|summary opens after final submit/i).first()).toBeVisible();
       await expect(page.getByText(/test summary/i).first()).toBeVisible();
       await expect(page.getByText(/question palette/i).first()).toBeVisible();
       await expect(page.getByText(/save & recovery status/i).first()).toBeVisible();
@@ -130,22 +138,22 @@ test.describe("Student attempt runtime workspace", () => {
         page.getByText(/this test is no longer editable|this attempt has expired/i).first(),
       ).toBeVisible();
       await expect(page.getByText(/saved/i).first()).toBeVisible();
-      await expect(page.getByRole("link", { name: /refresh attempt state/i }).first()).toBeVisible();
+      await expect(page.getByRole("link", { name: /refresh attempt state|refresh mock state/i }).first()).toBeVisible();
 
-      const summaryLink = page.getByRole("link", { name: /view attempt summary/i }).first();
+      const summaryLink = page.getByRole("link", { name: /view attempt summary|view mock summary/i }).first();
       if (await summaryLink.isVisible().catch(() => false)) {
         await summaryLink.click();
         await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/summary(?:\?.*)?$/);
         return;
       }
 
-      await page.getByRole("link", { name: /back to tests/i }).first().click();
+      await page.getByRole("link", { name: /back to tests|back to mock tests/i }).first().click();
       await expect(page).toHaveURL(/\/app\/exams(?:\?.*)?$/);
       return;
     }
 
     const backToTests = await firstVisible([
-      page.getByRole("link", { name: /back to tests/i }).first(),
+      page.getByRole("link", { name: /back to tests|back to mock tests/i }).first(),
       page.locator('a[href="/app/exams"]').first(),
     ]);
     await backToTests.click();

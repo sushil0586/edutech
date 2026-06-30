@@ -175,8 +175,8 @@ export function EconomyCatalogGovernanceCard({
                     group.items.map((item) => {
                       const actionKey = `${item.item_type}:${item.id}`;
                       return (
-                        <div className="weakTopicRow" key={item.id}>
-                          <div>
+                        <div className="weakTopicRow economyCommerceCatalogRow" key={item.id}>
+                          <div className="economyCommerceCatalogMain">
                             <strong>{item.name}</strong>
                             <span>{item.institute_name}</span>
                             <span>
@@ -185,7 +185,7 @@ export function EconomyCatalogGovernanceCard({
                             </span>
                             <span>Updated {formatDateTime(item.updated_at)}</span>
                           </div>
-                          <div className="weakTopicMeta">
+                          <div className="weakTopicMeta economyCommerceCatalogMeta">
                             <strong>{item.is_active ? "Active" : "Paused"}</strong>
                             <button
                               className="button buttonGhost"

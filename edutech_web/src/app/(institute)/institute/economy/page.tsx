@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { EconomySeedScreen } from "@/components/admin/economy-seed-screen";
 import { InstituteEconomyWorkspace } from "@/components/admin/institute-economy-workspace";
+import { InstituteEconomyOverviewWorkspace } from "@/components/ui/institute-economy-overview-workspace";
 import { InstituteSubscriptionRequestWorkspace } from "@/components/ui/institute-subscription-request-workspace";
 import { InstitutePageHeader } from "@/components/ui/institute-page-header";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
@@ -405,7 +406,7 @@ export default async function InstituteEconomyPage() {
     subscriptionRequests,
   ] = await Promise.all([
     loadInstituteExams(),
-    fetchPortalList<StudentRecord>(`/api/v1/students/${instituteQuery}`),
+    fetchPortalList<StudentRecord>(`/api/v1/students/${instituteQuery}`).catch(() => []),
     fetchPortalList<InstituteQuestionBankEntitlement>(
       "/api/v1/economy/admin/institute-question-bank-entitlements/",
     ).catch(() => []),
@@ -450,13 +451,392 @@ export default async function InstituteEconomyPage() {
     .filter((entry) => entry.action_type === "exam_published")
     .reduce((total, entry) => total + (entry.quantity || 0), 0);
   const activeCoverage = getCoverageHighlights(activePackageEntitlements);
-  const liveCoverage = getCoverageHighlights(
-    packageEntitlements.filter((item) => item.status === "active" || item.status === "paused"),
-  );
   const planRelationshipRows = getPlanRelationshipRows(requestablePlans, packageEntitlements, subscriptionRequests);
+  const overviewMetrics = [
+    {
+      label: "Exams with economy policy",
+      value: gatedExams.length,
+      helper: "Exams carrying an explicit access rule.",
+      accent: true,
+    },
+    {
+      label: "Star-gated exams",
+      value: starLockedCount,
+      helper: "Policies requiring stars directly or conditionally.",
+    },
+    {
+      label: "Entitlement-linked exams",
+      value: entitlementCount,
+      helper: "Policies using entitlement-based bypass or gating.",
+    },
+    {
+      label: "Total configured star cost",
+      value: totalStarCost,
+      helper: "Sum of explicit star costs across scoped exams.",
+    },
+    {
+      label: "Licensed packages",
+      value: activePackageEntitlements.length,
+      helper: "Question-bank packages currently active for this institute.",
+    },
+    {
+      label: "Linked shared questions",
+      value: linkedQuestionUsageCount,
+      helper: "Shared-library questions linked into the local bank so far.",
+    },
+    {
+      label: "Usage events",
+      value: questionBankUsage.length,
+      helper: "Auditable package-usage records visible to this institute.",
+    },
+    {
+      label: "Expiring soon",
+      value: expiringSoonPackageEntitlements.length,
+      helper: "Packages needing renewal attention in the next 14 days.",
+    },
+    {
+      label: "Feature lanes active",
+      value: activeFeatureEntitlements.length,
+      helper: "Shared-library or template features currently usable.",
+    },
+  ];
+  const overviewLanes = [
+    {
+      key: "licensing",
+      eyebrow: "Licensed access summary",
+      title: "What is active, blocked, and approaching renewal",
+      description:
+        "Read the current package and feature posture before making any support or content decisions.",
+      emptyMessage: "No licensing summary is available yet.",
+      rows: [
+        {
+          id: "active-packages",
+          title: "Active packages",
+          lines: [
+            "These packages can currently power shared-library authoring and licensed question reuse.",
+          ],
+          metaTitle: String(activePackageEntitlements.length),
+          metaLines: ["Live now"],
+        },
+        {
+          id: "blocked-packages",
+          title: "Paused or revoked packages",
+          lines: [
+            "These lanes remain visible for audit purposes, but their licensed usage path is blocked.",
+          ],
+          metaTitle: String(pausedPackageEntitlements.length + revokedPackageEntitlements.length),
+          metaLines: [`${pausedPackageEntitlements.length} paused · ${revokedPackageEntitlements.length} revoked`],
+        },
+        {
+          id: "renewal-attention",
+          title: "Renewal attention",
+          lines: [
+            "Expiring packages should be renewed before teachers depend on them for live exam creation.",
+          ],
+          metaTitle: String(expiringSoonPackageEntitlements.length + expiredPackageEntitlements.length),
+          metaLines: [`${expiringSoonPackageEntitlements.length} soon · ${expiredPackageEntitlements.length} expired`],
+        },
+        {
+          id: "feature-entitlements",
+          title: "Feature entitlements",
+          lines: [
+            "Feature grants control higher-level authoring capabilities beyond simple package visibility.",
+          ],
+          metaTitle: String(activeFeatureEntitlements.length),
+          metaLines: [`${pausedFeatureEntitlements.length} paused`],
+        },
+        {
+          id: "coverage-programs",
+          title: "Programs in active coverage",
+          lines: [
+            "These program lanes currently have at least one active package behind them.",
+          ],
+          metaTitle: String(activeCoverage.programs.length),
+          metaLines: [activeCoverage.programs.slice(0, 2).join(", ") || "No program scope"],
+        },
+        {
+          id: "coverage-subjects",
+          title: "Subjects in active coverage",
+          lines: [
+            "Use this as the quickest answer to which subjects teachers can currently source from licensed content.",
+          ],
+          metaTitle: String(activeCoverage.subjects.length),
+          metaLines: [activeCoverage.subjects.slice(0, 3).join(", ") || "No subject scope"],
+        },
+        {
+          id: "coverage-topics",
+          title: "Topics in active coverage",
+          lines: [
+            "Topic-level limits matter most when shared-library curation is sold more granularly than a full subject lane.",
+          ],
+          metaTitle: String(activeCoverage.topics.length),
+          metaLines: [activeCoverage.topics.slice(0, 2).join(", ") || "No topic scope"],
+        },
+        {
+          id: "coverage-watch",
+          title: "Blocked or watch-only coverage",
+          lines: [
+            "Paused, revoked, or expiring lanes still matter because local teams may already depend on them in authoring workflows.",
+          ],
+          metaTitle: String(
+            pausedPackageEntitlements.length +
+              revokedPackageEntitlements.length +
+              expiringSoonPackageEntitlements.length +
+              nearLimitPackageEntitlements.length,
+          ),
+          metaLines: [
+            `${pausedPackageEntitlements.length} paused · ${expiringSoonPackageEntitlements.length} expiring soon · ${nearLimitPackageEntitlements.length} near limit`,
+          ],
+        },
+      ],
+    },
+    {
+      key: "policies",
+      eyebrow: "Policy coverage",
+      title: "Exam access rules currently in effect",
+      description:
+        "Review which institute exams are actually gated, and whether the rule is star-based or entitlement-based.",
+      emptyMessage: "No institute exams currently expose an explicit economy policy.",
+      rows: gatedExams.map((exam) => ({
+        id: exam.id,
+        title: exam.title,
+        lines: [
+          `${policyLabel(exam.economy_policy?.policy_type)}${exam.subject_name ? ` · ${exam.subject_name}` : ""}`,
+        ],
+        metaTitle:
+          exam.economy_policy?.star_cost
+            ? `${exam.economy_policy.star_cost} stars`
+            : exam.economy_policy?.entitlement_code || "No star cost",
+        metaLines: [exam.code],
+      })),
+    },
+    {
+      key: "boundary",
+      eyebrow: "Current boundary",
+      title: "What institute admins can control here today",
+      description:
+        "This lane clarifies which parts of the economy are visible here versus still governed centrally by platform admin.",
+      emptyMessage: "No current-boundary items are available.",
+      rows: [
+        {
+          id: "boundary-policy",
+          title: "Exam-level access policy visibility",
+          lines: ["Economy policy setup flows from exam creation and exam detail configuration."],
+          metaTitle: String(gatedExams.length),
+          metaLines: ["Policies in scope"],
+        },
+        {
+          id: "boundary-support",
+          title: "Student support actions",
+          lines: [
+            "Wallet inspection, reward review, controlled star grants, unlock recalculation, and pending order confirmation are supported for institute-scoped learners.",
+          ],
+          metaTitle: String(students.length),
+          metaLines: ["Students available"],
+        },
+        {
+          id: "boundary-governance",
+          title: "Catalog governance stays centralized",
+          lines: [
+            "Pack, subscription, referral, unlock-rule, and economy support-policy configuration remain platform-managed rather than institute-managed.",
+          ],
+          metaTitle: "Platform-owned",
+          metaLines: ["Support-only here"],
+        },
+      ],
+    },
+    {
+      key: "plans",
+      eyebrow: "Plan relationships",
+      title: "Which subscription plans back which package lanes",
+      description:
+        "Use this view to understand whether a requestable plan is already powering active institute access or still blocked.",
+      emptyMessage: "No requestable package-bearing subscription plans are currently visible for this institute.",
+      rows: planRelationshipRows.map((row) => ({
+        id: row.plan.id,
+        title: `${row.plan.name} (${row.plan.code})`,
+        lines: [
+          `Linked packages: ${row.packageCodes.join(", ") || "No package mapping returned"}`,
+          row.activePackageCodes.length > 0
+            ? `Active now: ${row.activePackageCodes.join(", ")}`
+            : "No linked package from this plan is currently active.",
+          ...(row.pausedPackageCodes.length > 0 ? [`Paused: ${row.pausedPackageCodes.join(", ")}`] : []),
+          ...(row.missingPackageCodes.length > 0
+            ? [`Still blocked or not yet activated: ${row.missingPackageCodes.join(", ")}`]
+            : []),
+          ...(row.pendingRequests.length > 0
+            ? [`${row.pendingRequests.length} pending request${row.pendingRequests.length === 1 ? "" : "s"} already waiting for operator review.`]
+            : []),
+        ],
+        metaTitle: String(row.plan.cycles.length),
+        metaLines: [`${row.pendingRequests.length} pending`],
+      })),
+    },
+    {
+      key: "packages",
+      eyebrow: "Licensed question bank access",
+      title: "Packages currently available to this institute",
+      description:
+        "This is the package-level truth: lifecycle, scope, quota pressure, commercial source, and observed usage.",
+      emptyMessage: "No question-bank package entitlements are currently visible for this institute.",
+      rows: packageEntitlements.map((entitlement) => ({
+        id: entitlement.id,
+        title: `${entitlement.question_bank_package_name} (${entitlement.question_bank_package_code})`,
+        lines: [
+          `Status: ${getEntitlementLifecycleLabel(entitlement)} · ${titleCase(entitlement.question_bank_package_type)} · ${titleCase(entitlement.question_bank_package_access_mode)}`,
+          getEntitlementLifecycleHelper(entitlement),
+          entitlement.scope_subject_labels.length > 0
+            ? `Subjects: ${entitlement.scope_subject_labels.join(", ")}`
+            : entitlement.scope_program_labels.length > 0
+              ? `Programs: ${entitlement.scope_program_labels.join(", ")}`
+              : "General package scope",
+          ...(entitlement.scope_topic_labels.length > 0
+            ? [`Topics: ${entitlement.scope_topic_labels.slice(0, 4).join(", ")}`]
+            : []),
+          ...(entitlement.quota_configured
+            ? [
+                `Quota status: ${titleCase(entitlement.quota_status)} · ${entitlement.quota_usage_total} linked usage recorded · ${quotaWatchLabel(entitlement)}`,
+              ]
+            : []),
+          ...(entitlement.quota_configured && entitlement.quota_remaining_min !== null
+            ? [`Lowest remaining allowance across scoped limits: ${entitlement.quota_remaining_min}`]
+            : []),
+          ...(entitlement.quota_scope_summary.length > 0
+            ? [entitlement.quota_scope_summary.slice(0, 2).join(" · ")]
+            : []),
+          ...(entitlement.subscription_plan_name
+            ? [
+                `Plan: ${entitlement.subscription_plan_name}${entitlement.subscription_cycle_label ? ` · ${entitlement.subscription_cycle_label}` : ""}`,
+              ]
+            : []),
+          `Renewal posture: ${getEntitlementRenewalLabel(entitlement)}`,
+          `Access source: ${titleCase(entitlement.granted_via)}${entitlement.subscription_plan_code ? ` · plan code ${entitlement.subscription_plan_code}` : ""}`,
+          `Owner: ${entitlement.package_owner_institute_name} (${entitlement.package_owner_institute_code}) · ${entitlement.question_bank_package_is_public_catalog ? "Catalog package" : "Private package"}`,
+          ...(entitlement.notes ? [`Notes: ${entitlement.notes}`] : []),
+          ...(packageUsageByCode[entitlement.question_bank_package_code]
+            ? [`Usage recorded: ${packageUsageByCode[entitlement.question_bank_package_code]} action${packageUsageByCode[entitlement.question_bank_package_code] === 1 ? "" : "s"}`]
+            : []),
+          describeUsageMix(packageUsageBreakdown[entitlement.question_bank_package_code]),
+        ],
+        metaTitle: `${entitlement.scope_count} scope rows`,
+        metaLines: [
+          entitlement.starts_at ? `Starts ${formatDateLabel(entitlement.starts_at)}` : "Start date not set",
+          entitlement.ends_at ? `Ends ${formatDateLabel(entitlement.ends_at)}` : "No expiry set",
+        ],
+      })),
+    },
+    {
+      key: "features",
+      eyebrow: "Feature access",
+      title: "Higher-level authoring capabilities currently granted",
+      description:
+        "Feature entitlements show whether advanced authoring lanes are enabled independently of raw package visibility.",
+      emptyMessage: "No institute-level feature entitlements are currently visible.",
+      rows: featureEntitlements.map((entitlement) => ({
+        id: entitlement.id,
+        title: titleCase(entitlement.feature_code),
+        lines: [
+          `Status: ${titleCase(entitlement.status)}`,
+          entitlement.source_package_code
+            ? `Source package: ${entitlement.source_package_name} (${entitlement.source_package_code})`
+            : "No source package recorded",
+          entitlement.source_subscription_plan_name
+            ? `Plan: ${entitlement.source_subscription_plan_name}`
+            : "No source plan recorded",
+        ],
+        metaTitle: entitlement.status === "active" ? "Usable" : titleCase(entitlement.status),
+        metaLines: [
+          entitlement.starts_at ? `Starts ${formatDateLabel(entitlement.starts_at)}` : "No start date",
+          entitlement.ends_at ? `Ends ${formatDateLabel(entitlement.ends_at)}` : "No expiry set",
+        ],
+      })),
+    },
+    {
+      key: "usage",
+      eyebrow: "Question bank usage evidence",
+      title: "Recent licensed-content activity in this institute",
+      description:
+        "This is the closest operational proof that licensed content is being consumed in local authoring and publishing flows.",
+      emptyMessage: "No package usage entries are visible yet for this institute.",
+      rows: questionBankUsage.map((entry) => ({
+        id: entry.id,
+        title: `${titleCase(entry.action_type)} · ${entry.question_bank_package_name}`,
+        lines: [
+          `Package: ${entry.question_bank_package_code}${entry.entitlement_status ? ` · Entitlement ${titleCase(entry.entitlement_status)}` : ""}`,
+          entry.exam_title
+            ? `Exam: ${entry.exam_title}`
+            : entry.question_text
+              ? `Question: ${entry.question_text.replace(/\s+/g, " ").trim().slice(0, 120)}`
+              : entry.master_question_text
+                ? `Master question: ${entry.master_question_text.replace(/\s+/g, " ").trim().slice(0, 120)}`
+                : "No linked content snapshot was recorded.",
+          entry.performed_by_label
+            ? `Performed by ${entry.performed_by_label}`
+            : "Performed by a system or operator flow",
+        ],
+        metaTitle: String(entry.quantity),
+        metaLines: [formatDateLabel(entry.effective_at)],
+      })),
+    },
+    {
+      key: "reading",
+      eyebrow: "Operational reading",
+      title: "How package activity is behaving right now",
+      description:
+        "This lane compresses the most important usage signals so the institute can quickly understand commercial and quota posture.",
+      emptyMessage: "No operational reading is available yet.",
+      rows: [
+        {
+          id: "reading-grants",
+          title: "Entitlement grants recorded",
+          lines: [
+            "Every direct package activation leaves a visible institute usage entry for support and audit review.",
+          ],
+          metaTitle: String(entitlementGrantCount),
+          metaLines: ["Grant events"],
+        },
+        {
+          id: "reading-links",
+          title: "Shared-library linking footprint",
+          lines: [
+            "Linked-question usage is the clearest signal that licensed platform content is actually being consumed by local authoring teams.",
+          ],
+          metaTitle: String(linkedQuestionUsageCount),
+          metaLines: ["Link events"],
+        },
+        {
+          id: "reading-drafts",
+          title: "Exam build usage",
+          lines: [
+            "These counters show how often licensed questions progressed from local linking into draft exam creation.",
+          ],
+          metaTitle: String(examCreatedUsageCount),
+          metaLines: ["Draft build events"],
+        },
+        {
+          id: "reading-publish",
+          title: "Exam publish usage",
+          lines: [
+            "Published-exam usage is the clearest consumption signal for commercial package value and quota pressure.",
+          ],
+          metaTitle: String(examPublishedUsageCount),
+          metaLines: ["Publish events"],
+        },
+        {
+          id: "reading-concentration",
+          title: "Package activity concentration",
+          lines: [
+            "Packages with repeated usage entries are the ones shaping real authoring behavior and should be watched first when quotas or renewals matter.",
+          ],
+          metaTitle: String(Object.keys(packageUsageByCode).length),
+          metaLines: ["Active package lanes"],
+        },
+      ],
+    },
+  ];
 
   return (
-    <section className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteSupportPageVivid">
+    <section className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteSupportPageVivid instituteEconomyPage">
       <InstitutePageHeader
         title="Economy Oversight"
         description="Review how star-based access is attached to institute exams and support institute-scoped student wallets with controlled administrative actions."
@@ -526,513 +906,10 @@ export default async function InstituteEconomyPage() {
         />
       ) : (
         <>
-          <section className="resultsSummaryGrid">
-            <article className="metricCard metricCardPrimary dashboardHeroCard">
-              <span>Exams with economy policy</span>
-              <strong>{gatedExams.length}</strong>
-              <small>Exams carrying an explicit access rule.</small>
-            </article>
-            <article className="metricCard dashboardHeroCard">
-              <span>Star-gated exams</span>
-              <strong>{starLockedCount}</strong>
-              <small>Policies requiring stars directly or conditionally.</small>
-            </article>
-            <article className="metricCard dashboardHeroCard">
-              <span>Entitlement-linked exams</span>
-              <strong>{entitlementCount}</strong>
-              <small>Policies using entitlement-based bypass or gating.</small>
-            </article>
-            <article className="metricCard dashboardHeroCard">
-              <span>Total configured star cost</span>
-              <strong>{totalStarCost}</strong>
-              <small>Sum of explicit star costs across scoped exams.</small>
-            </article>
-            <article className="metricCard dashboardHeroCard">
-              <span>Licensed packages</span>
-              <strong>{activePackageEntitlements.length}</strong>
-              <small>Question-bank packages currently active for this institute.</small>
-            </article>
-            <article className="metricCard dashboardHeroCard">
-              <span>Linked shared questions</span>
-              <strong>{linkedQuestionUsageCount}</strong>
-              <small>Shared-library questions linked into the local bank so far.</small>
-            </article>
-            <article className="metricCard dashboardHeroCard">
-              <span>Usage events</span>
-              <strong>{questionBankUsage.length}</strong>
-              <small>Auditable package-usage records currently visible to this institute.</small>
-            </article>
-            <article className="metricCard dashboardHeroCard">
-              <span>Expiring soon</span>
-              <strong>{expiringSoonPackageEntitlements.length}</strong>
-              <small>Packages needing renewal attention inside the next 14 days.</small>
-            </article>
-            <article className="metricCard dashboardHeroCard">
-              <span>Feature lanes active</span>
-              <strong>{activeFeatureEntitlements.length}</strong>
-              <small>Shared-library or template features currently usable by local teams.</small>
-            </article>
-          </section>
-
-          <section className="dashboardLowerGrid">
-            <article className="dashboardPanel weakTopicsPanel">
-              <div className="studentPageTight">
-                <span className="studentDashboardTag">Licensed access summary</span>
-                <h3>What is active, blocked, and approaching renewal</h3>
-                <div className="weakTopicStack">
-                  <div className="weakTopicRow">
-                    <div>
-                      <strong>Active packages</strong>
-                      <span>These packages can currently power shared-library authoring and licensed question reuse.</span>
-                    </div>
-                    <div className="weakTopicMeta">
-                      <strong>{activePackageEntitlements.length}</strong>
-                      <span>Live now</span>
-                    </div>
-                  </div>
-                  <div className="weakTopicRow">
-                    <div>
-                      <strong>Paused or revoked packages</strong>
-                      <span>These lanes remain visible for audit purposes, but their licensed usage path is blocked.</span>
-                    </div>
-                    <div className="weakTopicMeta">
-                      <strong>{pausedPackageEntitlements.length + revokedPackageEntitlements.length}</strong>
-                      <span>{pausedPackageEntitlements.length} paused · {revokedPackageEntitlements.length} revoked</span>
-                    </div>
-                  </div>
-                  <div className="weakTopicRow">
-                    <div>
-                      <strong>Renewal attention</strong>
-                      <span>Expiring packages should be renewed before teachers depend on them for live exam creation.</span>
-                    </div>
-                    <div className="weakTopicMeta">
-                      <strong>{expiringSoonPackageEntitlements.length + expiredPackageEntitlements.length}</strong>
-                      <span>{expiringSoonPackageEntitlements.length} soon · {expiredPackageEntitlements.length} expired</span>
-                    </div>
-                  </div>
-                  <div className="weakTopicRow">
-                    <div>
-                      <strong>Feature entitlements</strong>
-                      <span>Feature grants control higher-level authoring capabilities beyond simple package visibility.</span>
-                    </div>
-                    <div className="weakTopicMeta">
-                      <strong>{activeFeatureEntitlements.length}</strong>
-                      <span>{pausedFeatureEntitlements.length} paused</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </article>
-
-            <article className="dashboardPanel weakTopicsPanel">
-              <div className="studentPageTight">
-                <span className="studentDashboardTag">Coverage snapshot</span>
-                <h3>What the current licensed packages actually cover</h3>
-                <div className="weakTopicStack">
-                  <div className="weakTopicRow">
-                    <div>
-                      <strong>Programs in active coverage</strong>
-                      <span>These program lanes currently have at least one active package behind them.</span>
-                    </div>
-                    <div className="weakTopicMeta">
-                      <strong>{activeCoverage.programs.length}</strong>
-                      <span>{activeCoverage.programs.slice(0, 2).join(", ") || "No program scope"}</span>
-                    </div>
-                  </div>
-                  <div className="weakTopicRow">
-                    <div>
-                      <strong>Subjects in active coverage</strong>
-                      <span>Use this as the quickest answer to which subjects teachers can currently source from licensed content.</span>
-                    </div>
-                    <div className="weakTopicMeta">
-                      <strong>{activeCoverage.subjects.length}</strong>
-                      <span>{activeCoverage.subjects.slice(0, 3).join(", ") || "No subject scope"}</span>
-                    </div>
-                  </div>
-                  <div className="weakTopicRow">
-                    <div>
-                      <strong>Topics in active coverage</strong>
-                      <span>Topic-level limits matter most when shared-library curation is sold more granularly than a full subject lane.</span>
-                    </div>
-                    <div className="weakTopicMeta">
-                      <strong>{activeCoverage.topics.length}</strong>
-                      <span>{activeCoverage.topics.slice(0, 2).join(", ") || "No topic scope"}</span>
-                    </div>
-                  </div>
-                  <div className="weakTopicRow">
-                    <div>
-                      <strong>Blocked or watch-only coverage</strong>
-                      <span>Paused, revoked, or expiring lanes still matter because local teams may already depend on them in authoring workflows.</span>
-                    </div>
-                    <div className="weakTopicMeta">
-                      <strong>{pausedPackageEntitlements.length + revokedPackageEntitlements.length + expiringSoonPackageEntitlements.length + nearLimitPackageEntitlements.length}</strong>
-                      <span>{pausedPackageEntitlements.length} paused · {expiringSoonPackageEntitlements.length} expiring soon · {nearLimitPackageEntitlements.length} near limit</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </article>
-
-            <article className="dashboardPanel weakTopicsPanel">
-              <div className="studentPageTight">
-                <span className="studentDashboardTag">Policy coverage</span>
-                <h3>Exam access rules currently in effect</h3>
-                {gatedExams.length === 0 ? (
-                  <div className="featurePlaceholder">
-                    <p>No institute exams currently expose an explicit economy policy.</p>
-                  </div>
-                ) : (
-                  <div className="weakTopicStack">
-                    {gatedExams.slice(0, 8).map((exam) => (
-                      <div className="weakTopicRow" key={exam.id}>
-                        <div>
-                          <strong>{exam.title}</strong>
-                          <span>
-                            {policyLabel(exam.economy_policy?.policy_type)}
-                            {exam.subject_name ? ` · ${exam.subject_name}` : ""}
-                          </span>
-                        </div>
-                        <div className="weakTopicMeta">
-                          <strong>
-                            {exam.economy_policy?.star_cost
-                              ? `${exam.economy_policy.star_cost} stars`
-                              : exam.economy_policy?.entitlement_code || "No star cost"}
-                          </strong>
-                          <span>{exam.code}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </article>
-
-            <article className="dashboardPanel weakTopicsPanel">
-              <div className="studentPageTight">
-                <span className="studentDashboardTag">Current boundary</span>
-                <h3>What institute admins can control here today</h3>
-                <div className="weakTopicStack">
-                  <div className="weakTopicRow">
-                    <div>
-                      <strong>Exam-level access policy visibility</strong>
-                      <span>Economy policy setup flows from exam creation and exam detail configuration.</span>
-                    </div>
-                    <div className="weakTopicMeta">
-                      <strong>{gatedExams.length}</strong>
-                      <span>Policies in scope</span>
-                    </div>
-                  </div>
-                  <div className="weakTopicRow">
-                    <div>
-                      <strong>Student support actions</strong>
-                      <span>Wallet inspection, reward review, controlled star grants, unlock recalculation, and pending order confirmation are supported for institute-scoped learners.</span>
-                    </div>
-                    <div className="weakTopicMeta">
-                      <strong>{students.length}</strong>
-                      <span>Students available</span>
-                    </div>
-                  </div>
-                  <div className="weakTopicRow">
-                    <div>
-                      <strong>Catalog governance stays centralized</strong>
-                      <span>Pack, subscription, referral, unlock-rule, and economy support-policy configuration remain platform-managed rather than institute-managed.</span>
-                    </div>
-                    <div className="weakTopicMeta">
-                      <strong>Platform-owned</strong>
-                      <span>Support-only here</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </article>
-
-            <article className="dashboardPanel weakTopicsPanel">
-              <div className="studentPageTight">
-                <span className="studentDashboardTag">Plan relationships</span>
-                <h3>Which subscription plans back which package lanes</h3>
-                {planRelationshipRows.length === 0 ? (
-                  <div className="featurePlaceholder">
-                    <p>No requestable package-bearing subscription plans are currently visible for this institute.</p>
-                  </div>
-                ) : (
-                  <div className="weakTopicStack">
-                    {planRelationshipRows.slice(0, 8).map((row) => (
-                      <div className="weakTopicRow" key={row.plan.id}>
-                        <div>
-                          <strong>
-                            {row.plan.name} ({row.plan.code})
-                          </strong>
-                          <span>
-                            Linked packages: {row.packageCodes.join(", ") || "No package mapping returned"}
-                          </span>
-                          <span>
-                            {row.activePackageCodes.length > 0
-                              ? `Active now: ${row.activePackageCodes.join(", ")}`
-                              : "No linked package from this plan is currently active."}
-                          </span>
-                          {row.pausedPackageCodes.length > 0 ? (
-                            <span>Paused: {row.pausedPackageCodes.join(", ")}</span>
-                          ) : null}
-                          {row.missingPackageCodes.length > 0 ? (
-                            <span>Still blocked or not yet activated: {row.missingPackageCodes.join(", ")}</span>
-                          ) : null}
-                          {row.pendingRequests.length > 0 ? (
-                            <span>{row.pendingRequests.length} pending request{row.pendingRequests.length === 1 ? "" : "s"} already waiting for operator review.</span>
-                          ) : null}
-                        </div>
-                        <div className="weakTopicMeta">
-                          <strong>{row.plan.cycles.length}</strong>
-                          <span>{row.pendingRequests.length} pending</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </article>
-
-            <article className="dashboardPanel weakTopicsPanel">
-              <div className="studentPageTight">
-                <span className="studentDashboardTag">Licensed question bank access</span>
-                <h3>Packages currently available to this institute</h3>
-                {packageEntitlements.length === 0 ? (
-                  <div className="featurePlaceholder">
-                    <p>No question-bank package entitlements are currently visible for this institute.</p>
-                  </div>
-                ) : (
-                  <div className="weakTopicStack">
-                    {packageEntitlements.slice(0, 8).map((entitlement) => (
-                      <div className="weakTopicRow" key={entitlement.id}>
-                        <div>
-                          <strong>
-                            {entitlement.question_bank_package_name} ({entitlement.question_bank_package_code})
-                          </strong>
-                          <span>
-                            Status: {getEntitlementLifecycleLabel(entitlement)} · {titleCase(entitlement.question_bank_package_type)} ·{" "}
-                            {titleCase(entitlement.question_bank_package_access_mode)}
-                          </span>
-                          <span>{getEntitlementLifecycleHelper(entitlement)}</span>
-                          <span>
-                            {entitlement.scope_subject_labels.length > 0
-                              ? `Subjects: ${entitlement.scope_subject_labels.join(", ")}`
-                              : entitlement.scope_program_labels.length > 0
-                                ? `Programs: ${entitlement.scope_program_labels.join(", ")}`
-                                : "General package scope"}
-                          </span>
-                          {entitlement.scope_topic_labels.length > 0 ? (
-                            <span>Topics: {entitlement.scope_topic_labels.slice(0, 4).join(", ")}</span>
-                          ) : null}
-                          {entitlement.quota_configured ? (
-                            <span>
-                              Quota status: {titleCase(entitlement.quota_status)} · {entitlement.quota_usage_total} linked
-                              usage recorded · {quotaWatchLabel(entitlement)}
-                            </span>
-                          ) : null}
-                          {entitlement.quota_configured && entitlement.quota_remaining_min !== null ? (
-                            <span>Lowest remaining allowance across scoped limits: {entitlement.quota_remaining_min}</span>
-                          ) : null}
-                          {entitlement.quota_scope_summary.length > 0 ? (
-                            <span>{entitlement.quota_scope_summary.slice(0, 2).join(" · ")}</span>
-                          ) : null}
-                          {entitlement.subscription_plan_name ? (
-                            <span>
-                              Plan: {entitlement.subscription_plan_name}
-                              {entitlement.subscription_cycle_label
-                                ? ` · ${entitlement.subscription_cycle_label}`
-                                : ""}
-                            </span>
-                          ) : null}
-                          <span>Renewal posture: {getEntitlementRenewalLabel(entitlement)}</span>
-                          <span>
-                            Access source: {titleCase(entitlement.granted_via)}
-                            {entitlement.subscription_plan_code
-                              ? ` · plan code ${entitlement.subscription_plan_code}`
-                              : ""}
-                          </span>
-                          <span>
-                            Owner: {entitlement.package_owner_institute_name} ({entitlement.package_owner_institute_code}) ·{" "}
-                            {entitlement.question_bank_package_is_public_catalog ? "Catalog package" : "Private package"}
-                          </span>
-                          {entitlement.notes ? <span>Notes: {entitlement.notes}</span> : null}
-                          {packageUsageByCode[entitlement.question_bank_package_code] ? (
-                            <span>
-                              Usage recorded: {packageUsageByCode[entitlement.question_bank_package_code]} action
-                              {packageUsageByCode[entitlement.question_bank_package_code] === 1 ? "" : "s"}
-                            </span>
-                          ) : null}
-                          <span>{describeUsageMix(packageUsageBreakdown[entitlement.question_bank_package_code])}</span>
-                        </div>
-                        <div className="weakTopicMeta">
-                          <strong>{entitlement.scope_count} scope rows</strong>
-                          <span>
-                            {entitlement.starts_at
-                              ? `Starts ${formatDateLabel(entitlement.starts_at)}`
-                              : "Start date not set"}
-                          </span>
-                          <span>
-                            {entitlement.ends_at
-                              ? `Ends ${formatDateLabel(entitlement.ends_at)}`
-                              : "No expiry set"}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </article>
-
-            <article className="dashboardPanel weakTopicsPanel">
-              <div className="studentPageTight">
-                <span className="studentDashboardTag">Feature access</span>
-                <h3>Higher-level authoring capabilities currently granted</h3>
-                {featureEntitlements.length === 0 ? (
-                  <div className="featurePlaceholder">
-                    <p>No institute-level feature entitlements are currently visible.</p>
-                  </div>
-                ) : (
-                  <div className="weakTopicStack">
-                    {featureEntitlements.slice(0, 8).map((entitlement) => (
-                      <div className="weakTopicRow" key={entitlement.id}>
-                        <div>
-                          <strong>{titleCase(entitlement.feature_code)}</strong>
-                          <span>Status: {titleCase(entitlement.status)}</span>
-                          <span>
-                            {entitlement.source_package_code
-                              ? `Source package: ${entitlement.source_package_name} (${entitlement.source_package_code})`
-                              : "No source package recorded"}
-                          </span>
-                          <span>
-                            {entitlement.source_subscription_plan_name
-                              ? `Plan: ${entitlement.source_subscription_plan_name}`
-                              : "No source plan recorded"}
-                          </span>
-                        </div>
-                        <div className="weakTopicMeta">
-                          <strong>{entitlement.status === "active" ? "Usable" : titleCase(entitlement.status)}</strong>
-                          <span>
-                            {entitlement.starts_at
-                              ? `Starts ${formatDateLabel(entitlement.starts_at)}`
-                              : "No start date"}
-                          </span>
-                          <span>
-                            {entitlement.ends_at
-                              ? `Ends ${formatDateLabel(entitlement.ends_at)}`
-                              : "No expiry set"}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </article>
-
-            <article className="dashboardPanel weakTopicsPanel">
-              <div className="studentPageTight">
-                <span className="studentDashboardTag">Question bank usage evidence</span>
-                <h3>Recent licensed-content activity in this institute</h3>
-                {questionBankUsage.length === 0 ? (
-                  <div className="featurePlaceholder">
-                    <p>No package usage entries are visible yet for this institute.</p>
-                  </div>
-                ) : (
-                  <div className="weakTopicStack">
-                    {questionBankUsage.slice(0, 8).map((entry) => (
-                      <div className="weakTopicRow" key={entry.id}>
-                        <div>
-                          <strong>
-                            {titleCase(entry.action_type)} · {entry.question_bank_package_name}
-                          </strong>
-                          <span>
-                            Package: {entry.question_bank_package_code}
-                            {entry.entitlement_status ? ` · Entitlement ${titleCase(entry.entitlement_status)}` : ""}
-                          </span>
-                          <span>
-                            {entry.exam_title
-                              ? `Exam: ${entry.exam_title}`
-                              : entry.question_text
-                                ? `Question: ${entry.question_text.replace(/\s+/g, " ").trim().slice(0, 120)}`
-                                : entry.master_question_text
-                                  ? `Master question: ${entry.master_question_text.replace(/\s+/g, " ").trim().slice(0, 120)}`
-                                  : "No linked content snapshot was recorded."}
-                          </span>
-                          <span>
-                            {entry.performed_by_label
-                              ? `Performed by ${entry.performed_by_label}`
-                              : "Performed by a system or operator flow"}
-                          </span>
-                        </div>
-                        <div className="weakTopicMeta">
-                          <strong>{entry.quantity}</strong>
-                          <span>{formatDateLabel(entry.effective_at)}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </article>
-
-            <article className="dashboardPanel weakTopicsPanel">
-              <div className="studentPageTight">
-                <span className="studentDashboardTag">Operational reading</span>
-                <h3>How package activity is behaving right now</h3>
-                <div className="weakTopicStack">
-                  <div className="weakTopicRow">
-                    <div>
-                      <strong>Entitlement grants recorded</strong>
-                      <span>Every direct package activation leaves a visible institute usage entry for support and audit review.</span>
-                    </div>
-                    <div className="weakTopicMeta">
-                      <strong>{entitlementGrantCount}</strong>
-                      <span>Grant events</span>
-                    </div>
-                  </div>
-                  <div className="weakTopicRow">
-                    <div>
-                      <strong>Shared-library linking footprint</strong>
-                      <span>Linked-question usage is the clearest signal that licensed platform content is actually being consumed by local authoring teams.</span>
-                    </div>
-                    <div className="weakTopicMeta">
-                      <strong>{linkedQuestionUsageCount}</strong>
-                      <span>Link events</span>
-                    </div>
-                  </div>
-                  <div className="weakTopicRow">
-                    <div>
-                      <strong>Exam build usage</strong>
-                      <span>These counters show how often licensed questions progressed from local linking into draft exam creation and final publishing.</span>
-                    </div>
-                    <div className="weakTopicMeta">
-                      <strong>{examCreatedUsageCount}</strong>
-                      <span>Draft build events</span>
-                    </div>
-                  </div>
-                  <div className="weakTopicRow">
-                    <div>
-                      <strong>Exam publish usage</strong>
-                      <span>Published-exam usage is the clearest consumption signal for commercial package value and quota pressure.</span>
-                    </div>
-                    <div className="weakTopicMeta">
-                      <strong>{examPublishedUsageCount}</strong>
-                      <span>Publish events</span>
-                    </div>
-                  </div>
-                  <div className="weakTopicRow">
-                    <div>
-                      <strong>Package activity concentration</strong>
-                      <span>Packages with repeated usage entries are the ones shaping real authoring behavior and should be watched first when quotas or renewals matter.</span>
-                    </div>
-                    <div className="weakTopicMeta">
-                      <strong>{Object.keys(packageUsageByCode).length}</strong>
-                      <span>Active package lanes</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </article>
-          </section>
+          <InstituteEconomyOverviewWorkspace
+            lanes={overviewLanes}
+            metrics={overviewMetrics}
+          />
 
           <InstituteEconomyWorkspace
             initialStudentId={students[0]?.id ?? null}

@@ -430,10 +430,11 @@ async function loadBuilderData(examId: string) {
     studentsResult,
     optionCatalogResult,
   ] = await Promise.allSettled([
-    fetchTeacherAcademicYears(),
-    fetchTeacherPrograms(),
+    fetchTeacherAcademicYears({ institute: detail.institute }),
+    fetchTeacherPrograms({ institute: detail.institute }),
     detail.academic_year && detail.program
       ? fetchTeacherCohorts({
+          institute: detail.institute,
           academic_year: detail.academic_year,
           program: detail.program,
         })
@@ -455,6 +456,7 @@ async function loadBuilderData(examId: string) {
       : Promise.resolve([]),
     detail.academic_year && detail.program
       ? fetchTeacherStudents({
+          institute: detail.institute,
           academic_year: detail.academic_year,
           program: detail.program,
           cohort: detail.cohort,

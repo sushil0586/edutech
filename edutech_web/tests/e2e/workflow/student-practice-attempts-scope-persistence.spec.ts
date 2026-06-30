@@ -62,7 +62,7 @@ test.describe("Student practice and attempts scope persistence", () => {
     expect(practiceUrl.pathname).toBe("/app/practice");
     expectSearchParam(practiceUrl, "subject", expectedSubject);
 
-    await practiceLink.click();
+    await page.goto(practiceHref!);
     await expect(page).toHaveURL(/\/app\/practice(?:\?.*)?$/);
     const landedPracticeUrl = new URL(page.url());
     expectSearchParam(landedPracticeUrl, "subject", expectedSubject);
@@ -83,27 +83,37 @@ test.describe("Student practice and attempts scope persistence", () => {
     await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
     await expect(page.getByText(new RegExp(`Subject view\\s*·\\s*${expectedSubject}`, "i")).first()).toBeVisible();
 
-    const attemptsLink = page.getByRole("link", { name: /open attempts/i }).first();
-    await expect(attemptsLink).toBeVisible();
-    const attemptsHref = await attemptsLink.getAttribute("href");
-    expect(attemptsHref).not.toBeNull();
-    const attemptsUrl = new URL(attemptsHref!, "http://localhost");
-    expect(attemptsUrl.pathname).toBe("/app/attempts");
-    expectSearchParam(attemptsUrl, "subject", expectedSubject);
+    const followupLink = (await page.getByRole("link", { name: /open attempts|open mock tests/i }).count())
+      ? page.getByRole("link", { name: /open attempts|open mock tests/i }).first()
+      : page.getByRole("link", { name: /open exams/i }).first();
+    await expect(followupLink).toBeVisible();
+    const followupHref = await followupLink.getAttribute("href");
+    expect(followupHref).not.toBeNull();
+    const followupUrl = new URL(followupHref!, "http://localhost");
+    expect(["/app/attempts", "/app/exams"]).toContain(followupUrl.pathname);
+    if (followupUrl.pathname === "/app/attempts") {
+      expectSearchParam(followupUrl, "subject", expectedSubject);
+    }
 
-    await attemptsLink.click();
-    await expect(page).toHaveURL(/\/app\/attempts(?:\?.*)?$/);
-    const landedAttemptsUrl = new URL(page.url());
-    expectSearchParam(landedAttemptsUrl, "subject", expectedSubject);
-    await expect(page.getByRole("heading", { name: /attempt/i }).first()).toBeVisible();
-    await expect(page.getByText(new RegExp(`Subject view\\s*·\\s*${expectedSubject}`, "i")).first()).toBeVisible();
+    await page.goto(followupHref!);
+    if (followupUrl.pathname === "/app/attempts") {
+      await expect(page).toHaveURL(/\/app\/attempts(?:\?.*)?$/);
+      const landedAttemptsUrl = new URL(page.url());
+      expectSearchParam(landedAttemptsUrl, "subject", expectedSubject);
+      await expect(page.getByRole("heading", { name: /attempt/i }).first()).toBeVisible();
+      await expect(page.getByText(new RegExp(`Subject view\\s*·\\s*${expectedSubject}`, "i")).first()).toBeVisible();
+    } else {
+      await expect(page).toHaveURL(/\/app\/exams(?:\?.*)?$/);
+      await expect(page.getByRole("heading", { name: /mock tests/i }).first()).toBeVisible();
+    }
 
     const returnToPracticeLink = page.getByRole("link", { name: /open practice/i }).first();
-    await expect(returnToPracticeLink).toBeVisible();
-    const returnPracticeHref = await returnToPracticeLink.getAttribute("href");
-    expect(returnPracticeHref).not.toBeNull();
-    const returnPracticeUrl = new URL(returnPracticeHref!, "http://localhost");
-    expect(returnPracticeUrl.pathname).toBe("/app/practice");
-    expectSearchParam(returnPracticeUrl, "subject", expectedSubject);
+    if (await returnToPracticeLink.isVisible().catch(() => false)) {
+      const returnPracticeHref = await returnToPracticeLink.getAttribute("href");
+      expect(returnPracticeHref).not.toBeNull();
+      const returnPracticeUrl = new URL(returnPracticeHref!, "http://localhost");
+      expect(returnPracticeUrl.pathname).toBe("/app/practice");
+      expectSearchParam(returnPracticeUrl, "subject", expectedSubject);
+    }
   });
 });

@@ -1,6 +1,7 @@
 import csv
 from collections import defaultdict
 
+from django.db import models
 from django.http import HttpResponse
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -10,6 +11,7 @@ from rest_framework.views import APIView
 from apps.accounts.permissions import CanBuildExams, CanManageQuestionBank, IsPlatformAdmin, IsPlatformOrInstituteAdmin, IsStudent
 from apps.accounts.scopes import (
     get_scoped_object_or_403,
+    scope_exam_queryset,
     scope_queryset_for_institute,
     scope_student_profile_queryset,
     scope_student_queryset,
@@ -148,6 +150,60 @@ def _serialize_economy_catalog_item(item_type, obj):
         else:
             payload["metric_label"] = "No active cycle"
     return payload
+
+
+def _list_student_visible_exam_unlock_targets(student):
+    from apps.exams.models import Exam
+    from apps.exams.services import EXAM_CONTENT_TYPE, is_exam_assigned_to_student
+
+    targeted_exam_keys = set(
+        ContentAccessPolicy.objects.filter(
+            institute=student.institute,
+            content_type=EXAM_CONTENT_TYPE,
+            is_active=True,
+        ).values_list("content_key", flat=True)
+    )
+    targeted_exam_keys.update(
+        UnlockRule.objects.filter(
+            institute=student.institute,
+            content_type=EXAM_CONTENT_TYPE,
+            is_active=True,
+        ).values_list("content_key", flat=True)
+    )
+    if not targeted_exam_keys:
+        return []
+
+    student_account = getattr(getattr(student, "account_profile", None), "user", None)
+    if student_account is not None:
+        visible_exams = scope_exam_queryset(
+            Exam.objects.filter(institute=student.institute).select_related("subject", "cohort"),
+            student_account,
+        )
+    else:
+        visible_exams = Exam.objects.filter(
+            institute=student.institute,
+            is_active=True,
+            program_id=student.program_id,
+        ).select_related("subject", "cohort")
+        if student.cohort_id:
+            visible_exams = visible_exams.filter(
+                models.Q(cohort_id=student.cohort_id) | models.Q(cohort__isnull=True)
+            )
+
+    targets = []
+    for exam in visible_exams:
+        if str(exam.id) not in targeted_exam_keys:
+            continue
+        if not is_exam_assigned_to_student(exam, student):
+            continue
+        targets.append(
+            {
+                "content_type": EXAM_CONTENT_TYPE,
+                "content_key": str(exam.id),
+                "subject": getattr(exam, "subject", None),
+            }
+        )
+    return targets
 
 
 def _economy_catalog_group_payload(*, item_type, queryset):
@@ -2076,14 +2132,22 @@ class AdminStudentUnlockRefreshView(APIView):
             not_found_message="Student not found in your scope.",
         )
 
-        unlock_states = []
-        existing_states = StudentUnlockState.objects.filter(student=student, is_active=True)
+        candidate_targets = {}
+        existing_states = StudentUnlockState.objects.filter(student=student, is_active=True).select_related(
+            "subject"
+        )
         for unlock_state in existing_states:
+            candidate_targets[(unlock_state.content_type, unlock_state.content_key)] = unlock_state.subject
+        for target in _list_student_visible_exam_unlock_targets(student):
+            candidate_targets.setdefault((target["content_type"], target["content_key"]), target["subject"])
+
+        unlock_states = []
+        for (content_type, content_key), subject in candidate_targets.items():
             refreshed = evaluate_and_sync_unlock_state(
                 student=student,
-                content_type=unlock_state.content_type,
-                content_key=unlock_state.content_key,
-                subject=unlock_state.subject,
+                content_type=content_type,
+                content_key=content_key,
+                subject=subject,
                 granted_by=request.user,
             )
             unlock_states.append(refreshed)

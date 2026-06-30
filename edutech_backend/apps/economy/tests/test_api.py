@@ -1806,6 +1806,61 @@ class EconomyApiTestCase(TestCase):
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["content_key"], "sample-math-1")
 
+    def test_admin_refresh_unlocks_materializes_visible_exam_targets(self):
+        from apps.economy.models import ContentAccessPolicy, UnlockRule
+        from apps.exams.services import EXAM_CONTENT_TYPE, publish_exam
+
+        exam = publish_exam(self.context["exam"], changed_by=self.context["teacher"], remarks="Economy refresh")
+        ContentAccessPolicy.objects.create(
+            institute=self.context["institute"],
+            subject=self.context["subject"],
+            content_type=EXAM_CONTENT_TYPE,
+            content_key=str(exam.id),
+            content_label="Refresh Materialized Exam",
+            policy_type="stars_only",
+            star_cost=25,
+        )
+        UnlockRule.objects.create(
+            institute=self.context["institute"],
+            subject=self.context["subject"],
+            content_type=EXAM_CONTENT_TYPE,
+            content_key=str(exam.id),
+            content_label="Refresh Materialized Exam",
+            rule_type="stars_balance",
+            required_star_balance=100,
+        )
+
+        self.assertFalse(
+            StudentUnlockState.objects.filter(
+                student=self.student,
+                content_type=EXAM_CONTENT_TYPE,
+                content_key=str(exam.id),
+            ).exists()
+        )
+
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.post(
+            f"/api/v1/economy/admin/student/{self.student.id}/refresh-unlocks/",
+            {},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        matching_rows = [
+            row for row in response.data["data"] if row["content_type"] == EXAM_CONTENT_TYPE and row["content_key"] == str(exam.id)
+        ]
+        self.assertEqual(len(matching_rows), 1)
+        self.assertEqual(matching_rows[0]["status"], "locked")
+        self.assertEqual(matching_rows[0]["lock_reason_code"], "insufficient_stars")
+        self.assertTrue(
+            StudentUnlockState.objects.filter(
+                student=self.student,
+                content_type=EXAM_CONTENT_TYPE,
+                content_key=str(exam.id),
+                status="locked",
+            ).exists()
+        )
+
     def test_admin_can_grant_stars_and_view_student_wallet(self):
         self.client.force_authenticate(user=self.admin_user)
 

@@ -59,6 +59,8 @@ test.describe("Student referral and wallet workspace", () => {
     await expect(page).toHaveURL(/\/app\/subscriptions(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /subscriptions/i }).first()).toBeVisible();
     await expect(page.getByText(/subscription state/i).first()).toBeVisible();
+    await expect(page.getByLabel(/student subscription section/i)).toBeVisible();
+    await expect(page.getByLabel(/student subscription rows to show/i)).toBeVisible();
     await expect(page.getByText(/what this page can and cannot do/i).first()).toBeVisible();
     await expect(page.getByText(/does not promise instant subscription activation or instant wallet credit/i).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /open wallet/i }).first()).toBeVisible();
@@ -67,6 +69,14 @@ test.describe("Student referral and wallet workspace", () => {
       /active student subscriptions/i,
       /waiting for live subscription data/i,
     ]);
+
+    await page.getByLabel(/student subscription section/i).selectOption("plans");
+    await page.getByRole("button", { name: /apply filters/i }).click();
+    await expect(page).toHaveURL(/\/app\/subscriptions\?[^#]*section=plans/);
+    await expect(
+      page.getByText(/review the available cycles and choose the plan that matches how often you expect to unlock premium content/i).first(),
+    ).toBeVisible();
+    await expect(page.getByText(/what this page can and cannot do/i).first()).toHaveCount(0);
 
     await page.getByRole("link", { name: /open wallet/i }).first().click();
     await expect(page).toHaveURL(/\/app\/wallet(?:\?.*)?$/);

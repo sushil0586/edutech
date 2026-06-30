@@ -223,98 +223,122 @@ export function EconomyRewardRuleManagementCard({
         {message ? <p className="feedbackBanner feedbackBannerSuccess">{message}</p> : null}
         {error ? <p className="feedbackBanner feedbackBannerError">{error}</p> : null}
 
-        <div className="setupFormGrid setupFormGridDense">
-          <label className="setupField">
-            <span>Institute</span>
-            <select value={instituteId} onChange={(event) => setInstituteId(event.target.value)}>
-              {institutes.map((institute) => (
-                <option key={institute.id} value={institute.id}>
-                  {institute.name} ({institute.code}){institute.is_active ? "" : " - inactive"}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="setupField">
-            <span>Subject</span>
-            <select value={subjectId} onChange={(event) => setSubjectId(event.target.value)}>
-              <option value="">All subjects / no subject scope</option>
-              {filteredSubjects.map((subject) => (
-                <option key={subject.id} value={subject.id}>
-                  {subject.name}{subject.is_active ? "" : " - inactive"}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="setupField">
-            <span>Rule name</span>
-            <input type="text" value={name} onChange={(event) => setName(event.target.value)} />
-          </label>
-          <label className="setupField">
-            <span>Rule type</span>
-            <select value={ruleType} onChange={(event) => setRuleType(event.target.value)}>
-              <option value="signup">Signup</option>
-              <option value="exam_completion">Exam completion</option>
-              <option value="score_threshold">Score threshold</option>
-              <option value="streak">Streak</option>
-              <option value="topic_mastery">Topic mastery</option>
-              <option value="admin_campaign">Admin campaign</option>
-            </select>
-          </label>
-          <label className="setupField">
-            <span>Stars awarded</span>
-            <input min="1" type="number" value={starsAwarded} onChange={(event) => setStarsAwarded(event.target.value)} />
-          </label>
-          <label className="setupField">
-            <span>Priority</span>
-            <input min="0" type="number" value={priority} onChange={(event) => setPriority(event.target.value)} />
-          </label>
-          <label className="setupField">
-            <span>Score threshold %</span>
-            <input
-              min="0"
-              max="100"
-              step="0.01"
-              type="number"
-              value={scoreThresholdPercentage}
-              onChange={(event) => setScoreThresholdPercentage(event.target.value)}
-            />
-          </label>
-          <label className="setupField">
-            <span>Completion count threshold</span>
-            <input
-              min="1"
-              type="number"
-              value={completionCountThreshold}
-              onChange={(event) => setCompletionCountThreshold(event.target.value)}
-            />
-          </label>
-          <label className="setupField">
-            <span>Streak count threshold</span>
-            <input
-              min="1"
-              type="number"
-              value={streakCountThreshold}
-              onChange={(event) => setStreakCountThreshold(event.target.value)}
-            />
-          </label>
-          <label className="setupField">
-            <span>Valid from</span>
-            <input type="datetime-local" value={validFrom} onChange={(event) => setValidFrom(event.target.value)} />
-          </label>
-          <label className="setupField">
-            <span>Valid until</span>
-            <input type="datetime-local" value={validUntil} onChange={(event) => setValidUntil(event.target.value)} />
-          </label>
-          <label className="setupField">
-            <span>Active status</span>
-            <select value={isActive ? "yes" : "no"} onChange={(event) => setIsActive(event.target.value === "yes")}>
-              <option value="yes">Active</option>
-              <option value="no">Paused</option>
-            </select>
-          </label>
+        <section className="featurePlaceholder economySubscriptionEditorPanel">
+          <strong>{editingId ? "Edit reward rule" : "New reward rule"}</strong>
+          <p className="academicSectionDescription">Define the reward contract, then set thresholds and validity so operators can reason about the rule quickly.</p>
+
+          <div className="economyCompactStats">
+            <span>{rules.length} reward rule{rules.length === 1 ? "" : "s"} in scope</span>
+            <span>{rules.filter((item) => item.is_active).length} active</span>
+          </div>
+
+        <div className="economyFormSection">
+          <div className="economyFormSectionHeader">
+            <strong>Rule identity and scope</strong>
+            <span>Select the institute, optional subject scope, rule naming, and the primary reward contract type.</span>
+          </div>
+          <div className="economyCommerceGridPrimary">
+            <label className="setupField">
+              <span>Institute</span>
+              <select value={instituteId} onChange={(event) => setInstituteId(event.target.value)}>
+                {institutes.map((institute) => (
+                  <option key={institute.id} value={institute.id}>
+                    {institute.name} ({institute.code}){institute.is_active ? "" : " - inactive"}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="setupField">
+              <span>Subject</span>
+              <select value={subjectId} onChange={(event) => setSubjectId(event.target.value)}>
+                <option value="">All subjects / no subject scope</option>
+                {filteredSubjects.map((subject) => (
+                  <option key={subject.id} value={subject.id}>
+                    {subject.name}{subject.is_active ? "" : " - inactive"}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="setupField">
+              <span>Rule name</span>
+              <input type="text" value={name} onChange={(event) => setName(event.target.value)} />
+            </label>
+            <label className="setupField">
+              <span>Rule type</span>
+              <select value={ruleType} onChange={(event) => setRuleType(event.target.value)}>
+                <option value="signup">Signup</option>
+                <option value="exam_completion">Exam completion</option>
+                <option value="score_threshold">Score threshold</option>
+                <option value="streak">Streak</option>
+                <option value="topic_mastery">Topic mastery</option>
+                <option value="admin_campaign">Admin campaign</option>
+              </select>
+            </label>
+          </div>
         </div>
 
-        <div className="resultCardActions">
+        <div className="economyFormSection">
+          <div className="economyFormSectionHeader">
+            <strong>Thresholds and lifecycle</strong>
+            <span>Set the awarded stars, threshold values, ordering priority, and validity window.</span>
+          </div>
+          <div className="economyCommerceGridTertiary">
+            <label className="setupField">
+              <span>Stars awarded</span>
+              <input min="1" type="number" value={starsAwarded} onChange={(event) => setStarsAwarded(event.target.value)} />
+            </label>
+            <label className="setupField">
+              <span>Priority</span>
+              <input min="0" type="number" value={priority} onChange={(event) => setPriority(event.target.value)} />
+            </label>
+            <label className="setupField">
+              <span>Score threshold %</span>
+              <input
+                min="0"
+                max="100"
+                step="0.01"
+                type="number"
+                value={scoreThresholdPercentage}
+                onChange={(event) => setScoreThresholdPercentage(event.target.value)}
+              />
+            </label>
+            <label className="setupField">
+              <span>Completion count threshold</span>
+              <input
+                min="1"
+                type="number"
+                value={completionCountThreshold}
+                onChange={(event) => setCompletionCountThreshold(event.target.value)}
+              />
+            </label>
+            <label className="setupField">
+              <span>Streak count threshold</span>
+              <input
+                min="1"
+                type="number"
+                value={streakCountThreshold}
+                onChange={(event) => setStreakCountThreshold(event.target.value)}
+              />
+            </label>
+            <label className="setupField">
+              <span>Valid from</span>
+              <input type="datetime-local" value={validFrom} onChange={(event) => setValidFrom(event.target.value)} />
+            </label>
+            <label className="setupField">
+              <span>Valid until</span>
+              <input type="datetime-local" value={validUntil} onChange={(event) => setValidUntil(event.target.value)} />
+            </label>
+            <label className="setupField">
+              <span>Active status</span>
+              <select value={isActive ? "yes" : "no"} onChange={(event) => setIsActive(event.target.value === "yes")}>
+                <option value="yes">Active</option>
+                <option value="no">Paused</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div className="economyEditorActionBar">
           <button className="button buttonPrimary" disabled={saving} onClick={() => void handleSubmit()} type="button">
             {saving ? "Saving..." : editingId ? "Update Reward Rule" : "Create Reward Rule"}
           </button>
@@ -322,11 +346,12 @@ export function EconomyRewardRuleManagementCard({
             Clear Form
           </button>
         </div>
+        </section>
 
         <div className="weakTopicStack">
           {rules.map((rule) => (
-            <div className="weakTopicRow" key={rule.id}>
-              <div>
+            <div className="weakTopicRow economyCommerceCatalogRow" key={rule.id}>
+              <div className="economyCommerceCatalogMain">
                 <strong>{rule.name}</strong>
                 <span>
                   {rule.institute_name} · {rule.rule_type.replaceAll("_", " ")}
@@ -336,9 +361,18 @@ export function EconomyRewardRuleManagementCard({
                   {rule.stars_awarded} stars · priority {rule.priority}
                   {rule.score_threshold_percentage ? ` · ${rule.score_threshold_percentage}%` : ""}
                 </span>
+                <details className="economyCatalogDetailDisclosure">
+                  <summary>View rule details</summary>
+                  <div className="economyCatalogDetailStack">
+                    {rule.completion_count_threshold ? <span>Completion threshold: {rule.completion_count_threshold}</span> : null}
+                    {rule.streak_count_threshold ? <span>Streak threshold: {rule.streak_count_threshold}</span> : null}
+                    {rule.valid_from ? <span>Starts {formatDateTime(rule.valid_from)}</span> : null}
+                    {rule.valid_until ? <span>Ends {formatDateTime(rule.valid_until)}</span> : null}
+                  </div>
+                </details>
                 <span>Updated {formatDateTime(rule.updated_at)}</span>
               </div>
-              <div className="weakTopicMeta">
+              <div className="weakTopicMeta economyCommerceCatalogMeta">
                 <strong>{rule.is_active ? "Active" : "Paused"}</strong>
                 <button className="button buttonGhost" onClick={() => loadForEdit(rule)} type="button">
                   Edit

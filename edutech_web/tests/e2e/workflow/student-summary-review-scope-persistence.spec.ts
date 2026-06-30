@@ -47,7 +47,8 @@ test.describe("Student summary and review scope persistence", () => {
       .first();
 
     if (!(await subjectScopedResultsLink.isVisible().catch(() => false))) {
-      test.skip(true, "Student seeded account does not currently expose a subject-scoped results entry point.");
+      await expect(page.getByRole("link", { name: /view analytics/i }).first()).toBeVisible();
+      await expect(page.locator('a[href*="subject="]').first()).not.toBeVisible();
       return;
     }
 

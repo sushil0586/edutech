@@ -235,6 +235,7 @@ export function EconomyQuestionBankAdminWorkspace({
   programs,
   subjects,
   topics,
+  activeSection = "all",
 }: {
   initialPackages: AdminQuestionBankPackage[];
   entitlements: AdminInstituteQuestionEntitlement[];
@@ -245,31 +246,38 @@ export function EconomyQuestionBankAdminWorkspace({
   programs: ProgramRecord[];
   subjects: SubjectRecord[];
   topics: TopicRecord[];
+  activeSection?: "all" | "packages" | "visibility" | "plans";
 }) {
   const [packages, setPackages] = useState(initialPackages);
 
   return (
     <>
-      <EconomyQuestionBankPackageManagementCard
-        packages={packages}
-        institutes={institutes}
-        programs={programs}
-        subjects={subjects}
-        topics={topics}
-        onPackagesChange={setPackages}
-      />
-      <EconomyQuestionBankVisibilityCard
-        packages={packages}
-        entitlements={entitlements}
-        featureEntitlements={featureEntitlements}
-        usageEntries={usageEntries}
-      />
-      <EconomySubscriptionPlanManagementCard
-        initialPlans={subscriptionPlans}
-        institutes={institutes}
-        questionBankPackages={packages}
-        entitlements={entitlements}
-      />
+      {activeSection === "all" || activeSection === "packages" ? (
+        <EconomyQuestionBankPackageManagementCard
+          packages={packages}
+          institutes={institutes}
+          programs={programs}
+          subjects={subjects}
+          topics={topics}
+          onPackagesChange={setPackages}
+        />
+      ) : null}
+      {activeSection === "all" || activeSection === "visibility" ? (
+        <EconomyQuestionBankVisibilityCard
+          packages={packages}
+          entitlements={entitlements}
+          featureEntitlements={featureEntitlements}
+          usageEntries={usageEntries}
+        />
+      ) : null}
+      {activeSection === "all" || activeSection === "plans" ? (
+        <EconomySubscriptionPlanManagementCard
+          initialPlans={subscriptionPlans}
+          institutes={institutes}
+          questionBankPackages={packages}
+          entitlements={entitlements}
+        />
+      ) : null}
     </>
   );
 }

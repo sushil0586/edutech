@@ -17,6 +17,30 @@ const awsStudentCredentials = {
 
 const awsExamCode = "DMO-AWS-PRACTICE-01";
 
+async function gotoWithRetry(page: Page, url: string, attempts = 3) {
+  let lastError: unknown = null;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      await page.goto(url, { waitUntil: "domcontentloaded" });
+      return;
+    } catch (error) {
+      lastError = error;
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes("ERR_ABORTED") && page.url().includes(url)) {
+        return;
+      }
+      if (
+        (!message.includes("ERR_CONNECTION_REFUSED") && !message.includes("ERR_ABORTED")) ||
+        attempt === attempts
+      ) {
+        throw error;
+      }
+      await page.waitForTimeout(1500 * attempt);
+    }
+  }
+  throw lastError;
+}
+
 async function backendAccessToken(page: Page) {
   const cookies = await page.context().cookies();
   const accessToken = cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
@@ -71,10 +95,10 @@ test.describe("Student AWS practice contract", () => {
     expect(detail.experience_profile.actual_timer_mode).toBe("global");
     expect(detail.experience_profile.actual_navigation_mode).toBe("free_exam");
 
-    await page.goto("/app/practice");
+    await gotoWithRetry(page, "/app/practice");
     await expect(page.getByText(awsExam!.title).first()).toBeVisible();
 
-    await page.goto(`/app/exams/${awsExam!.id}`);
+    await gotoWithRetry(page, `/app/exams/${awsExam!.id}`);
     await expect(page.getByRole("heading", { name: new RegExp(awsExam!.title, "i") }).first()).toBeVisible();
     await expect(page.getByText(/45 minutes/i).first()).toBeVisible();
     await expect(page.getByText(/certification/i).first()).toBeVisible();
