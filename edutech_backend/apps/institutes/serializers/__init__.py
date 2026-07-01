@@ -11,7 +11,9 @@ from apps.exams.models import (
 )
 from apps.exams.services import INSTITUTE_EXAM_DEFAULT_FIELDS
 from apps.geography.services import resolve_location_selection
-from apps.institutes.models import Institute
+from apps.institutes.models import Institute, InstituteOnboardingProfile
+from apps.institutes.models import InstituteOnboardingRunStatus
+from apps.institutes.services import start_institute_onboarding_run
 
 
 class InstituteAdminCredentialMixin(serializers.Serializer):
@@ -51,9 +53,29 @@ class InstituteAdminCredentialMixin(serializers.Serializer):
         user = getattr(profile, "user", None)
         return getattr(user, "id", None)
 
+    def _get_latest_onboarding_run(self, obj):
+        runs = getattr(obj, "prefetched_onboarding_runs", None)
+        if runs is None:
+            runs = list(
+                obj.onboarding_runs.select_related("profile").order_by("-created_at")[:1]
+            )
+        return runs[0] if runs else None
+
 
 class InstituteSerializer(InstituteAdminCredentialMixin, serializers.ModelSerializer):
     exam_defaults = serializers.JSONField(required=False)
+    onboarding_profile_code = serializers.CharField(
+        max_length=80,
+        required=False,
+        allow_blank=True,
+        write_only=True,
+    )
+    onboarding_run_id = serializers.SerializerMethodField()
+    onboarding_run_status = serializers.SerializerMethodField()
+    latest_onboarding_profile_code = serializers.SerializerMethodField()
+    latest_onboarding_profile_name = serializers.SerializerMethodField()
+    latest_onboarding_source = serializers.SerializerMethodField()
+    latest_onboarding_completed_at = serializers.SerializerMethodField()
 
     class Meta:
         model = Institute
@@ -76,6 +98,13 @@ class InstituteSerializer(InstituteAdminCredentialMixin, serializers.ModelSerial
             "description",
             "metadata",
             "exam_defaults",
+            "onboarding_profile_code",
+            "onboarding_run_id",
+            "onboarding_run_status",
+            "latest_onboarding_profile_code",
+            "latest_onboarding_profile_name",
+            "latest_onboarding_source",
+            "latest_onboarding_completed_at",
             "has_login",
             "login_username",
             "login_is_active",
@@ -153,6 +182,18 @@ class InstituteSerializer(InstituteAdminCredentialMixin, serializers.ModelSerial
             attrs["city"] = normalized_location["city"]
             attrs["pincode"] = normalized_location["pincode"]
 
+        onboarding_profile_code = str(attrs.get("onboarding_profile_code", "") or "").strip().upper()
+        if onboarding_profile_code:
+            profile_exists = InstituteOnboardingProfile.objects.filter(
+                code=onboarding_profile_code,
+                is_active=True,
+            ).exists()
+            if not profile_exists:
+                raise serializers.ValidationError(
+                    {"onboarding_profile_code": "Selected onboarding profile was not found."}
+                )
+            attrs["onboarding_profile_code"] = onboarding_profile_code
+
         return attrs
 
     def to_representation(self, instance):
@@ -168,13 +209,31 @@ class InstituteSerializer(InstituteAdminCredentialMixin, serializers.ModelSerial
 
     def create(self, validated_data):
         exam_defaults = validated_data.pop("exam_defaults", None)
+        onboarding_profile_code = validated_data.pop("onboarding_profile_code", "")
         instance = super().create(validated_data)
         if exam_defaults is not None:
             self._write_exam_defaults(instance, exam_defaults)
+        if onboarding_profile_code:
+            profile = InstituteOnboardingProfile.objects.filter(code=onboarding_profile_code).first()
+            onboarding_run = start_institute_onboarding_run(
+                institute=instance,
+                profile_code=onboarding_profile_code,
+                source="institute_create",
+                status=InstituteOnboardingRunStatus.PENDING,
+                requested_config_json=profile.config_json if profile is not None else {},
+                resolved_config_json={
+                    "profile_code": onboarding_profile_code,
+                    "profile_name": profile.name if profile is not None else "",
+                },
+                initiated_by=self.context.get("request").user if self.context.get("request") else None,
+            )
+            setattr(instance, "_created_onboarding_run_id", str(onboarding_run.id))
+            setattr(instance, "_created_onboarding_run_status", onboarding_run.status)
         return instance
 
     def update(self, instance, validated_data):
         exam_defaults = validated_data.pop("exam_defaults", None)
+        validated_data.pop("onboarding_profile_code", None)
         instance = super().update(instance, validated_data)
         if exam_defaults is not None:
             self._write_exam_defaults(instance, exam_defaults)
@@ -217,6 +276,41 @@ class InstituteSerializer(InstituteAdminCredentialMixin, serializers.ModelSerial
         if value <= 0:
             raise serializers.ValidationError({key: "Value must be greater than zero."})
 
+    def get_onboarding_run_id(self, obj):
+        created_run_id = getattr(obj, "_created_onboarding_run_id", None)
+        if created_run_id:
+            return created_run_id
+        latest_run = self._get_latest_onboarding_run(obj)
+        return str(latest_run.id) if latest_run is not None else None
+
+    def get_onboarding_run_status(self, obj):
+        created_run_status = getattr(obj, "_created_onboarding_run_status", None)
+        if created_run_status:
+            return created_run_status
+        latest_run = self._get_latest_onboarding_run(obj)
+        return latest_run.status if latest_run is not None else None
+
+    def get_latest_onboarding_profile_code(self, obj):
+        latest_run = self._get_latest_onboarding_run(obj)
+        return latest_run.profile_code if latest_run is not None else None
+
+    def get_latest_onboarding_profile_name(self, obj):
+        latest_run = self._get_latest_onboarding_run(obj)
+        if latest_run is None:
+            return None
+        profile = getattr(latest_run, "profile", None)
+        return profile.name if profile is not None else None
+
+    def get_latest_onboarding_source(self, obj):
+        latest_run = self._get_latest_onboarding_run(obj)
+        return latest_run.source if latest_run is not None else None
+
+    def get_latest_onboarding_completed_at(self, obj):
+        latest_run = self._get_latest_onboarding_run(obj)
+        if latest_run is None or latest_run.completed_at is None:
+            return None
+        return latest_run.completed_at.isoformat()
+
 
 class InstituteListSerializer(InstituteAdminCredentialMixin, serializers.ModelSerializer):
     class Meta:
@@ -237,3 +331,82 @@ class InstituteListSerializer(InstituteAdminCredentialMixin, serializers.ModelSe
             "account_user_id",
         )
         read_only_fields = fields
+
+
+class InstituteOnboardingProfileListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InstituteOnboardingProfile
+        fields = (
+            "id",
+            "name",
+            "code",
+            "description",
+            "category",
+            "is_default",
+            "sort_order",
+            "config_json",
+            "is_active",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = fields
+
+
+class InstituteOnboardingRunListSerializer(serializers.Serializer):
+    id = serializers.UUIDField(read_only=True)
+    profile_code = serializers.CharField(read_only=True)
+    profile_name = serializers.SerializerMethodField()
+    source = serializers.CharField(read_only=True)
+    status = serializers.CharField(read_only=True)
+    task_count = serializers.SerializerMethodField()
+    completed_task_count = serializers.SerializerMethodField()
+    started_at = serializers.DateTimeField(read_only=True)
+    completed_at = serializers.DateTimeField(read_only=True, allow_null=True)
+    error_summary = serializers.CharField(read_only=True)
+    created_at = serializers.DateTimeField(read_only=True)
+
+    def get_profile_name(self, obj):
+        profile = getattr(obj, "profile", None)
+        return profile.name if profile is not None else None
+
+    def get_task_count(self, obj):
+        annotated = getattr(obj, "task_total", None)
+        if annotated is not None:
+            return annotated
+        return obj.tasks.count()
+
+    def get_completed_task_count(self, obj):
+        annotated = getattr(obj, "task_completed_total", None)
+        if annotated is not None:
+            return annotated
+        return obj.tasks.exclude(status="pending").count()
+
+
+class InstituteOnboardingTaskRunListSerializer(serializers.Serializer):
+    id = serializers.UUIDField(read_only=True)
+    task_code = serializers.CharField(read_only=True)
+    label = serializers.CharField(read_only=True)
+    status = serializers.CharField(read_only=True)
+    message = serializers.CharField(read_only=True)
+    result_json = serializers.JSONField(read_only=True)
+    started_at = serializers.DateTimeField(read_only=True, allow_null=True)
+    completed_at = serializers.DateTimeField(read_only=True, allow_null=True)
+    created_at = serializers.DateTimeField(read_only=True)
+
+
+class InstituteOnboardingRunDetailSerializer(serializers.Serializer):
+    id = serializers.UUIDField(read_only=True)
+    profile_code = serializers.CharField(read_only=True)
+    profile_name = serializers.SerializerMethodField()
+    source = serializers.CharField(read_only=True)
+    status = serializers.CharField(read_only=True)
+    requested_config_json = serializers.JSONField(read_only=True)
+    resolved_config_json = serializers.JSONField(read_only=True)
+    started_at = serializers.DateTimeField(read_only=True, allow_null=True)
+    completed_at = serializers.DateTimeField(read_only=True, allow_null=True)
+    error_summary = serializers.CharField(read_only=True)
+    created_at = serializers.DateTimeField(read_only=True)
+
+    def get_profile_name(self, obj):
+        profile = getattr(obj, "profile", None)
+        return profile.name if profile is not None else None

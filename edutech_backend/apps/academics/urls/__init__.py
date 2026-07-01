@@ -1,7 +1,12 @@
+from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from apps.academics.views import (
     AcademicYearViewSet,
+    AcademicPresetApplyView,
+    AcademicPresetDetailView,
+    AcademicPresetListView,
+    AcademicPresetPreviewView,
     AssessmentFamilyViewSet,
     CohortViewSet,
     OptionCatalogEntryViewSet,
@@ -21,4 +26,9 @@ router.register("subjects", SubjectViewSet, basename="subjects")
 router.register("topics", TopicViewSet, basename="topics")
 router.register("option-catalog", OptionCatalogEntryViewSet, basename="option-catalog")
 
-urlpatterns = router.urls
+urlpatterns = [
+    path("presets/", AcademicPresetListView.as_view(), name="preset-list"),
+    path("presets/preview/", AcademicPresetPreviewView.as_view(), name="preset-preview"),
+    path("presets/apply/", AcademicPresetApplyView.as_view(), name="preset-apply"),
+    path("presets/<str:preset_code>/", AcademicPresetDetailView.as_view(), name="preset-detail"),
+] + router.urls

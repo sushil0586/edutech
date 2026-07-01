@@ -243,3 +243,69 @@ class OptionCatalogEntryListSerializer(serializers.ModelSerializer):
             "updated_at",
         )
         read_only_fields = fields
+
+
+class AcademicPresetPreviewSerializer(serializers.Serializer):
+    institute = serializers.UUIDField()
+    onboarding_run_id = serializers.UUIDField(required=False, allow_null=True)
+    preset_code = serializers.CharField(max_length=120)
+    mode = serializers.ChoiceField(
+        choices=[
+            ("full", "Full"),
+            ("selected_subjects", "Selected subjects"),
+            ("selected_topic_groups", "Selected topic groups"),
+        ],
+        default="full",
+    )
+    subject_codes = serializers.ListField(
+        child=serializers.CharField(max_length=80),
+        required=False,
+        allow_empty=True,
+    )
+    topic_codes = serializers.ListField(
+        child=serializers.CharField(max_length=80),
+        required=False,
+        allow_empty=True,
+    )
+    academic_year_name = serializers.CharField(max_length=150, required=False, allow_blank=True, default="2026-2027")
+    academic_year_start = serializers.DateField(required=False, default="2026-04-01")
+    academic_year_end = serializers.DateField(required=False, default="2027-03-31")
+    question_bank_package_enabled = serializers.BooleanField(required=False, default=False)
+    question_bank_package_code = serializers.CharField(
+        max_length=120,
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        default="",
+    )
+    advanced_builder_enabled = serializers.BooleanField(required=False, default=False)
+    onboarding_profile_code = serializers.CharField(
+        max_length=80,
+        required=False,
+        allow_blank=True,
+        default="",
+    )
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        if attrs["academic_year_start"] >= attrs["academic_year_end"]:
+            raise serializers.ValidationError(
+                {"academic_year_end": "Academic year end date must be later than start date."}
+            )
+        if attrs["mode"] == "selected_subjects" and not attrs.get("subject_codes"):
+            raise serializers.ValidationError(
+                {"subject_codes": "Select at least one subject for selective apply."}
+            )
+        if attrs["mode"] == "selected_topic_groups" and not attrs.get("topic_codes"):
+            raise serializers.ValidationError(
+                {"topic_codes": "Select at least one topic group for selective apply."}
+            )
+        if attrs.get("question_bank_package_enabled") and not str(attrs.get("question_bank_package_code") or "").strip():
+            raise serializers.ValidationError(
+                {"question_bank_package_code": "Select a question-bank package when package access is enabled."}
+            )
+        return attrs
+
+
+class AcademicPresetApplySerializer(AcademicPresetPreviewSerializer):
+    pass

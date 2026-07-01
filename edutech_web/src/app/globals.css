@@ -17323,6 +17323,199 @@ body::after {
   padding: 0 14px;
 }
 
+.adminAcademicHeroCard,
+.adminAcademicControlCard,
+.adminAcademicSubjectCard {
+  padding: 20px;
+}
+
+.adminAcademicSectionEyebrow {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(238, 244, 255, 0.96);
+  border: 1px solid rgba(160, 174, 208, 0.16);
+  color: #58709a;
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  width: fit-content;
+}
+
+.adminAcademicHeroCard {
+  display: grid;
+  gap: 18px;
+}
+
+.adminAcademicHeroHeader,
+.adminAcademicHeroGrid,
+.adminAcademicControlLayout,
+.adminAcademicHeroActions,
+.adminAcademicHeroPrimary,
+.adminAcademicHeroSummary,
+.adminAcademicSectionHeading,
+.adminAcademicSubjectCardHeader {
+  display: grid;
+}
+
+.adminAcademicHeroHeader {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+}
+
+.adminAcademicHeroHeader p,
+.adminAcademicSectionHeading p,
+.adminAcademicHeroSummary p {
+  margin: 6px 0 0;
+}
+
+.adminAcademicHeroBadges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.adminAcademicHeroBadges .setupFieldMeta,
+.adminAcademicTopicBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(160, 174, 208, 0.22);
+  background: rgba(246, 249, 255, 0.92);
+}
+
+.adminAcademicHeroGrid,
+.adminAcademicControlLayout {
+  gap: 16px;
+}
+
+.adminAcademicHeroGrid {
+  grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.9fr);
+}
+
+.adminAcademicHeroPrimary,
+.adminAcademicHeroSummary,
+.adminAcademicControlCard,
+.adminAcademicSectionHeading,
+.adminAcademicSubjectCard {
+  gap: 12px;
+}
+
+.adminAcademicHeroSummary {
+  align-content: start;
+  padding: 16px 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(160, 174, 208, 0.16);
+  background: linear-gradient(180deg, rgba(250, 252, 255, 0.96), rgba(244, 248, 255, 0.9));
+}
+
+.adminAcademicHeroSummaryLabel {
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #6c7b98;
+}
+
+.adminAcademicHeroSummary strong {
+  font-size: var(--text-lg);
+  line-height: var(--leading-tight);
+}
+
+.adminAcademicHeroStats,
+.adminAcademicSummaryRail {
+  justify-content: flex-start;
+}
+
+.adminAcademicControlLayout {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 16px;
+}
+
+.adminAcademicCompactFormWide {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.adminAcademicSummaryRail {
+  padding: 12px 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(160, 174, 208, 0.14);
+  background: rgba(249, 251, 255, 0.84);
+  position: sticky;
+  top: 12px;
+  z-index: 3;
+}
+
+.adminAcademicSummaryRailCopy {
+  display: grid;
+  gap: 4px;
+  margin-right: auto;
+}
+
+.adminAcademicSummaryRailCopy strong {
+  font-size: var(--text-sm);
+  line-height: var(--leading-tight);
+}
+
+.adminAcademicSubjectPreviewGrid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  margin-top: 16px;
+}
+
+.adminAcademicSubjectCardHeader {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+}
+
+.adminAcademicSubjectSummary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.adminAcademicSubjectSummary::-webkit-details-marker {
+  display: none;
+}
+
+.adminAcademicSubjectSummaryMeta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.adminAcademicDisclosureHint {
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px dashed rgba(160, 174, 208, 0.22);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.adminAcademicSubjectCard:not([open]) .adminAcademicDisclosureHint::after {
+  content: " expand";
+}
+
+.adminAcademicSubjectCard[open] .adminAcademicDisclosureHint::after {
+  content: " open";
+}
+
+.adminAcademicSubjectCard ul {
+  display: grid;
+  gap: 6px;
+}
+
 .resetPasswordDialog {
   width: min(100%, 640px);
 }
@@ -17360,6 +17553,26 @@ body::after {
 @media (max-width: 900px) {
   .adminPeopleActionBar {
     align-items: stretch;
+  }
+
+  .adminAcademicHeroHeader,
+  .adminAcademicHeroGrid,
+  .adminAcademicControlLayout,
+  .adminAcademicCompactFormWide,
+  .adminAcademicSubjectCardHeader {
+    grid-template-columns: 1fr;
+  }
+
+  .adminAcademicHeroBadges {
+    justify-content: flex-start;
+  }
+
+  .adminAcademicSummaryRail {
+    position: static;
+  }
+
+  .adminAcademicSubjectSummaryMeta {
+    justify-content: flex-start;
   }
 
   .adminAcademicScopeStats {

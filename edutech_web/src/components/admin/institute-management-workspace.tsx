@@ -35,6 +35,12 @@ export type AdminInstituteRecord = {
   login_username: string | null;
   login_is_active: boolean;
   account_user_id: number | null;
+  onboarding_run_id?: string | null;
+  onboarding_run_status?: string | null;
+  latest_onboarding_profile_code?: string | null;
+  latest_onboarding_profile_name?: string | null;
+  latest_onboarding_source?: string | null;
+  latest_onboarding_completed_at?: string | null;
 };
 
 type InstituteDraft = {
@@ -75,9 +81,143 @@ type InstituteCounts = {
   examCount: number;
 };
 
+type OnboardingProfileRecord = {
+  id: string;
+  name: string;
+  code: string;
+  description: string;
+  category: string;
+  is_default: boolean;
+  sort_order: number;
+  config_json: Record<string, unknown>;
+  is_active: boolean;
+};
+
+type InstituteOnboardingRunRecord = {
+  id: string;
+  profile_code: string;
+  profile_name: string | null;
+  source: string;
+  status: string;
+  task_count: number;
+  completed_task_count: number;
+  started_at: string | null;
+  completed_at: string | null;
+  error_summary: string;
+  created_at: string;
+};
+
+type InstituteOnboardingTaskRunRecord = {
+  id: string;
+  task_code: string;
+  label: string;
+  status: string;
+  message: string;
+  result_json: Record<string, unknown>;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+};
+
 type InstituteLoginOverride = Partial<
   Pick<AdminInstituteRecord, "has_login" | "login_username" | "login_is_active" | "account_user_id">
 >;
+
+function renderProfileToggle(value: unknown, enabledLabel: string, disabledLabel: string) {
+  return value ? enabledLabel : disabledLabel;
+}
+
+function summarizeProfileConfig(config: Record<string, unknown>) {
+  const presetCode = String(config.academic_preset_code ?? "").trim();
+  const applyMode = String(config.apply_mode ?? "full").trim();
+  const academicYearTemplate = String(config.academic_year_name_template ?? "").trim();
+  const packageCode = String(config.question_bank_package_code ?? "").trim().toUpperCase();
+
+  return [
+    {
+      label: "Academic preset",
+      value: presetCode || "No preset mapped",
+    },
+    {
+      label: "Apply mode",
+      value:
+        applyMode === "selected_subjects"
+          ? "Selected subjects"
+          : applyMode === "selected_topic_groups"
+            ? "Selected topic groups"
+            : "Full preset",
+    },
+    {
+      label: "Academic year",
+      value: academicYearTemplate || "Uses manual academic year entry",
+    },
+    {
+      label: "Question-bank access",
+      value: renderProfileToggle(
+        config.question_bank_package_enabled,
+        packageCode ? `Enabled · ${packageCode}` : "Enabled",
+        "Disabled",
+      ),
+    },
+    {
+      label: "Advanced builder",
+      value: renderProfileToggle(config.advanced_builder_enabled, "Enabled", "Disabled"),
+    },
+  ];
+}
+
+function formatOnboardingSource(value: string | null | undefined) {
+  if (!value) {
+    return "Manual";
+  }
+  return value
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function getRunStatusPillClass(status: string | null | undefined) {
+  if (status === "completed") {
+    return "statusPill statusLive";
+  }
+  if (status === "failed") {
+    return "statusPill statusWarning";
+  }
+  if (status === "running") {
+    return "statusPill";
+  }
+  return "statusPill";
+}
+
+function summarizeResultJson(result: Record<string, unknown>) {
+  const keys = Object.keys(result ?? {});
+  if (keys.length === 0) {
+    return "No result payload";
+  }
+  return keys.slice(0, 4).join(", ");
+}
+
+function buildMasterDefaultsUrl({
+  instituteId,
+  profileCode,
+  runId,
+}: {
+  instituteId: string;
+  profileCode?: string | null;
+  runId?: string | null;
+}) {
+  const query = new URLSearchParams({
+    institute: instituteId,
+    section: "master-defaults",
+  });
+  if (profileCode) {
+    query.set("profile", profileCode);
+  }
+  if (runId) {
+    query.set("run", runId);
+  }
+  return `/admin/academic-setup?${query.toString()}`;
+}
 
 function firstError(value: unknown) {
   if (Array.isArray(value)) {
@@ -478,10 +618,13 @@ function InstituteModal({
   title,
   subtitle,
   draft,
+  onboardingProfiles,
+  selectedOnboardingProfileCode,
   fieldErrors,
   locationCatalog,
   onClose,
   onSubmit,
+  onSelectOnboardingProfile,
   saving,
   message,
   error,
@@ -493,10 +636,13 @@ function InstituteModal({
   title: string;
   subtitle: string;
   draft: InstituteDraft;
+  onboardingProfiles: OnboardingProfileRecord[];
+  selectedOnboardingProfileCode: string;
   fieldErrors: InstituteFieldErrors;
   locationCatalog: LocationCatalogOption[];
   onClose: () => void;
   onSubmit: () => void;
+  onSelectOnboardingProfile: (value: string) => void;
   saving: boolean;
   message: string;
   error: string;
@@ -505,6 +651,10 @@ function InstituteModal({
   handleStateChange: (value: string) => void;
   handleCityChange: (value: string) => void;
 }) {
+  const selectedProfile =
+    onboardingProfiles.find((profile) => profile.code === selectedOnboardingProfileCode) ?? null;
+  const profileSummary = selectedProfile ? summarizeProfileConfig(selectedProfile.config_json ?? {}) : [];
+
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -550,6 +700,71 @@ function InstituteModal({
         {error ? <p className="feedbackBanner feedbackBannerError">{error}</p> : null}
 
         <div className="adminInstituteModalBody">
+          {onboardingProfiles.length > 0 ? (
+            <div className="setupFormGrid setupFormGridDense" style={{ marginBottom: 16 }}>
+              <label className="setupField setupFieldFull">
+                <span>Onboarding profile</span>
+                <select
+                  value={selectedOnboardingProfileCode}
+                  onChange={(event) => onSelectOnboardingProfile(event.target.value)}
+                >
+                  <option value="">Select onboarding profile</option>
+                  {onboardingProfiles.map((profile) => (
+                    <option key={profile.id} value={profile.code}>
+                      {profile.name} ({profile.code})
+                    </option>
+                  ))}
+                </select>
+                <small>
+                  After institute creation, this profile will open a tracked onboarding run and prefill the `Master defaults` lane.
+                </small>
+              </label>
+              {selectedProfile ? (
+                <div
+                  className="setupField setupFieldFull"
+                  style={{
+                    border: "1px solid rgba(92, 124, 250, 0.18)",
+                    borderRadius: 20,
+                    padding: 16,
+                    background: "rgba(92, 124, 250, 0.05)",
+                  }}
+                >
+                  <div style={{ display: "grid", gap: 6 }}>
+                    <strong>{selectedProfile.name}</strong>
+                    <span className="setupFieldMeta">
+                      {selectedProfile.description || "Reusable onboarding profile from the database-backed registry."}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gap: 12,
+                      gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                      marginTop: 14,
+                    }}
+                  >
+                    {profileSummary.map((item) => (
+                      <div
+                        key={item.label}
+                        style={{
+                          border: "1px solid rgba(15, 23, 42, 0.08)",
+                          borderRadius: 16,
+                          padding: "12px 14px",
+                          background: "rgba(255, 255, 255, 0.75)",
+                        }}
+                      >
+                        <div className="setupFieldMeta">{item.label}</div>
+                        <strong style={{ display: "block", marginTop: 6 }}>{item.value}</strong>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="setupFieldMeta" style={{ marginTop: 14 }}>
+                    Save creates the institute first, opens a tracked onboarding run, and sends you directly into `Master defaults` to finish the seeded setup.
+                  </p>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           <InstituteFormFields
             draft={draft}
             fieldErrors={fieldErrors}
@@ -578,12 +793,16 @@ function InstituteModal({
 export function InstituteManagementWorkspace({
   institute,
   institutes,
+  onboardingRuns,
+  onboardingProfiles,
   locationCatalog,
   selectedInstituteId,
   counts,
 }: {
   institute: AdminInstituteRecord | null;
   institutes: AdminInstituteRecord[];
+  onboardingRuns: InstituteOnboardingRunRecord[];
+  onboardingProfiles: OnboardingProfileRecord[];
   locationCatalog: LocationCatalogOption[];
   selectedInstituteId: string | null;
   counts: InstituteCounts;
@@ -598,6 +817,9 @@ export function InstituteManagementWorkspace({
   const [createError, setCreateError] = useState("");
   const [creating, setCreating] = useState(false);
   const [createFieldErrors, setCreateFieldErrors] = useState<InstituteFieldErrors>({});
+  const [createOnboardingProfileCode, setCreateOnboardingProfileCode] = useState(
+    onboardingProfiles.find((profile) => profile.is_default)?.code ?? "",
+  );
 
   const [draft, setDraft] = useState<InstituteDraft>(createBlankDraft);
   const [message, setMessage] = useState("");
@@ -605,6 +827,13 @@ export function InstituteManagementWorkspace({
   const [saving, setSaving] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<InstituteFieldErrors>({});
   const [loginOverrides, setLoginOverrides] = useState<Record<string, InstituteLoginOverride>>({});
+  const [expandedOnboardingRunId, setExpandedOnboardingRunId] = useState<string | null>(null);
+  const [onboardingTaskRuns, setOnboardingTaskRuns] = useState<
+    Record<string, InstituteOnboardingTaskRunRecord[]>
+  >({});
+  const [loadingOnboardingTaskRunId, setLoadingOnboardingTaskRunId] = useState<string | null>(null);
+  const [onboardingTaskError, setOnboardingTaskError] = useState("");
+  const [copiedTaskRunId, setCopiedTaskRunId] = useState<string | null>(null);
 
   const mergedInstitutes = useMemo(
     () =>
@@ -656,6 +885,20 @@ export function InstituteManagementWorkspace({
   const activeInstituteCount = useMemo(
     () => mergedInstitutes.filter((item) => item.is_active).length,
     [mergedInstitutes],
+  );
+  const selectedOnboardingProfile = useMemo(
+    () =>
+      onboardingProfiles.find(
+        (profile) => profile.code === mergedInstitute?.latest_onboarding_profile_code,
+      ) ?? null,
+    [mergedInstitute?.latest_onboarding_profile_code, onboardingProfiles],
+  );
+  const selectedOnboardingSummary = useMemo(
+    () =>
+      selectedOnboardingProfile
+        ? summarizeProfileConfig(selectedOnboardingProfile.config_json ?? {})
+        : [],
+    [selectedOnboardingProfile],
   );
 
   function handleInstituteAccountAction(
@@ -778,6 +1021,7 @@ export function InstituteManagementWorkspace({
     setCreateFieldErrors({});
     setCreateError("");
     setCreateMessage("");
+    setCreateOnboardingProfileCode(onboardingProfiles.find((profile) => profile.is_default)?.code ?? "");
   }
 
   function closeCreateModal() {
@@ -811,7 +1055,10 @@ export function InstituteManagementWorkspace({
       const response = await fetch("/api/admin/institutes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(sanitizePayload(createDraftState)),
+        body: JSON.stringify({
+          ...sanitizePayload(createDraftState),
+          onboarding_profile_code: createOnboardingProfileCode || undefined,
+        }),
       });
 
       const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
@@ -824,7 +1071,15 @@ export function InstituteManagementWorkspace({
 
       const createdInstitute = body as unknown as AdminInstituteRecord;
       closeCreateModal();
-      router.push(`/admin/institutes?institute=${createdInstitute.id}`);
+      const profileQuery = createOnboardingProfileCode
+        ? `&profile=${encodeURIComponent(createOnboardingProfileCode)}`
+        : "";
+      const runQuery = createdInstitute.onboarding_run_id
+        ? `&run=${encodeURIComponent(createdInstitute.onboarding_run_id)}`
+        : "";
+      router.push(
+        `/admin/academic-setup?institute=${createdInstitute.id}&section=master-defaults${profileQuery}${runQuery}`,
+      );
       router.refresh();
     } catch (saveError) {
       setCreateError(
@@ -894,6 +1149,56 @@ export function InstituteManagementWorkspace({
     setError("");
     setMessage("");
     setModalMode("edit");
+  }
+
+  async function toggleOnboardingRunDetails(runId: string) {
+    if (!mergedInstitute) {
+      return;
+    }
+    if (expandedOnboardingRunId === runId) {
+      setExpandedOnboardingRunId(null);
+      setOnboardingTaskError("");
+      return;
+    }
+    setExpandedOnboardingRunId(runId);
+    setOnboardingTaskError("");
+    if (onboardingTaskRuns[runId]) {
+      return;
+    }
+
+    setLoadingOnboardingTaskRunId(runId);
+    try {
+      const response = await fetch(
+        `/api/admin/institutes/${mergedInstitute.id}/onboarding-runs/${runId}/tasks`,
+        { cache: "no-store" },
+      );
+      const body = (await response.json().catch(() => [])) as unknown;
+      if (!response.ok || !Array.isArray(body)) {
+        throw new Error("Unable to load onboarding run tasks.");
+      }
+      setOnboardingTaskRuns((current) => ({
+        ...current,
+        [runId]: body as InstituteOnboardingTaskRunRecord[],
+      }));
+    } catch (loadError) {
+      setOnboardingTaskError(
+        loadError instanceof Error ? loadError.message : "Unable to load onboarding run tasks.",
+      );
+    } finally {
+      setLoadingOnboardingTaskRunId(null);
+    }
+  }
+
+  async function copyTaskResult(taskId: string, resultJson: Record<string, unknown>) {
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(resultJson ?? {}, null, 2));
+      setCopiedTaskRunId(taskId);
+      window.setTimeout(() => {
+        setCopiedTaskRunId((current) => (current === taskId ? null : current));
+      }, 1500);
+    } catch {
+      setOnboardingTaskError("Unable to copy task result JSON.");
+    }
   }
 
   return (
@@ -1079,6 +1384,330 @@ export function InstituteManagementWorkspace({
                 </div>
               </div>
 
+              <div
+                style={{
+                  display: "grid",
+                  gap: 14,
+                  marginTop: 18,
+                  border: "1px solid rgba(92, 124, 250, 0.14)",
+                  borderRadius: 22,
+                  padding: 18,
+                  background: "rgba(92, 124, 250, 0.05)",
+                }}
+              >
+                <div className="weakTopicRow">
+                  <div>
+                    <strong>Latest onboarding state</strong>
+                    <span>Reusable visibility into the most recent onboarding profile and tracked run.</span>
+                  </div>
+                  <div className="weakTopicMeta">
+                    <strong>
+                      {mergedInstitute.latest_onboarding_profile_name ||
+                        mergedInstitute.latest_onboarding_profile_code ||
+                        "No onboarding run yet"}
+                    </strong>
+                    <span>
+                      {mergedInstitute.onboarding_run_status
+                        ? `${formatOnboardingSource(
+                            mergedInstitute.latest_onboarding_source,
+                          )} onboarding flow`
+                        : "Create or complete onboarding from Master defaults"}
+                    </span>
+                  </div>
+                </div>
+
+                {mergedInstitute.onboarding_run_status ? (
+                  <div
+                    style={{
+                      display: "grid",
+                      gap: 12,
+                      gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                    }}
+                  >
+                    <div className="studentResultStat">
+                      <span>Run status</span>
+                      <strong>
+                        <span className={getRunStatusPillClass(mergedInstitute.onboarding_run_status)}>
+                          {mergedInstitute.onboarding_run_status}
+                        </span>
+                      </strong>
+                    </div>
+                    <div className="studentResultStat">
+                      <span>Profile code</span>
+                      <strong>{mergedInstitute.latest_onboarding_profile_code || "Manual"}</strong>
+                    </div>
+                    <div className="studentResultStat">
+                      <span>Completed at</span>
+                      <strong>
+                        {mergedInstitute.latest_onboarding_completed_at
+                          ? new Date(mergedInstitute.latest_onboarding_completed_at).toLocaleString()
+                          : "Still running"}
+                      </strong>
+                    </div>
+                  </div>
+                ) : null}
+
+                {selectedOnboardingSummary.length > 0 ? (
+                  <div
+                    style={{
+                      display: "grid",
+                      gap: 12,
+                      gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                    }}
+                  >
+                    {selectedOnboardingSummary.map((item) => (
+                      <div
+                        key={item.label}
+                        style={{
+                          border: "1px solid rgba(15, 23, 42, 0.08)",
+                          borderRadius: 16,
+                          padding: "12px 14px",
+                          background: "rgba(255, 255, 255, 0.78)",
+                        }}
+                      >
+                        <div className="setupFieldMeta">{item.label}</div>
+                        <strong style={{ display: "block", marginTop: 6 }}>{item.value}</strong>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                  <button
+                    className="button buttonSecondary"
+                    onClick={() =>
+                      router.push(
+                        buildMasterDefaultsUrl({
+                          instituteId: mergedInstitute.id,
+                          profileCode: mergedInstitute.latest_onboarding_profile_code,
+                          runId: mergedInstitute.onboarding_run_id,
+                        }),
+                      )
+                    }
+                    type="button"
+                  >
+                    Open Master Defaults
+                  </button>
+                  {mergedInstitute.onboarding_run_status &&
+                  mergedInstitute.onboarding_run_status !== "completed" ? (
+                    <button
+                      className="button buttonGhost"
+                      onClick={() =>
+                        router.push(
+                          buildMasterDefaultsUrl({
+                            instituteId: mergedInstitute.id,
+                            profileCode: mergedInstitute.latest_onboarding_profile_code,
+                            runId: mergedInstitute.onboarding_run_id,
+                          }),
+                        )
+                      }
+                      type="button"
+                    >
+                      Retry Latest Run
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gap: 14,
+                  marginTop: 18,
+                  border: "1px solid rgba(15, 23, 42, 0.08)",
+                  borderRadius: 22,
+                  padding: 18,
+                  background: "rgba(255, 255, 255, 0.78)",
+                }}
+              >
+                <div className="weakTopicRow">
+                  <div>
+                    <strong>Onboarding history</strong>
+                    <span>Recent runs for this institute, including create-time and Master defaults driven onboarding.</span>
+                  </div>
+                  <div className="weakTopicMeta">
+                    <strong>{onboardingRuns.length}</strong>
+                    <span>Recent runs visible in this workspace</span>
+                  </div>
+                </div>
+
+                {onboardingRuns.length > 0 ? (
+                  <div style={{ display: "grid", gap: 12 }}>
+                    {onboardingRuns.map((run) => (
+                      <div
+                        key={run.id}
+                        style={{
+                          display: "grid",
+                          gap: 10,
+                          border: "1px solid rgba(15, 23, 42, 0.08)",
+                          borderRadius: 18,
+                          padding: 14,
+                          background: "rgba(248, 250, 252, 0.78)",
+                        }}
+                      >
+                        <div className="weakTopicRow">
+                          <div>
+                            <strong>{run.profile_name || run.profile_code || "Manual onboarding"}</strong>
+                            <span>{formatOnboardingSource(run.source)}</span>
+                          </div>
+                          <div className="weakTopicMeta">
+                            <strong>{run.completed_task_count}/{run.task_count} tasks</strong>
+                            <span>
+                              {run.completed_at
+                                ? `Completed ${new Date(run.completed_at).toLocaleString()}`
+                                : run.started_at
+                                  ? `Started ${new Date(run.started_at).toLocaleString()}`
+                                  : "Timestamps unavailable"}
+                            </span>
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                          <span className={getRunStatusPillClass(run.status)}>{run.status}</span>
+                          {run.profile_code ? (
+                            <span className="setupFieldMeta">Profile {run.profile_code}</span>
+                          ) : null}
+                        </div>
+                        {run.error_summary ? (
+                          <p className="setupFieldMeta" style={{ color: "#b42318" }}>
+                            {run.error_summary}
+                          </p>
+                        ) : null}
+                        {expandedOnboardingRunId === run.id ? (
+                          <div
+                            style={{
+                              display: "grid",
+                              gap: 10,
+                              borderTop: "1px solid rgba(15, 23, 42, 0.08)",
+                              paddingTop: 12,
+                            }}
+                          >
+                            {loadingOnboardingTaskRunId === run.id ? (
+                              <p className="setupFieldMeta">Loading task details...</p>
+                            ) : onboardingTaskError ? (
+                              <p className="setupFieldMeta" style={{ color: "#b42318" }}>
+                                {onboardingTaskError}
+                              </p>
+                            ) : onboardingTaskRuns[run.id]?.length ? (
+                              onboardingTaskRuns[run.id].map((task) => (
+                                <div
+                                  key={task.id}
+                                  style={{
+                                    display: "grid",
+                                    gap: 6,
+                                    border: "1px solid rgba(15, 23, 42, 0.08)",
+                                    borderRadius: 14,
+                                    padding: 12,
+                                    background: "rgba(255, 255, 255, 0.92)",
+                                  }}
+                                >
+                                  <div className="weakTopicRow">
+                                    <div>
+                                      <strong>{task.label || task.task_code}</strong>
+                                      <span>{task.message || "Task execution record"}</span>
+                                    </div>
+                                    <div className="weakTopicMeta">
+                                      <strong>{task.task_code}</strong>
+                                      <span>
+                                        {task.completed_at
+                                          ? new Date(task.completed_at).toLocaleString()
+                                          : task.started_at
+                                            ? new Date(task.started_at).toLocaleString()
+                                            : "Timestamp unavailable"}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                                    <span className={getRunStatusPillClass(task.status)}>{task.status}</span>
+                                    <span className="setupFieldMeta">
+                                      Result: {summarizeResultJson(task.result_json ?? {})}
+                                    </span>
+                                  </div>
+                                  <details>
+                                    <summary className="setupFieldMeta" style={{ cursor: "pointer" }}>
+                                      View result payload
+                                    </summary>
+                                    <pre
+                                      style={{
+                                        marginTop: 10,
+                                        padding: 12,
+                                        borderRadius: 12,
+                                        background: "rgba(15, 23, 42, 0.05)",
+                                        overflowX: "auto",
+                                        whiteSpace: "pre-wrap",
+                                        wordBreak: "break-word",
+                                        fontSize: 12,
+                                      }}
+                                    >
+                                      {JSON.stringify(task.result_json ?? {}, null, 2)}
+                                    </pre>
+                                  </details>
+                                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                                    <button
+                                      className="button buttonGhost"
+                                      onClick={() => copyTaskResult(task.id, task.result_json ?? {})}
+                                      type="button"
+                                    >
+                                      {copiedTaskRunId === task.id ? "Copied" : "Copy Result JSON"}
+                                    </button>
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <p className="setupFieldMeta">No task rows were recorded for this run.</p>
+                            )}
+                          </div>
+                        ) : null}
+                        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                          <button
+                            className="button buttonGhost"
+                            onClick={() =>
+                              router.push(
+                                buildMasterDefaultsUrl({
+                                  instituteId: mergedInstitute.id,
+                                  profileCode: run.profile_code,
+                                  runId: run.id,
+                                }),
+                              )
+                            }
+                            type="button"
+                          >
+                            Open This Run
+                          </button>
+                          {run.status !== "completed" ? (
+                            <button
+                              className="button buttonSecondary"
+                              onClick={() =>
+                                router.push(
+                                  buildMasterDefaultsUrl({
+                                    instituteId: mergedInstitute.id,
+                                    profileCode: run.profile_code,
+                                    runId: run.id,
+                                  }),
+                                )
+                              }
+                              type="button"
+                            >
+                              Retry This Run
+                            </button>
+                          ) : null}
+                          <button
+                            className="button buttonGhost"
+                            onClick={() => toggleOnboardingRunDetails(run.id)}
+                            type="button"
+                          >
+                            {expandedOnboardingRunId === run.id ? "Hide Task Details" : "View Task Details"}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="featurePlaceholder" style={{ marginTop: 0 }}>
+                    <p>No onboarding history exists for this institute yet.</p>
+                  </div>
+                )}
+              </div>
+
               <div className="adminInstituteInfoList">
                 <div className="adminInstituteAccountPanel">
                   <div className="weakTopicRow">
@@ -1176,9 +1805,12 @@ export function InstituteManagementWorkspace({
           }
           locationCatalog={locationCatalog}
           message={createMessage}
+          onboardingProfiles={onboardingProfiles}
           onClose={closeCreateModal}
+          onSelectOnboardingProfile={setCreateOnboardingProfileCode}
           onSubmit={createInstitute}
           saving={creating}
+          selectedOnboardingProfileCode={createOnboardingProfileCode}
           subtitle="Create a new institute without crowding the main page."
           title="Add Institute"
           updateField={updateCreateField}
@@ -1197,9 +1829,12 @@ export function InstituteManagementWorkspace({
           handleStateChange={(value) => handleLocationChange(setDraft, setFieldErrors, "state", value)}
           locationCatalog={locationCatalog}
           message={message}
+          onboardingProfiles={[]}
           onClose={closeEditModal}
+          onSelectOnboardingProfile={() => {}}
           onSubmit={saveInstitute}
           saving={saving}
+          selectedOnboardingProfileCode=""
           subtitle="Update identity, contact, and geography in one focused popup."
           title={`Edit ${institute.name}`}
           updateField={updateField}

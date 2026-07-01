@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/ui/page-header";
+import { AcademicPresetApplyWorkspace } from "@/components/admin/academic-preset-apply-workspace";
 import { InstituteExamDefaultsEditor } from "@/components/admin/institute-exam-defaults-editor";
 import {
   AcademicSetupWorkspace,
@@ -41,6 +42,44 @@ type OptionCatalogRecord = {
   updated_at: string;
 };
 
+type AcademicPresetRecord = {
+  code: string;
+  label: string;
+  category: string;
+  program_code: string;
+  description: string;
+  subject_count: number;
+  topic_group_count: number;
+  leaf_topic_count: number;
+  subject_codes: string[];
+};
+
+type InstituteOnboardingProfileRecord = {
+  id: string;
+  name: string;
+  code: string;
+  description: string;
+  category: string;
+  is_default: boolean;
+  sort_order: number;
+  config_json: Record<string, unknown>;
+  is_active: boolean;
+};
+
+type InstituteOnboardingRunDetailRecord = {
+  id: string;
+  profile_code: string;
+  profile_name: string | null;
+  source: string;
+  status: string;
+  requested_config_json: Record<string, unknown>;
+  resolved_config_json: Record<string, unknown>;
+  started_at: string | null;
+  completed_at: string | null;
+  error_summary: string;
+  created_at: string;
+};
+
 const academicSections = [
   { id: "academic-years", label: "Academic years" },
   { id: "programs", label: "Programs" },
@@ -49,6 +88,7 @@ const academicSections = [
   { id: "topics", label: "Topics" },
   { id: "teacher-assignments", label: "Assignments" },
   { id: "exam-defaults", label: "Exam defaults" },
+  { id: "master-defaults", label: "Master defaults" },
 ] as const;
 
 type AcademicPageSection = (typeof academicSections)[number]["id"];
@@ -84,7 +124,7 @@ function normalizeAcademicSection(section: string | undefined): AcademicPageSect
 export default async function AdminAcademicSetupPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ institute?: string; section?: string }>;
+  searchParams?: Promise<{ institute?: string; section?: string; profile?: string; run?: string }>;
 }) {
   await requirePlatformAdminSession();
   const params = (await searchParams) ?? {};
@@ -94,6 +134,12 @@ export default async function AdminAcademicSetupPage({
   const selectedInstitute = selectedInstituteId
     ? await fetchPortalRecord<InstituteRecord>(`/api/v1/institutes/${selectedInstituteId}/`).catch(() => null)
     : null;
+  const onboardingRunDetail =
+    selectedInstituteId && params.run
+      ? await fetchPortalRecord<InstituteOnboardingRunDetailRecord>(
+          `/api/v1/institutes/${selectedInstituteId}/onboarding-runs/${params.run}/`,
+        ).catch(() => null)
+      : null;
 
   const instituteQuery = selectedInstituteId
     ? `?institute=${selectedInstituteId}&page_size=100`
@@ -109,6 +155,8 @@ export default async function AdminAcademicSetupPage({
     assignments,
     optionCatalogEntries,
     assessmentFamilies,
+    academicPresets,
+    onboardingProfiles,
     studentCount,
     teacherCount,
   ] = await Promise.all([
@@ -121,6 +169,8 @@ export default async function AdminAcademicSetupPage({
     fetchPortalList<TeacherAssignmentRecord>(`/api/v1/teachers/assignments/${selectedInstituteId ? `?institute=${selectedInstituteId}&page_size=100` : "?page_size=100"}`),
     fetchPortalList<OptionCatalogRecord>("/api/v1/academics/option-catalog/?page_size=200&is_active=true"),
     fetchPortalList<AssessmentFamilyRecord>("/api/v1/academics/assessment-families/?page_size=50&is_active=true").catch(() => []),
+    fetchPortalList<AcademicPresetRecord>("/api/v1/academics/presets/").catch(() => []),
+    fetchPortalList<InstituteOnboardingProfileRecord>("/api/v1/institutes/onboarding-profiles/").catch(() => []),
     loadCount(selectedInstituteId ? `/api/v1/students/?institute=${selectedInstituteId}` : "/api/v1/students/"),
     loadCount(selectedInstituteId ? `/api/v1/teachers/?institute=${selectedInstituteId}` : "/api/v1/teachers/"),
   ]);
@@ -144,6 +194,7 @@ export default async function AdminAcademicSetupPage({
     topics: topics.length,
     "teacher-assignments": assignments.length,
     "exam-defaults": "Policy",
+    "master-defaults": academicPresets.length,
   };
 
   const activeSectionLabel =
@@ -273,6 +324,18 @@ export default async function AdminAcademicSetupPage({
               </div>
             </article>
           )
+        ) : activeSection === "master-defaults" ? (
+          <AcademicPresetApplyWorkspace
+            initialPresets={academicPresets}
+            initialOnboardingProfiles={onboardingProfiles}
+            initialSelectedProfileCode={params.profile ?? onboardingRunDetail?.profile_code ?? ""}
+            initialOnboardingRunId={params.run ?? ""}
+            initialOnboardingRunConfig={onboardingRunDetail?.requested_config_json ?? null}
+            instituteId={selectedInstitute?.id ?? null}
+            instituteLabel={
+              selectedInstitute ? `${selectedInstitute.name} (${selectedInstitute.code})` : "selected institute"
+            }
+          />
         ) : (
           <AcademicSetupWorkspace
             activeTab={activeSection as AcademicSetupTabId}

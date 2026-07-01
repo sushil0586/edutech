@@ -1,4 +1,8 @@
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
 from apps.accounts.permissions import CanManageAcademics
@@ -17,6 +21,8 @@ from apps.academics.models import (
 from apps.academics.serializers import (
     AcademicYearSerializer,
     AcademicYearListSerializer,
+    AcademicPresetApplySerializer,
+    AcademicPresetPreviewSerializer,
     AssessmentFamilyListSerializer,
     AssessmentFamilySerializer,
     CohortSerializer,
@@ -30,7 +36,145 @@ from apps.academics.serializers import (
     TopicSerializer,
     TopicListSerializer,
 )
+from apps.academics.services import (
+    apply_academic_preset_to_institute,
+    get_academic_preset_detail,
+    list_academic_presets,
+    preview_academic_preset_application,
+)
+from apps.institutes.models import Institute
+from apps.institutes.models import InstituteOnboardingRun
+from apps.institutes.models import InstituteOnboardingRunStatus
+from apps.institutes.services import (
+    complete_institute_onboarding_run,
+    resume_institute_onboarding_run,
+    start_institute_onboarding_run,
+)
 from common.viewsets import SoftDeleteModelViewSetMixin
+
+
+class AcademicPresetListView(APIView):
+    permission_classes = [IsAuthenticated, CanViewAcademics]
+
+    def get(self, request):
+        return Response(list_academic_presets())
+
+
+class AcademicPresetDetailView(APIView):
+    permission_classes = [IsAuthenticated, CanViewAcademics]
+
+    def get(self, request, preset_code):
+        try:
+            payload = get_academic_preset_detail(preset_code)
+        except DjangoValidationError as exc:
+            return Response(exc.message_dict if hasattr(exc, "message_dict") else {"detail": exc.messages}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(payload)
+
+
+class AcademicPresetPreviewView(APIView):
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+
+    def post(self, request):
+        serializer = AcademicPresetPreviewSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        payload = serializer.validated_data
+        try:
+            preview = preview_academic_preset_application(
+                institute_id=payload["institute"],
+                preset_code=payload["preset_code"],
+                mode=payload["mode"],
+                subject_codes=payload.get("subject_codes") or [],
+                topic_codes=payload.get("topic_codes") or [],
+                academic_year_name=payload["academic_year_name"],
+                academic_year_start=payload["academic_year_start"].isoformat(),
+                academic_year_end=payload["academic_year_end"].isoformat(),
+                question_bank_package_enabled=payload.get("question_bank_package_enabled", False),
+                question_bank_package_code=payload.get("question_bank_package_code") or "",
+                advanced_builder_enabled=payload.get("advanced_builder_enabled", False),
+            )
+        except DjangoValidationError as exc:
+            return Response(exc.message_dict if hasattr(exc, "message_dict") else {"detail": exc.messages}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(preview)
+
+
+class AcademicPresetApplyView(APIView):
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+
+    def post(self, request):
+        serializer = AcademicPresetApplySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        payload = serializer.validated_data
+        institute = Institute.objects.filter(id=payload["institute"]).first()
+        onboarding_run = None
+        requested_run_id = payload.get("onboarding_run_id")
+        if institute is not None and requested_run_id is not None:
+            onboarding_run = InstituteOnboardingRun.objects.filter(
+                id=requested_run_id,
+                institute=institute,
+            ).first()
+            if onboarding_run is not None:
+                resume_institute_onboarding_run(run=onboarding_run)
+        if institute is not None and onboarding_run is None:
+            onboarding_run = start_institute_onboarding_run(
+                institute=institute,
+                profile_code=payload.get("onboarding_profile_code") or "",
+                source="master_defaults",
+                requested_config_json={
+                    "preset_code": payload["preset_code"],
+                    "mode": payload["mode"],
+                    "subject_codes": payload.get("subject_codes") or [],
+                    "topic_codes": payload.get("topic_codes") or [],
+                    "academic_year_name": payload["academic_year_name"],
+                    "academic_year_start": payload["academic_year_start"].isoformat(),
+                    "academic_year_end": payload["academic_year_end"].isoformat(),
+                    "question_bank_package_enabled": payload.get("question_bank_package_enabled", False),
+                    "question_bank_package_code": payload.get("question_bank_package_code") or "",
+                    "advanced_builder_enabled": payload.get("advanced_builder_enabled", False),
+                },
+                resolved_config_json={
+                    "onboarding_profile_code": payload.get("onboarding_profile_code") or "",
+                },
+                initiated_by=request.user,
+            )
+        try:
+            result = apply_academic_preset_to_institute(
+                institute_id=payload["institute"],
+                preset_code=payload["preset_code"],
+                mode=payload["mode"],
+                subject_codes=payload.get("subject_codes") or [],
+                topic_codes=payload.get("topic_codes") or [],
+                academic_year_name=payload["academic_year_name"],
+                academic_year_start=payload["academic_year_start"].isoformat(),
+                academic_year_end=payload["academic_year_end"].isoformat(),
+                question_bank_package_enabled=payload.get("question_bank_package_enabled", False),
+                question_bank_package_code=payload.get("question_bank_package_code") or "",
+                advanced_builder_enabled=payload.get("advanced_builder_enabled", False),
+                onboarding_run_id=onboarding_run.id if onboarding_run is not None else None,
+            )
+        except DjangoValidationError as exc:
+            if onboarding_run is not None:
+                complete_institute_onboarding_run(
+                    run=onboarding_run,
+                    status=InstituteOnboardingRunStatus.FAILED,
+                    error_summary="; ".join(exc.messages) if hasattr(exc, "messages") else "Validation error",
+                )
+            return Response(exc.message_dict if hasattr(exc, "message_dict") else {"detail": exc.messages}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as exc:
+            if onboarding_run is not None:
+                complete_institute_onboarding_run(
+                    run=onboarding_run,
+                    status=InstituteOnboardingRunStatus.FAILED,
+                    error_summary=str(exc),
+                )
+            raise
+        if onboarding_run is not None:
+            complete_institute_onboarding_run(
+                run=onboarding_run,
+                status=InstituteOnboardingRunStatus.COMPLETED,
+            )
+            if result.get("onboarding_run"):
+                result["onboarding_run"]["status"] = InstituteOnboardingRunStatus.COMPLETED
+        return Response(result, status=201)
 
 
 class AcademicYearViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):

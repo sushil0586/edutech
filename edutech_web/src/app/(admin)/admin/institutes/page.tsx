@@ -4,6 +4,20 @@ import { PlatformAdminPageHeader } from "@/components/ui/platform-admin-page-hea
 import { fetchPortalCount, fetchPortalList, fetchPortalRecord } from "@/lib/api/portal";
 import { fetchRegistrationOptions } from "@/lib/auth/session";
 
+type InstituteOnboardingRunRecord = {
+  id: string;
+  profile_code: string;
+  profile_name: string | null;
+  source: string;
+  status: string;
+  task_count: number;
+  completed_task_count: number;
+  started_at: string | null;
+  completed_at: string | null;
+  error_summary: string;
+  created_at: string;
+};
+
 function normalizeSelectedInstitute(
   requestedInstituteId: string | undefined,
   institutes: AdminInstituteRecord[],
@@ -33,12 +47,28 @@ export default async function AdminInstitutesPage({
 }) {
   const params = (await searchParams) ?? {};
   const institutes = await fetchPortalList<AdminInstituteRecord>("/api/v1/institutes/?page_size=50").catch(() => []);
+  const onboardingProfiles = await fetchPortalList<{
+    id: string;
+    name: string;
+    code: string;
+    description: string;
+    category: string;
+    is_default: boolean;
+    sort_order: number;
+    config_json: Record<string, unknown>;
+    is_active: boolean;
+  }>("/api/v1/institutes/onboarding-profiles/").catch(() => []);
   const registrationOptions = await fetchRegistrationOptions().catch(() => null);
   const locationCatalog = registrationOptions?.location_catalog ?? [];
   const selectedInstituteId = normalizeSelectedInstitute(params.institute, institutes);
   const selectedInstitute = selectedInstituteId
     ? await fetchPortalRecord<AdminInstituteRecord>(`/api/v1/institutes/${selectedInstituteId}/`).catch(() => null)
     : null;
+  const onboardingRuns = selectedInstituteId
+    ? await fetchPortalList<InstituteOnboardingRunRecord>(
+        `/api/v1/institutes/${selectedInstituteId}/onboarding-runs/`,
+      ).catch(() => [])
+    : [];
 
   const [studentCount, teacherCount, examCount] = selectedInstituteId
     ? await Promise.all([
@@ -137,6 +167,8 @@ export default async function AdminInstitutesPage({
             counts={{ examCount, studentCount, teacherCount }}
             institute={selectedInstitute}
             institutes={institutes}
+            onboardingRuns={onboardingRuns}
+            onboardingProfiles={onboardingProfiles}
             locationCatalog={locationCatalog}
             selectedInstituteId={selectedInstituteId}
           />
