@@ -1,0 +1,1426 @@
+{
+  "topic_code": "SCI-EXPLORATION-WORLD",
+  "topic_name": "The Ever-Evolving World of Science",
+  "questions": [
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Science mainly helps us to:",
+      "explanation": "Science helps us understand the natural world through observation, reasoning, and evidence.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Avoid asking questions",
+          "is_correct": false
+        },
+        {
+          "option_text": "Understand how the world works",
+          "is_correct": true
+        },
+        {
+          "option_text": "Memorize stories only",
+          "is_correct": false
+        },
+        {
+          "option_text": "Ignore experiments",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which of the following is an important part of scientific work?",
+      "explanation": "Observation is one of the basic steps in learning science.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Observation",
+          "is_correct": true
+        },
+        {
+          "option_text": "Guessing without evidence",
+          "is_correct": false
+        },
+        {
+          "option_text": "Refusing to test ideas",
+          "is_correct": false
+        },
+        {
+          "option_text": "Ignoring results",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "classification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which tool helps scientists observe very tiny objects?",
+      "explanation": "A microscope is used to view objects too small to be seen clearly with the naked eye.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Thermometer",
+          "is_correct": false
+        },
+        {
+          "option_text": "Microscope",
+          "is_correct": true
+        },
+        {
+          "option_text": "Compass",
+          "is_correct": false
+        },
+        {
+          "option_text": "Scale",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "familiar_example_identification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "true_false",
+      "difficulty_level": "foundation",
+      "question_text": "Science changes and improves as new evidence is discovered.",
+      "explanation": "Scientific understanding grows and becomes better with new observations and experiments.",
+      "default_marks": "1.00",
+      "negative_marks": "0.00",
+      "options": [
+        {
+          "option_text": "True",
+          "is_correct": true
+        },
+        {
+          "option_text": "False",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "true_false_concept",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "What is an invention?",
+      "explanation": "An invention is a new device, method, or idea created to solve a problem or make work easier.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "A wild plant in a forest",
+          "is_correct": false
+        },
+        {
+          "option_text": "A type of rainfall",
+          "is_correct": false
+        },
+        {
+          "option_text": "A useful new product or process",
+          "is_correct": true
+        },
+        {
+          "option_text": "A natural mountain",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which of these is an example of a scientific instrument?",
+      "explanation": "A thermometer is a scientific instrument used to measure temperature.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Eraser",
+          "is_correct": false
+        },
+        {
+          "option_text": "Notebook cover",
+          "is_correct": false
+        },
+        {
+          "option_text": "Thermometer",
+          "is_correct": true
+        },
+        {
+          "option_text": "Ribbon",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "classification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which field of science studies living things?",
+      "explanation": "Biology is the branch of science that studies living organisms.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Astronomy",
+          "is_correct": false
+        },
+        {
+          "option_text": "Biology",
+          "is_correct": true
+        },
+        {
+          "option_text": "Geology",
+          "is_correct": false
+        },
+        {
+          "option_text": "Electronics only",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "familiar_example_identification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Why is science important in daily life?",
+      "explanation": "Science improves health, transport, communication, farming, and everyday technology.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "It removes the need to think",
+          "is_correct": false
+        },
+        {
+          "option_text": "It is useful only in laboratories",
+          "is_correct": false
+        },
+        {
+          "option_text": "It helps solve everyday problems",
+          "is_correct": true
+        },
+        {
+          "option_text": "It stops discovery",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "daily_life_application",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "true_false",
+      "difficulty_level": "foundation",
+      "question_text": "Curiosity is useful in science.",
+      "explanation": "Curiosity leads people to ask questions and explore new ideas.",
+      "default_marks": "1.00",
+      "negative_marks": "0.00",
+      "options": [
+        {
+          "option_text": "True",
+          "is_correct": true
+        },
+        {
+          "option_text": "False",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "true_false_concept",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which of the following best describes a scientist?",
+      "explanation": "A scientist studies the world using evidence, observation, and reasoning.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "A person who never asks why",
+          "is_correct": false
+        },
+        {
+          "option_text": "A person who copies without checking",
+          "is_correct": false
+        },
+        {
+          "option_text": "A person who studies and tests ideas using evidence",
+          "is_correct": true
+        },
+        {
+          "option_text": "A person who avoids experiments",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which statement about science is correct?",
+      "explanation": "Science is based on evidence and testing, not on blind belief.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Science never changes",
+          "is_correct": false
+        },
+        {
+          "option_text": "Science is only a list of facts to memorize",
+          "is_correct": false
+        },
+        {
+          "option_text": "Science grows with evidence and testing",
+          "is_correct": true
+        },
+        {
+          "option_text": "Science and observation are unrelated",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "misconception_correction",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Why do scientists repeat experiments?",
+      "explanation": "Repeating experiments helps check whether results are reliable.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "To make the lab noisy",
+          "is_correct": false
+        },
+        {
+          "option_text": "To confirm results are dependable",
+          "is_correct": true
+        },
+        {
+          "option_text": "To waste time",
+          "is_correct": false
+        },
+        {
+          "option_text": "To avoid writing observations",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "best_explanation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "foundation",
+      "question_text": "What is observation in science?",
+      "explanation": "Observation means carefully noticing facts using our senses or scientific tools.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "archetype": "concept_explanation",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "Carefully noticing facts",
+          "Looking at and recording what happens",
+          "Noticing details using senses or instruments"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which branch of science studies stars and planets?",
+      "explanation": "Astronomy is the study of celestial objects like stars and planets.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Botany",
+          "is_correct": false
+        },
+        {
+          "option_text": "Zoology",
+          "is_correct": false
+        },
+        {
+          "option_text": "Astronomy",
+          "is_correct": true
+        },
+        {
+          "option_text": "Chemistry only",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "familiar_example_identification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Data collected during an experiment should be:",
+      "explanation": "Data should be recorded carefully and honestly.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Hidden always",
+          "is_correct": false
+        },
+        {
+          "option_text": "Guessed later",
+          "is_correct": false
+        },
+        {
+          "option_text": "Recorded accurately",
+          "is_correct": true
+        },
+        {
+          "option_text": "Changed to fit the answer",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which is an example of technology based on science?",
+      "explanation": "A mobile phone is a technological product built using scientific knowledge.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Rainbow",
+          "is_correct": false
+        },
+        {
+          "option_text": "Mountain rock",
+          "is_correct": false
+        },
+        {
+          "option_text": "Mobile phone",
+          "is_correct": true
+        },
+        {
+          "option_text": "Ocean wave",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "classification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which of the following is used to measure length accurately?",
+      "explanation": "A meter scale is used to measure length.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Stopwatch",
+          "is_correct": false
+        },
+        {
+          "option_text": "Meter scale",
+          "is_correct": true
+        },
+        {
+          "option_text": "Beaker",
+          "is_correct": false
+        },
+        {
+          "option_text": "Compass box lid",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "familiar_example_identification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "How does science help doctors?",
+      "explanation": "Science helps develop medicines, tests, and medical equipment.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "By removing all hospitals",
+          "is_correct": false
+        },
+        {
+          "option_text": "By improving medicines and medical tools",
+          "is_correct": true
+        },
+        {
+          "option_text": "By stopping diagnosis",
+          "is_correct": false
+        },
+        {
+          "option_text": "By replacing hygiene",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "daily_life_application",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "true_false",
+      "difficulty_level": "foundation",
+      "question_text": "Careful measurement is important in science.",
+      "explanation": "Accurate measurement helps produce reliable scientific results.",
+      "default_marks": "1.00",
+      "negative_marks": "0.00",
+      "options": [
+        {
+          "option_text": "True",
+          "is_correct": true
+        },
+        {
+          "option_text": "False",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "true_false_concept",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Assertion: Scientific ideas are tested before being accepted.\nReason: Evidence is important in science.",
+      "explanation": "Both statements are true, and the reason correctly explains the assertion.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Both Assertion and Reason are true, and Reason correctly explains Assertion",
+          "is_correct": true
+        },
+        {
+          "option_text": "Both Assertion and Reason are true, but Reason does not explain Assertion",
+          "is_correct": false
+        },
+        {
+          "option_text": "Assertion is true, but Reason is false",
+          "is_correct": false
+        },
+        {
+          "option_text": "Assertion is false, but Reason is true",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "assertion_reason",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Why is asking a clear question often the first step in scientific investigation?",
+      "explanation": "A clear question helps decide what to observe, test, or measure.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "It removes the need for evidence",
+          "is_correct": false
+        },
+        {
+          "option_text": "It guides the investigation properly",
+          "is_correct": true
+        },
+        {
+          "option_text": "It ends the experiment",
+          "is_correct": false
+        },
+        {
+          "option_text": "It replaces observation",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "process_explanation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "If two repeated experiments give similar results, what can be inferred?",
+      "explanation": "Repeated similar results suggest the findings may be reliable.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "The experiment should never be done again",
+          "is_correct": false
+        },
+        {
+          "option_text": "All data should be ignored",
+          "is_correct": false
+        },
+        {
+          "option_text": "The result may be dependable",
+          "is_correct": true
+        },
+        {
+          "option_text": "Observation is unnecessary",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "observation_based_inference",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "A student changes many things at once in an experiment and gets a confusing result. What is the main problem?",
+      "explanation": "Changing many factors together makes it hard to know which one caused the result.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "The notebook is too small",
+          "is_correct": false
+        },
+        {
+          "option_text": "Too many variables changed together",
+          "is_correct": true
+        },
+        {
+          "option_text": "The experiment became impossible to observe",
+          "is_correct": false
+        },
+        {
+          "option_text": "Science works only outdoors",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "scenario_analysis",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Why is science useful in agriculture?",
+      "explanation": "Science improves irrigation, seeds, pest control, and soil management.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "It removes the need for water",
+          "is_correct": false
+        },
+        {
+          "option_text": "It stops plant growth",
+          "is_correct": false
+        },
+        {
+          "option_text": "It helps improve crop production methods",
+          "is_correct": true
+        },
+        {
+          "option_text": "It replaces sunlight",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "daily_life_application",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "intermediate",
+      "question_text": "State one difference between discovery and invention.",
+      "explanation": "A discovery finds something that already exists in nature, while an invention creates something new.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "archetype": "compare_and_contrast",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "Discovery finds what exists; invention creates something new",
+          "Discovery is found, invention is made",
+          "Invention is a new creation, discovery is a finding"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which statement about scientific models and ideas is correct?",
+      "explanation": "Scientific models may change when better evidence becomes available.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Once accepted, scientific ideas can never improve",
+          "is_correct": false
+        },
+        {
+          "option_text": "Science avoids revising explanations",
+          "is_correct": false
+        },
+        {
+          "option_text": "Scientific explanations can improve with new evidence",
+          "is_correct": true
+        },
+        {
+          "option_text": "Models are useless in science",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "misconception_correction",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_multiple",
+      "difficulty_level": "intermediate",
+      "question_text": "Select all activities that reflect scientific thinking.",
+      "explanation": "Scientific thinking includes observing carefully, questioning, testing, and recording evidence.",
+      "default_marks": "2.00",
+      "negative_marks": "0.50",
+      "options": [
+        {
+          "option_text": "Asking questions",
+          "is_correct": true
+        },
+        {
+          "option_text": "Recording observations",
+          "is_correct": true
+        },
+        {
+          "option_text": "Testing ideas",
+          "is_correct": true
+        },
+        {
+          "option_text": "Ignoring results that do not match a guess",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "multi_select_truth_evaluation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which observation best supports the usefulness of a microscope?",
+      "explanation": "Microscopes help us see structures too small to observe with naked eyes.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "It can measure road length",
+          "is_correct": false
+        },
+        {
+          "option_text": "It makes stars larger in the sky",
+          "is_correct": false
+        },
+        {
+          "option_text": "It helps view tiny organisms or cells",
+          "is_correct": true
+        },
+        {
+          "option_text": "It changes temperature",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "evidence_based_choice",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "If a new medicine is tested carefully and found effective in repeated trials, what can be concluded?",
+      "explanation": "Careful repeated testing helps show whether a medicine works reliably.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Evidence is unnecessary",
+          "is_correct": false
+        },
+        {
+          "option_text": "Results from one guess are enough",
+          "is_correct": false
+        },
+        {
+          "option_text": "Careful testing supports scientific confidence in the medicine",
+          "is_correct": true
+        },
+        {
+          "option_text": "All medicines work without testing",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "what_can_be_concluded",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Why does accurate measurement improve experiments?",
+      "explanation": "Accurate measurements reduce error and help compare results properly.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "It makes tools heavier",
+          "is_correct": false
+        },
+        {
+          "option_text": "It removes the need for reasoning",
+          "is_correct": false
+        },
+        {
+          "option_text": "It reduces mistakes and improves comparison",
+          "is_correct": true
+        },
+        {
+          "option_text": "It changes the laws of science",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "cause_effect_link",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "true_false",
+      "difficulty_level": "intermediate",
+      "question_text": "Science and technology often help each other grow.",
+      "explanation": "Scientific discoveries lead to technology, and technology also helps further scientific research.",
+      "default_marks": "1.00",
+      "negative_marks": "0.00",
+      "options": [
+        {
+          "option_text": "True",
+          "is_correct": true
+        },
+        {
+          "option_text": "False",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "true_false_concept",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which is more scientific: accepting an answer without checking, or testing it through evidence?",
+      "explanation": "Testing through evidence is a core part of scientific method.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Accepting without checking",
+          "is_correct": false
+        },
+        {
+          "option_text": "Testing through evidence",
+          "is_correct": true
+        },
+        {
+          "option_text": "Both are equal",
+          "is_correct": false
+        },
+        {
+          "option_text": "Neither is scientific",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "scenario_comparison",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Why do scientists share and compare findings with others?",
+      "explanation": "Sharing findings allows verification, discussion, and improvement of scientific ideas.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "To hide all evidence",
+          "is_correct": false
+        },
+        {
+          "option_text": "To stop future study",
+          "is_correct": false
+        },
+        {
+          "option_text": "To verify and improve understanding",
+          "is_correct": true
+        },
+        {
+          "option_text": "To avoid measurement",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "best_explanation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which option best connects observation, question, and experiment?",
+      "explanation": "Observation often leads to questions, and questions lead to experiments for testing ideas.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Experiment comes first, then observation is unnecessary",
+          "is_correct": false
+        },
+        {
+          "option_text": "Questions stop science from progressing",
+          "is_correct": false
+        },
+        {
+          "option_text": "Observation raises questions, which may be tested by experiments",
+          "is_correct": true
+        },
+        {
+          "option_text": "Science works without any sequence",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "integrated_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "intermediate",
+      "question_text": "Why is recording results honestly important in science?",
+      "explanation": "Honest recording makes conclusions trustworthy and lets others evaluate the work correctly.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "archetype": "process_explanation",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "It makes results trustworthy",
+          "Others can check the evidence correctly",
+          "Honest records are necessary for reliable science"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which sequence best represents a simple scientific investigation?",
+      "explanation": "A common sequence is observation, question, hypothesis or idea, experiment, and conclusion.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Conclusion -> experiment -> observation -> question",
+          "is_correct": false
+        },
+        {
+          "option_text": "Observation -> question -> test -> conclusion",
+          "is_correct": true
+        },
+        {
+          "option_text": "Technology -> guess -> ignore result -> finish",
+          "is_correct": false
+        },
+        {
+          "option_text": "Measurement -> story -> opinion -> result",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "integrated_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Why can one new invention sometimes create fresh scientific questions?",
+      "explanation": "New inventions often reveal new effects, uses, limits, or problems that scientists investigate further.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Because inventions stop all curiosity",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because science ends after each invention",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because new technology can lead to new observations and questions",
+          "is_correct": true
+        },
+        {
+          "option_text": "Because inventions replace evidence",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "applied_science_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "To test whether one plant grows faster in sunlight than another, what is most important to keep the same besides light?",
+      "explanation": "A fair test requires controlling other factors like water, soil, plant type, and pot size.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Only the color of the room",
+          "is_correct": false
+        },
+        {
+          "option_text": "Water, soil, and plant type",
+          "is_correct": true
+        },
+        {
+          "option_text": "The observer’s handwriting",
+          "is_correct": false
+        },
+        {
+          "option_text": "The day of the week only",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "experiment_design",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "If an experiment gives unexpected results, what is the most scientific response?",
+      "explanation": "Unexpected results should be checked carefully, repeated if needed, and studied rather than ignored.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Throw away the data immediately",
+          "is_correct": false
+        },
+        {
+          "option_text": "Change the data to match the guess",
+          "is_correct": false
+        },
+        {
+          "option_text": "Recheck method and repeat with care",
+          "is_correct": true
+        },
+        {
+          "option_text": "Stop asking questions forever",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "chain_of_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_multiple",
+      "difficulty_level": "advanced",
+      "question_text": "Select all correct statements about science.",
+      "explanation": "Science uses evidence, measurement, testing, and revision when needed.",
+      "default_marks": "2.00",
+      "negative_marks": "0.50",
+      "options": [
+        {
+          "option_text": "Science uses evidence",
+          "is_correct": true
+        },
+        {
+          "option_text": "Science may improve with new findings",
+          "is_correct": true
+        },
+        {
+          "option_text": "Science values careful measurement",
+          "is_correct": true
+        },
+        {
+          "option_text": "Science avoids questioning",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "multi_select_truth_evaluation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "A student says, “My result is correct because I strongly believe it.” What is the main scientific problem with this statement?",
+      "explanation": "Science requires evidence, not belief alone.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Belief is always equal to measurement",
+          "is_correct": false
+        },
+        {
+          "option_text": "Belief alone is not enough without evidence",
+          "is_correct": true
+        },
+        {
+          "option_text": "Strong belief replaces experiments",
+          "is_correct": false
+        },
+        {
+          "option_text": "Opinions are always scientific facts",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "scenario_analysis",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "To compare two thermometers fairly, what should be done?",
+      "explanation": "Both should measure the same sample under the same conditions.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Keep them in different rooms",
+          "is_correct": false
+        },
+        {
+          "option_text": "Use them on different days with different liquids",
+          "is_correct": false
+        },
+        {
+          "option_text": "Use both on the same sample under the same conditions",
+          "is_correct": true
+        },
+        {
+          "option_text": "Read only one and guess the other",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "decision_under_uncertainty",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "advanced",
+      "question_text": "Why is science described as self-correcting?",
+      "explanation": "Science improves itself by testing, checking, and revising ideas when better evidence appears.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "archetype": "reasoning_with_example",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "Because it can change with better evidence",
+          "Science corrects ideas through testing and new findings",
+          "Errors can be found and improved through evidence"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Why can a measuring error in one step affect the final conclusion of an experiment?",
+      "explanation": "Inaccurate measurements can lead to incorrect calculations and wrong conclusions.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Because measurements do not matter",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because science ignores numbers",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because wrong data can lead to wrong conclusions",
+          "is_correct": true
+        },
+        {
+          "option_text": "Because conclusions come before measurement",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "cause_effect_link",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Why is scientific literacy important for society?",
+      "explanation": "It helps people make informed decisions about health, environment, and technology.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "It removes the need for responsibility",
+          "is_correct": false
+        },
+        {
+          "option_text": "It helps people avoid all questions",
+          "is_correct": false
+        },
+        {
+          "option_text": "It helps people think and decide using evidence",
+          "is_correct": true
+        },
+        {
+          "option_text": "It is useful only to astronauts",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "best_explanation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "If nobody ever questioned old ideas, what would likely happen to science?",
+      "explanation": "Science would progress much more slowly because questioning helps improve knowledge.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Science would improve faster automatically",
+          "is_correct": false
+        },
+        {
+          "option_text": "Progress in science would slow down",
+          "is_correct": true
+        },
+        {
+          "option_text": "Evidence would become unnecessary",
+          "is_correct": false
+        },
+        {
+          "option_text": "Technology would disappear instantly",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "what_if_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which option correctly matches a scientific activity and its purpose?",
+      "explanation": "Observation gathers information, measurement gives numerical values, and experiment tests ideas.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Measurement - avoids data; Experiment - hides results",
+          "is_correct": false
+        },
+        {
+          "option_text": "Experiment - tests ideas; Measurement - gives precise values",
+          "is_correct": true
+        },
+        {
+          "option_text": "Observation - changes facts; Hypothesis - ends inquiry",
+          "is_correct": false
+        },
+        {
+          "option_text": "Technology - replaces science completely",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "process_selection",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which observation best supports that technology can support science?",
+      "explanation": "Advanced tools often allow scientists to observe things they could not detect before.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "A notebook becomes lighter",
+          "is_correct": false
+        },
+        {
+          "option_text": "A road gets crowded",
+          "is_correct": false
+        },
+        {
+          "option_text": "A better instrument reveals details earlier unseen",
+          "is_correct": true
+        },
+        {
+          "option_text": "A plant changes color at night",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "evidence_based_choice",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which is more scientific: changing one factor at a time in an experiment or changing many at once?",
+      "explanation": "Changing one factor at a time makes it easier to identify what caused the result.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Changing one factor at a time",
+          "is_correct": true
+        },
+        {
+          "option_text": "Changing many at once",
+          "is_correct": false
+        },
+        {
+          "option_text": "Both are always equally clear",
+          "is_correct": false
+        },
+        {
+          "option_text": "Neither can give results",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "scenario_comparison",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which statement correctly connects curiosity, evidence, and discovery?",
+      "explanation": "Curiosity leads to questions, evidence helps test them, and this process can lead to discoveries.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Discovery happens without questions",
+          "is_correct": false
+        },
+        {
+          "option_text": "Evidence is useful only after all answers are known",
+          "is_correct": false
+        },
+        {
+          "option_text": "Curiosity leads to questions and evidence helps find reliable answers",
+          "is_correct": true
+        },
+        {
+          "option_text": "Science grows best when no one checks results",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "integrated_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    }
+  ]
+}

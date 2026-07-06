@@ -1,5 +1,5 @@
 import { redirect, unstable_rethrow } from "next/navigation";
-import Link from "next/link";
+import { OperatorWorkspaceLink as Link } from "@/components/ui/operator-workspace-link";
 import { ReviewGuidancePanel } from "@/components/ui/review-guidance-panel";
 import { ReviewRubricHistory } from "@/components/ui/review-rubric-history";
 import { ReviewResponseArtifacts } from "@/components/ui/review-response-artifacts";
@@ -96,6 +96,42 @@ function buildTeacherReviewQueueHref(options: {
   if (options.page && String(options.page) !== "1") params.set("page", String(options.page));
   if (options.pageSize && String(options.pageSize) !== "12") params.set("page_size", String(options.pageSize));
   return `/teacher/reviews${params.size ? `?${params.toString()}` : ""}`;
+}
+
+function buildActiveTeacherReviewControlSummary(args: {
+  exam?: string;
+  status: string;
+  search?: string;
+  pageSize: number;
+}) {
+  const items: string[] = [];
+
+  if (args.exam) items.push("scoped to one exam");
+  if (args.status !== "all") items.push(`status: ${args.status.replaceAll("_", " ")}`);
+  if (args.search) items.push(`search: ${args.search}`);
+  if (args.pageSize !== 12) items.push(`page size: ${args.pageSize} tasks`);
+
+  return items;
+}
+
+function renderTeacherReviewPagerControl(args: {
+  disabled: boolean;
+  href: string;
+  label: string;
+}) {
+  if (args.disabled) {
+    return (
+      <span aria-disabled="true" className="button buttonDisabled">
+        {args.label}
+      </span>
+    );
+  }
+
+  return (
+    <Link className="button buttonGhost" href={args.href}>
+      {args.label}
+    </Link>
+  );
 }
 
 async function runReviewTaskSubmitAction(formData: FormData) {
@@ -328,6 +364,15 @@ export default async function TeacherReviewsPage({
       : taskPage.results[0]
         ? await fetchTeacherReviewTaskDetail(taskPage.results[0].id).catch(() => null)
         : null;
+  const hasActiveQueueControls = Boolean(exam || status !== "all" || search || pageSize !== 12);
+  const activeTeacherReviewControlSummary = buildActiveTeacherReviewControlSummary({
+    exam,
+    status,
+    search,
+    pageSize,
+  });
+  const isTrueReviewQueueEmpty = summary.total === 0 && !hasActiveQueueControls;
+  const isFilteredReviewQueueEmpty = taskPage.results.length === 0 && hasActiveQueueControls;
 
   return (
     <div className="teacherConsolePage">
@@ -756,6 +801,17 @@ export default async function TeacherReviewsPage({
             Showing {pageStart}-{pageEnd} of {taskPage.count}
           </span>
         </div>
+        <div className="teacherResultsReadinessCard">
+          <div className="teacherResultsReadinessCardTop">
+            <strong>How to use this queue</strong>
+            <span className="statusPill statusDemo">Reviewer flow</span>
+          </div>
+          <ul>
+            <li>Start with `Pending` when you want fresh review work.</li>
+            <li>Use `In review` to return to answers you already opened but did not close.</li>
+            <li>Use exam scope when one exam needs focused publication support.</li>
+          </ul>
+        </div>
         <form className="teacherExamFilters" method="GET">
           {exam ? <input name="exam" type="hidden" value={exam} /> : null}
           <label className="fieldStack">
@@ -789,11 +845,19 @@ export default async function TeacherReviewsPage({
             </Link>
           </div>
         </form>
-        {exam ? (
+        {exam || status !== "all" || search || pageSize !== 12 ? (
           <div className="questionBankTagRow">
-            <span className="questionBankTagChip">Scoped to selected exam</span>
-            <Link className="button buttonGhost" href={buildTeacherReviewQueueHref({})}>
-              Clear exam scope
+            {exam ? <span className="questionBankTagChip">Scoped to selected exam</span> : null}
+            {status !== "all" ? <span className="questionBankTagChip">Status: {status.replaceAll("_", " ")}</span> : null}
+            {search ? <span className="questionBankTagChip">Search: {search}</span> : null}
+            {pageSize !== 12 ? <span className="questionBankTagChip">Page size: {pageSize} tasks</span> : null}
+            {exam ? (
+              <Link className="button buttonGhost" href={buildTeacherReviewQueueHref({})}>
+                Clear exam scope
+              </Link>
+            ) : null}
+            <Link className="button buttonGhost" href={buildTeacherReviewQueueHref({ exam })}>
+              Clear filters
             </Link>
           </div>
         ) : null}
@@ -820,42 +884,28 @@ export default async function TeacherReviewsPage({
                 </button>
               </form>
             ) : null}
-            <Link
-              aria-disabled={page <= 1}
-              className={`button ${page <= 1 ? "buttonDisabled" : "buttonGhost"}`}
-              href={
-                page <= 1
-                  ? "#"
-                  : buildTeacherReviewQueueHref({
-                      exam,
-                      status,
-                      search,
-                      page: page - 1,
-                      pageSize,
-                    })
-              }
-              tabIndex={page <= 1 ? -1 : undefined}
-            >
-              Previous page
-            </Link>
-            <Link
-              aria-disabled={page >= totalPages}
-              className={`button ${page >= totalPages ? "buttonDisabled" : "buttonGhost"}`}
-              href={
-                page >= totalPages
-                  ? "#"
-                  : buildTeacherReviewQueueHref({
-                      exam,
-                      status,
-                      search,
-                      page: page + 1,
-                      pageSize,
-                    })
-              }
-              tabIndex={page >= totalPages ? -1 : undefined}
-            >
-              Next page
-            </Link>
+            {renderTeacherReviewPagerControl({
+              disabled: page <= 1,
+              href: buildTeacherReviewQueueHref({
+                exam,
+                status,
+                search,
+                page: page - 1,
+                pageSize,
+              }),
+              label: "Previous page",
+            })}
+            {renderTeacherReviewPagerControl({
+              disabled: page >= totalPages,
+              href: buildTeacherReviewQueueHref({
+                exam,
+                status,
+                search,
+                page: page + 1,
+                pageSize,
+              }),
+              label: "Next page",
+            })}
           </div>
           {taskPage.results.length ? (
             <div className="teacherAttemptList">
@@ -891,6 +941,43 @@ export default async function TeacherReviewsPage({
                   </article>
                 );
               })}
+            </div>
+          ) : isFilteredReviewQueueEmpty ? (
+            <div className="builderHintPanel">
+              <strong>No review tasks match these filters.</strong>
+              <p>
+                Active controls are shaping this empty state. This is a filtered queue view, not a missing-data problem.
+              </p>
+              {activeTeacherReviewControlSummary.length ? (
+                <div className="questionBankTagRow">
+                  {activeTeacherReviewControlSummary.map((item) => (
+                    <span className="questionBankTagChip" key={item}>
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+              <div className="resultCardActions" style={{ marginTop: 12 }}>
+                <Link className="button buttonSecondary" href={buildTeacherReviewQueueHref({ exam })}>
+                  Reset Filters And Show Full Queue
+                </Link>
+              </div>
+            </div>
+          ) : isTrueReviewQueueEmpty ? (
+            <div className="builderHintPanel">
+              <strong>Your review queue is empty right now.</strong>
+              <p>
+                Descriptive or rubric-based responses will appear here after students submit answers that need teacher
+                review.
+              </p>
+              <div className="resultCardActions" style={{ marginTop: 12 }}>
+                <Link className="button buttonSecondary" href="/teacher/exams">
+                  Open Exams
+                </Link>
+                <Link className="button buttonGhost" href="/teacher/results">
+                  Open Results
+                </Link>
+              </div>
             </div>
           ) : (
             <p className="emptyText">No review tasks match the current filters.</p>
@@ -1038,6 +1125,11 @@ export default async function TeacherReviewsPage({
                 <p className="emptyText">No review history recorded yet.</p>
               )}
             </>
+          ) : isFilteredReviewQueueEmpty ? (
+            <div className="builderHintPanel">
+              <strong>No task detail is available in this filtered view.</strong>
+              <p>Clear or widen the current review controls to bring one or more tasks back into the queue.</p>
+            </div>
           ) : (
             <p className="emptyText">Select a review task from the left to start grading.</p>
           )}

@@ -1,0 +1,1426 @@
+{
+  "topic_code": "SCI-LIFE-TRANSPORT",
+  "topic_name": "Transportation in Animals and Plants",
+  "questions": [
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "What is the main function of blood in the human body?",
+      "explanation": "Blood transports oxygen, nutrients, hormones, and waste materials throughout the body.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "To digest food directly",
+          "is_correct": false
+        },
+        {
+          "option_text": "To transport materials in the body",
+          "is_correct": true
+        },
+        {
+          "option_text": "To produce bones",
+          "is_correct": false
+        },
+        {
+          "option_text": "To make leaves green",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "The pumping organ that circulates blood in humans is the:",
+      "explanation": "The heart pumps blood to all parts of the body.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Lung",
+          "is_correct": false
+        },
+        {
+          "option_text": "Heart",
+          "is_correct": true
+        },
+        {
+          "option_text": "Kidney",
+          "is_correct": false
+        },
+        {
+          "option_text": "Brain",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "classification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which blood vessels carry blood away from the heart?",
+      "explanation": "Arteries carry blood away from the heart.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Arteries",
+          "is_correct": true
+        },
+        {
+          "option_text": "Veins",
+          "is_correct": false
+        },
+        {
+          "option_text": "Capillaries",
+          "is_correct": false
+        },
+        {
+          "option_text": "Nephrons",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "familiar_example_identification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "true_false",
+      "difficulty_level": "foundation",
+      "question_text": "Veins usually carry blood toward the heart.",
+      "explanation": "Veins bring blood back to the heart.",
+      "default_marks": "1.00",
+      "negative_marks": "0.00",
+      "options": [
+        {
+          "option_text": "True",
+          "is_correct": true
+        },
+        {
+          "option_text": "False",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "true_false_concept",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "The liquid part of blood is called:",
+      "explanation": "Plasma is the fluid part of blood that carries many dissolved substances.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Platelets",
+          "is_correct": false
+        },
+        {
+          "option_text": "Plasma",
+          "is_correct": true
+        },
+        {
+          "option_text": "Red cells",
+          "is_correct": false
+        },
+        {
+          "option_text": "Nerves",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which blood cells help transport oxygen?",
+      "explanation": "Red blood cells carry oxygen using hemoglobin.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "White blood cells",
+          "is_correct": false
+        },
+        {
+          "option_text": "Platelets",
+          "is_correct": false
+        },
+        {
+          "option_text": "Red blood cells",
+          "is_correct": true
+        },
+        {
+          "option_text": "Plasma only",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "recall_with_example",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which blood component helps in clotting?",
+      "explanation": "Platelets help stop bleeding by forming clots.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Plasma",
+          "is_correct": false
+        },
+        {
+          "option_text": "Platelets",
+          "is_correct": true
+        },
+        {
+          "option_text": "Stomata",
+          "is_correct": false
+        },
+        {
+          "option_text": "Xylem",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "The tiny blood vessels connecting arteries and veins are called:",
+      "explanation": "Capillaries are very thin vessels where exchange of materials occurs.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Atria",
+          "is_correct": false
+        },
+        {
+          "option_text": "Nostrils",
+          "is_correct": false
+        },
+        {
+          "option_text": "Capillaries",
+          "is_correct": true
+        },
+        {
+          "option_text": "Bronchi",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "classification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "true_false",
+      "difficulty_level": "foundation",
+      "question_text": "Sweating helps remove some waste materials from the body.",
+      "explanation": "Sweat removes water, salts, and a small amount of waste.",
+      "default_marks": "1.00",
+      "negative_marks": "0.00",
+      "options": [
+        {
+          "option_text": "True",
+          "is_correct": true
+        },
+        {
+          "option_text": "False",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "true_false_concept",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which organ filters wastes from the blood to form urine?",
+      "explanation": "Kidneys filter blood and help remove wastes.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Lungs",
+          "is_correct": false
+        },
+        {
+          "option_text": "Heart",
+          "is_correct": false
+        },
+        {
+          "option_text": "Kidneys",
+          "is_correct": true
+        },
+        {
+          "option_text": "Skin",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "familiar_example_identification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "What is pulse?",
+      "explanation": "Pulse is the rhythmic throbbing felt in arteries due to heartbeats.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "The sound of breathing",
+          "is_correct": false
+        },
+        {
+          "option_text": "The color of blood",
+          "is_correct": false
+        },
+        {
+          "option_text": "The throbbing of arteries caused by heartbeat",
+          "is_correct": true
+        },
+        {
+          "option_text": "The movement of food in the stomach",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Why are white blood cells important?",
+      "explanation": "White blood cells help fight germs and protect the body from disease.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "They pump blood",
+          "is_correct": false
+        },
+        {
+          "option_text": "They carry oxygen only",
+          "is_correct": false
+        },
+        {
+          "option_text": "They help fight infection",
+          "is_correct": true
+        },
+        {
+          "option_text": "They form roots",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "best_explanation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "foundation",
+      "question_text": "What is circulation?",
+      "explanation": "Circulation is the continuous movement of blood through the heart and blood vessels in the body.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "archetype": "concept_explanation",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "Movement of blood through the body",
+          "Continuous flow of blood through heart and blood vessels",
+          "The transport of blood around the body"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "The process by which plants lose excess water through leaves is called:",
+      "explanation": "Transpiration is the loss of water as vapor from leaves.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Respiration",
+          "is_correct": false
+        },
+        {
+          "option_text": "Photosynthesis",
+          "is_correct": false
+        },
+        {
+          "option_text": "Transpiration",
+          "is_correct": true
+        },
+        {
+          "option_text": "Germination",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "classification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which tissue carries water and minerals upward in plants?",
+      "explanation": "Xylem transports water and minerals from roots to stems and leaves.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Xylem",
+          "is_correct": true
+        },
+        {
+          "option_text": "Phloem",
+          "is_correct": false
+        },
+        {
+          "option_text": "Plasma",
+          "is_correct": false
+        },
+        {
+          "option_text": "Platelets",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which tissue transports prepared food in plants?",
+      "explanation": "Phloem carries food made in the leaves to other parts of the plant.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Xylem",
+          "is_correct": false
+        },
+        {
+          "option_text": "Phloem",
+          "is_correct": true
+        },
+        {
+          "option_text": "Capillaries",
+          "is_correct": false
+        },
+        {
+          "option_text": "Veins",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which structure mainly absorbs water from the soil?",
+      "explanation": "Root hairs increase the surface area for water absorption.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Flower petals",
+          "is_correct": false
+        },
+        {
+          "option_text": "Stem bark",
+          "is_correct": false
+        },
+        {
+          "option_text": "Root hairs",
+          "is_correct": true
+        },
+        {
+          "option_text": "Fruit skin",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "familiar_example_identification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Why does a plant droop when it does not get enough water?",
+      "explanation": "Lack of water reduces turgidity and proper transport in plant tissues.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Because roots stop existing",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because the plant loses water and cells lose turgidity",
+          "is_correct": true
+        },
+        {
+          "option_text": "Because flowers become metal",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because phloem turns into xylem",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "daily_life_application",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "true_false",
+      "difficulty_level": "foundation",
+      "question_text": "Xylem mainly carries food made in leaves.",
+      "explanation": "Xylem carries water and minerals; phloem carries food.",
+      "default_marks": "1.00",
+      "negative_marks": "0.00",
+      "options": [
+        {
+          "option_text": "True",
+          "is_correct": false
+        },
+        {
+          "option_text": "False",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "archetype": "true_false_concept",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Assertion: Plants need a transport system.\nReason: Water, minerals, and food must reach different parts of the plant.",
+      "explanation": "Both statements are true, and the reason correctly explains the assertion.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Both Assertion and Reason are true, and Reason correctly explains Assertion",
+          "is_correct": true
+        },
+        {
+          "option_text": "Both Assertion and Reason are true, but Reason does not explain Assertion",
+          "is_correct": false
+        },
+        {
+          "option_text": "Assertion is true, but Reason is false",
+          "is_correct": false
+        },
+        {
+          "option_text": "Assertion is false, but Reason is true",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "assertion_reason",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "A doctor places fingers on a patient’s wrist and counts beats. What is being measured?",
+      "explanation": "The doctor is measuring the pulse rate, which reflects heartbeats.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Sweating rate",
+          "is_correct": false
+        },
+        {
+          "option_text": "Breathing capacity",
+          "is_correct": false
+        },
+        {
+          "option_text": "Pulse rate",
+          "is_correct": true
+        },
+        {
+          "option_text": "Kidney activity",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "observation_based_inference",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Why do arteries have thicker walls than veins?",
+      "explanation": "Arteries carry blood at higher pressure from the heart, so thicker walls help withstand that pressure.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Because arteries carry food only",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because blood flows through them at higher pressure",
+          "is_correct": true
+        },
+        {
+          "option_text": "Because they have no blood",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because veins are outside the body",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "process_explanation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Why are capillaries very narrow and thin?",
+      "explanation": "Thin capillary walls help in exchange of oxygen, nutrients, and wastes with body cells.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "To block blood permanently",
+          "is_correct": false
+        },
+        {
+          "option_text": "To make the body heavier",
+          "is_correct": false
+        },
+        {
+          "option_text": "To allow easy exchange of materials with cells",
+          "is_correct": true
+        },
+        {
+          "option_text": "To stop the heart from pumping",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "cause_effect_link",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "If a person gets a small cut and bleeding stops after some time, which blood component was most directly responsible?",
+      "explanation": "Platelets help form blood clots and stop bleeding.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Plasma",
+          "is_correct": false
+        },
+        {
+          "option_text": "Red blood cells",
+          "is_correct": false
+        },
+        {
+          "option_text": "Platelets",
+          "is_correct": true
+        },
+        {
+          "option_text": "Stomata",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "scenario_analysis",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "intermediate",
+      "question_text": "State one difference between arteries and veins.",
+      "explanation": "Arteries carry blood away from the heart, while veins bring blood toward the heart.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "archetype": "compare_and_contrast",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "Arteries carry blood away from the heart, veins carry blood toward the heart",
+          "Arteries have thicker walls and veins return blood to the heart",
+          "Veins bring blood back, arteries take it away"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Why is drinking enough water helpful for the body’s excretion process?",
+      "explanation": "Water helps kidneys filter blood and remove wastes through urine.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "It stops circulation",
+          "is_correct": false
+        },
+        {
+          "option_text": "It helps kidneys remove wastes properly",
+          "is_correct": true
+        },
+        {
+          "option_text": "It turns veins into arteries",
+          "is_correct": false
+        },
+        {
+          "option_text": "It prevents any sweating",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "everyday_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_multiple",
+      "difficulty_level": "intermediate",
+      "question_text": "Select all functions of blood.",
+      "explanation": "Blood transports oxygen, nutrients, hormones, and wastes and also helps in protection.",
+      "default_marks": "2.00",
+      "negative_marks": "0.50",
+      "options": [
+        {
+          "option_text": "Transporting oxygen",
+          "is_correct": true
+        },
+        {
+          "option_text": "Carrying nutrients",
+          "is_correct": true
+        },
+        {
+          "option_text": "Removing wastes",
+          "is_correct": true
+        },
+        {
+          "option_text": "Performing photosynthesis",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "multi_select_truth_evaluation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "A leafy twig is placed in colored water, and after some time the color appears in the stem and leaf veins. What does this show?",
+      "explanation": "The colored water moves upward through xylem.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Food moves through phloem only",
+          "is_correct": false
+        },
+        {
+          "option_text": "Water is transported upward through xylem",
+          "is_correct": true
+        },
+        {
+          "option_text": "Leaves absorb color from air",
+          "is_correct": false
+        },
+        {
+          "option_text": "Roots stop functioning",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "experiment_interpretation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Why does transpiration help plants?",
+      "explanation": "Transpiration creates a pull that helps upward movement of water in the plant.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "It stops water entry into roots",
+          "is_correct": false
+        },
+        {
+          "option_text": "It prevents sunlight from reaching leaves",
+          "is_correct": false
+        },
+        {
+          "option_text": "It helps pull water upward through the plant",
+          "is_correct": true
+        },
+        {
+          "option_text": "It changes xylem into phloem",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "best_explanation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which statement about excretion in humans is correct?",
+      "explanation": "Excretion removes waste products from the body, especially through kidneys, skin, and lungs.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Excretion means only digestion",
+          "is_correct": false
+        },
+        {
+          "option_text": "Only the heart does excretion",
+          "is_correct": false
+        },
+        {
+          "option_text": "Excretion removes wastes from the body",
+          "is_correct": true
+        },
+        {
+          "option_text": "Urine is formed in the lungs",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "misconception_correction",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "If root hairs are damaged badly, what is most likely to happen first?",
+      "explanation": "Water and mineral absorption from soil will reduce sharply.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Flowers will turn into roots",
+          "is_correct": false
+        },
+        {
+          "option_text": "Pulse rate will increase in the plant",
+          "is_correct": false
+        },
+        {
+          "option_text": "Water absorption will decrease",
+          "is_correct": true
+        },
+        {
+          "option_text": "Food transport in animals will stop",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "what_can_be_concluded",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "true_false",
+      "difficulty_level": "intermediate",
+      "question_text": "Phloem can transport food to different parts of the plant.",
+      "explanation": "Phloem carries prepared food from leaves to growing and storage regions.",
+      "default_marks": "1.00",
+      "negative_marks": "0.00",
+      "options": [
+        {
+          "option_text": "True",
+          "is_correct": true
+        },
+        {
+          "option_text": "False",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "true_false_concept",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Two plants are kept, one in moving air and one in still air. Which is more likely to transpire faster?",
+      "explanation": "Moving air usually increases the rate of transpiration by carrying away water vapor.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "The plant in moving air",
+          "is_correct": true
+        },
+        {
+          "option_text": "The plant in still air",
+          "is_correct": false
+        },
+        {
+          "option_text": "Both always equally",
+          "is_correct": false
+        },
+        {
+          "option_text": "Neither plant will transpire",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "scenario_comparison",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which observation best shows that kidneys are working properly?",
+      "explanation": "Kidneys remove wastes from blood and form urine regularly.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "The nails grow faster",
+          "is_correct": false
+        },
+        {
+          "option_text": "Hair becomes curly",
+          "is_correct": false
+        },
+        {
+          "option_text": "Urine is formed and wastes are removed",
+          "is_correct": true
+        },
+        {
+          "option_text": "Blood becomes green",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "evidence_based_choice",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "intermediate",
+      "question_text": "Why does the body need excretion?",
+      "explanation": "Excretion removes harmful waste products so they do not accumulate and damage the body.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "archetype": "process_explanation",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "To remove harmful wastes from the body",
+          "To prevent waste buildup in the body",
+          "Because wastes must be removed from blood and body tissues"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which sequence best represents the path of water in a plant?",
+      "explanation": "Water is absorbed by roots, moves through the stem in xylem, and reaches leaves.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Leaf -> flower -> root -> xylem",
+          "is_correct": false
+        },
+        {
+          "option_text": "Root hairs -> xylem in root and stem -> leaves",
+          "is_correct": true
+        },
+        {
+          "option_text": "Stomata -> stem -> root hairs",
+          "is_correct": false
+        },
+        {
+          "option_text": "Phloem -> roots -> veins -> soil",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "integrated_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Why can a patient with low red blood cell count feel weak more easily?",
+      "explanation": "Red blood cells carry oxygen, so fewer red cells can mean less oxygen reaches body cells.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Because platelets stop clotting completely",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because veins disappear",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because less oxygen may reach body cells",
+          "is_correct": true
+        },
+        {
+          "option_text": "Because plasma becomes solid",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "applied_science_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "If the heart suddenly stopped pumping, which effect would occur first at the body level?",
+      "explanation": "Transport of oxygen and nutrients to body cells would stop almost immediately.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Root hairs would absorb less water",
+          "is_correct": false
+        },
+        {
+          "option_text": "Sweating would increase forever",
+          "is_correct": false
+        },
+        {
+          "option_text": "Transport of oxygen and nutrients would stop",
+          "is_correct": true
+        },
+        {
+          "option_text": "Phloem would stop carrying food",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "chain_of_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which setup best demonstrates transpiration from leaves?",
+      "explanation": "Covering a leafy twig with a transparent plastic bag lets water droplets collect from transpiration.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Put roots in dry sand only",
+          "is_correct": false
+        },
+        {
+          "option_text": "Cover a leafy branch with a transparent plastic bag",
+          "is_correct": true
+        },
+        {
+          "option_text": "Place a stone under sunlight",
+          "is_correct": false
+        },
+        {
+          "option_text": "Cut all leaves and observe no change",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "experiment_design",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_multiple",
+      "difficulty_level": "advanced",
+      "question_text": "Select all correct statements about blood.",
+      "explanation": "Blood contains plasma, cells, and platelets and performs several transport and protection functions.",
+      "default_marks": "2.00",
+      "negative_marks": "0.50",
+      "options": [
+        {
+          "option_text": "Plasma is the liquid part of blood",
+          "is_correct": true
+        },
+        {
+          "option_text": "White blood cells help fight infection",
+          "is_correct": true
+        },
+        {
+          "option_text": "Platelets help in clotting",
+          "is_correct": true
+        },
+        {
+          "option_text": "Blood is present only inside the heart",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "multi_select_truth_evaluation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "A plant is watered regularly but its stem xylem is severely damaged. What is the most likely problem?",
+      "explanation": "Even if water is available in soil, damaged xylem will reduce transport of water to leaves.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "More food will be produced in roots",
+          "is_correct": false
+        },
+        {
+          "option_text": "Water will not reach upper parts properly",
+          "is_correct": true
+        },
+        {
+          "option_text": "Transpiration will stop making oxygen",
+          "is_correct": false
+        },
+        {
+          "option_text": "Root hairs will become arteries",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "scenario_analysis",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "To compare the pulse rates of students fairly, what should be controlled first?",
+      "explanation": "All students should be measured in similar conditions, such as after equal rest or equal activity.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Shirt color",
+          "is_correct": false
+        },
+        {
+          "option_text": "Similar physical condition during measurement",
+          "is_correct": true
+        },
+        {
+          "option_text": "Which hand they write with",
+          "is_correct": false
+        },
+        {
+          "option_text": "Size of their school bag",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "decision_under_uncertainty",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "advanced",
+      "question_text": "Explain how transpiration can help in cooling a plant.",
+      "explanation": "When water evaporates from leaf surfaces, it takes away heat, helping cool the plant.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "archetype": "reasoning_with_example",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "Evaporation of water from leaves removes heat",
+          "Transpiration causes cooling because water vapor takes away heat",
+          "Loss of water from leaves helps cool the plant"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Why do leaves have many veins connected to the stem’s transport system?",
+      "explanation": "Leaf veins help distribute water and carry prepared food to and from different leaf cells.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "To stop sunlight from entering",
+          "is_correct": false
+        },
+        {
+          "option_text": "To block gas exchange",
+          "is_correct": false
+        },
+        {
+          "option_text": "To help transport materials through the leaf",
+          "is_correct": true
+        },
+        {
+          "option_text": "To keep roots underground",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "cause_effect_link",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Why is plasma important even though it is not a blood cell?",
+      "explanation": "Plasma carries dissolved substances like nutrients, hormones, carbon dioxide, and wastes.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "It pumps the heart directly",
+          "is_correct": false
+        },
+        {
+          "option_text": "It makes bones hard",
+          "is_correct": false
+        },
+        {
+          "option_text": "It transports many dissolved substances",
+          "is_correct": true
+        },
+        {
+          "option_text": "It works only in plants",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "best_explanation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "If transpiration became extremely low on a hot day, what plant process would likely be affected next?",
+      "explanation": "Reduced transpiration can weaken the pull that helps water move upward.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Heartbeat of the plant",
+          "is_correct": false
+        },
+        {
+          "option_text": "Platelet formation",
+          "is_correct": false
+        },
+        {
+          "option_text": "Upward transport of water",
+          "is_correct": true
+        },
+        {
+          "option_text": "Formation of urine",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "what_if_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which option correctly matches structure and function?",
+      "explanation": "Xylem carries water, phloem carries food, kidneys filter blood, and platelets help clotting.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Xylem - food transport; phloem - water transport",
+          "is_correct": false
+        },
+        {
+          "option_text": "Kidney - waste removal from blood; platelet - clotting",
+          "is_correct": true
+        },
+        {
+          "option_text": "Red blood cell - infection control; white blood cell - oxygen transport",
+          "is_correct": false
+        },
+        {
+          "option_text": "Root hair - photosynthesis; stomata - pulse",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "process_selection",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which observation best supports that food made in leaves is transported to other parts?",
+      "explanation": "Storage organs such as roots or fruits receiving prepared food show that it has been transported from leaves.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Leaves are green",
+          "is_correct": false
+        },
+        {
+          "option_text": "Roots stay under the soil",
+          "is_correct": false
+        },
+        {
+          "option_text": "Food gets stored in roots, stems, fruits, or seeds",
+          "is_correct": true
+        },
+        {
+          "option_text": "Flowers open in sunlight",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "evidence_based_choice",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Two students are equally active, but one has a much faster pulse for a long time after activity. Which body function should be investigated first conceptually?",
+      "explanation": "Pulse reflects heart activity and circulation, so heart-related circulation should be checked first conceptually.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Leaf transpiration",
+          "is_correct": false
+        },
+        {
+          "option_text": "Root water absorption",
+          "is_correct": false
+        },
+        {
+          "option_text": "Circulation and heart function",
+          "is_correct": true
+        },
+        {
+          "option_text": "Seed germination only",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "scenario_comparison",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which statement correctly connects transport in animals and plants?",
+      "explanation": "Animals use blood circulation for transport, while plants use xylem and phloem to move water, minerals, and food.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Both animals and plants use arteries and veins",
+          "is_correct": false
+        },
+        {
+          "option_text": "Plants transport water only and do not transport food",
+          "is_correct": false
+        },
+        {
+          "option_text": "Animals use blood circulation; plants use xylem and phloem",
+          "is_correct": true
+        },
+        {
+          "option_text": "Only animals need transport systems",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "integrated_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    }
+  ]
+}

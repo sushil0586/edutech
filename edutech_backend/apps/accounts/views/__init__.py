@@ -1,6 +1,7 @@
 import logging
 from decimal import Decimal
 
+from django.core.cache import cache
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.contrib.auth import get_user_model
 from django.db.models import Case, Count, IntegerField, Prefetch, Q, Value, When
@@ -48,9 +49,9 @@ from apps.accounts.serializers import (
     ResetPasswordSerializer,
     StudentExamAccessKeySerializer,
 )
-from apps.attempts.models import StudentExamAttempt
+from apps.attempts.models import AttemptIntegrityEvent, StudentAnswer, StudentExamAttempt
 from apps.academics.models import AcademicYear, Cohort, Program, Subject, Topic
-from apps.exams.models import Exam
+from apps.exams.models import Exam, ExamQuestion, ExamSection
 from apps.exams.serializers import (
     ExamListSerializer,
     ExamReadSerializer,
@@ -67,10 +68,12 @@ from apps.reports.services import ensure_exam_window_notifications
 from apps.results.models import ExamPerformanceSummary, ExamResult
 from apps.results.serializers import ExamPerformanceSummarySerializer, ExamResultSerializer
 from apps.results.services import (
+    INSTITUTE_DASHBOARD_SUMMARY_CACHE_TTL_SECONDS,
     build_student_insight_summary,
     build_student_question_analytics,
     build_teacher_insight_summary,
     build_teacher_question_performance_summary,
+    get_institute_dashboard_summary_cache_key,
 )
 from apps.exams.services import resolve_exam_experience_profile
 from apps.institutes.models import Institute
@@ -88,54 +91,9 @@ User = get_user_model()
 
 
 def _hydrate_exam_access_policies(exams):
-    if not exams:
-        return {}
+    from apps.exams.services import hydrate_exam_access_policies
 
-    from apps.economy.models import ContentAccessPolicy
-    from apps.exams.services import EXAM_CONTENT_TYPE
-
-    institute_ids = {exam.institute_id for exam in exams if getattr(exam, "institute_id", None)}
-    content_keys = {str(exam.id) for exam in exams}
-    if not institute_ids or not content_keys:
-        return {}
-
-    policies = list(
-        ContentAccessPolicy.objects.filter(
-            institute_id__in=institute_ids,
-            content_type=EXAM_CONTENT_TYPE,
-            content_key__in=content_keys,
-            is_active=True,
-        )
-        .select_related("subject")
-        .order_by("priority", "created_at")
-    )
-
-    policy_by_target = {}
-    for policy in policies:
-        target_key = (policy.institute_id, policy.content_key)
-        current = policy_by_target.get(target_key)
-        if current is None:
-            policy_by_target[target_key] = {"subjects": {}, "fallback": None}
-            current = policy_by_target[target_key]
-        if policy.subject_id is not None:
-            current["subjects"].setdefault(policy.subject_id, policy)
-        elif current["fallback"] is None:
-            current["fallback"] = policy
-
-    resolved_by_exam_id = {}
-    for exam in exams:
-        resolved = policy_by_target.get((exam.institute_id, str(exam.id)))
-        if resolved is None:
-            exam._resolved_access_policy = None
-            resolved_by_exam_id[exam.id] = None
-            continue
-        subject_policy = resolved["subjects"].get(exam.subject_id)
-        fallback_policy = resolved["fallback"]
-        selected_policy = subject_policy if subject_policy is not None else fallback_policy
-        exam._resolved_access_policy = selected_policy
-        resolved_by_exam_id[exam.id] = selected_policy
-
-    return resolved_by_exam_id
+    return hydrate_exam_access_policies(exams)
 
 
 class LoginView(APIView):
@@ -501,7 +459,10 @@ class StudentAvailableExamView(APIView):
             ),
             request.user,
         ).filter(is_active=True).prefetch_related(
-            "student_assignments",
+            Prefetch(
+                "student_assignments",
+                to_attr="_prefetched_student_assignments",
+            ),
             Prefetch(
                 "attempts",
                 queryset=StudentExamAttempt.objects.filter(student=student, is_active=True).select_related("result"),
@@ -514,6 +475,7 @@ class StudentAvailableExamView(APIView):
             source=source_filter,
             teacher_id=teacher_filter or None,
         )
+        _hydrate_exam_access_policies(exams)
         ensure_exam_window_notifications(student, exams)
         return Response(
             StudentExamAvailabilitySerializer(
@@ -540,9 +502,20 @@ class StudentExamDetailView(APIView):
             ).prefetch_related(
                 "sections",
                 "student_assignments",
-                "exam_questions__section",
-                "exam_questions__question",
-                "exam_questions__question__options",
+                Prefetch(
+                    "exam_questions",
+                    queryset=ExamQuestion.objects.filter(is_active=True)
+                    .select_related(
+                        "section",
+                        "question",
+                        "question__passage",
+                    )
+                    .prefetch_related(
+                        "question__options",
+                        "question__attachments",
+                    )
+                    .order_by("question_order", "created_at"),
+                ),
                 Prefetch(
                     "attempts",
                     queryset=StudentExamAttempt.objects.filter(student=student, is_active=True).select_related("result"),
@@ -551,9 +524,16 @@ class StudentExamDetailView(APIView):
             ),
             request.user,
         ).filter(pk=exam_id, is_active=True)
+        queryset = queryset.prefetch_related(
+            Prefetch(
+                "student_assignments",
+                to_attr="_prefetched_student_assignments",
+            ),
+        )
         exam = queryset.first()
         if exam is None or not is_exam_assigned_to_student(exam, student):
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        _hydrate_exam_access_policies([exam])
         return Response(
             StudentExamReadinessSerializer(exam, context={"request": request}).data
         )
@@ -579,9 +559,20 @@ class StudentExamAccessKeyResolveView(APIView):
             ).prefetch_related(
                 "sections",
                 "student_assignments",
-                "exam_questions__section",
-                "exam_questions__question",
-                "exam_questions__question__options",
+                Prefetch(
+                    "exam_questions",
+                    queryset=ExamQuestion.objects.filter(is_active=True)
+                    .select_related(
+                        "section",
+                        "question",
+                        "question__passage",
+                    )
+                    .prefetch_related(
+                        "question__options",
+                        "question__attachments",
+                    )
+                    .order_by("question_order", "created_at"),
+                ),
                 Prefetch(
                     "attempts",
                     queryset=StudentExamAttempt.objects.filter(
@@ -596,6 +587,12 @@ class StudentExamAccessKeyResolveView(APIView):
             access_key=access_key,
             access_key_enabled=True,
             is_active=True,
+        )
+        queryset = queryset.prefetch_related(
+            Prefetch(
+                "student_assignments",
+                to_attr="_prefetched_student_assignments",
+            ),
         )
         exam = queryset.first()
         if exam is None:
@@ -619,6 +616,7 @@ class StudentExamAccessKeyResolveView(APIView):
             metadata={"student_id": str(student.id), "access_key": access_key},
             request=request,
         )
+        _hydrate_exam_access_policies([exam])
         return Response(
             StudentExamReadinessSerializer(exam, context={"request": request}).data,
             status=status.HTTP_200_OK,
@@ -630,7 +628,43 @@ class StudentAttemptListView(APIView):
 
     def get(self, request):
         queryset = scope_student_queryset(
-            StudentExamAttempt.objects.select_related("exam", "student", "institute"),
+            StudentExamAttempt.objects.select_related(
+                "exam",
+                "exam__subject",
+                "exam__program",
+                "exam__cohort",
+                "exam__source_teacher",
+                "student",
+                "institute",
+                "result",
+            ).prefetch_related(
+                Prefetch(
+                    "answers",
+                    queryset=StudentAnswer.objects.select_related(
+                        "question",
+                        "selected_option",
+                        "attempt",
+                    ).prefetch_related("question__options"),
+                ),
+                Prefetch(
+                    "exam__exam_questions",
+                    queryset=ExamQuestion.objects.filter(is_active=True).select_related(
+                        "question",
+                        "section",
+                    ).prefetch_related(
+                        "question__attachments",
+                    ).order_by("question_order", "created_at"),
+                    to_attr="_prefetched_active_exam_questions",
+                ),
+                Prefetch(
+                    "integrity_events",
+                    queryset=AttemptIntegrityEvent.objects.filter(is_active=True).order_by(
+                        "-event_at",
+                        "-created_at",
+                    ),
+                    to_attr="_prefetched_active_integrity_events",
+                ),
+            ),
             request.user,
         ).filter(is_active=True)
         from apps.attempts.serializers import StudentExamAttemptSerializer
@@ -686,6 +720,22 @@ class TeacherExamListView(APIView):
                 "cohort",
                 "subject",
                 "source_teacher",
+            ).annotate(
+                assigned_student_count=Count(
+                    "student_assignments",
+                    filter=Q(student_assignments__is_active=True),
+                    distinct=True,
+                ),
+                active_questions_count=Count(
+                    "exam_questions",
+                    filter=Q(exam_questions__is_active=True),
+                    distinct=True,
+                ),
+            ).prefetch_related(
+                Prefetch(
+                    "sections",
+                    queryset=ExamSection.objects.filter(is_active=True).select_related("subject"),
+                )
             ),
             request.user,
         ).filter(is_active=True)
@@ -700,19 +750,6 @@ class TeacherExamListView(APIView):
         search = (request.query_params.get("search") or "").strip()
         teacher_id = (request.query_params.get("teacher") or "").strip()
         economy_summary = None
-
-        queryset = queryset.annotate(
-            assigned_student_count=Count(
-                "student_assignments",
-                filter=Q(student_assignments__is_active=True),
-                distinct=True,
-            ),
-            active_questions_count=Count(
-                "exam_questions",
-                filter=Q(exam_questions__is_active=True),
-                distinct=True,
-            ),
-        )
 
         if exam_filter == "live":
             queryset = queryset.filter(status="live")
@@ -775,26 +812,29 @@ class TeacherExamListView(APIView):
         elif exam_sort == "latest":
             queryset = queryset.order_by("-updated_at", "-created_at")
         elif exam_sort == "risk_high":
-            queryset = queryset.annotate(
-                risk_rank=Case(
+            queryset = queryset.order_by(
+                Case(
                     When(status="live", then=Value(0)),
                     When(access_key_enabled=True, then=Value(1)),
                     When(security_mode="fullscreen", then=Value(2)),
                     When(security_mode="focus", then=Value(3)),
                     default=Value(4),
                     output_field=IntegerField(),
-                )
-            ).order_by("risk_rank", "-updated_at", "title")
+                ),
+                "-updated_at",
+                "title",
+            )
         else:
-            queryset = queryset.annotate(
-                recommended_rank=Case(
+            queryset = queryset.order_by(
+                Case(
                     When(status="live", then=Value(0)),
                     When(status="scheduled", then=Value(1)),
                     When(status="draft", then=Value(2)),
                     default=Value(3),
                     output_field=IntegerField(),
-                )
-            ).order_by("recommended_rank", "title")
+                ),
+                "title",
+            )
 
         paginator = StandardResultsSetPagination()
         page = paginator.paginate_queryset(queryset, request, view=self)
@@ -833,7 +873,12 @@ class TeacherResultSummaryView(APIView):
 
         unresolved_statuses = tuple(REVIEW_TASK_UNRESOLVED_STATUSES)
         queryset = scope_teacher_queryset(
-            ExamPerformanceSummary.objects.select_related("institute", "exam"),
+            ExamPerformanceSummary.objects.select_related(
+                "institute",
+                "exam",
+                "exam__program",
+                "exam__program__assessment_family",
+            ),
             request.user,
         ).filter(is_active=True).annotate(
             total_results_count=Count("exam__results", distinct=True),
@@ -891,6 +936,10 @@ class InstituteDashboardSummaryView(APIView):
                 {"detail": "Institute not found in your scope."},
                 status=status.HTTP_404_NOT_FOUND,
             )
+        cache_key = get_institute_dashboard_summary_cache_key(institute_id)
+        cached_payload = cache.get(cache_key)
+        if cached_payload is not None:
+            return Response(cached_payload)
 
         institute_filter = Q(institute_id=institute_id)
         academic_year_count = AcademicYear.objects.filter(institute_filter, is_active=True).count()
@@ -916,12 +965,17 @@ class InstituteDashboardSummaryView(APIView):
         academic_structure_count = (
             academic_year_count + program_count + cohort_count + subject_count + topic_count
         )
-        unresolved_review_tasks = review_task_qs.count()
-        blocked_review_exams = review_task_qs.values("exam_id").distinct().count()
-        recheck_tasks = review_task_qs.filter(status="recheck_requested").count()
+        review_aggregates = review_task_qs.aggregate(
+            unresolved_review_tasks=Count("id"),
+            blocked_review_exams=Count("exam_id", distinct=True),
+            recheck_tasks=Count("id", filter=Q(status="recheck_requested")),
+        )
+        unresolved_review_tasks = review_aggregates["unresolved_review_tasks"] or 0
+        blocked_review_exams = review_aggregates["blocked_review_exams"] or 0
+        recheck_tasks = review_aggregates["recheck_tasks"] or 0
         summary_rows = list(
             ExamPerformanceSummary.objects.filter(institute_id=institute_id, is_active=True)
-            .select_related("exam")
+            .select_related("exam", "exam__program", "exam__program__assessment_family")
             .order_by("-last_calculated_at", "-updated_at")[:5]
         )
         aggregate_distribution_map = {}
@@ -974,83 +1028,87 @@ class InstituteDashboardSummaryView(APIView):
         )
         readiness_score = round((active_coverage_signals / 5) * 100)
 
-        return Response(
-            {
-                "institute": {
-                    "id": str(institute["id"]),
-                    "name": institute["name"],
-                    "code": institute["code"],
-                    "is_active": institute["is_active"],
-                    "exam_default_count": exam_default_count,
-                },
-                "counts": {
-                    "academic_years": academic_year_count,
-                    "programs": program_count,
-                    "cohorts": cohort_count,
-                    "subjects": subject_count,
-                    "topics": topic_count,
-                    "students": student_count,
-                    "teachers": teacher_count,
-                    "exams": exam_count,
-                    "results": result_count,
-                    "pending_review_tasks": unresolved_review_tasks,
-                    "blocked_review_exams": blocked_review_exams,
-                    "recheck_review_tasks": recheck_tasks,
-                    "assessment_family_mix": [
-                        {
-                            "code": item["assessment_family__code"] or "unassigned",
-                            "label": item["assessment_family__label"] or "Unassigned",
-                            "program_count": item["program_count"],
-                        }
-                        for item in assessment_family_mix
-                    ],
-                },
-                "derived": {
-                    "people_count": people_count,
-                    "academic_structure_count": academic_structure_count,
-                    "active_coverage_signals": active_coverage_signals,
-                    "readiness_score": readiness_score,
-                    "review_ops_pressure": unresolved_review_tasks,
-                    "active_assessment_families": len(
-                        [item for item in assessment_family_mix if item["assessment_family__code"]]
-                    ),
-                    "analytics_ready_exams": len(summary_rows),
-                    "analytics_result_rows": aggregate_distribution_total,
-                },
-                "recent_exam_analytics": [
+        payload = {
+            "institute": {
+                "id": str(institute["id"]),
+                "name": institute["name"],
+                "code": institute["code"],
+                "is_active": institute["is_active"],
+                "exam_default_count": exam_default_count,
+            },
+            "counts": {
+                "academic_years": academic_year_count,
+                "programs": program_count,
+                "cohorts": cohort_count,
+                "subjects": subject_count,
+                "topics": topic_count,
+                "students": student_count,
+                "teachers": teacher_count,
+                "exams": exam_count,
+                "results": result_count,
+                "pending_review_tasks": unresolved_review_tasks,
+                "blocked_review_exams": blocked_review_exams,
+                "recheck_review_tasks": recheck_tasks,
+                "assessment_family_mix": [
                     {
-                        "exam_id": str(summary.exam_id),
-                        "exam_title": summary.exam.title,
-                        "exam_code": summary.exam.code,
-                        "average_percentage": format(
-                            summary.average_percentage or Decimal("0.00"),
-                            "f",
-                        ),
-                        "total_attempted": summary.total_attempted,
-                        "total_passed": summary.total_passed,
-                        "total_failed": summary.total_failed,
-                        "last_calculated_at": (
-                            summary.last_calculated_at.isoformat()
-                            if summary.last_calculated_at
-                            else None
-                        ),
-                        "experience_profile": resolve_exam_experience_profile(summary.exam),
-                        "score_distribution": (
-                            summary.metadata.get("score_distribution", [])
-                            if isinstance(summary.metadata, dict)
-                            else []
-                        ),
-                        "section_performance": (
-                            summary.metadata.get("section_performance", [])
-                            if isinstance(summary.metadata, dict)
-                            else []
-                        ),
+                        "code": item["assessment_family__code"] or "unassigned",
+                        "label": item["assessment_family__label"] or "Unassigned",
+                        "program_count": item["program_count"],
                     }
-                    for summary in summary_rows
+                    for item in assessment_family_mix
                 ],
-                "aggregate_score_distribution": aggregate_score_distribution,
-            }
+            },
+            "derived": {
+                "people_count": people_count,
+                "academic_structure_count": academic_structure_count,
+                "active_coverage_signals": active_coverage_signals,
+                "readiness_score": readiness_score,
+                "review_ops_pressure": unresolved_review_tasks,
+                "active_assessment_families": len(
+                    [item for item in assessment_family_mix if item["assessment_family__code"]]
+                ),
+                "analytics_ready_exams": len(summary_rows),
+                "analytics_result_rows": aggregate_distribution_total,
+            },
+            "recent_exam_analytics": [
+                {
+                    "exam_id": str(summary.exam_id),
+                    "exam_title": summary.exam.title,
+                    "exam_code": summary.exam.code,
+                    "average_percentage": format(
+                        summary.average_percentage or Decimal("0.00"),
+                        "f",
+                    ),
+                    "total_attempted": summary.total_attempted,
+                    "total_passed": summary.total_passed,
+                    "total_failed": summary.total_failed,
+                    "last_calculated_at": (
+                        summary.last_calculated_at.isoformat()
+                        if summary.last_calculated_at
+                        else None
+                    ),
+                    "experience_profile": resolve_exam_experience_profile(summary.exam),
+                    "score_distribution": (
+                        summary.metadata.get("score_distribution", [])
+                        if isinstance(summary.metadata, dict)
+                        else []
+                    ),
+                    "section_performance": (
+                        summary.metadata.get("section_performance", [])
+                        if isinstance(summary.metadata, dict)
+                        else []
+                    ),
+                }
+                for summary in summary_rows
+            ],
+            "aggregate_score_distribution": aggregate_score_distribution,
+        }
+        cache.set(
+            cache_key,
+            payload,
+            INSTITUTE_DASHBOARD_SUMMARY_CACHE_TTL_SECONDS,
         )
+        return Response(payload)
 
 
 class TeacherQuestionPerformanceView(APIView):

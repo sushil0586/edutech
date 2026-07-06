@@ -464,8 +464,8 @@ def link_master_question_to_institute(
     question, _ = Question.objects.update_or_create(
         institute=institute,
         master_question=master_question,
-        question_text=master_question.question_text,
         defaults={
+            "question_text": master_question.question_text,
             "program": program,
             "subject": subject,
             "topic": topic,

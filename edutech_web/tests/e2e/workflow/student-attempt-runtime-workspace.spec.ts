@@ -80,6 +80,27 @@ test.describe("Student attempt runtime workspace", () => {
     await attemptSource.entry.click();
     await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+(?:\?.*)?$/);
 
+    await expect
+      .poll(
+        async () => {
+          const activeVisible = await page
+            .getByRole("button", { name: /^save answer$/i })
+            .first()
+            .isVisible()
+            .catch(() => false);
+          const lockedVisible = await page
+            .getByRole("link", { name: /refresh attempt state|refresh mock state|view attempt summary|view mock summary/i })
+            .first()
+            .isVisible()
+            .catch(() => false);
+          return activeVisible || lockedVisible;
+        },
+        {
+          timeout: 10000,
+        },
+      )
+      .toBe(true);
+
     const activeVisible = await page
       .getByRole("button", { name: /^save answer$/i })
       .first()

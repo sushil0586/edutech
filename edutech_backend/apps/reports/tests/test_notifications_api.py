@@ -1,9 +1,13 @@
+from django.core.cache import cache
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.attempts.services import save_answer, start_attempt, submit_attempt
 from apps.exams.services import mark_exam_completed, publish_exam, sync_total_marks_from_questions
 from apps.reports.models import AuditLog, InAppNotification, NotificationType
+from apps.reports.services import notification_list_metadata
 from apps.results.services import generate_result_from_attempt, publish_exam_results
 from common.tests.builders import AcademicAssessmentBuilder
 
@@ -22,6 +26,7 @@ class NotificationApiTestCase(APITestCase):
         return response.data
 
     def setUp(self):
+        cache.clear()
         self.builder = AcademicAssessmentBuilder()
         self.context = self.builder.build_full_flow_entities()
         self.student_user, _ = self.builder.create_student_account(
@@ -105,6 +110,24 @@ class NotificationApiTestCase(APITestCase):
         self.assertEqual(mark_all_response.status_code, status.HTTP_200_OK)
         self.assertTrue(mark_all_response.data["success"])
         self.assertIn("updated_count", self._action_data(mark_all_response))
+        self.assertEqual(self._action_data(mark_all_response)["updated_count"], 0)
+
+    def test_mark_all_read_returns_number_of_rows_updated(self):
+        InAppNotification.objects.create(
+            recipient_user=self.student_user,
+            institute=self.context["institute"],
+            notification_type=NotificationType.EXAM_LIVE,
+            title="Another unread notification",
+            message="Unread notification for bulk mark-all-read.",
+            related_object_type="exam",
+            related_object_id=str(self.exam.id),
+        )
+        self.client.force_authenticate(self.student_user)
+
+        response = self.client.post("/api/v1/notifications/mark-all-read/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(self._action_data(response)["updated_count"], 2)
 
     def test_exam_publish_creates_notifications(self):
         self.assertTrue(
@@ -198,3 +221,38 @@ class NotificationApiTestCase(APITestCase):
         )
         read_notification.refresh_from_db()
         self.assertTrue(read_notification.is_read)
+
+    def test_notification_list_metadata_uses_cache_and_invalidates_on_read(self):
+        self.client.force_authenticate(self.student_user)
+
+        first_metadata = notification_list_metadata(self.student_user)
+        self.assertEqual(first_metadata["summary"]["unread"], 1)
+
+        with CaptureQueriesContext(connection) as cached_query_context:
+            second_metadata = notification_list_metadata(self.student_user)
+        self.assertEqual(second_metadata["summary"]["unread"], 1)
+        self.assertEqual(len(cached_query_context), 0)
+
+        notification = InAppNotification.objects.filter(recipient_user=self.student_user).first()
+        response = self.client.post(f"/api/v1/notifications/{notification.id}/mark-read/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        refreshed_metadata = notification_list_metadata(self.student_user)
+        self.assertEqual(refreshed_metadata["summary"]["unread"], 0)
+
+    def test_notification_list_metadata_invalidates_after_direct_create(self):
+        first_metadata = notification_list_metadata(self.student_user)
+        self.assertEqual(first_metadata["summary"]["total"], 1)
+
+        InAppNotification.objects.create(
+            recipient_user=self.student_user,
+            institute=self.context["institute"],
+            notification_type=NotificationType.EXAM_LIVE,
+            title="Direct create",
+            message="Created directly via ORM.",
+            related_object_type="exam",
+            related_object_id=str(self.exam.id),
+        )
+
+        refreshed_metadata = notification_list_metadata(self.student_user)
+        self.assertEqual(refreshed_metadata["summary"]["total"], 2)

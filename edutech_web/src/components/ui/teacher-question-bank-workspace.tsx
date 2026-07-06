@@ -50,11 +50,6 @@ type ScopedQuestionBankFeatureEntitlement = {
   source_package_name?: string | null;
 };
 
-function percentage(value: string) {
-  const numeric = Number(value);
-  return Number.isFinite(numeric) ? `${Math.round(numeric)}%` : "0%";
-}
-
 function questionQualityTone(signal: TeacherQuestionSummary["quality_signal"] | TeacherQuestion["quality_signal"]) {
   if (signal === "ambiguous" || signal === "revision_candidate") return "statusDemo";
   if (signal === "skip_risk" || signal === "hard" || signal === "watch") return "statusWarn";
@@ -117,23 +112,6 @@ function sharedLibraryAccessLabel(question: TeacherQuestionSummary | TeacherQues
   return "Licensed source paused";
 }
 
-function questionOwnershipLabel(question: TeacherQuestionSummary | TeacherQuestion) {
-  if (question.is_shared_library_link) {
-    return isReadOnlyLibraryQuestion(question) ? "Linked licensed copy" : "Licensed platform question";
-  }
-  if (question.created_by_teacher) {
-    return "Teacher private";
-  }
-  return "Institute private";
-}
-
-function questionOwnershipTone(question: TeacherQuestionSummary | TeacherQuestion) {
-  if (question.is_shared_library_link) {
-    return question.shared_library_access_active ? "statusSuccess" : "statusWarn";
-  }
-  return "statusDefault";
-}
-
 function questionOwnershipNote(question: TeacherQuestionSummary | TeacherQuestion) {
   if (question.is_shared_library_link) {
     if (isReadOnlyLibraryQuestion(question)) {
@@ -171,12 +149,12 @@ function questionSourceStateTone(question: TeacherQuestionSummary | TeacherQuest
 
 function questionEditStateLabel(question: TeacherQuestionSummary | TeacherQuestion) {
   if (isReadOnlyLibraryQuestion(question)) {
-    return "Read-only linked";
+    return "Read-only linked row";
   }
   if (question.is_shared_library_link && !question.shared_library_access_active) {
     return "Reuse blocked";
   }
-  return "Editable local";
+  return "Editable local copy";
 }
 
 function questionEditStateTone(question: TeacherQuestionSummary | TeacherQuestion) {
@@ -402,6 +380,24 @@ function buildPageHref(
   return `${basePath}?${params.toString()}`;
 }
 
+function buildMasterLibraryPageHref(
+  libraryPage: number,
+  libraryPageSize: number,
+  filters: Record<string, string | undefined>,
+  basePath: string,
+) {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    if (!value) {
+      return;
+    }
+    params.set(key, value);
+  });
+  params.set("library_page", String(libraryPage));
+  params.set("library_page_size", String(libraryPageSize));
+  return `${basePath}?${params.toString()}`;
+}
+
 function buildWorkspaceStatusHref(
   basePath: string,
   filters: Record<string, string>,
@@ -531,11 +527,40 @@ export function TeacherQuestionBankWorkspace({
   previewThemeClass = "",
   masterLibraryQuestions = [],
   masterLibraryLoadError = "",
+  masterLibraryPage = 1,
+  masterLibraryPageSize = 24,
+  masterLibraryTotalCount = 0,
+  masterLibraryHasPreviousPage = false,
+  masterLibraryHasNextPage = false,
+  showSharedLibrarySection = true,
   sharedLibraryDisabledMessage = "",
   canLinkSharedLibrary = false,
   sharedLibraryMode = "request_only",
   questionBankEntitlements = [],
   featureEntitlements = [],
+  lockedSharedLibraryFilter = "",
+  showSharedLibraryStateControls = true,
+  showSharedLibraryQuickFilters = true,
+  bulkActionReturnPath,
+  hideInlinePreferenceControls = false,
+  hideRecentTopics = false,
+  hideBulkDangerActions = false,
+  showTeacherFilter = true,
+  showTagFilter = true,
+  showLocalStatusFilter = true,
+  showQuestionTypeFilter = true,
+  showDifficultyFilter = true,
+  showSortFilter = true,
+  showQualitySignalFilter = true,
+  showRevisionPriorityFilter = true,
+  showExtendedQuickFilters = true,
+  showBulkActions = true,
+  actionMode = "default",
+  inventoryTitle = "Question inventory",
+  emptyStateTitle = "No questions match these filters",
+  emptyStateDescription = "Broaden the search, adjust the filters, or switch off local favorites and status filters.",
+  emptyStateActionHref,
+  emptyStateActionLabel,
 }: {
   academicsApiBasePath?: string;
   attachmentTypeLabelMap: Record<string, string>;
@@ -560,11 +585,40 @@ export function TeacherQuestionBankWorkspace({
   previewThemeClass?: string;
   masterLibraryQuestions?: MasterQuestionLibraryQuestion[];
   masterLibraryLoadError?: string;
+  masterLibraryPage?: number;
+  masterLibraryPageSize?: number;
+  masterLibraryTotalCount?: number;
+  masterLibraryHasPreviousPage?: boolean;
+  masterLibraryHasNextPage?: boolean;
+  showSharedLibrarySection?: boolean;
   sharedLibraryDisabledMessage?: string;
   canLinkSharedLibrary?: boolean;
   sharedLibraryMode?: "request_only" | "direct_link";
   questionBankEntitlements?: ScopedQuestionBankEntitlement[];
   featureEntitlements?: ScopedQuestionBankFeatureEntitlement[];
+  lockedSharedLibraryFilter?: "" | "linked" | "active" | "inactive" | "local-only";
+  showSharedLibraryStateControls?: boolean;
+  showSharedLibraryQuickFilters?: boolean;
+  bulkActionReturnPath?: string;
+  hideInlinePreferenceControls?: boolean;
+  hideRecentTopics?: boolean;
+  hideBulkDangerActions?: boolean;
+  showTeacherFilter?: boolean;
+  showTagFilter?: boolean;
+  showLocalStatusFilter?: boolean;
+  showQuestionTypeFilter?: boolean;
+  showDifficultyFilter?: boolean;
+  showSortFilter?: boolean;
+  showQualitySignalFilter?: boolean;
+  showRevisionPriorityFilter?: boolean;
+  showExtendedQuickFilters?: boolean;
+  showBulkActions?: boolean;
+  actionMode?: "default" | "linked-review";
+  inventoryTitle?: string;
+  emptyStateTitle?: string;
+  emptyStateDescription?: string;
+  emptyStateActionHref?: string;
+  emptyStateActionLabel?: string;
 }) {
   const portalTarget = typeof document === "undefined" ? null : document.body;
   const isBrowser = typeof window !== "undefined";
@@ -604,6 +658,7 @@ export function TeacherQuestionBankWorkspace({
   const [hasLoadedPreferences, setHasLoadedPreferences] = useState(false);
   const [pendingMasterQuestionId, setPendingMasterQuestionId] = useState<string | null>(null);
   const [isPendingMasterAction, startMasterActionTransition] = useTransition();
+  const [isPendingMasterBulkAction, startMasterBulkActionTransition] = useTransition();
   const topicInventory = loadedTopicInventory ?? topics;
   const activeQuestionBankEntitlements = useMemo(
     () => questionBankEntitlements.filter((entitlement) => entitlement.status === "active"),
@@ -615,10 +670,51 @@ export function TeacherQuestionBankWorkspace({
   );
   const sharedLibraryModeLabel =
     sharedLibraryMode === "direct_link" ? "Direct link when entitled" : "Request-only";
+  const effectiveSharedLibraryFilter = lockedSharedLibraryFilter || sharedLibraryFilter;
   const sharedLibraryModeNote =
     sharedLibraryMode === "direct_link"
       ? "Institute admins can link licensed shared-library questions directly when the feature lane and matching package entitlement are active."
       : "Teachers can inspect licensed shared-library questions, but access escalation stays request-led even when matching package coverage exists.";
+  const isLinkedReviewMode = actionMode === "linked-review";
+  const hasScopedSearch = Boolean(filters.search?.trim());
+  const hasScopedProgram = Boolean(filters.program?.trim());
+  const hasScopedSubject = Boolean(filters.subject?.trim());
+  const hasScopedTopic = Boolean(filters.topic?.trim());
+  const hasScopedTeacher = Boolean(filters.teacher?.trim());
+  const hasScopedTag = Boolean(filters.tag?.trim());
+  const hasScopedQuestionType = Boolean(filters.question_type?.trim());
+  const hasScopedDifficulty = Boolean(filters.difficulty_level?.trim());
+  const hasScopedQualitySignal = Boolean(filters.quality_signal?.trim());
+  const hasScopedRevisionPriority = Boolean(filters.revision_priority?.trim());
+  const hasScopedMissingExplanation = filters.missing_explanation === "true";
+  const hasScopedOrdering = (filters.ordering ?? "-created_at") !== "-created_at";
+  const hasRecoverableFilterState =
+    hasScopedSearch ||
+    hasScopedProgram ||
+    hasScopedSubject ||
+    hasScopedTopic ||
+    hasScopedTeacher ||
+    hasScopedTag ||
+    hasScopedQuestionType ||
+    hasScopedDifficulty ||
+    hasScopedQualitySignal ||
+    hasScopedRevisionPriority ||
+    hasScopedMissingExplanation ||
+    hasScopedOrdering;
+  const activeWorkspaceControlSummary = [
+    hasScopedSearch ? "Search is narrowing the list" : null,
+    hasScopedProgram ? `Program: ${programs.find((program) => program.id === filters.program)?.name ?? "Scoped"}` : null,
+    hasScopedSubject ? `Subject: ${subjects.find((subject) => subject.id === filters.subject)?.name ?? "Scoped"}` : null,
+    hasScopedTopic ? `Topic: ${topics.find((topic) => topic.id === filters.topic)?.name ?? "Scoped"}` : null,
+    hasScopedTeacher ? `Teacher: ${teachers.find((teacher) => teacher.id === filters.teacher)?.full_name ?? "Scoped"}` : null,
+    hasScopedTag ? `Tag: ${tags.find((tag) => tag.id === filters.tag)?.name ?? "Scoped"}` : null,
+    hasScopedQuestionType ? `Type: ${questionTypeLabelMap[filters.question_type ?? ""] ?? filters.question_type}` : null,
+    hasScopedDifficulty ? `Difficulty: ${difficultyLabelMap[filters.difficulty_level ?? ""] ?? filters.difficulty_level}` : null,
+    hasScopedQualitySignal ? `Quality: ${filters.quality_signal}` : null,
+    hasScopedRevisionPriority ? `Revision: ${filters.revision_priority}` : null,
+    hasScopedMissingExplanation ? "Missing explanation only" : null,
+    hasScopedOrdering ? `Sort: ${filters.ordering}` : null,
+  ].filter(Boolean) as string[];
 
   useEffect(() => {
     if (!isBrowser) {
@@ -847,23 +943,23 @@ export function TeacherQuestionBankWorkspace({
         return false;
       }
 
-      if (sharedLibraryFilter === "linked" && !question.is_shared_library_link) {
+      if (effectiveSharedLibraryFilter === "linked" && !question.is_shared_library_link) {
         return false;
       }
 
-      if (sharedLibraryFilter === "active") {
+      if (effectiveSharedLibraryFilter === "active") {
         if (!question.is_shared_library_link || !question.shared_library_access_active) {
           return false;
         }
       }
 
-      if (sharedLibraryFilter === "inactive") {
+      if (effectiveSharedLibraryFilter === "inactive") {
         if (!question.is_shared_library_link || question.shared_library_access_active !== false) {
           return false;
         }
       }
 
-      if (sharedLibraryFilter === "local-only" && question.is_shared_library_link) {
+      if (effectiveSharedLibraryFilter === "local-only" && question.is_shared_library_link) {
         return false;
       }
 
@@ -873,7 +969,7 @@ export function TeacherQuestionBankWorkspace({
 
       return getStatus(question) === statusFilter;
     });
-  }, [favoriteIds, questions, sharedLibraryFilter, showFavoritesOnly, statusFilter]);
+  }, [effectiveSharedLibraryFilter, favoriteIds, questions, showFavoritesOnly, statusFilter]);
 
   const recentTopics = useMemo(
     () =>
@@ -1029,8 +1125,68 @@ export function TeacherQuestionBankWorkspace({
     });
   }
 
+  const linkableMasterLibraryQuestions = masterLibraryQuestions.filter((question) => {
+    const accessState = question.access_status || (question.has_access ? "entitled" : "not_requested");
+    return Boolean(canLinkSharedLibrary && question.has_access && accessState !== "linked");
+  });
+
+  function runBulkMasterLibraryLink() {
+    const subject = subjects.find((entry) => entry.id === selectedSubjectFilter) ?? null;
+    const topic = topicInventory.find((entry) => entry.id === selectedTopicFilter) ?? null;
+
+    startMasterBulkActionTransition(() => {
+      void fetch("/api/question-bank/master-library/bulk-link", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          search: filters.search ?? "",
+          subject_code: subject?.code ?? "",
+          topic_code: topic?.code ?? "",
+          question_type: filters.question_type ?? "",
+          difficulty_level: filters.difficulty_level ?? "",
+          ordering: filters.ordering ?? "",
+          local_subject_code: subject?.code ?? "",
+          local_topic_code: topic?.code ?? "",
+        }),
+      })
+        .then(async (response) => {
+          const payload = (await response.json().catch(() => ({}))) as {
+            detail?: string;
+            linked_count?: number;
+            skipped_count?: number;
+          };
+
+          if (!response.ok) {
+            window.location.href = buildWorkspaceStatusHref(basePath, filters, page, {
+              error: payload.detail || "Unable to bulk link the shared-library lane right now.",
+            });
+            return;
+          }
+
+          const linkedCount = Number(payload.linked_count ?? 0);
+          const skippedCount = Number(payload.skipped_count ?? 0);
+          const message =
+            linkedCount > 0
+              ? `Bulk linked ${linkedCount} shared-library question${linkedCount === 1 ? "" : "s"}${skippedCount > 0 ? ` and skipped ${skippedCount} already-linked or unavailable row${skippedCount === 1 ? "" : "s"}` : ""}.`
+              : `No new shared-library questions were linked.${skippedCount > 0 ? ` ${skippedCount} row${skippedCount === 1 ? " was" : "s were"} already linked or unavailable.` : ""}`;
+
+          window.location.href = buildWorkspaceStatusHref(basePath, filters, page, {
+            message,
+          });
+        })
+        .catch(() => {
+          window.location.href = buildWorkspaceStatusHref(basePath, filters, page, {
+            error: "Unable to bulk link the shared-library lane right now.",
+          });
+        });
+    });
+  }
+
   return (
     <div className="questionBankShell">
+      {showSharedLibrarySection ? (
       <section className="contentCard">
         <div className="sectionHeading">
           <h2>Subscription visibility</h2>
@@ -1133,117 +1289,252 @@ export function TeacherQuestionBankWorkspace({
           </div>
         ) : null}
       </section>
+      ) : null}
 
-      <section className="contentCard">
-        <div className="sectionHeading">
-          <h2>Shared platform library</h2>
-          <span>{masterLibraryQuestions.length} curated question{masterLibraryQuestions.length === 1 ? "" : "s"} in current lane</span>
-        </div>
-
-        {sharedLibraryDisabledMessage ? (
-          <p className="feedbackBanner">{sharedLibraryDisabledMessage}</p>
-        ) : null}
-
-        {masterLibraryLoadError ? (
-          <p className="feedbackBanner feedbackBannerError">{masterLibraryLoadError}</p>
-        ) : null}
-
-        {!sharedLibraryDisabledMessage && !masterLibraryLoadError && !masterLibraryQuestions.length ? (
-          <div className="builderEmptyState">
-            <strong>No shared library questions match this scope</strong>
-            <p>Try broadening the subject or topic filters, or publish new platform-owned source questions into the matching package lane.</p>
+      {showSharedLibrarySection ? (
+        <section className="contentCard">
+          <div className="sectionHeading">
+            <h2>Shared platform library</h2>
+            <span>{masterLibraryTotalCount} curated question{masterLibraryTotalCount === 1 ? "" : "s"} in current lane</span>
           </div>
-        ) : null}
 
-        {!sharedLibraryDisabledMessage && masterLibraryQuestions.length ? (
-          <div className="questionBankList">
-            {masterLibraryQuestions.map((question) => {
-              const isBusy = isPendingMasterAction && pendingMasterQuestionId === question.id;
-              const accessState = question.access_status || (question.has_access ? "entitled" : "not_requested");
-              const availabilityState = question.access_availability || "subscription_required";
-              const canRequestAccess =
-                !canLinkSharedLibrary &&
-                question.matching_packages.length > 0 &&
-                availabilityState !== "quota_exhausted" &&
-                accessState !== "requested" &&
-                accessState !== "linked";
-              const canLink = canLinkSharedLibrary && question.has_access && accessState !== "linked";
+          {!sharedLibraryDisabledMessage ? (
+            <div className="questionBankCardActions">
+              <label className="fieldStack">
+                <span>Rows per page</span>
+                <select
+                  aria-label="Shared library rows per page"
+                  onChange={(event) => {
+                    window.location.href = buildMasterLibraryPageHref(
+                      1,
+                      Number(event.target.value),
+                      filters,
+                      basePath,
+                    );
+                  }}
+                  value={String(masterLibraryPageSize)}
+                >
+                  {[8, 24, 50, 100].map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {canLinkSharedLibrary ? (
+                <button
+                  className="button buttonPrimary"
+                  disabled={isPendingMasterBulkAction || linkableMasterLibraryQuestions.length === 0}
+                  onClick={runBulkMasterLibraryLink}
+                  type="button"
+                >
+                  {isPendingMasterBulkAction ? "Linking current lane..." : "Bulk Link Current Lane"}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
 
-              return (
-                <article className="questionBankCard" key={question.id}>
-                  <div className="questionBankCardHeader">
-                    <div className="questionBankCardCopy">
-                      <strong>{question.question_text.replaceAll("\n", " ").trim() || "Untitled shared question"}</strong>
-                      <div className="questionBankChipRow">
-                        <span className="questionBankMetaChip">{question.source_institute_name}</span>
-                        <span className="questionBankMetaChip">{question.source_subject_name}</span>
-                        {question.source_topic_name ? (
-                          <span className="questionBankMetaChip">{question.source_topic_name}</span>
-                        ) : null}
-                        <span className="questionBankMetaChip">{question.question_type.replaceAll("_", " ")}</span>
-                        <span className="questionBankMetaChip">{question.difficulty_level}</span>
-                        <span className={`statusPill ${masterLibraryAccessTone(question)}`}>
-                          {masterLibraryAccessLabel(question)}
-                        </span>
-                        <span className="statusPill statusDemo">{masterLibraryAccessStateLabel(question)}</span>
+          {sharedLibraryDisabledMessage ? (
+            <p className="feedbackBanner">{sharedLibraryDisabledMessage}</p>
+          ) : null}
+
+          {masterLibraryLoadError ? (
+            <p className="feedbackBanner feedbackBannerError">{masterLibraryLoadError}</p>
+          ) : null}
+
+          {!sharedLibraryDisabledMessage && !masterLibraryLoadError && !masterLibraryQuestions.length ? (
+            <div className="builderEmptyState">
+              <strong>No shared library questions match this scope</strong>
+              <p>Try broadening the subject or topic filters, or publish new platform-owned source questions into the matching package lane.</p>
+            </div>
+          ) : null}
+
+          {!sharedLibraryDisabledMessage && masterLibraryQuestions.length ? (
+            <div className="questionBankList">
+              {masterLibraryQuestions.map((question) => {
+                const isBusy = isPendingMasterAction && pendingMasterQuestionId === question.id;
+                const accessState = question.access_status || (question.has_access ? "entitled" : "not_requested");
+                const availabilityState = question.access_availability || "subscription_required";
+                const canRequestAccess =
+                  !canLinkSharedLibrary &&
+                  question.matching_packages.length > 0 &&
+                  availabilityState !== "quota_exhausted" &&
+                  accessState !== "requested" &&
+                  accessState !== "linked";
+                const canLink = canLinkSharedLibrary && question.has_access && accessState !== "linked";
+
+                return (
+                  <article className="questionBankCard" key={question.id}>
+                    <div className="questionBankCardHeader">
+                      <div className="questionBankCardCopy">
+                        <strong>{question.question_text.replaceAll("\n", " ").trim() || "Untitled shared question"}</strong>
+                        <div className="questionBankChipRow">
+                          <span className="questionBankMetaChip">{question.source_institute_name}</span>
+                          <span className="questionBankMetaChip">{question.source_subject_name}</span>
+                          {question.source_topic_name ? (
+                            <span className="questionBankMetaChip">{question.source_topic_name}</span>
+                          ) : null}
+                          <span className="questionBankMetaChip">{question.question_type.replaceAll("_", " ")}</span>
+                          <span className="questionBankMetaChip">{question.difficulty_level}</span>
+                          <span className={`statusPill ${masterLibraryAccessTone(question)}`}>
+                            {masterLibraryAccessLabel(question)}
+                          </span>
+                          <span className="statusPill statusDemo">{masterLibraryAccessStateLabel(question)}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="questionBankCardFooter">
-                    <div className="questionBankCardMetaNote">
-                      <span>{question.explanation.trim() || "No editorial explanation is visible yet."}</span>
-                      <span>{masterLibraryAvailabilityNote(question)}</span>
-                      <span>
-                        {question.matching_packages.length
-                          ? `Matching packages: ${question.matching_packages.map((entry) => entry.name).join(", ")}`
-                          : "No matching subscribed package was found for this local scope."}
-                      </span>
-                      {question.quota_note && question.access_availability !== "quota_exhausted" ? (
-                        <span>{question.quota_note}</span>
-                      ) : null}
-                    </div>
-
-                    <div className="questionBankCardActions">
-                      {canRequestAccess ? (
-                        <button
-                          className="button buttonSecondary"
-                          disabled={isBusy}
-                          onClick={() => runMasterLibraryAction(question, "request-access")}
-                          type="button"
-                        >
-                          {isBusy ? "Submitting..." : "Request Access"}
-                        </button>
-                      ) : null}
-                      {canLink ? (
-                        <button
-                          className="button buttonPrimary"
-                          disabled={isBusy}
-                          onClick={() => runMasterLibraryAction(question, "link")}
-                          type="button"
-                        >
-                          {isBusy ? "Linking..." : "Link to Local Bank"}
-                        </button>
-                      ) : null}
-                      {!canRequestAccess && !canLink ? (
-                        <span className="button buttonGhost questionBankButtonDisabled">
-                          {masterLibraryActionLabel(question)}
+                    <div className="questionBankCardFooter">
+                      <div className="questionBankCardMetaNote">
+                        <span>{question.explanation.trim() || "No editorial explanation is visible yet."}</span>
+                        <span>{masterLibraryAvailabilityNote(question)}</span>
+                        <span>
+                          {question.matching_packages.length
+                            ? `Matching packages: ${question.matching_packages.map((entry) => entry.name).join(", ")}`
+                            : "No matching subscribed package was found for this local scope."}
                         </span>
-                      ) : null}
+                        {question.quota_note && question.access_availability !== "quota_exhausted" ? (
+                          <span>{question.quota_note}</span>
+                        ) : null}
+                      </div>
+
+                      <div className="questionBankCardActions">
+                        {canRequestAccess ? (
+                          <button
+                            className="button buttonSecondary"
+                            disabled={isBusy}
+                            onClick={() => runMasterLibraryAction(question, "request-access")}
+                            type="button"
+                          >
+                            {isBusy ? "Submitting..." : "Request Access"}
+                          </button>
+                        ) : null}
+                        {canLink ? (
+                          <button
+                            className="button buttonPrimary"
+                            disabled={isBusy}
+                            onClick={() => runMasterLibraryAction(question, "link")}
+                            type="button"
+                          >
+                            {isBusy ? "Linking..." : "Link to Local Bank"}
+                          </button>
+                        ) : null}
+                        {!canRequestAccess && !canLink ? (
+                          <span className="button buttonGhost questionBankButtonDisabled">
+                            {masterLibraryActionLabel(question)}
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        ) : null}
-      </section>
+                  </article>
+                );
+              })}
+            </div>
+          ) : null}
+
+          {!sharedLibraryDisabledMessage && (masterLibraryHasPreviousPage || masterLibraryHasNextPage) ? (
+            <div className="questionBankCardActions">
+              {masterLibraryHasPreviousPage ? (
+                <a
+                  className="button buttonSecondary"
+                  href={buildMasterLibraryPageHref(
+                    Math.max(1, masterLibraryPage - 1),
+                    masterLibraryPageSize,
+                    filters,
+                    basePath,
+                  )}
+                >
+                  Previous Shared Page
+                </a>
+              ) : (
+                <span className="button buttonGhost questionBankButtonDisabled">Previous Shared Page</span>
+              )}
+              <span className="questionBankMetaChip">Shared page {masterLibraryPage}</span>
+              {masterLibraryHasNextPage ? (
+                <a
+                  className="button buttonSecondary"
+                  href={buildMasterLibraryPageHref(
+                    masterLibraryPage + 1,
+                    masterLibraryPageSize,
+                    filters,
+                    basePath,
+                  )}
+                >
+                  Next Shared Page
+                </a>
+              ) : (
+                <span className="button buttonGhost questionBankButtonDisabled">Next Shared Page</span>
+              )}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
       <section className="contentCard questionBankFilterSurface">
         <div className="sectionHeading">
-          <strong>Find questions faster</strong>
-          <span>{visibleQuestions.length} visible · {totalCount} returned by backend filters</span>
+          <strong>{isLinkedReviewMode ? "Find linked questions faster" : "Find questions faster"}</strong>
+          <span>
+            {visibleQuestions.length} visible on this page · {totalCount} in the current filtered scope
+          </span>
         </div>
+
+        {isLinkedReviewMode ? (
+          <div className="builderHintPanel">
+            <strong>Current linked view</strong>
+            <p>
+              This lane is for reviewing licensed questions that are already inside the institute bank.
+              Filters only change what you are seeing right now. They do not remove access or delete rows.
+            </p>
+            <small>
+              If the count suddenly becomes smaller, first check whether a subject, topic, search term, or
+              quality filter is active. Use Reset before assuming questions are missing.
+            </small>
+            <div className="builderSummaryGrid questionBankSummaryGridCompact" style={{ marginTop: 16 }}>
+              <article className="builderSummaryCard">
+                <span>Rows on this page</span>
+                <strong>{visibleQuestions.length}</strong>
+                <small>What you can review right now without changing page.</small>
+              </article>
+              <article className="builderSummaryCard">
+                <span>Rows in current linked scope</span>
+                <strong>{totalCount}</strong>
+                <small>All linked rows matching the current filters across every page.</small>
+              </article>
+              <article className="builderSummaryCard">
+                <span>View mode</span>
+                <strong>{hasRecoverableFilterState ? "Filtered view" : "Full linked view"}</strong>
+                <small>Filters narrow what you see. They do not remove access or delete rows.</small>
+              </article>
+              <article className="builderSummaryCard">
+                <span>Edit rule</span>
+                <strong>Duplicate before editing</strong>
+                <small>Read-only linked rows must be copied into an editable local version first.</small>
+              </article>
+            </div>
+            <div className="questionBankChipRow">
+              <span className="questionBankMetaChip">
+                Search: {hasScopedSearch ? "Active" : "All"}
+              </span>
+              <span className="questionBankMetaChip">
+                Program: {programs.find((program) => program.id === (filters.program ?? ""))?.name || "All programs"}
+              </span>
+              <span className="questionBankMetaChip">
+                Subject: {subjects.find((subject) => subject.id === (filters.subject ?? ""))?.name || "All subjects"}
+              </span>
+              <span className="questionBankMetaChip">
+                Topic: {topics.find((topic) => topic.id === (filters.topic ?? ""))?.name || "All topics"}
+              </span>
+              <span className="questionBankMetaChip">
+                Scope mode: {hasRecoverableFilterState ? "Filtered view" : "Full linked view"}
+              </span>
+            </div>
+            <div className="questionBankCardActions">
+              <Link className="button buttonGhost" href={basePath}>
+                Reset Linked Filters
+              </Link>
+            </div>
+          </div>
+        ) : null}
 
         <form className="questionBankFilterForm" method="GET">
           <label className="fieldStack questionBankSearchField">
@@ -1315,115 +1606,133 @@ export function TeacherQuestionBankWorkspace({
             </select>
           </label>
 
-          <label className="fieldStack">
-            <span>Teacher</span>
-            <select defaultValue={filters.teacher ?? ""} name="teacher">
-              <option value="">All teachers</option>
-              {teachers.map((teacher) => (
-                <option key={teacher.id} value={teacher.id}>
-                  {teacher.full_name} ({teacher.employee_code})
-                </option>
-              ))}
-            </select>
-          </label>
+          {showTeacherFilter ? (
+            <label className="fieldStack">
+              <span>Teacher</span>
+              <select defaultValue={filters.teacher ?? ""} name="teacher">
+                <option value="">All teachers</option>
+                {teachers.map((teacher) => (
+                  <option key={teacher.id} value={teacher.id}>
+                    {teacher.full_name} ({teacher.employee_code})
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
 
-          <label className="fieldStack">
-            <span>Tag</span>
-            <select defaultValue={filters.tag ?? ""} name="tag">
-              <option value="">All tags</option>
-              {tags.map((tag) => (
-                <option key={tag.id} value={tag.id}>
-                  {tag.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          {showTagFilter ? (
+            <label className="fieldStack">
+              <span>Tag</span>
+              <select defaultValue={filters.tag ?? ""} name="tag">
+                <option value="">All tags</option>
+                {tags.map((tag) => (
+                  <option key={tag.id} value={tag.id}>
+                    {tag.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
 
-          <label className="fieldStack">
-            <span>Question type</span>
-            <select defaultValue={filters.question_type ?? ""} name="question_type">
-              <option value="">All types</option>
-              {filteredQuestionTypeOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          {showQuestionTypeFilter ? (
+            <label className="fieldStack">
+              <span>Question type</span>
+              <select defaultValue={filters.question_type ?? ""} name="question_type">
+                <option value="">All types</option>
+                {filteredQuestionTypeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
 
-          <label className="fieldStack">
-            <span>Difficulty</span>
-            <select defaultValue={filters.difficulty_level ?? ""} name="difficulty_level">
-              <option value="">All difficulty levels</option>
-              {difficultyOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          {showDifficultyFilter ? (
+            <label className="fieldStack">
+              <span>Difficulty</span>
+              <select defaultValue={filters.difficulty_level ?? ""} name="difficulty_level">
+                <option value="">All difficulty levels</option>
+                {difficultyOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
 
-          <label className="fieldStack">
-            <span>Sort by</span>
-            <select defaultValue={filters.ordering ?? "-created_at"} name="ordering">
-              <option value="-created_at">Recently created</option>
-              <option value="difficulty_level">Difficulty</option>
-              <option value="-usage_count">Usage</option>
-              <option value="-wrong_count">Wrong count</option>
-              <option value="-skipped_count">Skip count</option>
-            </select>
-          </label>
+          {showSortFilter ? (
+            <label className="fieldStack">
+              <span>Sort by</span>
+              <select defaultValue={filters.ordering ?? "-created_at"} name="ordering">
+                <option value="-created_at">Recently created</option>
+                <option value="difficulty_level">Difficulty</option>
+                <option value="-usage_count">Usage</option>
+                <option value="-wrong_count">Wrong count</option>
+                <option value="-skipped_count">Skip count</option>
+              </select>
+            </label>
+          ) : null}
 
-          <label className="fieldStack">
-            <span>Quality signal</span>
-            <select name="quality_signal" value={qualitySignalFilter} onChange={(event) => setQualitySignalFilter(event.target.value)}>
-              <option value="">All signals</option>
-              <option value="revision_candidate">Revision candidate</option>
-              <option value="ambiguous">Ambiguous</option>
-              <option value="skip_risk">Skip risk</option>
-              <option value="hard">Hard</option>
-              <option value="watch">Watch</option>
-              <option value="emerging">Emerging</option>
-              <option value="healthy">Healthy</option>
-            </select>
-          </label>
+          {showQualitySignalFilter ? (
+            <label className="fieldStack">
+              <span>Quality signal</span>
+              <select name="quality_signal" value={qualitySignalFilter} onChange={(event) => setQualitySignalFilter(event.target.value)}>
+                <option value="">All signals</option>
+                <option value="revision_candidate">Revision candidate</option>
+                <option value="ambiguous">Ambiguous</option>
+                <option value="skip_risk">Skip risk</option>
+                <option value="hard">Hard</option>
+                <option value="watch">Watch</option>
+                <option value="emerging">Emerging</option>
+                <option value="healthy">Healthy</option>
+              </select>
+            </label>
+          ) : null}
 
-          <label className="fieldStack">
-            <span>Revision priority</span>
-            <select name="revision_priority" value={revisionPriorityFilter} onChange={(event) => setRevisionPriorityFilter(event.target.value)}>
-              <option value="">All priorities</option>
-              <option value="urgent">Urgent</option>
-              <option value="high">High</option>
-              <option value="medium">Medium</option>
-              <option value="watch">Watch</option>
-              <option value="none">None</option>
-            </select>
-          </label>
+          {showRevisionPriorityFilter ? (
+            <label className="fieldStack">
+              <span>Revision priority</span>
+              <select name="revision_priority" value={revisionPriorityFilter} onChange={(event) => setRevisionPriorityFilter(event.target.value)}>
+                <option value="">All priorities</option>
+                <option value="urgent">Urgent</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="watch">Watch</option>
+                <option value="none">None</option>
+              </select>
+            </label>
+          ) : null}
 
-          <label className="fieldStack questionBankStatusField">
-            <span>Status</span>
-            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-              <option value="">All statuses</option>
-              <option value="published">Published</option>
-              <option value="draft">Draft</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          </label>
+          {showLocalStatusFilter ? (
+            <label className="fieldStack questionBankStatusField">
+              <span>Status</span>
+              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+                <option value="">All statuses</option>
+                <option value="published">Published</option>
+                <option value="draft">Draft</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </label>
+          ) : null}
 
-          <label className="fieldStack questionBankStatusField">
-            <span>Shared library</span>
-            <select
-              value={sharedLibraryFilter}
-              onChange={(event) => setSharedLibraryFilter(event.target.value)}
-            >
-              <option value="">All source states</option>
-              <option value="linked">Linked licensed questions</option>
-              <option value="active">Licensed source active</option>
-              <option value="inactive">Licensed source paused</option>
-              <option value="local-only">Local-only questions</option>
-            </select>
-          </label>
+          {showSharedLibraryStateControls ? (
+            <label className="fieldStack questionBankStatusField">
+              <span>Shared library</span>
+              <select
+                value={sharedLibraryFilter}
+                onChange={(event) => setSharedLibraryFilter(event.target.value)}
+              >
+                <option value="">All source states</option>
+                <option value="linked">Linked licensed questions</option>
+                <option value="active">Licensed source active</option>
+                <option value="inactive">Licensed source paused</option>
+                <option value="local-only">Local-only questions</option>
+              </select>
+            </label>
+          ) : null}
 
           <div className="questionBankFilterActions">
             <label className="questionBankToggle">
@@ -1458,10 +1767,14 @@ export function TeacherQuestionBankWorkspace({
         <div className="builderHintPanel">
           <strong>Mixed-source guidance</strong>
           <p>
-            Local questions stay editable inside the institute. Linked licensed copies are visible locally but should be duplicated before editing. Licensed source paused means the old row may still be visible, but new linked reuse should be treated as blocked until the package lane is restored.
+            {lockedSharedLibraryFilter === "linked"
+              ? "This page is focused on linked licensed copies already brought into the local bank. Review them separately from normal local authoring, and duplicate a row before editing if you want an institute-owned variant."
+              : "Local questions stay editable inside the institute. Linked licensed copies are visible locally but should be duplicated before editing. Licensed source paused means the old row may still be visible, but new linked reuse should be treated as blocked until the package lane is restored."}
           </p>
           <small>
-            Use the source-state filters to separate local-only authoring from active licensed reuse and paused licensed follow-up.
+            {lockedSharedLibraryFilter === "linked"
+              ? "Use this dedicated view to review only licensed rows that are already linked into your institute bank."
+              : "Use the source-state filters to separate local-only authoring from active licensed reuse and paused licensed follow-up."}
           </small>
         </div>
 
@@ -1497,13 +1810,15 @@ export function TeacherQuestionBankWorkspace({
             >
               Missing Explanation
             </Link>
-            <button
-              className={`workspaceQuickChip${statusFilter === "draft" ? " workspaceQuickChipActive" : ""}`}
-              onClick={() => setStatusFilter("draft")}
-              type="button"
-            >
-              Draft
-            </button>
+            {!isLinkedReviewMode ? (
+              <button
+                className={`workspaceQuickChip${statusFilter === "draft" ? " workspaceQuickChipActive" : ""}`}
+                onClick={() => setStatusFilter("draft")}
+                type="button"
+              >
+                Draft
+              </button>
+            ) : null}
             <button
               className={`workspaceQuickChip${statusFilter === "published" ? " workspaceQuickChipActive" : ""}`}
               onClick={() => setStatusFilter("published")}
@@ -1511,90 +1826,98 @@ export function TeacherQuestionBankWorkspace({
             >
               Verified
             </button>
-            <button
-              className={`workspaceQuickChip${sharedLibraryFilter === "inactive" ? " workspaceQuickChipActive" : ""}`}
-              onClick={() => setSharedLibraryFilter("inactive")}
-              type="button"
-            >
-              Licensed Paused
-            </button>
-            <button
-              className={`workspaceQuickChip${sharedLibraryFilter === "active" ? " workspaceQuickChipActive" : ""}`}
-              onClick={() => setSharedLibraryFilter("active")}
-              type="button"
-            >
-              Licensed Active
-            </button>
-            <button
-              className={`workspaceQuickChip${sharedLibraryFilter === "linked" ? " workspaceQuickChipActive" : ""}`}
-              onClick={() => setSharedLibraryFilter("linked")}
-              type="button"
-            >
-              Linked Licensed
-            </button>
-            <button
-              className={`workspaceQuickChip${sharedLibraryFilter === "local-only" ? " workspaceQuickChipActive" : ""}`}
-              onClick={() => setSharedLibraryFilter("local-only")}
-              type="button"
-            >
-              Local Only
-            </button>
-            <Link
-              className={`workspaceQuickChip${
-                filters.question_type === "mcq_single" ? " workspaceQuickChipActive" : ""
-              }`}
-              href={quickFilterHref({ question_type: "mcq_single" })}
-            >
-              MCQ
-            </Link>
-            <Link
-              className={`workspaceQuickChip${
-                filters.question_type === "short_answer" ? " workspaceQuickChipActive" : ""
-              }`}
-              href={quickFilterHref({ question_type: "short_answer" })}
-            >
-              Short Answer
-            </Link>
-            <Link
-              className={`workspaceQuickChip${
-                filters.difficulty_level === "hard" ? " workspaceQuickChipActive" : ""
-              }`}
-              href={quickFilterHref({ difficulty_level: "hard" })}
-            >
-              Hard
-            </Link>
-            <Link
-              className={`workspaceQuickChip${
-                filters.revision_priority === "high" ? " workspaceQuickChipActive" : ""
-              }`}
-              href={quickFilterHref({ revision_priority: "high" })}
-            >
-              Revision Queue
-            </Link>
-            <Link
-              className={`workspaceQuickChip${
-                filters.quality_signal === "skip_risk" ? " workspaceQuickChipActive" : ""
-              }`}
-              href={quickFilterHref({ quality_signal: "skip_risk" })}
-            >
-              Skip Risk
-            </Link>
-            <Link
-              className={`workspaceQuickChip${
-                filters.quality_signal === "ambiguous" ? " workspaceQuickChipActive" : ""
-              }`}
-              href={quickFilterHref({ quality_signal: "ambiguous" })}
-            >
-              Ambiguous
-            </Link>
-            <Link
-              className={`workspaceQuickChip${
-                filters.ordering === "-usage_count" ? " workspaceQuickChipActive" : ""
-              }`}
-              href={quickFilterHref({ ordering: "-usage_count" })}
-            >
-              Most Used
-            </Link>
+            {showSharedLibraryQuickFilters ? (
+              <>
+                <button
+                  className={`workspaceQuickChip${sharedLibraryFilter === "inactive" ? " workspaceQuickChipActive" : ""}`}
+                  onClick={() => setSharedLibraryFilter("inactive")}
+                  type="button"
+                >
+                  Licensed Paused
+                </button>
+                <button
+                  className={`workspaceQuickChip${sharedLibraryFilter === "active" ? " workspaceQuickChipActive" : ""}`}
+                  onClick={() => setSharedLibraryFilter("active")}
+                  type="button"
+                >
+                  Licensed Active
+                </button>
+                <button
+                  className={`workspaceQuickChip${sharedLibraryFilter === "linked" ? " workspaceQuickChipActive" : ""}`}
+                  onClick={() => setSharedLibraryFilter("linked")}
+                  type="button"
+                >
+                  Linked Licensed
+                </button>
+                <button
+                  className={`workspaceQuickChip${sharedLibraryFilter === "local-only" ? " workspaceQuickChipActive" : ""}`}
+                  onClick={() => setSharedLibraryFilter("local-only")}
+                  type="button"
+                >
+                  Local Only
+                </button>
+              </>
+            ) : null}
+            {showExtendedQuickFilters ? (
+              <>
+                <Link
+                  className={`workspaceQuickChip${
+                    filters.question_type === "mcq_single" ? " workspaceQuickChipActive" : ""
+                  }`}
+                  href={quickFilterHref({ question_type: "mcq_single" })}
+                >
+                  MCQ
+                </Link>
+                <Link
+                  className={`workspaceQuickChip${
+                    filters.question_type === "short_answer" ? " workspaceQuickChipActive" : ""
+                  }`}
+                  href={quickFilterHref({ question_type: "short_answer" })}
+                >
+                  Short Answer
+                </Link>
+                <Link
+                  className={`workspaceQuickChip${
+                    filters.difficulty_level === "hard" ? " workspaceQuickChipActive" : ""
+                  }`}
+                  href={quickFilterHref({ difficulty_level: "hard" })}
+                >
+                  Hard
+                </Link>
+                <Link
+                  className={`workspaceQuickChip${
+                    filters.revision_priority === "high" ? " workspaceQuickChipActive" : ""
+                  }`}
+                  href={quickFilterHref({ revision_priority: "high" })}
+                >
+                  Revision Queue
+                </Link>
+                <Link
+                  className={`workspaceQuickChip${
+                    filters.quality_signal === "skip_risk" ? " workspaceQuickChipActive" : ""
+                  }`}
+                  href={quickFilterHref({ quality_signal: "skip_risk" })}
+                >
+                  Skip Risk
+                </Link>
+                <Link
+                  className={`workspaceQuickChip${
+                    filters.quality_signal === "ambiguous" ? " workspaceQuickChipActive" : ""
+                  }`}
+                  href={quickFilterHref({ quality_signal: "ambiguous" })}
+                >
+                  Ambiguous
+                </Link>
+                <Link
+                  className={`workspaceQuickChip${
+                    filters.ordering === "-usage_count" ? " workspaceQuickChipActive" : ""
+                  }`}
+                  href={quickFilterHref({ ordering: "-usage_count" })}
+                >
+                  Most Used
+                </Link>
+              </>
+            ) : null}
           </div>
         </div>
 
@@ -1602,54 +1925,74 @@ export function TeacherQuestionBankWorkspace({
           <span className="statusPill statusDefault">
             Search: {filters.search ? "active" : "all"}
           </span>
+          {showTeacherFilter ? (
+            <span className="statusPill statusDefault">
+              Teacher: {teachers.find((teacher) => teacher.id === (filters.teacher ?? ""))?.full_name || "all"}
+            </span>
+          ) : null}
+          {showQuestionTypeFilter ? (
+            <span className="statusPill statusDefault">
+              Type: {filters.question_type || "all"}
+            </span>
+          ) : null}
+          {showQualitySignalFilter ? (
+            <span className="statusPill statusDefault">
+              Quality: {filters.quality_signal || "all"}
+            </span>
+          ) : null}
+          {showRevisionPriorityFilter ? (
+            <span className="statusPill statusDefault">
+              Revision: {filters.revision_priority || "all"}
+            </span>
+          ) : null}
+          {showDifficultyFilter ? (
+            <span className="statusPill statusDefault">
+              Difficulty: {filters.difficulty_level || "all"}
+            </span>
+          ) : null}
+          {showLocalStatusFilter ? (
+            <span className="statusPill statusDefault">
+              Local status: {statusFilter || "all"}
+            </span>
+          ) : null}
           <span className="statusPill statusDefault">
-            Teacher: {teachers.find((teacher) => teacher.id === (filters.teacher ?? ""))?.full_name || "all"}
-          </span>
-          <span className="statusPill statusDefault">
-            Type: {filters.question_type || "all"}
-          </span>
-          <span className="statusPill statusDefault">
-            Quality: {filters.quality_signal || "all"}
-          </span>
-          <span className="statusPill statusDefault">
-            Revision: {filters.revision_priority || "all"}
-          </span>
-          <span className="statusPill statusDefault">
-            Difficulty: {filters.difficulty_level || "all"}
-          </span>
-          <span className="statusPill statusDefault">
-            Local status: {statusFilter || "all"}
-          </span>
-          <span className="statusPill statusDefault">
-            Source state: {sharedLibraryFilterLabel(sharedLibraryFilter)}
+            Source state: {sharedLibraryFilterLabel(effectiveSharedLibraryFilter)}
           </span>
         </div>
 
-        <div className="questionBankInlineControls">
-          <div className="questionBankInlineToggles">
-            <label className="questionBankToggle">
-              <input
-                checked={showFavoritesOnly}
-                onChange={(event) => setShowFavoritesOnly(event.target.checked)}
-                type="checkbox"
-              />
-              Favorites only
-            </label>
-            <label className="questionBankToggle">
-              <input
-                checked={isCompact}
-                onChange={(event) => setIsCompact(event.target.checked)}
-                type="checkbox"
-              />
-              Compact view
-            </label>
+        {!hideInlinePreferenceControls ? (
+          <div className="questionBankInlineControls">
+            <div className="questionBankInlineToggles">
+              <label className="questionBankToggle">
+                <input
+                  checked={showFavoritesOnly}
+                  onChange={(event) => setShowFavoritesOnly(event.target.checked)}
+                  type="checkbox"
+                />
+                Favorites only
+              </label>
+              <label className="questionBankToggle">
+                <input
+                  checked={isCompact}
+                  onChange={(event) => setIsCompact(event.target.checked)}
+                  type="checkbox"
+                />
+                Compact view
+              </label>
+            </div>
+            <span className="questionBankInlineHint">
+              Local view controls do not change backend filters or pagination.
+            </span>
           </div>
-          <span className="questionBankInlineHint">
-            Local view controls do not change backend filters or pagination.
-          </span>
-        </div>
+        ) : (
+          <div className="questionBankInlineControls">
+            <span className="questionBankInlineHint">
+              This linked-lane view is intentionally simplified so licensed copies are easier to review quickly.
+            </span>
+          </div>
+        )}
 
-        {hasLoadedPreferences && recentTopics.length ? (
+        {hasLoadedPreferences && recentTopics.length && !hideRecentTopics ? (
           <div className="questionBankRecentTopics">
             <span>Recent topics</span>
             <div className="questionBankTagRow">
@@ -1676,7 +2019,7 @@ export function TeacherQuestionBankWorkspace({
 
       <section className="contentCard">
         <div className="sectionHeading">
-          <strong>Question inventory</strong>
+          <strong>{inventoryTitle}</strong>
           <span>
             {visibleQuestions.length} visible
             {visibleQuestions.length !== totalCount ? ` of ${totalCount}` : ""}
@@ -1684,122 +2027,173 @@ export function TeacherQuestionBankWorkspace({
           </span>
         </div>
 
-        <form action={bulkAction} className="questionBankBulkBar">
-          {selectedIdsOnPage.map((id) => (
-            <input key={id} name="question_ids" type="hidden" value={id} />
-          ))}
+        {showBulkActions ? (
+          <form action={bulkAction} className="questionBankBulkBar">
+            <input name="return_path" type="hidden" value={bulkActionReturnPath || basePath} />
+            {selectedIdsOnPage.map((id) => (
+              <input key={id} name="question_ids" type="hidden" value={id} />
+            ))}
 
-          <div className="questionBankBulkMeta">
-            <div className="questionBankBulkMetaCopy">
-              <strong>Bulk actions</strong>
-              <span>
-                {selectedIdsOnPage.length === 0
-                  ? "Select one or more visible questions to unlock bulk updates."
-                  : `${selectedIdsOnPage.length} selected from the current visible list.`}
-              </span>
+            <div className="questionBankBulkMeta">
+              <div className="questionBankBulkMetaCopy">
+                <strong>Bulk actions</strong>
+                <span>
+                  {selectedIdsOnPage.length === 0
+                    ? "Select one or more visible questions to unlock bulk updates."
+                    : `${selectedIdsOnPage.length} selected from the current visible list.`}
+                </span>
+              </div>
+              <label className="questionBankSelectAll">
+                <input
+                  checked={allVisibleSelected}
+                  onChange={toggleVisibleSelection}
+                  type="checkbox"
+                />
+                Select visible questions
+              </label>
             </div>
-            <label className="questionBankSelectAll">
-              <input
-                checked={allVisibleSelected}
-                onChange={toggleVisibleSelection}
-                type="checkbox"
-              />
-              Select visible questions
-            </label>
+
+            <div className="questionBankBulkWorkspace">
+              <div className="questionBankBulkFields">
+                <label className="fieldStack">
+                  <span>Difficulty target</span>
+                  <select defaultValue="" name="difficulty_level">
+                    <option value="">Choose difficulty</option>
+                    {difficultyOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="fieldStack">
+                  <span>Topic target</span>
+                  <select defaultValue="" name="topic">
+                    <option value="">Choose topic</option>
+                    {topicOptions.map((topic) => (
+                      <option key={topic.id} value={topic.id}>
+                        {formatTopicOptionLabel(topic)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="fieldStack">
+                  <span>Tag target</span>
+                  <select defaultValue="" name="tag_id">
+                    <option value="">Choose tag</option>
+                    {tags.map((tag) => (
+                      <option key={tag.id} value={tag.id}>
+                        {tag.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <div className="questionBankBulkControlGroups">
+                <div className="questionBankBulkControls">
+                  <span className="questionBankBulkGroupLabel">Availability</span>
+                  <div className="questionBankButtonRow">
+                    <button className="button buttonSecondary" disabled={!selectedIdsOnPage.length} name="action" type="submit" value="activate">
+                      Activate
+                    </button>
+                    <button className="button buttonGhost" disabled={!selectedIdsOnPage.length} name="action" type="submit" value="deactivate">
+                      Deactivate
+                    </button>
+                  </div>
+                </div>
+
+                <div className="questionBankBulkControls">
+                  <span className="questionBankBulkGroupLabel">Classification</span>
+                  <div className="questionBankButtonRow">
+                    <button className="button buttonGhost" disabled={!selectedIdsOnPage.length} name="action" type="submit" value="set_difficulty">
+                      Set Difficulty
+                    </button>
+                    <button className="button buttonGhost" disabled={!selectedIdsOnPage.length} name="action" type="submit" value="set_topic">
+                      Change Topic
+                    </button>
+                  </div>
+                </div>
+
+                <div className="questionBankBulkControls">
+                  <span className="questionBankBulkGroupLabel">Tagging</span>
+                  <div className="questionBankButtonRow">
+                    <button className="button buttonGhost" disabled={!selectedIdsOnPage.length} name="action" type="submit" value="attach_tag">
+                      Attach Tag
+                    </button>
+                    <button className="button buttonGhost" disabled={!selectedIdsOnPage.length} name="action" type="submit" value="remove_tag">
+                      Remove Tag
+                    </button>
+                  </div>
+                </div>
+
+                {!hideBulkDangerActions ? (
+                  <div className="questionBankBulkControls questionBankBulkControlsDanger">
+                    <span className="questionBankBulkGroupLabel">Danger zone</span>
+                    <div className="questionBankButtonRow">
+                      <button className="button buttonPrimary" disabled={!selectedIdsOnPage.length} name="action" type="submit" value="delete">
+                        Delete Selected
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </form>
+        ) : (
+          <div className="questionBankInlineControls">
+            <span className="questionBankInlineHint">
+              Bulk mutation tools are hidden in linked review mode. Open a question preview to inspect it, or create an editable copy when you need local customization.
+            </span>
           </div>
-
-          <div className="questionBankBulkWorkspace">
-            <div className="questionBankBulkFields">
-              <label className="fieldStack">
-                <span>Difficulty target</span>
-                <select defaultValue="" name="difficulty_level">
-                  <option value="">Choose difficulty</option>
-                  {difficultyOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="fieldStack">
-                <span>Topic target</span>
-                <select defaultValue="" name="topic">
-                  <option value="">Choose topic</option>
-                  {topicOptions.map((topic) => (
-                    <option key={topic.id} value={topic.id}>
-                      {formatTopicOptionLabel(topic)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="fieldStack">
-                <span>Tag target</span>
-                <select defaultValue="" name="tag_id">
-                  <option value="">Choose tag</option>
-                  {tags.map((tag) => (
-                    <option key={tag.id} value={tag.id}>
-                      {tag.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            <div className="questionBankBulkControlGroups">
-              <div className="questionBankBulkControls">
-                <span className="questionBankBulkGroupLabel">Availability</span>
-                <div className="questionBankButtonRow">
-                  <button className="button buttonSecondary" disabled={!selectedIdsOnPage.length} name="action" type="submit" value="activate">
-                    Activate
-                  </button>
-                  <button className="button buttonGhost" disabled={!selectedIdsOnPage.length} name="action" type="submit" value="deactivate">
-                    Deactivate
-                  </button>
-                </div>
-              </div>
-
-              <div className="questionBankBulkControls">
-                <span className="questionBankBulkGroupLabel">Classification</span>
-                <div className="questionBankButtonRow">
-                  <button className="button buttonGhost" disabled={!selectedIdsOnPage.length} name="action" type="submit" value="set_difficulty">
-                    Set Difficulty
-                  </button>
-                  <button className="button buttonGhost" disabled={!selectedIdsOnPage.length} name="action" type="submit" value="set_topic">
-                    Change Topic
-                  </button>
-                </div>
-              </div>
-
-              <div className="questionBankBulkControls">
-                <span className="questionBankBulkGroupLabel">Tagging</span>
-                <div className="questionBankButtonRow">
-                  <button className="button buttonGhost" disabled={!selectedIdsOnPage.length} name="action" type="submit" value="attach_tag">
-                    Attach Tag
-                  </button>
-                  <button className="button buttonGhost" disabled={!selectedIdsOnPage.length} name="action" type="submit" value="remove_tag">
-                    Remove Tag
-                  </button>
-                </div>
-              </div>
-
-              <div className="questionBankBulkControls questionBankBulkControlsDanger">
-                <span className="questionBankBulkGroupLabel">Danger zone</span>
-                <div className="questionBankButtonRow">
-                  <button className="button buttonPrimary" disabled={!selectedIdsOnPage.length} name="action" type="submit" value="delete">
-                    Delete Selected
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </form>
+        )}
 
         {!visibleQuestions.length ? (
           <div className="builderEmptyState">
-            <strong>No questions match these filters</strong>
-            <p>Broaden the search, adjust the filters, or switch off local favorites and status filters.</p>
+            <strong>{emptyStateTitle}</strong>
+            <p>
+              {hasRecoverableFilterState
+                ? `${emptyStateDescription} This is a filtered view, not a data-loss state.`
+                : emptyStateDescription}
+            </p>
+            {hasRecoverableFilterState ? (
+              <>
+                <div className="builderHintPanel" style={{ marginTop: 12 }}>
+                  <strong>Active controls are shaping this empty state</strong>
+                  <p>
+                    The current search or academic filters narrowed the visible question list to zero.
+                    Reset the filters first before assuming content is missing from the bank.
+                  </p>
+                </div>
+                <div className="workspaceFilterChips">
+                  {activeWorkspaceControlSummary.map((item) => (
+                    <span className="statusPill statusDefault" key={item}>
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              </>
+            ) : null}
+            {emptyStateActionHref && emptyStateActionLabel ? (
+              <div className="questionBankCardActions">
+                {hasRecoverableFilterState ? (
+                  <Link className="button buttonGhost" href={basePath}>
+                    {isLinkedReviewMode ? "Reset Linked Filters" : "Reset Filters And Show All Questions"}
+                  </Link>
+                ) : null}
+                <Link className="button buttonSecondary" href={emptyStateActionHref}>
+                  {emptyStateActionLabel}
+                </Link>
+              </div>
+            ) : hasRecoverableFilterState ? (
+              <div className="questionBankCardActions">
+                <Link className="button buttonGhost" href={basePath}>
+                  {isLinkedReviewMode ? "Reset Linked Filters" : "Reset Filters And Show All Questions"}
+                </Link>
+              </div>
+            ) : null}
           </div>
         ) : (
           <div className="questionBankList">
@@ -1813,6 +2207,21 @@ export function TeacherQuestionBankWorkspace({
               const previewText = question.question_text.replaceAll("\n", " ").trim();
               const favorite = favoriteIds.includes(question.id);
               const passageTitle = getPassageTitle(question);
+              const compactScopeLabel = [programName, subjectName, topicName].filter(Boolean).join(" · ");
+              const compactQualityLabel = question.has_explanation
+                ? isQualityReady(question)
+                  ? "Ready to use"
+                  : "Needs review"
+                : "Explanation missing";
+              const compactMetaSummary = [
+                passageTitle ? `Comprehension: ${passageTitle}` : "Standalone question",
+                question.attachment_count > 0
+                  ? `${question.attachment_count} attachment${question.attachment_count === 1 ? "" : "s"}`
+                  : "No attachments",
+                question.tag_count > 0
+                  ? `${question.tag_count} tag${question.tag_count === 1 ? "" : "s"}`
+                  : "No tags",
+              ].join(" · ");
 
               return (
                 <article
@@ -1820,28 +2229,22 @@ export function TeacherQuestionBankWorkspace({
                   key={question.id}
                 >
                   <div className="questionBankCardHeader">
-                    <label className="questionBankCheckbox">
-                      <input
-                        checked={selectedIdsOnPage.includes(question.id)}
-                        onChange={() => toggleSelection(question.id)}
-                        type="checkbox"
-                      />
-                    </label>
+                    {!isLinkedReviewMode ? (
+                      <label className="questionBankCheckbox">
+                        <input
+                          checked={selectedIdsOnPage.includes(question.id)}
+                          onChange={() => toggleSelection(question.id)}
+                          type="checkbox"
+                        />
+                      </label>
+                    ) : null}
 
                     <div className="questionBankCardCopy">
                       <strong>{previewText || "Untitled question"}</strong>
-                      <div className="questionBankChipRow">
-                        {programName ? <span className="questionBankMetaChip">{programName}</span> : null}
-                        {subjectName ? <span className="questionBankMetaChip">{subjectName}</span> : null}
-                        {topicName ? <span className="questionBankMetaChip">{topicName}</span> : null}
-                        {passageTitle ? (
-                          <span className="questionBankMetaChip">Comprehension: {passageTitle}</span>
-                        ) : null}
+                      <div className="questionBankChipRow questionBankChipRowCompact">
+                        {compactScopeLabel ? <span className="questionBankMetaChip">{compactScopeLabel}</span> : null}
                         <span className={`statusPill ${questionSourceStateTone(question)}`}>
                           {questionSourceStateLabel(question)}
-                        </span>
-                        <span className={`statusPill ${questionOwnershipTone(question)}`}>
-                          {questionOwnershipLabel(question)}
                         </span>
                         {question.is_shared_library_link ? (
                           <span className={`statusPill ${sharedLibraryAccessTone(question)}`}>
@@ -1857,24 +2260,12 @@ export function TeacherQuestionBankWorkspace({
                         <span className="questionBankMetaChip">
                           {difficultyLabelMap[question.difficulty_level] ?? question.difficulty_level}
                         </span>
-                        <span className={`questionBankQualityPill ${question.has_explanation ? "questionBankQualityPillGood" : "questionBankQualityPillWarn"}`}>
-                          {question.has_explanation ? "Has explanation" : "Missing explanation"}
-                        </span>
                         <span className={`questionBankQualityPill ${isQualityReady(question) ? "questionBankQualityPillGood" : "questionBankQualityPillWarn"}`}>
-                          {isQualityReady(question) ? "Quality ready" : "Needs cleanup"}
-                        </span>
-                        <span className={`statusPill ${questionQualityTone(question.quality_signal)}`}>
-                          {question.quality_signal.replaceAll("_", " ")}
+                          {compactQualityLabel}
                         </span>
                         <span className={`statusPill ${questionQualityTone(question.quality_signal)}`}>
                           {question.revision_priority} priority
                         </span>
-                        {question.attachment_count > 0 ? (
-                          <span className="questionBankQualityPill questionBankQualityPillGood">
-                            {question.attachment_count} attachment
-                            {question.attachment_count === 1 ? "" : "s"}
-                          </span>
-                        ) : null}
                         <span className="statusPill statusDemo">
                           {getStatus(question)}
                         </span>
@@ -1914,40 +2305,22 @@ export function TeacherQuestionBankWorkspace({
                   </div>
 
                   <div className="questionBankCardFooter">
-                    <div className="questionBankCardMetaNote">
-                      <span>
-                        {passageTitle
-                          ? `Linked to comprehension set "${passageTitle}"`
-                          : "Standalone question"}
-                      </span>
-                      <span>
-                        {question.attachment_count > 0
-                          ? `${question.attachment_count} attachment${question.attachment_count === 1 ? "" : "s"} linked`
-                          : "No attachments linked"}
-                      </span>
-                      <span>
-                        {question.has_explanation
-                          ? "Explanation present"
-                          : "Explanation still missing"}
-                      </span>
-                      <span>
-                        Source state: {questionSourceStateLabel(question)} · {questionEditStateLabel(question)}
-                      </span>
+                    <div className="questionBankCardMetaNote questionBankCardMetaNoteCompact">
+                      {isReadOnlyLibraryQuestion(question) ? (
+                        <span>
+                          This is a read-only linked row. Use <strong>Create Editable Copy</strong> before changing wording, explanation, or options.
+                        </span>
+                      ) : null}
+                      <span>{compactMetaSummary}</span>
+                      <span>Source state: {questionSourceStateLabel(question)} · {questionEditStateLabel(question)}</span>
                       <span>{questionOwnershipNote(question)}</span>
-                      <span>
-                        {question.quality_note}
-                      </span>
-                      <span>
-                        {question.tag_count > 0
-                          ? `${question.tag_count} tag${question.tag_count === 1 ? "" : "s"} attached`
-                          : "No tags attached"}
-                      </span>
+                      <span>{question.quality_note}</span>
                     </div>
 
                     <div className="questionBankCardActions">
                       {isReadOnlyLibraryQuestion(question) ? (
                         <span className="questionBankMetaChip">
-                          Linked licensed copy · duplicate before editing
+                          Read-only linked row · duplicate before editing
                         </span>
                       ) : null}
                       <button
@@ -1961,11 +2334,19 @@ export function TeacherQuestionBankWorkspace({
                         Preview
                       </button>
                       <Link className="button buttonSecondary" href={getQuestionEditorHref(question, basePath)}>
-                        {isReadOnlyLibraryQuestion(question) ? "Duplicate to Edit" : "Edit"}
+                        {isReadOnlyLibraryQuestion(question)
+                          ? isLinkedReviewMode
+                            ? "Create Editable Copy"
+                            : "Duplicate to Edit"
+                          : isLinkedReviewMode
+                            ? "Open Local Copy"
+                            : "Edit"}
                       </Link>
-                      <Link className="button buttonGhost" href={`${basePath}/new?duplicate=${question.id}`}>
-                        Duplicate
-                      </Link>
+                      {!isLinkedReviewMode ? (
+                        <Link className="button buttonGhost" href={`${basePath}/new?duplicate=${question.id}`}>
+                          Duplicate
+                        </Link>
+                      ) : null}
                     </div>
                   </div>
 
@@ -1978,7 +2359,7 @@ export function TeacherQuestionBankWorkspace({
                           }
                         }}
                       >
-                        Preview details
+                        Open full review
                       </summary>
                       <div className="questionBankDetailsBody">
                         {isLoadingQuestionDetail(question.id) ? (
@@ -2008,7 +2389,7 @@ export function TeacherQuestionBankWorkspace({
                         ) : detailErrors[question.id] ? (
                           <p className="emptyText">{detailErrors[question.id]}</p>
                         ) : (
-                          <p className="emptyText">Open this panel to load full options, tags, and attachment details.</p>
+                          <p className="emptyText">Open this panel to load the full explanation, response details, and attachments.</p>
                         )}
                       </div>
                     </details>
@@ -2071,7 +2452,7 @@ export function TeacherQuestionBankWorkspace({
                 </div>
 
                 <div className="questionPreviewBody">
-                  <div className="questionBankChipRow">
+                  <div className="questionBankChipRow questionBankChipRowCompact">
                     {getPassageTitle(previewQuestion) ? (
                       <span className="questionBankMetaChip">
                         Comprehension: {getPassageTitle(previewQuestion)}
@@ -2079,9 +2460,6 @@ export function TeacherQuestionBankWorkspace({
                     ) : null}
                     <span className={`statusPill ${questionSourceStateTone(previewQuestion)}`}>
                       {questionSourceStateLabel(previewQuestion)}
-                    </span>
-                    <span className={`statusPill ${questionOwnershipTone(previewQuestion)}`}>
-                      {questionOwnershipLabel(previewQuestion)}
                     </span>
                     {previewQuestion.is_shared_library_link ? (
                       <span className={`statusPill ${sharedLibraryAccessTone(previewQuestion)}`}>
@@ -2106,6 +2484,18 @@ export function TeacherQuestionBankWorkspace({
                     <span className="statusPill statusDemo">{getStatus(previewQuestion)}</span>
                   </div>
 
+                  <div className="questionPreviewLead">
+                    <span>{questionOwnershipNote(previewQuestion)}</span>
+                    <span>
+                      {getPassageTitle(previewQuestion)
+                        ? `Use with comprehension set "${getPassageTitle(previewQuestion)}".`
+                        : "This is a standalone question."}
+                    </span>
+                    <span>
+                      Source state: {questionSourceStateLabel(previewQuestion)} · Edit posture: {questionEditStateLabel(previewQuestion)}
+                    </span>
+                  </div>
+
                   {"tag_maps" in previewQuestion && previewQuestion.tag_maps.length ? (
                     <div className="questionBankTagRow">
                       {previewQuestion.tag_maps.map((tagMap) => (
@@ -2121,14 +2511,6 @@ export function TeacherQuestionBankWorkspace({
                       </span>
                     </div>
                   ) : null}
-
-                  <section className="questionPreviewSection">
-                    <strong>Ownership and access</strong>
-                    <p>{questionOwnershipNote(previewQuestion)}</p>
-                    <p>
-                      Source state: {questionSourceStateLabel(previewQuestion)} · Edit posture: {questionEditStateLabel(previewQuestion)}
-                    </p>
-                  </section>
 
                   <section className="questionPreviewSection">
                     <strong>Question text</strong>
@@ -2169,7 +2551,7 @@ export function TeacherQuestionBankWorkspace({
                           <article className="questionPreviewAttachmentCard" key={attachment.id}>
                             <div className="questionPreviewAttachmentCopy">
                               <strong>{attachment.title || "Attachment"}</strong>
-                              <div className="questionBankChipRow">
+                              <div className="questionBankChipRow questionBankChipRowCompact">
                                 <span className="questionBankMetaChip">
                                   {attachmentTypeLabelMap[attachment.attachment_type] ?? attachment.attachment_type}
                                 </span>

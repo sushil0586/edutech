@@ -281,38 +281,30 @@ export function EconomyInstituteSubscriptionRequestCard({
         </section>
 
         <div className="economySupportRequestStack">
-          {requests.length ? (
-            <>
-              {queueView === "pending" || queueView === "all"
-                ? renderRequestGroup(
-                    "Pending requests",
-                    "Requests waiting for platform approval or rejection.",
-                    visiblePendingRequests,
-                    "No pending requests are visible right now.",
-                  )
-                : null}
-              {queueView === "fulfilled" || queueView === "all"
-                ? renderRequestGroup(
-                    "Fulfilled requests",
-                    "Requests that already converted into package-backed access.",
-                    visibleFulfilledRequests,
-                    "No fulfilled requests are visible right now.",
-                  )
-                : null}
-              {queueView === "rejected" || queueView === "all"
-                ? renderRequestGroup(
-                    "Rejected requests",
-                    "Requests that were closed without activation.",
-                    visibleRejectedRequests,
-                    "No rejected requests are visible right now.",
-                  )
-                : null}
-            </>
-          ) : (
-            <div className="featurePlaceholder">
-              <p>No institute subscription requests are visible yet.</p>
-            </div>
-          )}
+          {queueView === "pending" || queueView === "all"
+            ? renderRequestGroup(
+                "Pending requests",
+                "Requests waiting for platform approval or rejection.",
+                visiblePendingRequests,
+                "No pending requests are visible right now.",
+              )
+            : null}
+          {queueView === "fulfilled" || queueView === "all"
+            ? renderRequestGroup(
+                "Fulfilled requests",
+                "Requests that already converted into package-backed access.",
+                visibleFulfilledRequests,
+                "No fulfilled requests are visible right now.",
+              )
+            : null}
+          {queueView === "rejected" || queueView === "all"
+            ? renderRequestGroup(
+                "Rejected requests",
+                "Requests that were closed without activation.",
+                visibleRejectedRequests,
+                "No rejected requests are visible right now.",
+              )
+            : null}
         </div>
       </div>
     </article>

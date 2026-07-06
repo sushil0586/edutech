@@ -304,6 +304,14 @@ Local machine:
 k6 run performance/k6/student-login-and-exam-discovery.js
 ```
 
+For the student analytics route family:
+
+```bash
+export K6_BASE_URL=https://stage.nexoralearn.com
+export K6_USER_CREDENTIALS_JSON='[{"username":"demo-student","password":"Demo@12345"}]'
+k6 run performance/k6/student-analytics-routes.js
+```
+
 ### Tab 2. Host load
 
 Server:

@@ -571,8 +571,7 @@ class StudentAnswerReviewTaskViewSet(ReadOnlyModelViewSet):
             return StudentAnswerReviewTaskDetailSerializer
         return StudentAnswerReviewTaskSerializer
 
-    def get_queryset(self):
-        self._ensure_review_permissions()
+    def _base_queryset(self, *, include_events=True):
         queryset = StudentAnswerReviewTask.objects.select_related(
             "answer",
             "attempt",
@@ -581,7 +580,22 @@ class StudentAnswerReviewTaskViewSet(ReadOnlyModelViewSet):
             "question",
             "assigned_to_teacher",
             "last_reviewed_by_teacher",
-        ).prefetch_related("events__actor_user", "events__actor_teacher")
+        )
+        if include_events:
+            queryset = queryset.prefetch_related("events__actor_user", "events__actor_teacher")
+        return queryset
+
+    def _summary_queryset(self):
+        return StudentAnswerReviewTask.objects.select_related(
+            "exam",
+            "student",
+            "question",
+            "assigned_to_teacher",
+        )
+
+    def get_queryset(self):
+        self._ensure_review_permissions()
+        queryset = self._base_queryset(include_events=True)
         scoped_attempts = scope_attempt_workspace_queryset(StudentExamAttempt.objects.all(), self.request.user)
         queryset = queryset.filter(attempt__in=scoped_attempts)
         assignment_scope = self.request.query_params.get("assignment_scope", "").strip().lower()
@@ -605,7 +619,16 @@ class StudentAnswerReviewTaskViewSet(ReadOnlyModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="summary")
     def summary(self, request):
-        queryset = self.filter_queryset(self.get_queryset())
+        self._ensure_review_permissions()
+        queryset = self._summary_queryset()
+        scoped_attempts = scope_attempt_workspace_queryset(StudentExamAttempt.objects.all(), request.user)
+        queryset = queryset.filter(attempt__in=scoped_attempts)
+        assignment_scope = request.query_params.get("assignment_scope", "").strip().lower()
+        if assignment_scope == "unassigned":
+            queryset = queryset.filter(assigned_to_teacher__isnull=True)
+        elif assignment_scope == "assigned":
+            queryset = queryset.filter(assigned_to_teacher__isnull=False)
+        queryset = self.filter_queryset(queryset)
         return Response(review_queue_summary(queryset=queryset), status=status.HTTP_200_OK)
 
     @action(detail=False, methods=["post"], url_path="bulk-assign")

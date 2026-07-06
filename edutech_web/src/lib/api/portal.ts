@@ -80,6 +80,10 @@ const requestPortalJsonCached = cache(async <T>(path: string, accessToken: strin
   return performPortalRequest<T>(path, accessToken);
 });
 
+function shouldBypassPortalReadCache(path: string) {
+  return path.startsWith("/api/v1/economy/admin/institute-question-bank-");
+}
+
 async function requestPortalJson<T>(
   path: string,
   init?: RequestInit,
@@ -90,7 +94,11 @@ async function requestPortalJson<T>(
   }
 
   const method = init?.method ?? "GET";
-  const shouldUseCachedRead = method === "GET" && !init?.body && !init?.headers;
+  const shouldUseCachedRead =
+    method === "GET" &&
+    !init?.body &&
+    !init?.headers &&
+    !shouldBypassPortalReadCache(path);
 
   if (shouldUseCachedRead) {
     return requestPortalJsonCached<T>(path, accessToken);

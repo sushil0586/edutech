@@ -46,13 +46,18 @@ class Command(BaseCommand):
             help="Institute code that should receive the shared-library entitlement.",
         )
         parser.add_argument(
+            "--donor-institute-code",
+            default="PUB001",
+            help="Institute code that owns the donor master-question dataset for cloning into the demo public hub.",
+        )
+        parser.add_argument(
             "--public-hub-code",
             default="PUBDLI1",
             help="Separate public content hub institute code to create or refresh.",
         )
         parser.add_argument(
             "--subject-code",
-            default="MATH10",
+            default="CLS7-MATH",
             help="Donor subject code to clone into the public hub.",
         )
         parser.add_argument(
@@ -149,6 +154,7 @@ class Command(BaseCommand):
     @transaction.atomic
     def handle(self, *args, **options):
         target_institute = self._resolve_institute(options["target_institute_code"].strip())
+        donor_institute = self._resolve_institute(options["donor_institute_code"].strip())
         public_hub = self._resolve_or_create_public_hub(
             hub_code=options["public_hub_code"].strip(),
             target_institute=target_institute,
@@ -165,7 +171,7 @@ class Command(BaseCommand):
             raise CommandError("--question-count must be greater than zero.")
 
         donor_questions = self._resolve_donor_questions(
-            donor_institute=target_institute,
+            donor_institute=donor_institute,
             subject_code=options["subject_code"].strip(),
             question_count=question_count,
             include_private=True,
@@ -205,14 +211,14 @@ class Command(BaseCommand):
         )
 
         unentitled_questions = self._seed_unentitled_demo_lane(
-            donor_institute=target_institute,
+            donor_institute=donor_institute,
             public_hub=public_hub,
             subject_code=options["unentitled_subject_code"].strip(),
             question_count=options["unentitled_question_count"],
             fallback_subject_code=options["subject_code"].strip(),
         )
         quota_demo = self._seed_quota_exhausted_demo_lane(
-            donor_institute=target_institute,
+            donor_institute=donor_institute,
             target_institute=target_institute,
             public_hub=public_hub,
             subject_code=options["quota_demo_subject_code"].strip(),
@@ -222,7 +228,7 @@ class Command(BaseCommand):
             fallback_subject_code=options["subject_code"].strip(),
         )
         blocked_matchable_demo = self._seed_blocked_matchable_demo_lane(
-            donor_institute=target_institute,
+            donor_institute=donor_institute,
             target_institute=target_institute,
             public_hub=public_hub,
             subject_code=options["blocked_matchable_subject_code"].strip(),
@@ -232,7 +238,7 @@ class Command(BaseCommand):
             fallback_subject_code=options["subject_code"].strip(),
         )
         paused_only_demo = self._seed_paused_only_demo_lane(
-            donor_institute=target_institute,
+            donor_institute=donor_institute,
             target_institute=target_institute,
             public_hub=public_hub,
             subject_code=options["paused_only_subject_code"].strip(),
@@ -270,6 +276,7 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS("Demo shared-library access is ready."))
         self.stdout.write(f"- target_institute={target_institute.code}")
+        self.stdout.write(f"- donor_institute={donor_institute.code}")
         self.stdout.write(f"- public_hub={public_hub.code}")
         self.stdout.write(f"- donor_subject={donor_subject.code}")
         self.stdout.write(f"- cloned_questions={len(cloned_questions)}")

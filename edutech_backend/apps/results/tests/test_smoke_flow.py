@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.utils import timezone
@@ -14,6 +15,8 @@ from apps.exams.services import sync_total_marks_from_questions
 from apps.results.models import ExamResult
 from apps.results.services import (
     build_student_insight_summary,
+    build_student_question_analytics,
+    build_teacher_insight_summary,
     build_result_publish_readiness,
     calculate_exam_ranks,
     generate_result_from_attempt,
@@ -25,6 +28,7 @@ from common.tests.builders import AcademicAssessmentBuilder
 
 class AcademicAssessmentSmokeTestCase(TestCase):
     def setUp(self):
+        cache.clear()
         self.builder = AcademicAssessmentBuilder()
         self.context = self.builder.build_full_flow_entities()
         self.user, self.account_profile = self.builder.create_platform_admin_account(
@@ -607,6 +611,117 @@ class AcademicAssessmentSmokeTestCase(TestCase):
         }
         self.assertIn(self.context["subject"].name, subject_breakdown_names)
         self.assertIn(second_subject.name, subject_breakdown_names)
+
+    def test_student_question_analytics_cache_refreshes_after_new_submission(self):
+        exam = self.context["exam"]
+        exam.max_attempts = 2
+        exam.attempt_policy = "best"
+        exam.save(update_fields=["max_attempts", "attempt_policy", "updated_at"])
+        publish_exam(exam, changed_by=self.context["teacher"], remarks="Question analytics cache")
+
+        wrong_option = next(option for option in self.context["options"] if not option.is_correct)
+        correct_option = next(option for option in self.context["options"] if option.is_correct)
+
+        first_attempt = start_attempt(self.context["student"], exam)
+        save_answer(
+            attempt=first_attempt,
+            question=self.context["question"],
+            selected_option=wrong_option,
+            time_spent_seconds=12,
+        )
+        submit_attempt(first_attempt)
+
+        first_payload = build_student_question_analytics(self.context["student"])
+        self.assertEqual(first_payload["questions"][0]["your_result"], "wrong")
+
+        second_attempt = start_attempt(self.context["student"], exam)
+        save_answer(
+            attempt=second_attempt,
+            question=self.context["question"],
+            selected_option=correct_option,
+            time_spent_seconds=8,
+        )
+        submit_attempt(second_attempt)
+
+        refreshed_payload = build_student_question_analytics(self.context["student"])
+        self.assertEqual(refreshed_payload["questions"][0]["your_result"], "correct")
+
+    def test_student_insight_summary_cache_refreshes_after_result_generation(self):
+        exam = self.context["exam"]
+        exam.max_attempts = 2
+        exam.attempt_policy = "best"
+        exam.save(update_fields=["max_attempts", "attempt_policy", "updated_at"])
+        publish_exam(exam, changed_by=self.context["teacher"], remarks="Insight cache")
+
+        wrong_option = next(option for option in self.context["options"] if not option.is_correct)
+        correct_option = next(option for option in self.context["options"] if option.is_correct)
+
+        first_attempt = start_attempt(self.context["student"], exam)
+        save_answer(
+            attempt=first_attempt,
+            question=self.context["question"],
+            selected_option=wrong_option,
+            time_spent_seconds=12,
+        )
+        submit_attempt(first_attempt)
+        generate_result_from_attempt(first_attempt)
+
+        first_payload = build_student_insight_summary(self.context["student"])
+        self.assertEqual(first_payload["recent_exams"][0]["result_status"], "fail")
+
+        second_attempt = start_attempt(self.context["student"], exam)
+        save_answer(
+            attempt=second_attempt,
+            question=self.context["question"],
+            selected_option=correct_option,
+            time_spent_seconds=8,
+        )
+        submit_attempt(second_attempt)
+        generate_result_from_attempt(second_attempt)
+
+        refreshed_payload = build_student_insight_summary(self.context["student"])
+        self.assertEqual(refreshed_payload["recent_exams"][0]["result_status"], "pass")
+
+    def test_teacher_insight_summary_cache_refreshes_after_new_attempt(self):
+        exam = self.context["exam"]
+        publish_exam(exam, changed_by=self.context["teacher"], remarks="Teacher insight cache")
+        correct_option = next(option for option in self.context["options"] if option.is_correct)
+
+        first_attempt = start_attempt(self.context["student"], exam)
+        save_answer(
+            attempt=first_attempt,
+            question=self.context["question"],
+            selected_option=correct_option,
+            time_spent_seconds=12,
+        )
+        submit_attempt(first_attempt)
+        generate_result_from_attempt(first_attempt)
+
+        first_payload = build_teacher_insight_summary(self.user)
+        self.assertEqual(first_payload["overview"]["total_attempts"], 1)
+
+        second_student = self.builder.create_student(
+            self.context["institute"],
+            self.context["academic_year"],
+            self.context["program"],
+            self.context["cohort"],
+            admission_no="STU999",
+            email="cache-student@example.com",
+            first_name="Cache",
+            last_name="Student",
+        )
+        second_attempt = start_attempt(second_student, exam)
+        save_answer(
+            attempt=second_attempt,
+            question=self.context["question"],
+            selected_option=correct_option,
+            time_spent_seconds=10,
+        )
+        submit_attempt(second_attempt)
+        generate_result_from_attempt(second_attempt)
+
+        refreshed_payload = build_teacher_insight_summary(self.user)
+        self.assertEqual(refreshed_payload["overview"]["total_attempts"], 2)
 
     def test_teacher_can_force_submit_in_progress_attempt_from_monitor(self):
         exam = publish_exam(

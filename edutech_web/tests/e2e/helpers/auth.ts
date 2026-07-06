@@ -56,6 +56,14 @@ function roleWorkspacePath(role: PlaywrightRole) {
   }
 }
 
+function throttleBackoffMs(message: string) {
+  const seconds = Number(message.match(/available in\s+(\d+)\s+seconds?/i)?.[1] ?? "");
+  if (Number.isFinite(seconds) && seconds > 0) {
+    return seconds * 1000 + 500;
+  }
+  return null;
+}
+
 async function seedSessionCookies(page: Page, tokens: SessionTokens) {
   await page.context().clearCookies();
   await page.context().addCookies([
@@ -96,46 +104,62 @@ async function fetchRoleSessionTokens(page: Page, role: PlaywrightRole) {
     );
   }
 
-  let response;
-  try {
-    response = await page.request.post(`${backendBaseUrl}/api/v1/auth/login/`, {
-      data: {
-        username: credentials.username,
-        password: credentials.password,
-      },
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-  } catch {
-    return null;
-  }
+  for (let attempt = 1; attempt <= 5; attempt += 1) {
+    let response;
+    try {
+      response = await page.request.post(`${backendBaseUrl}/api/v1/auth/login/`, {
+        data: {
+          username: credentials.username,
+          password: credentials.password,
+        },
+        headers: {
+          "Content-Type": "application/json",
+        },
+        timeout: 15000,
+      });
+    } catch {
+      response = null;
+    }
 
-  if (!response.ok()) {
-    return null;
-  }
+    if (!response) {
+      if (attempt < 5) {
+        await page.waitForTimeout(750 * attempt);
+      }
+      continue;
+    }
 
-  let payload: {
-    access?: string;
-    refresh?: string;
-  };
-  try {
-    payload = (await response.json()) as {
+    if (!response.ok()) {
+      const snippet = (await response.text().catch(() => "")).trim();
+      if (attempt < 5) {
+        await page.waitForTimeout(throttleBackoffMs(snippet) ?? 750 * attempt);
+        continue;
+      }
+      return null;
+    }
+
+    let payload: {
       access?: string;
       refresh?: string;
     };
-  } catch {
-    return null;
-  }
-  const access = payload.access?.trim() ?? "";
-  const refresh = payload.refresh?.trim() ?? "";
-  if (!access || !refresh) {
-    return null;
-  }
+    try {
+      payload = (await response.json()) as {
+        access?: string;
+        refresh?: string;
+      };
+    } catch {
+      return null;
+    }
+    const access = payload.access?.trim() ?? "";
+    const refresh = payload.refresh?.trim() ?? "";
+    if (!access || !refresh) {
+      return null;
+    }
 
-  const tokens = { access, refresh };
-  roleSessionCache.set(role, tokens);
-  return tokens;
+    const tokens = { access, refresh };
+    roleSessionCache.set(role, tokens);
+    return tokens;
+  }
+  return null;
 }
 
 async function fetchSessionTokensForCredentials(page: Page, credentials: DirectLoginCredentials) {
@@ -145,47 +169,63 @@ async function fetchSessionTokensForCredentials(page: Page, credentials: DirectL
     return cachedTokens;
   }
 
-  let response;
-  try {
-    response = await page.request.post(`${backendBaseUrl}/api/v1/auth/login/`, {
-      data: {
-        username: credentials.username,
-        password: credentials.password,
-      },
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-  } catch {
-    return null;
-  }
+  for (let attempt = 1; attempt <= 5; attempt += 1) {
+    let response;
+    try {
+      response = await page.request.post(`${backendBaseUrl}/api/v1/auth/login/`, {
+        data: {
+          username: credentials.username,
+          password: credentials.password,
+        },
+        headers: {
+          "Content-Type": "application/json",
+        },
+        timeout: 15000,
+      });
+    } catch {
+      response = null;
+    }
 
-  if (!response.ok()) {
-    return null;
-  }
+    if (!response) {
+      if (attempt < 5) {
+        await page.waitForTimeout(750 * attempt);
+      }
+      continue;
+    }
 
-  let payload: {
-    access?: string;
-    refresh?: string;
-  };
-  try {
-    payload = (await response.json()) as {
+    if (!response.ok()) {
+      const snippet = (await response.text().catch(() => "")).trim();
+      if (attempt < 5) {
+        await page.waitForTimeout(throttleBackoffMs(snippet) ?? 750 * attempt);
+        continue;
+      }
+      return null;
+    }
+
+    let payload: {
       access?: string;
       refresh?: string;
     };
-  } catch {
-    return null;
-  }
+    try {
+      payload = (await response.json()) as {
+        access?: string;
+        refresh?: string;
+      };
+    } catch {
+      return null;
+    }
 
-  const access = payload.access?.trim() ?? "";
-  const refresh = payload.refresh?.trim() ?? "";
-  if (!access || !refresh) {
-    return null;
-  }
+    const access = payload.access?.trim() ?? "";
+    const refresh = payload.refresh?.trim() ?? "";
+    if (!access || !refresh) {
+      return null;
+    }
 
-  const tokens = { access, refresh };
-  credentialSessionCache.set(cacheKey, tokens);
-  return tokens;
+    const tokens = { access, refresh };
+    credentialSessionCache.set(cacheKey, tokens);
+    return tokens;
+  }
+  return null;
 }
 
 async function tryProgrammaticRoleLogin(page: Page, role: PlaywrightRole) {

@@ -1,9 +1,10 @@
-import Link from "next/link";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import { StudentKpiGrid } from "@/components/ui/student-kpi-grid";
+import { StudentPassiveNavLink } from "@/components/ui/student-passive-nav-link";
 import { StudentPageHeader } from "@/components/ui/student-page-header";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
+import { StudentWorkspaceLink as Link } from "@/components/ui/student-workspace-link";
 import { StatusPill } from "@/components/ui/status-pill";
 import {
   fetchStudentAvailableExams,
@@ -318,7 +319,7 @@ export default async function AttemptSummaryPage({
               {stateCopy.reviewCta}
             </Link>
           ) : null}
-          <Link
+          <StudentPassiveNavLink
             className="button buttonSecondary"
             href={buildFilterHref("/app/results", [
               ["subject", scopedSubjectParam],
@@ -327,8 +328,8 @@ export default async function AttemptSummaryPage({
             ])}
           >
             {stateCopy.resultsCta}
-          </Link>
-          <Link
+          </StudentPassiveNavLink>
+          <StudentPassiveNavLink
             className="button buttonGhost"
             href={buildFilterHref("/app/attempts", [
               ["subject", scopedSubjectParam],
@@ -337,7 +338,7 @@ export default async function AttemptSummaryPage({
             ])}
           >
             Open Attempts
-          </Link>
+          </StudentPassiveNavLink>
         </div>
       </section>
 

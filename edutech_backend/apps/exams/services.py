@@ -3,6 +3,7 @@ from decimal import Decimal
 import secrets
 import string
 
+from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Count, Q
@@ -60,6 +61,7 @@ SECURITY_MODE_FULLSCREEN = "fullscreen"
 SECURITY_MODE_VIOLATION_LIMITED = "violation_limited"
 SECURITY_MODE_PROCTORED = "proctored"
 EXAM_CONTENT_TYPE = "exam"
+EXAM_ACCESS_POLICY_CACHE_TTL_SECONDS = 60
 
 INSTITUTE_EXAM_DEFAULT_FIELDS = {
     "duration_minutes",
@@ -80,6 +82,95 @@ INSTITUTE_EXAM_DEFAULT_FIELDS = {
     "allow_section_switching",
     "allow_return_to_previous_section",
 }
+
+
+def _exam_access_policy_cache_key(*, institute_id):
+    return f"exams:access-policy-snapshot:{institute_id}"
+
+
+def invalidate_exam_access_policy_cache(*, institute):
+    institute_id = getattr(institute, "id", institute)
+    if not institute_id:
+        return
+    cache.delete(_exam_access_policy_cache_key(institute_id=institute_id))
+
+
+def _active_exam_access_policy_snapshot(institute):
+    institute_id = getattr(institute, "id", institute)
+    if not institute_id:
+        return []
+
+    cache_key = _exam_access_policy_cache_key(institute_id=institute_id)
+    cached_snapshot = cache.get(cache_key)
+    if cached_snapshot is not None:
+        return cached_snapshot
+
+    from apps.economy.models import ContentAccessPolicy
+
+    snapshot = list(
+        ContentAccessPolicy.objects.filter(
+            institute_id=institute_id,
+            content_type=EXAM_CONTENT_TYPE,
+            is_active=True,
+        )
+        .select_related("subject")
+        .order_by("priority", "created_at")
+    )
+    cache.set(cache_key, snapshot, EXAM_ACCESS_POLICY_CACHE_TTL_SECONDS)
+    return snapshot
+
+
+def hydrate_exam_access_policies(exams):
+    exams = list(exams or [])
+    if not exams:
+        return {}
+
+    exams_by_institute_id = {}
+    for exam in exams:
+        institute_id = getattr(exam, "institute_id", None)
+        if institute_id is None:
+            continue
+        exams_by_institute_id.setdefault(institute_id, []).append(exam)
+
+    resolved_by_exam_id = {}
+    for institute_id, institute_exams in exams_by_institute_id.items():
+        content_keys = {str(exam.id) for exam in institute_exams}
+        if not content_keys:
+            continue
+        policy_by_target = {}
+        for policy in _active_exam_access_policy_snapshot(institute_id):
+            if policy.content_key not in content_keys:
+                continue
+            target_key = (policy.institute_id, policy.content_key)
+            current = policy_by_target.get(target_key)
+            if current is None:
+                current = {"subjects": {}, "fallback": None}
+                policy_by_target[target_key] = current
+            if policy.subject_id is not None:
+                current["subjects"].setdefault(policy.subject_id, policy)
+            elif current["fallback"] is None:
+                current["fallback"] = policy
+
+        for exam in institute_exams:
+            resolved = policy_by_target.get((exam.institute_id, str(exam.id)))
+            exam._resolved_access_policy_loaded = True
+            if resolved is None:
+                exam._resolved_access_policy = None
+                resolved_by_exam_id[exam.id] = None
+                continue
+            subject_policy = resolved["subjects"].get(exam.subject_id)
+            fallback_policy = resolved["fallback"]
+            selected_policy = subject_policy if subject_policy is not None else fallback_policy
+            exam._resolved_access_policy = selected_policy
+            resolved_by_exam_id[exam.id] = selected_policy
+
+    for exam in exams:
+        if exam.id not in resolved_by_exam_id:
+            exam._resolved_access_policy_loaded = True
+            exam._resolved_access_policy = None
+            resolved_by_exam_id[exam.id] = None
+
+    return resolved_by_exam_id
 EXAM_ACCESS_KEY_ALPHABET = string.ascii_uppercase + string.digits
 EXAM_ACCESS_KEY_LENGTH = 8
 STUDENT_EXAM_SOURCE_FILTERS = {"all", "platform", "institute", "teacher"}
@@ -362,36 +453,46 @@ def is_exam_assigned_to_student(exam, student):
 
 
 def resolve_exam_source_metadata(exam):
+    cached_metadata = getattr(exam, "_exam_source_metadata_cache", None)
+    if cached_metadata is not None:
+        return cached_metadata
+
     source_type = str(getattr(exam, "source_type", "") or "").strip() or "institute"
     source_teacher = getattr(exam, "source_teacher", None)
 
     if source_type == "platform":
-        return {
+        metadata = {
             "source_type": "platform",
             "source_label": "Platform",
             "source_name": "Platform",
             "teacher_id": None,
             "teacher_name": None,
         }
+        exam._exam_source_metadata_cache = metadata
+        return metadata
 
     if source_type == "teacher":
         teacher_name = getattr(source_teacher, "full_name", "") if source_teacher is not None else ""
-        return {
+        metadata = {
             "source_type": "teacher",
             "source_label": "Teacher",
             "source_name": teacher_name or "Teacher",
             "teacher_id": str(source_teacher.id) if source_teacher is not None else None,
             "teacher_name": teacher_name or None,
         }
+        exam._exam_source_metadata_cache = metadata
+        return metadata
 
     institute = getattr(exam, "institute", None)
-    return {
+    metadata = {
         "source_type": "institute",
         "source_label": "Institute",
         "source_name": getattr(institute, "name", "") or "Institute",
         "teacher_id": None,
         "teacher_name": None,
     }
+    exam._exam_source_metadata_cache = metadata
+    return metadata
 
 
 def filter_student_visible_exams_by_source(exams, *, source="all", teacher_id=None):
@@ -542,12 +643,15 @@ def resolve_exam_economy_access(student, exam, *, granted_by=None):
     )
 
     target = build_exam_content_target(exam)
-    access_policy = resolve_content_access_policy(
-        student=student,
-        content_type=target["content_type"],
-        content_key=target["content_key"],
-        subject=target["subject"],
-    )
+    if getattr(exam, "_resolved_access_policy_loaded", False):
+        access_policy = getattr(exam, "_resolved_access_policy", None)
+    else:
+        access_policy = resolve_content_access_policy(
+            student=student,
+            content_type=target["content_type"],
+            content_key=target["content_key"],
+            subject=target["subject"],
+        )
 
     unlock_state = None
     if access_policy is not None:
@@ -557,6 +661,7 @@ def resolve_exam_economy_access(student, exam, *, granted_by=None):
             content_key=target["content_key"],
             subject=target["subject"],
             granted_by=granted_by,
+            access_policy=access_policy,
         )
 
     requires_unlock = bool(
@@ -595,22 +700,8 @@ def resolve_exam_economy_access(student, exam, *, granted_by=None):
 
 
 def get_exam_access_policy(exam):
-    from apps.economy.models import ContentAccessPolicy
-
-    target = build_exam_content_target(exam)
-    base_queryset = ContentAccessPolicy.objects.filter(
-        institute=exam.institute,
-        content_type=target["content_type"],
-        content_key=target["content_key"],
-        is_active=True,
-    ).order_by("priority", "created_at")
-
-    if target["subject"] is not None:
-        subject_policy = base_queryset.filter(subject=target["subject"]).first()
-        if subject_policy is not None:
-            return subject_policy
-
-    return base_queryset.filter(subject__isnull=True).first()
+    resolved = hydrate_exam_access_policies([exam])
+    return resolved.get(exam.id)
 
 
 @transaction.atomic
@@ -637,6 +728,7 @@ def sync_exam_access_policy(
         queryset = queryset.filter(subject__isnull=True)
 
     queryset.update(is_active=False, updated_at=timezone.now())
+    invalidate_exam_access_policy_cache(institute=exam.institute)
 
     normalized_policy_type = (policy_type or "").strip()
     if not normalized_policy_type:
@@ -655,6 +747,7 @@ def sync_exam_access_policy(
         is_active=True,
     )
     policy.save()
+    invalidate_exam_access_policy_cache(institute=exam.institute)
     return policy
 
 
@@ -1891,6 +1984,10 @@ def resolve_result_publish_mode(exam):
 
 
 def resolve_exam_result_visibility_policy(exam):
+    cached_policy = getattr(exam, "_exam_result_visibility_policy_cache", None)
+    if cached_policy is not None:
+        return cached_policy
+
     metadata = getattr(exam, "metadata", {}) or {}
     if not isinstance(metadata, dict):
         metadata = {}
@@ -1903,6 +2000,7 @@ def resolve_exam_result_visibility_policy(exam):
         value = raw_policy.get(key)
         if isinstance(value, str) and value.strip():
             policy[key] = value.strip()
+    exam._exam_result_visibility_policy_cache = policy
     return policy
 
 
@@ -1913,10 +2011,14 @@ def resolve_review_mode(exam):
 
 
 def resolve_security_policy(exam):
+    cached_policy = getattr(exam, "_exam_security_policy_cache", None)
+    if cached_policy is not None:
+        return cached_policy
+
     mode = getattr(exam, "security_mode", SECURITY_MODE_NORMAL) or SECURITY_MODE_NORMAL
 
     if mode == SECURITY_MODE_FOCUS:
-        return {
+        policy = {
             "mode": mode,
             "student_label": "Focus monitoring",
             "teacher_label": "Focus signal tracking",
@@ -1935,9 +2037,11 @@ def resolve_security_policy(exam):
                 "Track focus-loss and tab-visibility changes as light integrity signals."
             ),
         }
+        exam._exam_security_policy_cache = policy
+        return policy
 
     if mode == SECURITY_MODE_FULLSCREEN:
-        return {
+        policy = {
             "mode": mode,
             "student_label": "Fullscreen required",
             "teacher_label": "Fullscreen monitoring",
@@ -1956,9 +2060,11 @@ def resolve_security_policy(exam):
                 "Track fullscreen exits together with focus and visibility changes during the attempt."
             ),
         }
+        exam._exam_security_policy_cache = policy
+        return policy
 
     if mode == SECURITY_MODE_VIOLATION_LIMITED:
-        return {
+        policy = {
             "mode": mode,
             "student_label": "Violation-limited monitoring",
             "teacher_label": "Escalating integrity monitoring",
@@ -1977,9 +2083,11 @@ def resolve_security_policy(exam):
                 "Track integrity warnings and escalate automatically when the configured violation threshold is reached."
             ),
         }
+        exam._exam_security_policy_cache = policy
+        return policy
 
     if mode == SECURITY_MODE_PROCTORED:
-        return {
+        policy = {
             "mode": mode,
             "student_label": "Enhanced monitoring",
             "teacher_label": "Enhanced event monitoring",
@@ -1998,8 +2106,10 @@ def resolve_security_policy(exam):
                 "Prioritize these attempts in live monitoring and review integrity-event patterns closely."
             ),
         }
+        exam._exam_security_policy_cache = policy
+        return policy
 
-    return {
+    policy = {
         "mode": SECURITY_MODE_NORMAL,
         "student_label": "Standard online",
         "teacher_label": "Standard online",
@@ -2018,6 +2128,8 @@ def resolve_security_policy(exam):
             "Use normal attempt monitoring and standard operational alerts."
         ),
     }
+    exam._exam_security_policy_cache = policy
+    return policy
 
 
 def is_result_visible_for_attempt(exam, attempt, result=None, at_time=None):

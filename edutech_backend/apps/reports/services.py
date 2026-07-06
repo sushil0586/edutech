@@ -1,7 +1,9 @@
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.db import transaction
+from django.db.models import Count, Q
 from django.utils import timezone
 
 from apps.accounts.models import AccountProfile, AccountRole
@@ -11,6 +13,81 @@ from apps.teachers.models import TeacherAssignment
 
 
 User = get_user_model()
+NOTIFICATION_LIST_METADATA_CACHE_TTL_SECONDS = 60
+
+
+def notification_list_metadata_cache_key(*, user_id):
+    return f"reports:notification-list-metadata:{user_id}"
+
+
+def invalidate_notification_list_metadata_cache(*, user):
+    user_id = getattr(user, "id", user)
+    if not user_id:
+        return
+    cache.delete(notification_list_metadata_cache_key(user_id=user_id))
+
+
+def _notification_type_label(value):
+    return str(value).replace("_", " ").strip().title()
+
+
+def _notification_group_options(queryset, field_name):
+    rows = queryset.values(field_name).annotate(count=Count("id")).order_by("-count", field_name)
+    options = []
+    for row in rows:
+        value = row[field_name]
+        if not value:
+            continue
+        options.append(
+            {
+                "value": value,
+                "label": _notification_type_label(value),
+                "count": row["count"],
+            }
+        )
+    return options
+
+
+def notification_list_metadata(user):
+    user_id = getattr(user, "id", user)
+    if not user_id:
+        return {
+            "summary": {"total": 0, "unread": 0, "read": 0},
+            "available_notification_types": [],
+            "available_related_object_types": [],
+        }
+
+    cache_key = notification_list_metadata_cache_key(user_id=user_id)
+    cached_metadata = cache.get(cache_key)
+    if cached_metadata is not None:
+        return cached_metadata
+
+    base_queryset = InAppNotification.objects.filter(
+        recipient_user_id=user_id,
+        is_active=True,
+    )
+    summary = base_queryset.aggregate(
+        total=Count("id"),
+        unread=Count("id", filter=Q(is_read=False)),
+        read=Count("id", filter=Q(is_read=True)),
+    )
+    metadata = {
+        "summary": {
+            "total": summary["total"] or 0,
+            "unread": summary["unread"] or 0,
+            "read": summary["read"] or 0,
+        },
+        "available_notification_types": _notification_group_options(
+            base_queryset,
+            "notification_type",
+        ),
+        "available_related_object_types": _notification_group_options(
+            base_queryset,
+            "related_object_type",
+        ),
+    }
+    cache.set(cache_key, metadata, NOTIFICATION_LIST_METADATA_CACHE_TTL_SECONDS)
+    return metadata
 
 
 def _request_ip(request):
@@ -72,7 +149,7 @@ def _create_notification_if_missing(
     if notification:
         return notification
 
-    return InAppNotification.objects.create(
+    notification = InAppNotification.objects.create(
         institute=institute,
         recipient_user=recipient_user,
         notification_type=notification_type,
@@ -82,6 +159,8 @@ def _create_notification_if_missing(
         related_object_id=str(related_object_id or ""),
         metadata=metadata,
     )
+    invalidate_notification_list_metadata_cache(user=recipient_user)
+    return notification
 
 
 @transaction.atomic
@@ -91,6 +170,7 @@ def mark_notification_as_read(notification):
     notification.is_read = True
     notification.read_at = timezone.now()
     notification.save(update_fields=["is_read", "read_at", "updated_at"])
+    invalidate_notification_list_metadata_cache(user=notification.recipient_user)
     return notification
 
 
@@ -102,8 +182,10 @@ def mark_all_notifications_as_read(user):
         is_read=False,
         is_active=True,
     )
-    queryset.update(is_read=True, read_at=now, updated_at=now)
-    return queryset.count()
+    updated_count = queryset.update(is_read=True, read_at=now, updated_at=now)
+    if updated_count:
+        invalidate_notification_list_metadata_cache(user=user)
+    return updated_count
 
 
 def unread_notification_count(user):

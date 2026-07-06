@@ -168,10 +168,8 @@ test.describe("Student post-submit workspace", () => {
 
         await gotoWithRetry(page, summaryHref);
         await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/summary(?:\?.*)?$/);
-        const backToSummaryLink = page.getByRole("link", { name: /back to summary|open summary/i }).first();
-        await expect(backToSummaryLink).toBeVisible();
-        await backToSummaryLink.click();
-        await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/summary(?:\?.*)?$/);
+        await expect(page.getByText(/post-submit state/i).first()).toBeVisible();
+        await expect(page.getByText(/recommended actions/i).first()).toBeVisible();
       }
     }
 

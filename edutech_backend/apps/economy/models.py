@@ -1569,6 +1569,13 @@ class ContentAccessPolicy(BaseModel, ContentTargetMixin):
                     {"entitlement_code": "Stars-or-entitlement policies must define an entitlement code."}
                 )
 
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        if self.content_type == "exam":
+            from apps.exams.services import invalidate_exam_access_policy_cache
+
+            invalidate_exam_access_policy_cache(institute=self.institute)
+
 
 class UnlockRule(BaseModel, ContentTargetMixin):
     institute = models.ForeignKey(

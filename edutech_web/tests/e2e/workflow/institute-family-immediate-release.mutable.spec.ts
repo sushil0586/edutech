@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { loginAsRole, loginWithCredentials, testRequiresRole } from "../helpers/auth";
+import { loginWithCredentials, testRequiresRole } from "../helpers/auth";
 import {
   answerAndSubmitCurrentAttempt,
   assignStudentToExam,
@@ -13,6 +13,7 @@ import {
   resolveStudentAttemptTarget,
   scheduleAndPublishExam,
   startExamAttemptAsStudent,
+  loginAsFamilyInstitute,
 } from "../helpers/family-runtime";
 import { isMutableLaneEnabled } from "../helpers/mutable";
 import { expectInstituteWorkspace } from "../helpers/navigation";
@@ -81,7 +82,7 @@ test.describe("Institute family immediate release", () => {
       await expect(page.getByText(/instant feedback ready/i).first()).toBeVisible();
       await expect(page.getByRole("link", { name: /open answer review/i }).first()).toBeVisible();
 
-      await loginAsRole(page, "institute");
+      await loginAsFamilyInstitute(page);
       await expectInstituteWorkspace(page);
       await page.goto(`/institute/results?exam=${examId}`);
       await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
@@ -137,7 +138,7 @@ test.describe("Institute family immediate release", () => {
       await expect(page.getByText(/review available/i).first()).toBeVisible();
     } finally {
       if (examId) {
-        await loginAsRole(page, "institute");
+        await loginAsFamilyInstitute(page);
         await expectInstituteWorkspace(page);
         await deleteInstituteExamDirectly(page, examId);
       }

@@ -100,13 +100,22 @@ def _question_type_definition_payload_for_question(question, *, exam_question=No
 
 
 def _active_exam_sections(obj):
+    cached_sections = getattr(obj, "_active_exam_sections_cache", None)
+    if cached_sections is not None:
+        return cached_sections
     prefetched = getattr(obj, "sections", None)
     if prefetched is not None and hasattr(prefetched, "all"):
-        return list(prefetched.all())
-    return list(obj.sections.filter(is_active=True).select_related("subject"))
+        sections = list(prefetched.all())
+    else:
+        sections = list(obj.sections.filter(is_active=True).select_related("subject"))
+    setattr(obj, "_active_exam_sections_cache", sections)
+    return sections
 
 
 def _exam_subject_summary_payload(obj):
+    cached_payload = getattr(obj, "_exam_subject_summary_payload_cache", None)
+    if cached_payload is not None:
+        return cached_payload
     sections = [section for section in _active_exam_sections(obj) if getattr(section, "is_active", True)]
     buckets = {}
     order = []
@@ -184,7 +193,7 @@ def _exam_subject_summary_payload(obj):
             else "Mixed Subjects"
         )
 
-    return {
+    payload = {
         "primary_subject": primary_subject_payload,
         "is_multi_subject": subject_count > 1,
         "section_subjects": ordered_subjects,
@@ -204,6 +213,8 @@ def _exam_subject_summary_payload(obj):
             ],
         },
     }
+    setattr(obj, "_exam_subject_summary_payload_cache", payload)
+    return payload
 
 
 class AdvancedExamExperienceProfileOverrideSerializer(serializers.Serializer):
@@ -1129,16 +1140,30 @@ class ExamReadSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
     def get_active_questions_count(self, obj):
+        annotated = getattr(obj, "active_questions_count", None)
+        if annotated is not None:
+            return annotated
+        prefetched = getattr(obj, "_prefetched_objects_cache", {}).get("exam_questions")
+        if prefetched is not None:
+            return len([question for question in prefetched if getattr(question, "is_active", True)])
         return obj.exam_questions.filter(is_active=True).count()
 
     def get_assigned_student_count(self, obj):
+        annotated = getattr(obj, "assigned_student_count", None)
+        if annotated is not None:
+            return annotated
+        prefetched = getattr(obj, "_prefetched_objects_cache", {}).get("student_assignments")
+        if prefetched is not None:
+            return len([assignment for assignment in prefetched if getattr(assignment, "is_active", True)])
         return obj.student_assignments.filter(is_active=True).count()
 
     def get_security_policy(self, obj):
         return resolve_security_policy(obj)
 
     def get_economy_policy(self, obj):
-        policy = get_exam_access_policy(obj)
+        policy = getattr(obj, "_resolved_access_policy", None)
+        if policy is None and not getattr(obj, "_resolved_access_policy_loaded", False):
+            policy = get_exam_access_policy(obj)
         if policy is None:
             return None
 
@@ -1363,7 +1388,7 @@ class ExamListSerializer(serializers.ModelSerializer):
 
     def get_economy_policy(self, obj):
         policy = getattr(obj, "_resolved_access_policy", None)
-        if policy is None:
+        if policy is None and not getattr(obj, "_resolved_access_policy_loaded", False):
             policy = get_exam_access_policy(obj)
         if policy is None:
             return None
@@ -1490,11 +1515,11 @@ class StudentExamQuestionDetailSerializer(serializers.ModelSerializer):
 
     def get_options(self, obj):
         options = list(
-            obj.question.options.filter(is_active=True).order_by(
-                "option_order",
-                "created_at",
-            )
+            option
+            for option in obj.question.options.all()
+            if getattr(option, "is_active", True)
         )
+        options.sort(key=lambda option: (option.option_order, option.created_at))
         attempt = self.context.get("attempt")
         if attempt is not None:
             from apps.attempts.services import ordered_options_for_attempt
@@ -1506,13 +1531,21 @@ class StudentExamQuestionDetailSerializer(serializers.ModelSerializer):
         return rows
 
     def get_attachments(self, obj):
-        attachments = obj.question.attachments.filter(is_active=True).order_by("display_order", "created_at")
+        attachments = list(
+            attachment
+            for attachment in obj.question.attachments.all()
+            if getattr(attachment, "is_active", True)
+        )
+        attachments.sort(key=lambda attachment: (attachment.display_order, attachment.created_at))
         return StudentExamQuestionAttachmentSerializer(attachments, many=True).data
 
     def get_media_context(self, obj):
         attachments = list(
-            obj.question.attachments.filter(is_active=True).order_by("display_order", "created_at")
+            attachment
+            for attachment in obj.question.attachments.all()
+            if getattr(attachment, "is_active", True)
         )
+        attachments.sort(key=lambda attachment: (attachment.display_order, attachment.created_at))
         definition = get_question_type_definition(obj.question.question_type)
         attachment_types = []
         for attachment in attachments:
@@ -1555,6 +1588,52 @@ class StudentExamQuestionDetailSerializer(serializers.ModelSerializer):
 
 class StudentExamDetailSerializer(ExamReadSerializer):
     exam_questions = StudentExamQuestionDetailSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Exam
+        fields = (
+            "id",
+            "title",
+            "code",
+            "description",
+            "exam_type",
+            "status",
+            "duration_minutes",
+            "total_marks",
+            "passing_marks",
+            "start_at",
+            "end_at",
+            "instructions",
+            "access_key_enabled",
+            "allow_late_submit",
+            "randomize_questions",
+            "randomize_options",
+            "allow_review_after_submit",
+            "max_attempts",
+            "allow_resume",
+            "allow_section_switching",
+            "allow_return_to_previous_section",
+            "review_available_from",
+            "review_available_until",
+            "result_publish_at",
+            "security_mode",
+            "program_name",
+            "cohort_name",
+            "subject_name",
+            "primary_subject",
+            "primary_subject_name",
+            "is_multi_subject",
+            "section_subjects",
+            "subject_summary",
+            "sections",
+            "exam_questions",
+            "security_policy",
+            "source_type",
+            "source_label",
+            "source_name",
+            "source_teacher_name",
+            "experience_profile",
+        )
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -1648,6 +1727,15 @@ class StudentExamAvailabilitySerializer(serializers.ModelSerializer):
         profile = getattr(getattr(request, "user", None), "account_profile", None)
         return getattr(profile, "student_profile", None)
 
+    def _is_assigned_to_student(self, obj):
+        cached = getattr(obj, "_student_exam_assigned_cache", None)
+        if cached is not None:
+            return cached
+        student = self._student()
+        assigned = False if student is None else is_exam_assigned_to_student(obj, student)
+        setattr(obj, "_student_exam_assigned_cache", assigned)
+        return assigned
+
     def _economy_access(self, obj):
         cache = self.context.setdefault("_exam_economy_access_cache", {})
         cache_key = str(obj.id)
@@ -1702,7 +1790,7 @@ class StudentExamAvailabilitySerializer(serializers.ModelSerializer):
 
     def _availability_state_value(self, obj):
         student = self._student()
-        if student is not None and not is_exam_assigned_to_student(obj, student):
+        if student is not None and not self._is_assigned_to_student(obj):
             return "not_assigned"
         now = timezone.now()
         latest_attempt = self._latest_attempt(obj)
@@ -1772,10 +1860,14 @@ class StudentExamAvailabilitySerializer(serializers.ModelSerializer):
         current_section_id = section_runtime.get("current_section_id")
         current_section = None
         if current_section_id:
-            current_section = obj.sections.filter(
-                pk=current_section_id,
-                is_active=True,
-            ).first()
+            current_section = next(
+                (
+                    section
+                    for section in _active_exam_sections(obj)
+                    if str(section.id) == str(current_section_id)
+                ),
+                None,
+            )
         return {
             "id": str(attempt.id),
             "status": attempt.status,
@@ -1841,10 +1933,7 @@ class StudentExamAvailabilitySerializer(serializers.ModelSerializer):
         return latest_attempt.status if latest_attempt else None
 
     def get_assigned_to_student(self, obj):
-        student = self._student()
-        if student is None:
-            return False
-        return is_exam_assigned_to_student(obj, student)
+        return self._is_assigned_to_student(obj)
 
     def get_security_policy(self, obj):
         return resolve_security_policy(obj)

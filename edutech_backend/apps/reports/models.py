@@ -61,6 +61,12 @@ class InAppNotification(BaseModel):
     def __str__(self):
         return f"{self.recipient_user} - {self.title}"
 
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        from apps.reports.services import invalidate_notification_list_metadata_cache
+
+        invalidate_notification_list_metadata_cache(user=self.recipient_user)
+
 
 class AuditLog(BaseModel):
     institute = models.ForeignKey(

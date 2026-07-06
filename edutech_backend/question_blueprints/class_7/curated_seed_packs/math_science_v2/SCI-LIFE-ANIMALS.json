@@ -742,10 +742,10 @@
     },
     {
       "question_type": "mcq_single",
-      "difficulty_level": "advanced",
+      "difficulty_level": "foundation",
       "question_text": "Why should a person avoid talking or laughing while swallowing food?",
       "explanation": "The food pipe and windpipe open in the throat region. If food goes the wrong way, choking may occur, so swallowing carefully is safer.",
-      "default_marks": "2.00",
+      "default_marks": "1.00",
       "negative_marks": "0.25",
       "options": [
         {
@@ -772,10 +772,10 @@
     },
     {
       "question_type": "mcq_single",
-      "difficulty_level": "advanced",
+      "difficulty_level": "foundation",
       "question_text": "A bird has a sharp curved beak and strong claws. Which feeding habit is most likely?",
       "explanation": "A sharp curved beak and strong claws are features commonly seen in flesh-eating birds such as eagles and hawks.",
-      "default_marks": "2.00",
+      "default_marks": "1.00",
       "negative_marks": "0.25",
       "options": [
         {
@@ -832,10 +832,10 @@
     },
     {
       "question_type": "mcq_single",
-      "difficulty_level": "advanced",
+      "difficulty_level": "foundation",
       "question_text": "If a person's nostrils are blocked during a cold, breathing through the nose becomes difficult. Which chain best explains one effect of this?",
       "explanation": "The nose helps filter and warm the air. When nostrils are blocked, air passes less comfortably and breathing feels difficult.",
-      "default_marks": "2.00",
+      "default_marks": "1.00",
       "negative_marks": "0.25",
       "options": [
         {
@@ -862,10 +862,10 @@
     },
     {
       "question_type": "mcq_single",
-      "difficulty_level": "advanced",
+      "difficulty_level": "foundation",
       "question_text": "Which evidence best supports the idea that fish are adapted for breathing in water?",
       "explanation": "Fish have gills that take in dissolved oxygen from water. This is the strongest evidence of aquatic breathing adaptation.",
-      "default_marks": "2.00",
+      "default_marks": "1.00",
       "negative_marks": "0.25",
       "options": [
         {
@@ -969,10 +969,10 @@
     },
     {
       "question_type": "mcq_single",
-      "difficulty_level": "advanced",
+      "difficulty_level": "foundation",
       "question_text": "Why do some animals have different types of teeth in the same mouth?",
       "explanation": "Different teeth perform different jobs. Some cut, some tear, and some grind, making food processing more effective.",
-      "default_marks": "2.00",
+      "default_marks": "1.00",
       "negative_marks": "0.25",
       "options": [
         {
@@ -999,10 +999,10 @@
     },
     {
       "question_type": "mcq_single",
-      "difficulty_level": "advanced",
+      "difficulty_level": "foundation",
       "question_text": "Which is the best explanation for why frogs may survive for some time on land as well as in water?",
       "explanation": "Frogs can breathe using lungs on land and also through their moist skin, which helps them survive in more than one environment.",
-      "default_marks": "2.00",
+      "default_marks": "1.00",
       "negative_marks": "0.25",
       "options": [
         {
@@ -1136,10 +1136,10 @@
     },
     {
       "question_type": "mcq_single",
-      "difficulty_level": "advanced",
+      "difficulty_level": "foundation",
       "question_text": "An injured bird is breathing fast and appears weak. Which action is the most sensible first response?",
       "explanation": "A weak, injured bird should be kept calm and given space and help from an adult or a vet. Stress can make breathing difficulty worse.",
-      "default_marks": "2.00",
+      "default_marks": "1.00",
       "negative_marks": "0.25",
       "options": [
         {
@@ -1166,10 +1166,10 @@
     },
     {
       "question_type": "mcq_single",
-      "difficulty_level": "advanced",
+      "difficulty_level": "foundation",
       "question_text": "Which observation best supports the idea that saliva is useful in digestion?",
       "explanation": "Food is softened and mixed with saliva in the mouth, and starch digestion begins there. This shows saliva helps digestion start.",
-      "default_marks": "2.00",
+      "default_marks": "1.00",
       "negative_marks": "0.25",
       "options": [
         {
@@ -1256,10 +1256,10 @@
     },
     {
       "question_type": "mcq_single",
-      "difficulty_level": "advanced",
+      "difficulty_level": "foundation",
       "question_text": "Assertion: The small intestine is longer than the stomach.\nReason: A longer small intestine gives more surface and time for digestion and absorption.",
       "explanation": "Both statements are true, and the reason correctly explains why the small intestine is long and important in digestion.",
-      "default_marks": "2.00",
+      "default_marks": "1.00",
       "negative_marks": "0.25",
       "options": [
         {
@@ -1303,10 +1303,10 @@
     },
     {
       "question_type": "mcq_single",
-      "difficulty_level": "advanced",
+      "difficulty_level": "foundation",
       "question_text": "If an animal has a long sticky tongue and catches insects quickly, what can be concluded about its feeding adaptation?",
       "explanation": "A long sticky tongue is an adaptation for catching insects. It helps the animal collect food quickly.",
-      "default_marks": "2.00",
+      "default_marks": "1.00",
       "negative_marks": "0.25",
       "options": [
         {

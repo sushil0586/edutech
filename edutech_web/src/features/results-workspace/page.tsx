@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { OperatorWorkspaceLink as Link } from "@/components/ui/operator-workspace-link";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { FilterSummaryPills } from "@/components/ui/filter-summary-pills";
 import { InstitutePageHeader } from "@/components/ui/institute-page-header";
@@ -121,6 +121,107 @@ type FamilyPortfolioCard = {
   primaryConcern: string;
   tone: WorkflowTone;
 };
+
+type ResultsEmptyStateContent = {
+  eyebrow: string;
+  title: string;
+  description: string;
+  bullets: string[];
+  statusLabel: string;
+};
+
+function buildResultsEmptyStateContent(
+  roleNounLower: string,
+  view: ResultsWorkspaceView,
+): ResultsEmptyStateContent {
+  const base = {
+    eyebrow: `No ${roleNounLower} exams yet`,
+    title: `Results will appear once exams exist in your ${roleNounLower} scope`,
+    description: `The ${roleNounLower} results workspace can only show exams that already exist in your scope. Create an exam first, publish it to students, and return after attempts begin coming in.`,
+    statusLabel: "Waiting for exam setup",
+  } satisfies Omit<ResultsEmptyStateContent, "bullets">;
+
+  switch (view) {
+    case "analysis":
+      return {
+        ...base,
+        title: "Analysis opens after scored attempts start arriving",
+        description:
+          "This route is for weak-topic analysis, question-risk review, and student evidence. It becomes useful only after students attempt an exam and scores start returning.",
+        statusLabel: "Waiting for scored attempts",
+        bullets: [
+          "Use this page to find weak chapters, difficult questions, and student-specific learning gaps.",
+          "Create and publish at least one exam first, then let students submit a few attempts.",
+          "Once scoring data exists, analysis cards, student explorer, and question evidence will appear here automatically.",
+        ],
+      };
+    case "attempts":
+      return {
+        ...base,
+        title: "Attempts view opens after students begin submissions",
+        description:
+          "This route is for attempt progress, warning signals, completion state, and operator follow-up. It needs real student submissions before anything useful can appear.",
+        statusLabel: "Waiting for student attempts",
+        bullets: [
+          "Open this page when you want to monitor who has started, who is stuck, and who has completed the exam.",
+          "First create and publish an exam, then ask a few students to attempt it.",
+          "As soon as attempts exist, this page will show live rows, warnings, and intervention needs.",
+        ],
+      };
+    case "leaderboard":
+      return {
+        ...base,
+        title: "Leaderboard appears after evaluated attempts are ready",
+        description:
+          "This route is for ranking, publication review, and top-performer summaries. It becomes meaningful only after student attempts have been evaluated.",
+        statusLabel: "Waiting for ranked results",
+        bullets: [
+          "Use this page to check rank order, publishing readiness, and high-level outcome summaries.",
+          "Create and publish an exam first, then wait for scored attempts.",
+          "Once evaluation is complete, ranked learners and leaderboard actions will appear here automatically.",
+        ],
+      };
+    case "live":
+      return {
+        ...base,
+        title: "Live monitor is useful only during active exam windows",
+        description:
+          "This route is for active attempts, warning queues, and intervention signals while a live exam is in progress. It will stay quiet until a live test window actually starts.",
+        statusLabel: "Waiting for live exam activity",
+        bullets: [
+          "Use this page during an ongoing exam to see who is active, who needs follow-up, and where warning pressure is building.",
+          "Create an exam first, move it into a live delivery state, and let students start attempting it.",
+          "During an active window, this page will show intervention cards, alerts, and live monitoring signals.",
+        ],
+      };
+    case "overview":
+    default:
+      return {
+        ...base,
+        title: `Overview becomes useful after exams and attempts exist in your ${roleNounLower} scope`,
+        description:
+          "This route combines exam readiness, publication state, and outcome visibility in one place. It becomes useful only after at least one exam exists and students begin attempting it.",
+        statusLabel: "Waiting for exam and attempt data",
+        bullets: [
+          "Use this page as the main summary for exam health, results readiness, and outcome visibility.",
+          "Start by creating your first exam, then publish it and collect a few student attempts.",
+          "Once attempt data exists, readiness cards, grouped exam lists, and navigation into deeper result lanes will appear here automatically.",
+        ],
+      };
+  }
+}
+
+function hasActiveExamResultFilters(args: {
+  examListFilter: ResultExamFilter;
+  examListSort: ResultExamSort;
+  examListGroup: ResultExamGroup;
+}) {
+  return (
+    args.examListFilter !== "all" ||
+    args.examListSort !== "latest" ||
+    args.examListGroup !== "none"
+  );
+}
 
 type ResultWorkflowStep = {
   id: "lifecycle" | "generate" | "ranks" | "publish";
@@ -266,6 +367,26 @@ function formatDuration(totalSeconds: number | null) {
   if (hours > 0) return `${hours}h ${minutes}m`;
   if (minutes > 0) return `${minutes}m ${seconds}s`;
   return `${seconds}s`;
+}
+
+function renderPagerLink(args: {
+  disabled: boolean;
+  href: string;
+  label: string;
+}) {
+  if (args.disabled) {
+    return (
+      <span aria-disabled="true" className="button buttonDisabled">
+        {args.label}
+      </span>
+    );
+  }
+
+  return (
+    <Link className="button buttonSecondary" href={args.href}>
+      {args.label}
+    </Link>
+  );
 }
 
 function formatCompactSeconds(value: number | null | undefined) {
@@ -2274,6 +2395,26 @@ function renderExamSidebar(context: WorkspaceContext) {
     questionPage,
     questionPageSize,
   } = context;
+  const examFilterResetHref = buildResultsHref(currentPath, {
+    examId: selectedExam.id,
+    attemptFilter,
+    attemptSort,
+    attemptGroup,
+    attemptPage,
+    attemptPageSize,
+    questionFilter,
+    leaderboardPage,
+    leaderboardPageSize,
+    topicPage,
+    topicPageSize,
+    questionPage,
+    questionPageSize,
+  });
+  const examFiltersAreActive = hasActiveExamResultFilters({
+    examListFilter,
+    examListSort,
+    examListGroup,
+  });
 
   return (
     <article className="contentCard teacherResultsSidebar">
@@ -2340,24 +2481,7 @@ function renderExamSidebar(context: WorkspaceContext) {
           <button className="button buttonPrimary" type="submit">
             Apply filters
           </button>
-          <Link
-            className="button buttonSecondary"
-            href={buildResultsHref(currentPath, {
-              examId: selectedExam.id,
-              attemptFilter,
-              attemptSort,
-              attemptGroup,
-              attemptPage,
-              attemptPageSize,
-              questionFilter,
-              leaderboardPage,
-              leaderboardPageSize,
-              topicPage,
-              topicPageSize,
-              questionPage,
-              questionPageSize,
-            })}
-          >
+          <Link className="button buttonSecondary" href={examFilterResetHref}>
             Reset exam filters
           </Link>
         </div>
@@ -2374,7 +2498,46 @@ function renderExamSidebar(context: WorkspaceContext) {
 
       <div className="resultsList">
         {visibleExamCardsLength === 0 ? (
-          <p className="emptyText">No exams match the current result filters.</p>
+          <section className="workspaceResultsGroup" data-testid="results-exam-filter-empty-state">
+            <div className="sectionHeading">
+              <strong>
+                {examFiltersAreActive ? "No exams match the current result filters" : "No exams are visible right now"}
+              </strong>
+              <span>{config.roleNoun} scope still has exam data</span>
+            </div>
+            <div className="builderHintPanel">
+              <strong>Why this happened</strong>
+              <p>
+                {examFiltersAreActive
+                  ? "The current exam-state, sort, or grouping controls narrowed the sidebar list to zero."
+                  : "The workspace is active, but the current sidebar list is temporarily empty and needs a reset to show the broader exam scope again."}
+              </p>
+              <small>
+                These controls only change the visible exam list for this workspace. They do not edit, hide, or delete any exam data.
+              </small>
+            </div>
+            <p className="emptyText">
+              {examFiltersAreActive
+                ? "The current exam-state, sort, or grouping selection narrowed the visible list to zero. Clear the filters to return to the full exam set."
+                : "The visible exam list is currently empty even though the results workspace is active. Reset the filters to repopulate the sidebar."}
+            </p>
+            <FilterSummaryPills
+              className="workspaceFilterChips"
+              items={[
+                { label: "Exam state", value: formatFilterValue(examListFilter) },
+                { label: "Sort", value: formatFilterValue(examListSort) },
+                { label: "Group", value: formatFilterValue(examListGroup) },
+              ]}
+            />
+            <div className="workspaceFilterActions workspaceFilterActionsFullRow">
+              <Link className="button buttonPrimary" href={examFilterResetHref}>
+                Clear filters and show exams
+              </Link>
+              <Link className="button buttonGhost" href={config.examBasePath}>
+                Open exams workspace
+              </Link>
+            </div>
+          </section>
         ) : (
           groupedExamCards.map((group) => (
             <section className="workspaceResultsGroup" key={group.label}>
@@ -2468,64 +2631,54 @@ function renderExamSidebar(context: WorkspaceContext) {
 
       {visibleExamCardsLength > examPageSize ? (
         <div className="workspaceFilterActions">
-          <Link
-            className="button buttonSecondary"
-            href={
-              safeExamPage <= 1
-                ? "#"
-                : buildResultsHref(currentPath, {
-                    examId: selectedExam.id,
-                    attemptFilter,
-                    attemptSort,
-                    attemptGroup,
-                    attemptPage,
-                    attemptPageSize,
-                    questionFilter,
-                    examListFilter,
-                    examListSort,
-                    examListGroup,
-                    examPage: safeExamPage - 1,
-                    examPageSize,
-                    leaderboardPage,
-                    leaderboardPageSize,
-                    topicPage,
-                    topicPageSize,
-                    questionPage,
-                    questionPageSize,
-                  })
-            }
-          >
-            Previous
-          </Link>
-          <Link
-            className="button buttonSecondary"
-            href={
-              safeExamPage >= examTotalPages
-                ? "#"
-                : buildResultsHref(currentPath, {
-                    examId: selectedExam.id,
-                    attemptFilter,
-                    attemptSort,
-                    attemptGroup,
-                    attemptPage,
-                    attemptPageSize,
-                    questionFilter,
-                    examListFilter,
-                    examListSort,
-                    examListGroup,
-                    examPage: safeExamPage + 1,
-                    examPageSize,
-                    leaderboardPage,
-                    leaderboardPageSize,
-                    topicPage,
-                    topicPageSize,
-                    questionPage,
-                    questionPageSize,
-                  })
-            }
-          >
-            Next
-          </Link>
+          {renderPagerLink({
+            disabled: safeExamPage <= 1,
+            href: buildResultsHref(currentPath, {
+              examId: selectedExam.id,
+              attemptFilter,
+              attemptSort,
+              attemptGroup,
+              attemptPage,
+              attemptPageSize,
+              questionFilter,
+              examListFilter,
+              examListSort,
+              examListGroup,
+              examPage: safeExamPage - 1,
+              examPageSize,
+              leaderboardPage,
+              leaderboardPageSize,
+              topicPage,
+              topicPageSize,
+              questionPage,
+              questionPageSize,
+            }),
+            label: "Previous",
+          })}
+          {renderPagerLink({
+            disabled: safeExamPage >= examTotalPages,
+            href: buildResultsHref(currentPath, {
+              examId: selectedExam.id,
+              attemptFilter,
+              attemptSort,
+              attemptGroup,
+              attemptPage,
+              attemptPageSize,
+              questionFilter,
+              examListFilter,
+              examListSort,
+              examListGroup,
+              examPage: safeExamPage + 1,
+              examPageSize,
+              leaderboardPage,
+              leaderboardPageSize,
+              topicPage,
+              topicPageSize,
+              questionPage,
+              questionPageSize,
+            }),
+            label: "Next",
+          })}
         </div>
       ) : null}
     </article>
@@ -3843,64 +3996,54 @@ function renderAttemptsView(context: WorkspaceContext) {
 
         {attemptsPageData.count > attemptPageSize ? (
           <div className="workspaceFilterActions">
-            <Link
-              className="button buttonSecondary"
-              href={
-                attemptPage <= 1
-                  ? "#"
-                  : buildResultsHref(currentPath, {
-                      examId: selectedExam.id,
-                      attemptFilter,
-                      attemptSort,
-                      attemptGroup,
-                      attemptPage: attemptPage - 1,
-                      attemptPageSize,
-                      questionFilter,
-                      examListFilter,
-                      examListSort,
-                      examListGroup,
-                      examPage: safeExamPage,
-                      examPageSize,
-                      leaderboardPage,
-                      leaderboardPageSize,
-                      topicPage,
-                      topicPageSize,
-                      questionPage,
-                      questionPageSize,
-                    })
-              }
-            >
-              Previous
-            </Link>
-            <Link
-              className="button buttonSecondary"
-              href={
-                attemptPage >= attemptTotalPages
-                  ? "#"
-                  : buildResultsHref(currentPath, {
-                      examId: selectedExam.id,
-                      attemptFilter,
-                      attemptSort,
-                      attemptGroup,
-                      attemptPage: attemptPage + 1,
-                      attemptPageSize,
-                      questionFilter,
-                      examListFilter,
-                      examListSort,
-                      examListGroup,
-                      examPage: safeExamPage,
-                      examPageSize,
-                      leaderboardPage,
-                      leaderboardPageSize,
-                      topicPage,
-                      topicPageSize,
-                      questionPage,
-                      questionPageSize,
-                    })
-              }
-            >
-              Next
-            </Link>
+            {renderPagerLink({
+              disabled: attemptPage <= 1,
+              href: buildResultsHref(currentPath, {
+                examId: selectedExam.id,
+                attemptFilter,
+                attemptSort,
+                attemptGroup,
+                attemptPage: attemptPage - 1,
+                attemptPageSize,
+                questionFilter,
+                examListFilter,
+                examListSort,
+                examListGroup,
+                examPage: safeExamPage,
+                examPageSize,
+                leaderboardPage,
+                leaderboardPageSize,
+                topicPage,
+                topicPageSize,
+                questionPage,
+                questionPageSize,
+              }),
+              label: "Previous",
+            })}
+            {renderPagerLink({
+              disabled: attemptPage >= attemptTotalPages,
+              href: buildResultsHref(currentPath, {
+                examId: selectedExam.id,
+                attemptFilter,
+                attemptSort,
+                attemptGroup,
+                attemptPage: attemptPage + 1,
+                attemptPageSize,
+                questionFilter,
+                examListFilter,
+                examListSort,
+                examListGroup,
+                examPage: safeExamPage,
+                examPageSize,
+                leaderboardPage,
+                leaderboardPageSize,
+                topicPage,
+                topicPageSize,
+                questionPage,
+                questionPageSize,
+              }),
+              label: "Next",
+            })}
           </div>
         ) : null}
       </section>
@@ -4009,32 +4152,22 @@ function renderLeaderboardView(context: WorkspaceContext) {
 
         {leaderboardPageData.count > leaderboardPageSize ? (
           <div className="workspaceFilterActions">
-            <Link
-              className="button buttonSecondary"
-              href={
-                leaderboardPage <= 1
-                  ? "#"
-                  : buildResultsHref(currentPath, {
-                      ...baseHrefArgs,
-                      leaderboardPage: leaderboardPage - 1,
-                    })
-              }
-            >
-              Previous
-            </Link>
-            <Link
-              className="button buttonSecondary"
-              href={
-                leaderboardPage >= leaderboardTotalPages
-                  ? "#"
-                  : buildResultsHref(currentPath, {
-                      ...baseHrefArgs,
-                      leaderboardPage: leaderboardPage + 1,
-                    })
-              }
-            >
-              Next
-            </Link>
+            {renderPagerLink({
+              disabled: leaderboardPage <= 1,
+              href: buildResultsHref(currentPath, {
+                ...baseHrefArgs,
+                leaderboardPage: leaderboardPage - 1,
+              }),
+              label: "Previous",
+            })}
+            {renderPagerLink({
+              disabled: leaderboardPage >= leaderboardTotalPages,
+              href: buildResultsHref(currentPath, {
+                ...baseHrefArgs,
+                leaderboardPage: leaderboardPage + 1,
+              }),
+              label: "Next",
+            })}
           </div>
         ) : null}
       </section>
@@ -4400,12 +4533,16 @@ function renderAnalysisView(context: WorkspaceContext) {
           )}
           {topicPerformancePageData.count > topicPageSize ? (
             <div className="workspaceFilterActions">
-              <Link className="button buttonSecondary" href={topicPage <= 1 ? "#" : buildResultsHref(currentPath, { ...baseHrefArgs, topicPage: topicPage - 1 })}>
-                Previous
-              </Link>
-              <Link className="button buttonSecondary" href={topicPage >= topicTotalPages ? "#" : buildResultsHref(currentPath, { ...baseHrefArgs, topicPage: topicPage + 1 })}>
-                Next
-              </Link>
+              {renderPagerLink({
+                disabled: topicPage <= 1,
+                href: buildResultsHref(currentPath, { ...baseHrefArgs, topicPage: topicPage - 1 }),
+                label: "Previous",
+              })}
+              {renderPagerLink({
+                disabled: topicPage >= topicTotalPages,
+                href: buildResultsHref(currentPath, { ...baseHrefArgs, topicPage: topicPage + 1 }),
+                label: "Next",
+              })}
             </div>
           ) : null}
         </article>
@@ -4628,12 +4765,16 @@ function renderAnalysisView(context: WorkspaceContext) {
           )}
           {questionAnalysisPageData.count > questionPageSize ? (
             <div className="workspaceFilterActions">
-              <Link className="button buttonSecondary" href={questionPage <= 1 ? "#" : buildResultsHref(currentPath, { ...baseHrefArgs, questionPage: questionPage - 1 })}>
-                Previous
-              </Link>
-              <Link className="button buttonSecondary" href={questionPage >= questionTotalPages ? "#" : buildResultsHref(currentPath, { ...baseHrefArgs, questionPage: questionPage + 1 })}>
-                Next
-              </Link>
+              {renderPagerLink({
+                disabled: questionPage <= 1,
+                href: buildResultsHref(currentPath, { ...baseHrefArgs, questionPage: questionPage - 1 }),
+                label: "Previous",
+              })}
+              {renderPagerLink({
+                disabled: questionPage >= questionTotalPages,
+                href: buildResultsHref(currentPath, { ...baseHrefArgs, questionPage: questionPage + 1 }),
+                label: "Next",
+              })}
             </div>
           ) : null}
         </article>
@@ -5313,6 +5454,7 @@ export async function ResultsWorkspacePage({
   }
 
   if (teacherExams.length === 0) {
+    const emptyState = buildResultsEmptyStateContent(config.roleNounLower, view);
     return (
       <div className="studentPage">
         <Header
@@ -5320,12 +5462,16 @@ export async function ResultsWorkspacePage({
           description={`Track exam outcome readiness, live attempt behavior, and result publication from one ${config.roleNounLower}-scoped workspace.`}
         />
         <StudentStatePanel
-          eyebrow={`No ${config.roleNounLower} exams yet`}
-          title={`Results will appear once exams exist in your ${config.roleNounLower} scope`}
-          description={`The ${config.roleNounLower} results workspace can only render exams that exist in your scope. Create or publish exams first, then generate results after students submit attempts.`}
+          eyebrow={emptyState.eyebrow}
+          title={emptyState.title}
+          description={emptyState.description}
+          bullets={emptyState.bullets}
           ctaHref={config.examBasePath}
           ctaLabel="Open Exams"
-          statusLabel="Waiting for exam setup"
+          secondaryCtaHref={config.dashboardPath}
+          secondaryCtaLabel="Back to Dashboard"
+          statusLabel={emptyState.statusLabel}
+          footnote="These routes are healthy, but they need real exam and attempt data before route-specific filters, tables, and analytics can render."
         />
       </div>
     );

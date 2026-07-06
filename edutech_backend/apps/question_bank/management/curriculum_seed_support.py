@@ -36,6 +36,14 @@ def _pick_variant(sequence_number, variants):
 
 def _topic_family(topic_code):
     token = (topic_code or "").upper()
+    if token.startswith("CLS8-MATH-COMP-QUANT"):
+        return "math_arithmetic"
+    if token.startswith("CLS8-MATH-RATIONAL"):
+        return "math_fractions"
+    if token.startswith("CLS8-MATH-LINEAR-EQ"):
+        return "math_algebra"
+    if token.startswith("CLS8-MATH-ALGEBRA-ID"):
+        return "math_algebra"
     if token.startswith("MATH-ARITH"):
         return "math_arithmetic"
     if token.startswith("MATH-FRACTIONS"):

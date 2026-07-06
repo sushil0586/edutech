@@ -72,8 +72,10 @@ class StudentExamAttempt(BaseModel):
             models.Index(fields=["status", "is_active"]),
             models.Index(fields=["exam", "status", "is_active"]),
             models.Index(fields=["student", "is_active", "started_at"]),
+            models.Index(fields=["student", "status", "is_active", "started_at"]),
             models.Index(fields=["exam", "student", "status", "is_active", "attempt_no", "created_at"]),
             models.Index(fields=["started_at", "submitted_at"]),
+            models.Index(fields=["status", "expires_at"]),
             models.Index(fields=["final_score", "percentage"]),
         ]
 
@@ -233,6 +235,8 @@ class StudentAnswer(BaseModel):
         indexes = [
             models.Index(fields=["attempt", "question"]),
             models.Index(fields=["attempt", "is_active"]),
+            models.Index(fields=["attempt", "is_active", "answered_at", "created_at"]),
+            models.Index(fields=["question", "attempt", "is_active"]),
             models.Index(fields=["question", "is_active", "answered_at", "created_at"]),
         ]
 

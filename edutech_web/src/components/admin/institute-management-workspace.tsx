@@ -127,11 +127,22 @@ function renderProfileToggle(value: unknown, enabledLabel: string, disabledLabel
   return value ? enabledLabel : disabledLabel;
 }
 
+function formatQuestionLinkingModeLabel(mode: string) {
+  if (mode === "auto_link_selected_scope") {
+    return "Grant access + auto-link all selected scope";
+  }
+  if (mode === "auto_link_selected_scope_with_limit") {
+    return "Grant access + auto-link up to package limits";
+  }
+  return "Grant access only";
+}
+
 function summarizeProfileConfig(config: Record<string, unknown>) {
   const presetCode = String(config.academic_preset_code ?? "").trim();
   const applyMode = String(config.apply_mode ?? "full").trim();
   const academicYearTemplate = String(config.academic_year_name_template ?? "").trim();
   const packageCode = String(config.question_bank_package_code ?? "").trim().toUpperCase();
+  const assignmentMode = String(config.question_bank_assignment_mode ?? "access_only").trim();
 
   return [
     {
@@ -158,6 +169,10 @@ function summarizeProfileConfig(config: Record<string, unknown>) {
         packageCode ? `Enabled · ${packageCode}` : "Enabled",
         "Disabled",
       ),
+    },
+    {
+      label: "Question linking",
+      value: formatQuestionLinkingModeLabel(assignmentMode),
     },
     {
       label: "Advanced builder",

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { loginAsRole, testRequiresRole } from "../helpers/auth";
+import { testRequiresRole, type DirectLoginCredentials } from "../helpers/auth";
 import {
   answerAndSubmitCurrentAttempt,
   assignStudentToExam,
@@ -7,6 +7,7 @@ import {
   createInstituteFamilyExam,
   deleteInstituteExamDirectly,
   familyRuntimeScenarios,
+  loginAsFamilyInstitute,
   resolveStudentAttemptTarget,
   scheduleAndPublishExam,
   startExamAttemptAsStudent,
@@ -23,6 +24,26 @@ const mutableStudentAttemptActionsEnabled = isMutableLaneEnabled(
 
 const neetScenario = familyRuntimeScenarios.find((scenario) => scenario.presetId === "neet_mock")!;
 const awsScenario = familyRuntimeScenarios.find((scenario) => scenario.presetId === "aws_practitioner")!;
+const neetDepthStudentCredentials: DirectLoginCredentials = {
+  username: process.env.PLAYWRIGHT_NEET_STUDENT_USERNAME ?? "demo-neet-student",
+  password: process.env.PLAYWRIGHT_NEET_STUDENT_PASSWORD ?? "Demo@12345",
+};
+const awsDepthStudentCredentials: DirectLoginCredentials = {
+  username: process.env.PLAYWRIGHT_AWS_STUDENT_USERNAME ?? "demo-aws-student",
+  password: process.env.PLAYWRIGHT_AWS_STUDENT_PASSWORD ?? "Demo@12345",
+};
+const neetDepthScenario = {
+  ...neetScenario,
+  programLabel: "NEET 2026 Foundation",
+  subjectLabel: "Biology",
+  studentCredentials: neetDepthStudentCredentials,
+};
+const awsDepthScenario = {
+  ...awsScenario,
+  programLabel: "AWS 2026 Practitioner Prep",
+  subjectLabel: "AWS Cloud Practitioner",
+  studentCredentials: awsDepthStudentCredentials,
+};
 const sectionSwitchScenarios = familyRuntimeScenarios
   .filter((scenario) => scenario.presetId === "jee_mains_math" || scenario.presetId === "gre_quant")
   .map((scenario) => ({
@@ -44,10 +65,10 @@ test.describe("Institute family runtime depth", () => {
 
     let examId: string | null = null;
     const uniqueSeed = Date.now();
-    const studentTarget = await resolveStudentAttemptTarget(page, neetScenario.studentCredentials);
+    const studentTarget = await resolveStudentAttemptTarget(page, neetDepthScenario.studentCredentials);
 
     try {
-      const created = await createInstituteFamilyExam(page, neetScenario, uniqueSeed, {
+      const created = await createInstituteFamilyExam(page, neetDepthScenario, uniqueSeed, {
         sectionCount: 2,
         questionCountPerSection: 1,
         titlePrefix: "PW Family Depth",
@@ -63,8 +84,8 @@ test.describe("Institute family runtime depth", () => {
         page,
         examId,
         created.examTitle,
-        neetScenario.familyLabel,
-        neetScenario.studentCredentials,
+        neetDepthScenario.familyLabel,
+        neetDepthScenario.studentCredentials,
       );
 
       const sectionPanel = page.locator(".attemptSectionPanel").first();
@@ -84,7 +105,7 @@ test.describe("Institute family runtime depth", () => {
       await answerAndSubmitCurrentAttempt(page, uniqueSeed, "NEET depth", created.examTitle);
     } finally {
       if (examId) {
-        await loginAsRole(page, "institute");
+        await loginAsFamilyInstitute(page);
         await expectInstituteWorkspace(page);
         await deleteInstituteExamDirectly(page, examId);
       }
@@ -148,7 +169,7 @@ test.describe("Institute family runtime depth", () => {
         );
       } finally {
         if (examId) {
-          await loginAsRole(page, "institute");
+          await loginAsFamilyInstitute(page);
           await expectInstituteWorkspace(page);
           await deleteInstituteExamDirectly(page, examId);
         }
@@ -163,10 +184,10 @@ test.describe("Institute family runtime depth", () => {
 
     let examId: string | null = null;
     const uniqueSeed = Date.now();
-    const studentTarget = await resolveStudentAttemptTarget(page, awsScenario.studentCredentials);
+    const studentTarget = await resolveStudentAttemptTarget(page, awsDepthScenario.studentCredentials);
 
     try {
-      const created = await createInstituteFamilyExam(page, awsScenario, uniqueSeed, {
+      const created = await createInstituteFamilyExam(page, awsDepthScenario, uniqueSeed, {
         sectionCount: 1,
         questionCountPerSection: 1,
         titlePrefix: "PW Family Depth",
@@ -182,8 +203,8 @@ test.describe("Institute family runtime depth", () => {
         page,
         examId,
         created.examTitle,
-        awsScenario.familyLabel,
-        awsScenario.studentCredentials,
+        awsDepthScenario.familyLabel,
+        awsDepthScenario.studentCredentials,
       );
       await answerAndSubmitCurrentAttempt(page, uniqueSeed, "AWS depth", created.examTitle);
 
@@ -200,11 +221,10 @@ test.describe("Institute family runtime depth", () => {
       await expect(page.getByText(/review available/i).first()).toBeVisible();
     } finally {
       if (examId) {
-        await loginAsRole(page, "institute");
+        await loginAsFamilyInstitute(page);
         await expectInstituteWorkspace(page);
         await deleteInstituteExamDirectly(page, examId);
       }
     }
   });
 });
-

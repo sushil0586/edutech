@@ -1,0 +1,1426 @@
+{
+  "topic_code": "SCI-PHYSICS-LIGHT",
+  "topic_name": "Light, Shadows, and Reflections",
+  "questions": [
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which of the following is a luminous object?",
+      "explanation": "A luminous object gives out its own light.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Moon",
+          "is_correct": false
+        },
+        {
+          "option_text": "Sun",
+          "is_correct": true
+        },
+        {
+          "option_text": "Wall",
+          "is_correct": false
+        },
+        {
+          "option_text": "Book",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which object does not produce its own light?",
+      "explanation": "The Moon reflects sunlight and does not produce its own light.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Candle flame",
+          "is_correct": false
+        },
+        {
+          "option_text": "Electric bulb",
+          "is_correct": false
+        },
+        {
+          "option_text": "Moon",
+          "is_correct": true
+        },
+        {
+          "option_text": "Torch light",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "classification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "A shadow is formed when light is blocked by:",
+      "explanation": "A shadow forms when an opaque object blocks light.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Transparent glass only",
+          "is_correct": false
+        },
+        {
+          "option_text": "An opaque object",
+          "is_correct": true
+        },
+        {
+          "option_text": "Air only",
+          "is_correct": false
+        },
+        {
+          "option_text": "Water vapor only",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "familiar_example_identification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "true_false",
+      "difficulty_level": "foundation",
+      "question_text": "Light travels in a straight line.",
+      "explanation": "In a uniform medium, light generally travels in straight lines.",
+      "default_marks": "1.00",
+      "negative_marks": "0.00",
+      "options": [
+        {
+          "option_text": "True",
+          "is_correct": true
+        },
+        {
+          "option_text": "False",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "true_false_concept",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which surface is most suitable for seeing a clear reflection?",
+      "explanation": "A smooth polished surface reflects light regularly and gives a clear image.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Rough wall",
+          "is_correct": false
+        },
+        {
+          "option_text": "Newspaper",
+          "is_correct": false
+        },
+        {
+          "option_text": "Plane mirror",
+          "is_correct": true
+        },
+        {
+          "option_text": "Cloth piece",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which type of object allows most light to pass through it?",
+      "explanation": "Transparent objects allow light to pass through them almost completely.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Transparent object",
+          "is_correct": true
+        },
+        {
+          "option_text": "Opaque object",
+          "is_correct": false
+        },
+        {
+          "option_text": "Solid black object",
+          "is_correct": false
+        },
+        {
+          "option_text": "Wooden block",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "classification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which of the following is transparent?",
+      "explanation": "Clear glass allows light to pass through it.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Cardboard",
+          "is_correct": false
+        },
+        {
+          "option_text": "Stone slab",
+          "is_correct": false
+        },
+        {
+          "option_text": "Clear glass",
+          "is_correct": true
+        },
+        {
+          "option_text": "Metal plate",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "familiar_example_identification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Why do we see objects around us?",
+      "explanation": "We see objects when light reflected from them enters our eyes.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Because objects make sound",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because light reflected from them enters our eyes",
+          "is_correct": true
+        },
+        {
+          "option_text": "Because air becomes colorful",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because eyes produce light beams",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "daily_life_application",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "true_false",
+      "difficulty_level": "foundation",
+      "question_text": "An opaque object can form a shadow.",
+      "explanation": "Opaque objects block light and can produce shadows.",
+      "default_marks": "1.00",
+      "negative_marks": "0.00",
+      "options": [
+        {
+          "option_text": "True",
+          "is_correct": true
+        },
+        {
+          "option_text": "False",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "true_false_concept",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "The dark region formed behind an object when light is blocked is called:",
+      "explanation": "This dark region is known as a shadow.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Reflection",
+          "is_correct": false
+        },
+        {
+          "option_text": "Refraction",
+          "is_correct": false
+        },
+        {
+          "option_text": "Shadow",
+          "is_correct": true
+        },
+        {
+          "option_text": "Image source",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which statement about mirrors is correct?",
+      "explanation": "Mirrors do not produce light; they reflect it.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Mirrors create their own light",
+          "is_correct": false
+        },
+        {
+          "option_text": "Mirrors absorb all light always",
+          "is_correct": false
+        },
+        {
+          "option_text": "Mirrors reflect light",
+          "is_correct": true
+        },
+        {
+          "option_text": "Mirrors are transparent objects",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "misconception_correction",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Why does a shadow change in size during the day?",
+      "explanation": "The apparent position of the Sun changes, which changes the angle of light.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Because the object becomes larger",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because the position of the Sun changes",
+          "is_correct": true
+        },
+        {
+          "option_text": "Because air pushes the shadow",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because shadows are alive",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "best_explanation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "foundation",
+      "question_text": "What is a shadow?",
+      "explanation": "A shadow is the dark region formed when an opaque object blocks light.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "archetype": "concept_explanation",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "A dark region formed when light is blocked",
+          "Dark area behind an object that blocks light",
+          "The region where light cannot reach because of an object"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which object is translucent?",
+      "explanation": "A translucent object allows only some light to pass through.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Wooden door",
+          "is_correct": false
+        },
+        {
+          "option_text": "Butter paper",
+          "is_correct": true
+        },
+        {
+          "option_text": "Steel spoon",
+          "is_correct": false
+        },
+        {
+          "option_text": "Clear window glass",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "familiar_example_identification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "The image formed in a plane mirror is:",
+      "explanation": "A plane mirror forms an erect image.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Erect",
+          "is_correct": true
+        },
+        {
+          "option_text": "Upside down always",
+          "is_correct": false
+        },
+        {
+          "option_text": "Colored differently",
+          "is_correct": false
+        },
+        {
+          "option_text": "Smaller always",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which of these is the best example of reflection of light?",
+      "explanation": "Seeing your face in a mirror is due to reflection of light.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Melting ice",
+          "is_correct": false
+        },
+        {
+          "option_text": "Seeing your face in a mirror",
+          "is_correct": true
+        },
+        {
+          "option_text": "Hearing thunder",
+          "is_correct": false
+        },
+        {
+          "option_text": "Smelling perfume",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "classification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which source helps a room become visible at night?",
+      "explanation": "An electric bulb provides light in a dark room.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Closed book",
+          "is_correct": false
+        },
+        {
+          "option_text": "Blanket",
+          "is_correct": false
+        },
+        {
+          "option_text": "Electric bulb",
+          "is_correct": true
+        },
+        {
+          "option_text": "Chalk box",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "familiar_example_identification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Why can we not see clearly in a dark room when the light is off?",
+      "explanation": "Without light entering our eyes from objects, vision is not possible.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Because no light from objects enters our eyes",
+          "is_correct": true
+        },
+        {
+          "option_text": "Because air becomes heavy",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because shadows disappear",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because mirrors stop working forever",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "daily_life_application",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "true_false",
+      "difficulty_level": "foundation",
+      "question_text": "A smooth surface usually gives better reflection than a rough surface.",
+      "explanation": "Smooth surfaces reflect light regularly and form clearer images.",
+      "default_marks": "1.00",
+      "negative_marks": "0.00",
+      "options": [
+        {
+          "option_text": "True",
+          "is_correct": true
+        },
+        {
+          "option_text": "False",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "true_false_concept",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Assertion: We can see the Moon even though it is not a luminous object.\nReason: It reflects sunlight toward our eyes.",
+      "explanation": "Both statements are true, and the reason correctly explains the assertion.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Both Assertion and Reason are true, and Reason correctly explains Assertion",
+          "is_correct": true
+        },
+        {
+          "option_text": "Both Assertion and Reason are true, but Reason does not explain Assertion",
+          "is_correct": false
+        },
+        {
+          "option_text": "Assertion is true, but Reason is false",
+          "is_correct": false
+        },
+        {
+          "option_text": "Assertion is false, but Reason is true",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "assertion_reason",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "A torch is shone through a cardboard with a small hole. What does this activity mainly show?",
+      "explanation": "The activity demonstrates that light travels in a straight line.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Light can be weighed",
+          "is_correct": false
+        },
+        {
+          "option_text": "Light travels in straight lines",
+          "is_correct": true
+        },
+        {
+          "option_text": "Light becomes sound",
+          "is_correct": false
+        },
+        {
+          "option_text": "Light always bends in air",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "simple_experiment_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "If a mirror is not smooth, the reflected image appears unclear because:",
+      "explanation": "Irregular surfaces scatter light in different directions.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "The mirror becomes luminous",
+          "is_correct": false
+        },
+        {
+          "option_text": "Reflection becomes irregular",
+          "is_correct": true
+        },
+        {
+          "option_text": "The mirror absorbs all light",
+          "is_correct": false
+        },
+        {
+          "option_text": "The image moves behind the wall",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "observation_based_inference",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "To make a shadow sharper in a classroom activity, what should be done first?",
+      "explanation": "A stronger and more focused light source with proper positioning can make the shadow sharper.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Remove the object",
+          "is_correct": false
+        },
+        {
+          "option_text": "Look away from the screen",
+          "is_correct": false
+        },
+        {
+          "option_text": "Use a focused light source and proper alignment",
+          "is_correct": true
+        },
+        {
+          "option_text": "Make the room noisy",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "best_next_step",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Why are rear-view mirrors useful in vehicles?",
+      "explanation": "They reflect light from objects behind the vehicle, letting the driver see them.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "They create new roads",
+          "is_correct": false
+        },
+        {
+          "option_text": "They produce their own light",
+          "is_correct": false
+        },
+        {
+          "option_text": "They reflect images of objects behind",
+          "is_correct": true
+        },
+        {
+          "option_text": "They block all light",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "daily_life_application",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "intermediate",
+      "question_text": "Why does a shadow form only when an object comes in the path of light?",
+      "explanation": "The object blocks some or all of the light, creating a dark region behind it.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "archetype": "process_explanation",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "Because the object blocks light",
+          "A shadow forms when light cannot pass through an opaque object",
+          "Blocking light creates a dark region behind the object"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which statement about shadows is correct?",
+      "explanation": "The shadow gives information mainly about the shape of the object, not its color.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "A shadow shows the exact color of the object",
+          "is_correct": false
+        },
+        {
+          "option_text": "A shadow always shows all details of the object",
+          "is_correct": false
+        },
+        {
+          "option_text": "A shadow mostly shows the shape of the object",
+          "is_correct": true
+        },
+        {
+          "option_text": "A shadow can form without light",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "misconception_correction",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_multiple",
+      "difficulty_level": "intermediate",
+      "question_text": "Select all objects that can form a clear shadow.",
+      "explanation": "Opaque objects block light well and form clear shadows.",
+      "default_marks": "2.00",
+      "negative_marks": "0.50",
+      "options": [
+        {
+          "option_text": "Cardboard",
+          "is_correct": true
+        },
+        {
+          "option_text": "Wooden toy",
+          "is_correct": true
+        },
+        {
+          "option_text": "Clear glass sheet",
+          "is_correct": false
+        },
+        {
+          "option_text": "Metal plate",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "archetype": "multi_select_truth_evaluation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "When the distance between an object and a screen is changed, the shadow size changes. This shows that shadow size depends on:",
+      "explanation": "Shadow size depends on the positions of the light source, object, and screen.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "The color of the object only",
+          "is_correct": false
+        },
+        {
+          "option_text": "Relative positions of light source, object, and screen",
+          "is_correct": true
+        },
+        {
+          "option_text": "The smell of the object",
+          "is_correct": false
+        },
+        {
+          "option_text": "The weight of the screen",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "experiment_interpretation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Why can’t a completely transparent glass sheet cast a dark clear shadow like cardboard?",
+      "explanation": "Transparent glass allows most light to pass through, so it does not block light strongly.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Because glass produces light",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because cardboard is lighter",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because glass allows most light to pass through",
+          "is_correct": true
+        },
+        {
+          "option_text": "Because shadows form only from metal",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "scenario_analysis",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "If you cannot see your reflection clearly in water with ripples, what can be concluded?",
+      "explanation": "A disturbed surface gives irregular reflection and a blurred image.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Water becomes opaque",
+          "is_correct": false
+        },
+        {
+          "option_text": "The irregular surface disturbs reflection",
+          "is_correct": true
+        },
+        {
+          "option_text": "Light stops traveling",
+          "is_correct": false
+        },
+        {
+          "option_text": "Eyes stop working",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "what_can_be_concluded",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Why does a person look darker when standing between a light source and a wall?",
+      "explanation": "The person blocks light, creating a shadow on the wall behind.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Because the wall absorbs the person",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because light changes into sound",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because the person blocks the light",
+          "is_correct": true
+        },
+        {
+          "option_text": "Because the person becomes transparent",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "everyday_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "true_false",
+      "difficulty_level": "intermediate",
+      "question_text": "A plane mirror forms an image that appears behind the mirror.",
+      "explanation": "The image in a plane mirror appears to be behind the mirror.",
+      "default_marks": "1.00",
+      "negative_marks": "0.00",
+      "options": [
+        {
+          "option_text": "True",
+          "is_correct": true
+        },
+        {
+          "option_text": "False",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "true_false_concept",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which will usually form the darkest shadow?",
+      "explanation": "An opaque object blocks most or all light and forms the darkest shadow.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Clear glass plate",
+          "is_correct": false
+        },
+        {
+          "option_text": "Thick wooden board",
+          "is_correct": true
+        },
+        {
+          "option_text": "Thin tracing paper",
+          "is_correct": false
+        },
+        {
+          "option_text": "Colorless plastic sheet",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "scenario_comparison",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which observation best supports the statement that an object is translucent?",
+      "explanation": "A translucent object lets some light pass, but objects behind it appear blurred.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "No light passes through it",
+          "is_correct": false
+        },
+        {
+          "option_text": "It gives a perfect clear image",
+          "is_correct": false
+        },
+        {
+          "option_text": "Some light passes through but objects appear blurred",
+          "is_correct": true
+        },
+        {
+          "option_text": "It shines by itself",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "evidence_based_choice",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "intermediate",
+      "question_text": "State one difference between transparent and translucent objects.",
+      "explanation": "Transparent objects allow most light to pass clearly, while translucent objects allow only some light and do not show clear images.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "archetype": "compare_and_contrast",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "Transparent objects allow clear passage of light; translucent objects allow partial light",
+          "Objects are seen clearly through transparent objects but not through translucent objects",
+          "Transparent lets most light pass clearly; translucent does not"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Why can you see yourself in a plane mirror but not on a rough painted wall?",
+      "explanation": "The mirror provides regular reflection, while the rough wall scatters light irregularly.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Because the wall produces too much light",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because mirrors are transparent",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because mirrors reflect light regularly but rough walls scatter it",
+          "is_correct": true
+        },
+        {
+          "option_text": "Because walls have no color",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "integrated_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Why is it easier to see the beam of a torch in dusty air than in clean air?",
+      "explanation": "Dust particles scatter some light toward our eyes, making the path more visible.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Because clean air blocks all light",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because dust scatters light toward our eyes",
+          "is_correct": true
+        },
+        {
+          "option_text": "Because the torch becomes stronger in dust",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because dust is luminous",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "applied_science_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which setup is best for showing that light travels in straight lines?",
+      "explanation": "Using aligned holes in cards and a candle or torch shows that light passes only when the holes are in one straight line.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Put a mirror under a table",
+          "is_correct": false
+        },
+        {
+          "option_text": "Arrange three cardboards with holes in one line and observe a candle through them",
+          "is_correct": true
+        },
+        {
+          "option_text": "Put a stone in water and wait",
+          "is_correct": false
+        },
+        {
+          "option_text": "Cover a bulb with cloth",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "experiment_design",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "If the light source is moved closer to an object while the screen stays fixed, why may the shadow become larger?",
+      "explanation": "The closer light source spreads the shadow over a larger area on the screen.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Because the object grows in size",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because the screen becomes transparent",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because the geometry of light and shadow spreads the blocked region more",
+          "is_correct": true
+        },
+        {
+          "option_text": "Because light stops moving straight",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "chain_of_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_multiple",
+      "difficulty_level": "advanced",
+      "question_text": "Select all correct statements about shadows.",
+      "explanation": "A shadow needs a light source, an object blocking light, and a surface or region where the shadow can form.",
+      "default_marks": "2.00",
+      "negative_marks": "0.50",
+      "options": [
+        {
+          "option_text": "A shadow needs a source of light",
+          "is_correct": true
+        },
+        {
+          "option_text": "An opaque object can produce a clear shadow",
+          "is_correct": true
+        },
+        {
+          "option_text": "Shadow size can change with position",
+          "is_correct": true
+        },
+        {
+          "option_text": "A shadow shows the exact color of the object",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "multi_select_truth_evaluation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "A person stands in sunlight at noon and then in the evening. Why is the shadow usually longer in the evening?",
+      "explanation": "The Sun appears lower in the sky in the evening, making the shadow longer.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Because the person becomes taller",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because the Sun is lower in the sky",
+          "is_correct": true
+        },
+        {
+          "option_text": "Because evening light is colder",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because shadows absorb air",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "scenario_analysis",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "To compare how clearly different surfaces reflect light, what should be kept the same in each test?",
+      "explanation": "The same light source, object position, and viewing conditions should be used for a fair comparison.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "The surface color only",
+          "is_correct": false
+        },
+        {
+          "option_text": "The room noise level",
+          "is_correct": false
+        },
+        {
+          "option_text": "The light source and testing conditions",
+          "is_correct": true
+        },
+        {
+          "option_text": "The thickness of the table",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "decision_under_uncertainty",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "advanced",
+      "question_text": "Why can butter paper be used where some light is needed but privacy is also required?",
+      "explanation": "Butter paper is translucent. It lets some light pass through but does not allow a clear view through it.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "archetype": "reasoning_with_example",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "It lets some light pass but does not show clear images",
+          "It is translucent, so it gives light with privacy",
+          "Light can pass partially while objects remain unclear"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Why does covering half of a mirror still allow part of your face to be seen?",
+      "explanation": "Each part of a plane mirror reflects light from the full object region visible to it, so a partial mirror still forms an image of the visible part.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Because mirrors store whole images inside them",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because the uncovered part still reflects light from the visible part of the face",
+          "is_correct": true
+        },
+        {
+          "option_text": "Because the shadow of the face becomes the image",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because mirrors produce light from memory",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "cause_effect_link",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Why is a polished steel plate more reflective than a rough wooden plank?",
+      "explanation": "The polished surface is smoother, so it reflects light more regularly.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Because steel is always transparent",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because wood has no surface",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because the polished surface is smoother and reflects more regularly",
+          "is_correct": true
+        },
+        {
+          "option_text": "Because wood produces darkness",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "best_explanation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "If there were no source of light in a room, what would happen to shadows?",
+      "explanation": "Without light, no shadows can form because shadows need light to be blocked.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Shadows become larger",
+          "is_correct": false
+        },
+        {
+          "option_text": "Shadows become colored",
+          "is_correct": false
+        },
+        {
+          "option_text": "No shadows would form",
+          "is_correct": true
+        },
+        {
+          "option_text": "Shadows would move by themselves",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "what_if_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which option correctly matches object type and light behavior?",
+      "explanation": "Transparent lets most light pass, translucent lets some pass, and opaque blocks light.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Transparent - blocks light; Opaque - lets light pass",
+          "is_correct": false
+        },
+        {
+          "option_text": "Translucent - allows all light clearly",
+          "is_correct": false
+        },
+        {
+          "option_text": "Opaque - blocks light; Translucent - allows some light",
+          "is_correct": true
+        },
+        {
+          "option_text": "Mirror - produces light by itself",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "process_selection",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which observation best supports that a surface gives regular reflection?",
+      "explanation": "If it forms a clear image, the reflection is regular.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "It forms no image at all",
+          "is_correct": false
+        },
+        {
+          "option_text": "It absorbs all light",
+          "is_correct": false
+        },
+        {
+          "option_text": "It produces a clear image",
+          "is_correct": true
+        },
+        {
+          "option_text": "It feels warm to touch",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "evidence_based_choice",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Two objects are held in the same sunlight: one is transparent glass and one is cardboard. Which gives the clearer shadow and why?",
+      "explanation": "Cardboard gives the clearer shadow because it blocks light much more effectively.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Transparent glass, because it reflects more",
+          "is_correct": false
+        },
+        {
+          "option_text": "Cardboard, because it blocks light better",
+          "is_correct": true
+        },
+        {
+          "option_text": "Both always form equally dark shadows",
+          "is_correct": false
+        },
+        {
+          "option_text": "Neither can form any shadow",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "scenario_comparison",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which statement correctly connects light, reflection, and seeing objects?",
+      "explanation": "We see an object when light from a source reflects off it and enters our eyes.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Eyes create the object by themselves",
+          "is_correct": false
+        },
+        {
+          "option_text": "Reflection is not needed to see non-luminous objects",
+          "is_correct": false
+        },
+        {
+          "option_text": "Non-luminous objects are seen when reflected light enters our eyes",
+          "is_correct": true
+        },
+        {
+          "option_text": "Shadows are seen only because objects emit light",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "integrated_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    }
+  ]
+}

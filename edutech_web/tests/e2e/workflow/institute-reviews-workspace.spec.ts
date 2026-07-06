@@ -5,6 +5,23 @@ import { expectInstituteWorkspace } from "../helpers/navigation";
 async function expectReviewsWorkspace(page: Page) {
   await expect(page.getByRole("heading", { name: /review queue/i }).first()).toBeVisible();
   await expect(page.getByText(/quick triage/i)).toBeVisible();
+  await expect(page.getByText(/how to use this queue/i)).toBeVisible();
+}
+
+async function expectVisiblePaginationControlsToAvoidHashLinks(page: Page) {
+  const pagers = page.locator(".resultCardActions").filter({
+    has: page.getByText(/previous page|next page/i),
+  });
+  const count = await pagers.count();
+
+  for (let index = 0; index < count; index += 1) {
+    const pager = pagers.nth(index);
+    if (!(await pager.isVisible().catch(() => false))) {
+      continue;
+    }
+
+    await expect(pager.locator('a[href="#"]')).toHaveCount(0);
+  }
 }
 
 test.describe("Institute reviews workspace", () => {
@@ -19,6 +36,7 @@ test.describe("Institute reviews workspace", () => {
 
     await page.goto("/institute/reviews");
     await expectReviewsWorkspace(page);
+    await expectVisiblePaginationControlsToAvoidHashLinks(page);
 
     await page.getByRole("link", { name: /view pending/i }).first().click();
     await expect(page).toHaveURL(/\/institute\/reviews\?[^#]*status=pending/);
@@ -42,11 +60,23 @@ test.describe("Institute reviews workspace", () => {
     await expect(page).toHaveURL(/\/institute\/reviews\?[^#]*status=reviewed/);
     await expect(page).toHaveURL(/\/institute\/reviews\?[^#]*assignment_scope=assigned/);
     await expect(page).toHaveURL(/\/institute\/reviews\?[^#]*page_size=24/);
-    await expect(page.getByText(/assignment: assigned only/i)).toBeVisible();
+    await expect(page.getByText(/assignment: assigned only/i).first()).toBeVisible();
+    await expect(page.getByText(/page size: 24 tasks/i).first()).toBeVisible();
 
     const clearFiltersLink = page.getByRole("link", { name: /clear filters/i });
     await expect(clearFiltersLink).toBeVisible();
     await clearFiltersLink.click();
+    await expect(page).toHaveURL(/\/institute\/reviews(?:\?.*)?$/);
+    await expectReviewsWorkspace(page);
+    await expectVisiblePaginationControlsToAvoidHashLinks(page);
+
+    await page.getByRole("textbox", { name: /^search$/i }).fill("playwright-no-review-match-zzqv-1942");
+    await page.getByRole("button", { name: /apply filters/i }).click();
+    await expect(page).toHaveURL(/\/institute\/reviews\?[^#]*search=playwright-no-review-match-zzqv-1942/);
+    await expect(page.getByText(/no review tasks match these filters/i)).toBeVisible();
+    await expect(page.getByText(/active controls are shaping this empty state/i)).toBeVisible();
+    await expect(page.getByRole("link", { name: /reset filters and show full queue/i })).toBeVisible();
+    await page.getByRole("link", { name: /reset filters and show full queue/i }).click();
     await expect(page).toHaveURL(/\/institute\/reviews(?:\?.*)?$/);
     await expectReviewsWorkspace(page);
 

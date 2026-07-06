@@ -17,6 +17,20 @@ test.describe("Institute exam detail workspace", () => {
     await page.goto("/institute/exams");
     await expect(page.getByRole("heading", { name: /exam management/i }).first()).toBeVisible();
 
+    const emptyStateHeading = page.getByRole("heading", {
+      name: /your institute exam list is empty right now/i,
+    });
+    if (await emptyStateHeading.isVisible().catch(() => false)) {
+      await expect(emptyStateHeading).toBeVisible();
+      await expect(page.getByRole("link", { name: /quick create/i }).first()).toBeVisible();
+      await expect(page.getByRole("link", { name: /advanced builder/i }).first()).toBeVisible();
+
+      await page.getByRole("link", { name: /quick create/i }).first().click();
+      await expect(page).toHaveURL(/\/institute\/exams\/new(?:\?.*)?$/);
+      await expect(page.getByRole("heading", { name: /create exam/i }).first()).toBeVisible();
+      return;
+    }
+
     await page.getByRole("link", { name: /open exam/i }).first().click();
     await expect(page).toHaveURL(/\/institute\/exams\/[^/]+(?:\?.*)?$/);
 

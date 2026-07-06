@@ -558,7 +558,7 @@ export default async function InstituteEconomyPage() {
           id: "coverage-subjects",
           title: "Subjects in active coverage",
           lines: [
-            "Use this as the quickest answer to which subjects teachers can currently source from licensed content.",
+            "Use this as the quickest answer to which subjects teachers can currently source from platform content.",
           ],
           metaTitle: String(activeCoverage.subjects.length),
           metaLines: [activeCoverage.subjects.slice(0, 3).join(", ") || "No subject scope"],
@@ -629,7 +629,7 @@ export default async function InstituteEconomyPage() {
           id: "boundary-support",
           title: "Student support actions",
           lines: [
-            "Wallet inspection, reward review, controlled star grants, unlock recalculation, and pending order confirmation are supported for institute-scoped learners.",
+            "Wallet inspection, reward review, controlled star grants, unlock recalculation, and pending order confirmation are supported for learners in this workspace.",
           ],
           metaTitle: String(students.length),
           metaLines: ["Students available"],
@@ -756,7 +756,7 @@ export default async function InstituteEconomyPage() {
       eyebrow: "Question bank usage evidence",
       title: "Recent licensed-content activity in this institute",
       description:
-        "This is the closest operational proof that licensed content is being consumed in local authoring and publishing flows.",
+        "This is the closest operational proof that platform content is being consumed in local authoring and publishing flows.",
       emptyMessage: "No package usage entries are visible yet for this institute.",
       rows: questionBankUsage.map((entry) => ({
         id: entry.id,
@@ -799,7 +799,7 @@ export default async function InstituteEconomyPage() {
           id: "reading-links",
           title: "Shared-library linking footprint",
           lines: [
-            "Linked-question usage is the clearest signal that licensed platform content is actually being consumed by local authoring teams.",
+            "Linked-question usage is the clearest signal that platform content is actually being consumed by local authoring teams.",
           ],
           metaTitle: String(linkedQuestionUsageCount),
           metaLines: ["Link events"],
@@ -839,7 +839,7 @@ export default async function InstituteEconomyPage() {
     <section className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteSupportPageVivid instituteEconomyPage">
       <InstitutePageHeader
         title="Economy Oversight"
-        description="Review how star-based access is attached to institute exams and support institute-scoped student wallets with controlled administrative actions."
+        description="Review how star-based access is attached to institute exams and support student wallets with controlled administrative actions."
         statusLabel={
           source === "live"
             ? `${gatedExams.length} exams with economy policy`
@@ -862,7 +862,7 @@ export default async function InstituteEconomyPage() {
           <strong>Keep access policy visibility and student support actions inside the same institute control plane</strong>
           <p>
             This workspace is intentionally grounded in the backend contracts that exist today. It tracks exam-level
-            economy policies and provides institute-scoped wallet support actions without inventing a separate pricing
+            economy policies and provides workspace-level wallet support actions without inventing a separate pricing
             system in the frontend. Pack, plan, referral, and unlock catalog governance remain platform-owned, even
             though the platform governance lanes themselves are already live.
           </p>

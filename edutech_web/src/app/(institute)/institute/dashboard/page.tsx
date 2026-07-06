@@ -59,7 +59,7 @@ function summarizeAssessmentFamily(profile: StudentExamExperienceProfile | null 
   const familyLabel = profile?.assessment_family_label ?? "General";
   const deliveryEmphasis = normalizeLabel(profile?.delivery_emphasis) || "balanced delivery";
   const summaryMap: Record<string, string> = {
-    school: "Track syllabus coverage, concept mastery, and where reteaching should happen next.",
+    school: "Track syllabus coverage, concept mastery, and where reinforcement should happen next.",
     competitive: "Track rank pressure, speed, accuracy, and negative-marking exposure.",
     certification: "Track scenario judgment, domain readiness, and distractor quality.",
     language_proficiency: "Track skill bands, rubric evidence, and delivery quality across media-backed sections.",
@@ -123,7 +123,7 @@ export default async function InstituteDashboardPage({
       value: peopleCount,
       note:
         peopleCount > 0
-          ? "Student and teacher records are present in this institute scope."
+          ? "Student and teacher records are present in this workspace."
           : "No student or teacher records are loaded into this institute yet.",
       tone: peopleCount > 0 ? "live" : "warning",
     },
@@ -142,7 +142,7 @@ export default async function InstituteDashboardPage({
       note:
         examCount > 0
           ? "Assessment records are available for institute-side operations."
-          : "No exams have been created in this institute scope yet.",
+          : "No exams have been created in this workspace yet.",
       tone: examCount > 0 ? "live" : "default",
     },
     {
@@ -213,7 +213,7 @@ export default async function InstituteDashboardPage({
         eyebrow="Institute workspace"
         title={institute?.name ?? "Institute dashboard"}
         description=""
-        contextLabel={institute ? `${institute.code} · institute scope only` : "Institute scope only"}
+        contextLabel={institute ? `${institute.code} · workspace view` : "Workspace view"}
         className="pageHeaderCompact"
       />
 
@@ -266,7 +266,7 @@ export default async function InstituteDashboardPage({
             <article className="adminInstituteHeroMiniStat">
               <span>Students</span>
               <strong>{studentCount}</strong>
-              <small>Learners in institute scope.</small>
+              <small>Learners currently visible in this workspace.</small>
             </article>
             <article className="adminInstituteHeroMiniStat">
               <span>Teachers</span>
@@ -335,12 +335,12 @@ export default async function InstituteDashboardPage({
         <article className="metricCard metricCardPrimary dashboardHeroCard">
           <span>Students</span>
           <strong>{studentCount}</strong>
-          <small>Students currently in this institute scope.</small>
+          <small>Students currently visible in this workspace.</small>
         </article>
         <article className="metricCard dashboardHeroCard">
           <span>Teachers</span>
           <strong>{teacherCount}</strong>
-          <small>Teachers currently in this institute scope.</small>
+          <small>Teachers currently visible in this workspace.</small>
         </article>
         <article className="metricCard dashboardHeroCard">
           <span>Academic units</span>

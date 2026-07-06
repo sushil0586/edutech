@@ -1,4 +1,4 @@
-from django.db.models import Count, Q
+from django.db.models import Q
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -13,32 +13,11 @@ from apps.reports.services import (
     create_audit_log,
     mark_all_notifications_as_read,
     mark_notification_as_read,
+    notification_list_metadata,
     unread_notification_count,
 )
 from common.pagination import StandardResultsSetPagination
 from common.responses import action_response
-
-
-def _notification_type_label(value):
-    return str(value).replace("_", " ").strip().title()
-
-
-def _notification_group_options(queryset, field_name):
-    rows = queryset.values(field_name).annotate(count=Count("id")).order_by("-count", field_name)
-    options = []
-    for row in rows:
-        value = row[field_name]
-        if not value:
-            continue
-        options.append(
-            {
-                "value": value,
-                "label": _notification_type_label(value),
-                "count": row["count"],
-            }
-        )
-    return options
-
 
 class NotificationListView(APIView):
     permission_classes = [IsAuthenticated]
@@ -46,8 +25,7 @@ class NotificationListView(APIView):
 
     def get(self, request):
         base_queryset = (
-            InAppNotification.objects.select_related("institute", "recipient_user")
-            .only(
+            InAppNotification.objects.only(
                 "id",
                 "institute_id",
                 "recipient_user_id",
@@ -102,28 +80,14 @@ class NotificationListView(APIView):
             ordering = "newest"
             queryset = queryset.order_by("-created_at", "-id")
 
-        summary = base_queryset.aggregate(
-            total=Count("id"),
-            unread=Count("id", filter=Q(is_read=False)),
-            read=Count("id", filter=Q(is_read=True)),
-        )
+        metadata = notification_list_metadata(request.user)
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(queryset, request, view=self)
         serializer = InAppNotificationSerializer(page, many=True)
         response = paginator.get_paginated_response(serializer.data)
-        response.data["summary"] = {
-            "total": summary["total"] or 0,
-            "unread": summary["unread"] or 0,
-            "read": summary["read"] or 0,
-        }
-        response.data["available_notification_types"] = _notification_group_options(
-            base_queryset,
-            "notification_type",
-        )
-        response.data["available_related_object_types"] = _notification_group_options(
-            base_queryset,
-            "related_object_type",
-        )
+        response.data["summary"] = metadata["summary"]
+        response.data["available_notification_types"] = metadata["available_notification_types"]
+        response.data["available_related_object_types"] = metadata["available_related_object_types"]
         response.data["applied_filters"] = {
             "status": status_filter,
             "notification_type": notification_type,
@@ -139,8 +103,7 @@ class NotificationMarkReadView(APIView):
 
     def post(self, request, notification_id):
         notification = (
-            InAppNotification.objects.select_related("institute", "recipient_user")
-            .filter(
+            InAppNotification.objects.filter(
                 pk=notification_id,
                 recipient_user=request.user,
                 is_active=True,

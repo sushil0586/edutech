@@ -103,3 +103,59 @@ class BulkRosterImportTestCase(TestCase):
         self.client.force_authenticate(user=self.teacher_user)
         response = self.client.get("/api/v1/students/import-template/")
         self.assertEqual(response.status_code, 403)
+
+    def test_student_import_preview_rejects_duplicate_admission_numbers_within_same_csv(self):
+        self.client.force_authenticate(user=self.institute_admin_user)
+        csv_content = (
+            "admission_no,first_name,last_name,gender,academic_year,program,cohort,email,phone,guardian_name,"
+            "guardian_phone,address,joined_at,is_active,create_login,username,password\n"
+            f"STU910,Diya,Kapoor,female,{self.context['academic_year'].name},{self.context['program'].name},"
+            f"{self.context['cohort'].name},diya1@example.com,9999999999,Raj Kapoor,8888888888,Delhi,2026-05-21,"
+            "true,false,,\n"
+            f"STU910,Riya,Sharma,female,{self.context['academic_year'].name},{self.context['program'].name},"
+            f"{self.context['cohort'].name},riya@example.com,9999999998,Ajay Sharma,8888888887,Delhi,2026-05-21,"
+            "true,false,,\n"
+        )
+        response = self.client.post(
+            "/api/v1/students/preview-import/",
+            {
+                "institute": str(self.context["institute"].id),
+                "file": self._csv_file(csv_content, "students-duplicates.csv"),
+            },
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["valid_rows"], 1)
+        self.assertEqual(response.data["invalid_rows"], 1)
+        self.assertEqual(
+            response.data["rows"][1]["errors"]["admission_no"],
+            ["Admission number already exists."],
+        )
+
+    def test_teacher_import_preview_rejects_duplicate_usernames_within_same_csv(self):
+        self.client.force_authenticate(user=self.institute_admin_user)
+        csv_content = (
+            "employee_code,first_name,last_name,email,phone,qualification,specialization,bio,joined_at,is_active,"
+            "create_login,username,password\n"
+            "TCH910,Anita,Verma,anita@example.com,9999999999,MSc Physics,Physics,Senior teacher,2026-05-21,"
+            "true,true,shared.login,Teacher@123\n"
+            "TCH911,Neha,Shah,9999999998,9999999998,MSc Math,Math,Senior teacher,2026-05-21,"
+            "true,true,shared.login,Teacher@123\n"
+        )
+        response = self.client.post(
+            "/api/v1/teachers/preview-import/",
+            {
+                "institute": str(self.context["institute"].id),
+                "file": self._csv_file(csv_content, "teachers-duplicates.csv"),
+            },
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["valid_rows"], 1)
+        self.assertEqual(response.data["invalid_rows"], 1)
+        self.assertEqual(
+            response.data["rows"][1]["errors"]["username"],
+            ["Username already exists."],
+        )

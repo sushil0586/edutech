@@ -29,6 +29,7 @@ export default async function AdminLayout({
         profile={profile}
         portalLabel="Platform Admin Portal"
         ariaLabel="Platform admin navigation"
+        homeHref="/admin"
         navItems={adminNavItems}
       />
       <main className="studentAppMain adminAppMain">

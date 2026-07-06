@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { FilterSummaryPills } from "@/components/ui/filter-summary-pills";
+import { OperatorWorkspaceLink as Link } from "@/components/ui/operator-workspace-link";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { InstitutePageHeader } from "@/components/ui/institute-page-header";
 import type { TeacherExamListItem, TeacherResultSummary } from "@/features/dashboard/types";
@@ -9,7 +9,7 @@ import { requireInstituteAdminSession } from "@/lib/auth/session";
 import { buildFilterHref, formatFilterValue, resolveFilterValue } from "@/lib/workspace/filter-utils";
 
 type InstituteExam = TeacherExamListItem;
-type InstituteExamStatusFilter = "all" | "live" | "scheduled" | "draft";
+type InstituteExamStatusFilter = "all" | "live" | "scheduled" | "draft" | "completed";
 type InstituteExamSortOption =
   | "recommended"
   | "start_soon"
@@ -25,12 +25,83 @@ type TeacherOption = {
   is_active: boolean;
 };
 
+type ExamLifecycleGuidance = {
+  statusLabel: string;
+  summary: string;
+  nextStep: string;
+};
+
 function titleCase(value: string) {
   return formatFilterValue(value);
 }
 
+function getExamLifecycleGuidance(
+  exam: InstituteExam,
+  summary: TeacherResultSummary | null,
+): ExamLifecycleGuidance {
+  if (exam.status === "draft") {
+    return {
+      statusLabel: "Draft setup",
+      summary: "This exam is still being prepared and is not learner-ready yet.",
+      nextStep: "Use Setup to review sections, questions, and learner assignment before publishing or scheduling.",
+    };
+  }
+
+  if (exam.status === "scheduled") {
+    return {
+      statusLabel: "Scheduled delivery",
+      summary: exam.start_at
+        ? `This exam is scheduled and will become available when the start time arrives.`
+        : "This exam is scheduled, but you should still confirm the delivery window.",
+      nextStep: "Open Exam to confirm timing, assigned learners, and publish readiness before it goes live.",
+    };
+  }
+
+  if (exam.status === "live") {
+    return {
+      statusLabel: "Live now",
+      summary: "Learners can currently attempt this exam.",
+      nextStep: summary?.review_blocked
+        ? "Watch attempt activity now, then clear review blockers before publishing results."
+        : "Monitor attempts and prepare the results workflow once submissions are complete.",
+    };
+  }
+
+  if (summary?.results_published) {
+    return {
+      statusLabel: "Completed and published",
+      summary: "Delivery is finished and learner-visible results are already published.",
+      nextStep: "Open Exam to review the final configuration, or move to Results if learners need post-exam support.",
+    };
+  }
+
+  if (summary?.review_blocked) {
+    return {
+      statusLabel: "Completed with review blockers",
+      summary: `Delivery is finished, but ${summary.pending_review_tasks_count} review task${summary.pending_review_tasks_count === 1 ? "" : "s"} still block result publication.`,
+      nextStep: "Open Exam and then move to Results so pending review work can be cleared before publishing.",
+    };
+  }
+
+  if (exam.status === "completed") {
+    return {
+      statusLabel: "Completed delivery",
+      summary: "Learner delivery is finished, but the results workflow still needs to be checked.",
+      nextStep: summary
+        ? "Open Exam and verify results readiness before publishing learner-visible outcomes."
+        : "Open Exam to confirm lifecycle completion and create the first result summary if it is still missing.",
+    };
+  }
+
+  return {
+    statusLabel: titleCase(exam.status),
+    summary: "Review this exam row before making delivery or results decisions.",
+    nextStep: "Open Exam for the full lifecycle and assignment detail.",
+  };
+}
+
 function resolveInstituteExamStatusFilter(value?: string): InstituteExamStatusFilter {
-  return resolveFilterValue(value, ["live", "scheduled", "draft"], "all");
+  return resolveFilterValue(value, ["live", "scheduled", "draft", "completed"], "all");
 }
 
 function resolveInstituteExamSortOption(value?: string): InstituteExamSortOption {
@@ -94,6 +165,7 @@ async function loadInstituteExams(
   teacherFilter: string,
   page: number,
   pageSize: number,
+  includeBaselineCount: boolean,
 ) {
   const state = getTeacherApiState();
 
@@ -106,7 +178,7 @@ async function loadInstituteExams(
   }
 
   try {
-    const [examsPage, resultSummary] = await Promise.all([
+    const [examsPage, resultSummary, baselineExamsPage] = await Promise.all([
       fetchTeacherExamPage({
         page,
         pageSize,
@@ -115,18 +187,26 @@ async function loadInstituteExams(
         teacher: teacherFilter || undefined,
       }),
       fetchTeacherResultSummary(),
+      includeBaselineCount
+        ? fetchTeacherExamPage({
+            page: 1,
+            pageSize: 1,
+          })
+        : Promise.resolve(null),
     ]);
 
     return {
       source: "live" as const,
       examsPage,
       resultSummary,
+      baselineExamsPage,
     };
   } catch {
     return {
       source: "error" as const,
       examsPage: null,
       resultSummary: [] as TeacherResultSummary[],
+      baselineExamsPage: null,
     };
   }
 }
@@ -158,12 +238,17 @@ export default async function InstituteExamsPage({
     Number.parseInt(params.exam_page_size ?? "12", 10) > 0
       ? Number.parseInt(params.exam_page_size ?? "12", 10)
       : 12;
-  const { source, examsPage, resultSummary } = await loadInstituteExams(
+  const hasNarrowingFilters = Boolean(teacherFilter) || statusFilter !== "all";
+  const hasContextControlsChanged =
+    sortOption !== "recommended" || groupOption !== "none" || examPageSize !== 12 || examPage !== 1;
+  const hasExamListControlsApplied = hasNarrowingFilters || hasContextControlsChanged;
+  const { source, examsPage, resultSummary, baselineExamsPage } = await loadInstituteExams(
     statusFilter,
     sortOption,
     teacherFilter,
     examPage,
     examPageSize,
+    hasExamListControlsApplied,
   );
   const exams = examsPage?.results ?? [];
   const visibleExams = exams;
@@ -172,17 +257,37 @@ export default async function InstituteExamsPage({
   const liveCount = exams.filter((exam) => exam.status === "live").length;
   const scheduledCount = exams.filter((exam) => exam.status === "scheduled").length;
   const draftCount = exams.filter((exam) => exam.status === "draft").length;
+  const completedCount = exams.filter((exam) => exam.status === "completed").length;
   const reviewBlockedCount = exams.filter((exam) => summaryByExamId.get(exam.id)?.review_blocked).length;
   const publishedCount = exams.filter((exam) => summaryByExamId.get(exam.id)?.results_published).length;
   const totalExams = examsPage?.count ?? 0;
+  const overallExamCount = baselineExamsPage?.count ?? totalExams;
   const examTotalPages = Math.max(Math.ceil(totalExams / examPageSize), 1);
   const safeExamPage = Math.min(examPage, examTotalPages);
+  const isPaginationOverflowState = totalExams > 0 && visibleExams.length === 0 && examPage > examTotalPages;
+  const isTrueEmptyExamState = overallExamCount === 0;
+  const isFilteredEmptyExamState = overallExamCount > 0 && totalExams === 0;
+  const activeExamFilterSummary = [
+    teacherFilter ? `Teacher: ${selectedTeacher?.full_name ?? "Selected teacher"}` : null,
+    statusFilter !== "all" ? `Status: ${formatFilterValue(statusFilter)}` : null,
+    sortOption !== "recommended" ? `Sort: ${formatFilterValue(sortOption)}` : null,
+    groupOption !== "none" ? `Group: ${formatFilterValue(groupOption)}` : null,
+    examPageSize !== 12 ? `Page size: ${examPageSize}` : null,
+    safeExamPage !== 1 ? `Page: ${safeExamPage}` : null,
+  ].filter(Boolean) as string[];
+  const activeExamFilterPills =
+    activeExamFilterSummary.length > 0
+      ? activeExamFilterSummary.map((value, index) => ({
+          label: index === 0 ? "Active controls" : " ",
+          value,
+        }))
+      : [{ label: "Active controls", value: "Default exam list view" }];
 
   return (
     <div className="studentPage studentDashboardModern instituteConsolePage instituteExamsPageVivid">
       <InstitutePageHeader
         title="Exam Management"
-        description="Review institute-scoped exams, inspect sections and assigned learners, and open each exam to manage setup and delivery state."
+        description="Review exams, inspect sections and assigned learners, and open each exam to manage setup and delivery state."
         action={
           <div className="pageHeaderActionGroup">
             <Link className="button buttonGhost" href="/institute/exams/preset-packs">
@@ -209,7 +314,11 @@ export default async function InstituteExamsPage({
           }`}
         >
           {source === "live"
-            ? `${totalExams} exams loaded`
+            ? isPaginationOverflowState
+              ? "Current page is outside the visible exam list"
+              : isFilteredEmptyExamState
+              ? "Active controls are hiding all exams"
+              : `${overallExamCount} exams in this workspace`
             : source === "unconfigured"
               ? "Backend not configured"
               : "Unable to load exams"}
@@ -227,7 +336,7 @@ export default async function InstituteExamsPage({
           description={
             source === "unconfigured"
               ? "Configure the API base URL and sign in with an active institute admin account to load exams from the backend."
-              : "The institute exam page is wired to live exam endpoints, but the current request did not complete successfully."
+              : "The institute exam page is connected to live exam data, but the current request did not complete successfully."
           }
           bullets={
             source === "unconfigured"
@@ -238,14 +347,22 @@ export default async function InstituteExamsPage({
           ctaLabel="Back to Dashboard"
           statusLabel={source === "unconfigured" ? "Configuration required" : "Retry after backend check"}
         />
-      ) : totalExams === 0 ? (
+      ) : isTrueEmptyExamState ? (
         <StudentStatePanel
           eyebrow="No exams in scope"
           title="Your institute exam list is empty right now"
-          description="No active exams were returned for this institute account. Once exams are created within the current institute scope, they will appear here automatically."
-          ctaHref="/institute/dashboard"
-          ctaLabel="Back to Dashboard"
-          statusLabel="Waiting for exams"
+          description="No institute exams have been created for this account yet. Start with the fastest exam-creation path first, then return here to review schedule, assignments, and results readiness."
+          bullets={[
+            "Use Quick Create for the fastest first mock or practice exam.",
+            "Open Academic Setup if class, subject, or topic choices are missing or incomplete.",
+            "Use Advanced Builder only when you want to assemble an exam from licensed shared-library questions.",
+          ]}
+          ctaHref="/institute/exams/new"
+          ctaLabel="Start With Quick Create"
+          secondaryCtaHref="/institute/academic-setup"
+          secondaryCtaLabel="Open Academic Setup"
+          statusLabel="First exam not created yet"
+          footnote="After the first exam is created, this page will automatically show filters, exam cards, pagination, and grouped delivery views."
         />
       ) : (
         <>
@@ -254,7 +371,7 @@ export default async function InstituteExamsPage({
               <span className="studentDashboardTag">Exam Operations</span>
               <strong>Institute exam operations</strong>
               <small>
-                {liveCount} live · {scheduledCount} scheduled · {reviewBlockedCount} review blocked
+                {overallExamCount} total in this workspace · {liveCount} live · {scheduledCount} scheduled · {completedCount} completed · {reviewBlockedCount} review blocked
               </small>
             </div>
             <div className="studentInsightHeroActions">
@@ -270,39 +387,164 @@ export default async function InstituteExamsPage({
             </div>
           </section>
 
-          <section className="resultsSummaryGrid">
-            <article className="metricCard metricCardPrimary dashboardHeroCard">
-              <span>Total Exams</span>
-              <strong>{visibleExams.length}</strong>
-              <small>{draftCount} draft and {scheduledCount} scheduled</small>
-            </article>
+          {hasExamListControlsApplied ? (
+            <section className="contentCard workspaceFiltersCard">
+              <div className="sectionHeading">
+                <strong>Active list controls are changing what you see</strong>
+                <span>
+                  These controls only change the current list view. They do not edit, hide, or delete any exam data.
+                </span>
+              </div>
+              <FilterSummaryPills items={activeExamFilterPills} />
+              <div className="workspaceFilterActions">
+                <Link className="button buttonSecondary" href="/institute/exams">
+                  Reset to the default exam view
+                </Link>
+              </div>
+            </section>
+          ) : null}
 
-            <article className="metricCard dashboardHeroCard">
-              <span>Live Exams</span>
-              <strong>{liveCount}</strong>
-              <small>Currently available to learners</small>
-            </article>
+          {isFilteredEmptyExamState ? (
+            <section className="contentCard workspaceFiltersCard">
+              <div className="sectionHeading">
+                <strong>No exams match the current controls</strong>
+                <span>
+                  Nothing is broken. This institute still has {overallExamCount} exam{overallExamCount === 1 ? "" : "s"},
+                  but the current controls returned zero matches.
+                </span>
+              </div>
+              <div className="builderHintPanel">
+                <strong>Why this happened</strong>
+                <p>
+                  The current teacher, status, sorting, grouping, or page-size combination narrowed the list too far.
+                  This is a filtered view, not a first-time onboarding state.
+                </p>
+                <small>
+                  Clear all controls to return to the full exam list immediately, or keep the same controls and return to
+                  page 1 if you were only experimenting with list options.
+                </small>
+              </div>
+              <FilterSummaryPills items={activeExamFilterPills} />
+              <div className="workspaceFilterActions">
+                <Link className="button buttonPrimary" href="/institute/exams">
+                  Clear all controls and show all exams
+                </Link>
+                <Link
+                  className="button buttonGhost"
+                  href={buildInstituteExamFilterHref({
+                    teacher: teacherFilter,
+                    status: statusFilter,
+                    sort: sortOption,
+                    group: groupOption,
+                    page: 1,
+                    pageSize: examPageSize,
+                  })}
+                >
+                  Keep these controls and return to page 1
+                </Link>
+                <Link className="button buttonSecondary" href="/institute/exams/new">
+                  Create a new exam
+                </Link>
+              </div>
+            </section>
+          ) : null}
 
-            <article className="metricCard dashboardHeroCard">
-              <span>Assigned Learners</span>
-              <strong>{exams.reduce((total, exam) => total + exam.assigned_student_count, 0)}</strong>
-              <small>Across the current institute scope</small>
-            </article>
+          {isPaginationOverflowState ? (
+            <section className="contentCard workspaceFiltersCard">
+              <div className="sectionHeading">
+                <strong>You are on a page that no longer has visible exams</strong>
+                <span>
+                  Exams still exist in the current scope, but page {examPage} is beyond the last page that has visible rows.
+                </span>
+              </div>
+              <div className="builderHintPanel">
+                <strong>Why this happened</strong>
+                <p>
+                  This usually happens after changing status, teacher, or page size controls. The result set became
+                  smaller, but the page number stayed on an older later page.
+                </p>
+                <small>
+                  Nothing is lost. Return to page 1 with the same controls, or reopen the full exam list in one click.
+                </small>
+              </div>
+              <FilterSummaryPills
+                items={[
+                  { label: "Current page", value: `${examPage}` },
+                  { label: "Last page with results", value: `${examTotalPages}` },
+                  ...activeExamFilterPills,
+                ]}
+              />
+              <div className="workspaceFilterActions">
+                <Link
+                  className="button buttonPrimary"
+                  href={buildInstituteExamFilterHref({
+                    teacher: teacherFilter,
+                    status: statusFilter,
+                    sort: sortOption,
+                    group: groupOption,
+                    page: 1,
+                    pageSize: examPageSize,
+                  })}
+                >
+                  Return to page 1 with the same controls
+                </Link>
+                <Link className="button buttonSecondary" href="/institute/exams">
+                  Clear all controls and show all exams
+                </Link>
+              </div>
+            </section>
+          ) : null}
 
-            <article className="metricCard dashboardHeroCard">
-              <span>Review Blocked</span>
-              <strong>{reviewBlockedCount}</strong>
-              <small>{publishedCount} exam(s) already have student-visible results</small>
-            </article>
-          </section>
+          {!isFilteredEmptyExamState && !isPaginationOverflowState ? (
+            <section className="resultsSummaryGrid">
+              <article className="metricCard metricCardPrimary dashboardHeroCard">
+                <span>Visible On This Page</span>
+                <strong>{visibleExams.length}</strong>
+                <small>{totalExams} match the current scope across all visible pages</small>
+              </article>
+
+              <article className="metricCard dashboardHeroCard">
+                <span>Workspace Total</span>
+                <strong>{overallExamCount}</strong>
+                <small>{draftCount} draft, {scheduledCount} scheduled, and {completedCount} completed in the current page slice</small>
+              </article>
+
+              <article className="metricCard dashboardHeroCard">
+                <span>Assigned Learners</span>
+                <strong>{exams.reduce((total, exam) => total + exam.assigned_student_count, 0)}</strong>
+                <small>Across the current workspace</small>
+              </article>
+
+              <article className="metricCard dashboardHeroCard">
+                <span>Review Blocked</span>
+                <strong>{reviewBlockedCount}</strong>
+                <small>{publishedCount} exam(s) already have student-visible results</small>
+              </article>
+            </section>
+          ) : null}
 
           <section className="contentCard workspaceFiltersCard">
             <div className="sectionHeading">
               <strong>Exam Controls</strong>
               <span>
-                {visibleExams.length} shown
-                {totalExams !== visibleExams.length ? ` of ${totalExams}` : ""}
+                {isPaginationOverflowState
+                  ? "No rows on the current page"
+                  : isFilteredEmptyExamState
+                  ? "0 shown because of active controls"
+                  : overallExamCount === 0
+                    ? "0 shown"
+                    : `${visibleExams.length} shown${totalExams !== visibleExams.length ? ` of ${totalExams}` : ""} in the current scope`}
               </span>
+            </div>
+            <div className="builderHintPanel">
+              <strong>How to use this workspace</strong>
+              <p>
+                Start with teacher and status first. Use sort and group only when you want a different way to read the same list.
+                These controls change only what is visible on this page. They do not edit any exam data.
+              </p>
+              <small>
+                If the page ever looks unexpectedly empty, review the active controls summary below before assuming an exam is missing or deleted.
+              </small>
             </div>
             <form className="workspaceFiltersForm" method="GET">
               <input name="exam_page" type="hidden" value="1" />
@@ -324,6 +566,7 @@ export default async function InstituteExamsPage({
                   <option value="live">Live</option>
                   <option value="scheduled">Scheduled</option>
                   <option value="draft">Draft</option>
+                  <option value="completed">Completed</option>
                 </select>
               </label>
               <label className="workspaceFilterField">
@@ -388,6 +631,11 @@ export default async function InstituteExamsPage({
                     active: statusFilter === "draft",
                   },
                   {
+                    label: "Completed",
+                    href: buildInstituteExamFilterHref({ teacher: teacherFilter, status: "completed", sort: sortOption, group: groupOption, pageSize: examPageSize }),
+                    active: statusFilter === "completed",
+                  },
+                  {
                     label: "Starts Soon",
                     href: buildInstituteExamFilterHref({ teacher: teacherFilter, status: statusFilter, sort: "start_soon", group: groupOption, pageSize: examPageSize }),
                     active: sortOption === "start_soon",
@@ -419,21 +667,34 @@ export default async function InstituteExamsPage({
                 { label: "Status", value: formatFilterValue(statusFilter) },
                 { label: "Sort", value: formatFilterValue(sortOption) },
                 { label: "Group", value: formatFilterValue(groupOption) },
+                { label: "Page size", value: `${examPageSize}` },
                 { label: "Page", value: `${safeExamPage}/${examTotalPages}` },
               ]}
             />
+            {isFilteredEmptyExamState || isPaginationOverflowState ? (
+              <div className="workspaceFilterActions">
+                {isPaginationOverflowState ? (
+                  <Link
+                    className="button buttonPrimary"
+                    href={buildInstituteExamFilterHref({
+                      teacher: teacherFilter,
+                      status: statusFilter,
+                      sort: sortOption,
+                      group: groupOption,
+                      page: 1,
+                      pageSize: examPageSize,
+                    })}
+                  >
+                    Return to page 1
+                  </Link>
+                ) : (
+                  <Link className="button buttonPrimary" href="/institute/exams">
+                    Clear all controls now
+                  </Link>
+                )}
+              </div>
+            ) : null}
           </section>
-
-          {visibleExams.length === 0 ? (
-            <StudentStatePanel
-              eyebrow="No matching exams"
-              title="No institute exams match these controls"
-              description="Try a broader status filter, change the grouping, or reset the controls to return to the full institute list."
-              ctaHref="/institute/exams"
-              ctaLabel="Reset exam filters"
-              statusLabel="Filter returned zero exams"
-            />
-          ) : null}
 
           {visibleExams.length > 0
             ? groupedExams.map((group) => (
@@ -447,6 +708,7 @@ export default async function InstituteExamsPage({
                   <div className="examGrid">
                     {group.items.map((exam) => {
                       const summary = summaryByExamId.get(exam.id) ?? null;
+                      const lifecycleGuidance = getExamLifecycleGuidance(exam, summary);
                       return (
                       <article className="examCard" key={exam.id}>
                         <div className="examCardTop">
@@ -462,6 +724,8 @@ export default async function InstituteExamsPage({
                               ? "statusLive"
                               : exam.status === "scheduled"
                                 ? "statusWarning"
+                                : exam.status === "completed"
+                                  ? "statusDemo"
                                 : exam.status === "draft"
                                   ? "statusDemo"
                                   : "statusDanger"
@@ -514,6 +778,12 @@ export default async function InstituteExamsPage({
                           {exam.description || exam.instructions || "No additional institute-facing exam notes were provided."}
                         </p>
 
+                        <div className="builderHintPanel" style={{ marginTop: 14 }}>
+                          <strong>{lifecycleGuidance.statusLabel}</strong>
+                          <p>{lifecycleGuidance.summary}</p>
+                          <small>{lifecycleGuidance.nextStep}</small>
+                        </div>
+
                         <div className="examCardFooter">
                           <div className="examStateSummary">
                             <strong>
@@ -547,38 +817,43 @@ export default async function InstituteExamsPage({
             : null}
           {totalExams > examPageSize ? (
             <div className="workspaceFilterActions">
-              <Link
-                className="button buttonSecondary"
-                href={
-                  safeExamPage <= 1
-                    ? "#"
-                    : buildInstituteExamFilterHref({
-                        status: statusFilter,
-                        sort: sortOption,
-                        group: groupOption,
-                        page: safeExamPage - 1,
-                        pageSize: examPageSize,
-                      })
-                }
-              >
-                Previous
-              </Link>
-              <Link
-                className="button buttonSecondary"
-                href={
-                  safeExamPage >= examTotalPages
-                    ? "#"
-                    : buildInstituteExamFilterHref({
-                        status: statusFilter,
-                        sort: sortOption,
-                        group: groupOption,
-                        page: safeExamPage + 1,
-                        pageSize: examPageSize,
-                      })
-                }
-              >
-                Next
-              </Link>
+              {safeExamPage <= 1 ? (
+                <span className="button buttonGhost questionBankButtonDisabled">Previous</span>
+              ) : (
+                <Link
+                  className="button buttonSecondary"
+                  href={buildInstituteExamFilterHref({
+                    teacher: teacherFilter,
+                    status: statusFilter,
+                    sort: sortOption,
+                    group: groupOption,
+                    page: safeExamPage - 1,
+                    pageSize: examPageSize,
+                  })}
+                >
+                  Previous
+                </Link>
+              )}
+              <span className="statusPill statusDefault">
+                Page {safeExamPage} of {examTotalPages}
+              </span>
+              {safeExamPage >= examTotalPages ? (
+                <span className="button buttonGhost questionBankButtonDisabled">Next</span>
+              ) : (
+                <Link
+                  className="button buttonSecondary"
+                  href={buildInstituteExamFilterHref({
+                    teacher: teacherFilter,
+                    status: statusFilter,
+                    sort: sortOption,
+                    group: groupOption,
+                    page: safeExamPage + 1,
+                    pageSize: examPageSize,
+                  })}
+                >
+                  Next
+                </Link>
+              )}
             </div>
           ) : null}
         </>

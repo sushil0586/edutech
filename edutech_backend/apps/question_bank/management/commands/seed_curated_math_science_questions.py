@@ -119,7 +119,7 @@ class Command(BaseCommand):
 
                 pack_questions = load_curated_topic_pack(topic.code, expected_count=requested_count)
                 for sequence_number, payload in enumerate(pack_questions, start=1):
-                    self._create_question(
+                    self._create_or_update_question(
                         institute=institute,
                         program=program,
                         subject=subject,
@@ -167,7 +167,7 @@ class Command(BaseCommand):
             raise CommandError(f"Subject {code} not found for {institute.code}. Seed academics first.")
         return subject
 
-    def _create_question(
+    def _create_or_update_question(
         self,
         *,
         institute,
@@ -184,24 +184,40 @@ class Command(BaseCommand):
             "seed_sequence": sequence_number,
             **payload["metadata"],
         }
-        question = Question.objects.create(
+        question = Question.objects.filter(
             institute=institute,
-            program=program,
             subject=subject,
             topic=topic,
-            created_by_teacher=None,
-            question_type=payload["question_type"],
-            difficulty_level=payload["difficulty_level"],
-            content_format="plain_text",
-            question_text=payload["question_text"],
-            explanation=payload["explanation"],
-            default_marks=Decimal(payload["default_marks"]),
-            negative_marks=Decimal(payload["negative_marks"]),
-            is_verified=True,
-            is_active=True,
-            metadata=metadata,
-        )
+            metadata__seed_batch=CURATED_BATCH,
+            metadata__seed_sequence=sequence_number,
+        ).first()
+        defaults = {
+            "program": program,
+            "subject": subject,
+            "topic": topic,
+            "created_by_teacher": None,
+            "question_type": payload["question_type"],
+            "difficulty_level": payload["difficulty_level"],
+            "content_format": "plain_text",
+            "question_text": payload["question_text"],
+            "explanation": payload["explanation"],
+            "default_marks": Decimal(payload["default_marks"]),
+            "negative_marks": Decimal(payload["negative_marks"]),
+            "is_verified": True,
+            "is_active": True,
+            "metadata": metadata,
+        }
+        if question is None:
+            question = Question.objects.create(
+                institute=institute,
+                **defaults,
+            )
+        else:
+            for field_name, value in defaults.items():
+                setattr(question, field_name, value)
+            question.save()
 
+        question.options.all().delete()
         option_records = []
         for option_order, option in enumerate(payload["options"], start=1):
             option_records.append(

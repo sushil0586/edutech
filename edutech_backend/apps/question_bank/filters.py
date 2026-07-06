@@ -9,6 +9,7 @@ class QuestionFilterSet(django_filters.FilterSet):
     missing_explanation = django_filters.BooleanFilter(method="filter_missing_explanation")
     quality_signal = django_filters.CharFilter(method="filter_quality_signal")
     revision_priority = django_filters.CharFilter(method="filter_revision_priority")
+    source_state = django_filters.CharFilter(method="filter_source_state")
 
     class Meta:
         model = Question
@@ -113,3 +114,28 @@ class QuestionFilterSet(django_filters.FilterSet):
         if normalized == "none":
             return self.filter_quality_signal(queryset, "quality_signal", "healthy")
         return queryset
+
+    def filter_source_state(self, queryset, name, value):
+        normalized = str(value or "").strip().lower()
+        if not normalized:
+            return queryset
+
+        linked_queryset = queryset.filter(master_question__source_type="platform")
+        if normalized == "linked":
+            return linked_queryset
+        if normalized == "local_only":
+            return queryset.exclude(master_question__source_type="platform")
+
+        if normalized not in {"active", "inactive"}:
+            return queryset
+
+        from apps.question_bank.services import institute_has_question_authoring_access
+
+        matching_ids = []
+        for question in linked_queryset.select_related("master_question", "institute"):
+            has_access = institute_has_question_authoring_access(question.institute, question=question)
+            if normalized == "active" and has_access:
+                matching_ids.append(question.id)
+            if normalized == "inactive" and not has_access:
+                matching_ids.append(question.id)
+        return queryset.filter(id__in=matching_ids)

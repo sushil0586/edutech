@@ -90,6 +90,7 @@ class AcademicPresetPreviewView(APIView):
                 academic_year_end=payload["academic_year_end"].isoformat(),
                 question_bank_package_enabled=payload.get("question_bank_package_enabled", False),
                 question_bank_package_code=payload.get("question_bank_package_code") or "",
+                question_bank_assignment_mode=payload.get("question_bank_assignment_mode") or "access_only",
                 advanced_builder_enabled=payload.get("advanced_builder_enabled", False),
             )
         except DjangoValidationError as exc:
@@ -129,6 +130,7 @@ class AcademicPresetApplyView(APIView):
                     "academic_year_end": payload["academic_year_end"].isoformat(),
                     "question_bank_package_enabled": payload.get("question_bank_package_enabled", False),
                     "question_bank_package_code": payload.get("question_bank_package_code") or "",
+                    "question_bank_assignment_mode": payload.get("question_bank_assignment_mode") or "access_only",
                     "advanced_builder_enabled": payload.get("advanced_builder_enabled", False),
                 },
                 resolved_config_json={
@@ -148,6 +150,7 @@ class AcademicPresetApplyView(APIView):
                 academic_year_end=payload["academic_year_end"].isoformat(),
                 question_bank_package_enabled=payload.get("question_bank_package_enabled", False),
                 question_bank_package_code=payload.get("question_bank_package_code") or "",
+                question_bank_assignment_mode=payload.get("question_bank_assignment_mode") or "access_only",
                 advanced_builder_enabled=payload.get("advanced_builder_enabled", False),
                 onboarding_run_id=onboarding_run.id if onboarding_run is not None else None,
             )

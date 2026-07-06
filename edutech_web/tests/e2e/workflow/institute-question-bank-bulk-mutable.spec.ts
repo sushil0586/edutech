@@ -6,6 +6,28 @@ import { expectInstituteWorkspace } from "../helpers/navigation";
 const mutableInstituteQuestionActionsEnabled = isMutableLaneEnabled(
   "PLAYWRIGHT_ENABLE_MUTABLE_INSTITUTE_QUESTION_BANK_ACTIONS",
 );
+const instituteApiBaseUrl = (
+  process.env.API_BASE_URL ??
+  process.env.NEXT_PUBLIC_API_BASE_URL ??
+  process.env.PLAYWRIGHT_API_BASE_URL ??
+  "http://127.0.0.1:9001"
+).replace(/\/$/, "");
+
+type SessionProfile = {
+  institute?: string | null;
+};
+
+type QuestionTagRow = {
+  id: string;
+  institute: string;
+  name: string;
+  code: string;
+  is_active?: boolean;
+};
+
+type PaginatedResponse<T> = {
+  results: T[];
+};
 
 function firstNonEmptyOptionValue(values: string[]) {
   return values.find((value) => value.trim().length > 0) ?? null;
@@ -21,7 +43,134 @@ async function selectFirstNonEmptyOption(locator: Locator) {
   return optionValue!;
 }
 
-async function createDisposableQuestion(page: import("@playwright/test").Page, questionText: string) {
+async function getAccessToken(page: import("@playwright/test").Page) {
+  const cookies = await page.context().cookies();
+  return cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
+}
+
+async function getInstituteProfile(page: import("@playwright/test").Page, accessToken: string) {
+  const response = await page.request.get(`${instituteApiBaseUrl}/api/v1/auth/me/`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    timeout: 15000,
+  });
+  expect(response.ok(), `Institute session profile fetch failed with status ${response.status()}`).toBe(
+    true,
+  );
+  const profile = (await response.json()) as SessionProfile;
+  expect(profile.institute).toBeTruthy();
+  return profile;
+}
+
+async function createDisposableInstituteTag(
+  page: import("@playwright/test").Page,
+  payload: { instituteId: string; uniqueSeed: number },
+) {
+  const accessToken = await getAccessToken(page);
+  expect(accessToken).not.toBe("");
+
+  const response = await page.request.post(`${instituteApiBaseUrl}/api/v1/question-bank/tags/`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    data: {
+      institute: payload.instituteId,
+      name: `Institute Mutable Tag ${payload.uniqueSeed}`,
+      code: `PW_TAG_${payload.uniqueSeed}`,
+      is_active: true,
+    },
+    timeout: 15000,
+  });
+  expect(response.ok(), `Disposable institute tag create failed: ${await response.text()}`).toBe(true);
+  return (await response.json()) as QuestionTagRow;
+}
+
+async function deleteDisposableInstituteTag(
+  page: import("@playwright/test").Page,
+  tagId: string,
+) {
+  const accessToken = await getAccessToken(page);
+  expect(accessToken).not.toBe("");
+
+  const response = await page.request.delete(`${instituteApiBaseUrl}/api/v1/question-bank/tags/${tagId}/`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    timeout: 15000,
+  });
+  expect(response.ok()).toBe(true);
+}
+
+async function findActiveInstituteTagOption(
+  page: import("@playwright/test").Page,
+  instituteId: string,
+  questionText: string,
+) {
+  await page.goto(`/institute/question-bank?search=${encodeURIComponent(questionText)}`);
+  await expect(
+    page.getByText(new RegExp(questionText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i")).first(),
+  ).toBeVisible();
+
+  const bulkBar = page.locator("form.questionBankBulkBar").first();
+  await bulkBar.getByLabel(/select visible questions/i).check();
+
+  const tagSelect = bulkBar.locator('select[name="tag_id"]');
+  const tagOptions = await tagSelect.locator("option").evaluateAll((options) =>
+    options.map((option) => ({
+      value: (option as HTMLOptionElement).value,
+      label: (option as HTMLOptionElement).label.trim(),
+    })),
+  );
+  const chosenTag = tagOptions.find((option) => option.value.trim().length > 0) ?? null;
+  if (chosenTag) {
+    return {
+      bulkBar,
+      tagSelect,
+      chosenTag,
+      createdTagId: null as string | null,
+    };
+  }
+
+  const createdTag = await createDisposableInstituteTag(page, {
+    instituteId,
+    uniqueSeed: Date.now(),
+  });
+
+  await page.goto(`/institute/question-bank?search=${encodeURIComponent(questionText)}`);
+  await expect(
+    page.getByText(new RegExp(questionText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i")).first(),
+  ).toBeVisible();
+  await bulkBar.getByLabel(/select visible questions/i).check();
+
+  const refreshedOptions = await tagSelect.locator("option").evaluateAll((options) =>
+    options.map((option) => ({
+      value: (option as HTMLOptionElement).value,
+      label: (option as HTMLOptionElement).label.trim(),
+    })),
+  );
+  const createdOption =
+    refreshedOptions.find((option) => option.value === createdTag.id) ??
+    refreshedOptions.find((option) => option.label.includes(createdTag.name)) ??
+    null;
+  expect(createdOption).not.toBeNull();
+
+  return {
+    bulkBar,
+    tagSelect,
+    chosenTag: createdOption!,
+    createdTagId: createdTag.id,
+  };
+}
+
+async function createDisposableQuestion(
+  page: import("@playwright/test").Page,
+  questionText: string,
+  options?: {
+    saveAsDraft?: boolean;
+  },
+) {
   await page.goto("/institute/question-bank/new");
   await expect(page.getByRole("heading", { name: /create question/i }).first()).toBeVisible();
 
@@ -31,8 +180,10 @@ async function createDisposableQuestion(page: import("@playwright/test").Page, q
   const questionTypeSelect = page.locator('select[name="question_type"]');
 
   await selectFirstNonEmptyOption(programSelect);
+  const selectedProgramId = await programSelect.inputValue();
   await expect(subjectSelect).toBeEnabled();
   await selectFirstNonEmptyOption(subjectSelect);
+  const selectedSubjectId = await subjectSelect.inputValue();
   await expect(topicSelect).toBeEnabled();
   const topicOptions = await topicSelect.locator("option").evaluateAll((options) =>
     options
@@ -78,6 +229,14 @@ async function createDisposableQuestion(page: import("@playwright/test").Page, q
     await reviewGuidance.fill("Award credit for the intended answer.");
   }
 
+  const saveAsDraft = options?.saveAsDraft ?? false;
+  const saveAsDraftCheckbox = page.getByLabel(/save as draft/i);
+  if (saveAsDraft) {
+    await saveAsDraftCheckbox.check();
+  } else {
+    await saveAsDraftCheckbox.uncheck();
+  }
+
   await page.getByRole("button", { name: /^create question$/i }).click();
   await expect(page).toHaveURL(/\/institute\/question-bank\/.+\?message=/);
 
@@ -87,6 +246,8 @@ async function createDisposableQuestion(page: import("@playwright/test").Page, q
   expect(questionId).not.toBeNull();
   return {
     questionId: questionId!,
+    selectedProgramId,
+    selectedSubjectId,
     selectedTopicId: selectedTopic!.value,
     alternateTopicId: alternateTopic?.value ?? null,
   };
@@ -105,6 +266,38 @@ test.describe("Institute mutable question bank bulk actions", () => {
       "disposable institute bulk-action coverage",
     ),
   );
+
+  test("@workflow @mutable institute can create, update, and delete a disposable draft question", async ({
+    page,
+  }) => {
+    await loginAsRole(page, "institute");
+    await expectInstituteWorkspace(page);
+
+    const uniqueSeed = Date.now();
+    const createdQuestionText = `Institute mutable draft question ${uniqueSeed}`;
+    const updatedExplanation = `Updated explanation for institute mutable question ${uniqueSeed}`;
+    let questionId: string | null = null;
+
+    try {
+      const createdQuestion = await createDisposableQuestion(page, createdQuestionText, {
+        saveAsDraft: true,
+      });
+      questionId = createdQuestion.questionId;
+
+      await expect(page.locator('textarea[name="question_text"]')).toHaveValue(createdQuestionText);
+
+      await page.locator('textarea[name="explanation"]').fill(updatedExplanation);
+      await page.getByRole("button", { name: /^save question$/i }).click();
+      await expect(page).toHaveURL(/\/institute\/question-bank\/.+\?message=/);
+      await expect(page.locator('textarea[name="explanation"]')).toHaveValue(updatedExplanation);
+      await expect(page.getByLabel(/save as draft/i)).toBeChecked();
+    } finally {
+      if (questionId) {
+        const deleteResponse = await page.request.delete(`/api/question-bank/questions/${questionId}`);
+        expect(deleteResponse.ok()).toBe(true);
+      }
+    }
+  });
 
   test("@workflow @mutable institute can run bulk difficulty and availability actions on a disposable question", async ({
     page,
@@ -184,31 +377,19 @@ test.describe("Institute mutable question bank bulk actions", () => {
 
     const uniqueSeed = Date.now();
     const questionText = `Institute bulk tag mutable question ${uniqueSeed}`;
+    const accessToken = await getAccessToken(page);
+    expect(accessToken).not.toBe("");
+    const profile = await getInstituteProfile(page, accessToken);
     let questionId: string | null = null;
+    let createdTagId: string | null = null;
 
     try {
       const createdQuestion = await createDisposableQuestion(page, questionText);
       questionId = createdQuestion.questionId;
 
-      await page.goto(`/institute/question-bank?search=${encodeURIComponent(questionText)}`);
-      await expect(
-        page.getByText(new RegExp(questionText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i")).first(),
-      ).toBeVisible();
-
-      const bulkBar = page.locator("form.questionBankBulkBar").first();
-      await bulkBar.getByLabel(/select visible questions/i).check();
-
-      const tagSelect = bulkBar.locator('select[name="tag_id"]');
-      const tagOptions = await tagSelect.locator("option").evaluateAll((options) =>
-        options.map((option) => ({
-          value: (option as HTMLOptionElement).value,
-          label: (option as HTMLOptionElement).label.trim(),
-        })),
-      );
-      const chosenTag =
-        tagOptions.find((option) => option.value.trim().length > 0) ?? null;
-
-      test.skip(!chosenTag, "No active institute tags are available for mutable bulk tag coverage.");
+      const { bulkBar, tagSelect, chosenTag, createdTagId: disposableTagId } =
+        await findActiveInstituteTagOption(page, profile.institute!, questionText);
+      createdTagId = disposableTagId;
 
       const tagName = chosenTag!.label.replace(/\s*\([^)]+\)\s*$/, "").trim();
       await tagSelect.selectOption(chosenTag!.value);
@@ -241,16 +422,16 @@ test.describe("Institute mutable question bank bulk actions", () => {
         const deleteResponse = await page.request.delete(`/api/question-bank/questions/${questionId}`);
         expect(deleteResponse.ok()).toBe(true);
       }
+      if (createdTagId) {
+        await deleteDisposableInstituteTag(page, createdTagId);
+      }
     }
   });
 
   test("@workflow @mutable institute can change topic through a bulk action on a disposable question", async ({
     page,
   }) => {
-    test.fixme(
-      true,
-      "Bulk topic reassignment currently overruns the mutable test budget during backend cleanup in this environment.",
-    );
+    test.setTimeout(90_000);
     test.slow();
 
     await loginAsRole(page, "institute");
@@ -269,7 +450,11 @@ test.describe("Institute mutable question bank bulk actions", () => {
         "Current institute academic scope does not have a second topic available for bulk topic reassignment.",
       );
 
-      await page.goto(`/institute/question-bank?search=${encodeURIComponent(questionText)}`);
+      await page.goto(
+        `/institute/question-bank?search=${encodeURIComponent(questionText)}&program=${encodeURIComponent(
+          createdQuestion.selectedProgramId,
+        )}&subject=${encodeURIComponent(createdQuestion.selectedSubjectId)}`,
+      );
       await expect(
         page.getByText(new RegExp(questionText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i")).first(),
       ).toBeVisible();

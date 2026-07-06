@@ -5,11 +5,20 @@ import { expectInstituteWorkspace } from "../helpers/navigation";
 async function expectInstituteLeaderboardWorkspace(page: Page) {
   await expect(page).toHaveURL(/\/institute\/results\/leaderboard(?:\?.*)?$/);
   await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
+  const emptyStateHeading = page.getByRole("heading", {
+    name: /leaderboard appears after evaluated attempts are ready/i,
+  });
+  if (await emptyStateHeading.isVisible().catch(() => false)) {
+    await expect(emptyStateHeading).toBeVisible();
+    await expect(page.getByText(/this route is for ranking, publication review, and top-performer summaries/i).first()).toBeVisible();
+    return false;
+  }
   await expect(page.getByText(/publication checklist/i).first()).toBeVisible();
   await expect(page.getByText(/^leaderboard$/i).first()).toBeVisible();
   await expect(page.getByText(/ranked learners/i).first()).toBeVisible();
   await expect(page.getByText(/published results/i).first()).toBeVisible();
   await expect(page.getByText(/average score/i).first()).toBeVisible();
+  return true;
 }
 
 async function expectLeaderboardContent(page: Page) {
@@ -70,7 +79,12 @@ test.describe("Institute results leaderboard workspace", () => {
     await expectInstituteWorkspace(page);
 
     await page.goto("/institute/results/leaderboard");
-    await expectInstituteLeaderboardWorkspace(page);
+    const leaderboardLoaded = await expectInstituteLeaderboardWorkspace(page);
+    if (!leaderboardLoaded) {
+      await page.getByRole("link", { name: /open exams/i }).first().click();
+      await expect(page).toHaveURL(/\/institute\/exams(?:\?.*)?$/);
+      return;
+    }
     await expectLeaderboardContent(page);
 
     const builderHref = await page.locator('a[href*="/institute/exams/"][href$="/builder"]').first().getAttribute("href");

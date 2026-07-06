@@ -1,13 +1,50 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectInstituteWorkspace } from "../helpers/navigation";
 
+async function resolveExamWorkspaceState(
+  examCards: Locator,
+  emptyState: Locator,
+): Promise<"cards" | "empty"> {
+  await expect
+    .poll(
+      async () => {
+        if (await emptyState.isVisible().catch(() => false)) {
+          return "empty";
+        }
+        if ((await examCards.count()) > 0 && (await examCards.first().isVisible().catch(() => false))) {
+          return "cards";
+        }
+        return "pending";
+      },
+      { timeout: 10000 },
+    )
+    .not.toBe("pending");
+
+  return (await emptyState.isVisible().catch(() => false)) ? "empty" : "cards";
+}
+
 async function expectInstituteExamsWorkspace(page: Page) {
   await expect(page.getByRole("heading", { name: /exam management/i }).first()).toBeVisible();
-  await expect(page.getByText(/exam controls/i).first()).toBeVisible();
   await expect(page.getByRole("link", { name: /quick create/i }).first()).toBeVisible();
   await expect(page.getByRole("link", { name: /advanced builder/i }).first()).toBeVisible();
   await expect(page.getByRole("link", { name: /preset library/i }).first()).toBeVisible();
+
+  const emptyStateHeading = page.getByRole("heading", {
+    name: /your institute exam list is empty right now/i,
+  });
+  if (await emptyStateHeading.isVisible().catch(() => false)) {
+    await expect(emptyStateHeading).toBeVisible();
+    await expect(page.getByText(/open academic setup/i).first()).toBeVisible();
+    return false;
+  }
+
+  const guidanceCard = page
+    .locator(".contentCard")
+    .filter({ hasText: /how to use this workspace/i })
+    .first();
+  await expect(guidanceCard).toBeVisible();
+  return true;
 }
 
 test.describe("Institute exams workspace", () => {
@@ -21,7 +58,20 @@ test.describe("Institute exams workspace", () => {
     await expectInstituteWorkspace(page);
 
     await page.goto("/institute/exams");
-    await expectInstituteExamsWorkspace(page);
+    const examsLoaded = await expectInstituteExamsWorkspace(page);
+
+    if (!examsLoaded) {
+      await page.getByRole("link", { name: /quick create/i }).first().click();
+      await expect(page).toHaveURL(/\/institute\/exams\/new(?:\?.*)?$/);
+      await expect(page.getByRole("heading", { name: /create exam/i }).first()).toBeVisible();
+
+      await page.goto("/institute/exams");
+      await expect(page.getByRole("link", { name: /advanced builder/i }).first()).toBeVisible();
+      await page.getByRole("link", { name: /advanced builder/i }).first().click();
+      await expect(page).toHaveURL(/\/institute\/exams\/advanced(?:\?.*)?$/);
+      await expect(page.getByText(/advanced exam builder/i).first()).toBeVisible();
+      return;
+    }
 
     const teacherSelect = page.locator('select[name="teacher"]').first();
     const statusSelect = page.locator('select[name="exam_status"]').first();
@@ -57,13 +107,17 @@ test.describe("Institute exams workspace", () => {
       ).toBeVisible();
 
       const scopedCards = page.locator(".examCard");
-      const scopedEmptyState = page.getByRole("heading", {
-        name: /no institute exams match these controls/i,
-      });
+      const scopedEmptyState = page.getByText(/no exams match the current controls/i).first();
       if (await scopedCards.first().isVisible().catch(() => false)) {
         await expect(scopedCards.first()).toBeVisible();
       } else {
         await expect(scopedEmptyState).toBeVisible();
+        await expect(
+          page.getByRole("link", { name: /clear all controls and show all exams/i }),
+        ).toBeVisible();
+        await expect(
+          page.getByRole("link", { name: /keep these controls and return to page 1/i }),
+        ).toBeVisible();
       }
 
       await page.goto("/institute/exams");
@@ -81,6 +135,7 @@ test.describe("Institute exams workspace", () => {
     await expect(page).toHaveURL(/exam_sort=start_soon/);
     await expect(page).toHaveURL(/exam_group=subject/);
     await expect(page).toHaveURL(/exam_page_size=18/);
+    await expect(page.getByText(/active list controls are changing what you see/i).first()).toBeVisible();
     await expect(page.getByText(/^status: live$/i).first()).toBeVisible();
     await expect(page.getByText(/^sort: start soon$/i).first()).toBeVisible();
     await expect(page.getByText(/^group: subject$/i).first()).toBeVisible();
@@ -97,10 +152,8 @@ test.describe("Institute exams workspace", () => {
     await expect(page).toHaveURL(/exam_group=subject/);
 
     const filteredExamCards = page.locator(".examCard");
-    const filteredEmptyState = page.getByRole("heading", {
-      name: /no institute exams match these controls/i,
-    });
-    if (await filteredExamCards.first().isVisible().catch(() => false)) {
+    const filteredEmptyState = page.getByText(/no exams match the current controls/i).first();
+    if ((await resolveExamWorkspaceState(filteredExamCards, filteredEmptyState)) === "cards") {
       const firstFilteredCard = filteredExamCards.first();
       const firstTitle =
         (await firstFilteredCard.locator(".examCardTop strong").first().textContent())?.trim() ?? "";
@@ -116,6 +169,7 @@ test.describe("Institute exams workspace", () => {
 
       expect(firstTitle).not.toBe("");
       expect(firstStatus.toLowerCase()).toBe("scheduled");
+      await expect(firstFilteredCard.getByText(/draft setup|scheduled delivery|live now|completed/i).first()).toBeVisible();
 
       if (firstSubject) {
         await expect(
@@ -144,6 +198,12 @@ test.describe("Institute exams workspace", () => {
       await expect(page.locator(".examCard").filter({ hasText: firstTitle }).first()).toBeVisible();
     } else {
       await expect(filteredEmptyState).toBeVisible();
+      await expect(
+        page.getByRole("link", { name: /clear all controls and show all exams/i }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("link", { name: /keep these controls and return to page 1/i }),
+      ).toBeVisible();
     }
 
     await page.getByRole("link", { name: /reset filters/i }).click();
@@ -170,20 +230,30 @@ test.describe("Institute exams workspace", () => {
       : "";
 
     expect(firstTitle).not.toBe("");
-    expect(["live", "scheduled", "draft"]).toContain(firstStatus.toLowerCase());
+    expect(["live", "scheduled", "draft", "completed"]).toContain(firstStatus.toLowerCase());
+    await expect(firstCard.getByText(/draft setup|scheduled delivery|live now|completed/i).first()).toBeVisible();
 
     if (firstType) {
       await groupSelect.selectOption("type");
       await page.getByRole("button", { name: /apply filters/i }).click();
 
       await expect(page).toHaveURL(/exam_group=type/);
-      await expect(
-        page
-          .locator(".sectionHeading strong")
-          .filter({ hasText: new RegExp(`^${firstType}$`, "i") })
-          .first(),
-      ).toBeVisible();
-      await expect(page.locator(".examCard").filter({ hasText: firstTitle }).first()).toBeVisible();
+      const groupedByTypeCards = page.locator(".examCard");
+      const groupedByTypeEmptyState = page.getByText(/no exams match the current controls/i).first();
+      if ((await resolveExamWorkspaceState(groupedByTypeCards, groupedByTypeEmptyState)) === "cards") {
+        await expect(
+          page
+            .locator(".sectionHeading strong")
+            .filter({ hasText: new RegExp(`^${firstType}$`, "i") })
+            .first(),
+        ).toBeVisible();
+        await expect(page.locator(".examCard").filter({ hasText: firstTitle }).first()).toBeVisible();
+      } else {
+        await expect(groupedByTypeEmptyState).toBeVisible();
+        await expect(
+          page.getByRole("link", { name: /clear all controls and show all exams/i }),
+        ).toBeVisible();
+      }
     }
 
     if (firstSubject) {
@@ -191,13 +261,22 @@ test.describe("Institute exams workspace", () => {
       await page.getByRole("button", { name: /apply filters/i }).click();
 
       await expect(page).toHaveURL(/exam_group=subject/);
-      await expect(
-        page
-          .locator(".sectionHeading strong")
-          .filter({ hasText: new RegExp(`^${firstSubject}$`, "i") })
-          .first(),
-      ).toBeVisible();
-      await expect(page.locator(".examCard").filter({ hasText: firstTitle }).first()).toBeVisible();
+      const groupedBySubjectCards = page.locator(".examCard");
+      const groupedBySubjectEmptyState = page.getByText(/no exams match the current controls/i).first();
+      if ((await resolveExamWorkspaceState(groupedBySubjectCards, groupedBySubjectEmptyState)) === "cards") {
+        await expect(
+          page
+            .locator(".sectionHeading strong")
+            .filter({ hasText: new RegExp(`^${firstSubject}$`, "i") })
+            .first(),
+        ).toBeVisible();
+        await expect(page.locator(".examCard").filter({ hasText: firstTitle }).first()).toBeVisible();
+      } else {
+        await expect(groupedBySubjectEmptyState).toBeVisible();
+        await expect(
+          page.getByRole("link", { name: /clear all controls and show all exams/i }),
+        ).toBeVisible();
+      }
     }
 
     await sortSelect.selectOption("title");

@@ -165,7 +165,7 @@ test.describe("Admin economy browser functionality coverage", () => {
     const packageCard = economyCard(page, /create and edit question-bank packages and scope coverage/i);
     const visibilityCard = economyCard(
       page,
-      /inspect package scope and institute access before changing subscription controls/i,
+      /check package coverage and institute access before changing live access/i,
     );
     const subscriptionCard = economyCard(page, /create and edit recurring plans, cycles, and credit rules/i);
 
@@ -174,6 +174,23 @@ test.describe("Admin economy browser functionality coverage", () => {
     await expect(subscriptionCard).toBeVisible();
     await page.getByText(/view lane guidance/i).click();
     await expect(page.getByText(/operate the sellable library/i)).toBeVisible();
+    const operatorGlossary = visibilityCard.getByTestId("economy-operator-glossary");
+    await expect(operatorGlossary).toBeVisible();
+    await expect(operatorGlossary).toContainText(/package/i);
+    await expect(operatorGlossary).toContainText(/institute access row/i);
+    await expect(operatorGlossary).toContainText(/shared-library switch/i);
+    await expect(operatorGlossary).toContainText(/linked or visible questions/i);
+    const topAccessChain = visibilityCard.getByTestId("economy-access-chain-health");
+    await expect(topAccessChain).toBeVisible();
+    await expect(topAccessChain.getByText(/1\. package coverage/i)).toBeVisible();
+    await expect(topAccessChain.getByText(/2\. institute entitlement|2\. institute access/i)).toBeVisible();
+    await expect(topAccessChain.getByText(/3\. shared-library runtime|3\. shared-library switch/i)).toBeVisible();
+    await expect(topAccessChain.getByText(/4\. operator verdict/i)).toBeVisible();
+    await expect(visibilityCard.getByText(/coverage first, then institute access, then shared-library switch/i)).toBeVisible();
+    const topDiagnosis = visibilityCard.getByTestId("economy-operator-diagnosis");
+    await expect(topDiagnosis).toBeVisible();
+    await expect(topDiagnosis).toContainText(/start with one package before diagnosing access|coverage review in progress|access chain looks healthy|shared-library switches are the current gap/i);
+    await expect(topDiagnosis).toContainText(/next action:/i);
 
     const packageWorkspaceView = packageCard.getByLabel(/question bank package workspace view/i);
     await expect(packageWorkspaceView).toHaveValue("editor");
@@ -181,12 +198,18 @@ test.describe("Admin economy browser functionality coverage", () => {
     await expect(packageCard.getByLabel(/question bank package type filter/i)).toBeVisible();
     await expect(packageCard.getByLabel(/question bank package status filter/i)).toBeVisible();
     await expect(packageCard.getByLabel(/question bank package rows to show/i)).toBeVisible();
+    await expect(packageCard.getByTestId("package-scope-readiness")).toBeVisible();
+    await expect(packageCard.getByText(/1\. package promise/i)).toBeVisible();
+    await expect(packageCard.getByText(/2\. coverage safety/i)).toBeVisible();
+    await expect(packageCard.getByText(/3\. institute expectation/i)).toBeVisible();
+    await expect(packageCard.getByText(/4\. save confidence/i)).toBeVisible();
     const packageIdentityGrid = packageCard.locator(".economyPackageFormGridPrimary").first();
     const packageDeliveryGrid = packageCard.locator(".economyPackageFormGridSecondary").first();
     await packageIdentityGrid.locator("select").nth(1).selectOption("topic_bundle");
     await packageDeliveryGrid.locator("select").nth(0).selectOption("platform");
     await packageDeliveryGrid.locator("select").nth(1).selectOption("materialize_on_entitlement");
-    await expect(packageCard.getByText(/scope coverage rows/i)).toBeVisible();
+    await expect(packageCard.getByText(/package coverage rows/i)).toBeVisible();
+    await expect(packageCard.getByText(/not ready to save|ready for package save/i)).toBeVisible();
     await packageWorkspaceView.selectOption("all");
     await expect(packageCard.getByText(/current package catalog/i)).toBeVisible();
     const coverageDisclosure = firstDisclosure(packageCard, /view coverage details/i);
@@ -202,6 +225,8 @@ test.describe("Admin economy browser functionality coverage", () => {
     await expect(packageScopeDisclosure.locator(".economyCatalogDetailStack")).toBeVisible();
 
     await datasetSelect.selectOption("features");
+    await expect(visibilityCard.getByText(/institute shared-library switches/i).first()).toBeVisible();
+    await expect(visibilityCard.getByText(/this runtime switch/i).first()).toBeVisible();
     await expect(visibilityCard.getByRole("combobox", { name: /feature status/i })).toBeVisible();
     const featureDisclosure = firstDisclosure(visibilityCard, /view feature grant details/i);
     await featureDisclosure.locator("summary").click();
@@ -215,7 +240,19 @@ test.describe("Admin economy browser functionality coverage", () => {
 
     await visibilityCard.getByRole("button", { name: /reset filters/i }).click();
     await expect(datasetSelect).toHaveValue("entitlements");
-    await expect(visibilityCard.getByRole("combobox", { name: /entitlement status/i })).toBeVisible();
+    await expect(
+      visibilityCard.getByRole("combobox", { name: /entitlement status|institute access status/i }),
+    ).toBeVisible();
+    await expect(visibilityCard.getByText(/how to diagnose missing institute access/i)).toBeVisible();
+    await expect(topDiagnosis).toContainText(/next action:/i);
+    const firstEntitlementRow = visibilityCard.locator('[data-testid^="entitlement-row-"]').first();
+    await expect(firstEntitlementRow).toBeVisible();
+    const firstAccessChain = firstEntitlementRow.locator('[data-testid^="entitlement-access-chain-"]').first();
+    await expect(firstAccessChain).toBeVisible();
+    await expect(firstAccessChain.getByText(/1\. package coverage/i)).toBeVisible();
+    await expect(firstAccessChain.getByText(/2\. institute entitlement/i)).toBeVisible();
+    await expect(firstAccessChain.getByText(/3\. shared-library runtime/i)).toBeVisible();
+    await expect(firstAccessChain.getByText(/4\. operator verdict/i)).toBeVisible();
 
     const exportButton = visibilityCard.getByRole("button", { name: /export package report/i });
     await expect(exportButton).toBeVisible();

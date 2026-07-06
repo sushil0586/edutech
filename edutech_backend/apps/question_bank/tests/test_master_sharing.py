@@ -301,6 +301,72 @@ class MasterQuestionSharingTestCase(TestCase):
         self.assertEqual(access.linked_question.master_question_id, master.id)
         self.assertEqual(access.linked_question.options.count(), 2)
 
+    def test_relinking_public_question_updates_existing_local_copy_without_duplicate(self):
+        question = Question.objects.create(
+            institute=self.public_institute,
+            program=self.public_program,
+            subject=self.public_subject,
+            topic=self.public_topic,
+            created_by_teacher=self.public_teacher,
+            question_type="mcq_single",
+            difficulty_level="intermediate",
+            question_text="Which gas is released during photosynthesis?",
+            explanation="Oxygen is released during photosynthesis.",
+            default_marks="1.00",
+            negative_marks="0.25",
+            is_verified=True,
+            metadata={"question_visibility": "shared_by_request"},
+        )
+        QuestionOption.objects.create(question=question, option_text="Oxygen", option_order=1, is_correct=True)
+        QuestionOption.objects.create(question=question, option_text="Carbon dioxide", option_order=2, is_correct=False)
+        master = sync_master_question_from_institute_question(question)
+        self._grant_public_question_package()
+
+        first_access = link_master_question_to_institute(
+            master_question=master,
+            institute=self.private_institute,
+            approved_by=self.platform_user,
+            requested_by_teacher=self.private_teacher,
+            local_program=self.private_program,
+            local_subject=self.private_subject,
+            local_topic=self.private_topic,
+        )
+
+        master.question_text = "Which gas is usually released during photosynthesis?"
+        master.explanation = "Plants usually release oxygen during photosynthesis."
+        master.save(update_fields=["question_text", "explanation", "updated_at"])
+
+        second_access = link_master_question_to_institute(
+            master_question=master,
+            institute=self.private_institute,
+            approved_by=self.platform_user,
+            requested_by_teacher=self.private_teacher,
+            local_program=self.private_program,
+            local_subject=self.private_subject,
+            local_topic=self.private_topic,
+        )
+
+        self.assertEqual(first_access.linked_question_id, second_access.linked_question_id)
+        self.assertEqual(
+            Question.objects.filter(
+                institute=self.private_institute,
+                master_question=master,
+            ).count(),
+            1,
+        )
+        refreshed_question = Question.objects.get(
+            institute=self.private_institute,
+            master_question=master,
+        )
+        self.assertEqual(
+            refreshed_question.question_text,
+            "Which gas is usually released during photosynthesis?",
+        )
+        self.assertEqual(
+            refreshed_question.explanation,
+            "Plants usually release oxygen during photosynthesis.",
+        )
+
     def test_materialize_master_question_for_source_institute_creates_operational_copy_without_access_link(self):
         question = Question.objects.create(
             institute=self.public_institute,
@@ -461,6 +527,156 @@ class MasterQuestionSharingTestCase(TestCase):
                 metadata__seed_batch="master_question_library_v1",
                 metadata__seed_sequence=1,
             ).exists()
+        )
+
+    def test_seed_curated_math_science_questions_command_is_idempotent_for_existing_seed_rows(self):
+        call_command("seed_public_academics", institute_code="PUB001")
+
+        call_command(
+            "seed_curated_math_science_questions",
+            "PUB001",
+            subjects=["science"],
+            topic_codes=["SCI-MATTER-ACIDBASE"],
+            questions_per_topic=3,
+        )
+        call_command(
+            "seed_curated_math_science_questions",
+            "PUB001",
+            subjects=["science"],
+            topic_codes=["SCI-MATTER-ACIDBASE"],
+            questions_per_topic=3,
+        )
+
+        self.assertEqual(
+            Question.objects.filter(
+                institute=self.public_institute,
+                subject__code="CLS7-SCI",
+                topic__code="SCI-MATTER-ACIDBASE",
+                metadata__seed_batch="curated_math_science_v2",
+            ).count(),
+            3,
+        )
+        self.assertEqual(
+            MasterQuestion.objects.filter(
+                source_institute=self.public_institute,
+                source_subject__code="CLS7-SCI",
+                source_topic__code="SCI-MATTER-ACIDBASE",
+                metadata__seed_batch="curated_math_science_v2",
+            ).count(),
+            3,
+        )
+
+    def test_dedupe_platform_master_questions_command_merges_duplicate_linked_science_rows(self):
+        metadata = {
+            "question_visibility": "shared_by_request",
+            "seed_batch": "curated_math_science_v2",
+            "seed_sequence": 1,
+            "topic_code": self.public_topic.code,
+            "topic_name": self.public_topic.name,
+        }
+        question_one = Question.objects.create(
+            institute=self.public_institute,
+            program=self.public_program,
+            subject=self.public_subject,
+            topic=self.public_topic,
+            created_by_teacher=self.public_teacher,
+            question_type="mcq_single",
+            difficulty_level="intermediate",
+            question_text="Which tissue transports water in plants?",
+            explanation="Xylem transports water in plants.",
+            default_marks="1.00",
+            negative_marks="0.25",
+            is_verified=True,
+            metadata=metadata,
+        )
+        QuestionOption.objects.create(question=question_one, option_text="Xylem", option_order=1, is_correct=True)
+        QuestionOption.objects.create(question=question_one, option_text="Phloem", option_order=2, is_correct=False)
+        master_one = sync_master_question_from_institute_question(question_one)
+
+        question_two = Question.objects.create(
+            institute=self.public_institute,
+            program=self.public_program,
+            subject=self.public_subject,
+            topic=self.public_topic,
+            created_by_teacher=self.public_teacher,
+            question_type="mcq_single",
+            difficulty_level="intermediate",
+            question_text="Which tissue transports water in plants?",
+            explanation="Xylem transports water in plants.",
+            default_marks="1.00",
+            negative_marks="0.25",
+            is_verified=True,
+            metadata=metadata,
+        )
+        QuestionOption.objects.create(question=question_two, option_text="Xylem", option_order=1, is_correct=True)
+        QuestionOption.objects.create(question=question_two, option_text="Phloem", option_order=2, is_correct=False)
+        master_two = sync_master_question_from_institute_question(question_two)
+
+        self._grant_public_question_package()
+        link_master_question_to_institute(
+            master_question=master_one,
+            institute=self.private_institute,
+            approved_by=self.platform_user,
+            requested_by_teacher=self.private_teacher,
+            local_program=self.private_program,
+            local_subject=self.private_subject,
+            local_topic=self.private_topic,
+        )
+        link_master_question_to_institute(
+            master_question=master_two,
+            institute=self.private_institute,
+            approved_by=self.platform_user,
+            requested_by_teacher=self.private_teacher,
+            local_program=self.private_program,
+            local_subject=self.private_subject,
+            local_topic=self.private_topic,
+        )
+
+        call_command(
+            "dedupe_platform_master_questions",
+            "PUB001",
+            subject_code="CLS7-SCI",
+            topic_code="SCI-LIFE-PLANTS",
+            apply=True,
+        )
+
+        self.assertEqual(
+            MasterQuestion.objects.filter(
+                source_institute=self.public_institute,
+                source_subject=self.public_subject,
+                source_topic=self.public_topic,
+                metadata__seed_batch="curated_math_science_v2",
+                metadata__seed_sequence=1,
+            ).count(),
+            1,
+        )
+        canonical_master = MasterQuestion.objects.get(
+            source_institute=self.public_institute,
+            source_subject=self.public_subject,
+            source_topic=self.public_topic,
+            metadata__seed_batch="curated_math_science_v2",
+            metadata__seed_sequence=1,
+        )
+        self.assertEqual(
+            Question.objects.filter(
+                institute=self.public_institute,
+                master_question=canonical_master,
+            ).count(),
+            1,
+        )
+        self.assertEqual(
+            Question.objects.filter(
+                institute=self.private_institute,
+                master_question=canonical_master,
+            ).count(),
+            1,
+        )
+        self.assertEqual(
+            InstituteQuestionAccess.objects.filter(
+                institute=self.private_institute,
+                master_question=canonical_master,
+            ).count(),
+            1,
         )
 
     def test_link_master_questions_to_institute_request_mode_creates_requests_only(self):

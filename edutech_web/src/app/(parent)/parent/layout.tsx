@@ -28,6 +28,7 @@ export default async function ParentLayout({
         profile={profile}
         portalLabel="Parent Portal"
         ariaLabel="Parent navigation"
+        homeHref="/parent/dashboard"
         navItems={parentNavItems}
       />
       <main className="studentAppMain">

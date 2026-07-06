@@ -20,7 +20,12 @@
     "test:e2e:full-round": "PLAYWRIGHT_REAL_DATA_MODE=1 playwright test",
     "test:e2e:smoke": "playwright test --grep @smoke",
     "test:e2e:cross-browser": "PLAYWRIGHT_ENABLE_CROSS_BROWSER=1 playwright test tests/e2e/workflow/student-cross-browser-*.spec.ts tests/e2e/workflow/teacher-cross-browser-*.spec.ts tests/e2e/workflow/institute-cross-browser-*.spec.ts tests/e2e/workflow/admin-cross-browser-*.spec.ts",
-    "test:e2e:headed": "playwright test --headed"
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:trace:student-exam-detail": "playwright test tests/e2e/workflow/student-exam-detail-workspace.spec.ts --project=chromium --trace on",
+    "test:e2e:trace:student-attempt-flow": "playwright test tests/e2e/workflow/student-attempt-runtime-workspace.spec.ts tests/e2e/workflow/student-post-submit-workspace.spec.ts tests/e2e/workflow/student-review-workspace.spec.ts --project=chromium --trace on",
+    "test:e2e:trace:student-phase3": "playwright test tests/e2e/workflow/student-exam-detail-workspace.spec.ts tests/e2e/workflow/student-attempt-runtime-workspace.spec.ts tests/e2e/workflow/student-post-submit-workspace.spec.ts tests/e2e/workflow/student-review-workspace.spec.ts --project=chromium --trace on",
+    "test:e2e:trace:institute-phase3": "playwright test tests/e2e/workflow/institute-dashboard-workspace.spec.ts tests/e2e/workflow/institute-exams-workspace.spec.ts tests/e2e/workflow/institute-exam-detail-workspace.spec.ts tests/e2e/workflow/institute-results-workspace.spec.ts tests/e2e/workflow/institute-reviews-workspace.spec.ts tests/e2e/workflow/institute-question-bank-workspace.spec.ts --project=chromium --trace on",
+    "test:e2e:trace:teacher-phase3": "playwright test tests/e2e/workflow/teacher-cross-browser-shell.spec.ts tests/e2e/workflow/teacher-exam-detail-workspace.spec.ts tests/e2e/workflow/teacher-results-workspace.spec.ts tests/e2e/workflow/teacher-reviews-workspace.spec.ts tests/e2e/workflow/question-bank-deep.spec.ts tests/e2e/workflow/teacher-results-live-workspace.spec.ts tests/e2e/workflow/teacher-results-analysis-workspace.spec.ts --project=chromium --trace on"
   },
   "dependencies": {
     "next": "16.2.7",

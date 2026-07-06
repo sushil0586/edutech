@@ -17,9 +17,10 @@ type InstituteWizardScenario = {
 };
 
 const scenarios: InstituteWizardScenario[] = [
-  { examType: "practice", expectedStartLabel: /^start practice set$/i },
-  { examType: "quiz", expectedStartLabel: /^start quiz$/i },
-  { examType: "mock_exam", expectedStartLabel: /^start mock test$/i },
+  // The student exam detail page now renders a unified "Start" CTA across live assessment types.
+  { examType: "practice", expectedStartLabel: /^(start|start practice set)$/i },
+  { examType: "quiz", expectedStartLabel: /^(start|start quiz)$/i },
+  { examType: "mock_exam", expectedStartLabel: /^(start|start mock test)$/i },
 ];
 
 function escapeRegExp(value: string) {

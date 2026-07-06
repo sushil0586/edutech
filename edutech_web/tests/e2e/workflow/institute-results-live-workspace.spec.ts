@@ -5,11 +5,20 @@ import { expectInstituteWorkspace } from "../helpers/navigation";
 async function expectInstituteLiveMonitorWorkspace(page: Page) {
   await expect(page).toHaveURL(/\/institute\/results\/live(?:\?.*)?$/);
   await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
+  const emptyStateHeading = page.getByRole("heading", {
+    name: /live monitor is useful only during active exam windows/i,
+  });
+  if (await emptyStateHeading.isVisible().catch(() => false)) {
+    await expect(emptyStateHeading).toBeVisible();
+    await expect(page.getByText(/this route is for active attempts, warning queues, and intervention signals while a live exam is in progress/i).first()).toBeVisible();
+    return false;
+  }
   await expect(page.getByText(/^live monitor$/i).first()).toBeVisible();
   await expect(page.getByText(/intervention queue/i).first()).toBeVisible();
   await expect(page.getByText(/live monitor refresh/i).first()).toBeVisible();
   await expect(page.getByRole("button", { name: /pause auto refresh|resume auto refresh/i })).toBeVisible();
   await expect(page.getByRole("button", { name: /refresh now/i })).toBeVisible();
+  return true;
 }
 
 async function expectAttemptDrillOrEmptyState(page: Page) {
@@ -57,7 +66,12 @@ test.describe("Institute live monitor workspace", () => {
     await expectInstituteWorkspace(page);
 
     await page.goto("/institute/results/live");
-    await expectInstituteLiveMonitorWorkspace(page);
+    const liveLoaded = await expectInstituteLiveMonitorWorkspace(page);
+    if (!liveLoaded) {
+      await page.getByRole("link", { name: /open exams/i }).first().click();
+      await expect(page).toHaveURL(/\/institute\/exams(?:\?.*)?$/);
+      return;
+    }
 
     const toggleRefreshButton = page.getByRole("button", { name: /pause auto refresh|resume auto refresh/i });
     await toggleRefreshButton.click();

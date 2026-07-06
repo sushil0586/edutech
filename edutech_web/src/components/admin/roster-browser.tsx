@@ -163,6 +163,14 @@ export function RosterBrowser({
   }, [nameSort, query, rows, statusFilter]);
   const loginReadyCount = filteredRows.filter((row) => row.has_login).length;
   const noLoginCount = filteredRows.length - loginReadyCount;
+  const hasActiveControls =
+    query.trim().length > 0 || statusFilter !== "all" || nameSort !== "name-asc";
+
+  function resetControls() {
+    setQuery("");
+    setStatusFilter("all");
+    setNameSort("name-asc");
+  }
 
   function handleExport() {
     if (resource === "students") {
@@ -261,6 +269,11 @@ export function RosterBrowser({
             </span>
             Export CSV
           </button>
+          {hasActiveControls ? (
+            <button className="appTopbarAction setupSecondaryAction" onClick={resetControls} type="button">
+              Reset view
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -373,7 +386,25 @@ export function RosterBrowser({
           </table>
         ) : (
           <div className="featurePlaceholder">
-            <p>{emptyMessage}</p>
+            <strong>
+              {rows.length === 0
+                ? resource === "students"
+                  ? "No student records are available yet"
+                  : "No teacher records are available yet"
+                : "No roster records match the current view"}
+            </strong>
+            <p>
+              {rows.length === 0
+                ? emptyMessage
+                : "Try clearing the search, switching the login-status filter, or resetting the current view."}
+            </p>
+            {hasActiveControls ? (
+              <div className="workspaceFilterActions">
+                <button className="button buttonSecondary" onClick={resetControls} type="button">
+                  Clear search and filters
+                </button>
+              </div>
+            ) : null}
           </div>
         )}
       </div>

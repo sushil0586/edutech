@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { loginAsRole, testRequiresRole } from "../helpers/auth";
+import { loginWithCredentials } from "../helpers/auth";
 import { expectInstituteWorkspace } from "../helpers/navigation";
 
 const backendBaseUrl = (
@@ -10,6 +10,10 @@ const backendBaseUrl = (
 ).replace(/\/$/, "");
 
 const multiSubjectPracticeExamCode = "DMO-MIX-PRACTICE-01";
+const demoInstituteCredentials = {
+  username: "demo-institute-admin",
+  password: "Demo@12345",
+};
 
 async function backendAccessToken(page: Page) {
   const cookies = await page.context().cookies();
@@ -54,12 +58,10 @@ async function fetchInstituteExam(page: Page) {
 }
 
 test.describe("Institute multi-subject results contract", () => {
-  test.skip(testRequiresRole("institute"), "Institute Playwright credentials are not configured.");
-
   test("@workflow institute sees the seeded mixed-subject practice exam as a real results workspace record", async ({
     page,
   }) => {
-    await loginAsRole(page, "institute");
+    await loginWithCredentials(page, demoInstituteCredentials, "institute");
     await expectInstituteWorkspace(page);
 
     const exam = await fetchInstituteExam(page);

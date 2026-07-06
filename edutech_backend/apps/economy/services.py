@@ -2,8 +2,9 @@ import calendar
 from datetime import timedelta
 
 from django.core.exceptions import ValidationError
+from django.core.cache import cache
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Prefetch, Q
 from django.utils import timezone
 
 from apps.economy.models import (
@@ -29,6 +30,7 @@ from apps.economy.models import (
     ReferralCode,
     ReferralEvent,
     ReferralProgram,
+    QuestionBankPackageScope,
     ReferralRewardSide,
     RewardRule,
     RewardRuleType,
@@ -52,6 +54,10 @@ from apps.economy.models import (
 from apps.academics.models import Subject
 from apps.question_bank.models import MasterQuestionSourceType, MasterQuestionVisibility
 from apps.results.models import ExamResult
+
+
+QUESTION_BANK_FEATURE_CACHE_TTL_SECONDS = 60
+QUESTION_BANK_ENTITLEMENT_SNAPSHOT_CACHE_TTL_SECONDS = 60
 
 
 def _content_target_query(*, content_type, content_key, subject=None):
@@ -957,6 +963,65 @@ def _active_institute_question_feature_entitlements_queryset(*, institute, at_ti
     )
 
 
+def _question_bank_feature_cache_key(*, institute_id, feature_code):
+    return f"economy:question-bank-feature:{institute_id}:{feature_code}"
+
+
+def _invalidate_question_bank_feature_cache(*, institute, feature_code):
+    institute_id = getattr(institute, "id", institute)
+    normalized_code = str(feature_code or "").strip().upper()
+    if not institute_id or not normalized_code:
+        return
+    cache.delete(
+        _question_bank_feature_cache_key(
+            institute_id=institute_id,
+            feature_code=normalized_code,
+        )
+    )
+
+
+def _question_bank_entitlement_snapshot_cache_key(*, institute_id):
+    return f"economy:question-bank-entitlements:{institute_id}"
+
+
+def _invalidate_question_bank_entitlement_snapshot_cache(*, institute):
+    institute_id = getattr(institute, "id", institute)
+    if not institute_id:
+        return
+    cache.delete(_question_bank_entitlement_snapshot_cache_key(institute_id=institute_id))
+
+
+def _active_question_bank_entitlement_snapshot(institute, *, at_time=None):
+    if at_time is not None:
+        return list(
+            active_institute_question_entitlements(institute, at_time=at_time).prefetch_related(
+                Prefetch(
+                    "question_bank_package__scopes",
+                    queryset=QuestionBankPackageScope.objects.filter(is_active=True),
+                )
+            )
+        )
+
+    institute_id = getattr(institute, "id", institute)
+    if not institute_id:
+        return []
+    cache_key = _question_bank_entitlement_snapshot_cache_key(institute_id=institute_id)
+    cached_snapshot = cache.get(cache_key)
+    if cached_snapshot is not None:
+        return cached_snapshot
+
+    snapshot = list(
+        active_institute_question_entitlements(institute, at_time=at_time).prefetch_related(
+            Prefetch(
+                "question_bank_package__scopes",
+                queryset=QuestionBankPackageScope.objects.filter(is_active=True),
+            )
+        )
+    )
+    cache.set(cache_key, snapshot, QUESTION_BANK_ENTITLEMENT_SNAPSHOT_CACHE_TTL_SECONDS)
+    return snapshot
+
+
 def active_institute_question_entitlements(institute, *, at_time=None):
     return (
         _active_institute_question_entitlements_queryset(institute=institute, at_time=at_time)
@@ -993,13 +1058,25 @@ def institute_has_question_bank_package(institute, *, question_bank_package, at_
 
 
 def institute_has_question_bank_feature(institute, feature_code, *, at_time=None):
+    institute_id = getattr(institute, "id", institute)
     normalized_code = str(feature_code or "").strip().upper()
-    if not normalized_code:
+    if not institute_id or not normalized_code:
         return False
-    return _active_institute_question_feature_entitlements_queryset(
+    if at_time is None:
+        cache_key = _question_bank_feature_cache_key(
+            institute_id=institute_id,
+            feature_code=normalized_code,
+        )
+        cached_value = cache.get(cache_key)
+        if cached_value is not None:
+            return bool(cached_value)
+    has_feature = _active_institute_question_feature_entitlements_queryset(
         institute=institute,
         at_time=at_time,
     ).filter(feature_code=normalized_code).exists()
+    if at_time is None:
+        cache.set(cache_key, has_feature, QUESTION_BANK_FEATURE_CACHE_TTL_SECONDS)
+    return has_feature
 
 
 def package_scope_matches_master_question(*, scope, master_question):
@@ -1070,7 +1147,7 @@ def find_matching_question_bank_entitlements_for_master_question(institute, *, m
 
 
 def _matching_scopes_for_master_question(*, entitlement, master_question):
-    package_scopes = list(entitlement.question_bank_package.scopes.filter(is_active=True))
+    package_scopes = _active_package_scopes(entitlement.question_bank_package)
     return [
         scope
         for scope in package_scopes
@@ -1078,18 +1155,48 @@ def _matching_scopes_for_master_question(*, entitlement, master_question):
     ]
 
 
-def _linked_usage_entries_for_scope(*, entitlement, scope):
-    queryset = InstituteQuestionUsageLedger.objects.select_related("master_question").filter(
-        institute=entitlement.institute,
-        question_bank_package=entitlement.question_bank_package,
-        entitlement=entitlement,
-        is_active=True,
-        action_type=InstituteQuestionUsageActionType.QUESTION_LINKED,
-        master_question__isnull=False,
+def _active_package_scopes(package):
+    prefetched = getattr(package, "_prefetched_active_scopes", None)
+    if prefetched is not None:
+        return prefetched
+
+    scopes = list(package.scopes.filter(is_active=True))
+    setattr(package, "_prefetched_active_scopes", scopes)
+    return scopes
+
+
+def _linked_usage_entries_for_entitlement(entitlement):
+    prefetched = getattr(entitlement, "_prefetched_linked_usage_entries", None)
+    if prefetched is not None:
+        return prefetched
+
+    entries = list(
+        InstituteQuestionUsageLedger.objects.select_related("master_question").filter(
+            institute=entitlement.institute,
+            question_bank_package=entitlement.question_bank_package,
+            entitlement=entitlement,
+            is_active=True,
+            action_type=InstituteQuestionUsageActionType.QUESTION_LINKED,
+            master_question__isnull=False,
+        )
     )
+    setattr(entitlement, "_prefetched_linked_usage_entries", entries)
+    return entries
+
+
+def _linked_usage_entries_for_scope(*, entitlement, scope):
     return [
         entry
-        for entry in queryset
+        for entry in _linked_usage_entries_for_entitlement(entitlement)
+        if entry.master_question
+        and package_scope_matches_master_question(scope=scope, master_question=entry.master_question)
+    ]
+
+
+def _linked_usage_entries_for_scope_from_entries(*, scope, entries):
+    return [
+        entry
+        for entry in entries
         if entry.master_question
         and package_scope_matches_master_question(scope=scope, master_question=entry.master_question)
     ]
@@ -1171,7 +1278,7 @@ def _publish_warning_threshold_for_limit(*, entitlement, limit_value):
 
 def get_entitlement_quota_summary(entitlement):
     package = entitlement.question_bank_package
-    active_scopes = list(package.scopes.filter(is_active=True))
+    active_scopes = _active_package_scopes(package)
     quota_scopes = [
         scope
         for scope in active_scopes
@@ -1192,10 +1299,14 @@ def get_entitlement_quota_summary(entitlement):
     limit_reached = False
     near_limit = False
     remaining_min = None
+    linked_entries = _linked_usage_entries_for_entitlement(entitlement)
 
     for scope in quota_scopes:
-        linked_entries = _linked_usage_entries_for_scope(entitlement=entitlement, scope=scope)
-        usage_total += sum(entry.quantity for entry in linked_entries)
+        scope_linked_entries = _linked_usage_entries_for_scope_from_entries(
+            scope=scope,
+            entries=linked_entries,
+        )
+        usage_total += sum(entry.quantity for entry in scope_linked_entries)
 
         parts = []
         if scope.program_id:
@@ -1209,7 +1320,7 @@ def get_entitlement_quota_summary(entitlement):
         metrics = []
         scope_remaining_values = []
         if scope.max_questions_total is not None:
-            total_used = sum(entry.quantity for entry in linked_entries)
+            total_used = sum(entry.quantity for entry in scope_linked_entries)
             total_remaining = max(scope.max_questions_total - total_used, 0)
             scope_remaining_values.append(
                 (
@@ -1228,7 +1339,7 @@ def get_entitlement_quota_summary(entitlement):
 
         if scope.max_questions_per_topic is not None:
             usage_by_topic = {}
-            for entry in linked_entries:
+            for entry in scope_linked_entries:
                 topic_id = getattr(entry.master_question, "source_topic_id", None)
                 usage_by_topic[topic_id] = usage_by_topic.get(topic_id, 0) + entry.quantity
             highest_topic_usage = max(usage_by_topic.values(), default=0)
@@ -1308,6 +1419,195 @@ def entitlement_has_available_question_quota(*, entitlement, master_question):
         return True
 
     return False
+
+
+def _entitlement_has_available_question_quota_from_entries(
+    *,
+    entitlement,
+    master_question,
+    matching_scopes,
+    usage_entries,
+):
+    package = entitlement.question_bank_package
+    if package.access_mode != QuestionBankAccessMode.QUOTA_LIMITED:
+        return True
+    if not matching_scopes:
+        return False
+
+    for scope in matching_scopes:
+        linked_entries = _linked_usage_entries_for_scope_from_entries(
+            scope=scope,
+            entries=usage_entries,
+        )
+
+        if scope.max_questions_total is not None:
+            total_used = sum(entry.quantity for entry in linked_entries)
+            if total_used >= scope.max_questions_total:
+                continue
+
+        if scope.max_questions_per_topic is not None:
+            target_topic_id = getattr(master_question, "source_topic_id", None)
+            topic_used = sum(
+                entry.quantity
+                for entry in linked_entries
+                if getattr(entry.master_question, "source_topic_id", None) == target_topic_id
+            )
+            if topic_used >= scope.max_questions_per_topic:
+                continue
+
+        return True
+
+    return False
+
+
+def bulk_get_master_question_access_summaries(institute, *, master_questions, at_time=None):
+    questions = list(master_questions)
+    if not questions:
+        return {}
+
+    entitlements = _active_question_bank_entitlement_snapshot(institute, at_time=at_time)
+    default_summary = {
+        "has_entitlement": False,
+        "has_access": False,
+        "access_availability": "subscription_required",
+        "quota_limited": False,
+        "quota_exhausted": False,
+        "quota_note": "No matching subscribed package was found for this local scope.",
+        "matching_packages": [],
+    }
+    if not entitlements:
+        return {str(question.id): dict(default_summary) for question in questions}
+
+    scopes_by_entitlement_id = {
+        entitlement.id: [
+            scope
+            for scope in entitlement.question_bank_package.scopes.all()
+            if scope.is_active
+        ]
+        for entitlement in entitlements
+    }
+    usage_entries_by_entitlement_id = {entitlement.id: [] for entitlement in entitlements}
+    quota_entitlement_ids = [
+        entitlement.id
+        for entitlement in entitlements
+        if entitlement.question_bank_package.access_mode == QuestionBankAccessMode.QUOTA_LIMITED
+    ]
+    if quota_entitlement_ids:
+        usage_entries = list(
+            InstituteQuestionUsageLedger.objects.select_related("master_question").filter(
+                institute=institute,
+                entitlement_id__in=quota_entitlement_ids,
+                is_active=True,
+                action_type=InstituteQuestionUsageActionType.QUESTION_LINKED,
+                master_question__isnull=False,
+            )
+        )
+        for entry in usage_entries:
+            if entry.entitlement_id in usage_entries_by_entitlement_id:
+                usage_entries_by_entitlement_id[entry.entitlement_id].append(entry)
+
+    summaries = {}
+    for question in questions:
+        matching_packages = []
+        matching_entitlements = []
+        matching_scopes_by_entitlement_id = {}
+
+        for entitlement in entitlements:
+            matching_scopes = [
+                scope
+                for scope in scopes_by_entitlement_id[entitlement.id]
+                if package_scope_matches_master_question(scope=scope, master_question=question)
+            ]
+            if not matching_scopes:
+                continue
+            matching_entitlements.append(entitlement)
+            matching_packages.append(entitlement.question_bank_package)
+            matching_scopes_by_entitlement_id[entitlement.id] = matching_scopes
+
+        if not matching_entitlements:
+            summaries[str(question.id)] = dict(default_summary)
+            continue
+
+        available_entitlement = None
+        for entitlement in matching_entitlements:
+            if _entitlement_has_available_question_quota_from_entries(
+                entitlement=entitlement,
+                master_question=question,
+                matching_scopes=matching_scopes_by_entitlement_id[entitlement.id],
+                usage_entries=usage_entries_by_entitlement_id.get(entitlement.id, []),
+            ):
+                available_entitlement = entitlement
+                break
+
+        if available_entitlement is None:
+            summaries[str(question.id)] = {
+                "has_entitlement": True,
+                "has_access": False,
+                "access_availability": "quota_exhausted",
+                "quota_limited": any(
+                    entitlement.question_bank_package.access_mode == QuestionBankAccessMode.QUOTA_LIMITED
+                    for entitlement in matching_entitlements
+                ),
+                "quota_exhausted": True,
+                "quota_note": "Matching subscribed packages were found, but their question quota is exhausted.",
+                "matching_packages": matching_packages,
+            }
+            continue
+
+        if available_entitlement.question_bank_package.access_mode != QuestionBankAccessMode.QUOTA_LIMITED:
+            summaries[str(question.id)] = {
+                "has_entitlement": True,
+                "has_access": True,
+                "access_availability": "available",
+                "quota_limited": False,
+                "quota_exhausted": False,
+                "quota_note": "",
+                "matching_packages": matching_packages,
+            }
+            continue
+
+        remaining_candidates = []
+        for scope in matching_scopes_by_entitlement_id[available_entitlement.id]:
+            linked_entries = _linked_usage_entries_for_scope_from_entries(
+                scope=scope,
+                entries=usage_entries_by_entitlement_id.get(available_entitlement.id, []),
+            )
+            scope_limits = []
+
+            if scope.max_questions_total is not None:
+                total_used = sum(entry.quantity for entry in linked_entries)
+                scope_limits.append(max(scope.max_questions_total - total_used, 0))
+
+            if scope.max_questions_per_topic is not None:
+                target_topic_id = getattr(question, "source_topic_id", None)
+                topic_used = sum(
+                    entry.quantity
+                    for entry in linked_entries
+                    if getattr(entry.master_question, "source_topic_id", None) == target_topic_id
+                )
+                scope_limits.append(max(scope.max_questions_per_topic - topic_used, 0))
+
+            if scope_limits:
+                remaining_candidates.append(min(scope_limits))
+
+        quota_note = ""
+        if remaining_candidates:
+            quota_note = (
+                "Matching package quota available. Remaining question allowance: "
+                f"{max(remaining_candidates)}."
+            )
+
+        summaries[str(question.id)] = {
+            "has_entitlement": True,
+            "has_access": True,
+            "access_availability": "available",
+            "quota_limited": True,
+            "quota_exhausted": False,
+            "quota_note": quota_note,
+            "matching_packages": matching_packages,
+        }
+
+    return summaries
 
 
 def resolve_question_bank_entitlement_for_master_question_use(
@@ -1651,6 +1951,7 @@ def grant_institute_question_bank_entitlement(
                 **(metadata or {}),
             },
         )
+        _invalidate_question_bank_entitlement_snapshot_cache(institute=institute)
         return entitlement, True
 
     entitlement.status = InstituteQuestionEntitlementStatus.ACTIVE
@@ -1678,6 +1979,7 @@ def grant_institute_question_bank_entitlement(
             **(metadata or {}),
         },
     )
+    _invalidate_question_bank_entitlement_snapshot_cache(institute=institute)
     return entitlement, False
 
 
@@ -1726,6 +2028,7 @@ def update_institute_question_bank_entitlement_status(
             "after_status": status,
         },
     )
+    _invalidate_question_bank_entitlement_snapshot_cache(institute=entitlement.institute)
     return entitlement
 
 
@@ -1869,6 +2172,10 @@ def grant_institute_feature_entitlement(
             ends_at=ends_at,
             metadata=metadata or {},
         )
+        _invalidate_question_bank_feature_cache(
+            institute=institute,
+            feature_code=normalized_code,
+        )
         return entitlement, True
 
     entitlement.status = InstituteQuestionEntitlementStatus.ACTIVE
@@ -1878,6 +2185,10 @@ def grant_institute_feature_entitlement(
     entitlement.ends_at = ends_at
     entitlement.metadata = metadata or {}
     entitlement.save()
+    _invalidate_question_bank_feature_cache(
+        institute=institute,
+        feature_code=normalized_code,
+    )
     return entitlement, False
 
 
@@ -1896,6 +2207,10 @@ def update_institute_question_feature_entitlement_status(
     if status == InstituteQuestionEntitlementStatus.REVOKED:
         entitlement.ends_at = entitlement.ends_at or timezone.now()
     entitlement.save()
+    _invalidate_question_bank_feature_cache(
+        institute=entitlement.institute,
+        feature_code=entitlement.feature_code,
+    )
     return entitlement
 
 
@@ -2204,14 +2519,23 @@ def evaluate_unlock_rule(*, student, rule):
 
 
 @transaction.atomic
-def evaluate_and_sync_unlock_state(*, student, content_type, content_key, subject=None, granted_by=None):
+def evaluate_and_sync_unlock_state(
+    *,
+    student,
+    content_type,
+    content_key,
+    subject=None,
+    granted_by=None,
+    access_policy=None,
+):
     profile = get_or_create_student_economy_profile(student)
-    access_policy = resolve_content_access_policy(
-        student=student,
-        content_type=content_type,
-        content_key=content_key,
-        subject=subject,
-    )
+    if access_policy is None:
+        access_policy = resolve_content_access_policy(
+            student=student,
+            content_type=content_type,
+            content_key=content_key,
+            subject=subject,
+        )
     unlock_rules = list(
         UnlockRule.objects.filter(
             institute=student.institute,

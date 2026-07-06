@@ -1,0 +1,1438 @@
+{
+  "topic_code": "SCI-SPACE-EARTHMOONSUN",
+  "topic_name": "Earth, Moon, and the Sun",
+  "questions": [
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "The Earth is a:",
+      "explanation": "The Earth moves around the Sun and is one of the planets of the solar system.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Star",
+          "is_correct": false
+        },
+        {
+          "option_text": "Planet",
+          "is_correct": true
+        },
+        {
+          "option_text": "Satellite",
+          "is_correct": false
+        },
+        {
+          "option_text": "Comet",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "The Sun is a:",
+      "explanation": "The Sun produces its own light and heat, so it is a star.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Star",
+          "is_correct": true
+        },
+        {
+          "option_text": "Planet",
+          "is_correct": false
+        },
+        {
+          "option_text": "Satellite",
+          "is_correct": false
+        },
+        {
+          "option_text": "Asteroid",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "classification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which object is the natural satellite of the Earth?",
+      "explanation": "The Moon is the natural satellite of the Earth.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Sun",
+          "is_correct": false
+        },
+        {
+          "option_text": "Mars",
+          "is_correct": false
+        },
+        {
+          "option_text": "Moon",
+          "is_correct": true
+        },
+        {
+          "option_text": "Venus",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "familiar_example_identification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "true_false",
+      "difficulty_level": "foundation",
+      "question_text": "The Moon has light of its own.",
+      "explanation": "The Moon does not produce its own light. It reflects sunlight.",
+      "default_marks": "1.00",
+      "negative_marks": "0.00",
+      "options": [
+        {
+          "option_text": "True",
+          "is_correct": false
+        },
+        {
+          "option_text": "False",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "archetype": "true_false_concept",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Day and night occur because the Earth:",
+      "explanation": "The Earth rotates on its axis, causing different parts to face the Sun and then turn away.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Stops moving at night",
+          "is_correct": false
+        },
+        {
+          "option_text": "Rotates on its axis",
+          "is_correct": true
+        },
+        {
+          "option_text": "Moves closer to the Moon",
+          "is_correct": false
+        },
+        {
+          "option_text": "Changes its shape",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "The Earth takes about how much time to complete one rotation on its axis?",
+      "explanation": "The Earth takes about 24 hours to rotate once on its axis.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "12 hours",
+          "is_correct": false
+        },
+        {
+          "option_text": "24 hours",
+          "is_correct": true
+        },
+        {
+          "option_text": "30 days",
+          "is_correct": false
+        },
+        {
+          "option_text": "365 days",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "The Earth takes about how much time to complete one revolution around the Sun?",
+      "explanation": "The Earth takes approximately 365 days, or one year, to revolve around the Sun.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "24 hours",
+          "is_correct": false
+        },
+        {
+          "option_text": "7 days",
+          "is_correct": false
+        },
+        {
+          "option_text": "30 days",
+          "is_correct": false
+        },
+        {
+          "option_text": "365 days",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which shape best describes the path of the Moon around the Earth?",
+      "explanation": "The Moon revolves around the Earth in a nearly circular path.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Nearly circular",
+          "is_correct": true
+        },
+        {
+          "option_text": "Triangular",
+          "is_correct": false
+        },
+        {
+          "option_text": "Square",
+          "is_correct": false
+        },
+        {
+          "option_text": "Straight line",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "familiar_example_identification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "The changing shapes of the Moon seen from Earth are called:",
+      "explanation": "The Moon appears in different shapes during the month, called phases of the Moon.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Seasons",
+          "is_correct": false
+        },
+        {
+          "option_text": "Phases",
+          "is_correct": true
+        },
+        {
+          "option_text": "Shadows only",
+          "is_correct": false
+        },
+        {
+          "option_text": "Orbits",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "When the whole visible face of the Moon is bright, it is called:",
+      "explanation": "This phase is known as the full moon.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "New moon",
+          "is_correct": false
+        },
+        {
+          "option_text": "Full moon",
+          "is_correct": true
+        },
+        {
+          "option_text": "Half moon",
+          "is_correct": false
+        },
+        {
+          "option_text": "Eclipse",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "vocabulary_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "When the Moon cannot be seen in the sky, it is called:",
+      "explanation": "The new moon occurs when the sunlit side faces away from us.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "New moon",
+          "is_correct": true
+        },
+        {
+          "option_text": "Full moon",
+          "is_correct": false
+        },
+        {
+          "option_text": "Quarter moon",
+          "is_correct": false
+        },
+        {
+          "option_text": "Bright moon",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "vocabulary_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "true_false",
+      "difficulty_level": "foundation",
+      "question_text": "The Moon reflects the light of the Sun.",
+      "explanation": "Moonlight is actually reflected sunlight.",
+      "default_marks": "1.00",
+      "negative_marks": "0.00",
+      "options": [
+        {
+          "option_text": "True",
+          "is_correct": true
+        },
+        {
+          "option_text": "False",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "true_false_concept",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "The group of planets, satellites, and other bodies revolving around the Sun is called the:",
+      "explanation": "This system is called the solar system.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Galaxy only",
+          "is_correct": false
+        },
+        {
+          "option_text": "Universe",
+          "is_correct": false
+        },
+        {
+          "option_text": "Solar system",
+          "is_correct": true
+        },
+        {
+          "option_text": "Atmosphere",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which is the closest star to the Earth?",
+      "explanation": "The Sun is the nearest star to Earth.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Sun",
+          "is_correct": true
+        },
+        {
+          "option_text": "Moon",
+          "is_correct": false
+        },
+        {
+          "option_text": "Mars",
+          "is_correct": false
+        },
+        {
+          "option_text": "Pole Star",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "familiar_example_identification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which heavenly body is much smaller than the Sun but closer to Earth, so it appears almost the same size in the sky?",
+      "explanation": "The Moon is smaller than the Sun but much closer to us.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Jupiter",
+          "is_correct": false
+        },
+        {
+          "option_text": "Saturn",
+          "is_correct": false
+        },
+        {
+          "option_text": "Moon",
+          "is_correct": true
+        },
+        {
+          "option_text": "Venus",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "The Earth rotates from:",
+      "explanation": "The Earth rotates from west to east, which makes the Sun appear to rise in the east.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "North to south",
+          "is_correct": false
+        },
+        {
+          "option_text": "East to west",
+          "is_correct": false
+        },
+        {
+          "option_text": "West to east",
+          "is_correct": true
+        },
+        {
+          "option_text": "South to north",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Why does the Sun appear to move across the sky during the day?",
+      "explanation": "This apparent motion is due to the Earth's rotation.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Because the Sun circles the Earth every day",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because the Earth rotates on its axis",
+          "is_correct": true
+        },
+        {
+          "option_text": "Because clouds push the Sun",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because the Moon pulls the Sun",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "daily_life_application",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "foundation",
+      "question_text": "What is a natural satellite?",
+      "explanation": "A natural satellite is a body that revolves around a planet naturally, like the Moon around the Earth.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "archetype": "concept_explanation",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "A body that naturally revolves around a planet",
+          "A heavenly body like the Moon that goes around a planet"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "What causes the different phases of the Moon?",
+      "explanation": "As the Moon revolves around the Earth, different portions of its sunlit side become visible.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "The Moon changes its own shape",
+          "is_correct": false
+        },
+        {
+          "option_text": "Clouds cover part of the Moon",
+          "is_correct": false
+        },
+        {
+          "option_text": "Different portions of the sunlit Moon are visible from Earth",
+          "is_correct": true
+        },
+        {
+          "option_text": "The Sun becomes dimmer",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which of the following is not a source of light?",
+      "explanation": "The Moon is not a source of light; it reflects sunlight.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Sun",
+          "is_correct": false
+        },
+        {
+          "option_text": "Electric bulb",
+          "is_correct": false
+        },
+        {
+          "option_text": "Moon",
+          "is_correct": true
+        },
+        {
+          "option_text": "Candle",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "classification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "If the Earth did not rotate, which event would not happen in the usual way?",
+      "explanation": "Day and night are caused by Earth's rotation.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "The Moon would reflect light",
+          "is_correct": false
+        },
+        {
+          "option_text": "Day and night would not occur normally",
+          "is_correct": true
+        },
+        {
+          "option_text": "The Sun would become smaller",
+          "is_correct": false
+        },
+        {
+          "option_text": "Stars would disappear forever",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "comparison_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Why is one side of the Earth experiencing day while the other side experiences night?",
+      "explanation": "The Earth is spherical and only one side faces the Sun at a time.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "The Sun shines only on half the Earth forever",
+          "is_correct": false
+        },
+        {
+          "option_text": "The Moon blocks sunlight every night",
+          "is_correct": false
+        },
+        {
+          "option_text": "Only the side facing the Sun gets sunlight at that time",
+          "is_correct": true
+        },
+        {
+          "option_text": "The Earth stops rotating at night",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "best_explanation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which phase comes about midway between new moon and full moon?",
+      "explanation": "In the middle of the lunar cycle, we see half of the visible disk lit up.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "No moon",
+          "is_correct": false
+        },
+        {
+          "option_text": "Half moon",
+          "is_correct": true
+        },
+        {
+          "option_text": "Full moon",
+          "is_correct": false
+        },
+        {
+          "option_text": "Eclipse only",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "sequence_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which observation proves that the Moon does not have its own light?",
+      "explanation": "The Moon is seen shining because it reflects sunlight.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "It changes shape every week",
+          "is_correct": false
+        },
+        {
+          "option_text": "Its bright part always depends on sunlight",
+          "is_correct": true
+        },
+        {
+          "option_text": "It looks large near the horizon",
+          "is_correct": false
+        },
+        {
+          "option_text": "It is visible at night",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "evidence_based_choice",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which statement about the Moon is correct?",
+      "explanation": "The Moon revolves around the Earth and also rotates, which is why we usually see the same side.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "The Moon never moves",
+          "is_correct": false
+        },
+        {
+          "option_text": "The Moon produces sunlight",
+          "is_correct": false
+        },
+        {
+          "option_text": "The Moon revolves around the Earth",
+          "is_correct": true
+        },
+        {
+          "option_text": "The Moon is larger than Earth",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "misconception_correction",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "If tonight is a full moon, about how long will it take for the next full moon to appear?",
+      "explanation": "The Moon completes one cycle of phases in about 29 days.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "1 day",
+          "is_correct": false
+        },
+        {
+          "option_text": "7 days",
+          "is_correct": false
+        },
+        {
+          "option_text": "About 29 days",
+          "is_correct": true
+        },
+        {
+          "option_text": "365 days",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "observation_based_inference",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which feature best distinguishes the Sun from the Moon?",
+      "explanation": "The Sun is a star and gives out its own light; the Moon is a natural satellite that reflects light.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Both revolve around Earth",
+          "is_correct": false
+        },
+        {
+          "option_text": "Both have their own light",
+          "is_correct": false
+        },
+        {
+          "option_text": "The Sun emits its own light, but the Moon reflects light",
+          "is_correct": true
+        },
+        {
+          "option_text": "The Moon is hotter than the Sun",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "compare_and_contrast",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Why can we not see the Moon during the new moon phase?",
+      "explanation": "During new moon, the side of the Moon facing Earth is not illuminated by the Sun.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Because the Moon disappears from space",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because clouds always hide it",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because the illuminated side faces away from Earth",
+          "is_correct": true
+        },
+        {
+          "option_text": "Because the Earth stops moving",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "daily_life_application",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What is the main reason the Pole Star seems fixed in the night sky?",
+      "explanation": "It lies nearly along the extension of the Earth's axis, so it appears almost fixed.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "It is the brightest star",
+          "is_correct": false
+        },
+        {
+          "option_text": "It lies nearly in line with Earth's axis",
+          "is_correct": true
+        },
+        {
+          "option_text": "It does not belong to space",
+          "is_correct": false
+        },
+        {
+          "option_text": "It revolves around the Moon",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "cause_and_effect",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "If the Sun appears to rise in the east, this tells us that Earth rotates:",
+      "explanation": "Because Earth rotates from west to east, the Sun appears to move from east to west.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "From west to east",
+          "is_correct": true
+        },
+        {
+          "option_text": "From east to west",
+          "is_correct": false
+        },
+        {
+          "option_text": "From north to south",
+          "is_correct": false
+        },
+        {
+          "option_text": "In no fixed direction",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "directional_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "intermediate",
+      "question_text": "What is meant by revolution of the Earth?",
+      "explanation": "Revolution is the movement of the Earth around the Sun.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "archetype": "concept_explanation",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "The movement of Earth around the Sun",
+          "Earth going around the Sun once in a year"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which of these belongs to the solar system?",
+      "explanation": "The Earth, Moon, planets, asteroids, and the Sun are all part of the solar system.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Only the Earth and Moon",
+          "is_correct": false
+        },
+        {
+          "option_text": "Only stars outside our galaxy",
+          "is_correct": false
+        },
+        {
+          "option_text": "The Sun, planets, satellites, and smaller bodies",
+          "is_correct": true
+        },
+        {
+          "option_text": "Clouds and mountains",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "classification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Why do stars appear as tiny points while the Sun looks much larger?",
+      "explanation": "The Sun is much closer to Earth than other stars.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "The Sun is not a star",
+          "is_correct": false
+        },
+        {
+          "option_text": "The stars are not real",
+          "is_correct": false
+        },
+        {
+          "option_text": "The Sun is far closer to Earth than other stars",
+          "is_correct": true
+        },
+        {
+          "option_text": "The Sun reflects light from stars",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "comparative_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "If a child records the Moon’s shape every night, what will the child most likely notice?",
+      "explanation": "The visible shape of the Moon changes gradually in a repeating cycle.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "The Moon stays exactly the same every night",
+          "is_correct": false
+        },
+        {
+          "option_text": "The Moon changes shape in a regular pattern",
+          "is_correct": true
+        },
+        {
+          "option_text": "The Moon disappears for half the year",
+          "is_correct": false
+        },
+        {
+          "option_text": "The Moon changes color every minute",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "pattern_inference",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "An astronaut on the Moon would see the Earth in the sky mainly because:",
+      "explanation": "Just as we see the Moon by reflected sunlight, an astronaut can see Earth by sunlight reflected from Earth.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Earth has no light at all",
+          "is_correct": false
+        },
+        {
+          "option_text": "Earth reflects sunlight",
+          "is_correct": true
+        },
+        {
+          "option_text": "Earth is a star",
+          "is_correct": false
+        },
+        {
+          "option_text": "Earth glows only at night",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "scenario_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which pair of movements correctly matches the Earth and the Moon?",
+      "explanation": "The Earth rotates on its axis and revolves around the Sun; the Moon rotates and revolves around the Earth.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Earth revolves around the Moon; Moon rotates around the Sun",
+          "is_correct": false
+        },
+        {
+          "option_text": "Earth rotates and revolves; Moon rotates and revolves around Earth",
+          "is_correct": true
+        },
+        {
+          "option_text": "Earth only rotates; Moon only shines",
+          "is_correct": false
+        },
+        {
+          "option_text": "Earth only revolves; Moon remains fixed",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "integrative_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "If Earth took 48 hours instead of 24 hours to rotate once, one full cycle of day and night would last:",
+      "explanation": "A complete day-night cycle depends on one full rotation of Earth.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "12 hours",
+          "is_correct": false
+        },
+        {
+          "option_text": "24 hours",
+          "is_correct": false
+        },
+        {
+          "option_text": "48 hours",
+          "is_correct": true
+        },
+        {
+          "option_text": "365 days",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "counterfactual_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Why do we usually see only one face of the Moon from Earth?",
+      "explanation": "The Moon takes nearly the same time to rotate on its axis as to revolve around the Earth.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Because the other side does not exist",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because sunlight never reaches the other side",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because its rotation time matches its revolution time",
+          "is_correct": true
+        },
+        {
+          "option_text": "Because the Earth blocks our view all month",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "model_based_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which sequence of phases is correct after new moon?",
+      "explanation": "After new moon, the illuminated portion increases until full moon, then decreases.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Full moon, new moon, half moon",
+          "is_correct": false
+        },
+        {
+          "option_text": "New moon, half moon, full moon",
+          "is_correct": true
+        },
+        {
+          "option_text": "Half moon, new moon, full moon",
+          "is_correct": false
+        },
+        {
+          "option_text": "New moon, full moon, new moon, no other phase",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "sequence_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which observation best supports that the Earth is spherical?",
+      "explanation": "Photographs from space and the curved shadow of Earth during a lunar eclipse support that Earth is spherical.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "The Sun rises every day",
+          "is_correct": false
+        },
+        {
+          "option_text": "The Moon changes phases",
+          "is_correct": false
+        },
+        {
+          "option_text": "Earth’s curved shadow can be seen during a lunar eclipse",
+          "is_correct": true
+        },
+        {
+          "option_text": "Clouds move in the sky",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "evidence_based_choice",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "If the Moon stopped revolving around the Earth but still reflected sunlight, what would be most affected?",
+      "explanation": "The changing phases depend on the Moon’s position relative to Earth and the Sun during revolution.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "The Sun’s temperature",
+          "is_correct": false
+        },
+        {
+          "option_text": "The sequence of Moon phases",
+          "is_correct": true
+        },
+        {
+          "option_text": "Earth’s color",
+          "is_correct": false
+        },
+        {
+          "option_text": "The existence of stars",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "cause_and_effect",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which analogy is most accurate?",
+      "explanation": "The Earth is to the Sun as the Moon is to the Earth because the Earth revolves around the Sun and the Moon revolves around the Earth.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Earth : Moon :: Sun : Star",
+          "is_correct": false
+        },
+        {
+          "option_text": "Earth : Sun :: Moon : Earth",
+          "is_correct": true
+        },
+        {
+          "option_text": "Moon : Sun :: Earth : satellite",
+          "is_correct": false
+        },
+        {
+          "option_text": "Star : Sun :: Moon : planet",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "analogy_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "advanced",
+      "question_text": "Differentiate between rotation and revolution.",
+      "explanation": "Rotation is spinning about one’s own axis; revolution is moving around another body.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "archetype": "compare_and_contrast",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "Rotation is spinning on an axis; revolution is going around another body",
+          "Earth rotates in 24 hours and revolves around the Sun in about 365 days"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Why is a solar eclipse not seen on every new moon day?",
+      "explanation": "The Moon’s orbit is slightly tilted, so the Sun, Moon, and Earth do not line up exactly every new moon.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Because the Sun stops shining",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because new moon happens only once a year",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because the Sun, Moon, and Earth are not perfectly aligned every time",
+          "is_correct": true
+        },
+        {
+          "option_text": "Because the Earth stops revolving",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "application_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "A student says, “The Moon seems to follow me while I walk.” This is mainly because:",
+      "explanation": "The Moon is very far away, so your small change in position hardly changes the viewing angle.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "The Moon is tied to the student",
+          "is_correct": false
+        },
+        {
+          "option_text": "The Moon moves only above one person",
+          "is_correct": false
+        },
+        {
+          "option_text": "The Moon is very far away compared to the student’s movement",
+          "is_correct": true
+        },
+        {
+          "option_text": "The Earth is not rotating",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "interpretation_of_statement",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which statement correctly orders these by size, from smallest to largest?",
+      "explanation": "The Moon is smaller than the Earth, and the Earth is much smaller than the Sun.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Moon, Earth, Sun",
+          "is_correct": true
+        },
+        {
+          "option_text": "Sun, Earth, Moon",
+          "is_correct": false
+        },
+        {
+          "option_text": "Earth, Moon, Sun",
+          "is_correct": false
+        },
+        {
+          "option_text": "Moon, Sun, Earth",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "ranking_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which statement about stars is correct?",
+      "explanation": "Stars produce their own light and are very far away from Earth.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "All stars are satellites of Earth",
+          "is_correct": false
+        },
+        {
+          "option_text": "Stars are self-luminous heavenly bodies",
+          "is_correct": true
+        },
+        {
+          "option_text": "The Moon is the brightest star near Earth",
+          "is_correct": false
+        },
+        {
+          "option_text": "Stars shine only by reflected light",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "misconception_correction",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which statement correctly links Earth’s rotation with timekeeping?",
+      "explanation": "One rotation of Earth gives us one day of about 24 hours.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "One revolution gives one day",
+          "is_correct": false
+        },
+        {
+          "option_text": "One rotation gives one day",
+          "is_correct": true
+        },
+        {
+          "option_text": "One full moon gives one day",
+          "is_correct": false
+        },
+        {
+          "option_text": "One sunrise gives one year",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "integrative_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "advanced",
+      "question_text": "Why does the Moon appear to change shape even though its actual shape does not change?",
+      "explanation": "The Moon stays the same shape, but we see different illuminated portions as it revolves around the Earth.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "archetype": "reasoned_explanation",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "Because different sunlit portions of the Moon are visible from Earth",
+          "The Moon’s shape does not change; only the visible lit part changes"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which summary is scientifically correct?",
+      "explanation": "The Earth is a planet that rotates and revolves, the Moon is Earth’s natural satellite, and the Sun is a star.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Earth is a star, Moon is a planet, Sun is a satellite",
+          "is_correct": false
+        },
+        {
+          "option_text": "Earth and Moon both produce their own light",
+          "is_correct": false
+        },
+        {
+          "option_text": "Earth is a planet, Moon is its natural satellite, and Sun is a star",
+          "is_correct": true
+        },
+        {
+          "option_text": "The Moon controls day and night directly",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "big_picture_summary",
+        "source_pack": "class7_curated_v2"
+      }
+    }
+  ]
+}

@@ -818,6 +818,7 @@ export async function fetchTeacherQuestionPage(filters?: {
   missing_explanation?: boolean;
   quality_signal?: string | null;
   revision_priority?: string | null;
+  source_state?: string | null;
 }) {
   return requestTeacherBuilderJson<TeacherQuestionPage>(
     `/api/v1/question-bank/questions/${toQueryString({
@@ -836,6 +837,7 @@ export async function fetchTeacherQuestionPage(filters?: {
       missing_explanation: filters?.missing_explanation ? true : undefined,
       quality_signal: filters?.quality_signal,
       revision_priority: filters?.revision_priority,
+      source_state: filters?.source_state,
     })}`,
   );
 }
@@ -843,6 +845,7 @@ export async function fetchTeacherQuestionPage(filters?: {
 export async function fetchTeacherMasterQuestionLibrary(filters?: {
   page?: number;
   page_size?: number;
+  available_only?: boolean;
   subject_code?: string | null;
   topic_code?: string | null;
   question_type?: string | null;
@@ -854,6 +857,7 @@ export async function fetchTeacherMasterQuestionLibrary(filters?: {
     `/api/v1/question-bank/master-library/${toQueryString({
       page: filters?.page,
       page_size: filters?.page_size,
+      available_only: filters?.available_only ? "true" : undefined,
       subject_code: filters?.subject_code,
       topic_code: filters?.topic_code,
       question_type: filters?.question_type,

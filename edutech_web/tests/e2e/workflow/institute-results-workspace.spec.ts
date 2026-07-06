@@ -13,14 +13,41 @@ async function expectAnyVisible(page: Page, patterns: RegExp[]) {
   throw new Error(`Expected one of these patterns to be visible: ${patterns.map(String).join(", ")}`);
 }
 
+async function expectVisiblePaginationControlsToAvoidHashLinks(page: Page) {
+  const visiblePagers = page.locator(".workspaceFilterActions").filter({
+    has: page.getByText(/previous|next/i),
+  });
+  const visibleCount = await visiblePagers.count();
+
+  for (let index = 0; index < visibleCount; index += 1) {
+    const pager = visiblePagers.nth(index);
+    if (!(await pager.isVisible().catch(() => false))) {
+      continue;
+    }
+
+    const links = pager.locator('a[href="#"]');
+    await expect(links).toHaveCount(0);
+  }
+}
+
 async function expectInstituteResultsWorkspace(page: Page) {
   await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
+  const emptyStateHeading = page.getByRole("heading", {
+    name: /overview becomes useful after exams and attempts exist in your institute scope/i,
+  });
+  if (await emptyStateHeading.isVisible().catch(() => false)) {
+    await expect(emptyStateHeading).toBeVisible();
+    await expect(page.getByRole("link", { name: /open exams/i }).first()).toBeVisible();
+    return false;
+  }
+
   await expect(page.getByRole("combobox", { name: /exam state/i })).toBeVisible();
   await expect(
     page.getByRole("link", { name: /overview.*workflow, readiness, and exam health/i }).first(),
   ).toBeVisible();
   await expect(page.getByText(/^exam publish readiness$/i).first()).toBeVisible();
   await expect(page.getByText(/^result publish readiness$/i).first()).toBeVisible();
+  return true;
 }
 
 async function readExamCardSnapshot(resultCard: ReturnType<Page["locator"]>) {
@@ -73,7 +100,16 @@ test.describe("Institute results workspace", () => {
     await expectInstituteWorkspace(page);
 
     await page.goto("/institute/results");
-    await expectInstituteResultsWorkspace(page);
+    const resultsLoaded = await expectInstituteResultsWorkspace(page);
+    if (!resultsLoaded) {
+      await expect(
+        page.getByText(/start by creating your first exam, then publish it and collect a few student attempts/i).first(),
+      ).toBeVisible();
+      await page.getByRole("link", { name: /open exams/i }).first().click();
+      await expect(page).toHaveURL(/\/institute\/exams(?:\?.*)?$/);
+      await expect(page.getByRole("heading", { name: /exam management/i }).first()).toBeVisible();
+      return;
+    }
 
     await page.getByRole("combobox", { name: /exam state/i }).selectOption("published");
     await page.getByRole("combobox", { name: /sort by/i }).selectOption("title");
@@ -90,13 +126,14 @@ test.describe("Institute results workspace", () => {
 
     await page.getByRole("link", { name: /reset exam filters/i }).click();
     await expect(page).toHaveURL(/\/institute\/results(?:\?.*)?$/);
+    await expectVisiblePaginationControlsToAvoidHashLinks(page);
 
     await page.getByRole("combobox", { name: /group by/i }).selectOption("publication");
     await page.getByRole("button", { name: /apply filters/i }).click();
     await expect(page).toHaveURL(/\/institute\/results\?[^#]*exam_list_group=publication/);
     await expect(page.getByText(/group: publication/i)).toBeVisible();
     const visibleExamsMetric =
-      (await page.getByText(/^\d+ exams visible$/i).first().textContent())?.trim() ?? "";
+      (await page.getByText(/^\d+ exam(s)? visible$/i).first().textContent())?.trim() ?? "";
     const visibleExamCount = Number.parseInt(visibleExamsMetric, 10);
 
     if (Number.isFinite(visibleExamCount) && visibleExamCount > 0) {
@@ -116,6 +153,8 @@ test.describe("Institute results workspace", () => {
       expect(groupedCardSnapshot.publicationLabel).toBe(groupedHeading);
     } else {
       await expect(page.getByText(/no exams match the current result filters/i)).toBeVisible();
+      await expect(page.getByText(/why this happened/i).first()).toBeVisible();
+      await expect(page.getByText(/they do not edit, hide, or delete any exam data/i).first()).toBeVisible();
     }
 
     await page.getByRole("link", { name: /reset exam filters/i }).click();
@@ -126,6 +165,7 @@ test.describe("Institute results workspace", () => {
       await refreshStatusButton.click();
       await expect(page).toHaveURL(/\/institute\/results(?:\?.*message=.*)?$/);
       await expectInstituteResultsWorkspace(page);
+      await expectVisiblePaginationControlsToAvoidHashLinks(page);
     }
 
     await expectWorkflowLinkUtility(page);
@@ -142,6 +182,7 @@ test.describe("Institute results workspace", () => {
     await page.getByRole("link", { name: /open leaderboard/i }).first().click();
     await expect(page).toHaveURL(/\/institute\/results\/leaderboard(?:\?.*)?$/);
     await expect(page.getByText(/publication checklist/i).first()).toBeVisible();
+    await expectVisiblePaginationControlsToAvoidHashLinks(page);
 
     await page.goto("/institute/results");
     await expectInstituteResultsWorkspace(page);

@@ -111,10 +111,7 @@ class InstituteViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
         return super().get_serializer_class()
 
     def get_queryset(self):
-        queryset = Institute.objects.all().prefetch_related(
-            self.institute_admin_prefetch,
-            self.onboarding_run_prefetch,
-        )
+        queryset = Institute.objects.all().prefetch_related(self.institute_admin_prefetch)
         if self.action == "list":
             queryset = queryset.only(
                 "id",
@@ -127,6 +124,8 @@ class InstituteViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
                 "country",
                 "is_active",
             )
+        else:
+            queryset = queryset.prefetch_related(self.onboarding_run_prefetch)
         profile = get_account_profile(self.request.user)
         if profile is None or not profile.is_active:
             return queryset.none()

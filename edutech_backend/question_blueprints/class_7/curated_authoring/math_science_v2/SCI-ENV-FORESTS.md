@@ -5,49 +5,7 @@ topic_name: Forests: Our Lifeline
 subject_name: Science
 subject_alias: science
 
-<!-- Write real authored questions below. The compiler rejects placeholder text. -->
-
 ## Question 1
-question_type: mcq_single
-difficulty_level: foundation
-default_marks: 1.00
-negative_marks: 0.25
-archetype: classification
-
-Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
-
-Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
-
-Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
-
-
-## Question 2
-question_type: mcq_single
-difficulty_level: foundation
-default_marks: 1.00
-negative_marks: 0.25
-archetype: indicator_result
-
-Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
-
-Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
-
-Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
-
-
-## Question 3
 question_type: mcq_single
 difficulty_level: foundation
 default_marks: 1.00
@@ -55,16 +13,56 @@ negative_marks: 0.25
 archetype: direct_concept_check
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+A forest is best described as:
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+A forest is a natural ecosystem made up of trees, plants, animals, and microorganisms living together.
 
 Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
+- [ ] Only a place with tall trees
+- [x] A natural ecosystem with many living organisms
+- [ ] A field used only for farming
+- [ ] A water body with fish
+
+
+## Question 2
+question_type: mcq_single
+difficulty_level: foundation
+default_marks: 1.00
+negative_marks: 0.25
+archetype: classification
+
+Question Text:
+Which of the following is a producer in a forest?
+
+Explanation:
+Green plants make their own food and are producers.
+
+Options:
+- [ ] Deer
+- [ ] Tiger
+- [x] Green plant
+- [ ] Mushroom
+
+
+## Question 3
+question_type: mcq_single
+difficulty_level: foundation
+default_marks: 1.00
+negative_marks: 0.25
+archetype: familiar_example_identification
+
+Question Text:
+Which animal is a herbivore in a forest?
+
+Explanation:
+A deer feeds on plants and is a herbivore.
+
+Options:
+- [x] Deer
+- [ ] Tiger
+- [ ] Eagle
+- [ ] Snake
 
 
 ## Question 4
@@ -75,14 +73,14 @@ negative_marks: 0.00
 archetype: true_false_concept
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+Forests help maintain the balance of oxygen and carbon dioxide in the air.
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+Plants in forests take in carbon dioxide and release oxygen during photosynthesis.
 
 Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
+- [x] True
+- [ ] False
 
 
 ## Question 5
@@ -90,19 +88,19 @@ question_type: mcq_single
 difficulty_level: foundation
 default_marks: 1.00
 negative_marks: 0.25
-archetype: familiar_example_identification
+archetype: direct_concept_check
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+What do decomposers do in a forest?
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+Decomposers break down dead plants and animals into simpler substances.
 
 Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
+- [ ] Produce light
+- [ ] Hunt animals
+- [x] Break down dead matter
+- [ ] Make rainfall directly
 
 
 ## Question 6
@@ -113,16 +111,16 @@ negative_marks: 0.25
 archetype: classification
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+Which of the following is a decomposer?
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+Fungi help decompose dead organic matter.
 
 Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
+- [ ] Lion
+- [x] Fungus
+- [ ] Grass
+- [ ] Sparrow
 
 
 ## Question 7
@@ -130,19 +128,19 @@ question_type: mcq_single
 difficulty_level: foundation
 default_marks: 1.00
 negative_marks: 0.25
-archetype: indicator_result
+archetype: familiar_example_identification
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+Which layer of a forest has the tops of tall trees?
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+The uppermost layer of tall tree tops is called the canopy.
 
 Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
+- [ ] Forest floor
+- [ ] Shrub layer
+- [x] Canopy
+- [ ] Root zone
 
 
 ## Question 8
@@ -153,16 +151,16 @@ negative_marks: 0.25
 archetype: direct_concept_check
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+Dead plants and animals in the forest eventually become:
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+After decomposition they form humus, which enriches the soil.
 
 Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
+- [ ] Plastic
+- [x] Humus
+- [ ] Clouds
+- [ ] Minerals only in air
 
 
 ## Question 9
@@ -173,14 +171,14 @@ negative_marks: 0.00
 archetype: true_false_concept
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+Soil in forests is often rich in humus.
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+Decaying leaves and organisms add humus to forest soil.
 
 Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
+- [x] True
+- [ ] False
 
 
 ## Question 10
@@ -188,233 +186,237 @@ question_type: mcq_single
 difficulty_level: foundation
 default_marks: 1.00
 negative_marks: 0.25
-archetype: familiar_example_identification
+archetype: daily_life_application
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+Why are forests called our lifeline?
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+Forests provide oxygen, habitat, rainfall support, soil protection, and many useful resources.
 
 Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
+- [ ] Because they are always dark
+- [ ] Because they belong only to animals
+- [x] Because they support life in many ways
+- [ ] Because they stop all farming
 
 
 ## Question 11
 question_type: mcq_single
-difficulty_level: intermediate
+difficulty_level: foundation
 default_marks: 1.00
 negative_marks: 0.25
 archetype: misconception_correction
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+Which statement about forest animals is correct?
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+Different forest animals depend on plants and on one another for food and shelter.
 
 Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
+- [ ] All forest animals eat only plants
+- [ ] Forest animals do not depend on plants
+- [x] Forest animals are part of an interconnected food system
+- [ ] Animals in forests live without water
 
 
 ## Question 12
 question_type: mcq_single
-difficulty_level: intermediate
+difficulty_level: foundation
 default_marks: 1.00
 negative_marks: 0.25
-archetype: compare_and_classify
+archetype: best_explanation
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+Why does the forest floor contain many fallen leaves?
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+Leaves, twigs, and dead parts fall naturally and later decompose.
 
 Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
+- [ ] Because trees reject sunlight
+- [x] Because plant parts fall and collect there
+- [ ] Because animals paint them
+- [ ] Because roots push them upward
 
 
 ## Question 13
 question_type: short_answer
-difficulty_level: intermediate
+difficulty_level: foundation
 default_marks: 2.00
 negative_marks: 0.00
 archetype: concept_explanation
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+What is humus?
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+Humus is dark organic matter formed by decomposition of dead plants and animals.
 
 Accepted Answers:
-- [AUTHORING REQUIRED] answer 1
+- Decayed organic matter in soil
+- Dark matter formed from dead plants and animals
+- Decomposed plant and animal remains in soil
 
 
 ## Question 14
 question_type: mcq_single
-difficulty_level: intermediate
+difficulty_level: foundation
 default_marks: 1.00
 negative_marks: 0.25
-archetype: simple_experiment_reasoning
+archetype: familiar_example_identification
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+Which of the following is a carnivore?
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+A tiger feeds on other animals and is a carnivore.
 
 Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
+- [ ] Rabbit
+- [ ] Deer
+- [x] Tiger
+- [ ] Goat
 
 
 ## Question 15
 question_type: mcq_single
-difficulty_level: intermediate
+difficulty_level: foundation
 default_marks: 1.00
 negative_marks: 0.25
-archetype: best_next_step
+archetype: direct_concept_check
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+Which forest component helps in nutrient recycling?
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+Decomposers return nutrients to the soil by breaking down dead matter.
 
 Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
+- [ ] Wind only
+- [ ] Rock pieces only
+- [x] Decomposers
+- [ ] Clouds only
 
 
 ## Question 16
 question_type: mcq_single
-difficulty_level: intermediate
+difficulty_level: foundation
 default_marks: 1.00
 negative_marks: 0.25
-archetype: indicator_interpretation
+archetype: classification
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+Which of these belongs to the shrub layer of a forest?
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+Shrubs are medium-sized woody plants found below the canopy.
 
 Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
+- [ ] Tall emergent tree top
+- [ ] Deep underground root
+- [x] Bushy plant below tall trees
+- [ ] River fish
 
 
 ## Question 17
 question_type: mcq_single
-difficulty_level: intermediate
+difficulty_level: foundation
 default_marks: 1.00
 negative_marks: 0.25
-archetype: observation_based_inference
+archetype: familiar_example_identification
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+Who eats dead animals in a forest and helps clean the environment?
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+Scavengers feed on dead animals and help keep the forest clean.
 
 Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
+- [x] Scavengers
+- [ ] Producers
+- [ ] Seeds
+- [ ] Roots
 
 
 ## Question 18
 question_type: mcq_single
-difficulty_level: intermediate
+difficulty_level: foundation
 default_marks: 1.00
 negative_marks: 0.25
 archetype: daily_life_application
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+How do forests help in preventing soil erosion?
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+Roots of plants hold the soil firmly and reduce its loss by wind or water.
 
 Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
+- [ ] By making soil lighter
+- [x] By holding soil with roots
+- [ ] By removing all water from soil
+- [ ] By turning soil into rock
 
 
 ## Question 19
-question_type: mcq_single
-difficulty_level: intermediate
+question_type: true_false
+difficulty_level: foundation
 default_marks: 1.00
-negative_marks: 0.25
-archetype: misconception_correction
+negative_marks: 0.00
+archetype: true_false_concept
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+Forests provide shelter to a wide variety of organisms.
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+Many plants, animals, birds, insects, and microorganisms live in forests.
 
 Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
+- [x] True
+- [ ] False
 
 
 ## Question 20
 question_type: mcq_single
-difficulty_level: intermediate
+difficulty_level: foundation
 default_marks: 1.00
 negative_marks: 0.25
-archetype: compare_and_classify
+archetype: assertion_reason
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+Assertion: Forests help bring rain.
+Reason: Forest vegetation adds water vapor to the air through transpiration.
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+Both statements are true, and the reason correctly explains the assertion.
 
 Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
+- [x] Both Assertion and Reason are true, and Reason correctly explains Assertion
+- [ ] Both Assertion and Reason are true, but Reason does not explain Assertion
+- [ ] Assertion is true, but Reason is false
+- [ ] Assertion is false, but Reason is true
 
 
 ## Question 21
-question_type: short_answer
+question_type: mcq_single
 difficulty_level: intermediate
-default_marks: 2.00
-negative_marks: 0.00
-archetype: concept_explanation
+default_marks: 1.00
+negative_marks: 0.25
+archetype: process_explanation
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+Why are food chains in forests important?
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+Food chains show how energy and food pass from one organism to another.
 
-Accepted Answers:
-- [AUTHORING REQUIRED] answer 1
+Options:
+- [ ] They stop rainfall
+- [ ] They create rocks
+- [x] They show feeding relationships and energy flow
+- [ ] They increase darkness only
 
 
 ## Question 22
@@ -422,19 +424,19 @@ question_type: mcq_single
 difficulty_level: intermediate
 default_marks: 1.00
 negative_marks: 0.25
-archetype: simple_experiment_reasoning
+archetype: observation_based_inference
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+If decomposers disappeared from a forest, what would happen first?
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+Dead matter would start accumulating because it would not decompose properly.
 
 Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
+- [ ] More fruits would form immediately
+- [x] Dead plants and animals would accumulate
+- [ ] All rivers would dry instantly
+- [ ] Trees would become animals
 
 
 ## Question 23
@@ -442,19 +444,19 @@ question_type: mcq_single
 difficulty_level: intermediate
 default_marks: 1.00
 negative_marks: 0.25
-archetype: best_next_step
+archetype: scenario_analysis
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+A large number of trees are cut from a forested slope. What is one likely result during heavy rain?
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+With fewer roots to hold soil, erosion and landslides become more likely.
 
 Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
+- [ ] Soil becomes stronger automatically
+- [ ] Humus forms faster immediately
+- [x] Soil erosion may increase
+- [ ] Animals stop breathing
 
 
 ## Question 24
@@ -462,39 +464,38 @@ question_type: mcq_single
 difficulty_level: intermediate
 default_marks: 1.00
 negative_marks: 0.25
-archetype: indicator_interpretation
+archetype: daily_life_application
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+Why do forests help maintain groundwater?
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+Forest soil and vegetation help rainwater soak into the ground.
 
 Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
+- [ ] They stop all rain from reaching the ground
+- [x] They help water seep into the soil
+- [ ] They convert groundwater into smoke
+- [ ] They absorb all water permanently
 
 
 ## Question 25
-question_type: mcq_single
+question_type: short_answer
 difficulty_level: intermediate
-default_marks: 1.00
-negative_marks: 0.25
-archetype: observation_based_inference
+default_marks: 2.00
+negative_marks: 0.00
+archetype: compare_and_contrast
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+State one difference between producers and consumers in a forest.
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+Producers make their own food, while consumers depend on other organisms for food.
 
-Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
+Accepted Answers:
+- Producers make food but consumers depend on others
+- Green plants are producers, animals are consumers
+- Producers synthesize food; consumers eat plants or animals
 
 
 ## Question 26
@@ -502,39 +503,39 @@ question_type: mcq_single
 difficulty_level: intermediate
 default_marks: 1.00
 negative_marks: 0.25
-archetype: daily_life_application
-
-Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
-
-Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
-
-Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
-
-
-## Question 27
-question_type: mcq_single
-difficulty_level: intermediate
-default_marks: 1.00
-negative_marks: 0.25
 archetype: misconception_correction
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+Which statement about forests is correct?
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+Forests are dynamic ecosystems with many interacting organisms.
 
 Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
+- [ ] Forests contain only trees
+- [ ] Forests do not have microorganisms
+- [x] Forests contain many interdependent living things
+- [ ] Forests are useful only for timber
+
+
+## Question 27
+question_type: mcq_multiple
+difficulty_level: intermediate
+default_marks: 2.00
+negative_marks: 0.50
+archetype: multi_select_truth_evaluation
+
+Question Text:
+Select all functions of forests.
+
+Explanation:
+Forests provide habitat, enrich air, support rainfall, and protect soil.
+
+Options:
+- [x] Provide habitat
+- [x] Help maintain air quality
+- [x] Reduce soil erosion
+- [ ] Remove the need for water
 
 
 ## Question 28
@@ -542,36 +543,39 @@ question_type: mcq_single
 difficulty_level: intermediate
 default_marks: 1.00
 negative_marks: 0.25
-archetype: compare_and_classify
+archetype: experiment_interpretation
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+If the soil under forest leaves is examined after a long time, it is often darker and softer mainly because of:
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+Decomposition of leaf litter forms humus and enriches the soil.
 
 Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
+- [ ] Only sunlight
+- [x] Decomposition of leaf litter
+- [ ] Wind pressure alone
+- [ ] Rock melting
 
 
 ## Question 29
-question_type: short_answer
+question_type: mcq_single
 difficulty_level: intermediate
-default_marks: 2.00
-negative_marks: 0.00
-archetype: concept_explanation
+default_marks: 1.00
+negative_marks: 0.25
+archetype: what_can_be_concluded
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+If many herbivores disappear from a forest, what may happen to carnivores after some time?
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+Carnivores may face food shortage because herbivores are part of their food chain.
 
-Accepted Answers:
-- [AUTHORING REQUIRED] answer 1
+Options:
+- [ ] Carnivores will get unlimited food
+- [ ] Forest soil will become metal
+- [x] Carnivores may suffer due to less food
+- [ ] Trees will stop growing immediately
 
 
 ## Question 30
@@ -579,119 +583,116 @@ question_type: mcq_single
 difficulty_level: intermediate
 default_marks: 1.00
 negative_marks: 0.25
-archetype: simple_experiment_reasoning
+archetype: everyday_reasoning
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+Why should dry leaves and dead wood not always be removed completely from a forest floor?
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+They become food for decomposers and later form humus.
 
 Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
+- [ ] Because they produce electricity
+- [x] Because they help nutrient recycling
+- [ ] Because they stop seed germination always
+- [ ] Because they are all edible
 
 
 ## Question 31
-question_type: mcq_multiple
-difficulty_level: advanced
-default_marks: 2.00
-negative_marks: 0.50
-archetype: multi_select_truth_evaluation
+question_type: mcq_single
+difficulty_level: intermediate
+default_marks: 1.00
+negative_marks: 0.25
+archetype: cause_effect_link
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+Why do forests often support more biodiversity than a single-crop field?
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+Forests provide many kinds of habitats and food sources for many organisms.
 
 Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
+- [ ] Because forests have no competition
+- [ ] Because forests contain only one species
+- [x] Because forests provide varied habitats and resources
+- [ ] Because fields do not receive sunlight
 
 
 ## Question 32
-question_type: mcq_single
-difficulty_level: advanced
-default_marks: 2.00
-negative_marks: 0.25
-archetype: observation_chain_inference
+question_type: true_false
+difficulty_level: intermediate
+default_marks: 1.00
+negative_marks: 0.00
+archetype: true_false_concept
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+Scavengers and decomposers both help keep forests clean.
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+Scavengers feed on dead animals, and decomposers break down organic remains.
 
 Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
+- [x] True
+- [ ] False
 
 
 ## Question 33
 question_type: mcq_single
-difficulty_level: advanced
-default_marks: 2.00
+difficulty_level: intermediate
+default_marks: 1.00
 negative_marks: 0.25
-archetype: evidence_based_choice
+archetype: scenario_comparison
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+Which area is more likely to retain moisture better after rain?
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+A forested area usually retains moisture better because of plant cover and humus-rich soil.
 
 Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
+- [x] A forested area
+- [ ] Bare rocky ground
+- [ ] Dry open pavement
+- [ ] Sand only
 
 
 ## Question 34
 question_type: mcq_single
-difficulty_level: advanced
-default_marks: 2.00
+difficulty_level: intermediate
+default_marks: 1.00
 negative_marks: 0.25
-archetype: what_can_be_concluded
+archetype: evidence_based_choice
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+Which observation best supports that forests are self-sustaining ecosystems?
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+Forests show natural recycling of materials and interdependence among organisms.
 
 Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
+- [ ] Trees always stay the same size
+- [x] Dead matter decomposes and nutrients return to the soil
+- [ ] All animals eat the same food
+- [ ] The forest needs no sunlight
 
 
 ## Question 35
-question_type: mcq_single
-difficulty_level: advanced
+question_type: short_answer
+difficulty_level: intermediate
 default_marks: 2.00
-negative_marks: 0.25
-archetype: why_this_happens
+negative_marks: 0.00
+archetype: process_explanation
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+Why are decomposers called recyclers of the forest?
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+They convert dead organic matter into simpler substances that return to the soil as nutrients.
 
-Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
+Accepted Answers:
+- They return nutrients to the soil from dead matter
+- They break down dead plants and animals and recycle nutrients
+- They help reuse materials in the forest ecosystem
 
 
 ## Question 36
@@ -699,19 +700,19 @@ question_type: mcq_single
 difficulty_level: advanced
 default_marks: 2.00
 negative_marks: 0.25
-archetype: decision_under_uncertainty
+archetype: integrated_reasoning
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+Which sequence best represents nutrient recycling in a forest?
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+Leaves fall, decomposers act on them, humus forms, and nutrients return to plants through the soil.
 
 Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
+- [ ] Rain falls -> animals disappear -> soil becomes metal
+- [x] Leaf litter -> decomposition -> humus -> nutrients reused by plants
+- [ ] Trees grow -> soil vanishes -> roots float
+- [ ] Sunlight -> shadow -> fruit -> stone
 
 
 ## Question 37
@@ -719,19 +720,19 @@ question_type: mcq_single
 difficulty_level: advanced
 default_marks: 2.00
 negative_marks: 0.25
-archetype: experiment_interpretation
+archetype: applied_science_reasoning
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+Why can deforestation reduce rainfall in an area over time?
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+Fewer trees mean less transpiration and less moisture added to the atmosphere.
 
 Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
+- [ ] Because trees create all clouds directly by sound
+- [ ] Because rainfall depends only on stones
+- [x] Because fewer trees reduce moisture release into the air
+- [ ] Because forest animals drink all the rain
 
 
 ## Question 38
@@ -739,19 +740,19 @@ question_type: mcq_single
 difficulty_level: advanced
 default_marks: 2.00
 negative_marks: 0.25
-archetype: safety_reasoning
+archetype: experiment_design
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+Which comparison would best help show the role of forest cover in holding soil?
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+Comparing runoff and soil loss from a vegetated tray and a bare-soil tray can show the role of plant cover.
 
 Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
+- [ ] Compare two different colored leaves only
+- [x] Compare soil loss from bare soil and soil with plant cover
+- [ ] Weigh two dry twigs
+- [ ] Count clouds on two days
 
 
 ## Question 39
@@ -759,82 +760,22 @@ question_type: mcq_single
 difficulty_level: advanced
 default_marks: 2.00
 negative_marks: 0.25
-archetype: neutralization_application
+archetype: chain_of_reasoning
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+If the producer population in a forest decreases sharply, what is the most likely long-term effect?
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+Since producers form the base of food chains, many other organisms may also decline.
 
 Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
+- [ ] Carnivores will immediately increase forever
+- [ ] Decomposers will disappear first before any other change
+- [x] Many consumers may decline because food chains weaken
+- [ ] The Sun will stop reaching the forest
 
 
 ## Question 40
-question_type: mcq_single
-difficulty_level: advanced
-default_marks: 2.00
-negative_marks: 0.25
-archetype: assertion_reason
-
-Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
-
-Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
-
-Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
-
-
-## Question 41
-question_type: mcq_single
-difficulty_level: advanced
-default_marks: 2.00
-negative_marks: 0.25
-archetype: case_based_reasoning
-
-Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
-
-Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
-
-Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
-
-
-## Question 42
-question_type: mcq_single
-difficulty_level: advanced
-default_marks: 2.00
-negative_marks: 0.25
-archetype: best_explanation
-
-Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
-
-Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
-
-Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
-
-
-## Question 43
 question_type: mcq_multiple
 difficulty_level: advanced
 default_marks: 2.00
@@ -842,99 +783,39 @@ negative_marks: 0.50
 archetype: multi_select_truth_evaluation
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+Select all correct statements about forests.
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+Forests support biodiversity, protect soil, help water cycle, and recycle nutrients.
 
 Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
+- [x] Forests support biodiversity
+- [x] Forests help protect soil
+- [x] Forests help in nutrient recycling
+- [ ] Forests are made of only trees and no other organisms
 
 
-## Question 44
+## Question 41
 question_type: mcq_single
 difficulty_level: advanced
 default_marks: 2.00
 negative_marks: 0.25
-archetype: observation_chain_inference
+archetype: scenario_analysis
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+In a forest, many insects disappear because of pesticide drift. Which process is most likely affected first in many flowering plants?
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+Many flowering plants depend on insects for pollination.
 
 Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
+- [ ] Formation of rocks
+- [ ] Root absorption of minerals
+- [x] Pollination
+- [ ] Rotation of the Earth
 
 
-## Question 45
-question_type: mcq_single
-difficulty_level: advanced
-default_marks: 2.00
-negative_marks: 0.25
-archetype: evidence_based_choice
-
-Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
-
-Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
-
-Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
-
-
-## Question 46
-question_type: mcq_single
-difficulty_level: advanced
-default_marks: 2.00
-negative_marks: 0.25
-archetype: what_can_be_concluded
-
-Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
-
-Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
-
-Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
-
-
-## Question 47
-question_type: mcq_single
-difficulty_level: advanced
-default_marks: 2.00
-negative_marks: 0.25
-archetype: why_this_happens
-
-Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
-
-Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
-
-Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
-
-
-## Question 48
+## Question 42
 question_type: mcq_single
 difficulty_level: advanced
 default_marks: 2.00
@@ -942,16 +823,135 @@ negative_marks: 0.25
 archetype: decision_under_uncertainty
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+To compare biodiversity between two nearby areas fairly, what should be kept similar during observation?
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+Same observation time, area size, and method should be used for a fair comparison.
 
 Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
+- [ ] The color of the notebook only
+- [x] The area size, timing, and observation method
+- [ ] The type of shoes worn by observers
+- [ ] Only the number of trees counted
+
+
+## Question 43
+question_type: short_answer
+difficulty_level: advanced
+default_marks: 2.00
+negative_marks: 0.00
+archetype: reasoning_with_example
+
+Question Text:
+Why is a forest called a dynamic living community and not just a group of trees?
+
+Explanation:
+A forest includes plants, animals, microbes, soil, air, and continuous interactions among them.
+
+Accepted Answers:
+- Because many living things interact there
+- A forest has plants, animals, microbes, and their relationships
+- It is a complete ecosystem, not just trees
+
+
+## Question 44
+question_type: mcq_single
+difficulty_level: advanced
+default_marks: 2.00
+negative_marks: 0.25
+archetype: cause_effect_link
+
+Question Text:
+Why can removal of even leaf litter from a forest floor affect plant growth later?
+
+Explanation:
+Leaf litter is an important source for humus formation and nutrient recycling.
+
+Options:
+- [ ] Because leaves are the only source of sunlight
+- [ ] Because all animals live inside one leaf
+- [x] Because less litter means less humus and nutrient return
+- [ ] Because roots cannot grow in any soil
+
+
+## Question 45
+question_type: mcq_single
+difficulty_level: advanced
+default_marks: 2.00
+negative_marks: 0.25
+archetype: best_explanation
+
+Question Text:
+Why are forests often linked with climate regulation?
+
+Explanation:
+Forests affect air composition, humidity, temperature, and water cycling.
+
+Options:
+- [ ] Because forests create planets
+- [ ] Because climate depends only on buildings
+- [x] Because forests influence moisture, air, and temperature conditions
+- [ ] Because animals in forests control the Sun
+
+
+## Question 46
+question_type: mcq_single
+difficulty_level: advanced
+default_marks: 2.00
+negative_marks: 0.25
+archetype: what_if_reasoning
+
+Question Text:
+If all carnivores disappeared from a forest, what might happen to herbivore populations after some time?
+
+Explanation:
+With fewer predators, herbivore numbers may rise too much and disturb balance.
+
+Options:
+- [ ] Herbivores would turn into decomposers
+- [x] Herbivore population might increase excessively
+- [ ] All plants would disappear instantly in one second
+- [ ] Rainfall would stop at once
+
+
+## Question 47
+question_type: mcq_single
+difficulty_level: advanced
+default_marks: 2.00
+negative_marks: 0.25
+archetype: process_selection
+
+Question Text:
+Which option correctly matches forest component and role?
+
+Explanation:
+Producers make food, consumers depend on others for food, and decomposers recycle dead matter.
+
+Options:
+- [ ] Decomposer - makes sunlight; Producer - eats animals
+- [x] Producer - makes food; Decomposer - recycles dead matter
+- [ ] Consumer - makes its own food; Producer - hunts animals
+- [ ] Humus - chases herbivores
+
+
+## Question 48
+question_type: mcq_single
+difficulty_level: advanced
+default_marks: 2.00
+negative_marks: 0.25
+archetype: evidence_based_choice
+
+Question Text:
+Which observation best supports the idea that forests enrich the soil naturally?
+
+Explanation:
+Soil rich in humus and active decomposition shows natural enrichment.
+
+Options:
+- [ ] Bare rocks remain dry
+- [ ] All animals sleep at night
+- [x] Fallen leaves decompose and the soil becomes dark and fertile
+- [ ] Tree trunks stay hard
 
 
 ## Question 49
@@ -959,19 +959,19 @@ question_type: mcq_single
 difficulty_level: advanced
 default_marks: 2.00
 negative_marks: 0.25
-archetype: experiment_interpretation
+archetype: scenario_comparison
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+Which area is more likely to recover faster after small natural disturbances: a biodiverse forest or a single-species plantation?
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+A biodiverse forest often has more resilience because many organisms and interactions support recovery.
 
 Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
+- [x] A biodiverse forest
+- [ ] A single-species plantation always
+- [ ] Both always equally
+- [ ] Neither can recover
 
 
 ## Question 50
@@ -979,16 +979,16 @@ question_type: mcq_single
 difficulty_level: advanced
 default_marks: 2.00
 negative_marks: 0.25
-archetype: safety_reasoning
+archetype: integrated_reasoning
 
 Question Text:
-[AUTHORING REQUIRED] Replace this with a real question for the given topic and archetype.
+Which statement correctly connects forests, soil, water, and living organisms?
 
 Explanation:
-[AUTHORING REQUIRED] Replace this with a real student-friendly explanation.
+Forests support organisms while also protecting soil and helping water cycle through the environment.
 
 Options:
-- [ ] [AUTHORING REQUIRED] Option 1
-- [x] [AUTHORING REQUIRED] Option 2
-- [ ] [AUTHORING REQUIRED] Option 3
-- [ ] [AUTHORING REQUIRED] Option 4
+- [ ] Forests affect only animals, not soil or water
+- [ ] Soil and water have no role in forest life
+- [x] Forests support living things and also protect soil and help water cycling
+- [ ] Forests are separate from climate and ecosystems

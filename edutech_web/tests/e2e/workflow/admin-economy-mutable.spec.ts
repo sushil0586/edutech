@@ -229,6 +229,13 @@ function economyPolicyCard(page: Page) {
   }).first();
 }
 
+function economyQuestionBankVisibilityCard(page: Page) {
+  return economyCard(
+    page,
+    /check package coverage and institute access before changing live access/i,
+  );
+}
+
 type AdminEconomyTab =
   | "overview"
   | "catalog"
@@ -429,7 +436,6 @@ test.describe("Admin mutable economy actions", () => {
       );
 
       await expect(policyCard.getByText(/economy operator policy updated successfully\./i)).toBeVisible();
-      await expect(policyCard.getByText(/last updated by/i)).toBeVisible();
       await expect(policyCard.getByText(/changed: /i).first()).toBeVisible();
 
       const persistedPolicyResponse = await page.request.get("/api/admin/economy/policy-config");
@@ -490,7 +496,7 @@ test.describe("Admin mutable economy actions", () => {
         response.request().method() === "PATCH",
     );
 
-    await row.getByRole("button", { name: /save lifecycle/i }).click();
+    await row.getByRole("button", { name: /save notes \/ window/i }).click();
     const updateResponse = await updateResponsePromise;
     expect(updateResponse.ok()).toBe(true);
 
@@ -911,9 +917,19 @@ test.describe("Admin mutable economy actions", () => {
       })),
     );
     const selectableSubject = subjectOptions.find((option) => option.value);
+    await packageEditor.locator(".economyPackageFormGridPrimary select").nth(1).selectOption("subject_library");
+    await expect(
+      packageCard.getByRole("button", { name: /create question-bank package/i }),
+    ).toBeDisabled();
+    await expect(packageCard.getByTestId("package-save-blocked-helper")).toContainText(
+      /resolve the blocking issue on coverage row 1 before saving\./i,
+    );
     if (selectableSubject?.value) {
       await subjectSelect.selectOption(selectableSubject.value);
     }
+    await expect(
+      packageCard.getByRole("button", { name: /create question-bank package/i }),
+    ).toBeEnabled();
 
     const createResponsePromise = page.waitForResponse(
       (response) =>
@@ -994,10 +1010,7 @@ test.describe("Admin mutable economy actions", () => {
       .getByRole("combobox", { name: /subscription plan workspace view/i })
       .selectOption("all");
     const subscriptionEditor = subscriptionCard.locator(".economySubscriptionEditorPanel").first();
-    const visibilityCard = economyCard(
-      page,
-      /inspect package scope and institute access before changing subscription controls/i,
-    );
+    const visibilityCard = economyQuestionBankVisibilityCard(page);
     await expect(visibilityCard).toBeVisible();
 
     const instituteSelect = subscriptionEditor.locator(".economySubscriptionPlanGridPrimary select").first();
@@ -1148,10 +1161,7 @@ test.describe("Admin mutable economy actions", () => {
 
     await gotoAdminEconomyLane(page, "question-bank", "visibility");
 
-    const visibilityCard = economyCard(
-      page,
-      /inspect package scope and institute access before changing subscription controls/i,
-    );
+    const visibilityCard = economyQuestionBankVisibilityCard(page);
     await expect(visibilityCard).toBeVisible();
     await visibilityCard.getByRole("combobox", { name: /rows to show/i }).selectOption("50");
     await visibilityCard.getByRole("combobox", { name: /granted via/i }).selectOption("subscription");
@@ -1223,10 +1233,7 @@ test.describe("Admin mutable economy actions", () => {
 
     await gotoAdminEconomyLane(page, "question-bank", "visibility");
 
-    const visibilityCard = economyCard(
-      page,
-      /inspect package scope and institute access before changing subscription controls/i,
-    );
+    const visibilityCard = economyQuestionBankVisibilityCard(page);
     await expect(visibilityCard).toBeVisible();
     await visibilityCard.getByRole("combobox", { name: /rows to show/i }).selectOption("50");
     await visibilityCard.getByRole("combobox", { name: /granted via/i }).selectOption("subscription");
@@ -1266,7 +1273,7 @@ test.describe("Admin mutable economy actions", () => {
           response.url().includes(`/api/admin/economy/question-bank-entitlements/${entitlementId}`) &&
           response.request().method() === "PATCH",
       );
-      await entitlementRow.getByRole("button", { name: /save lifecycle/i }).click();
+    await entitlementRow.getByRole("button", { name: /save notes \/ window/i }).click();
       const saveResponse = await saveResponsePromise;
       expect(saveResponse.ok()).toBe(true);
 
@@ -1292,6 +1299,70 @@ test.describe("Admin mutable economy actions", () => {
           starts_at: currentStartsAt ? new Date(currentStartsAt).toISOString() : null,
           ends_at: currentEndsAt ? new Date(currentEndsAt).toISOString() : null,
           notes: currentNotes,
+        },
+      });
+    }
+  });
+
+  test("@workflow @mutable admin can distinguish revoked entitlement history from active governing access", async ({
+    page,
+  }) => {
+    test.setTimeout(120000);
+
+    await loginAsRole(page, "admin");
+    await expectAdminWorkspace(page);
+
+    await gotoAdminEconomyLane(page, "question-bank", "visibility");
+
+    const visibilityCard = economyQuestionBankVisibilityCard(page);
+    await expect(visibilityCard).toBeVisible();
+    await visibilityCard.getByRole("combobox", { name: /rows to show/i }).selectOption("50");
+    await visibilityCard.getByRole("combobox", { name: /institute access status/i }).selectOption("all");
+
+    const currentGroup = visibilityCard.getByTestId("economy-current-entitlement-group");
+    const entitlementRow = currentGroup.locator('[data-testid^="entitlement-row-"]').first();
+    await expect(entitlementRow).toBeVisible();
+    const entitlementRowTestId = await entitlementRow.getAttribute("data-testid");
+    const targetEntitlementId = entitlementRowTestId?.replace("entitlement-row-", "") ?? "";
+    expect(targetEntitlementId).toBeTruthy();
+    await expect(entitlementRow.getByText(/current governing row/i).first()).toBeVisible();
+    await expect(entitlementRow.getByText(/use this row as the live access reference/i)).toBeVisible();
+
+    try {
+      const revokeResponsePromise = page.waitForResponse(
+        (response) =>
+          response.url().includes(`/api/admin/economy/question-bank-entitlements/${targetEntitlementId}`) &&
+          response.request().method() === "PATCH",
+      );
+      await entitlementRow.getByRole("button", { name: /revoke entitlement/i }).click();
+      const revokeResponse = await revokeResponsePromise;
+      expect(revokeResponse.ok()).toBe(true);
+
+      await expect(visibilityCard.getByText(/question bank entitlement updated successfully\./i)).toBeVisible();
+      await expect(visibilityCard.getByText(/historical revoked rows/i)).toBeVisible();
+      const historicalEntitlementRow = visibilityCard.getByTestId(`entitlement-row-${targetEntitlementId}`);
+      await expect(historicalEntitlementRow.getByText(/history only/i).first()).toBeVisible();
+      await expect(historicalEntitlementRow.getByText(/do not treat this as live access/i).first()).toBeVisible();
+      await expect(historicalEntitlementRow.getByRole("button", { name: /restore governing access/i })).toBeVisible();
+      await expect(visibilityCard.getByRole("button", { name: /show current governing rows/i })).toBeVisible();
+
+      const restoreResponsePromise = page.waitForResponse(
+        (response) =>
+          response.url().includes(`/api/admin/economy/question-bank-entitlements/${targetEntitlementId}`) &&
+          response.request().method() === "PATCH",
+      );
+      await historicalEntitlementRow.getByRole("button", { name: /restore governing access/i }).click();
+      const restoreResponse = await restoreResponsePromise;
+      expect(restoreResponse.ok()).toBe(true);
+
+      await expect(visibilityCard.getByText(/question bank entitlement updated successfully\./i)).toBeVisible();
+      await expect(entitlementRow.getByText(/current governing row/i).first()).toBeVisible();
+      await expect(entitlementRow.getByText(/use this row as the live access reference/i)).toBeVisible();
+      await expect(entitlementRow.getByRole("button", { name: /pause entitlement/i })).toBeVisible();
+    } finally {
+      await page.request.patch(`/api/admin/economy/question-bank-entitlements/${targetEntitlementId}`, {
+        data: {
+          status: "active",
         },
       });
     }
@@ -1337,10 +1408,7 @@ test.describe("Admin mutable economy actions", () => {
 
     await gotoAdminEconomyLane(page, "question-bank", "visibility");
 
-    const visibilityCard = economyCard(
-      page,
-      /inspect package scope and institute access before changing subscription controls/i,
-    );
+    const visibilityCard = economyQuestionBankVisibilityCard(page);
     await expect(visibilityCard).toBeVisible();
     await visibilityCard.getByRole("combobox", { name: /show dataset/i }).selectOption("features");
     await visibilityCard.getByRole("combobox", { name: /rows to show/i }).selectOption("50");

@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { OperatorWorkspaceLink as Link } from "@/components/ui/operator-workspace-link";
 import { logoutAction } from "@/lib/auth/actions";
 import { LogoutButton } from "@/components/ui/logout-button";
 import { AccountProfile } from "@/lib/auth/session";
@@ -31,7 +31,7 @@ export function TeacherSidebar({ profile }: { profile: AccountProfile }) {
     <>
       <div className="mobileWorkspaceNav">
         <div className="mobileWorkspaceNavBar">
-          <Link className="brand" href="/">
+          <Link className="brand" href="/teacher/dashboard">
             <span className="brandMark">N</span>
             <span className="brandText">
               <strong>Nexora</strong>
@@ -83,7 +83,7 @@ export function TeacherSidebar({ profile }: { profile: AccountProfile }) {
       </div>
 
       <aside className="appSidebar appSidebarDesktop">
-        <Link className="brand" href="/">
+        <Link className="brand" href="/teacher/dashboard">
           <span className="brandMark">N</span>
           <span className="brandText">
             <strong>Nexora</strong>

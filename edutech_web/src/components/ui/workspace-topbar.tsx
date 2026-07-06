@@ -120,7 +120,7 @@ export function WorkspaceTopbar({
           </div>
         ) : null}
         {walletSummary ? (
-          <Link className="appTopbarWalletPill" href="/app/wallet">
+          <Link className="appTopbarWalletPill" href="/app/wallet" prefetch={false}>
             <span className="appTopbarWalletIcon" aria-hidden="true">
               *
             </span>
@@ -135,13 +135,14 @@ export function WorkspaceTopbar({
             className="appTopbarIconButton"
             href="/app/notifications"
             aria-label="Notifications"
+            prefetch={false}
           >
             <span aria-hidden="true">!</span>
             {unreadCount > 0 ? <i>{unreadCount > 9 ? "9+" : unreadCount}</i> : null}
           </Link>
         ) : null}
         {actions.map((action) => (
-          <Link className="appTopbarAction" href={action.href} key={action.href}>
+          <Link className="appTopbarAction" href={action.href} key={action.href} prefetch={false}>
             <span className="appTopbarActionIcon" aria-hidden="true">
               {action.icon}
             </span>
@@ -149,7 +150,7 @@ export function WorkspaceTopbar({
           </Link>
         ))}
         {profileHref ? (
-          <Link className="appTopbarAction" href={profileHref}>
+          <Link className="appTopbarAction" href={profileHref} prefetch={false}>
             <span className="appTopbarActionIcon" aria-hidden="true">
               {initial}
             </span>

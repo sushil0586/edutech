@@ -127,8 +127,8 @@ test.describe("Student review workspace", () => {
       await expectStudentReviewRoute(page);
 
       const practiceCandidate = await firstVisible([
-        page.getByRole("button", { name: /practice .*|start practice|unlock with .* stars/i }).first(),
-        page.getByRole("link", { name: /practice .*|resume practice|view practice detail/i }).first(),
+        page.getByRole("button", { name: /open practice|practice .*|start practice|unlock with .* stars/i }).first(),
+        page.getByRole("link", { name: /open practice|practice .*|resume practice|view practice detail/i }).first(),
       ]);
       await practiceCandidate.click();
       await expect(page).toHaveURL(/\/app\/(practice|attempts\/[^/]+|exams\/[^/?#]+)(?:\?.*)?$/);

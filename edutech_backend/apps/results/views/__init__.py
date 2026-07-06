@@ -53,11 +53,10 @@ from apps.results.serializers import (
 from apps.reports.models import AuditLog
 from apps.results.services import (
     build_result_publish_readiness,
-    calculate_exam_performance_summary,
     calculate_exam_ranks,
     ensure_attempt_can_be_force_submitted,
-    calculate_student_topic_performance,
     filter_teacher_attempt_monitor_payloads,
+    refresh_attempt_result_analytics,
     generate_result_from_attempt,
     generate_results_for_exam,
     hydrate_teacher_attempt_monitor_payloads,
@@ -166,8 +165,10 @@ class ExamResultViewSet(ModelViewSet):
         except DjangoValidationError as exc:
             return Response(exc.message_dict, status=status.HTTP_400_BAD_REQUEST)
 
-        calculate_student_topic_performance(attempt.exam, attempt.student, attempt)
-        calculate_exam_performance_summary(attempt.exam)
+        refresh_attempt_result_analytics(
+            attempt=attempt,
+            include_summary=True,
+        )
         return action_response(
             data=ExamResultSerializer(result).data,
             message="Result generated successfully.",

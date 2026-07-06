@@ -19,12 +19,14 @@ export function WorkspaceSidebar({
   ariaLabel,
   navItems,
   footerContent,
+  homeHref = "/",
 }: {
   profile: AccountProfile;
   portalLabel: string;
   ariaLabel: string;
   navItems: WorkspaceNavItem[];
   footerContent?: ReactNode;
+  homeHref?: string;
 }) {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -41,7 +43,7 @@ export function WorkspaceSidebar({
     <>
       <div className="mobileWorkspaceNav">
         <div className="mobileWorkspaceNavBar">
-          <Link className="brand" href="/">
+          <Link className="brand" href={homeHref} prefetch={false}>
             <span className="brandMark">N</span>
             <span className="brandText">
               <strong>Nexora</strong>
@@ -70,6 +72,7 @@ export function WorkspaceSidebar({
                   href={item.href}
                   key={item.href}
                   onClick={() => setIsMobileMenuOpen(false)}
+                  prefetch={false}
                 >
                   <span className="appSidebarIcon" aria-hidden="true">
                     {item.icon}
@@ -94,7 +97,7 @@ export function WorkspaceSidebar({
       </div>
 
       <aside className="appSidebar appSidebarDesktop">
-        <Link className="brand" href="/">
+        <Link className="brand" href={homeHref} prefetch={false}>
           <span className="brandMark">N</span>
           <span className="brandText">
             <strong>Nexora</strong>
@@ -109,6 +112,7 @@ export function WorkspaceSidebar({
               className={`appSidebarLink ${isActive(item.href) ? "appSidebarLinkActive" : ""}`}
               href={item.href}
               key={item.href}
+              prefetch={false}
             >
               <span className="appSidebarIcon" aria-hidden="true">
                 {item.icon}

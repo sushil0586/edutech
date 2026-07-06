@@ -75,7 +75,7 @@ export function TeacherCreateDialog({
     };
   }, [open]);
 
-  function resetForm() {
+  function resetFormFields() {
     setEmployeeCode("");
     setFirstName("");
     setLastName("");
@@ -87,14 +87,19 @@ export function TeacherCreateDialog({
     setJoinedAt("");
     setIsActive(true);
     setCreateLogin(true);
-    setMessage("");
     setFieldErrors({});
   }
 
-  function closeDialog() {
+  function closeDialog(options?: { preserveMessage?: boolean }) {
     setOpen(false);
-    setMessage("");
+    if (!options?.preserveMessage) {
+      setMessage("");
+    }
     setFieldErrors({});
+  }
+
+  function handleOverlayClick() {
+    closeDialog();
   }
 
   async function submitTeacher() {
@@ -181,8 +186,8 @@ export function TeacherCreateDialog({
         setMessage("Teacher created successfully.");
       }
 
-      resetForm();
-      closeDialog();
+      resetFormFields();
+      closeDialog({ preserveMessage: true });
       router.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Teacher creation failed.");
@@ -210,7 +215,7 @@ export function TeacherCreateDialog({
       {message ? <div className="featurePlaceholder statePanel"><p>{message}</p></div> : null}
 
       {open && portalTarget ? createPortal((
-        <div className="rosterImportOverlay" role="presentation" onClick={closeDialog}>
+        <div className="rosterImportOverlay" role="presentation" onClick={handleOverlayClick}>
           <div
             aria-modal="true"
             className="rosterImportDialog dashboardPanel"
@@ -223,7 +228,7 @@ export function TeacherCreateDialog({
                   <span className="eyebrow">Create teacher</span>
                   <h3>New teacher profile</h3>
                 </div>
-                <button className="appTopbarAction setupSecondaryAction" onClick={closeDialog} type="button">
+                <button className="appTopbarAction setupSecondaryAction" onClick={handleOverlayClick} type="button">
                   Close
                 </button>
               </div>
@@ -337,7 +342,7 @@ export function TeacherCreateDialog({
                   <span className="appTopbarActionIcon" aria-hidden="true">⌘</span>
                   {loading ? "Saving..." : "Create teacher"}
                 </button>
-                <button className="appTopbarAction setupSecondaryAction" disabled={loading} onClick={closeDialog} type="button">
+                <button className="appTopbarAction setupSecondaryAction" disabled={loading} onClick={handleOverlayClick} type="button">
                   Cancel
                 </button>
               </div>

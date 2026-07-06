@@ -1,5 +1,6 @@
 import { redirect, unstable_rethrow } from "next/navigation";
 import Link from "next/link";
+import { FilterSummaryPills } from "@/components/ui/filter-summary-pills";
 import { InstitutePageHeader } from "@/components/ui/institute-page-header";
 import { ReviewGuidancePanel } from "@/components/ui/review-guidance-panel";
 import { ReviewRubricHistory } from "@/components/ui/review-rubric-history";
@@ -128,10 +129,54 @@ function buildReviewQueueHref(options: {
   return `/institute/reviews${params.size ? `?${params.toString()}` : ""}`;
 }
 
+function buildActiveReviewControlSummary(args: {
+  exam?: string;
+  reviewerName?: string | null;
+  assignmentScope: AssignmentScope;
+  status: string;
+  search?: string;
+  pageSize: number;
+}) {
+  const items: string[] = [];
+
+  if (args.exam) items.push("scoped to one exam");
+  if (args.reviewerName) items.push(`reviewer: ${args.reviewerName}`);
+  if (args.assignmentScope !== "all") {
+    items.push(`assignment: ${args.assignmentScope.replaceAll("_", " ")}`);
+  }
+  if (args.status !== "all") {
+    items.push(`status: ${args.status.replaceAll("_", " ")}`);
+  }
+  if (args.search) items.push(`search: ${args.search}`);
+  if (args.pageSize !== 12) items.push(`page size: ${args.pageSize} tasks`);
+
+  return items;
+}
+
+function renderReviewPagerControl(args: {
+  disabled: boolean;
+  href: string;
+  label: string;
+}) {
+  if (args.disabled) {
+    return (
+      <span aria-disabled="true" className="button buttonDisabled">
+        {args.label}
+      </span>
+    );
+  }
+
+  return (
+    <Link className="button buttonGhost" href={args.href}>
+      {args.label}
+    </Link>
+  );
+}
+
 async function runAssignReviewTaskAction(formData: FormData) {
   "use server";
 
-  const profile = await requireInstituteAdminSession();
+  await requireInstituteAdminSession();
   const taskId = String(formData.get("task_id") ?? "").trim();
   const assignedToTeacher = String(formData.get("assigned_to_teacher") ?? "").trim();
   const status = String(formData.get("status") ?? "all").trim() || "all";
@@ -531,6 +576,19 @@ export default async function InstituteReviewsPage({
       : taskPage.results[0]
         ? await fetchPortalReviewTaskDetail(taskPage.results[0].id).catch(() => null)
         : null;
+  const hasActiveQueueControls = Boolean(
+    exam || reviewerFilter || assignmentScope !== "all" || status !== "all" || search || pageSize !== 12,
+  );
+  const activeReviewControlSummary = buildActiveReviewControlSummary({
+    exam,
+    reviewerName: selectedReviewer?.full_name ?? null,
+    assignmentScope,
+    status,
+    search,
+    pageSize,
+  });
+  const isTrueReviewQueueEmpty = summary.total === 0 && !hasActiveQueueControls;
+  const isFilteredReviewQueueEmpty = taskPage.results.length === 0 && hasActiveQueueControls;
 
   return (
     <section className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteSupportPageVivid">
@@ -570,7 +628,7 @@ export default async function InstituteReviewsPage({
         <article className="metricCard metricCardPrimary dashboardHeroCard">
           <span>Total tasks</span>
           <strong>{summary.total}</strong>
-          <small>All review tasks in institute scope.</small>
+          <small>All review tasks currently visible in this workspace.</small>
           <div className="resultCardActions">
             <Link
               className="button buttonGhost"
@@ -776,6 +834,26 @@ export default async function InstituteReviewsPage({
             Showing {pageStart}-{pageEnd} of {taskPage.count}
           </span>
         </div>
+        <div className="teacherResultsReadinessCard">
+          <div className="teacherResultsReadinessCardTop">
+            <strong>How to use this queue</strong>
+            <span className="statusPill statusDemo">Operator flow</span>
+          </div>
+          <ul>
+            <li>Start with `Pending` or `Unassigned` to route the most urgent work first.</li>
+            <li>Use reviewer and exam scope together when one teacher or one exam needs intervention.</li>
+            <li>Use the left queue to pick tasks, then manage assignment, recheck, or moderation from the detail panel.</li>
+          </ul>
+        </div>
+        <FilterSummaryPills
+          items={[
+            { label: "Status", value: status === "all" ? "All statuses" : status.replaceAll("_", " ") },
+            { label: "Reviewer", value: selectedReviewer?.full_name ?? "All reviewers" },
+            { label: "Assignment", value: assignmentScope === "all" ? "All tasks" : assignmentScope.replaceAll("_", " ") },
+            { label: "Page size", value: `${pageSize} tasks` },
+            { label: "Task range", value: taskPage.count ? `${pageStart}-${pageEnd}` : "0" },
+          ]}
+        />
         <form className="teacherExamFilters" method="GET">
           {exam ? <input name="exam" type="hidden" value={exam} /> : null}
           <label className="fieldStack">
@@ -823,18 +901,20 @@ export default async function InstituteReviewsPage({
             <button className="buttonPrimary" type="submit">
               Apply filters
             </button>
-            <Link className="button buttonGhost" href={buildReviewQueueHref({ exam, reviewer: reviewerFilter })}>
+            <Link className="button buttonGhost" href={buildReviewQueueHref({ exam })}>
               Reset
             </Link>
           </div>
         </form>
-        {exam || reviewerFilter || assignmentScope !== "all" ? (
+        {exam || reviewerFilter || assignmentScope !== "all" || status !== "all" || search ? (
           <div className="questionBankTagRow">
             {exam ? <span className="questionBankTagChip">Scoped to selected exam</span> : null}
             {selectedReviewer ? <span className="questionBankTagChip">Reviewer: {selectedReviewer.full_name}</span> : null}
             {assignmentScope === "unassigned" ? <span className="questionBankTagChip">Assignment: Unassigned only</span> : null}
             {assignmentScope === "assigned" ? <span className="questionBankTagChip">Assignment: Assigned only</span> : null}
-            <Link className="button buttonGhost" href="/institute/reviews">
+            {status !== "all" ? <span className="questionBankTagChip">Status: {status.replaceAll("_", " ")}</span> : null}
+            {search ? <span className="questionBankTagChip">Search: {search}</span> : null}
+            <Link className="button buttonGhost" href={buildReviewQueueHref({ exam })}>
               Clear filters
             </Link>
           </div>
@@ -1254,47 +1334,39 @@ export default async function InstituteReviewsPage({
               Page {page} of {totalPages}
             </span>
           </div>
+          <div className="questionBankTagRow">
+            <span className="questionBankTagChip">{taskPage.results.length} tasks on this page</span>
+            <span className="questionBankTagChip">{summary.pending} pending</span>
+            <span className="questionBankTagChip">{summary.unassigned} unassigned</span>
+            <span className="questionBankTagChip">{summary.recheck_requested} recheck</span>
+          </div>
           <div className="resultCardActions">
-            <Link
-              aria-disabled={page <= 1}
-              className={`button ${page <= 1 ? "buttonDisabled" : "buttonGhost"}`}
-              href={
-                page <= 1
-                  ? "#"
-                  : buildReviewQueueHref({
-                      exam,
-                      reviewer: reviewerFilter,
-                      status,
-                      search,
-                      page: page - 1,
-                      pageSize,
-                      assignmentScope,
-                    })
-              }
-              tabIndex={page <= 1 ? -1 : undefined}
-            >
-              Previous page
-            </Link>
-            <Link
-              aria-disabled={page >= totalPages}
-              className={`button ${page >= totalPages ? "buttonDisabled" : "buttonGhost"}`}
-              href={
-                page >= totalPages
-                  ? "#"
-                  : buildReviewQueueHref({
-                      exam,
-                      reviewer: reviewerFilter,
-                      status,
-                      search,
-                      page: page + 1,
-                      pageSize,
-                      assignmentScope,
-                    })
-              }
-              tabIndex={page >= totalPages ? -1 : undefined}
-            >
-              Next page
-            </Link>
+            {renderReviewPagerControl({
+              disabled: page <= 1,
+              href: buildReviewQueueHref({
+                exam,
+                reviewer: reviewerFilter,
+                status,
+                search,
+                page: page - 1,
+                pageSize,
+                assignmentScope,
+              }),
+              label: "Previous page",
+            })}
+            {renderReviewPagerControl({
+              disabled: page >= totalPages,
+              href: buildReviewQueueHref({
+                exam,
+                reviewer: reviewerFilter,
+                status,
+                search,
+                page: page + 1,
+                pageSize,
+                assignmentScope,
+              }),
+              label: "Next page",
+            })}
           </div>
           <form action={runBulkAssignReviewTasksAction} className="workspaceFiltersCard" id="institute-review-bulk-form">
             <input name="status" type="hidden" value={status} />
@@ -1388,6 +1460,43 @@ export default async function InstituteReviewsPage({
                   </article>
                 );
               })}
+            </div>
+          ) : isFilteredReviewQueueEmpty ? (
+            <div className="builderHintPanel">
+              <strong>No review tasks match these filters.</strong>
+              <p>
+                Active controls are shaping this empty state. This is a filtered view, not a data-loss state.
+              </p>
+              {activeReviewControlSummary.length ? (
+                <div className="questionBankTagRow">
+                  {activeReviewControlSummary.map((item) => (
+                    <span className="questionBankTagChip" key={item}>
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+              <div className="resultCardActions" style={{ marginTop: 12 }}>
+                <Link className="button buttonSecondary" href={buildReviewQueueHref({ exam })}>
+                  Reset Filters And Show Full Queue
+                </Link>
+              </div>
+            </div>
+          ) : isTrueReviewQueueEmpty ? (
+            <div className="builderHintPanel">
+              <strong>Your review queue is empty right now.</strong>
+              <p>
+                Descriptive or rubric-based attempts will appear here after exams collect responses that need manual
+                review.
+              </p>
+              <div className="resultCardActions" style={{ marginTop: 12 }}>
+                <Link className="button buttonSecondary" href="/institute/exams">
+                  Open Exams
+                </Link>
+                <Link className="button buttonGhost" href="/institute/results">
+                  Open Results
+                </Link>
+              </div>
             </div>
           ) : (
             <p className="emptyText">No review tasks match the current filters.</p>
@@ -1566,6 +1675,11 @@ export default async function InstituteReviewsPage({
                 <p className="emptyText">No task activity recorded yet.</p>
               )}
             </>
+          ) : isFilteredReviewQueueEmpty ? (
+            <div className="builderHintPanel">
+              <strong>No task detail is available in this filtered view.</strong>
+              <p>Clear or widen the current review controls to bring one or more tasks back into the left queue.</p>
+            </div>
           ) : (
             <p className="emptyText">Select a task from the left to manage reviewer assignment.</p>
           )}

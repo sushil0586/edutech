@@ -79,7 +79,11 @@ class Command(BaseCommand):
         }
 
         for subject_alias in options["subjects"]:
-            subject = self._resolve_subject(institute=institute, code=SUBJECT_CODE_MAP[subject_alias])
+            subject = self._resolve_subject(
+                institute=institute,
+                preset=options["preset"],
+                subject_alias=subject_alias,
+            )
             assert_catalog_scope_is_consistent(
                 institute_code=institute.code,
                 subject_code=subject.code,
@@ -159,10 +163,27 @@ class Command(BaseCommand):
             )
         return program
 
-    def _resolve_subject(self, *, institute, code):
+    def _resolve_subject(self, *, institute, preset, subject_alias):
+        code = SUBJECT_CODE_MAP.get(subject_alias, "")
         subject = Subject.objects.filter(institute=institute, code=code).first()
+        if subject is not None and subject.program.code == PRESETS[preset]["program"]["code"]:
+            return subject
+
+        preset_subject = next(
+            (
+                item
+                for item in PRESETS[preset]["subjects"]
+                if item["name"].strip().lower() == subject_alias.strip().lower()
+            ),
+            None,
+        )
+        if preset_subject is not None:
+            subject = Subject.objects.filter(institute=institute, code=preset_subject["code"]).first()
         if subject is None:
-            raise CommandError(f"Subject {code} not found for {institute.code}. Seed academics first.")
+            raise CommandError(
+                f"Subject for alias {subject_alias} not found for {institute.code} under preset {preset}. "
+                "Seed academics first."
+            )
         return subject
 
     def _upsert_master_question(
@@ -186,6 +207,11 @@ class Command(BaseCommand):
             "seed_sequence": sequence_number,
             **(payload.get("metadata") or {}),
         }
+        question_text = payload["question_text"]
+        if program.code == "CLS8" and subject.code == "CLS8-MATH":
+            question_text = (
+                f"{question_text} [Class 8 Math · {topic.name} · Seed {sequence_number}]"
+            )
         defaults = {
             "source_program": program,
             "source_subject": subject,
@@ -214,11 +240,11 @@ class Command(BaseCommand):
         if master_question is None:
             master_question = MasterQuestion(
                 source_institute=institute,
-                question_text=payload["question_text"],
+                question_text=question_text,
                 **defaults,
             )
         else:
-            master_question.question_text = payload["question_text"]
+            master_question.question_text = question_text
             for field, value in defaults.items():
                 setattr(master_question, field, value)
         master_question.save()

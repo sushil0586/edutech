@@ -14,6 +14,18 @@ function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+async function selectFirstNonEmptyOption(
+  locator: import("@playwright/test").Locator,
+) {
+  const values = await locator.locator("option").evaluateAll((options) =>
+    options.map((option) => (option as HTMLOptionElement).value),
+  );
+  const optionValue = values.find((value) => value.trim().length > 0) ?? null;
+  expect(optionValue).not.toBeNull();
+  await locator.selectOption(optionValue!);
+  return optionValue!;
+}
+
 function examAccessKeyCard(page: Page) {
   return page
     .locator("article")
@@ -121,6 +133,14 @@ test.describe("Institute mutable exam actions", () => {
       await expect(page).toHaveURL(new RegExp(`/institute/exams/${examId}/builder(?:\\?.*)?$`));
       await expect(page.getByRole("button", { name: /save exam settings/i })).toBeVisible();
 
+      const builderSubjectSelect = page.locator('select[name="subject"]').first();
+      if ((await builderSubjectSelect.inputValue()) === "") {
+        await selectFirstNonEmptyOption(builderSubjectSelect);
+        await page.getByRole("button", { name: /save exam settings/i }).click();
+        await expect(page).toHaveURL(/\/institute\/exams\/.+\/builder\?message=/);
+        await expect(page.getByText(/exam settings updated\./i)).toBeVisible();
+      }
+
       await page.goto(`/institute/exams/${examId}/builder?tab=sections`);
       await expect(page.getByText(/add a new section/i).first()).toBeVisible();
       await page.getByRole("textbox", { name: /section name/i }).fill(sectionName);
@@ -151,6 +171,14 @@ test.describe("Institute mutable exam actions", () => {
           .split("·")
           .map((part) => part.trim())
           .find((part) => /^pw /i.test(part) || /question/i.test(part)) ?? selectedQuestionLabel;
+      const selectedQuestionSnippet =
+        selectedQuestionLabel
+          .split("·")
+          .map((part) => part.trim())
+          .filter(Boolean)
+          .at(-1) ?? selectedQuestionTitle;
+      const normalizedQuestionSnippet =
+        selectedQuestionSnippet.replace(/\.\.\.$/, "").trim() || selectedQuestionTitle;
       await questionSelect.selectOption(questionOptions[0]!.value);
 
       const sectionSelect = manualAttachForm.locator('select[name="section"]');
@@ -178,7 +206,7 @@ test.describe("Institute mutable exam actions", () => {
       const popup = await popupPromise;
       await popup.waitForLoadState("domcontentloaded");
       await expect(popup.locator("h1")).toContainText(examTitle);
-      await expect(popup.locator("body")).toContainText(selectedQuestionTitle);
+      await expect(popup.locator("body")).toContainText(normalizedQuestionSnippet);
       await popup.close();
 
       await page.goto(examDetailBaseUrl);

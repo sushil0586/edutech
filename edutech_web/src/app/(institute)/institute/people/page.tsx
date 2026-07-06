@@ -105,7 +105,7 @@ export default async function InstitutePeoplePage({
         <div className="adminInstituteHeroCopy">
           <span className="studentDashboardTag">People operations</span>
           <strong>
-            Manage {activeView === "students" ? "student enrollment" : "teacher staffing"} from one institute-scoped roster
+            Manage {activeView === "students" ? "student enrollment" : "teacher staffing"} from one shared roster
           </strong>
           <p>
             Review active records, create new entries, and import roster updates without leaving the institute workspace.

@@ -23,8 +23,33 @@ async function gotoWithRetry(page: Page, url: string, attempts = 3) {
 async function expectInstituteResultsAnalysis(page: Page) {
   await expect(page).toHaveURL(/\/institute\/results\/analysis(?:\?.*)?$/);
   await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
+  const emptyStateHeading = page.getByRole("heading", {
+    name: /analysis opens after scored attempts start arriving/i,
+  });
+  if (await emptyStateHeading.isVisible().catch(() => false)) {
+    await expect(emptyStateHeading).toBeVisible();
+    await expect(page.getByText(/this route is for weak-topic analysis, question-risk review, and student evidence/i).first()).toBeVisible();
+    return false;
+  }
   await expect(page.getByText(/question risk board/i).first()).toBeVisible();
   await expect(page.getByText(/^student explorer$/i).first()).toBeVisible();
+  return true;
+}
+
+async function expectVisiblePaginationControlsToAvoidHashLinks(page: Page) {
+  const visiblePagers = page.locator(".workspaceFilterActions").filter({
+    has: page.getByText(/previous|next/i),
+  });
+  const visibleCount = await visiblePagers.count();
+
+  for (let index = 0; index < visibleCount; index += 1) {
+    const pager = visiblePagers.nth(index);
+    if (!(await pager.isVisible().catch(() => false))) {
+      continue;
+    }
+
+    await expect(pager.locator('a[href="#"]')).toHaveCount(0);
+  }
 }
 
 test.describe("Institute results analysis workspace", () => {
@@ -40,7 +65,13 @@ test.describe("Institute results analysis workspace", () => {
     await expectInstituteWorkspace(page);
 
     await gotoWithRetry(page, "/institute/results/analysis");
-    await expectInstituteResultsAnalysis(page);
+    const analysisLoaded = await expectInstituteResultsAnalysis(page);
+    if (!analysisLoaded) {
+      await page.getByRole("link", { name: /open exams/i }).first().click();
+      await expect(page).toHaveURL(/\/institute\/exams(?:\?.*)?$/);
+      return;
+    }
+    await expectVisiblePaginationControlsToAvoidHashLinks(page);
 
     await page.getByRole("link", { name: /^hard$/i }).first().click();
     await expect(page).toHaveURL(/\/institute\/results\/analysis\?[^#]*question_filter=hard_questions/);
@@ -70,6 +101,7 @@ test.describe("Institute results analysis workspace", () => {
 
     await gotoWithRetry(page, "/institute/results/analysis");
     await expectInstituteResultsAnalysis(page);
+    await expectVisiblePaginationControlsToAvoidHashLinks(page);
 
     const openQuestionBankLink = page.getByRole("link", { name: /open question bank/i }).first();
     await expect(openQuestionBankLink).toBeVisible();

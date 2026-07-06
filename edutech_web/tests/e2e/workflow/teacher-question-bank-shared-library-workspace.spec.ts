@@ -10,6 +10,19 @@ async function expectSharedLibrarySection(page: Page) {
   }).first();
   await expect(section).toBeVisible();
 
+  const sharedLibraryLocked = await section
+    .getByText(/shared platform library is not enabled for your institute subscription yet/i)
+    .first()
+    .isVisible()
+    .catch(() => false);
+
+  if (sharedLibraryLocked) {
+    await expect(
+      section.getByText(/shared platform library is not enabled for your institute subscription yet/i).first(),
+    ).toBeVisible();
+    return;
+  }
+
   const cards = section.locator(".questionBankCard");
   const cardCount = await cards.count();
 
@@ -40,6 +53,18 @@ test.describe("Teacher question bank shared library workspace", () => {
     await page.goto("/teacher/question-bank");
     await expect(page.getByRole("heading", { name: /question bank/i }).first()).toBeVisible();
     await expect(page.getByText(/find questions faster/i)).toBeVisible();
+    await expect(page.getByText(/how licensed platform questions work here/i).first()).toBeVisible();
+    await expect(
+      page.getByText(
+        /teachers can inspect licensed platform questions in this workspace, but institute-level access decides whether the lane is visible and whether requests can move forward/i,
+      ).first(),
+    ).toBeVisible();
+    await expect(page.getByText(/teacher action path/i).first()).toBeVisible();
+    await expect(
+      page.getByText(
+        /teachers do not link licensed questions directly here\. when the switch and package are both active, use the request path and let institute-level intake control final linking/i,
+      ).first(),
+    ).toBeVisible();
 
     await expectSharedLibrarySection(page);
 

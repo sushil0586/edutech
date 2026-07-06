@@ -5,7 +5,7 @@ import uuid
 from django.core.files.storage import default_storage
 from django.core.exceptions import PermissionDenied
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.db.models import Count, Prefetch, Q
+from django.db.models import Count, OuterRef, Prefetch, Q, Subquery
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError as DRFValidationError
@@ -28,10 +28,10 @@ from apps.institutes.models import Institute
 from apps.question_bank.filters import QuestionFilterSet
 from apps.question_bank.media import validate_question_attachment_file
 from apps.question_bank.models import (
+    InstituteQuestionAccess,
     MasterQuestion,
     Question,
     QuestionAttachment,
-    InstituteQuestionAccess,
     QuestionOption,
     QuestionPassage,
     QuestionTag,
@@ -80,6 +80,7 @@ from apps.question_bank.services import (
     request_master_question_access,
 )
 from apps.economy.services import (
+    bulk_get_master_question_access_summaries,
     find_matching_question_bank_packages_for_master_question,
     get_master_question_access_summary,
     institute_has_question_bank_feature,
@@ -127,7 +128,6 @@ class MasterQuestionLibraryViewSet(ReadOnlyModelViewSet):
                 "source_subject",
                 "source_topic",
             )
-            .prefetch_related("options")
             .annotate(
                 option_count=Count("options", filter=Q(options__is_active=True), distinct=True),
             )
@@ -246,12 +246,22 @@ class MasterQuestionLibraryViewSet(ReadOnlyModelViewSet):
             raise DRFValidationError({"source_teacher_employee_code": "Teacher not found in target institute scope."})
         return teacher
 
+    def _read_boolean_query_flag(self, key):
+        value = str(self.request.query_params.get(key, "") or "").strip().lower()
+        return value in {"1", "true", "yes", "on"}
+
     def list(self, request, *args, **kwargs):
         target_institute = self._resolve_target_institute(request.query_params.get("target_institute_code", ""))
         self._enforce_shared_library_feature_access(target_institute)
         queryset = self.filter_queryset(self.get_queryset())
-        page = self.paginate_queryset(queryset)
-        objects = list(page if page is not None else queryset)
+        available_only = self._read_boolean_query_flag("available_only")
+        if target_institute is not None:
+            access_status_subquery = InstituteQuestionAccess.objects.filter(
+                institute=target_institute,
+                master_question_id=OuterRef("pk"),
+                is_active=True,
+            ).values("status")[:1]
+            queryset = queryset.annotate(access_status=Subquery(access_status_subquery))
 
         access_map = {}
         entitlement_map = {}
@@ -261,32 +271,41 @@ class MasterQuestionLibraryViewSet(ReadOnlyModelViewSet):
         quota_note_map = {}
         package_map = {}
         status_map = {}
-        if target_institute is not None:
-            access_rows = InstituteQuestionAccess.objects.filter(
-                institute=target_institute,
-                master_question_id__in=[obj.id for obj in objects],
-                is_active=True,
+
+        def _hydrate_access_maps(objects):
+            if target_institute is None or not objects:
+                return
+            access_summaries = bulk_get_master_question_access_summaries(
+                target_institute,
+                master_questions=objects,
             )
-            status_map = {str(row.master_question_id): row.status for row in access_rows}
             for obj in objects:
-                packages = find_matching_question_bank_packages_for_master_question(
-                    target_institute,
-                    master_question=obj,
-                )
-                access_summary = get_master_question_access_summary(
-                    target_institute,
-                    master_question=obj,
-                )
+                access_summary = access_summaries.get(str(obj.id), {})
+                packages = access_summary.get("matching_packages", [])
                 package_map[str(obj.id)] = [
                     {"code": package.code, "name": package.name}
                     for package in packages
                 ]
-                access_map[str(obj.id)] = access_summary["has_access"]
-                entitlement_map[str(obj.id)] = access_summary["has_entitlement"]
-                availability_map[str(obj.id)] = access_summary["access_availability"]
-                quota_limited_map[str(obj.id)] = access_summary["quota_limited"]
-                quota_exhausted_map[str(obj.id)] = access_summary["quota_exhausted"]
-                quota_note_map[str(obj.id)] = access_summary["quota_note"]
+                access_map[str(obj.id)] = access_summary.get("has_access")
+                entitlement_map[str(obj.id)] = access_summary.get("has_entitlement")
+                availability_map[str(obj.id)] = access_summary.get("access_availability", "")
+                quota_limited_map[str(obj.id)] = access_summary.get("quota_limited")
+                quota_exhausted_map[str(obj.id)] = access_summary.get("quota_exhausted")
+                quota_note_map[str(obj.id)] = access_summary.get("quota_note", "")
+                status_map[str(obj.id)] = getattr(obj, "access_status", "") or ""
+
+        if target_institute is not None and available_only:
+            candidate_objects = list(queryset)
+            _hydrate_access_maps(candidate_objects)
+            filtered_objects = [
+                obj for obj in candidate_objects if access_map.get(str(obj.id), False)
+            ]
+            page = self.paginate_queryset(filtered_objects)
+            objects = list(page if page is not None else filtered_objects)
+        else:
+            page = self.paginate_queryset(queryset)
+            objects = list(page if page is not None else queryset)
+            _hydrate_access_maps(objects)
 
         serializer = self.get_serializer(
             objects,

@@ -19,11 +19,13 @@ from apps.accounts.scopes import (
 from apps.economy.models import (
     ContentAccessPolicy,
     InstituteQuestionEntitlement,
+    InstituteQuestionUsageActionType,
     InstituteQuestionFeatureEntitlement,
     InstituteSubscriptionRequest,
     InstituteQuestionUsageLedger,
     PaymentOrder,
     QuestionBankPackage,
+    QuestionBankPackageScope,
     ReferralProgram,
     RewardRule,
     StarLedger,
@@ -39,10 +41,12 @@ from apps.economy.governance import (
     get_or_create_economy_operator_policy_config,
     get_economy_operator_policy,
 )
+from apps.exams.services import invalidate_exam_access_policy_cache
 from apps.economy.serializers import (
     AdminApplySubscriptionPlanToInstituteSerializer,
     AdminContentAccessPolicySerializer,
     AdminInstituteQuestionEntitlementSerializer,
+    AdminInstituteQuestionFeatureEntitlementCreateSerializer,
     AdminInstituteQuestionFeatureEntitlementSerializer,
     AdminInstituteQuestionFeatureEntitlementStatusUpdateSerializer,
     AdminInstituteQuestionEntitlementStatusUpdateSerializer,
@@ -86,15 +90,22 @@ from apps.economy.services import (
     get_entitlement_quota_summary,
     get_or_create_student_economy_profile,
     grant_admin_stars,
+    grant_institute_feature_entitlement,
     list_active_star_packs,
     list_active_subscription_plans,
     list_requestable_subscription_plans_for_institute,
     list_student_payment_orders,
     list_student_subscriptions,
+    package_scope_matches_master_question,
     review_institute_subscription_request,
     spend_stars_for_content,
     update_institute_question_feature_entitlement_status,
     update_institute_question_bank_entitlement_status,
+)
+from apps.question_bank.models import (
+    MasterQuestion,
+    MasterQuestionSourceType,
+    MasterQuestionVisibility,
 )
 from apps.reports.models import AuditLog
 from apps.students.models import StudentProfile
@@ -296,6 +307,110 @@ def _question_bank_package_report_rows(*, packages, entitlements, usage_entries)
         )
 
     return rows
+
+
+def _build_question_bank_entitlement_visibility_audit(*, entitlement):
+    active_scopes = [
+        scope
+        for scope in entitlement.question_bank_package.scopes.all()
+        if scope.is_active
+    ]
+    if not active_scopes:
+        return {
+            "expected_master_question_total": 0,
+            "linked_master_question_total": 0,
+            "missing_linked_master_question_total": 0,
+            "subject_breakdown": [],
+        }
+
+    candidate_questions = (
+        MasterQuestion.objects.select_related(
+            "source_program",
+            "source_subject",
+            "source_topic",
+        )
+        .filter(
+            source_type=MasterQuestionSourceType.PLATFORM,
+            is_active=True,
+        )
+        .exclude(visibility=MasterQuestionVisibility.PRIVATE)
+    )
+
+    expected_question_ids: set[str] = set()
+    subject_buckets: dict[str, dict[str, object]] = {}
+
+    for question in candidate_questions.iterator():
+        if not any(
+            package_scope_matches_master_question(scope=scope, master_question=question)
+            for scope in active_scopes
+        ):
+            continue
+
+        question_id = str(question.id)
+        expected_question_ids.add(question_id)
+
+        subject_key = str(question.source_subject_id)
+        if subject_key not in subject_buckets:
+            subject_buckets[subject_key] = {
+                "subject_id": subject_key,
+                "subject_code": question.source_subject.code,
+                "subject_name": question.source_subject.name,
+                "question_ids": set(),
+                "topic_labels": set(),
+            }
+
+        subject_buckets[subject_key]["question_ids"].add(question_id)
+        if question.source_topic_id:
+            subject_buckets[subject_key]["topic_labels"].add(question.source_topic.name)
+
+    linked_question_ids = {
+        str(question_id)
+        for question_id in InstituteQuestionUsageLedger.objects.filter(
+            institute=entitlement.institute,
+            question_bank_package=entitlement.question_bank_package,
+            entitlement=entitlement,
+            is_active=True,
+            action_type=InstituteQuestionUsageActionType.QUESTION_LINKED,
+            master_question__isnull=False,
+        )
+        .values_list("master_question_id", flat=True)
+        .distinct()
+    }
+
+    linked_relevant_question_ids = expected_question_ids & linked_question_ids
+    subject_breakdown = []
+    for bucket in sorted(
+        subject_buckets.values(),
+        key=lambda item: (
+            -len(item["question_ids"]),
+            str(item["subject_name"]).lower(),
+        ),
+    ):
+        subject_question_ids = bucket["question_ids"]
+        linked_subject_ids = subject_question_ids & linked_relevant_question_ids
+        expected_count = len(subject_question_ids)
+        linked_count = len(linked_subject_ids)
+        subject_breakdown.append(
+            {
+                "subject_id": bucket["subject_id"],
+                "subject_code": bucket["subject_code"],
+                "subject_name": bucket["subject_name"],
+                "expected_master_question_total": expected_count,
+                "linked_master_question_total": linked_count,
+                "missing_linked_master_question_total": max(expected_count - linked_count, 0),
+                "topic_count": len(bucket["topic_labels"]),
+                "topic_labels": sorted(bucket["topic_labels"]),
+            }
+        )
+
+    expected_total = len(expected_question_ids)
+    linked_total = len(linked_relevant_question_ids)
+    return {
+        "expected_master_question_total": expected_total,
+        "linked_master_question_total": linked_total,
+        "missing_linked_master_question_total": max(expected_total - linked_total, 0),
+        "subject_breakdown": subject_breakdown,
+    }
 
 
 def _question_bank_package_report_csv_response(*, rows):
@@ -774,6 +889,7 @@ class AdminQuestionBankPackageListView(APIView):
                 "scopes__topic",
                 "institute_entitlements",
                 "subscription_plan_links",
+                "usage_entries",
             )
             .order_by("institute__name", "sort_order", "name")
         )
@@ -907,9 +1023,15 @@ class AdminInstituteQuestionEntitlementListView(APIView):
                 "revoked_by",
             )
             .prefetch_related(
-                "question_bank_package__scopes__program",
-                "question_bank_package__scopes__subject",
-                "question_bank_package__scopes__topic",
+                models.Prefetch(
+                    "question_bank_package__scopes",
+                    queryset=QuestionBankPackageScope.objects.filter(is_active=True).select_related(
+                        "program",
+                        "subject",
+                        "topic",
+                    ),
+                    to_attr="_prefetched_active_scopes",
+                ),
             )
             .order_by("-created_at")
         )
@@ -921,6 +1043,41 @@ class AdminInstituteQuestionEntitlementListView(APIView):
 
 class AdminInstituteQuestionEntitlementDetailView(APIView):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
+
+    def get(self, request, entitlement_id):
+        instance = get_scoped_object_or_403(
+            InstituteQuestionEntitlement.objects.select_related(
+                "institute",
+                "question_bank_package",
+                "question_bank_package__institute",
+                "subscription_plan",
+                "subscription_plan_cycle",
+                "granted_by",
+                "revoked_by",
+            ).prefetch_related(
+                models.Prefetch(
+                    "question_bank_package__scopes",
+                    queryset=QuestionBankPackageScope.objects.filter(is_active=True).select_related(
+                        "program",
+                        "subject",
+                        "topic",
+                    ),
+                    to_attr="_prefetched_active_scopes",
+                ),
+            ),
+            user=request.user,
+            value=entitlement_id,
+            not_found_message="Question bank entitlement not found.",
+        )
+        return Response(
+            {
+                "data": AdminInstituteQuestionEntitlementSerializer(instance).data,
+                "visibility_audit": _build_question_bank_entitlement_visibility_audit(
+                    entitlement=instance,
+                ),
+            },
+            status=status.HTTP_200_OK,
+        )
 
     def patch(self, request, entitlement_id):
         instance = get_scoped_object_or_403(
@@ -1029,6 +1186,50 @@ class AdminInstituteQuestionFeatureEntitlementListView(APIView):
         return Response(
             AdminInstituteQuestionFeatureEntitlementSerializer(queryset, many=True).data,
             status=status.HTTP_200_OK,
+        )
+
+    def post(self, request):
+        serializer = AdminInstituteQuestionFeatureEntitlementCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        entitlement, created = grant_institute_feature_entitlement(
+            institute=serializer.validated_data["institute"],
+            feature_code=serializer.validated_data["feature_code"],
+            source_package=serializer.validated_data.get("source_package"),
+            source_subscription_plan=serializer.validated_data.get("source_subscription_plan"),
+            starts_at=serializer.validated_data.get("starts_at"),
+            ends_at=serializer.validated_data.get("ends_at"),
+            metadata=serializer.validated_data.get("metadata"),
+        )
+        refreshed_instance = InstituteQuestionFeatureEntitlement.objects.select_related(
+            "institute",
+            "source_package",
+            "source_subscription_plan",
+        ).get(pk=entitlement.pk)
+        create_audit_log(
+            user=request.user,
+            action="economy_question_feature_entitlement_create"
+            if created
+            else "economy_question_feature_entitlement_restore",
+            entity_type="institute_question_feature_entitlement",
+            entity_id=refreshed_instance.id,
+            message=(
+                f"Question feature entitlement {'created' if created else 'restored'}: "
+                f"{refreshed_instance.feature_code} for {refreshed_instance.institute.code}."
+            ),
+            metadata={
+                "feature_code": refreshed_instance.feature_code,
+                "institute_code": refreshed_instance.institute.code,
+                "source_package_code": refreshed_instance.source_package.code
+                if refreshed_instance.source_package_id
+                else None,
+                "status": refreshed_instance.status,
+            },
+            request=request,
+        )
+        return action_response(
+            data=AdminInstituteQuestionFeatureEntitlementSerializer(refreshed_instance).data,
+            message="Question bank feature entitlement granted successfully.",
+            status_code=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
         )
 
 
@@ -1823,6 +2024,8 @@ class AdminContentAccessPolicyListCreateView(APIView):
         serializer = AdminContentAccessPolicySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         instance = serializer.save()
+        if instance.content_type == "exam":
+            invalidate_exam_access_policy_cache(institute=instance.institute)
         create_audit_log(
             user=request.user,
             action="economy_content_access_policy_create",
@@ -1869,6 +2072,8 @@ class AdminContentAccessPolicyDetailView(APIView):
         serializer = AdminContentAccessPolicySerializer(instance, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         updated_instance = serializer.save()
+        if updated_instance.content_type == "exam":
+            invalidate_exam_access_policy_cache(institute=updated_instance.institute)
         changed_fields = {
             key: {
                 "before": previous_state.get(key),

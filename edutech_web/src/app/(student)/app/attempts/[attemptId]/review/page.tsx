@@ -1,13 +1,14 @@
-import Link from "next/link";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import { StudentKpiGrid } from "@/components/ui/student-kpi-grid";
+import { StudentPassiveNavLink } from "@/components/ui/student-passive-nav-link";
 import { StudentPageHeader } from "@/components/ui/student-page-header";
 import {
   getStudentQuestionPromptTitle,
   StudentQuestionPrompt,
 } from "@/components/ui/student-question-prompt";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
+import { StudentWorkspaceLink as Link } from "@/components/ui/student-workspace-link";
 import { StatusPill } from "@/components/ui/status-pill";
 import {
   fetchStudentAvailableExams,
@@ -308,7 +309,7 @@ export default async function AttemptReviewPage({
           >
             {stateCopy.summaryCta}
           </Link>
-          <Link
+          <StudentPassiveNavLink
             className="button buttonSecondary"
             href={buildFilterHref("/app/results", [
               ["subject", scopedSubjectParam],
@@ -317,8 +318,8 @@ export default async function AttemptReviewPage({
             ])}
           >
             {stateCopy.resultsCta}
-          </Link>
-          <Link
+          </StudentPassiveNavLink>
+          <StudentPassiveNavLink
             className="button buttonGhost"
             href={buildFilterHref("/app/attempts", [
               ["subject", scopedSubjectParam],
@@ -327,7 +328,7 @@ export default async function AttemptReviewPage({
             ])}
           >
             Open Attempts
-          </Link>
+          </StudentPassiveNavLink>
         </div>
       </section>
 
@@ -510,10 +511,10 @@ export default async function AttemptReviewPage({
             ))}
           </div>
           <div className="studentInsightHeroActions">
-            <Link className="button buttonSecondary" href="/app/analytics">
+            <StudentPassiveNavLink className="button buttonSecondary" href="/app/analytics">
               View Analytics
-            </Link>
-            <Link
+            </StudentPassiveNavLink>
+            <StudentPassiveNavLink
               className="button buttonGhost"
               href={buildFilterHref("/app/results", [
                 ["subject", scopedSubjectParam],
@@ -522,7 +523,7 @@ export default async function AttemptReviewPage({
               ])}
             >
               Open Results
-            </Link>
+            </StudentPassiveNavLink>
           </div>
         </article>
         <article className="contentCard">
@@ -555,7 +556,7 @@ export default async function AttemptReviewPage({
             >
               Back To Summary
             </Link>
-            <Link
+            <StudentPassiveNavLink
               className="button buttonGhost"
               href={buildFilterHref("/app/attempts", [
                 ["subject", scopedSubjectParam],
@@ -564,7 +565,7 @@ export default async function AttemptReviewPage({
               ])}
             >
               Stay In Attempts
-            </Link>
+            </StudentPassiveNavLink>
           </div>
         </article>
       </section>

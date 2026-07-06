@@ -5,6 +5,15 @@ from django.db import transaction
 from django.db.models import Count, F, Q
 
 ADVANCED_BUILDER_FEATURE_CODE = "ADVANCED_EXAM_BUILDER"
+SHARED_LIBRARY_FEATURE_CODE = "QUESTION_BANK_SHARED_LIBRARY"
+QUESTION_BANK_ASSIGNMENT_MODE_ACCESS_ONLY = "access_only"
+QUESTION_BANK_ASSIGNMENT_MODE_AUTO_LINK_SELECTED_SCOPE = "auto_link_selected_scope"
+QUESTION_BANK_ASSIGNMENT_MODE_AUTO_LINK_SELECTED_SCOPE_WITH_LIMIT = "auto_link_selected_scope_with_limit"
+QUESTION_BANK_ASSIGNMENT_MODE_CHOICES = {
+    QUESTION_BANK_ASSIGNMENT_MODE_ACCESS_ONLY,
+    QUESTION_BANK_ASSIGNMENT_MODE_AUTO_LINK_SELECTED_SCOPE,
+    QUESTION_BANK_ASSIGNMENT_MODE_AUTO_LINK_SELECTED_SCOPE_WITH_LIMIT,
+}
 
 EXAM_TYPE_NAMESPACE = "exam_type"
 EXAM_DELIVERY_MODE_NAMESPACE = "exam_delivery_mode"
@@ -258,18 +267,176 @@ def _resolve_master_default_question_bank_package(package_code):
     return package
 
 
+def normalize_question_bank_assignment_mode(value):
+    normalized = str(value or "").strip().lower()
+    if normalized in QUESTION_BANK_ASSIGNMENT_MODE_CHOICES:
+        return normalized
+    return QUESTION_BANK_ASSIGNMENT_MODE_ACCESS_ONLY
+
+
+def _resolve_local_scope_for_master_question(*, institute, master_question, local_subject_map, local_topic_map):
+    source_subject = getattr(master_question, "source_subject", None)
+    if source_subject is None:
+        return None, None, None
+
+    local_subject = local_subject_map.get(source_subject.code)
+    if local_subject is None:
+        return None, None, None
+
+    source_topic = getattr(master_question, "source_topic", None)
+    local_topic = None
+    if source_topic is not None:
+        local_topic = local_topic_map.get(source_topic.code)
+        if local_topic is None:
+            return local_subject.program, local_subject, None
+
+    return local_subject.program, local_subject, local_topic
+
+
+def _apply_master_default_question_assignment(
+    *,
+    institute,
+    package,
+    assignment_mode,
+    apply_mode,
+    applied_subject_codes,
+    applied_topic_codes,
+):
+    from apps.economy.services import package_scope_matches_master_question
+    from apps.question_bank.models import (
+        InstituteQuestionAccess,
+        MasterQuestion,
+        MasterQuestionSourceType,
+        MasterQuestionVisibility,
+    )
+    from apps.question_bank.services import link_master_question_to_institute
+    from apps.academics.models import Subject, Topic
+
+    normalized_mode = normalize_question_bank_assignment_mode(assignment_mode)
+    result = {
+        "mode": normalized_mode,
+        "status": "skipped",
+        "package_code": getattr(package, "code", None),
+        "matched_master_questions": 0,
+        "linked_new": 0,
+        "linked_existing": 0,
+        "blocked": 0,
+        "missing_local_subject": 0,
+        "missing_local_topic": 0,
+    }
+    if package is None:
+        result["status"] = "no_package"
+        return result
+    if normalized_mode == QUESTION_BANK_ASSIGNMENT_MODE_ACCESS_ONLY:
+        result["status"] = "completed"
+        return result
+
+    active_scopes = list(package.scopes.filter(is_active=True).select_related("program", "subject", "topic"))
+    if not active_scopes:
+        result["status"] = "no_active_scopes"
+        return result
+
+    applied_subject_codes = [normalize_academic_code(code) for code in (applied_subject_codes or []) if str(code).strip()]
+    applied_topic_codes = [normalize_academic_code(code) for code in (applied_topic_codes or []) if str(code).strip()]
+
+    master_questions = (
+        MasterQuestion.objects.select_related("source_program", "source_subject", "source_topic")
+        .filter(
+            source_institute=package.institute,
+            source_type=MasterQuestionSourceType.PLATFORM,
+            is_active=True,
+        )
+        .exclude(visibility=MasterQuestionVisibility.PRIVATE)
+    )
+    if apply_mode == "selected_topic_groups" and applied_topic_codes:
+        master_questions = master_questions.filter(source_topic__code__in=applied_topic_codes)
+    elif applied_subject_codes:
+        master_questions = master_questions.filter(source_subject__code__in=applied_subject_codes)
+
+    local_subject_map = {
+        subject.code: subject
+        for subject in Subject.objects.filter(institute=institute, code__in=applied_subject_codes).select_related("program")
+    }
+    local_topic_map = {
+        topic.code: topic
+        for topic in Topic.objects.filter(institute=institute, code__in=applied_topic_codes)
+    }
+
+    for master_question in master_questions.order_by(
+        "source_subject__sort_order",
+        "source_topic__sort_order",
+        "created_at",
+    ):
+        if not any(
+            package_scope_matches_master_question(scope=scope, master_question=master_question)
+            for scope in active_scopes
+        ):
+            continue
+
+        result["matched_master_questions"] += 1
+        local_program, local_subject, local_topic = _resolve_local_scope_for_master_question(
+            institute=institute,
+            master_question=master_question,
+            local_subject_map=local_subject_map,
+            local_topic_map=local_topic_map,
+        )
+        if local_subject is None:
+            result["missing_local_subject"] += 1
+            continue
+        if getattr(master_question, "source_topic_id", None) and local_topic is None:
+            result["missing_local_topic"] += 1
+            continue
+
+        existed_before = InstituteQuestionAccess.objects.filter(
+            institute=institute,
+            master_question=master_question,
+        ).exists()
+        try:
+            link_master_question_to_institute(
+                master_question=master_question,
+                institute=institute,
+                local_program=local_program,
+                local_subject=local_subject,
+                local_topic=local_topic,
+                notes="Auto-linked from master academic defaults.",
+            )
+        except ValidationError:
+            result["blocked"] += 1
+            continue
+
+        if existed_before:
+            result["linked_existing"] += 1
+        else:
+            result["linked_new"] += 1
+
+    result["status"] = "completed"
+    return result
+
+
 def _build_access_preview(
     *,
     package_enabled,
     package,
     advanced_builder_enabled,
+    question_bank_assignment_mode,
 ):
+    normalized_assignment_mode = normalize_question_bank_assignment_mode(question_bank_assignment_mode)
     return {
         "question_bank_package": {
             "enabled": bool(package_enabled),
             "package_code": package.code if package is not None else None,
             "package_name": package.name if package is not None else None,
             "action": "grant" if package_enabled and package is not None else "none",
+        },
+        "question_bank_assignment": {
+            "mode": normalized_assignment_mode,
+            "action": (
+                "auto_link"
+                if package_enabled
+                and package is not None
+                and normalized_assignment_mode != QUESTION_BANK_ASSIGNMENT_MODE_ACCESS_ONLY
+                else "none"
+            ),
         },
         "advanced_builder": {
             "enabled": bool(advanced_builder_enabled),
@@ -343,6 +510,43 @@ def _apply_master_default_access(
         else:
             package_result["status"] = "already_disabled"
 
+    shared_library_result = {
+        "enabled": bool(question_bank_package_enabled),
+        "feature_code": SHARED_LIBRARY_FEATURE_CODE,
+        "status": "not_requested",
+        "entitlement_id": None,
+        "source_package_code": package.code if package is not None else None,
+    }
+    if question_bank_package_enabled and package is not None:
+        shared_library_entitlement, created = grant_institute_feature_entitlement(
+            institute=institute,
+            feature_code=SHARED_LIBRARY_FEATURE_CODE,
+            source_package=package,
+            metadata={"source": "academic_master_defaults"},
+        )
+        shared_library_result["status"] = "granted" if created else "reactivated"
+        shared_library_result["entitlement_id"] = str(shared_library_entitlement.id)
+    elif package is not None:
+        live_statuses = [
+            InstituteQuestionEntitlementStatus.DRAFT,
+            InstituteQuestionEntitlementStatus.ACTIVE,
+            InstituteQuestionEntitlementStatus.PAUSED,
+        ]
+        shared_library_entitlement = InstituteQuestionFeatureEntitlement.objects.filter(
+            institute=institute,
+            feature_code=SHARED_LIBRARY_FEATURE_CODE,
+            status__in=live_statuses,
+        ).first()
+        if shared_library_entitlement is not None:
+            update_institute_question_feature_entitlement_status(
+                entitlement=shared_library_entitlement,
+                status=InstituteQuestionEntitlementStatus.REVOKED,
+            )
+            shared_library_result["status"] = "revoked"
+            shared_library_result["entitlement_id"] = str(shared_library_entitlement.id)
+        else:
+            shared_library_result["status"] = "already_disabled"
+
     feature_result = {
         "enabled": bool(advanced_builder_enabled),
         "feature_code": ADVANCED_BUILDER_FEATURE_CODE,
@@ -382,6 +586,7 @@ def _apply_master_default_access(
 
     return {
         "question_bank_package": package_result,
+        "shared_library": shared_library_result,
         "advanced_builder": feature_result,
     }
 
@@ -593,6 +798,7 @@ def preview_academic_preset_application(
     question_bank_package_enabled=False,
     question_bank_package_code="",
     advanced_builder_enabled=False,
+    question_bank_assignment_mode=QUESTION_BANK_ASSIGNMENT_MODE_ACCESS_ONLY,
 ):
     from apps.academics.models import AcademicYear, Program, Subject, Topic
 
@@ -717,6 +923,7 @@ def preview_academic_preset_application(
             package_enabled=question_bank_package_enabled,
             package=package,
             advanced_builder_enabled=advanced_builder_enabled,
+            question_bank_assignment_mode=question_bank_assignment_mode,
         ),
     }
 
@@ -735,6 +942,7 @@ def apply_academic_preset_to_institute(
     question_bank_package_enabled=False,
     question_bank_package_code="",
     advanced_builder_enabled=False,
+    question_bank_assignment_mode=QUESTION_BANK_ASSIGNMENT_MODE_ACCESS_ONLY,
     onboarding_run_id=None,
 ):
     institute = _resolve_regular_institute_for_preset_apply(institute_id)
@@ -763,6 +971,8 @@ def apply_academic_preset_to_institute(
     )
 
     applied_subjects = []
+    applied_subject_codes = set()
+    applied_topic_codes = set()
     for subject_payload in subject_payloads:
         subject = _upsert_subject(
             institute=institute,
@@ -770,6 +980,7 @@ def apply_academic_preset_to_institute(
             payload=subject_payload,
             summary=summary["subjects"],
         )
+        applied_subject_codes.add(subject.code)
         topic_groups_applied = 0
         leaf_topics_applied = 0
         for topic_payload in subject_payload.get("topics", []):
@@ -780,10 +991,11 @@ def apply_academic_preset_to_institute(
                 payload=topic_payload,
                 summary=summary["topics"],
             )
+            applied_topic_codes.add(parent_topic.code)
             topic_groups_applied += 1
             leaf_topics_applied += 1
             for child_name, child_code, child_sort_order in topic_payload.get("children", []):
-                _upsert_topic(
+                child_topic = _upsert_topic(
                     institute=institute,
                     subject=subject,
                     parent_topic=parent_topic,
@@ -795,6 +1007,7 @@ def apply_academic_preset_to_institute(
                     },
                     summary=summary["topics"],
                 )
+                applied_topic_codes.add(child_topic.code)
                 leaf_topics_applied += 1
 
         applied_subjects.append(
@@ -815,6 +1028,16 @@ def apply_academic_preset_to_institute(
         question_bank_package_enabled=question_bank_package_enabled,
         question_bank_package_code=question_bank_package_code,
         advanced_builder_enabled=advanced_builder_enabled,
+    )
+    question_assignment_results = _apply_master_default_question_assignment(
+        institute=institute,
+        package=_resolve_master_default_question_bank_package(question_bank_package_code)
+        if question_bank_package_enabled and str(question_bank_package_code or "").strip()
+        else None,
+        assignment_mode=question_bank_assignment_mode,
+        apply_mode=mode,
+        applied_subject_codes=sorted(applied_subject_codes),
+        applied_topic_codes=sorted(applied_topic_codes),
     )
     onboarding_run = None
     if onboarding_run_id is not None:
@@ -854,6 +1077,16 @@ def apply_academic_preset_to_institute(
             )
             record_institute_onboarding_task(
                 run=onboarding_run,
+                task_code="question_bank_shared_library_access",
+                label="Question-bank shared-library access",
+                status=InstituteOnboardingTaskStatus.COMPLETED
+                if access_results["shared_library"]["status"] not in {"not_requested", "already_disabled"}
+                else InstituteOnboardingTaskStatus.SKIPPED,
+                message=access_results["shared_library"]["status"],
+                result_json=access_results["shared_library"],
+            )
+            record_institute_onboarding_task(
+                run=onboarding_run,
                 task_code="advanced_builder_access",
                 label="Advanced builder access",
                 status=InstituteOnboardingTaskStatus.COMPLETED
@@ -861,6 +1094,16 @@ def apply_academic_preset_to_institute(
                 else InstituteOnboardingTaskStatus.SKIPPED,
                 message=access_results["advanced_builder"]["status"],
                 result_json=access_results["advanced_builder"],
+            )
+            record_institute_onboarding_task(
+                run=onboarding_run,
+                task_code="question_bank_assignment",
+                label="Question-bank assignment",
+                status=InstituteOnboardingTaskStatus.COMPLETED
+                if question_assignment_results["status"] == "completed"
+                else InstituteOnboardingTaskStatus.SKIPPED,
+                message=question_assignment_results["status"],
+                result_json=question_assignment_results,
             )
             record_institute_onboarding_task(
                 run=onboarding_run,
@@ -883,6 +1126,7 @@ def apply_academic_preset_to_institute(
         "summary": summary,
         "audit_findings": findings,
         "access_results": access_results,
+        "question_assignment_results": question_assignment_results,
         "onboarding_run": {
             "id": str(onboarding_run.id),
             "status": onboarding_run.status,

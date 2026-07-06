@@ -278,6 +278,15 @@ class AcademicPresetPreviewSerializer(serializers.Serializer):
         allow_null=True,
         default="",
     )
+    question_bank_assignment_mode = serializers.ChoiceField(
+        choices=[
+            ("access_only", "Access only"),
+            ("auto_link_selected_scope", "Auto link selected scope"),
+            ("auto_link_selected_scope_with_limit", "Auto link selected scope with limit"),
+        ],
+        required=False,
+        default="access_only",
+    )
     advanced_builder_enabled = serializers.BooleanField(required=False, default=False)
     onboarding_profile_code = serializers.CharField(
         max_length=80,
@@ -303,6 +312,13 @@ class AcademicPresetPreviewSerializer(serializers.Serializer):
         if attrs.get("question_bank_package_enabled") and not str(attrs.get("question_bank_package_code") or "").strip():
             raise serializers.ValidationError(
                 {"question_bank_package_code": "Select a question-bank package when package access is enabled."}
+            )
+        if (
+            attrs.get("question_bank_assignment_mode") != "access_only"
+            and not attrs.get("question_bank_package_enabled")
+        ):
+            raise serializers.ValidationError(
+                {"question_bank_assignment_mode": "Enable question-bank package access before auto-linking questions."}
             )
         return attrs
 

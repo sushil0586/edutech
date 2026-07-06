@@ -13,6 +13,22 @@ test.describe("Institute exam builder workspace", () => {
     await expectInstituteWorkspace(page);
     await page.goto("/institute/exams");
 
+    const emptyStateHeading = page.getByRole("heading", {
+      name: /your institute exam list is empty right now/i,
+    });
+    if (await emptyStateHeading.isVisible().catch(() => false)) {
+      await expect(emptyStateHeading).toBeVisible();
+      await expect(page.getByRole("link", { name: /quick create/i }).first()).toBeVisible();
+      await expect(page.getByRole("link", { name: /advanced builder/i }).first()).toBeVisible();
+
+      await page.getByRole("link", { name: /advanced builder/i }).first().click();
+      await expect(page).toHaveURL(/\/institute\/exams\/advanced(?:\?.*)?$/);
+      await expect(page.getByRole("heading", { name: /advanced exam builder/i }).first()).toBeVisible();
+      await expect(page.getByText(/build a sober, highly configurable exam/i).first()).toBeVisible();
+      await expect(page.getByText(/scope and basics/i).first()).toBeVisible();
+      return;
+    }
+
     const openExamLink = page.getByRole("link", { name: /open exam/i }).first();
     await expect(openExamLink).toBeVisible();
     await openExamLink.click();

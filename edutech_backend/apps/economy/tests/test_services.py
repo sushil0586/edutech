@@ -1,9 +1,12 @@
 from datetime import timedelta
 from decimal import Decimal
 
+from django.core.cache import cache
 from django.test import TestCase
 from django.utils import timezone
 from django.core.exceptions import ValidationError
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 
 from apps.economy.models import (
     ContentAccessPolicy,
@@ -53,10 +56,13 @@ from apps.economy.services import (
     issue_reward_for_event,
     list_accessible_question_bank_packages,
     find_matching_question_bank_packages_for_master_question,
+    bulk_get_master_question_access_summaries,
     resolve_question_bank_entitlement_for_master_question_use,
     process_exam_result_rewards,
     process_signup_rewards,
     record_exam_question_bank_usage,
+    update_institute_question_feature_entitlement_status,
+    update_institute_question_bank_entitlement_status,
 )
 from apps.question_bank.models import MasterQuestion, MasterQuestionSourceType, MasterQuestionVisibility, Question
 from common.tests.builders import AcademicAssessmentBuilder
@@ -536,6 +542,109 @@ class EconomyServicesTestCase(TestCase):
             list(active_institute_question_feature_entitlements(public_hub).values_list("feature_code", flat=True)),
             ["EXAM_BLUEPRINT_EXPORT"],
         )
+
+    def test_question_bank_feature_lookup_uses_cache_and_invalidates_on_revoke(self):
+        cache.clear()
+        public_hub = self.builder.create_institute(
+            code="PUBEQ4C",
+            name="Public Question Hub 4 Cache",
+            metadata={"is_public_content_hub": True},
+        )
+
+        entitlement, _ = grant_institute_feature_entitlement(
+            institute=public_hub,
+            feature_code="exam_blueprint_export",
+        )
+
+        self.assertTrue(institute_has_question_bank_feature(public_hub, "exam_blueprint_export"))
+
+        with CaptureQueriesContext(connection) as cached_query_context:
+            self.assertTrue(institute_has_question_bank_feature(public_hub, "exam_blueprint_export"))
+        self.assertEqual(len(cached_query_context), 0)
+
+        update_institute_question_feature_entitlement_status(
+            entitlement=entitlement,
+            status=InstituteQuestionEntitlementStatus.REVOKED,
+        )
+
+        with CaptureQueriesContext(connection) as post_revoke_query_context:
+            self.assertFalse(institute_has_question_bank_feature(public_hub, "exam_blueprint_export"))
+        self.assertGreater(len(post_revoke_query_context), 0)
+
+    def test_bulk_master_question_access_summaries_cache_and_invalidate_entitlements(self):
+        cache.clear()
+        public_hub = self.builder.create_institute(
+            code="PUBEQ4QB",
+            name="Public Question Hub 4 QB Cache",
+            metadata={"is_public_content_hub": True},
+        )
+        private_institute = self.builder.create_institute(
+            code="SCH904",
+            name="Subscribed School Cache",
+        )
+        public_program = self.builder.create_program(public_hub, code="CLS7", name="Class 7")
+        public_subject = self.builder.create_subject(public_hub, public_program, code="CLS7-MATH", name="Math")
+        public_topic = self.builder.create_topic(public_hub, public_subject, code="ALG-01", name="Algebra")
+        master_question = MasterQuestion.objects.create(
+            source_institute=public_hub,
+            source_program=public_program,
+            source_subject=public_subject,
+            source_topic=public_topic,
+            question_type="mcq_single",
+            difficulty_level="intermediate",
+            question_text="What is x + x?",
+            source_type=MasterQuestionSourceType.PLATFORM,
+            visibility=MasterQuestionVisibility.SHARED_BY_REQUEST,
+        )
+        package = QuestionBankPackage.objects.create(
+            institute=public_hub,
+            name="Cached Math Library",
+            code="CACHED_MATH_LIBRARY",
+            package_type=QuestionBankPackageType.SUBJECT_LIBRARY,
+            ownership_type=QuestionBankOwnershipType.PLATFORM,
+        )
+        QuestionBankPackageScope.objects.create(
+            institute=public_hub,
+            package=package,
+            program=public_program,
+            subject=public_subject,
+            topic=public_topic,
+            question_source_type="platform_only",
+            question_type="mcq_single",
+            difficulty_level="intermediate",
+            master_visibility="shared_by_request",
+        )
+        entitlement, _ = grant_institute_question_bank_entitlement(
+            institute=private_institute,
+            question_bank_package=package,
+        )
+
+        first_summary = bulk_get_master_question_access_summaries(
+            private_institute,
+            master_questions=[master_question],
+        )
+        self.assertTrue(first_summary[str(master_question.id)]["has_access"])
+
+        with CaptureQueriesContext(connection) as cached_query_context:
+            second_summary = bulk_get_master_question_access_summaries(
+                private_institute,
+                master_questions=[master_question],
+            )
+        self.assertTrue(second_summary[str(master_question.id)]["has_access"])
+        self.assertEqual(len(cached_query_context), 0)
+
+        update_institute_question_bank_entitlement_status(
+            entitlement=entitlement,
+            status=InstituteQuestionEntitlementStatus.REVOKED,
+        )
+
+        with CaptureQueriesContext(connection) as post_revoke_query_context:
+            revoked_summary = bulk_get_master_question_access_summaries(
+                private_institute,
+                master_questions=[master_question],
+            )
+        self.assertFalse(revoked_summary[str(master_question.id)]["has_access"])
+        self.assertGreater(len(post_revoke_query_context), 0)
 
     def test_platform_master_question_access_requires_matching_package_scope(self):
         public_hub = self.builder.create_institute(

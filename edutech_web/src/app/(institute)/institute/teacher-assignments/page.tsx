@@ -52,7 +52,7 @@ export default async function InstituteTeacherAssignmentsPage() {
     <section className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteSupportPageVivid">
       <InstitutePageHeader
         title="Teacher Assignments"
-        description="Manage institute-scoped teacher ownership across years, programs, cohorts, and subjects from one operational screen."
+        description="Manage teacher ownership across years, programs, cohorts, and subjects from one operational screen."
         statusLabel={`${assignmentCount} assignments in scope`}
         statusTone="live"
       />

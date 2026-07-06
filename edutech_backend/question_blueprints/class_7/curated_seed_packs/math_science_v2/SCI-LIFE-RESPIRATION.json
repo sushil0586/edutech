@@ -1,0 +1,1426 @@
+{
+  "topic_code": "SCI-LIFE-RESPIRATION",
+  "topic_name": "Respiration in Organisms",
+  "questions": [
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Respiration is the process of:",
+      "explanation": "Respiration releases energy from food inside living cells.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Making food in leaves",
+          "is_correct": false
+        },
+        {
+          "option_text": "Releasing energy from food",
+          "is_correct": true
+        },
+        {
+          "option_text": "Absorbing sunlight only",
+          "is_correct": false
+        },
+        {
+          "option_text": "Drinking water",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which gas do humans take in during breathing?",
+      "explanation": "Humans inhale oxygen from the air during breathing.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Oxygen",
+          "is_correct": true
+        },
+        {
+          "option_text": "Carbon dioxide",
+          "is_correct": false
+        },
+        {
+          "option_text": "Nitrogen only",
+          "is_correct": false
+        },
+        {
+          "option_text": "Helium",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "classification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which organ helps us breathe in and out?",
+      "explanation": "The lungs are the main breathing organs in humans.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Kidney",
+          "is_correct": false
+        },
+        {
+          "option_text": "Lungs",
+          "is_correct": true
+        },
+        {
+          "option_text": "Liver",
+          "is_correct": false
+        },
+        {
+          "option_text": "Stomach",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "familiar_example_identification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "true_false",
+      "difficulty_level": "foundation",
+      "question_text": "Breathing and respiration are exactly the same thing.",
+      "explanation": "Breathing is the movement of air in and out of the body, while respiration is the cellular process that releases energy.",
+      "default_marks": "1.00",
+      "negative_marks": "0.00",
+      "options": [
+        {
+          "option_text": "True",
+          "is_correct": false
+        },
+        {
+          "option_text": "False",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "archetype": "true_false_concept",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which gas is released during exhalation in larger amount than in inhaled air?",
+      "explanation": "Carbon dioxide is produced during respiration and removed during exhalation.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Oxygen",
+          "is_correct": false
+        },
+        {
+          "option_text": "Carbon dioxide",
+          "is_correct": true
+        },
+        {
+          "option_text": "Hydrogen",
+          "is_correct": false
+        },
+        {
+          "option_text": "Argon",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "observation_based_inference",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "We breathe faster after running because our body needs:",
+      "explanation": "During exercise, the body needs more oxygen and must remove more carbon dioxide.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "More sleep immediately",
+          "is_correct": false
+        },
+        {
+          "option_text": "More oxygen and faster gas exchange",
+          "is_correct": true
+        },
+        {
+          "option_text": "Less blood flow",
+          "is_correct": false
+        },
+        {
+          "option_text": "Less energy",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "daily_life_application",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "The tiny air sacs in the lungs where exchange of gases occurs are called:",
+      "explanation": "Alveoli are tiny balloon-like sacs that help exchange oxygen and carbon dioxide.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Nostrils",
+          "is_correct": false
+        },
+        {
+          "option_text": "Bronchi",
+          "is_correct": false
+        },
+        {
+          "option_text": "Alveoli",
+          "is_correct": true
+        },
+        {
+          "option_text": "Veins",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Respiration that uses oxygen is called:",
+      "explanation": "Aerobic respiration happens in the presence of oxygen.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Aerobic respiration",
+          "is_correct": true
+        },
+        {
+          "option_text": "Anaerobic respiration",
+          "is_correct": false
+        },
+        {
+          "option_text": "External digestion",
+          "is_correct": false
+        },
+        {
+          "option_text": "Fermentation only",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "classification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "true_false",
+      "difficulty_level": "foundation",
+      "question_text": "All living organisms respire all the time.",
+      "explanation": "Respiration is necessary to release energy for life processes.",
+      "default_marks": "1.00",
+      "negative_marks": "0.00",
+      "options": [
+        {
+          "option_text": "True",
+          "is_correct": true
+        },
+        {
+          "option_text": "False",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "true_false_concept",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which part of the breathing system first receives the air from outside?",
+      "explanation": "Air usually enters the body through the nostrils.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Nostrils",
+          "is_correct": true
+        },
+        {
+          "option_text": "Alveoli",
+          "is_correct": false
+        },
+        {
+          "option_text": "Diaphragm",
+          "is_correct": false
+        },
+        {
+          "option_text": "Heart",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "familiar_example_identification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "The muscle that moves downward when we inhale is the:",
+      "explanation": "The diaphragm contracts and moves downward during inhalation.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Tongue",
+          "is_correct": false
+        },
+        {
+          "option_text": "Trachea",
+          "is_correct": false
+        },
+        {
+          "option_text": "Diaphragm",
+          "is_correct": true
+        },
+        {
+          "option_text": "Pancreas",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which statement about exhaled air is correct?",
+      "explanation": "Exhaled air still contains oxygen, but it has more carbon dioxide than inhaled air.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "It contains no oxygen at all",
+          "is_correct": false
+        },
+        {
+          "option_text": "It contains more carbon dioxide than inhaled air",
+          "is_correct": true
+        },
+        {
+          "option_text": "It has only nitrogen",
+          "is_correct": false
+        },
+        {
+          "option_text": "It cannot support any flame because it is empty",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "misconception_correction",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "foundation",
+      "question_text": "What is breathing?",
+      "explanation": "Breathing is the process of taking air in and pushing air out of the body.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "archetype": "concept_explanation",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "Taking air in and out of the body",
+          "Inhalation and exhalation of air",
+          "Movement of air into and out of the lungs"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which organism breathes through gills?",
+      "explanation": "Fish use gills to take dissolved oxygen from water.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Earthworm",
+          "is_correct": false
+        },
+        {
+          "option_text": "Cockroach",
+          "is_correct": false
+        },
+        {
+          "option_text": "Fish",
+          "is_correct": true
+        },
+        {
+          "option_text": "Human",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "recall_with_example",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "In cockroaches, air enters the body through small openings called:",
+      "explanation": "Cockroaches breathe through spiracles present on the sides of their bodies.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Stomata",
+          "is_correct": false
+        },
+        {
+          "option_text": "Spiracles",
+          "is_correct": true
+        },
+        {
+          "option_text": "Alveoli",
+          "is_correct": false
+        },
+        {
+          "option_text": "Tracheae in leaves",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "classification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which structure helps earthworms exchange gases?",
+      "explanation": "Earthworms respire through their moist skin.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Dry scales",
+          "is_correct": false
+        },
+        {
+          "option_text": "Gills",
+          "is_correct": false
+        },
+        {
+          "option_text": "Moist skin",
+          "is_correct": true
+        },
+        {
+          "option_text": "Lungs",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Plants exchange gases mainly through tiny pores on leaves called:",
+      "explanation": "Stomata are small pores on leaves that allow gas exchange.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Spiracles",
+          "is_correct": false
+        },
+        {
+          "option_text": "Alveoli",
+          "is_correct": false
+        },
+        {
+          "option_text": "Stomata",
+          "is_correct": true
+        },
+        {
+          "option_text": "Capillaries",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "familiar_example_identification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Why must earthworms live in moist soil?",
+      "explanation": "Their skin must remain moist for respiration.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "To produce fire",
+          "is_correct": false
+        },
+        {
+          "option_text": "To make food from sunlight",
+          "is_correct": false
+        },
+        {
+          "option_text": "To keep the skin moist for breathing",
+          "is_correct": true
+        },
+        {
+          "option_text": "To avoid blood circulation",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "best_explanation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "true_false",
+      "difficulty_level": "foundation",
+      "question_text": "The number of breaths per minute is called the breathing rate.",
+      "explanation": "Breathing rate is measured by counting breaths taken in one minute.",
+      "default_marks": "1.00",
+      "negative_marks": "0.00",
+      "options": [
+        {
+          "option_text": "True",
+          "is_correct": true
+        },
+        {
+          "option_text": "False",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "true_false_concept",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Assertion: Our chest expands when we inhale.\nReason: The ribs move upward and outward during inhalation.",
+      "explanation": "Both statements are true, and the reason correctly explains the assertion.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Both Assertion and Reason are true, and Reason correctly explains Assertion",
+          "is_correct": true
+        },
+        {
+          "option_text": "Both Assertion and Reason are true, but Reason does not explain Assertion",
+          "is_correct": false
+        },
+        {
+          "option_text": "Assertion is true, but Reason is false",
+          "is_correct": false
+        },
+        {
+          "option_text": "Assertion is false, but Reason is true",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "assertion_reason",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Why do muscles ache after very heavy exercise?",
+      "explanation": "When oxygen supply is insufficient, some muscle cells perform anaerobic respiration and lactic acid may accumulate.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Because the lungs stop working completely",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because lactic acid may form during anaerobic respiration",
+          "is_correct": true
+        },
+        {
+          "option_text": "Because only water is produced",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because blood becomes solid",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "cause_effect_link",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "If lime water turns milky when we breathe into it, this shows the presence of:",
+      "explanation": "Carbon dioxide reacts with lime water and turns it milky.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Oxygen",
+          "is_correct": false
+        },
+        {
+          "option_text": "Water vapor only",
+          "is_correct": false
+        },
+        {
+          "option_text": "Carbon dioxide",
+          "is_correct": true
+        },
+        {
+          "option_text": "Nitrogen",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "experiment_interpretation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What happens to the diaphragm during exhalation?",
+      "explanation": "During exhalation, the diaphragm relaxes and moves upward, helping push air out.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "It contracts and moves downward",
+          "is_correct": false
+        },
+        {
+          "option_text": "It relaxes and moves upward",
+          "is_correct": true
+        },
+        {
+          "option_text": "It disappears for a moment",
+          "is_correct": false
+        },
+        {
+          "option_text": "It fills with air",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "process_explanation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which sequence is correct during inhalation?",
+      "explanation": "During inhalation, ribs move up and out, chest cavity expands, lungs expand, and air enters.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Lungs shrink -> air enters -> ribs move down",
+          "is_correct": false
+        },
+        {
+          "option_text": "Ribs move up and out -> chest expands -> air enters",
+          "is_correct": true
+        },
+        {
+          "option_text": "Diaphragm rises -> lungs expand -> air leaves",
+          "is_correct": false
+        },
+        {
+          "option_text": "Air leaves -> chest expands -> ribs move inward",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "sequence_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "intermediate",
+      "question_text": "State one difference between aerobic and anaerobic respiration.",
+      "explanation": "Aerobic respiration uses oxygen, while anaerobic respiration occurs without oxygen.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "archetype": "compare_and_contrast",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "Aerobic respiration uses oxygen but anaerobic respiration does not",
+          "Aerobic needs oxygen, anaerobic happens without oxygen",
+          "Aerobic releases energy with oxygen whereas anaerobic releases energy without oxygen"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Why does breathing rate usually increase when climbing stairs?",
+      "explanation": "The body requires more energy, so more oxygen is needed and more carbon dioxide must be removed.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "The body needs less oxygen",
+          "is_correct": false
+        },
+        {
+          "option_text": "The lungs become smaller permanently",
+          "is_correct": false
+        },
+        {
+          "option_text": "The body needs more oxygen and faster energy release",
+          "is_correct": true
+        },
+        {
+          "option_text": "Only the heart needs water",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "everyday_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_multiple",
+      "difficulty_level": "intermediate",
+      "question_text": "Select all organisms or structures correctly matched with their breathing method.",
+      "explanation": "Fish use gills, earthworms use moist skin, and cockroaches use spiracles and air tubes.",
+      "default_marks": "2.00",
+      "negative_marks": "0.50",
+      "options": [
+        {
+          "option_text": "Fish - gills",
+          "is_correct": true
+        },
+        {
+          "option_text": "Earthworm - moist skin",
+          "is_correct": true
+        },
+        {
+          "option_text": "Cockroach - spiracles",
+          "is_correct": true
+        },
+        {
+          "option_text": "Human - stomata",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "multi_select_truth_evaluation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "If a person’s chest does not expand properly during inhalation, which process is directly affected first?",
+      "explanation": "Air entry into the lungs depends on expansion of the chest cavity.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Digestion of food",
+          "is_correct": false
+        },
+        {
+          "option_text": "Entry of air into the lungs",
+          "is_correct": true
+        },
+        {
+          "option_text": "Formation of urine",
+          "is_correct": false
+        },
+        {
+          "option_text": "Blood clotting",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "observation_based_inference",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Why are alveoli useful in the lungs?",
+      "explanation": "Alveoli provide a very large surface area for exchange of gases.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "They pump blood like the heart",
+          "is_correct": false
+        },
+        {
+          "option_text": "They store food",
+          "is_correct": false
+        },
+        {
+          "option_text": "They increase the surface area for gas exchange",
+          "is_correct": true
+        },
+        {
+          "option_text": "They produce bones",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "best_explanation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which statement about plants and respiration is correct?",
+      "explanation": "Plants respire all the time, both day and night.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Plants respire only at night",
+          "is_correct": false
+        },
+        {
+          "option_text": "Plants respire only during photosynthesis",
+          "is_correct": false
+        },
+        {
+          "option_text": "Plants respire all the time",
+          "is_correct": true
+        },
+        {
+          "option_text": "Plants never release carbon dioxide",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "misconception_correction",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "A yeast solution is kept without much oxygen and bubbles are seen. This suggests:",
+      "explanation": "Yeast can respire anaerobically and release carbon dioxide bubbles.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Only photosynthesis is happening",
+          "is_correct": false
+        },
+        {
+          "option_text": "Anaerobic respiration is occurring",
+          "is_correct": true
+        },
+        {
+          "option_text": "The yeast has become a plant",
+          "is_correct": false
+        },
+        {
+          "option_text": "Water is freezing",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "what_can_be_concluded",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "true_false",
+      "difficulty_level": "intermediate",
+      "question_text": "During exhalation, the ribs usually move downward and inward.",
+      "explanation": "That movement reduces the chest cavity volume and helps air leave the lungs.",
+      "default_marks": "1.00",
+      "negative_marks": "0.00",
+      "options": [
+        {
+          "option_text": "True",
+          "is_correct": true
+        },
+        {
+          "option_text": "False",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "true_false_concept",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "A frog lives both in water and on land. Which statement best fits its respiration?",
+      "explanation": "Frogs can use their skin in water and lungs on land.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "It uses only gills throughout life",
+          "is_correct": false
+        },
+        {
+          "option_text": "It cannot breathe on land",
+          "is_correct": false
+        },
+        {
+          "option_text": "It can respire through skin in water and lungs on land",
+          "is_correct": true
+        },
+        {
+          "option_text": "It has spiracles like insects",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "scenario_analysis",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which observation best suggests that the person is inhaling rather than exhaling?",
+      "explanation": "During inhalation, the chest expands and air moves inward.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Chest becomes smaller and air moves out",
+          "is_correct": false
+        },
+        {
+          "option_text": "Chest expands and air moves in",
+          "is_correct": true
+        },
+        {
+          "option_text": "Diaphragm moves upward and lungs shrink",
+          "is_correct": false
+        },
+        {
+          "option_text": "Carbon dioxide is released into lime water",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "evidence_based_choice",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "intermediate",
+      "question_text": "Why can’t an earthworm survive for long on a dry surface?",
+      "explanation": "Its skin must remain moist for exchange of gases. Dry skin stops proper respiration.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "archetype": "process_explanation",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "Because its skin dries up and gas exchange becomes difficult",
+          "It breathes through moist skin, so dry conditions affect respiration",
+          "Without moisture its respiration through skin is disturbed"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Why does holding the breath for too long become uncomfortable mainly because of carbon dioxide buildup?",
+      "explanation": "The body strongly senses rising carbon dioxide levels, which triggers the urge to breathe.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Because oxygen becomes heavier",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because rising carbon dioxide strongly stimulates the urge to breathe",
+          "is_correct": true
+        },
+        {
+          "option_text": "Because the stomach fills with air",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because the heart stops immediately",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "chain_of_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "A student compares breathing rates before and after exercise. Why must the student count for the same time interval each time?",
+      "explanation": "Using the same time interval makes the comparison fair and meaningful.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "To change the number of lungs used",
+          "is_correct": false
+        },
+        {
+          "option_text": "To reduce oxygen in the room",
+          "is_correct": false
+        },
+        {
+          "option_text": "To make the comparison fair",
+          "is_correct": true
+        },
+        {
+          "option_text": "To stop exhalation",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "applied_science_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which setup best shows that exhaled air contains more carbon dioxide than inhaled air?",
+      "explanation": "Passing exhaled air through lime water turns it milky more quickly because it contains more carbon dioxide.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Heating oxygen in a test tube",
+          "is_correct": false
+        },
+        {
+          "option_text": "Bubbling exhaled air through lime water",
+          "is_correct": true
+        },
+        {
+          "option_text": "Looking at air under a microscope",
+          "is_correct": false
+        },
+        {
+          "option_text": "Mixing nitrogen with water",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "experiment_design",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which option correctly matches organism and gas-exchange structure?",
+      "explanation": "Fish use gills, humans use lungs, and plants mainly use stomata for gas exchange.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Fish - lungs; Human - spiracles; Plant - alveoli",
+          "is_correct": false
+        },
+        {
+          "option_text": "Fish - gills; Human - lungs; Plant - stomata",
+          "is_correct": true
+        },
+        {
+          "option_text": "Fish - skin; Human - stomata; Plant - gills",
+          "is_correct": false
+        },
+        {
+          "option_text": "Fish - alveoli; Human - gills; Plant - spiracles",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "integrated_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_multiple",
+      "difficulty_level": "advanced",
+      "question_text": "Select all statements that are correct about respiration.",
+      "explanation": "Respiration releases energy, happens in cells, and may occur with or without oxygen in different conditions.",
+      "default_marks": "2.00",
+      "negative_marks": "0.50",
+      "options": [
+        {
+          "option_text": "It releases energy from food",
+          "is_correct": true
+        },
+        {
+          "option_text": "It occurs in living cells",
+          "is_correct": true
+        },
+        {
+          "option_text": "It may happen with or without oxygen depending on the organism and situation",
+          "is_correct": true
+        },
+        {
+          "option_text": "It happens only in lungs",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "multi_select_truth_evaluation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Two children run the same distance. One stops immediately and one keeps walking slowly for a minute. Why may the second child recover breathing more smoothly?",
+      "explanation": "Gradual slowing helps the body adjust while oxygen demand and carbon dioxide removal return toward normal.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Walking prevents all respiration",
+          "is_correct": false
+        },
+        {
+          "option_text": "Slow walking removes the lungs",
+          "is_correct": false
+        },
+        {
+          "option_text": "Gradual slowing helps the body return toward normal breathing",
+          "is_correct": true
+        },
+        {
+          "option_text": "Fast breathing is permanently stopped by walking",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "scenario_comparison",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Why is a large surface area important in alveoli?",
+      "explanation": "A larger surface area allows more efficient exchange of gases between air and blood.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "It stores more bones",
+          "is_correct": false
+        },
+        {
+          "option_text": "It improves exchange of oxygen and carbon dioxide",
+          "is_correct": true
+        },
+        {
+          "option_text": "It increases digestion speed",
+          "is_correct": false
+        },
+        {
+          "option_text": "It prevents blood flow",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "best_explanation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "advanced",
+      "question_text": "Explain why breathing through the nose is usually better than breathing through the mouth.",
+      "explanation": "The nose helps filter, warm, and moisten incoming air before it reaches the lungs.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "archetype": "reasoning_with_example",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "The nose filters, warms, and moistens air",
+          "Air is cleaned and conditioned better in the nose",
+          "Nose hairs and mucus help prepare the air before it reaches the lungs"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which observation would best help a student identify anaerobic respiration in muscles?",
+      "explanation": "Muscle fatigue or cramps after intense exercise can be linked to anaerobic respiration and lactic acid formation.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Increase in leaf size",
+          "is_correct": false
+        },
+        {
+          "option_text": "Fish opening and closing gills",
+          "is_correct": false
+        },
+        {
+          "option_text": "Muscle pain after intense exercise",
+          "is_correct": true
+        },
+        {
+          "option_text": "Expansion of a balloon in sunlight",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "process_selection",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Why would blocking many stomata on a leaf affect the plant’s respiration?",
+      "explanation": "Stomata are important sites for gas exchange, so blocking them reduces movement of gases.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "It would increase fish-like breathing",
+          "is_correct": false
+        },
+        {
+          "option_text": "It would make roots disappear",
+          "is_correct": false
+        },
+        {
+          "option_text": "It would reduce gas exchange through the leaf",
+          "is_correct": true
+        },
+        {
+          "option_text": "It would stop photosynthesis only but never affect respiration",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "cause_effect_link",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "If a person inhales but the diaphragm does not contract properly, what is the most likely result?",
+      "explanation": "Without proper downward movement of the diaphragm, chest expansion is reduced and less air enters the lungs.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "The lungs fill more easily",
+          "is_correct": false
+        },
+        {
+          "option_text": "More oxygen is produced inside the nose",
+          "is_correct": false
+        },
+        {
+          "option_text": "Less air enters the lungs",
+          "is_correct": true
+        },
+        {
+          "option_text": "Exhalation stops forever",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "what_if_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "To compare resting breathing rates of classmates fairly, what should be controlled first?",
+      "explanation": "They should all be at rest and counted over the same duration so the comparison is fair.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Shoe color",
+          "is_correct": false
+        },
+        {
+          "option_text": "Height of the classroom windows",
+          "is_correct": false
+        },
+        {
+          "option_text": "Similar resting condition and same counting time",
+          "is_correct": true
+        },
+        {
+          "option_text": "Whether they ate the same fruit last week",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "decision_under_uncertainty",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "A cockroach’s spiracles are blocked with dust and oil. Which problem would most directly occur first?",
+      "explanation": "Spiracles are breathing openings, so blocking them interferes with movement of air.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Its wings would turn into leaves",
+          "is_correct": false
+        },
+        {
+          "option_text": "Air entry for respiration would be disturbed",
+          "is_correct": true
+        },
+        {
+          "option_text": "It would lose all body water instantly",
+          "is_correct": false
+        },
+        {
+          "option_text": "Digestion would stop before breathing is affected",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "scenario_analysis",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which evidence best supports the statement that plants also respire?",
+      "explanation": "Plants take in oxygen and release carbon dioxide during respiration, especially observable when photosynthesis is not occurring.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Plants are always green",
+          "is_correct": false
+        },
+        {
+          "option_text": "Plants grow toward light",
+          "is_correct": false
+        },
+        {
+          "option_text": "Plants exchange gases even when they are not photosynthesizing",
+          "is_correct": true
+        },
+        {
+          "option_text": "Plants absorb water through roots",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "evidence_based_choice",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which statement correctly connects breathing, blood, and cells in humans?",
+      "explanation": "Breathing brings oxygen into the lungs, blood carries oxygen to cells, and cells use it to release energy from food.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Breathing takes oxygen directly into the stomach where energy is made",
+          "is_correct": false
+        },
+        {
+          "option_text": "Cells send oxygen to the lungs before breathing begins",
+          "is_correct": false
+        },
+        {
+          "option_text": "Breathing brings in oxygen, blood carries it, and cells use it for respiration",
+          "is_correct": true
+        },
+        {
+          "option_text": "Blood performs respiration outside the body",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "integrated_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    }
+  ]
+}

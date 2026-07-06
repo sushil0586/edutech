@@ -4,7 +4,26 @@
 
 This matrix converts the exam-creation scenario catalog into automation-ready Playwright cases.
 
-This is still planning-only documentation. It does not imply current coverage.
+This started as planning-only documentation, but parts of the matrix are now implemented by the mutable wizard and advanced-builder specs.
+
+## Current Evidence Status
+
+- Already covered in mutable browser evidence:
+  - platform admin guided wizard creation for `practice`, `quiz`, and `mock_exam`
+  - platform admin advanced-builder creation for `practice`, `quiz`, and `mock_exam`
+  - institute guided wizard creation for `practice`, `quiz`, and `mock_exam`
+  - institute advanced-builder creation for `practice`, `quiz`, and `mock_exam`
+  - admin and institute preset-pack to advanced-builder handoff for seeded family packs
+  - admin and institute family preset-derived create/save persistence
+  - admin and institute managed preset-library create/save persistence
+  - admin and institute assignment-mode enumeration for the currently exposed builder catalog (`scope` and `selected_students`)
+  - `entitlement_only` access-policy persistence in mutable admin and institute exam-detail actions
+  - selected-student assignment persistence
+  - single ranked learner visibility after results publication
+  - single-learner handoff through student visibility and leaderboard-ready results publication
+- Still mainly planned or partially covered:
+  - broader stars/security combinations beyond the current baseline
+  - broader multi-learner distribution and ranking assertions after publication
 
 ## Execution Principles
 
@@ -18,10 +37,10 @@ This is still planning-only documentation. It does not imply current coverage.
 
 - `tests/e2e/workflow/admin-exam-creation-wizard-matrix.mutable.spec.ts`
 - `tests/e2e/workflow/admin-exam-creation-advanced-matrix.mutable.spec.ts`
-- `tests/e2e/workflow/admin-exam-creation-preset-library.mutable.spec.ts`
+- `tests/e2e/workflow/admin-preset-library-persistence.mutable.spec.ts`
 - `tests/e2e/workflow/institute-exam-creation-wizard-matrix.mutable.spec.ts`
 - `tests/e2e/workflow/institute-exam-creation-advanced-matrix.mutable.spec.ts`
-- `tests/e2e/workflow/institute-exam-creation-preset-library.mutable.spec.ts`
+- `tests/e2e/workflow/institute-preset-library-persistence.mutable.spec.ts`
 
 ## Shared Helper Work To Build First
 
@@ -155,6 +174,11 @@ If we want the highest signal with the fewest specs first, start here:
 12. `IA-PRE-002`
 13. `PA-PRE-002`
 
+Current note:
+
+- items `1` through `11` are effectively represented now by existing mutable wizard and advanced-builder matrix coverage
+- the next highest-value remaining expansion from this starter slice is broader stars/security combinations plus multi-learner distribution depth
+
 ## Cases That Need Runtime Enumeration
 
 These cases should not hardcode the exact option set beyond values already confirmed in code.
@@ -163,6 +187,12 @@ These cases should not hardcode the exact option set beyond values already confi
 - `PA-ADV-012`
 - `IA-WIZ-011`
 - `IA-ADV-011`
+
+Status note:
+
+- current mutable evidence proves both currently exposed builder assignment-mode values: `scope` and `selected_students`
+- current mutable evidence also proves a single ranked learner baseline after publication
+- if the runtime catalog exposes additional assignment modes later, these four cases become the explicit expansion point again
 
 Implementation rule:
 

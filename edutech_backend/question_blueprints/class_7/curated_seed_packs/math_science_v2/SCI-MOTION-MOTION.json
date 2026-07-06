@@ -1,0 +1,1426 @@
+{
+  "topic_code": "SCI-MOTION-MOTION",
+  "topic_name": "Motion in Everyday Life",
+  "questions": [
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "When the position of an object changes with time, the object is said to be in:",
+      "explanation": "Motion means change in position of an object with time.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Rest",
+          "is_correct": false
+        },
+        {
+          "option_text": "Motion",
+          "is_correct": true
+        },
+        {
+          "option_text": "Sleep",
+          "is_correct": false
+        },
+        {
+          "option_text": "Rotation only",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which of the following is an example of motion?",
+      "explanation": "A car moving on a road is changing its position with time.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "A parked bicycle",
+          "is_correct": false
+        },
+        {
+          "option_text": "A book on a table",
+          "is_correct": false
+        },
+        {
+          "option_text": "A car moving on a road",
+          "is_correct": true
+        },
+        {
+          "option_text": "A wall in a room",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "classification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which object is at rest with respect to your classroom floor?",
+      "explanation": "An object is at rest if its position does not change relative to the chosen surroundings.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "A flying bird",
+          "is_correct": false
+        },
+        {
+          "option_text": "A chair kept in one place",
+          "is_correct": true
+        },
+        {
+          "option_text": "A rolling ball",
+          "is_correct": false
+        },
+        {
+          "option_text": "A running student",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "familiar_example_identification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "true_false",
+      "difficulty_level": "foundation",
+      "question_text": "An object can appear at rest to one observer and in motion to another observer.",
+      "explanation": "Motion depends on the reference point or surroundings chosen by the observer.",
+      "default_marks": "1.00",
+      "negative_marks": "0.00",
+      "options": [
+        {
+          "option_text": "True",
+          "is_correct": true
+        },
+        {
+          "option_text": "False",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "true_false_concept",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "The length of the actual path covered by an object is called:",
+      "explanation": "Distance is the total path length travelled by an object.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Speed",
+          "is_correct": false
+        },
+        {
+          "option_text": "Time",
+          "is_correct": false
+        },
+        {
+          "option_text": "Distance",
+          "is_correct": true
+        },
+        {
+          "option_text": "Shape",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "The SI unit of distance is:",
+      "explanation": "Distance is measured in metre in the SI system.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Second",
+          "is_correct": false
+        },
+        {
+          "option_text": "Metre",
+          "is_correct": true
+        },
+        {
+          "option_text": "Kilogram",
+          "is_correct": false
+        },
+        {
+          "option_text": "Litre",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_formula_use",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "The SI unit of time is:",
+      "explanation": "Time is measured in seconds in the SI system.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Hour",
+          "is_correct": false
+        },
+        {
+          "option_text": "Minute",
+          "is_correct": false
+        },
+        {
+          "option_text": "Second",
+          "is_correct": true
+        },
+        {
+          "option_text": "Day",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Speed tells us:",
+      "explanation": "Speed describes how fast an object moves.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "The color of an object",
+          "is_correct": false
+        },
+        {
+          "option_text": "The weight of an object",
+          "is_correct": false
+        },
+        {
+          "option_text": "How fast an object is moving",
+          "is_correct": true
+        },
+        {
+          "option_text": "The temperature of an object",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Speed is calculated by:",
+      "explanation": "Speed equals distance travelled divided by time taken.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Distance divided by time",
+          "is_correct": true
+        },
+        {
+          "option_text": "Time divided by distance",
+          "is_correct": false
+        },
+        {
+          "option_text": "Distance plus time",
+          "is_correct": false
+        },
+        {
+          "option_text": "Distance multiplied by time",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "formula_recall",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which of the following is a unit of speed?",
+      "explanation": "Metre per second is a standard unit of speed.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Metre",
+          "is_correct": false
+        },
+        {
+          "option_text": "Second",
+          "is_correct": false
+        },
+        {
+          "option_text": "Metre per second",
+          "is_correct": true
+        },
+        {
+          "option_text": "Square metre",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "unit_identification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "true_false",
+      "difficulty_level": "foundation",
+      "question_text": "If two objects cover the same distance in the same time, their speeds are equal.",
+      "explanation": "Equal distance divided by equal time gives equal speed.",
+      "default_marks": "1.00",
+      "negative_marks": "0.00",
+      "options": [
+        {
+          "option_text": "True",
+          "is_correct": true
+        },
+        {
+          "option_text": "False",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "true_false_concept",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which device in a vehicle shows its speed at a particular moment?",
+      "explanation": "A speedometer shows the instantaneous speed of the vehicle.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Thermometer",
+          "is_correct": false
+        },
+        {
+          "option_text": "Ammeter",
+          "is_correct": false
+        },
+        {
+          "option_text": "Speedometer",
+          "is_correct": true
+        },
+        {
+          "option_text": "Barometer",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "daily_life_application",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which type of motion does the second hand of a clock show?",
+      "explanation": "It moves repeatedly in a circular path at regular intervals, so it is periodic motion.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Random motion",
+          "is_correct": false
+        },
+        {
+          "option_text": "Periodic motion",
+          "is_correct": true
+        },
+        {
+          "option_text": "No motion",
+          "is_correct": false
+        },
+        {
+          "option_text": "Translatory motion only",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "familiar_example_identification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "A child on a swing shows:",
+      "explanation": "The swing repeats its motion again and again after equal intervals, so it is periodic motion.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Rectilinear motion only",
+          "is_correct": false
+        },
+        {
+          "option_text": "Random motion",
+          "is_correct": false
+        },
+        {
+          "option_text": "Periodic motion",
+          "is_correct": true
+        },
+        {
+          "option_text": "Rest",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "classification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "The motion of a stone falling straight down is usually:",
+      "explanation": "The stone moves along a straight path, so it shows rectilinear motion.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Rectilinear motion",
+          "is_correct": true
+        },
+        {
+          "option_text": "Circular motion",
+          "is_correct": false
+        },
+        {
+          "option_text": "Rotational motion",
+          "is_correct": false
+        },
+        {
+          "option_text": "Periodic motion",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "classification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "The blades of a moving ceiling fan show:",
+      "explanation": "The blades move around a fixed axis, which is rotational motion.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Rectilinear motion",
+          "is_correct": false
+        },
+        {
+          "option_text": "Rotational motion",
+          "is_correct": true
+        },
+        {
+          "option_text": "Oscillatory motion only",
+          "is_correct": false
+        },
+        {
+          "option_text": "No motion",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "classification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "foundation",
+      "question_text": "What is meant by rest?",
+      "explanation": "An object is at rest if its position does not change with time relative to its surroundings.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "archetype": "concept_explanation",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "A body is at rest if its position does not change with time",
+          "Rest means no change in position relative to surroundings",
+          "An object staying in the same place with respect to a reference point"
+        ]
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "foundation",
+      "question_text": "Write the formula for speed.",
+      "explanation": "Speed is found by dividing distance travelled by time taken.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "archetype": "concept_explanation",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "Speed = distance divided by time",
+          "Speed = distance/time"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "A boy walks 100 m in 20 s. What is his speed?",
+      "explanation": "Speed = 100/20 = 5 m/s.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "2 m/s",
+          "is_correct": false
+        },
+        {
+          "option_text": "4 m/s",
+          "is_correct": false
+        },
+        {
+          "option_text": "5 m/s",
+          "is_correct": true
+        },
+        {
+          "option_text": "20 m/s",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "numeric_substitution",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "A runner covers 60 m in 10 s. Her speed is:",
+      "explanation": "Speed = 60/10 = 6 m/s.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "5 m/s",
+          "is_correct": false
+        },
+        {
+          "option_text": "6 m/s",
+          "is_correct": true
+        },
+        {
+          "option_text": "7 m/s",
+          "is_correct": false
+        },
+        {
+          "option_text": "12 m/s",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "numeric_substitution",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Two students sit inside a moving bus. To them, another seated passenger appears:",
+      "explanation": "Relative to them, the other passenger is not changing position, so appears at rest.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "At rest",
+          "is_correct": true
+        },
+        {
+          "option_text": "Moving backward fast",
+          "is_correct": false
+        },
+        {
+          "option_text": "Moving upward",
+          "is_correct": false
+        },
+        {
+          "option_text": "Rotating",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "case_based_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which statement is correct about a moving train?",
+      "explanation": "The train is in motion relative to the ground, but passengers sitting inside may be at rest relative to each other.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "It is at rest for every observer",
+          "is_correct": false
+        },
+        {
+          "option_text": "It may be moving for one observer and at rest for another",
+          "is_correct": true
+        },
+        {
+          "option_text": "It can never be compared with surroundings",
+          "is_correct": false
+        },
+        {
+          "option_text": "It shows only periodic motion",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "misconception_correction",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "A cyclist covers 120 m in 30 s, and a walker covers 40 m in 10 s. Who has greater speed?",
+      "explanation": "Cyclist speed = 120/30 = 4 m/s. Walker speed = 40/10 = 4 m/s. Both are equal.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Cyclist",
+          "is_correct": false
+        },
+        {
+          "option_text": "Walker",
+          "is_correct": false
+        },
+        {
+          "option_text": "Both have equal speed",
+          "is_correct": true
+        },
+        {
+          "option_text": "Cannot be compared",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "comparison_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "If an object covers equal distances in equal intervals of time, it is said to have:",
+      "explanation": "Equal distances in equal time intervals mean uniform motion.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Random motion",
+          "is_correct": false
+        },
+        {
+          "option_text": "Uniform motion",
+          "is_correct": true
+        },
+        {
+          "option_text": "Rotational motion",
+          "is_correct": false
+        },
+        {
+          "option_text": "No motion",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "graphless_data_interpretation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "If an object covers unequal distances in equal intervals of time, it has:",
+      "explanation": "Unequal distances in equal time intervals indicate non-uniform motion.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Uniform motion",
+          "is_correct": false
+        },
+        {
+          "option_text": "Non-uniform motion",
+          "is_correct": true
+        },
+        {
+          "option_text": "Periodic motion only",
+          "is_correct": false
+        },
+        {
+          "option_text": "Circular motion only",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "graphless_data_interpretation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Why do we use average speed for a trip with stops and changing speed?",
+      "explanation": "During most journeys, speed does not remain constant, so average speed gives an overall measure.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Because distance is always zero",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because speed may change during the journey",
+          "is_correct": true
+        },
+        {
+          "option_text": "Because time cannot be measured",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because vehicles do not move",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "daily_life_application",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "A bus travels 150 km in 3 hours. Its average speed is:",
+      "explanation": "Average speed = 150/3 = 50 km/h.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "30 km/h",
+          "is_correct": false
+        },
+        {
+          "option_text": "45 km/h",
+          "is_correct": false
+        },
+        {
+          "option_text": "50 km/h",
+          "is_correct": true
+        },
+        {
+          "option_text": "60 km/h",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "multi_step_numeric",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "A toy car moves at 2 m/s for 15 s. How much distance does it cover?",
+      "explanation": "Distance = speed x time = 2 x 15 = 30 m.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "17 m",
+          "is_correct": false
+        },
+        {
+          "option_text": "25 m",
+          "is_correct": false
+        },
+        {
+          "option_text": "30 m",
+          "is_correct": true
+        },
+        {
+          "option_text": "45 m",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "multi_step_numeric",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which is the correct relation?",
+      "explanation": "1 km = 1000 m.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "1 km = 100 m",
+          "is_correct": false
+        },
+        {
+          "option_text": "1 km = 1000 m",
+          "is_correct": true
+        },
+        {
+          "option_text": "1 km = 10,000 m",
+          "is_correct": false
+        },
+        {
+          "option_text": "1 km = 60 m",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "unit_conversion",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which is equal to 2 hours?",
+      "explanation": "2 hours = 2 x 60 = 120 minutes.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "20 minutes",
+          "is_correct": false
+        },
+        {
+          "option_text": "60 minutes",
+          "is_correct": false
+        },
+        {
+          "option_text": "120 minutes",
+          "is_correct": true
+        },
+        {
+          "option_text": "240 minutes",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "unit_conversion",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "A person walks around a circular park and returns to the starting point. Which statement is correct?",
+      "explanation": "The person has travelled some distance, even though the starting and ending positions are the same.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Distance is zero",
+          "is_correct": false
+        },
+        {
+          "option_text": "Distance is not zero",
+          "is_correct": true
+        },
+        {
+          "option_text": "Time is zero",
+          "is_correct": false
+        },
+        {
+          "option_text": "Speed must be zero",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "comparison_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which instrument is most suitable to measure the time taken by a runner in a race?",
+      "explanation": "A stopwatch is used to measure short time intervals accurately.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Odometer",
+          "is_correct": false
+        },
+        {
+          "option_text": "Stopwatch",
+          "is_correct": true
+        },
+        {
+          "option_text": "Speedometer",
+          "is_correct": false
+        },
+        {
+          "option_text": "Compass",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "tool_use_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "intermediate",
+      "question_text": "Differentiate between uniform motion and non-uniform motion.",
+      "explanation": "Uniform motion means equal distances in equal times, while non-uniform motion means unequal distances in equal times.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "archetype": "compare_and_contrast",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "Uniform motion: equal distances in equal intervals; non-uniform motion: unequal distances in equal intervals",
+          "In uniform motion speed stays constant; in non-uniform motion speed changes"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Why is the motion of a pendulum called periodic?",
+      "explanation": "It repeats the same motion after regular intervals of time.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Because it moves only once",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because its motion repeats at regular intervals",
+          "is_correct": true
+        },
+        {
+          "option_text": "Because it moves in a straight line",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because it has no time interval",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "best_explanation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "A scooter’s odometer reading changes from 15240 km to 15255 km. How much distance did it cover?",
+      "explanation": "Distance covered = 15255 - 15240 = 15 km.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "5 km",
+          "is_correct": false
+        },
+        {
+          "option_text": "10 km",
+          "is_correct": false
+        },
+        {
+          "option_text": "15 km",
+          "is_correct": true
+        },
+        {
+          "option_text": "25 km",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "observation_based_inference",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "A runner covers 400 m in 50 s and then 200 m in 25 s. What is the average speed for the whole run?",
+      "explanation": "Total distance = 600 m, total time = 75 s, so average speed = 600/75 = 8 m/s.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "6 m/s",
+          "is_correct": false
+        },
+        {
+          "option_text": "7 m/s",
+          "is_correct": false
+        },
+        {
+          "option_text": "8 m/s",
+          "is_correct": true
+        },
+        {
+          "option_text": "12 m/s",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "multi_step_numeric",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "A child walks 300 m in 5 minutes. What is the speed in m/s?",
+      "explanation": "5 minutes = 300 s. Speed = 300/300 = 1 m/s.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "1 m/s",
+          "is_correct": true
+        },
+        {
+          "option_text": "5 m/s",
+          "is_correct": false
+        },
+        {
+          "option_text": "60 m/s",
+          "is_correct": false
+        },
+        {
+          "option_text": "0.2 m/s",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "multi_step_numeric",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "An ant moves 30 cm in 10 s, rests for 5 s, and then moves another 30 cm in 10 s. Its average speed for the whole activity is:",
+      "explanation": "Total distance = 60 cm. Total time = 25 s. Average speed = 60/25 = 2.4 cm/s.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "3 cm/s",
+          "is_correct": false
+        },
+        {
+          "option_text": "4 cm/s",
+          "is_correct": false
+        },
+        {
+          "option_text": "2.4 cm/s",
+          "is_correct": true
+        },
+        {
+          "option_text": "6 cm/s",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "reasoning_under_constraints",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which situation best shows that rest and motion are relative?",
+      "explanation": "A person sitting in a moving train is at rest relative to the train but in motion relative to the ground.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "A rock on the ground is moving relative to the same ground",
+          "is_correct": false
+        },
+        {
+          "option_text": "A passenger is at rest relative to a train seat but moving relative to a tree outside",
+          "is_correct": true
+        },
+        {
+          "option_text": "A clock hand is at rest relative to time",
+          "is_correct": false
+        },
+        {
+          "option_text": "A wall changes position relative to itself",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "interpretation_of_statement",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which option is an example of combined motion?",
+      "explanation": "A rolling wheel both moves forward and rotates at the same time.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "A stone lying still",
+          "is_correct": false
+        },
+        {
+          "option_text": "A hanging lamp not moving",
+          "is_correct": false
+        },
+        {
+          "option_text": "A bicycle wheel moving forward on the road",
+          "is_correct": true
+        },
+        {
+          "option_text": "A book on a desk",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "counterexample_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "If two objects move with the same speed but for different times, which quantity must differ?",
+      "explanation": "Distance = speed x time. If speed is same but time differs, distance will differ.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Their unit of speed",
+          "is_correct": false
+        },
+        {
+          "option_text": "Distance travelled",
+          "is_correct": true
+        },
+        {
+          "option_text": "Their state of motion",
+          "is_correct": false
+        },
+        {
+          "option_text": "Their surroundings",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "application_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "A toy train covers 90 m in 30 s, then 60 m in 10 s. Which statement is correct?",
+      "explanation": "First speed = 3 m/s, second speed = 6 m/s, so the motion is non-uniform.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "The speeds are equal",
+          "is_correct": false
+        },
+        {
+          "option_text": "The train is at rest in the second part",
+          "is_correct": false
+        },
+        {
+          "option_text": "The train moves faster in the second part",
+          "is_correct": true
+        },
+        {
+          "option_text": "The average speed is 9 m/s",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "multi_step_numeric",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Three students record a runner’s speed as 2 m/s, 4 m/s, and 6 m/s at different times. This suggests the runner’s motion is:",
+      "explanation": "Changing speed indicates non-uniform motion.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Uniform",
+          "is_correct": false
+        },
+        {
+          "option_text": "Periodic only",
+          "is_correct": false
+        },
+        {
+          "option_text": "Non-uniform",
+          "is_correct": true
+        },
+        {
+          "option_text": "Impossible",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "distance_time_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "advanced",
+      "question_text": "Why is average speed often different from the speed shown by a speedometer at a given instant?",
+      "explanation": "A speedometer shows instantaneous speed, while average speed uses total distance and total time for the whole journey.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "archetype": "reasoned_explanation",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "A speedometer shows speed at one moment, but average speed is for the whole trip",
+          "Instantaneous speed and average speed are different because one is momentary and the other uses total distance and time"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Why is the motion of clouds often called non-uniform?",
+      "explanation": "Clouds change both direction and speed due to winds, so their motion is not uniform.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Because they never move",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because they move only in circles",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because their speed and direction may keep changing",
+          "is_correct": true
+        },
+        {
+          "option_text": "Because they always move with the same speed",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "best_explanation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "A student walking inside a moving bus drops a coin straight down. To the student, the coin falls:",
+      "explanation": "Relative to the student inside the bus, the coin seems to fall straight down.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Straight down",
+          "is_correct": true
+        },
+        {
+          "option_text": "Backward in a curve",
+          "is_correct": false
+        },
+        {
+          "option_text": "Forward in a curve",
+          "is_correct": false
+        },
+        {
+          "option_text": "In no direction at all",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "relative_motion_case",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Arrange these from slowest to fastest: walking person at 1.5 m/s, cyclist at 5 m/s, car at 15 m/s.",
+      "explanation": "Compare the numerical values of speeds directly: 1.5 < 5 < 15.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Walking person, cyclist, car",
+          "is_correct": true
+        },
+        {
+          "option_text": "Car, cyclist, walking person",
+          "is_correct": false
+        },
+        {
+          "option_text": "Cyclist, walking person, car",
+          "is_correct": false
+        },
+        {
+          "option_text": "Walking person, car, cyclist",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "ranking_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "To compare the speeds of two toy cars fairly, which method is best?",
+      "explanation": "Let both cover the same measured distance and record the time taken by each.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Compare their colors",
+          "is_correct": false
+        },
+        {
+          "option_text": "Compare their sizes only",
+          "is_correct": false
+        },
+        {
+          "option_text": "Measure the same distance and time each car takes",
+          "is_correct": true
+        },
+        {
+          "option_text": "Push one harder and guess",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "experimental_planning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "advanced",
+      "question_text": "Give one example each of rectilinear motion, rotational motion, and periodic motion.",
+      "explanation": "Common examples include a falling stone, a fan blade, and a swinging pendulum.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "archetype": "applied_definition",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "Rectilinear: falling stone; rotational: ceiling fan; periodic: pendulum",
+          "Any correct one example of each type"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which statement best combines the ideas of distance, time, and speed?",
+      "explanation": "Speed connects distance and time by telling how much distance is covered per unit time.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Speed tells only how heavy an object is",
+          "is_correct": false
+        },
+        {
+          "option_text": "Speed tells how much distance is covered in a given time",
+          "is_correct": true
+        },
+        {
+          "option_text": "Time is found by adding speed and distance",
+          "is_correct": false
+        },
+        {
+          "option_text": "Distance and speed are unrelated",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "integrative_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    }
+  ]
+}

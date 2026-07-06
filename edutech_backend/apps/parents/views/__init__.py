@@ -12,6 +12,7 @@ from apps.parents.serializers import (
     ParentPreferencesSerializer,
 )
 from apps.parents.services import (
+    _active_parent_relationships_queryset,
     build_parent_alerts,
     build_parent_child_record,
     build_parent_dashboard_summary,
@@ -26,11 +27,19 @@ from apps.parents.services import (
 from common.pagination import StandardResultsSetPagination
 
 
-def _selected_relationship(user, child_id=None, *, permission_flag=None):
+def _selected_relationship(user, child_id=None, *, permission_flag=None, parent_profile=None):
+    relationships = (
+        _active_parent_relationships_queryset(parent_profile)
+        if parent_profile is not None
+        else get_active_parent_relationships(user)
+    )
     if child_id:
-      return resolve_parent_child_access(user, child_id, permission_flag=permission_flag)
-
-    relationships = get_active_parent_relationships(user)
+        return resolve_parent_child_access(
+            user,
+            child_id,
+            permission_flag=permission_flag,
+            relationships=relationships,
+        )
     relationship = relationships.first()
     if relationship is None:
         return None
@@ -62,8 +71,13 @@ class ParentDashboardSummaryView(APIView):
 
     def get(self, request):
         child_id = request.query_params.get("child_id")
-        relationship = _selected_relationship(request.user, child_id, permission_flag="can_view_progress")
         parent_profile = get_parent_profile_for_user(request.user)
+        relationship = _selected_relationship(
+            request.user,
+            child_id,
+            permission_flag="can_view_progress",
+            parent_profile=parent_profile,
+        )
 
         if relationship is None:
             return Response(
@@ -88,8 +102,13 @@ class ParentProgressView(APIView):
 
     def get(self, request):
         child_id = request.query_params.get("child_id")
-        relationship = _selected_relationship(request.user, child_id, permission_flag="can_view_progress")
         parent_profile = get_parent_profile_for_user(request.user)
+        relationship = _selected_relationship(
+            request.user,
+            child_id,
+            permission_flag="can_view_progress",
+            parent_profile=parent_profile,
+        )
 
         if relationship is None:
             return Response(
@@ -187,6 +206,7 @@ class ParentAlertsView(APIView):
 
         alerts = build_parent_alerts(
             parent_profile,
+            queryset=base_queryset,
             student=student,
             status_filter=status_filter or None,
             severity_filter=severity_filter or None,

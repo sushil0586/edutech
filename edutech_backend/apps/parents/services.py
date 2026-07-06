@@ -46,8 +46,7 @@ def get_parent_profile_for_user(user):
         )
 
 
-def get_active_parent_relationships(user):
-    parent_profile = get_parent_profile_for_user(user)
+def _active_parent_relationships_queryset(parent_profile):
     return (
         ParentChildRelationship.objects.select_related(
             "student",
@@ -66,6 +65,11 @@ def get_active_parent_relationships(user):
     )
 
 
+def get_active_parent_relationships(user):
+    parent_profile = get_parent_profile_for_user(user)
+    return _active_parent_relationships_queryset(parent_profile)
+
+
 def get_parent_visible_students(user):
     relationship_ids = get_active_parent_relationships(user).values_list("student_id", flat=True)
     return StudentProfile.objects.filter(id__in=relationship_ids, is_active=True).select_related(
@@ -75,8 +79,9 @@ def get_parent_visible_students(user):
     )
 
 
-def resolve_parent_child_access(user, child_id, *, permission_flag=None):
-    relationships = get_active_parent_relationships(user)
+def resolve_parent_child_access(user, child_id, *, permission_flag=None, relationships=None):
+    if relationships is None:
+        relationships = get_active_parent_relationships(user)
     relationship = relationships.filter(student_id=child_id).first()
     if relationship is None:
         raise PermissionDenied("Child not found in your active parent scope.")
@@ -144,16 +149,15 @@ def _parent_alert_summary(parent_profile, student):
 
     counts = queryset.aggregate(
         total=Count("id"),
-        new_count=Count("id", filter=None),
+        unread=Count("id", filter=Q(status=ParentAlertStatus.NEW)),
+        high=Count("id", filter=Q(severity="high")),
+        warning=Count("id", filter=Q(severity="warning")),
     )
-    unread_count = queryset.filter(status="new").count()
-    high_count = queryset.filter(severity="high").count()
-    warning_count = queryset.filter(severity="warning").count()
     return {
         "total": counts["total"] or 0,
-        "unread": unread_count,
-        "high": high_count,
-        "warning": warning_count,
+        "unread": counts["unread"] or 0,
+        "high": counts["high"] or 0,
+        "warning": counts["warning"] or 0,
     }
 
 
@@ -205,6 +209,7 @@ def build_parent_progress_summary(parent_profile, student):
 def build_parent_alerts(
     parent_profile,
     *,
+    queryset=None,
     student=None,
     status_filter=None,
     severity_filter=None,
@@ -212,10 +217,11 @@ def build_parent_alerts(
     search=None,
     ordering="latest",
 ):
-    queryset = ParentAlert.objects.select_related("student", "relationship").filter(
-        parent_profile=parent_profile,
-        is_active=True,
-    )
+    if queryset is None:
+        queryset = ParentAlert.objects.select_related("student", "relationship").filter(
+            parent_profile=parent_profile,
+            is_active=True,
+        )
     if student is not None:
         queryset = queryset.filter(student=student)
     if status_filter:
@@ -232,6 +238,9 @@ def build_parent_alerts(
             | Q(student__last_name__icontains=search)
             | Q(student__admission_no__icontains=search)
         )
+
+    if ordering is None:
+        return queryset
 
     order_by = "-created_at"
     if ordering == "oldest":
@@ -312,6 +321,7 @@ def mark_all_parent_alerts_as_read(
         severity_filter=severity_filter,
         alert_type=alert_type,
         search=search,
+        ordering=None,
     ).filter(status=ParentAlertStatus.NEW)
     if alert_ids:
         queryset = queryset.filter(id__in=alert_ids)

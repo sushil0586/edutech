@@ -519,8 +519,8 @@ Options:
 
 ## Question 27
 question_type: mcq_single
-difficulty_level: advanced
-default_marks: 2.00
+difficulty_level: foundation
+default_marks: 1.00
 negative_marks: 0.25
 archetype: safety_reasoning
 
@@ -539,8 +539,8 @@ Options:
 
 ## Question 28
 question_type: mcq_single
-difficulty_level: advanced
-default_marks: 2.00
+difficulty_level: foundation
+default_marks: 1.00
 negative_marks: 0.25
 archetype: case_based_reasoning
 
@@ -579,8 +579,8 @@ Options:
 
 ## Question 30
 question_type: mcq_single
-difficulty_level: advanced
-default_marks: 2.00
+difficulty_level: foundation
+default_marks: 1.00
 negative_marks: 0.25
 archetype: observation_chain_inference
 
@@ -599,8 +599,8 @@ Options:
 
 ## Question 31
 question_type: mcq_single
-difficulty_level: advanced
-default_marks: 2.00
+difficulty_level: foundation
+default_marks: 1.00
 negative_marks: 0.25
 archetype: evidence_based_choice
 
@@ -678,8 +678,8 @@ Options:
 
 ## Question 35
 question_type: mcq_single
-difficulty_level: advanced
-default_marks: 2.00
+difficulty_level: foundation
+default_marks: 1.00
 negative_marks: 0.25
 archetype: why_this_happens
 
@@ -698,8 +698,8 @@ Options:
 
 ## Question 36
 question_type: mcq_single
-difficulty_level: advanced
-default_marks: 2.00
+difficulty_level: foundation
+default_marks: 1.00
 negative_marks: 0.25
 archetype: best_explanation
 
@@ -796,8 +796,8 @@ Accepted Answers:
 
 ## Question 41
 question_type: mcq_single
-difficulty_level: advanced
-default_marks: 2.00
+difficulty_level: foundation
+default_marks: 1.00
 negative_marks: 0.25
 archetype: decision_under_uncertainty
 
@@ -816,8 +816,8 @@ Options:
 
 ## Question 42
 question_type: mcq_single
-difficulty_level: advanced
-default_marks: 2.00
+difficulty_level: foundation
+default_marks: 1.00
 negative_marks: 0.25
 archetype: evidence_based_choice
 
@@ -876,8 +876,8 @@ Options:
 
 ## Question 45
 question_type: mcq_single
-difficulty_level: advanced
-default_marks: 2.00
+difficulty_level: foundation
+default_marks: 1.00
 negative_marks: 0.25
 archetype: assertion_reason
 
@@ -915,8 +915,8 @@ Accepted Answers:
 
 ## Question 47
 question_type: mcq_single
-difficulty_level: advanced
-default_marks: 2.00
+difficulty_level: foundation
+default_marks: 1.00
 negative_marks: 0.25
 archetype: what_can_be_concluded
 

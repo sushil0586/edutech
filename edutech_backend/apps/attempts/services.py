@@ -489,13 +489,18 @@ def attempt_integrity_summary(attempt):
         return cached
 
     policy = resolve_attempt_security_policy(attempt)
-    events = list(
-        attempt.integrity_events.filter(is_active=True).order_by("-event_at", "-created_at")[:5]
-    )
-    violation_count = attempt.integrity_events.filter(
-        is_active=True,
-        counts_as_violation=True,
-    ).count()
+    prefetched_events = getattr(attempt, "_prefetched_active_integrity_events", None)
+    if prefetched_events is not None:
+        events = list(prefetched_events[:5])
+        violation_count = sum(1 for event in prefetched_events if event.counts_as_violation)
+    else:
+        events = list(
+            attempt.integrity_events.filter(is_active=True).order_by("-event_at", "-created_at")[:5]
+        )
+        violation_count = attempt.integrity_events.filter(
+            is_active=True,
+            counts_as_violation=True,
+        ).count()
     summary = _serialize_integrity_summary(
         violation_count=violation_count,
         policy=policy,
@@ -1568,6 +1573,7 @@ def save_answer(
     skip=False,
 ):
     from apps.attempts.models import StudentAnswer
+    from apps.results.services import bump_student_question_analytics_cache_version
 
     _validate_attempt_is_editable(attempt)
     question_type_definition = get_question_type_definition(question.question_type)
@@ -1672,12 +1678,19 @@ def save_answer(
 
     answer.save()
     sync_review_task_for_answer(answer)
+    bump_student_question_analytics_cache_version(attempt.student)
     return answer
 
 
 @transaction.atomic
 def review_manual_answer(*, answer, reviewed_by_teacher, marks_awarded, review_notes="", rubric_scores=None):
-    from apps.results.services import generate_result_from_attempt
+    from apps.results.services import (
+        bump_institute_dashboard_summary_cache_version,
+        bump_student_question_analytics_cache_version,
+        bump_student_insight_summary_cache_version,
+        bump_teacher_insight_summary_cache_version,
+        generate_result_from_attempt,
+    )
 
     question_type_definition = get_question_type_definition(answer.question.question_type)
     if question_type_definition is None or not question_type_requires_manual_review(answer.question.question_type):
@@ -1784,6 +1797,10 @@ def review_manual_answer(*, answer, reviewed_by_teacher, marks_awarded, review_n
         except ValidationError:
             pass
 
+    bump_student_question_analytics_cache_version(answer.attempt.student)
+    bump_student_insight_summary_cache_version(answer.attempt.student)
+    bump_teacher_insight_summary_cache_version()
+    bump_institute_dashboard_summary_cache_version(answer.attempt.institute_id)
     return answer
 
 
@@ -1797,10 +1814,14 @@ def review_queue_summary(*, queryset):
     unassigned = 0
     reviewer_summary = {}
     exam_summary = {}
-    reviewed_turnaround_hours = []
+    reviewed_turnaround_total = 0.0
+    reviewed_turnaround_count = 0
+    slowest_turnaround_hours = 0.0
     now = timezone.now()
     oldest_open_hours = 0.0
     recheck_requested = 0
+    blocked_exam_ids = set()
+    oldest_pending_tasks = []
     backlog_age_buckets = {
         "under_4h": 0,
         "under_24h": 0,
@@ -1844,20 +1865,26 @@ def review_queue_summary(*, queryset):
         return max((resolved_at - opened_at).total_seconds() / 3600, 0.0)
 
     for task in tasks:
-        if task.status == ReviewTaskStatus.PENDING:
+        status = task.status
+        is_pending = status == ReviewTaskStatus.PENDING
+        is_reviewed = status == ReviewTaskStatus.REVIEWED
+        is_in_review = status == ReviewTaskStatus.IN_REVIEW
+        is_assigned = status == ReviewTaskStatus.ASSIGNED
+        is_recheck_requested = status == ReviewTaskStatus.RECHECK_REQUESTED
+        if is_pending:
             pending += 1
-        if task.status == ReviewTaskStatus.REVIEWED:
+        if is_reviewed:
             reviewed += 1
-        if task.status == ReviewTaskStatus.IN_REVIEW:
+        if is_in_review:
             in_review += 1
-        if task.status == ReviewTaskStatus.ASSIGNED:
+        if is_assigned:
             assigned += 1
-        if task.status == ReviewTaskStatus.RECHECK_REQUESTED:
+        if is_recheck_requested:
             recheck_requested += 1
         if not task.assigned_to_teacher_id:
             unassigned += 1
 
-        unresolved = task.status in REVIEW_TASK_UNRESOLVED_STATUSES
+        unresolved = status in REVIEW_TASK_UNRESOLVED_STATUSES
         task_age_hours = _task_age_hours(task)
         opened_at = _task_opened_at(task)
         if opened_at:
@@ -1869,6 +1896,7 @@ def review_queue_summary(*, queryset):
                 if opened_at >= now - timedelta(hours=window["hours"]):
                     throughput_windows[window["key"]]["opened"] += 1
         if unresolved:
+            blocked_exam_ids.add(str(task.exam_id))
             oldest_open_hours = max(oldest_open_hours, task_age_hours)
             if task_age_hours < 4:
                 backlog_age_buckets["under_4h"] += 1
@@ -1878,6 +1906,7 @@ def review_queue_summary(*, queryset):
                 backlog_age_buckets["under_72h"] += 1
             else:
                 backlog_age_buckets["over_72h"] += 1
+            oldest_pending_tasks.append(task)
         turnaround_hours = _task_turnaround_hours(task)
         resolved_at = task.resolved_at or task.last_reviewed_at
         if resolved_at:
@@ -1889,7 +1918,9 @@ def review_queue_summary(*, queryset):
                 if resolved_at >= now - timedelta(hours=window["hours"]):
                     throughput_windows[window["key"]]["resolved"] += 1
         if turnaround_hours is not None:
-            reviewed_turnaround_hours.append(turnaround_hours)
+            reviewed_turnaround_total += turnaround_hours
+            reviewed_turnaround_count += 1
+            slowest_turnaround_hours = max(slowest_turnaround_hours, turnaround_hours)
 
         teacher_key = str(task.assigned_to_teacher_id) if task.assigned_to_teacher_id else "unassigned"
         teacher_bucket = reviewer_summary.setdefault(
@@ -1910,15 +1941,15 @@ def review_queue_summary(*, queryset):
             },
         )
         teacher_bucket["task_count"] += 1
-        if task.status == ReviewTaskStatus.PENDING:
+        if is_pending:
             teacher_bucket["pending_count"] += 1
-        if task.status == ReviewTaskStatus.ASSIGNED:
+        if is_assigned:
             teacher_bucket["assigned_count"] += 1
-        if task.status == ReviewTaskStatus.IN_REVIEW:
+        if is_in_review:
             teacher_bucket["in_review_count"] += 1
-        if task.status == ReviewTaskStatus.REVIEWED:
+        if is_reviewed:
             teacher_bucket["reviewed_count"] += 1
-        if task.status == ReviewTaskStatus.RECHECK_REQUESTED:
+        if is_recheck_requested:
             teacher_bucket["recheck_requested_count"] += 1
         if unresolved:
             teacher_bucket["unresolved_count"] += 1
@@ -1947,17 +1978,17 @@ def review_queue_summary(*, queryset):
             },
         )
         exam_bucket["task_count"] += 1
-        if task.status == ReviewTaskStatus.PENDING:
+        if is_pending:
             exam_bucket["pending_count"] += 1
-        if task.status == ReviewTaskStatus.ASSIGNED:
+        if is_assigned:
             exam_bucket["assigned_count"] += 1
-        if task.status == ReviewTaskStatus.IN_REVIEW:
+        if is_in_review:
             exam_bucket["in_review_count"] += 1
-        if task.status == ReviewTaskStatus.REVIEWED:
+        if is_reviewed:
             exam_bucket["reviewed_count"] += 1
         if not task.assigned_to_teacher_id:
             exam_bucket["unassigned_count"] += 1
-        if task.status == ReviewTaskStatus.RECHECK_REQUESTED:
+        if is_recheck_requested:
             exam_bucket["recheck_requested_count"] += 1
         if unresolved:
             exam_bucket["oldest_open_hours"] = max(exam_bucket["oldest_open_hours"], task_age_hours)
@@ -2014,16 +2045,7 @@ def review_queue_summary(*, queryset):
             "opened_at": task.opened_at.isoformat() if task.opened_at else None,
         }
         for task in sorted(
-            [
-                item
-                for item in tasks
-                if item.status in {
-                    ReviewTaskStatus.PENDING,
-                    ReviewTaskStatus.ASSIGNED,
-                    ReviewTaskStatus.IN_REVIEW,
-                    ReviewTaskStatus.RECHECK_REQUESTED,
-                }
-            ],
+            oldest_pending_tasks,
             key=lambda item: (item.opened_at or item.created_at, item.created_at),
         )[:6]
     ]
@@ -2051,21 +2073,15 @@ def review_queue_summary(*, queryset):
         "reviewed": reviewed,
         "unassigned": unassigned,
         "recheck_requested": recheck_requested,
-        "blocked_exams": len(
-            {
-                str(task.exam_id)
-                for task in tasks
-                if task.status in REVIEW_TASK_UNRESOLVED_STATUSES
-            }
-        ),
+        "blocked_exams": len(blocked_exam_ids),
         "average_turnaround_hours": round(
-            sum(reviewed_turnaround_hours) / len(reviewed_turnaround_hours),
+            reviewed_turnaround_total / reviewed_turnaround_count,
             2,
         )
-        if reviewed_turnaround_hours
+        if reviewed_turnaround_count
         else 0.0,
-        "slowest_turnaround_hours": round(max(reviewed_turnaround_hours), 2)
-        if reviewed_turnaround_hours
+        "slowest_turnaround_hours": round(slowest_turnaround_hours, 2)
+        if reviewed_turnaround_count
         else 0.0,
         "oldest_open_hours": round(oldest_open_hours, 2),
         "backlog_age_buckets": backlog_age_buckets,
@@ -2434,37 +2450,49 @@ def unresolved_review_tasks_queryset(*, exam=None, institute=None, institute_id=
     return queryset
 
 
-@transaction.atomic
 def submit_attempt(attempt, *, auto_submitted=False):
     from apps.reports.services import notify_attempt_submitted
     from apps.results.services import (
-        calculate_exam_performance_summary,
-        calculate_exam_ranks,
-        calculate_student_topic_performance,
+        bump_institute_dashboard_summary_cache_version,
+        bump_student_question_analytics_cache_version,
+        bump_student_insight_summary_cache_version,
+        bump_teacher_insight_summary_cache_version,
         generate_result_from_attempt,
+        refresh_attempt_result_analytics,
     )
 
-    _validate_attempt_is_editable(attempt)
+    should_publish_immediate = False
+    with transaction.atomic():
+        _validate_attempt_is_editable(attempt)
 
-    scoring = calculate_attempt_score(attempt)
-    submitted_at = timezone.now()
-    time_taken = max(int((submitted_at - attempt.started_at).total_seconds()), 0)
+        scoring = calculate_attempt_score(attempt)
+        submitted_at = timezone.now()
+        time_taken = max(int((submitted_at - attempt.started_at).total_seconds()), 0)
 
-    attempt.status = "auto_submitted" if auto_submitted else "submitted"
-    attempt.submitted_at = submitted_at
-    attempt.time_taken_seconds = time_taken
-    attempt.is_auto_submitted = auto_submitted
+        attempt.status = "auto_submitted" if auto_submitted else "submitted"
+        attempt.submitted_at = submitted_at
+        attempt.time_taken_seconds = time_taken
+        attempt.is_auto_submitted = auto_submitted
 
-    for field, value in scoring.items():
-        setattr(attempt, field, value)
+        for field, value in scoring.items():
+            setattr(attempt, field, value)
 
-    attempt.save()
-    runtime_config = _runtime_config(attempt)
-    if runtime_config.get("result_publish_mode") == "immediate":
-        generate_result_from_attempt(attempt)
-        calculate_student_topic_performance(attempt.exam, attempt.student, attempt)
-        calculate_exam_ranks(attempt.exam)
-        calculate_exam_performance_summary(attempt.exam)
+        attempt.save()
+        runtime_config = _runtime_config(attempt)
+        should_publish_immediate = runtime_config.get("result_publish_mode") == "immediate"
+        if should_publish_immediate:
+            generate_result_from_attempt(attempt)
+
+    if should_publish_immediate:
+        refresh_attempt_result_analytics(
+            attempt=attempt,
+            include_ranks=True,
+            include_summary=True,
+        )
+    bump_student_question_analytics_cache_version(attempt.student)
+    bump_student_insight_summary_cache_version(attempt.student)
+    bump_teacher_insight_summary_cache_version()
+    bump_institute_dashboard_summary_cache_version(attempt.institute_id)
     notify_attempt_submitted(attempt)
     return attempt
 

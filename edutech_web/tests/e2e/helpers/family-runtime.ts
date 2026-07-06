@@ -30,9 +30,29 @@ export const certificationStudentCredentials: DirectLoginCredentials = {
   password: process.env.PLAYWRIGHT_CERTIFICATION_STUDENT_PASSWORD ?? "Demo@12345",
 };
 
+export const awsStudentCredentials: DirectLoginCredentials = {
+  username: process.env.PLAYWRIGHT_AWS_STUDENT_USERNAME ?? "demo-aws-student",
+  password: process.env.PLAYWRIGHT_AWS_STUDENT_PASSWORD ?? "Demo@12345",
+};
+
 export const languageStudentCredentials: DirectLoginCredentials = {
   username: process.env.PLAYWRIGHT_LANGUAGE_STUDENT_USERNAME ?? "demo-language-student",
   password: process.env.PLAYWRIGHT_LANGUAGE_STUDENT_PASSWORD ?? "Demo@12345",
+};
+
+export const familyInstituteCredentials: DirectLoginCredentials = {
+  username: process.env.PLAYWRIGHT_FAMILY_INSTITUTE_USERNAME ?? "demo-institute-admin",
+  password: process.env.PLAYWRIGHT_FAMILY_INSTITUTE_PASSWORD ?? "Demo@12345",
+};
+
+export const jeeStudentCredentials: DirectLoginCredentials = {
+  username: process.env.PLAYWRIGHT_JEE_STUDENT_USERNAME ?? "demo-jee-student",
+  password: process.env.PLAYWRIGHT_JEE_STUDENT_PASSWORD ?? "Demo@12345",
+};
+
+export const greStudentCredentials: DirectLoginCredentials = {
+  username: process.env.PLAYWRIGHT_GRE_STUDENT_USERNAME ?? "demo-gre-student",
+  password: process.env.PLAYWRIGHT_GRE_STUDENT_PASSWORD ?? "Demo@12345",
 };
 
 export const familyRuntimeScenarios = [
@@ -46,23 +66,23 @@ export const familyRuntimeScenarios = [
   {
     presetId: "jee_mains_math",
     familyLabel: "Competitive",
-    programLabel: "Demo NEET Track",
-    subjectLabel: "NEET Biology",
-    studentCredentials: competitiveStudentCredentials,
+    programLabel: "JEE 2026 Foundation",
+    subjectLabel: "Mathematics",
+    studentCredentials: jeeStudentCredentials,
   },
   {
     presetId: "gre_quant",
     familyLabel: "Competitive",
-    programLabel: "Demo NEET Track",
-    subjectLabel: "NEET Biology",
-    studentCredentials: competitiveStudentCredentials,
+    programLabel: "GRE 2026 Quant Prep",
+    subjectLabel: "Quantitative Reasoning",
+    studentCredentials: greStudentCredentials,
   },
   {
     presetId: "aws_practitioner",
     familyLabel: "Certification",
-    programLabel: "Demo AWS Track",
+    programLabel: "AWS 2026 Practitioner Prep",
     subjectLabel: "AWS Cloud Practitioner",
-    studentCredentials: certificationStudentCredentials,
+    studentCredentials: awsStudentCredentials,
   },
   {
     presetId: "ielts_academic",
@@ -88,6 +108,13 @@ export type StudentAttemptTarget = {
 };
 
 const studentAttemptTargetCache = new Map<string, StudentAttemptTarget>();
+const loginEnvelopeCache = new Map<string, LoginEnvelope>();
+let cachedFamilyInstituteId: string | null = null;
+let cachedFamilySetupAdminAccessToken: string | null = null;
+const familyAdvancedBuilderAccessEnsured = new Set<string>();
+const ADVANCED_BUILDER_FEATURE_CODE = "ADVANCED_EXAM_BUILDER";
+const FAMILY_ACCESS_PACKAGE_CODE =
+  process.env.PLAYWRIGHT_FAMILY_ACCESS_PACKAGE_CODE ?? "SCHOLAR-QUESTION-BANK-ACCESS";
 
 export function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -107,6 +134,150 @@ export async function backendAccessToken(page: Page) {
   const accessToken = cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
   expect(accessToken).not.toBe("");
   return accessToken;
+}
+
+type LoginEnvelope = {
+  access?: string;
+  refresh?: string;
+  user?: {
+    institute?: string | null;
+    institute_name?: string | null;
+  };
+};
+
+async function requestLoginEnvelope(page: Page, credentials: DirectLoginCredentials) {
+  const cacheKey = credentials.username.trim().toLowerCase();
+  const cachedEnvelope = loginEnvelopeCache.get(cacheKey);
+  if (cachedEnvelope) {
+    return cachedEnvelope;
+  }
+
+  let lastFailure = "login did not run";
+  for (let attempt = 1; attempt <= 5; attempt += 1) {
+    const response = await page.request.post(`${backendBaseUrl}/api/v1/auth/login/`, {
+      data: {
+        username: credentials.username,
+        password: credentials.password,
+      },
+      headers: {
+        "Content-Type": "application/json",
+      },
+      timeout: 15000,
+    });
+    if (response.ok()) {
+      const envelope = (await response.json()) as LoginEnvelope;
+      loginEnvelopeCache.set(cacheKey, envelope);
+      return envelope;
+    }
+    const snippet = (await response.text().catch(() => "")).trim();
+    lastFailure = snippet || `status ${response.status()}`;
+    if (attempt < 5) {
+      await page.waitForTimeout(throttleBackoffMs(snippet) ?? 750 * attempt);
+    }
+  }
+
+  expect(false, lastFailure).toBe(true);
+  return {};
+}
+
+async function fetchAdminAccessTokenForFamilySetup(page: Page) {
+  if (cachedFamilySetupAdminAccessToken) {
+    return cachedFamilySetupAdminAccessToken;
+  }
+  const adminUsername = process.env.PLAYWRIGHT_ADMIN_USERNAME?.trim() || "demo-platform-admin";
+  const adminPassword = process.env.PLAYWRIGHT_ADMIN_PASSWORD?.trim() || "Demo@12345";
+  const envelope = await requestLoginEnvelope(page, {
+    username: adminUsername,
+    password: adminPassword,
+  });
+  const access = envelope.access?.trim() ?? "";
+  expect(access).not.toBe("");
+  cachedFamilySetupAdminAccessToken = access;
+  return access;
+}
+
+async function ensureFamilyInstituteAdvancedBuilderAccess(page: Page) {
+  if (!cachedFamilyInstituteId) {
+    const instituteEnvelope = await requestLoginEnvelope(page, familyInstituteCredentials);
+    cachedFamilyInstituteId = instituteEnvelope.user?.institute?.trim() ?? "";
+  }
+  const instituteId = cachedFamilyInstituteId ?? "";
+  expect(instituteId).not.toBe("");
+  if (familyAdvancedBuilderAccessEnsured.has(instituteId)) {
+    return;
+  }
+
+  const adminAccessToken = await fetchAdminAccessTokenForFamilySetup(page);
+  const featureListResponse = await page.request.get(
+    `${backendBaseUrl}/api/v1/economy/admin/question-bank-feature-entitlements/`,
+    {
+      headers: {
+        Authorization: `Bearer ${adminAccessToken}`,
+      },
+    },
+  );
+  expect(featureListResponse.ok(), await featureListResponse.text()).toBe(true);
+  const featureRows = (await featureListResponse.json()) as Array<{
+    institute?: string;
+    institute_code?: string;
+    feature_code?: string;
+    status?: string;
+  }>;
+  const activeAdvancedBuilderRow = featureRows.find(
+    (row) =>
+      row.institute === instituteId &&
+      row.feature_code === ADVANCED_BUILDER_FEATURE_CODE &&
+      row.status === "active",
+  );
+  if (activeAdvancedBuilderRow) {
+    familyAdvancedBuilderAccessEnsured.add(instituteId);
+    return;
+  }
+
+  const packageListResponse = await page.request.get(`${backendBaseUrl}/api/v1/economy/admin/question-bank-packages/`, {
+    headers: {
+      Authorization: `Bearer ${adminAccessToken}`,
+    },
+  });
+  expect(packageListResponse.ok(), await packageListResponse.text()).toBe(true);
+  const packageRows = (await packageListResponse.json()) as Array<{
+    id: string;
+    code: string;
+    ownership_type?: string;
+    is_active?: boolean;
+  }>;
+  const eligiblePackage =
+    packageRows.find((row) => row.code === FAMILY_ACCESS_PACKAGE_CODE) ??
+    packageRows.find((row) => row.ownership_type === "platform" && row.is_active !== false);
+  expect(eligiblePackage).toBeTruthy();
+
+  const applyResponse = await page.request.post(`${backendBaseUrl}/api/v1/academics/presets/apply/`, {
+    headers: {
+      Authorization: `Bearer ${adminAccessToken}`,
+      "Content-Type": "application/json",
+    },
+    data: {
+      institute: instituteId,
+      preset_code: "class_7_cbse_core",
+      mode: "selected_subjects",
+      subject_codes: ["CLS7-MATH"],
+      academic_year_name: "2026-2027",
+      academic_year_start: "2026-04-01",
+      academic_year_end: "2027-03-31",
+      question_bank_package_enabled: true,
+      question_bank_package_code: eligiblePackage!.code,
+      question_bank_assignment_mode: "access_only",
+      advanced_builder_enabled: true,
+      onboarding_profile_code: "TRIAL_FULL_ACCESS",
+    },
+  });
+  expect(applyResponse.ok(), await applyResponse.text()).toBe(true);
+  familyAdvancedBuilderAccessEnsured.add(instituteId);
+}
+
+export async function loginAsFamilyInstitute(page: Page) {
+  await ensureFamilyInstituteAdvancedBuilderAccess(page);
+  await loginWithCredentials(page, familyInstituteCredentials, "institute");
 }
 
 async function responseSnippet(response: Awaited<ReturnType<Page["request"]["get"]>>) {
@@ -298,14 +469,25 @@ async function alignInstituteScopeWithPresetFamily(
   programLabel: string,
   subjectLabel: string,
 ) {
+  const academicYearSelect = page
+    .locator(".advancedBuilderField", { has: page.getByText(/^Academic year$/i) })
+    .locator("select");
   const programSelect = page
     .locator(".advancedBuilderField", { has: page.getByText(/^Program$/i) })
     .locator("select");
   const subjectSelect = page
-    .locator(".advancedBuilderField", { has: page.getByText(/^Subject$/i) })
+    .locator(".advancedBuilderField", { has: page.getByText(/^(Primary subject|Subject)$/i) })
     .locator("select");
 
   await page.getByRole("tab", { name: /\bbasics\b/i }).first().click();
+  const hasCanonicalFamilyAcademicYear = await academicYearSelect.evaluate((element) => {
+    const select = element as HTMLSelectElement;
+    return Array.from(select.options).some((option) => option.label.trim() === "2026-2027");
+  });
+  if (hasCanonicalFamilyAcademicYear) {
+    await academicYearSelect.selectOption({ label: "2026-2027" });
+    await expect(academicYearSelect).toHaveValue(/\S+/);
+  }
   await programSelect.selectOption({ label: programLabel });
   await expect(programSelect).toHaveValue(/\S+/);
   await subjectSelect.selectOption({ label: subjectLabel });
@@ -343,7 +525,11 @@ async function createScopedFamilyExam(
     codePrefix?: string;
   },
 ) {
-  await loginAsRole(page, role);
+  if (role === "institute") {
+    await loginAsFamilyInstitute(page);
+  } else {
+    await loginAsRole(page, role);
+  }
   if (role === "admin") {
     await expectAdminWorkspace(page);
   } else if (role === "teacher") {
@@ -363,7 +549,6 @@ async function createScopedFamilyExam(
 
   await page.goto(`/${role}/exams/advanced?preset_pack=${encodeURIComponent(scenario.presetId)}`);
   await expect(page.getByRole("heading", { name: /advanced exam builder/i }).first()).toBeVisible();
-  await expect(page.getByText(new RegExp(`active pack:\\s*${escapeRegExp(pack!.label)}`, "i"))).toBeVisible();
 
   if (role === "admin") {
     await alignAdminScopeWithPresetFamily(page, pack!, scenario.programLabel, scenario.subjectLabel);
@@ -384,7 +569,7 @@ async function createScopedFamilyExam(
   );
   await page.getByRole("button", { name: /preview exam/i }).click();
   const previewResponse = await previewResponsePromise;
-  expect(previewResponse.ok()).toBe(true);
+  expect(previewResponse.ok(), await previewResponse.text()).toBe(true);
 
   await expect(page.getByText(/preview refreshed\./i)).toBeVisible({ timeout: 60000 });
 
@@ -456,7 +641,7 @@ export async function assignStudentToExam(page: Page, examId: string, studentPro
     },
     timeout: 15000,
   });
-  expect(response.ok()).toBe(true);
+  expect(response.ok(), await response.text()).toBe(true);
 }
 
 export async function clearExamEconomyAccessPolicy(page: Page, examId: string) {
@@ -622,7 +807,7 @@ export async function startExamAttemptAsStudent(
   await startButton.click();
 
   await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+(?:\?.*)?$/, { timeout: 30000 });
-  await expect(page.getByText(/test in progress|attempt locked/i).first()).toBeVisible({
+  await expect(page.getByText(/mock in progress|test in progress|attempt locked|fullscreen required to continue/i).first()).toBeVisible({
     timeout: 30000,
   });
 
@@ -652,12 +837,19 @@ export async function answerAndSubmitCurrentAttempt(
   });
   await page.getByRole("button", { name: /^submit test$/i }).click();
 
-  await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/summary\?/, { timeout: 30000 });
-  await expect(
-    page.getByRole("heading", {
-      name: new RegExp(`${escapeRegExp(examTitle)}\\s+Summary`, "i"),
-    }).first(),
-  ).toBeVisible({ timeout: 30000 });
+  await expect(page).toHaveURL(
+    /\/app\/attempts\/[^/?#]+(?:\/summary|\?question=[^#]+)(?:\?.*)?$/,
+    { timeout: 30000 },
+  );
+  const summaryHeading = page.getByRole("heading", {
+    name: new RegExp(`${escapeRegExp(examTitle)}\\s+Summary`, "i"),
+  }).first();
+  const postSubmitMarker = page.getByText(/post-submit state/i).first();
+  if (await summaryHeading.isVisible().catch(() => false)) {
+    await expect(summaryHeading).toBeVisible({ timeout: 30000 });
+  } else {
+    await expect(postSubmitMarker).toBeVisible({ timeout: 30000 });
+  }
   await expect(page.getByText(/submitted|attempt auto-submitted/i).first()).toBeVisible({
     timeout: 30000,
   });

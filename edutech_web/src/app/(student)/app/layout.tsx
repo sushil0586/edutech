@@ -104,6 +104,7 @@ export default async function StudentAppLayout({
         profile={profile}
         portalLabel="Student Portal"
         ariaLabel="Student navigation"
+        homeHref="/app/dashboard"
         navItems={studentNavItems}
         footerContent={
           <div className="sidebarSupportCard">
@@ -112,7 +113,7 @@ export default async function StudentAppLayout({
             </span>
             <strong>Need help?</strong>
             <p>Use settings and notifications to stay aligned with live workspace updates.</p>
-            <Link className="sidebarSupportLink" href="/app/settings">
+            <Link className="sidebarSupportLink" href="/app/settings" prefetch={false}>
               Contact support
             </Link>
           </div>

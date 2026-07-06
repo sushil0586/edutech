@@ -1,12 +1,13 @@
 import { cookies } from "next/headers";
-import Link from "next/link";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import { FilterSummaryPills } from "@/components/ui/filter-summary-pills";
 import { fetchCurrentAccountProfile } from "@/lib/auth/session";
 import { StudentKpiGrid } from "@/components/ui/student-kpi-grid";
+import { StudentPassiveNavLink } from "@/components/ui/student-passive-nav-link";
 import { StudentPageHeader } from "@/components/ui/student-page-header";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
+import { StudentWorkspaceLink as Link } from "@/components/ui/student-workspace-link";
 import {
   fetchStudentAvailableExams,
   fetchStudentResults,
@@ -747,6 +748,7 @@ export default async function ResultsPage({
                     source: scopedSourceParam,
                     teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
                   })}
+                  prefetch={false}
                 >
                   All
                 </Link>
@@ -760,6 +762,7 @@ export default async function ResultsPage({
                     source: scopedSourceParam,
                     teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
                   })}
+                  prefetch={false}
                 >
                   Published
                 </Link>
@@ -773,6 +776,7 @@ export default async function ResultsPage({
                     source: scopedSourceParam,
                     teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
                   })}
+                  prefetch={false}
                 >
                   Review Ready
                 </Link>
@@ -786,6 +790,7 @@ export default async function ResultsPage({
                     source: scopedSourceParam,
                     teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
                   })}
+                  prefetch={false}
                 >
                   {resultsCopy.needsWorkChip}
                 </Link>
@@ -799,6 +804,7 @@ export default async function ResultsPage({
                     source: scopedSourceParam,
                     teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
                   })}
+                  prefetch={false}
                 >
                   Top Score
                 </Link>
@@ -812,6 +818,7 @@ export default async function ResultsPage({
                     source: scopedSourceParam,
                     teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
                   })}
+                  prefetch={false}
                 >
                   Fastest
                 </Link>
@@ -825,6 +832,7 @@ export default async function ResultsPage({
                     source: scopedSourceParam,
                     teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
                   })}
+                  prefetch={false}
                 >
                   Group by Source
                 </Link>
@@ -1005,9 +1013,9 @@ export default async function ResultsPage({
                               pendingLabel="Unlocking..."
                             />
                           </form>
-                          <Link className="button buttonSecondary" href="/app/wallet">
+                          <StudentPassiveNavLink className="button buttonSecondary" href="/app/wallet">
                             Open Wallet
-                          </Link>
+                          </StudentPassiveNavLink>
                         </>
                       ) : (
                         <Link className="button buttonGhost" href={practiceFollowUp.action.href}>
@@ -1026,7 +1034,7 @@ export default async function ResultsPage({
           <section className="contentCard">
             <div className="sectionHeading">
               <strong>{resultsCopy.premiumTitle}</strong>
-              <Link href="/app/wallet">Wallet</Link>
+              <StudentPassiveNavLink href="/app/wallet">Wallet</StudentPassiveNavLink>
             </div>
             <p className="sectionDescription">
               {resultsCopy.premiumDescription}
@@ -1061,9 +1069,9 @@ export default async function ResultsPage({
                 <Link className="button buttonSecondary" href={practiceLaneHref}>
                   Open Practice Lane
                 </Link>
-                <Link className="button buttonGhost" href="/app/weak-areas">
+                <StudentPassiveNavLink className="button buttonGhost" href="/app/weak-areas">
                   Open Weak Areas
-                </Link>
+                </StudentPassiveNavLink>
               </div>
             </article>
             <article className="contentCard">
@@ -1086,10 +1094,10 @@ export default async function ResultsPage({
                 </div>
               </div>
               <div className="studentInsightHeroActions">
-                <Link className="button buttonSecondary" href="/app/analytics">
+                <StudentPassiveNavLink className="button buttonSecondary" href="/app/analytics">
                   View Analytics
-                </Link>
-                <Link
+                </StudentPassiveNavLink>
+                <StudentPassiveNavLink
                   className="button buttonGhost"
                   href={buildResultsFilterHref({
                     subject: scopedSubjectParam,
@@ -1098,7 +1106,7 @@ export default async function ResultsPage({
                   })}
                 >
                   Stay In Results
-                </Link>
+                </StudentPassiveNavLink>
               </div>
             </article>
           </section>

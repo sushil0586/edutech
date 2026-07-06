@@ -75,7 +75,7 @@ class AssessmentFamily(BaseModel):
         ]
 
     def save(self, *args, **kwargs):
-        self.code = normalize_academic_code(self.code)
+        self.code = (self.code or "").strip().lower()
         self.label = normalize_academic_name(self.label)
         self.description = self.description.strip()
         self.full_clean()

@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Avg, Count, F, Max, Min, Prefetch, Q, Sum, Window
@@ -27,6 +28,172 @@ RESULT_PUBLISH_BLOCKER_ACTIVE_ATTEMPTS = "active_attempts_in_progress"
 RESULT_PUBLISH_BLOCKER_NO_GENERATED_RESULTS = "no_generated_results"
 RESULT_PUBLISH_BLOCKER_UNRESOLVED_REVIEW_TASKS = "unresolved_review_tasks"
 RESULT_PUBLISH_WARNING_MISSING_RANKS = "missing_ranks"
+STUDENT_QUESTION_ANALYTICS_CACHE_TTL_SECONDS = 120
+STUDENT_INSIGHT_SUMMARY_CACHE_TTL_SECONDS = 120
+TEACHER_INSIGHT_SUMMARY_CACHE_TTL_SECONDS = 120
+INSTITUTE_DASHBOARD_SUMMARY_CACHE_TTL_SECONDS = 120
+
+
+def refresh_attempt_result_analytics(*, attempt, include_ranks=False, include_summary=True):
+    calculate_student_topic_performance(attempt.exam, attempt.student, attempt)
+    if include_ranks:
+        calculate_exam_ranks(attempt.exam)
+    if include_summary:
+        calculate_exam_performance_summary(attempt.exam)
+    bump_student_insight_summary_cache_version(attempt.student)
+    bump_teacher_insight_summary_cache_version()
+    bump_institute_dashboard_summary_cache_version(attempt.institute_id)
+
+
+def schedule_attempt_result_analytics_refresh(*, attempt, include_ranks=False, include_summary=True):
+    transaction.on_commit(
+        lambda: refresh_attempt_result_analytics(
+            attempt=attempt,
+            include_ranks=include_ranks,
+            include_summary=include_summary,
+        )
+    )
+
+
+def refresh_exam_result_analytics(*, exam, attempts=None, include_ranks=False, include_summary=True):
+    for attempt in attempts or []:
+        calculate_student_topic_performance(attempt.exam, attempt.student, attempt)
+        bump_student_insight_summary_cache_version(attempt.student)
+    if include_ranks:
+        calculate_exam_ranks(exam)
+    if include_summary:
+        calculate_exam_performance_summary(exam)
+    bump_teacher_insight_summary_cache_version()
+    bump_institute_dashboard_summary_cache_version(getattr(exam, "institute_id", None))
+
+
+def schedule_exam_result_analytics_refresh(
+    *,
+    exam,
+    attempts=None,
+    include_ranks=False,
+    include_summary=True,
+):
+    scheduled_attempts = tuple(attempts or ())
+    transaction.on_commit(
+        lambda: refresh_exam_result_analytics(
+            exam=exam,
+            attempts=scheduled_attempts,
+            include_ranks=include_ranks,
+            include_summary=include_summary,
+        )
+    )
+
+
+def _student_question_analytics_cache_version_key(student_id):
+    return f"results:student-question-analytics:version:{student_id}"
+
+
+def bump_student_question_analytics_cache_version(student):
+    cache.set(
+        _student_question_analytics_cache_version_key(student.id),
+        int(timezone.now().timestamp() * 1000),
+        None,
+    )
+
+
+def _student_insight_summary_cache_version_key(student_id):
+    return f"results:student-insight-summary:version:{student_id}"
+
+
+def bump_student_insight_summary_cache_version(student):
+    cache.set(
+        _student_insight_summary_cache_version_key(student.id),
+        int(timezone.now().timestamp() * 1000),
+        None,
+    )
+
+
+def _teacher_insight_summary_cache_version_key():
+    return "results:teacher-insight-summary:version"
+
+
+def bump_teacher_insight_summary_cache_version():
+    cache.set(
+        _teacher_insight_summary_cache_version_key(),
+        int(timezone.now().timestamp() * 1000),
+        None,
+    )
+
+
+def _institute_dashboard_summary_cache_version_key(institute_id):
+    return f"results:institute-dashboard-summary:version:{institute_id}"
+
+
+def bump_institute_dashboard_summary_cache_version(institute_id):
+    if not institute_id:
+        return
+    cache.set(
+        _institute_dashboard_summary_cache_version_key(institute_id),
+        int(timezone.now().timestamp() * 1000),
+        None,
+    )
+
+
+def _student_question_analytics_cache_key(
+    student,
+    *,
+    subject="",
+    topic="",
+    question_type="",
+    source="",
+    teacher="",
+):
+    cache_version = cache.get(_student_question_analytics_cache_version_key(student.id), 1)
+    return ":".join(
+        [
+            "results",
+            "student-question-analytics",
+            str(student.id),
+            str(cache_version),
+            str(subject or "-"),
+            str(topic or "-"),
+            str(question_type or "-"),
+            str(source or "-"),
+            str(teacher or "-"),
+        ]
+    )
+
+
+def _student_insight_summary_cache_key(student):
+    cache_version = cache.get(_student_insight_summary_cache_version_key(student.id), 1)
+    return ":".join(
+        [
+            "results",
+            "student-insight-summary",
+            str(student.id),
+            str(cache_version),
+        ]
+    )
+
+
+def _teacher_insight_summary_cache_key(user):
+    cache_version = cache.get(_teacher_insight_summary_cache_version_key(), 1)
+    return ":".join(
+        [
+            "results",
+            "teacher-insight-summary",
+            str(user.id),
+            str(cache_version),
+        ]
+    )
+
+
+def get_institute_dashboard_summary_cache_key(institute_id):
+    cache_version = cache.get(_institute_dashboard_summary_cache_version_key(institute_id), 1)
+    return ":".join(
+        [
+            "results",
+            "institute-dashboard-summary",
+            str(institute_id),
+            str(cache_version),
+        ]
+    )
 
 
 def _score_distribution_buckets(results_qs):
@@ -687,42 +854,50 @@ def generate_result_from_attempt(attempt):
         result.published_at = None
     result.save()
     process_exam_result_rewards(result=result)
+    bump_student_insight_summary_cache_version(attempt.student)
+    bump_teacher_insight_summary_cache_version()
+    bump_institute_dashboard_summary_cache_version(attempt.institute_id)
 
     return result
 
 
-@transaction.atomic
 def generate_results_for_exam(exam):
     from apps.results.models import ExamResult
 
-    _ensure_exam_status_allows_result_generation(exam)
+    with transaction.atomic():
+        _ensure_exam_status_allows_result_generation(exam)
 
-    attempts = list(
-        exam.attempts.select_related("student")
-        .filter(status__in=["submitted", "auto_submitted"], is_active=True)
-        .order_by("student_id", "-attempt_no", "-created_at")
+        attempts = list(
+            exam.attempts.select_related("student")
+            .filter(status__in=["submitted", "auto_submitted"], is_active=True)
+            .order_by("student_id", "-attempt_no", "-created_at")
+        )
+
+        attempts_by_student = {}
+        for attempt in attempts:
+            attempts_by_student.setdefault(attempt.student_id, []).append(attempt)
+
+        results = []
+        selected_attempt_ids = set()
+        selected_attempts = []
+        for student_attempts in attempts_by_student.values():
+            attempt = choose_attempt_for_result_policy(exam, student_attempts)
+            if attempt is None:
+                continue
+            selected_attempt_ids.add(attempt.id)
+            selected_attempts.append(attempt)
+            results.append(generate_result_from_attempt(attempt))
+
+        if selected_attempt_ids:
+            ExamResult.objects.filter(exam=exam).exclude(
+                attempt_id__in=selected_attempt_ids
+            ).update(is_active=False)
+
+    refresh_exam_result_analytics(
+        exam=exam,
+        attempts=selected_attempts,
+        include_summary=True,
     )
-
-    attempts_by_student = {}
-    for attempt in attempts:
-        attempts_by_student.setdefault(attempt.student_id, []).append(attempt)
-
-    results = []
-    selected_attempt_ids = set()
-    for student_attempts in attempts_by_student.values():
-        attempt = choose_attempt_for_result_policy(exam, student_attempts)
-        if attempt is None:
-            continue
-        selected_attempt_ids.add(attempt.id)
-        results.append(generate_result_from_attempt(attempt))
-        calculate_student_topic_performance(attempt.exam, attempt.student, attempt)
-
-    if selected_attempt_ids:
-        ExamResult.objects.filter(exam=exam).exclude(
-            attempt_id__in=selected_attempt_ids
-        ).update(is_active=False)
-
-    calculate_exam_performance_summary(exam)
     return results
 
 
@@ -754,23 +929,25 @@ def calculate_exam_ranks(exam):
     return results
 
 
-@transaction.atomic
 def publish_exam_results(exam):
     from apps.results.models import ExamResult
     from apps.reports.services import notify_results_published
 
-    _raise_result_publish_readiness_errors(build_result_publish_readiness(exam))
+    with transaction.atomic():
+        _raise_result_publish_readiness_errors(build_result_publish_readiness(exam))
 
-    results = list(ExamResult.objects.filter(exam=exam, is_active=True))
+        results = list(ExamResult.objects.filter(exam=exam, is_active=True))
 
-    published_at = timezone.now()
-    for result in results:
-        result.is_published = True
-        result.published_at = published_at
-        result.save(update_fields=["is_published", "published_at"])
+        published_at = timezone.now()
+        ExamResult.objects.filter(
+            id__in=[result.id for result in results]
+        ).update(is_published=True, published_at=published_at)
+        for result in results:
+            result.is_published = True
+            result.published_at = published_at
 
     notify_results_published(exam, results)
-    calculate_exam_performance_summary(exam)
+    refresh_exam_result_analytics(exam=exam, include_summary=True)
     return results
 
 
@@ -830,15 +1007,15 @@ def calculate_student_topic_performance(exam, student, attempt=None):
         else:
             bucket["skipped_questions"] += 1
 
-    performances = []
+    performance_rows = []
     for bucket in grouped.values():
         final_score = bucket["score"] - bucket["negative_score"]
         percentage = Decimal("0.00")
         if bucket["available_marks"] > 0:
             percentage = (final_score / bucket["available_marks"]) * Decimal("100.00")
 
-        performances.append(
-            StudentTopicPerformance.objects.create(
+        performance_rows.append(
+            StudentTopicPerformance(
                 institute=exam.institute,
                 exam=exam,
                 student=student,
@@ -856,6 +1033,10 @@ def calculate_student_topic_performance(exam, student, attempt=None):
             )
         )
 
+    performances = StudentTopicPerformance.objects.bulk_create(
+        performance_rows,
+        batch_size=100,
+    )
     return performances
 
 
@@ -1025,15 +1206,16 @@ def _aggregate_answer_benchmark(queryset):
 
 
 def _peer_result_benchmark(queryset):
-    participant_count = queryset.count()
-    if participant_count <= 0:
-        return None
-
     aggregates = queryset.aggregate(
+        participant_count=Count("id"),
         average_percentage=Avg("percentage"),
         correct_answers=Sum("correct_answers"),
         incorrect_answers=Sum("incorrect_answers"),
     )
+    participant_count = int(aggregates["participant_count"] or 0)
+    if participant_count <= 0:
+        return None
+
     correct_answers = int(aggregates["correct_answers"] or 0)
     incorrect_answers = int(aggregates["incorrect_answers"] or 0)
     attempted_total = correct_answers + incorrect_answers
@@ -1056,51 +1238,55 @@ def _student_benchmark_dimensions(student):
         is_active=True,
         is_published=True,
         student__program_id=student.program_id,
-    ).select_related("student", "student__institute")
+    )
 
     institute = getattr(student, "institute", None)
     city = (getattr(institute, "city", "") or "").strip()
     state = (getattr(institute, "state", "") or "").strip()
-
-    dimensions = [
-        (
-            "school",
-            "School",
-            base.filter(student__institute_id=student.institute_id).exclude(student_id=student.id),
-        ),
-        (
-            "program",
-            "Class Level",
-            base.exclude(student_id=student.id),
-        ),
-    ]
+    scope_filters = {
+        "school": Q(student__institute_id=student.institute_id) & ~Q(student_id=student.id),
+        "program": ~Q(student_id=student.id),
+    }
     if city:
-        dimensions.append(
-            (
-                "city",
-                "City",
-                base.filter(student__institute__city__iexact=city).exclude(student_id=student.id),
-            )
-        )
+        scope_filters["city"] = Q(student__institute__city__iexact=city) & ~Q(student_id=student.id)
     if state:
-        dimensions.append(
-            (
-                "state",
-                "State",
-                base.filter(student__institute__state__iexact=state).exclude(student_id=student.id),
-            )
-        )
+        scope_filters["state"] = Q(student__institute__state__iexact=state) & ~Q(student_id=student.id)
 
+    aggregates = {}
+    for scope, scope_filter in scope_filters.items():
+        aggregates[f"{scope}_participant_count"] = Count("id", filter=scope_filter)
+        aggregates[f"{scope}_average_percentage"] = Avg("percentage", filter=scope_filter)
+        aggregates[f"{scope}_correct_answers"] = Sum("correct_answers", filter=scope_filter)
+        aggregates[f"{scope}_incorrect_answers"] = Sum("incorrect_answers", filter=scope_filter)
+
+    aggregate_values = base.aggregate(**aggregates)
     benchmark_overview = []
-    for code, label, queryset in dimensions:
-        payload = _peer_result_benchmark(queryset)
-        if payload is None:
+    for code, label in (
+        ("school", "School"),
+        ("program", "Class Level"),
+        ("city", "City"),
+        ("state", "State"),
+    ):
+        participant_count = int(aggregate_values.get(f"{code}_participant_count") or 0)
+        if participant_count <= 0:
             continue
+        correct_answers = int(aggregate_values.get(f"{code}_correct_answers") or 0)
+        incorrect_answers = int(aggregate_values.get(f"{code}_incorrect_answers") or 0)
+        attempted_total = correct_answers + incorrect_answers
+        accuracy = (
+            (Decimal(correct_answers) / Decimal(attempted_total)) * Decimal("100.00")
+            if attempted_total
+            else Decimal("0.00")
+        )
         benchmark_overview.append(
             {
                 "scope": code,
                 "label": label,
-                **payload,
+                "participant_count": participant_count,
+                "average_percentage": _decimal_string(
+                    aggregate_values.get(f"{code}_average_percentage") or Decimal("0.00")
+                ),
+                "accuracy_percentage": _decimal_string(accuracy),
             }
         )
     return benchmark_overview
@@ -1122,6 +1308,17 @@ def build_student_question_analytics(
     normalized_question_type = (question_type or "").strip()
     normalized_source = (source or "").strip()
     normalized_teacher = (teacher or "").strip()
+    cache_key = _student_question_analytics_cache_key(
+        student,
+        subject=normalized_subject,
+        topic=topic or "",
+        question_type=normalized_question_type,
+        source=normalized_source,
+        teacher=normalized_teacher,
+    )
+    cached_payload = cache.get(cache_key)
+    if cached_payload is not None:
+        return cached_payload
 
     latest_answers_qs = (
         StudentAnswer.objects.filter(
@@ -1213,7 +1410,7 @@ def build_student_question_analytics(
     latest_answers = list(latest_answers_qs)
     question_ids = [answer.question_id for answer in latest_answers]
     if not question_ids:
-        return {
+        payload = {
             "overview": {
                 "question_count": 0,
                 "attempted_count": 0,
@@ -1224,6 +1421,8 @@ def build_student_question_analytics(
             "benchmark_overview": _student_benchmark_dimensions(student),
             "questions": [],
         }
+        cache.set(cache_key, payload, STUDENT_QUESTION_ANALYTICS_CACHE_TTL_SECONDS)
+        return payload
 
     peer_base = StudentAnswer.objects.filter(
         question_id__in=question_ids,
@@ -1240,33 +1439,39 @@ def build_student_question_analytics(
     city = (getattr(student.institute, "city", "") or "").strip()
     state = (getattr(student.institute, "state", "") or "").strip()
 
-    dimension_querysets = {
-        "school": peer_base.filter(attempt__student__institute_id=student.institute_id),
-        "program": peer_base.filter(attempt__student__program_id=student.program_id),
+    scope_filters = {
+        "school": Q(attempt__student__institute_id=student.institute_id),
+        "program": Q(attempt__student__program_id=student.program_id),
     }
     if city:
-        dimension_querysets["city"] = peer_base.filter(attempt__student__institute__city__iexact=city)
+        scope_filters["city"] = Q(attempt__student__institute__city__iexact=city)
     if state:
-        dimension_querysets["state"] = peer_base.filter(attempt__student__institute__state__iexact=state)
+        scope_filters["state"] = Q(attempt__student__institute__state__iexact=state)
 
     benchmark_maps = {}
     answered_filter = _answered_filter()
-    for scope, queryset in dimension_querysets.items():
-        benchmark_rows = (
-            queryset.values("question_id")
-            .annotate(
-                total=Count("id"),
-                correct_count=Count("id", filter=answered_filter & Q(is_correct=True)),
-                skipped_count=Count("id", filter=~answered_filter),
-            )
+    benchmark_aggregates = {}
+    for scope, scope_filter in scope_filters.items():
+        benchmark_aggregates[f"{scope}_total"] = Count("id", filter=scope_filter)
+        benchmark_aggregates[f"{scope}_correct_count"] = Count(
+            "id",
+            filter=scope_filter & answered_filter & Q(is_correct=True),
         )
-        scope_map = {}
-        for row in benchmark_rows:
-            total = row["total"] or 0
-            correct_count = row["correct_count"] or 0
-            skipped_count = row["skipped_count"] or 0
+        benchmark_aggregates[f"{scope}_skipped_count"] = Count(
+            "id",
+            filter=scope_filter & ~answered_filter,
+        )
+
+    benchmark_rows = peer_base.values("question_id").annotate(**benchmark_aggregates)
+    for row in benchmark_rows:
+        for scope in scope_filters:
+            total = row.get(f"{scope}_total") or 0
+            if total <= 0:
+                continue
+            correct_count = row.get(f"{scope}_correct_count") or 0
+            skipped_count = row.get(f"{scope}_skipped_count") or 0
             wrong_count = max(total - correct_count - skipped_count, 0)
-            scope_map[row["question_id"]] = {
+            benchmark_maps.setdefault(scope, {})[row["question_id"]] = {
                 "participant_count": total,
                 "correct_count": correct_count,
                 "wrong_count": wrong_count,
@@ -1277,7 +1482,6 @@ def build_student_question_analytics(
                     else Decimal("0.00")
                 ),
             }
-        benchmark_maps[scope] = scope_map
 
     rows = []
     attempted_count = 0
@@ -1332,7 +1536,7 @@ def build_student_question_analytics(
         )
     )
 
-    return {
+    payload = {
         "overview": {
             "question_count": len(rows),
             "attempted_count": attempted_count,
@@ -1343,23 +1547,35 @@ def build_student_question_analytics(
         "benchmark_overview": _student_benchmark_dimensions(student),
         "questions": rows,
     }
+    cache.set(cache_key, payload, STUDENT_QUESTION_ANALYTICS_CACHE_TTL_SECONDS)
+    return payload
 
 
 def build_student_insight_summary(student):
     from apps.attempts.models import StudentAnswer, StudentExamAttempt
     from apps.exams.models import Exam
+    from apps.exams.models import ExamSection
     from apps.results.models import ExamResult, StudentTopicPerformance
     from apps.exams.services import resolve_exam_source_metadata
 
+    cache_key = _student_insight_summary_cache_key(student)
+    cached_payload = cache.get(cache_key)
+    if cached_payload is not None:
+        return cached_payload
+
     results_qs = (
         ExamResult.objects.filter(student=student, is_active=True)
-        .select_related("exam", "exam__subject", "exam__source_teacher")
+        .select_related("exam", "exam__subject", "exam__source_teacher", "exam__institute")
+        .prefetch_related(
+            Prefetch(
+                "exam__sections",
+                queryset=ExamSection.objects.filter(is_active=True).select_related("subject"),
+            )
+        )
         .order_by("-published_at", "-created_at")
     )
     topic_qs = StudentTopicPerformance.objects.filter(student=student, is_active=True)
-    attempts_qs = StudentExamAttempt.objects.filter(student=student, is_active=True).order_by(
-        "-started_at"
-    )
+    attempts_qs = StudentExamAttempt.objects.filter(student=student, is_active=True)
     answers_qs = StudentAnswer.objects.filter(
         attempt__student=student,
         attempt__status__in=["submitted", "auto_submitted"],
@@ -1367,17 +1583,14 @@ def build_student_insight_summary(student):
     )
 
     results = list(results_qs)
-    attempts = list(attempts_qs)
-    result_aggregates = results_qs.aggregate(
-        average_percentage=Avg("percentage"),
-        total_correct=Sum("correct_answers"),
-        total_incorrect=Sum("incorrect_answers"),
-        total_skipped=Sum("skipped_questions"),
-    )
-    average_percentage = result_aggregates["average_percentage"] or Decimal("0.00")
-    total_correct = result_aggregates["total_correct"] or 0
-    total_incorrect = result_aggregates["total_incorrect"] or 0
-    total_skipped = result_aggregates["total_skipped"] or 0
+    attempt_count = attempts_qs.count()
+    total_correct = sum(int(item.correct_answers or 0) for item in results)
+    total_incorrect = sum(int(item.incorrect_answers or 0) for item in results)
+    total_skipped = sum(int(item.skipped_questions or 0) for item in results)
+    if results:
+        average_percentage = sum(Decimal(item.percentage) for item in results) / Decimal(len(results))
+    else:
+        average_percentage = Decimal("0.00")
     attempted_total = total_correct + total_incorrect
     accuracy_percentage = (
         (Decimal(total_correct) / Decimal(attempted_total)) * Decimal("100.00")
@@ -1406,19 +1619,89 @@ def build_student_insight_summary(student):
     else:
         trend_direction = "stable"
 
+    topic_rows = list(
+        topic_qs.values(
+            "exam_id",
+            "subject_id",
+            "subject__name",
+            "topic_id",
+            "topic__name",
+            "percentage",
+            "attempted_questions",
+            "skipped_questions",
+        )
+    )
+    subject_rollups = {}
+    topic_rollups = {}
+    topic_exam_subject_rollups = {}
+    for row in topic_rows:
+        subject_key = (row["subject_id"], row["subject__name"])
+        subject_bucket = subject_rollups.setdefault(
+            subject_key,
+            {
+                "subject_id": str(row["subject_id"]),
+                "subject_name": row["subject__name"],
+                "total_percentage": Decimal("0.00"),
+                "count": 0,
+                "attempted_questions": 0,
+                "skipped_questions": 0,
+            },
+        )
+        subject_bucket["total_percentage"] += row["percentage"] or Decimal("0.00")
+        subject_bucket["count"] += 1
+        subject_bucket["attempted_questions"] += row["attempted_questions"] or 0
+        subject_bucket["skipped_questions"] += row["skipped_questions"] or 0
+
+        if row["topic_id"] is not None:
+            topic_key = (row["topic_id"], row["topic__name"], row["subject__name"])
+            topic_bucket = topic_rollups.setdefault(
+                topic_key,
+                {
+                    "topic_id": str(row["topic_id"]),
+                    "topic_name": row["topic__name"],
+                    "subject_name": row["subject__name"],
+                    "total_percentage": Decimal("0.00"),
+                    "count": 0,
+                    "attempted_questions": 0,
+                    "skipped_questions": 0,
+                },
+            )
+            topic_bucket["total_percentage"] += row["percentage"] or Decimal("0.00")
+            topic_bucket["count"] += 1
+            topic_bucket["attempted_questions"] += row["attempted_questions"] or 0
+            topic_bucket["skipped_questions"] += row["skipped_questions"] or 0
+
+        exam_subject_key = (row["exam_id"], row["subject_id"], row["subject__name"])
+        exam_subject_bucket = topic_exam_subject_rollups.setdefault(
+            exam_subject_key,
+            {
+                "exam_id": row["exam_id"],
+                "subject_id": row["subject_id"],
+                "subject__name": row["subject__name"],
+                "total_percentage": Decimal("0.00"),
+                "count": 0,
+                "attempted_questions": 0,
+                "skipped_questions": 0,
+            },
+        )
+        exam_subject_bucket["total_percentage"] += row["percentage"] or Decimal("0.00")
+        exam_subject_bucket["count"] += 1
+        exam_subject_bucket["attempted_questions"] += row["attempted_questions"] or 0
+        exam_subject_bucket["skipped_questions"] += row["skipped_questions"] or 0
+
     subject_rows = [
         {
-            "subject_id": str(item["subject_id"]),
-            "subject_name": item["subject__name"],
-            "average_percentage": item["average_percentage"] or Decimal("0.00"),
-            "attempted_questions": item["attempted_questions"] or 0,
-            "skipped_questions": item["skipped_questions"] or 0,
+            "subject_id": item["subject_id"],
+            "subject_name": item["subject_name"],
+            "average_percentage": (
+                item["total_percentage"] / Decimal(item["count"])
+                if item["count"]
+                else Decimal("0.00")
+            ),
+            "attempted_questions": item["attempted_questions"],
+            "skipped_questions": item["skipped_questions"],
         }
-        for item in topic_qs.values("subject_id", "subject__name").annotate(
-            average_percentage=Avg("percentage"),
-            attempted_questions=Sum("attempted_questions"),
-            skipped_questions=Sum("skipped_questions"),
-        )
+        for item in subject_rollups.values()
     ]
     strongest_subjects = sorted(
         subject_rows,
@@ -1431,20 +1714,18 @@ def build_student_insight_summary(student):
     weak_topics = sorted(
         [
             {
-                "topic_id": str(item["topic_id"]),
-                "topic_name": item["topic__name"],
-                "subject_name": item["subject__name"],
-                "average_percentage": item["average_percentage"] or Decimal("0.00"),
-                "attempted_questions": item["attempted_questions"] or 0,
-                "skipped_questions": item["skipped_questions"] or 0,
+                "topic_id": item["topic_id"],
+                "topic_name": item["topic_name"],
+                "subject_name": item["subject_name"],
+                "average_percentage": (
+                    item["total_percentage"] / Decimal(item["count"])
+                    if item["count"]
+                    else Decimal("0.00")
+                ),
+                "attempted_questions": item["attempted_questions"],
+                "skipped_questions": item["skipped_questions"],
             }
-            for item in topic_qs.filter(topic_id__isnull=False)
-            .values("topic_id", "topic__name", "subject__name")
-            .annotate(
-                average_percentage=Avg("percentage"),
-                attempted_questions=Sum("attempted_questions"),
-                skipped_questions=Sum("skipped_questions"),
-            )
+            for item in topic_rollups.values()
         ],
         key=lambda item: (item["average_percentage"], -item["skipped_questions"]),
     )[:5]
@@ -1476,13 +1757,40 @@ def build_student_insight_summary(student):
         source_bucket["attempted_questions"] += result.correct_answers + result.incorrect_answers
         source_bucket["skipped_questions"] += result.skipped_questions
 
-    topic_exam_subject_rows = list(
-        topic_qs.values("exam_id", "subject_id", "subject__name").annotate(
-            average_percentage=Avg("percentage"),
-            attempted_questions=Sum("attempted_questions"),
-            skipped_questions=Sum("skipped_questions"),
-        )
-    )
+    topic_exam_subject_rows = [
+        {
+            "exam_id": item["exam_id"],
+            "subject_id": item["subject_id"],
+            "subject__name": item["subject__name"],
+            "average_percentage": (
+                item["total_percentage"] / Decimal(item["count"])
+                if item["count"]
+                else Decimal("0.00")
+            ),
+            "attempted_questions": item["attempted_questions"],
+            "skipped_questions": item["skipped_questions"],
+        }
+        for item in topic_exam_subject_rollups.values()
+    ]
+    if not topic_exam_subject_rows and results:
+        for result in results:
+            exam_subject_summary = _exam_subject_summary_payload(result.exam)
+            section_subjects = exam_subject_summary.get("section_subjects", [])
+            if not section_subjects:
+                primary_subject = exam_subject_summary.get("primary_subject")
+                if primary_subject is not None:
+                    section_subjects = [primary_subject]
+            for subject_item in section_subjects:
+                topic_exam_subject_rows.append(
+                    {
+                        "exam_id": result.exam_id,
+                        "subject_id": subject_item.get("id"),
+                        "subject__name": subject_item.get("name"),
+                        "average_percentage": Decimal(result.percentage or 0),
+                        "attempted_questions": result.correct_answers + result.incorrect_answers,
+                        "skipped_questions": result.skipped_questions,
+                    }
+                )
     exam_map = {result.exam_id: result.exam for result in results}
     missing_exam_ids = {
         row["exam_id"] for row in topic_exam_subject_rows if row["exam_id"] not in exam_map
@@ -1622,7 +1930,7 @@ def build_student_insight_summary(student):
             }
         )
 
-    return {
+    payload = {
         "student_id": str(student.id),
         "average_percentage": _decimal_string(average_percentage),
         "accuracy_percentage": _decimal_string(accuracy_percentage),
@@ -1656,12 +1964,14 @@ def build_student_insight_summary(student):
         "weak_question_types": weak_question_types[:3],
         "insight_messages": insight_messages,
         "attempt_behavior": {
-            "attempt_count": len(attempts),
+            "attempt_count": attempt_count,
             "attempted_questions": attempted_total,
             "skipped_questions": total_skipped,
         },
         "benchmark_overview": _student_benchmark_dimensions(student),
     }
+    cache.set(cache_key, payload, STUDENT_INSIGHT_SUMMARY_CACHE_TTL_SECONDS)
+    return payload
 
 
 def build_teacher_insight_summary(user):
@@ -1669,8 +1979,18 @@ def build_teacher_insight_summary(user):
     from apps.attempts.models import StudentAnswer, StudentExamAttempt
     from apps.results.models import ExamPerformanceSummary, ExamResult, StudentTopicPerformance
 
+    cache_key = _teacher_insight_summary_cache_key(user)
+    cached_payload = cache.get(cache_key)
+    if cached_payload is not None:
+        return cached_payload
+
     summary_qs = scope_teacher_queryset(
-        ExamPerformanceSummary.objects.select_related("exam", "institute"),
+        ExamPerformanceSummary.objects.select_related(
+            "exam",
+            "exam__program",
+            "exam__program__assessment_family",
+            "institute",
+        ),
         user,
     ).filter(is_active=True)
     result_qs = scope_teacher_queryset(
@@ -1691,7 +2011,11 @@ def build_teacher_insight_summary(user):
         correct_answers=Sum("correct_answers"),
         incorrect_answers=Sum("incorrect_answers"),
     )
-    total_attempts = attempt_qs.count()
+    attempt_aggregates = attempt_qs.aggregate(
+        total_attempts=Count("id"),
+        average_time_taken_seconds=Avg("time_taken_seconds"),
+    )
+    total_attempts = attempt_aggregates["total_attempts"] or 0
     avg_percentage = result_aggregates["average_percentage"] or Decimal("0.00")
     total_correct = result_aggregates["correct_answers"] or 0
     total_incorrect = result_aggregates["incorrect_answers"] or 0
@@ -1701,7 +2025,7 @@ def build_teacher_insight_summary(user):
         if attempted_total
         else Decimal("0.00")
     )
-    avg_time = attempt_qs.aggregate(value=Avg("time_taken_seconds"))["value"] or 0
+    avg_time = attempt_aggregates["average_time_taken_seconds"] or 0
 
     high_students = list(
         result_qs.values(
@@ -1779,15 +2103,22 @@ def build_teacher_insight_summary(user):
         institute=getattr(profile, "institute", None),
         teacher=getattr(profile, "teacher_profile", None),
     )
+    review_aggregates = review_task_qs.aggregate(
+        pending_tasks=Count("id"),
+        assigned_tasks=Count("id", filter=Q(status="assigned")),
+        in_review_tasks=Count("id", filter=Q(status="in_review")),
+        recheck_requested_tasks=Count("id", filter=Q(status="recheck_requested")),
+        blocked_exams=Count("exam_id", distinct=True),
+    )
     review_summary = {
-        "pending_tasks": review_task_qs.count(),
-        "assigned_tasks": review_task_qs.filter(status="assigned").count(),
-        "in_review_tasks": review_task_qs.filter(status="in_review").count(),
-        "recheck_requested_tasks": review_task_qs.filter(status="recheck_requested").count(),
-        "blocked_exams": review_task_qs.values("exam_id").distinct().count(),
+        "pending_tasks": review_aggregates["pending_tasks"] or 0,
+        "assigned_tasks": review_aggregates["assigned_tasks"] or 0,
+        "in_review_tasks": review_aggregates["in_review_tasks"] or 0,
+        "recheck_requested_tasks": review_aggregates["recheck_requested_tasks"] or 0,
+        "blocked_exams": review_aggregates["blocked_exams"] or 0,
     }
 
-    return {
+    payload = {
         "overview": {
             "tracked_exams": summary_qs.count(),
             "total_attempts": total_attempts,
@@ -1859,6 +2190,8 @@ def build_teacher_insight_summary(user):
             for item in most_skipped
         ],
     }
+    cache.set(cache_key, payload, TEACHER_INSIGHT_SUMMARY_CACHE_TTL_SECONDS)
+    return payload
 
 
 def build_teacher_question_performance_summary(user):

@@ -48,11 +48,23 @@ class MasterQuestionLibraryApiTests(APITestCase):
             code="CLS7-MATH",
             name="Mathematics",
         )
+        self.public_science_subject = self.builder.create_subject(
+            self.public_institute,
+            self.public_program,
+            code="CLS7-SCI",
+            name="Science",
+        )
         self.public_topic = self.builder.create_topic(
             self.public_institute,
             self.public_subject,
             code="ALG-01",
             name="Algebra",
+        )
+        self.public_science_topic = self.builder.create_topic(
+            self.public_institute,
+            self.public_science_subject,
+            code="SCI-01",
+            name="Matter",
         )
         self.public_teacher = self.builder.create_teacher(
             self.public_institute,
@@ -151,6 +163,34 @@ class MasterQuestionLibraryApiTests(APITestCase):
             is_correct=False,
         )
         self.second_master_question = sync_master_question_from_institute_question(second_source_question)
+        science_source_question = Question.objects.create(
+            institute=self.public_institute,
+            program=self.public_program,
+            subject=self.public_science_subject,
+            topic=self.public_science_topic,
+            created_by_teacher=self.public_teacher,
+            question_type="mcq_single",
+            difficulty_level="intermediate",
+            question_text="Which change is a chemical change?",
+            explanation="Rusting is a chemical change.",
+            default_marks="2.00",
+            negative_marks="0.25",
+            is_verified=True,
+            metadata={"question_visibility": "shared_by_request"},
+        )
+        QuestionOption.objects.create(
+            question=science_source_question,
+            option_text="Rusting",
+            option_order=1,
+            is_correct=True,
+        )
+        QuestionOption.objects.create(
+            question=science_source_question,
+            option_text="Melting ice",
+            option_order=2,
+            is_correct=False,
+        )
+        self.science_master_question = sync_master_question_from_institute_question(science_source_question)
 
         self.package = QuestionBankPackage.objects.create(
             institute=self.public_institute,
@@ -190,7 +230,7 @@ class MasterQuestionLibraryApiTests(APITestCase):
         response = self.client.get("/api/v1/question-bank/master-library/")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data["results"]), 2)
+        self.assertEqual(len(response.data["results"]), 3)
         self.assertTrue(all(item["has_access"] is False for item in response.data["results"]))
         self.assertTrue(all(item["has_entitlement"] is False for item in response.data["results"]))
         self.assertTrue(all(item["access_availability"] == "subscription_required" for item in response.data["results"]))
@@ -206,13 +246,40 @@ class MasterQuestionLibraryApiTests(APITestCase):
         response = self.client.get("/api/v1/question-bank/master-library/")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data["results"]), 2)
-        self.assertTrue(all(item["has_access"] is True for item in response.data["results"]))
-        self.assertTrue(all(item["has_entitlement"] is True for item in response.data["results"]))
-        self.assertTrue(all(item["access_availability"] == "available" for item in response.data["results"]))
-        self.assertTrue(
-            all(item["matching_packages"][0]["code"] == self.package.code for item in response.data["results"])
+        self.assertEqual(len(response.data["results"]), 3)
+        math_rows = [
+            item for item in response.data["results"] if item["source_subject_code"] == self.public_subject.code
+        ]
+        science_rows = [
+            item for item in response.data["results"] if item["source_subject_code"] == self.public_science_subject.code
+        ]
+        self.assertEqual(len(math_rows), 2)
+        self.assertEqual(len(science_rows), 1)
+        self.assertTrue(all(item["has_access"] is True for item in math_rows))
+        self.assertTrue(all(item["has_entitlement"] is True for item in math_rows))
+        self.assertTrue(all(item["access_availability"] == "available" for item in math_rows))
+        self.assertTrue(all(item["matching_packages"][0]["code"] == self.package.code for item in math_rows))
+        self.assertTrue(all(item["has_access"] is False for item in science_rows))
+        self.assertTrue(all(item["has_entitlement"] is False for item in science_rows))
+        self.assertTrue(all(item["access_availability"] == "subscription_required" for item in science_rows))
+        self.assertTrue(all(item["matching_packages"] == [] for item in science_rows))
+
+    def test_teacher_master_library_available_only_filters_out_subjects_without_matching_scope(self):
+        grant_institute_question_bank_entitlement(
+            institute=self.private_institute,
+            question_bank_package=self.package,
         )
+        self.client.force_authenticate(user=self.teacher_user)
+
+        response = self.client.get("/api/v1/question-bank/master-library/?available_only=true")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 2)
+        returned_ids = {item["id"] for item in response.data["results"]}
+        self.assertIn(str(self.master_question.id), returned_ids)
+        self.assertIn(str(self.second_master_question.id), returned_ids)
+        self.assertNotIn(str(self.science_master_question.id), returned_ids)
+        self.assertTrue(all(item["has_access"] is True for item in response.data["results"]))
 
     def test_teacher_master_library_list_marks_quota_exhausted_when_matching_package_is_full(self):
         self.package.access_mode = QuestionBankAccessMode.QUOTA_LIMITED
@@ -435,6 +502,74 @@ class MasterQuestionLibraryApiTests(APITestCase):
         self.assertTrue(paused_row["is_shared_library_link"])
         self.assertFalse(paused_row["shared_library_access_active"])
         self.assertEqual(paused_row["shared_library_access_state"], "inactive")
+
+    def test_master_library_list_reports_linked_access_status(self):
+        grant_institute_question_bank_entitlement(
+            institute=self.private_institute,
+            question_bank_package=self.package,
+        )
+        self.client.force_authenticate(user=self.institute_admin_user)
+
+        link_response = self.client.post(
+            f"/api/v1/question-bank/master-library/{self.master_question.id}/link/",
+            {
+                "local_subject_code": self.private_subject.code,
+                "local_topic_code": self.private_topic.code,
+            },
+            format="json",
+        )
+        self.assertEqual(link_response.status_code, 200)
+
+        response = self.client.get("/api/v1/question-bank/master-library/")
+
+        self.assertEqual(response.status_code, 200)
+        linked_row = next(item for item in response.data["results"] if item["id"] == str(self.master_question.id))
+        self.assertEqual(linked_row["access_status"], "linked")
+
+    def test_compact_question_list_can_filter_linked_source_state(self):
+        entitlement, _ = grant_institute_question_bank_entitlement(
+            institute=self.private_institute,
+            question_bank_package=self.package,
+        )
+        self.client.force_authenticate(user=self.institute_admin_user)
+
+        link_response = self.client.post(
+            f"/api/v1/question-bank/master-library/{self.master_question.id}/link/",
+            {
+                "local_subject_code": self.private_subject.code,
+                "local_topic_code": self.private_topic.code,
+            },
+            format="json",
+        )
+        self.assertEqual(link_response.status_code, 200)
+        linked_question_id = link_response.data["linked_question_id"]
+
+        local_question = Question.objects.create(
+            institute=self.private_institute,
+            program=self.private_program,
+            subject=self.private_subject,
+            topic=self.private_topic,
+            created_by_teacher=self.private_teacher,
+            question_type="mcq_single",
+            difficulty_level="intermediate",
+            question_text="Local-only question",
+            explanation="Local-only explanation.",
+            default_marks="1.00",
+            negative_marks="0.00",
+            is_verified=False,
+        )
+
+        linked_response = self.client.get("/api/v1/question-bank/questions/?compact=1&source_state=linked")
+        self.assertEqual(linked_response.status_code, 200)
+        linked_ids = {item["id"] for item in linked_response.data["results"]}
+        self.assertIn(linked_question_id, linked_ids)
+        self.assertNotIn(str(local_question.id), linked_ids)
+
+        local_only_response = self.client.get("/api/v1/question-bank/questions/?compact=1&source_state=local_only")
+        self.assertEqual(local_only_response.status_code, 200)
+        local_only_ids = {item["id"] for item in local_only_response.data["results"]}
+        self.assertIn(str(local_question.id), local_only_ids)
+        self.assertNotIn(linked_question_id, local_only_ids)
 
     def test_linked_question_update_is_blocked_when_entitlement_is_paused(self):
         entitlement, _ = grant_institute_question_bank_entitlement(

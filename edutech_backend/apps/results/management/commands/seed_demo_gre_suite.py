@@ -191,6 +191,11 @@ class Command(BaseCommand):
                 "is_active": True,
             },
         )
+        other_current_years = AcademicYear.objects.filter(institute=institute, is_current=True).exclude(
+            pk=academic_year.pk
+        )
+        if other_current_years.exists():
+            other_current_years.update(is_current=False)
         if not academic_year.is_current or not academic_year.is_active:
             academic_year.is_current = True
             academic_year.is_active = True

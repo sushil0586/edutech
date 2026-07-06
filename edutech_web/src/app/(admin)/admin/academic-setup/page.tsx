@@ -129,10 +129,20 @@ export default async function AdminAcademicSetupPage({
   await requirePlatformAdminSession();
   const params = (await searchParams) ?? {};
   const institutes = await fetchPortalList<InstituteRecord>("/api/v1/institutes/?page_size=50").catch(() => []);
-  const selectedInstituteId = normalizeSelectedInstitute(params.institute, institutes);
+  const requestedInstitute =
+    params.institute && !institutes.some((item) => item.id === params.institute)
+      ? await fetchPortalRecord<InstituteRecord>(`/api/v1/institutes/${params.institute}/`).catch(() => null)
+      : institutes.find((item) => item.id === params.institute) ?? null;
+  const instituteOptions =
+    requestedInstitute && !institutes.some((item) => item.id === requestedInstitute.id)
+      ? [requestedInstitute, ...institutes]
+      : institutes;
+  const selectedInstituteId = normalizeSelectedInstitute(params.institute, instituteOptions);
   const activeSection = normalizeAcademicSection(params.section);
   const selectedInstitute = selectedInstituteId
-    ? await fetchPortalRecord<InstituteRecord>(`/api/v1/institutes/${selectedInstituteId}/`).catch(() => null)
+    ? requestedInstitute?.id === selectedInstituteId
+      ? requestedInstitute
+      : await fetchPortalRecord<InstituteRecord>(`/api/v1/institutes/${selectedInstituteId}/`).catch(() => null)
     : null;
   const onboardingRunDetail =
     selectedInstituteId && params.run
@@ -228,7 +238,7 @@ export default async function AdminAcademicSetupPage({
               <input name="section" type="hidden" value={activeSection} />
               <div className="adminPeopleInstituteSelectRow">
                 <select aria-label="Select institute" defaultValue={selectedInstituteId ?? ""} name="institute">
-                  {institutes.map((institute) => (
+                  {instituteOptions.map((institute) => (
                     <option key={institute.id} value={institute.id}>
                       {institute.name} ({institute.code})
                     </option>

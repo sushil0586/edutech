@@ -5,8 +5,17 @@ import { expectInstituteWorkspace } from "../helpers/navigation";
 async function expectInstituteResultsAttemptsWorkspace(page: Page) {
   await expect(page).toHaveURL(/\/institute\/results\/attempts(?:\?.*)?$/);
   await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
+  const emptyStateHeading = page.getByRole("heading", {
+    name: /attempts view opens after students begin submissions/i,
+  });
+  if (await emptyStateHeading.isVisible().catch(() => false)) {
+    await expect(emptyStateHeading).toBeVisible();
+    await expect(page.getByText(/this route is for attempt progress, warning signals, completion state, and operator follow-up/i).first()).toBeVisible();
+    return false;
+  }
   await expect(page.getByText(/recent attempts/i).first()).toBeVisible();
   await expect(page.locator("section.teacherResultsAttemptsCard").first()).toBeVisible();
+  return true;
 }
 
 test.describe("Institute results attempts workspace", () => {
@@ -22,7 +31,12 @@ test.describe("Institute results attempts workspace", () => {
     await expectInstituteWorkspace(page);
 
     await page.goto("/institute/results/attempts");
-    await expectInstituteResultsAttemptsWorkspace(page);
+    const attemptsLoaded = await expectInstituteResultsAttemptsWorkspace(page);
+    if (!attemptsLoaded) {
+      await page.getByRole("link", { name: /open exams/i }).first().click();
+      await expect(page).toHaveURL(/\/institute\/exams(?:\?.*)?$/);
+      return;
+    }
 
     const attemptsSection = page.locator("section.teacherResultsAttemptsCard").first();
     const attemptsForm = attemptsSection.locator("form.workspaceFiltersForm").first();

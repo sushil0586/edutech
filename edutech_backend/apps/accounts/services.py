@@ -79,6 +79,18 @@ def build_unique_username(seed):
     return candidate
 
 
+def _build_unique_username_from_seen(seed, seen_usernames):
+    base = _normalize_username_seed(seed, "nexora-user")
+    candidate = base
+    suffix = 1
+    normalized_seen = seen_usernames
+    while candidate.lower() in normalized_seen:
+        suffix += 1
+        candidate = f"{base}{suffix}"
+    normalized_seen.add(candidate.lower())
+    return candidate
+
+
 def build_unique_code(model, field_name, seed, prefix):
     base = _normalize_username_seed(seed, prefix)
     if not base.startswith(prefix):
@@ -1095,16 +1107,118 @@ def _validate_login_fields(*, username, password, create_login, identifier_seed)
     }
 
 
+def _validate_login_fields_with_seen(
+    *,
+    username,
+    password,
+    create_login,
+    identifier_seed,
+    seen_usernames,
+):
+    normalized_username = (username or "").strip()
+    normalized_password = password or ""
+    auto_generate = False
+    if not create_login:
+        return {
+            "create_login": False,
+            "username": None,
+            "password": None,
+            "auto_generate": False,
+            "resolved_username": None,
+        }
+    if normalized_username:
+        normalized_key = normalized_username.lower()
+        if normalized_key in seen_usernames:
+            raise ValidationError({"username": "Username already exists."})
+        seen_usernames.add(normalized_key)
+    if normalized_password:
+        validate_password(normalized_password)
+    else:
+        auto_generate = True
+    resolved_username = (
+        normalized_username
+        or _build_unique_username_from_seen(identifier_seed, seen_usernames)
+    )
+    return {
+        "create_login": True,
+        "username": normalized_username or None,
+        "password": normalized_password or None,
+        "auto_generate": auto_generate or not normalized_username,
+        "resolved_username": resolved_username,
+    }
+
+
 def preview_bulk_student_import(*, institute, rows):
     preview_rows = []
     valid_payloads = []
+    row_list = list(rows)
+    academic_years = list(
+        AcademicYear.objects.filter(institute=institute, is_active=True).only("id", "name")
+    )
+    programs = list(
+        Program.objects.filter(institute=institute, is_active=True).only("id", "name", "code")
+    )
+    cohorts = list(
+        Cohort.objects.filter(institute=institute, is_active=True).only(
+            "id",
+            "name",
+            "code",
+            "program_id",
+            "academic_year_id",
+        )
+    )
+    academic_year_by_lookup = {}
+    for item in academic_years:
+        academic_year_by_lookup[item.name.strip().lower()] = item
+    program_by_lookup = {}
+    for item in programs:
+        program_by_lookup[item.code.strip().lower()] = item
+        program_by_lookup[item.name.strip().lower()] = item
+    cohort_by_lookup = {}
+    for item in cohorts:
+        if item.code:
+            cohort_by_lookup[(item.program_id, item.academic_year_id, item.code.strip().lower())] = item
+        cohort_by_lookup[(item.program_id, item.academic_year_id, item.name.strip().lower())] = item
+    admission_nos = {
+        (row.get("admission_no") or "").strip().lower()
+        for row in row_list
+        if (row.get("admission_no") or "").strip()
+    }
+    seen_admission_nos = set()
+    requested_usernames = {
+        (row.get("username") or "").strip().lower()
+        for row in row_list
+        if _parse_bool(row.get("create_login")) and (row.get("username") or "").strip()
+    }
+    seen_usernames = set(
+        User.objects.filter(username__in=requested_usernames).values_list("username", flat=True)
+    )
+    seen_usernames = {value.lower() for value in seen_usernames}
+    existing_admission_nos = {
+        value.lower()
+        for value in StudentProfile.objects.filter(
+            institute=institute,
+            admission_no__in=admission_nos,
+        ).values_list("admission_no", flat=True)
+    }
 
-    for index, row in enumerate(rows, start=2):
+    for index, row in enumerate(row_list, start=2):
         errors = {}
         try:
-            academic_year = _resolve_academic_year(institute, row.get("academic_year"))
-            program = _resolve_program(institute, row.get("program"))
-            cohort = _resolve_cohort(institute, program, academic_year, row.get("cohort"))
+            academic_year_lookup = (row.get("academic_year") or "").strip().lower()
+            academic_year = academic_year_by_lookup.get(academic_year_lookup)
+            if academic_year is None:
+                raise ValidationError({"academic_year": f"Academic year '{row.get('academic_year') or ''}' was not found."})
+            program_lookup = (row.get("program") or "").strip().lower()
+            program = program_by_lookup.get(program_lookup)
+            if program is None:
+                raise ValidationError({"program": f"Program '{row.get('program') or ''}' was not found."})
+            cohort_lookup = (row.get("cohort") or "").strip().lower()
+            cohort = None
+            if cohort_lookup:
+                cohort = cohort_by_lookup.get((program.id, academic_year.id, cohort_lookup))
+                if cohort is None:
+                    raise ValidationError({"cohort": f"Cohort '{row.get('cohort') or ''}' was not found."})
             admission_no = (row.get("admission_no") or "").strip()
             first_name = (row.get("first_name") or "").strip()
             last_name = (row.get("last_name") or "").strip()
@@ -1112,14 +1226,17 @@ def preview_bulk_student_import(*, institute, rows):
                 raise ValidationError({"admission_no": "Admission number is required."})
             if not first_name:
                 raise ValidationError({"first_name": "First name is required."})
-            if StudentProfile.objects.filter(institute=institute, admission_no__iexact=admission_no).exists():
+            admission_no_key = admission_no.lower()
+            if admission_no_key in seen_admission_nos or admission_no_key in existing_admission_nos:
                 raise ValidationError({"admission_no": "Admission number already exists."})
+            seen_admission_nos.add(admission_no_key)
             joined_at = _parse_date(row.get("joined_at"), "joined_at") or date.today()
-            login_details = _validate_login_fields(
+            login_details = _validate_login_fields_with_seen(
                 username=row.get("username"),
                 password=row.get("password"),
                 create_login=_parse_bool(row.get("create_login")),
                 identifier_seed=admission_no or first_name,
+                seen_usernames=seen_usernames,
             )
             payload = {
                 "institute": str(institute.id),
@@ -1182,8 +1299,31 @@ def preview_bulk_student_import(*, institute, rows):
 def preview_bulk_teacher_import(*, institute, rows):
     preview_rows = []
     valid_payloads = []
+    row_list = list(rows)
+    employee_codes = {
+        (row.get("employee_code") or "").strip().lower()
+        for row in row_list
+        if (row.get("employee_code") or "").strip()
+    }
+    seen_employee_codes = set()
+    requested_usernames = {
+        (row.get("username") or "").strip().lower()
+        for row in row_list
+        if _parse_bool(row.get("create_login")) and (row.get("username") or "").strip()
+    }
+    seen_usernames = set(
+        User.objects.filter(username__in=requested_usernames).values_list("username", flat=True)
+    )
+    seen_usernames = {value.lower() for value in seen_usernames}
+    existing_employee_codes = {
+        value.lower()
+        for value in TeacherProfile.objects.filter(
+            institute=institute,
+            employee_code__in=employee_codes,
+        ).values_list("employee_code", flat=True)
+    }
 
-    for index, row in enumerate(rows, start=2):
+    for index, row in enumerate(row_list, start=2):
         try:
             employee_code = (row.get("employee_code") or "").strip()
             first_name = (row.get("first_name") or "").strip()
@@ -1192,14 +1332,17 @@ def preview_bulk_teacher_import(*, institute, rows):
                 raise ValidationError({"employee_code": "Employee code is required."})
             if not first_name:
                 raise ValidationError({"first_name": "First name is required."})
-            if TeacherProfile.objects.filter(institute=institute, employee_code__iexact=employee_code).exists():
+            employee_code_key = employee_code.lower()
+            if employee_code_key in seen_employee_codes or employee_code_key in existing_employee_codes:
                 raise ValidationError({"employee_code": "Employee code already exists."})
+            seen_employee_codes.add(employee_code_key)
             joined_at = _parse_date(row.get("joined_at"), "joined_at") or date.today()
-            login_details = _validate_login_fields(
+            login_details = _validate_login_fields_with_seen(
                 username=row.get("username"),
                 password=row.get("password"),
                 create_login=_parse_bool(row.get("create_login")),
                 identifier_seed=employee_code or first_name,
+                seen_usernames=seen_usernames,
             )
             payload = {
                 "institute": str(institute.id),
@@ -1259,18 +1402,29 @@ def import_bulk_students(*, institute, valid_payloads):
     failed_count = 0
     credentials = []
     errors = []
+    academic_year_ids = {payload["academic_year"] for payload in valid_payloads if payload.get("academic_year")}
+    program_ids = {payload["program"] for payload in valid_payloads if payload.get("program")}
+    cohort_ids = {payload["cohort"] for payload in valid_payloads if payload.get("cohort")}
+    academic_year_map = {
+        str(item.id): item
+        for item in AcademicYear.objects.filter(pk__in=academic_year_ids, institute=institute)
+    }
+    program_map = {
+        str(item.id): item
+        for item in Program.objects.filter(pk__in=program_ids, institute=institute)
+    }
+    cohort_map = {
+        str(item.id): item
+        for item in Cohort.objects.filter(pk__in=cohort_ids, institute=institute)
+    }
 
     for index, payload in enumerate(valid_payloads, start=1):
         try:
             student = StudentProfile.objects.create(
                 institute=institute,
-                academic_year=AcademicYear.objects.get(pk=payload["academic_year"], institute=institute),
-                program=Program.objects.get(pk=payload["program"], institute=institute),
-                cohort=(
-                    Cohort.objects.get(pk=payload["cohort"], institute=institute)
-                    if payload.get("cohort")
-                    else None
-                ),
+                academic_year=academic_year_map[payload["academic_year"]],
+                program=program_map[payload["program"]],
+                cohort=cohort_map.get(payload["cohort"]) if payload.get("cohort") else None,
                 admission_no=payload["admission_no"],
                 first_name=payload["first_name"],
                 last_name=payload.get("last_name", ""),

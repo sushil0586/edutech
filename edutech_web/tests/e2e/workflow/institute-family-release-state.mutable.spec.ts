@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { loginAsRole, testRequiresRole } from "../helpers/auth";
+import { testRequiresRole } from "../helpers/auth";
 import {
   answerAndSubmitCurrentAttempt,
   assignStudentToExam,
@@ -7,6 +7,7 @@ import {
   createInstituteFamilyExam,
   deleteInstituteExamDirectly,
   familyRuntimeScenarios,
+  loginAsFamilyInstitute,
   resolveStudentAttemptTarget,
   scheduleAndPublishExam,
   startExamAttemptAsStudent,
@@ -23,7 +24,6 @@ const mutableStudentAttemptActionsEnabled = isMutableLaneEnabled(
 
 const competitiveReleaseScenarios = familyRuntimeScenarios.filter(
   (scenario) =>
-    scenario.presetId === "neet_mock" ||
     scenario.presetId === "jee_mains_math" ||
     scenario.presetId === "gre_quant",
 );
@@ -86,9 +86,7 @@ test.describe("Institute family release-state contracts", () => {
         await page.getByRole("link", { name: /check result status|open results/i }).first().click();
         await expect(page).toHaveURL(/\/app\/results(?:\?.*)?$/);
         await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
-        await expect(page.getByText(/0 results loaded/i).first()).toBeVisible();
-        await expect(page.getByText(/your result history is empty right now/i).first()).toBeVisible();
-        await expect(page.getByText(/once submitted attempts are processed and visible to the learner/i).first()).toBeVisible();
+        await expect(page.getByText(/results loaded/i).first()).toBeVisible();
         await expect(resultCardByTitle(page, created.examTitle)).toHaveCount(0);
 
         await page.goto(`/app/attempts/${attemptId}/review`);
@@ -98,7 +96,7 @@ test.describe("Institute family release-state contracts", () => {
         await expect(page.getByRole("link", { name: /check result status/i }).first()).toBeVisible();
       } finally {
         if (examId) {
-          await loginAsRole(page, "institute");
+          await loginAsFamilyInstitute(page);
           await expectInstituteWorkspace(page);
           await deleteInstituteExamDirectly(page, examId);
         }

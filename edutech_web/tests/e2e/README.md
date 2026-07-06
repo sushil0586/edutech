@@ -15,7 +15,7 @@ Start the backend and frontend first, then set:
 
 Default seeded credentials used when env vars are not provided:
 
-- institute: `demo-institute-admin` / `Demo@12345`
+- institute: `opbms` / `Demo@12345`
 - teacher: `demo-teacher` / `Demo@12345`
 - student: `demo-student` / `Demo@12345`
 
@@ -60,6 +60,12 @@ This opt-in lane currently covers:
 - institute shell route sanity
 - institute results deep-route sanity
 
+Important scope note:
+
+- admin, institute, and teacher cross-browser sanity is currently desktop-oriented route and shell coverage
+- it is strong evidence for Chromium, Firefox, and WebKit reachability on dense operator workspaces
+- it is not yet a smaller-screen validation lane for those operator surfaces
+
 ## Mobile-web baseline
 
 Use the focused mobile-web lane when you want a quick small-screen Chromium signal for the student web workspace before real-device QA:
@@ -78,6 +84,11 @@ This lane currently covers:
 - seeded NEET mobile results-to-summary sanity
 - seeded JEE mobile results-to-summary and truthful review-route sanity
 - truthful fallback state panels for unavailable exam detail, summary, and review routes
+
+Current limitation:
+
+- this mobile-web lane is currently student-focused
+- dense admin, institute, and teacher operator screens do not yet have an equivalent small-screen baseline suite
 
 This lane is intentionally not a replacement for:
 
@@ -207,6 +218,31 @@ cd edutech_web
 PLAYWRIGHT_ENABLE_MUTABLE_TEACHER_ASSIGNMENT_ACTIONS=1 \
 npx playwright test tests/e2e/workflow/institute-teacher-assignments-mutable.spec.ts
 ```
+
+Current review/results mutable note:
+
+- teacher-side descriptive manual-review assignment and scoring has a dedicated mutable lane
+- institute-side review queue navigation and review-ready routing are covered in baseline and results-mutable lanes
+- institute-side descriptive scoring mutation still does not have an equivalent dedicated mutable lane yet
+
+Current assignment/publication note:
+
+- mutable admin, institute, and teacher creation lanes currently prove `selected_students` assignment persistence
+- mutable admin and institute assignment-mode matrix lanes now also prove the currently exposed builder catalog values, including `scope` and `selected_students`
+- mutable institute, teacher, and student publication lanes currently prove a single-ranked learner can reach leaderboard-ready visibility
+- broader multi-learner ranking depth still does not have equivalent dedicated lanes yet
+
+Current economy mutable note:
+
+- admin mutable economy lanes currently prove controlled star grant, entitlement pause/reactivate, entitlement notes/date edits, and institute-admin policy-disable behavior
+- first-time-operator diagnosis and glossary coverage are already baseline-covered
+- broader catalog mutation combinations and heavier policy-surface branches still do not have equivalent dedicated lanes yet
+
+Current small-screen note:
+
+- student already has a dedicated phone-viewport mobile-web baseline lane
+- admin, institute, and teacher cross-browser lanes are still desktop-oriented today
+- dense operator shells still do not have an equivalent small-screen baseline suite yet
 
 ```bash
 cd edutech_web

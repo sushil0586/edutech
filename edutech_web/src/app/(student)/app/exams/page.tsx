@@ -1,5 +1,4 @@
 import { cookies } from "next/headers";
-import Link from "next/link";
 import { redirect, unstable_rethrow } from "next/navigation";
 import type { StudentAvailableExam } from "@/features/dashboard/types";
 import { fetchCurrentAccountProfile } from "@/lib/auth/session";
@@ -8,6 +7,7 @@ import { FilterSummaryPills } from "@/components/ui/filter-summary-pills";
 import { StudentKpiGrid } from "@/components/ui/student-kpi-grid";
 import { StudentPageHeader } from "@/components/ui/student-page-header";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
+import { StudentWorkspaceLink as Link } from "@/components/ui/student-workspace-link";
 import { StatusPill } from "@/components/ui/status-pill";
 import {
   fetchStudentAvailableExams,
@@ -689,42 +689,49 @@ export default async function ExamsPage({
                 <Link
                   className={`studentWorkspaceQuickChip ${availabilityFilter === "all" ? "studentWorkspaceQuickChipActive" : ""}`}
                   href={buildExamFilterHref({ sort: sortOption, group: groupOption })}
+                  prefetch={false}
                 >
                   All
                 </Link>
                 <Link
                   className={`studentWorkspaceQuickChip ${availabilityFilter === "ready" ? "studentWorkspaceQuickChipActive" : ""}`}
                   href={buildExamFilterHref({ availability: "ready", sort: sortOption, group: groupOption })}
+                  prefetch={false}
                 >
                   Ready Now
                 </Link>
                 <Link
                   className={`studentWorkspaceQuickChip ${availabilityFilter === "resume" ? "studentWorkspaceQuickChipActive" : ""}`}
                   href={buildExamFilterHref({ availability: "resume", sort: sortOption, group: groupOption })}
+                  prefetch={false}
                 >
                   Resume
                 </Link>
                 <Link
                   className={`studentWorkspaceQuickChip ${availabilityFilter === "locked" ? "studentWorkspaceQuickChipActive" : ""}`}
                   href={buildExamFilterHref({ availability: "locked", sort: sortOption, group: groupOption })}
+                  prefetch={false}
                 >
                   Locked
                 </Link>
                 <Link
                   className={`studentWorkspaceQuickChip ${sortOption === "start_soon" ? "studentWorkspaceQuickChipActive" : ""}`}
                   href={buildExamFilterHref({ availability: availabilityFilter, sort: "start_soon", group: groupOption })}
+                  prefetch={false}
                 >
                   Starts Soon
                 </Link>
                 <Link
                   className={`studentWorkspaceQuickChip ${sortOption === "duration_short" ? "studentWorkspaceQuickChipActive" : ""}`}
                   href={buildExamFilterHref({ availability: availabilityFilter, sort: "duration_short", group: groupOption })}
+                  prefetch={false}
                 >
                   Shortest
                 </Link>
                 <Link
                   className={`studentWorkspaceQuickChip ${groupOption === "availability" ? "studentWorkspaceQuickChipActive" : ""}`}
                   href={buildExamFilterHref({ availability: availabilityFilter, sort: sortOption, group: "availability" })}
+                  prefetch={false}
                 >
                   Group by Availability
                 </Link>

@@ -170,7 +170,7 @@ Use this table while rebuilding.
 | Science | Motion in Everyday Life | pending | pending | pending | |
 | Science | Life Processes in Plants | pending | pending | pending | |
 | Science | Life Processes in Animals | pending | pending | pending | |
-| Science | Adolescence and Growth | pending | pending | pending | |
+| Science | Adolescence and Growth | pending | pending | pending | 50-question markdown pack present at `curated_authoring/math_science_v2/SCI-HEALTH-ADOLESCENCE.md`; local lint blocked until Django environment is available |
 | Science | Earth, Moon, and the Sun | pending | pending | pending | |
 | Science | Light, Shadows, and Reflections | pending | pending | pending | |
 

@@ -30,6 +30,7 @@ export default async function InstituteLayout({
         profile={profile}
         portalLabel="Institute Admin Portal"
         ariaLabel="Institute admin navigation"
+        homeHref="/institute/dashboard"
         navItems={instituteNavItems}
       />
       <main className="studentAppMain instituteAppMain">

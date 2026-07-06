@@ -1,8 +1,12 @@
+from django.core.cache import cache
 from django.core.exceptions import ValidationError
+from django.db import connection
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from datetime import timedelta
 
+from apps.economy.models import ContentAccessPolicy
 from apps.exams.models import ExamSection, ExamSourceType
 from apps.exams.serializers import (
     ExamListSerializer,
@@ -10,7 +14,12 @@ from apps.exams.serializers import (
     ExamReadSerializer,
     ExamSectionSerializer,
 )
-from apps.exams.services import build_exam_publish_readiness, sync_total_marks_from_questions
+from apps.exams.services import (
+    build_exam_publish_readiness,
+    hydrate_exam_access_policies,
+    sync_exam_access_policy,
+    sync_total_marks_from_questions,
+)
 from common.tests.builders import AcademicAssessmentBuilder
 
 
@@ -121,6 +130,44 @@ class ExamPublishReadinessTests(TestCase):
         warning_codes = {item["code"] for item in readiness["warnings"]}
         self.assertIn("missing_explanation", warning_codes)
         self.assertIn("unverified_question", warning_codes)
+
+    def test_hydrate_exam_access_policies_uses_cache_and_sync_invalidates_it(self):
+        cache.clear()
+        exam = self.context["exam"]
+        ContentAccessPolicy.objects.create(
+            institute=self.context["institute"],
+            subject=self.context["subject"],
+            content_type="exam",
+            content_key=str(exam.id),
+            content_label=exam.title,
+            policy_type="stars_only",
+            star_cost=25,
+            priority=10,
+        )
+
+        first_resolved = hydrate_exam_access_policies([exam])
+        self.assertIsNotNone(first_resolved[exam.id])
+        self.assertEqual(first_resolved[exam.id].policy_type, "stars_only")
+
+        with CaptureQueriesContext(connection) as cached_query_context:
+            second_resolved = hydrate_exam_access_policies([exam])
+        self.assertIsNotNone(second_resolved[exam.id])
+        self.assertEqual(second_resolved[exam.id].policy_type, "stars_only")
+        self.assertEqual(len(cached_query_context), 0)
+
+        synced_policy = sync_exam_access_policy(
+            exam,
+            policy_type="entitlement_only",
+            entitlement_code="EXAM_PREMIUM",
+            priority=5,
+        )
+        self.assertIsNotNone(synced_policy)
+
+        with CaptureQueriesContext(connection) as post_sync_query_context:
+            refreshed_resolved = hydrate_exam_access_policies([exam])
+        self.assertIsNotNone(refreshed_resolved[exam.id])
+        self.assertEqual(refreshed_resolved[exam.id].policy_type, "entitlement_only")
+        self.assertGreater(len(post_sync_query_context), 0)
 
     def test_publish_readiness_blocks_question_when_section_subject_mismatches(self):
         second_subject = self.builder.create_subject(

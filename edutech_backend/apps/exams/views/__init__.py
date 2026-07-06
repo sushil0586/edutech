@@ -50,7 +50,9 @@ from apps.exams.services import (
     cancel_exam,
     build_exam_publish_readiness,
     default_exam_source_for_profile,
+    hydrate_exam_access_policies,
     regenerate_exam_access_key,
+    invalidate_exam_access_policy_cache,
     mark_exam_completed,
     mark_exam_live,
     publish_exam,
@@ -106,6 +108,11 @@ class ExamViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
                     filter=models.Q(exam_questions__is_active=True),
                     distinct=True,
                 ),
+            ).prefetch_related(
+                models.Prefetch(
+                    "sections",
+                    queryset=ExamSection.objects.filter(is_active=True).select_related("subject"),
+                )
             )
         else:
             queryset = queryset.prefetch_related(
@@ -128,47 +135,7 @@ class ExamViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
         return ExamWriteSerializer
 
     def _hydrate_economy_policies(self, exams):
-        if not exams:
-            return
-
-        from apps.economy.models import ContentAccessPolicy
-
-        institute_ids = {exam.institute_id for exam in exams if exam.institute_id}
-        content_keys = {str(exam.id) for exam in exams}
-        if not institute_ids or not content_keys:
-            return
-
-        policies = list(
-            ContentAccessPolicy.objects.filter(
-                institute_id__in=institute_ids,
-                content_type=EXAM_CONTENT_TYPE,
-                content_key__in=content_keys,
-                is_active=True,
-            )
-            .select_related("subject")
-            .order_by("priority", "created_at")
-        )
-
-        policy_by_target = {}
-        for policy in policies:
-            target_key = (policy.institute_id, policy.content_key)
-            current = policy_by_target.get(target_key)
-            if current is None:
-                policy_by_target[target_key] = {"subjects": {}, "fallback": None}
-                current = policy_by_target[target_key]
-            if policy.subject_id is not None:
-                current["subjects"].setdefault(policy.subject_id, policy)
-            elif policy.subject_id is None and current["fallback"] is None:
-                current["fallback"] = policy
-
-        for exam in exams:
-            resolved = policy_by_target.get((exam.institute_id, str(exam.id)))
-            if resolved is None:
-                exam._resolved_access_policy = None
-                continue
-            subject_policy = resolved["subjects"].get(exam.subject_id)
-            fallback_policy = resolved["fallback"]
-            exam._resolved_access_policy = subject_policy if subject_policy is not None else fallback_policy
+        hydrate_exam_access_policies(exams)
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())

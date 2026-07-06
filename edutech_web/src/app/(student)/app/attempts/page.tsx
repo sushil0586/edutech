@@ -1,5 +1,4 @@
 import { cookies } from "next/headers";
-import Link from "next/link";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import { fetchCurrentAccountProfile } from "@/lib/auth/session";
@@ -7,6 +6,7 @@ import { FilterSummaryPills } from "@/components/ui/filter-summary-pills";
 import { StudentKpiGrid } from "@/components/ui/student-kpi-grid";
 import { StudentPageHeader } from "@/components/ui/student-page-header";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
+import { StudentWorkspaceLink as Link } from "@/components/ui/student-workspace-link";
 import {
   fetchStudentAttempts,
   fetchStudentAvailableExams,
@@ -564,6 +564,7 @@ export default async function AttemptsPage({
                       chip.active ? " studentWorkspaceQuickChipActive" : ""
                     }`}
                     href={chip.href}
+                    prefetch={false}
                   >
                     {chip.label}
                   </Link>

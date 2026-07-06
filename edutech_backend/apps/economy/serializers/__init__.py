@@ -3,6 +3,7 @@ from rest_framework import serializers
 from apps.reports.models import AuditLog
 
 from apps.academics.models import Program, Subject, Topic
+from apps.institutes.models import Institute
 from apps.economy.models import (
     ContentAccessPolicy,
     EconomyOperatorPolicyConfig,
@@ -818,16 +819,38 @@ class AdminQuestionBankPackageSerializer(serializers.ModelSerializer):
             return None
         return str(value).replace("_", " ").strip().title()
 
-    def _collect_scope_labels(self, obj, attribute):
-        labels = []
-        for scope in obj.scopes.all():
-            if not scope.is_active:
-                continue
-            related = getattr(scope, attribute, None)
-            label = getattr(related, "name", None)
-            if label:
-                labels.append(label)
-        return sorted(set(labels))
+    def _package_metrics(self, obj):
+        cached = getattr(obj, "_admin_question_bank_package_metrics", None)
+        if cached is not None:
+            return cached
+
+        active_scopes = [scope for scope in obj.scopes.all() if scope.is_active]
+        program_labels = sorted({scope.program.name for scope in active_scopes if scope.program_id and scope.program})
+        subject_labels = sorted({scope.subject.name for scope in active_scopes if scope.subject_id and scope.subject})
+        topic_labels = sorted({scope.topic.name for scope in active_scopes if scope.topic_id and scope.topic})
+        active_entitlement_count = sum(
+            1
+            for entitlement in obj.institute_entitlements.all()
+            if entitlement.is_active and entitlement.status == "active"
+        )
+        active_links = [link for link in obj.subscription_plan_links.all() if link.is_active]
+        usage_entry_count = sum(1 for entry in obj.usage_entries.all() if entry.is_active)
+
+        cached = {
+            "program_labels": program_labels,
+            "subject_labels": subject_labels,
+            "topic_labels": topic_labels,
+            "program_count": len(program_labels),
+            "subject_count": len(subject_labels),
+            "topic_count": len(topic_labels),
+            "scope_count": len(active_scopes),
+            "active_entitlement_count": active_entitlement_count,
+            "linked_plan_count": len(active_links),
+            "default_plan_count": sum(1 for link in active_links if link.is_default),
+            "usage_entry_count": usage_entry_count,
+        }
+        setattr(obj, "_admin_question_bank_package_metrics", cached)
+        return cached
 
     def get_display_name(self, obj):
         return f"{obj.name} ({obj.code})"
@@ -873,22 +896,22 @@ class AdminQuestionBankPackageSerializer(serializers.ModelSerializer):
         ]
 
     def get_coverage_program_labels(self, obj):
-        return self._collect_scope_labels(obj, "program")
+        return self._package_metrics(obj)["program_labels"]
 
     def get_coverage_subject_labels(self, obj):
-        return self._collect_scope_labels(obj, "subject")
+        return self._package_metrics(obj)["subject_labels"]
 
     def get_coverage_topic_labels(self, obj):
-        return self._collect_scope_labels(obj, "topic")
+        return self._package_metrics(obj)["topic_labels"]
 
     def get_program_count(self, obj):
-        return len(self.get_coverage_program_labels(obj))
+        return self._package_metrics(obj)["program_count"]
 
     def get_subject_count(self, obj):
-        return len(self.get_coverage_subject_labels(obj))
+        return self._package_metrics(obj)["subject_count"]
 
     def get_topic_count(self, obj):
-        return len(self.get_coverage_topic_labels(obj))
+        return self._package_metrics(obj)["topic_count"]
 
     def get_coverage_summary(self, obj):
         parts = []
@@ -909,37 +932,19 @@ class AdminQuestionBankPackageSerializer(serializers.ModelSerializer):
         return " · ".join(parts)
 
     def get_scope_count(self, obj):
-        return len([scope for scope in obj.scopes.all() if scope.is_active])
+        return self._package_metrics(obj)["scope_count"]
 
     def get_active_entitlement_count(self, obj):
-        return len(
-            [
-                entitlement
-                for entitlement in obj.institute_entitlements.all()
-                if entitlement.is_active and entitlement.status == "active"
-            ]
-        )
+        return self._package_metrics(obj)["active_entitlement_count"]
 
     def get_linked_plan_count(self, obj):
-        return len(
-            [
-                link
-                for link in obj.subscription_plan_links.all()
-                if link.is_active
-            ]
-        )
+        return self._package_metrics(obj)["linked_plan_count"]
 
     def get_default_plan_count(self, obj):
-        return len(
-            [
-                link
-                for link in obj.subscription_plan_links.all()
-                if link.is_active and link.is_default
-            ]
-        )
+        return self._package_metrics(obj)["default_plan_count"]
 
     def get_usage_entry_count(self, obj):
-        return len([entry for entry in obj.usage_entries.all() if entry.is_active])
+        return self._package_metrics(obj)["usage_entry_count"]
 
 
 class AdminQuestionBankPackageUpsertSerializer(serializers.ModelSerializer):
@@ -1141,7 +1146,12 @@ class AdminInstituteQuestionEntitlementSerializer(serializers.ModelSerializer):
         return full_name or obj.revoked_by.username
 
     def _active_scopes(self, obj):
-        return [scope for scope in obj.question_bank_package.scopes.all() if scope.is_active]
+        prefetched = getattr(obj.question_bank_package, "_prefetched_active_scopes", None)
+        if prefetched is not None:
+            return prefetched
+        scopes = [scope for scope in obj.question_bank_package.scopes.all() if scope.is_active]
+        setattr(obj.question_bank_package, "_prefetched_active_scopes", scopes)
+        return scopes
 
     def get_scope_count(self, obj):
         return len(self._active_scopes(obj))
@@ -1284,6 +1294,51 @@ class AdminInstituteQuestionFeatureEntitlementStatusUpdateSerializer(serializers
             InstituteQuestionEntitlementStatus.REVOKED,
         ]
     )
+
+
+class AdminInstituteQuestionFeatureEntitlementCreateSerializer(serializers.Serializer):
+    institute = serializers.PrimaryKeyRelatedField(queryset=Institute.objects.all())
+    feature_code = serializers.CharField(max_length=80)
+    source_package = serializers.PrimaryKeyRelatedField(
+        queryset=QuestionBankPackage.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+    source_subscription_plan = serializers.PrimaryKeyRelatedField(
+        queryset=SubscriptionPlan.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+    starts_at = serializers.DateTimeField(required=False, allow_null=True)
+    ends_at = serializers.DateTimeField(required=False, allow_null=True)
+    metadata = serializers.JSONField(required=False)
+
+    def validate_feature_code(self, value):
+        return str(value or "").strip().upper()
+
+    def validate(self, attrs):
+        starts_at = attrs.get("starts_at")
+        ends_at = attrs.get("ends_at")
+        if starts_at and ends_at and ends_at <= starts_at:
+            raise serializers.ValidationError(
+                {"ends_at": "End time must be later than the start time."}
+            )
+
+        institute = attrs.get("institute")
+        source_package = attrs.get("source_package")
+        source_subscription_plan = attrs.get("source_subscription_plan")
+
+        if source_package and source_package.ownership_type != "platform" and source_package.institute_id != institute.id:
+            raise serializers.ValidationError(
+                {"source_package": "Institute-owned source packages must belong to the selected institute."}
+            )
+
+        if source_subscription_plan and source_subscription_plan.institute_id != institute.id:
+            raise serializers.ValidationError(
+                {"source_subscription_plan": "Source subscription plan must belong to the selected institute."}
+            )
+
+        return attrs
 
 
 class AdminInstituteQuestionUsageLedgerSerializer(serializers.ModelSerializer):

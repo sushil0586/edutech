@@ -245,14 +245,28 @@ def current_section_media_context_for_attempt(attempt):
     current_section_id = section_runtime.get("current_section_id")
     current_section_name = section_runtime.get("current_section_name")
 
-    exam_questions = (
-        attempt.exam.exam_questions.filter(is_active=True)
-        .select_related("question", "section")
-        .prefetch_related("question__attachments")
-        .order_by("question_order", "created_at")
-    )
-    if current_section_id:
-        exam_questions = exam_questions.filter(section_id=current_section_id)
+    prefetched_exam_questions = getattr(attempt.exam, "_prefetched_active_exam_questions", None)
+    if prefetched_exam_questions is not None:
+        exam_questions = prefetched_exam_questions
+        if current_section_id:
+            exam_questions = [
+                exam_question
+                for exam_question in exam_questions
+                if str(getattr(exam_question, "section_id", "") or "") == str(current_section_id)
+            ]
+    else:
+        exam_questions = list(
+            attempt.exam.exam_questions.filter(is_active=True)
+            .select_related("question", "section")
+            .prefetch_related("question__attachments")
+            .order_by("question_order", "created_at")
+        )
+        if current_section_id:
+            exam_questions = [
+                exam_question
+                for exam_question in exam_questions
+                if str(getattr(exam_question, "section_id", "") or "") == str(current_section_id)
+            ]
 
     question_contexts = []
     for exam_question in exam_questions:
@@ -293,7 +307,7 @@ def current_section_media_context_for_attempt(attempt):
         "scope": "section" if current_section_id else "exam",
         "section_id": str(current_section_id) if current_section_id else None,
         "section_name": current_section_name or None,
-        "question_count": exam_questions.count(),
+        "question_count": len(exam_questions),
         "questions_with_media": len(question_contexts),
         "total_attachments": total_attachments,
         "inline_attachment_count": inline_attachment_count,
@@ -392,7 +406,7 @@ class StudentAnswerSerializer(serializers.ModelSerializer):
         selected_ids = self.get_selected_option_ids(obj)
         if not selected_ids:
             return []
-        options = obj.question.options.filter(id__in=selected_ids)
+        options = obj.question.options.all()
         option_map = {str(option.id): option.option_text for option in options}
         return [option_map[option_id] for option_id in selected_ids if option_id in option_map]
 
@@ -1034,7 +1048,7 @@ class AttemptReviewSerializer(serializers.ModelSerializer):
                     "question_type": question.question_type,
                     "question_type_definition": question_type_definition_payload_for_question(
                         question,
-                        exam=attempt.exam,
+                        exam=obj.exam,
                     ),
                     "passage": str(question.passage_id) if question.passage_id else None,
                     "passage_order": question.passage_order,

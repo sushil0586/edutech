@@ -104,6 +104,23 @@ function buildQuestionScopeFilters(params: {
   };
 }
 
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string) {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(message)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  }
+}
+
 async function applyQuestionBulkAction(formData: FormData) {
   "use server";
 
@@ -320,16 +337,20 @@ export default async function TeacherQuestionBankPage({
   const loadIssue = questionPageResult.error;
 
   const masterLibraryResult = hasSharedLibraryAccess
-    ? await fetchTeacherMasterQuestionLibrary({
-        page: 1,
-        page_size: 8,
-        search: search || undefined,
-        subject_code: selectedSubjectRecord?.code ?? undefined,
-        topic_code: selectedTopicRecord?.code ?? undefined,
-        question_type: questionType || undefined,
-        difficulty_level: difficultyLevel || undefined,
-        ordering,
-      })
+    ? await withTimeout(
+        fetchTeacherMasterQuestionLibrary({
+          page: 1,
+          page_size: 8,
+          search: search || undefined,
+          subject_code: selectedSubjectRecord?.code ?? undefined,
+          topic_code: selectedTopicRecord?.code ?? undefined,
+          question_type: questionType || undefined,
+          difficulty_level: difficultyLevel || undefined,
+          ordering,
+        }),
+        6000,
+        "Shared platform library is taking too long to respond right now.",
+      )
         .then((data) => ({ data, error: "" }))
         .catch((caughtError) => ({
           data: null,
@@ -427,6 +448,74 @@ export default async function TeacherQuestionBankPage({
 
       {message ? <p className="feedbackBanner feedbackBannerSuccess">{decodeURIComponent(message)}</p> : null}
       {error ? <p className="feedbackBanner feedbackBannerError">{decodeURIComponent(error)}</p> : null}
+
+      <section className="contentCard">
+        <div className="sectionHeading">
+          <strong>How licensed platform questions work here</strong>
+          <span>
+            Teachers can inspect licensed platform questions in this workspace, but institute-level
+            access decides whether the lane is visible and whether requests can move forward.
+          </span>
+        </div>
+        <div className="economyAccessChecklist">
+          <div
+            className={`economyAccessChecklistCard ${
+              hasSharedLibraryAccess ? "economyAccessChecklistCardReady" : "economyAccessChecklistCardAttention"
+            }`}
+          >
+            <span>Shared-library switch</span>
+            <strong>
+              {hasSharedLibraryAccess
+                ? "Platform question visibility is enabled"
+                : "Platform question visibility is still locked"}
+            </strong>
+            <small>
+              {hasSharedLibraryAccess
+                ? "This teacher workspace can inspect licensed platform rows when the matching package lane is also active."
+                : "Platform rows stay hidden until institute-level shared-library visibility is enabled."}
+            </small>
+          </div>
+          <div
+            className={`economyAccessChecklistCard ${
+              questionBankEntitlements.length > 0
+                ? "economyAccessChecklistCardReady"
+                : "economyAccessChecklistCardAttention"
+            }`}
+          >
+            <span>Question package access</span>
+            <strong>
+              {questionBankEntitlements.length > 0
+                ? `${questionBankEntitlements.length} active question package${
+                    questionBankEntitlements.length === 1 ? "" : "s"
+                  }`
+                : "No active question package visible"}
+            </strong>
+            <small>
+              {questionBankEntitlements.length > 0
+                ? "Matching package coverage lets teachers inspect licensed rows and raise access requests for the right class and subject."
+                : "Without a matching package, licensed questions stay blocked even if the shared-library switch is already on."}
+            </small>
+          </div>
+          <div
+            className={`economyAccessChecklistCard ${
+              hasSharedLibraryAccess && questionBankEntitlements.length > 0
+                ? "economyAccessChecklistCardReady"
+                : "economyAccessChecklistCardAttention"
+            }`}
+          >
+            <span>Teacher action path</span>
+            <strong>
+              {hasSharedLibraryAccess && questionBankEntitlements.length > 0
+                ? "Request-led teacher lane is ready"
+                : "Teacher request flow is not ready yet"}
+            </strong>
+            <small>
+              Teachers do not link licensed questions directly here. When the switch and package are both
+              active, use the request path and let institute-level intake control final linking.
+            </small>
+          </div>
+        </div>
+      </section>
 
       <section className="builderSummaryGrid">
         <article className="builderSummaryCard">

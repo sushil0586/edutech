@@ -15,6 +15,27 @@ And through each creation library:
 
 This is a planning artifact only. It does not claim automated coverage.
 
+## Current Implemented Subset
+
+- Browser-backed mutable coverage already proves:
+  - generic guided-wizard creation for `practice`, `quiz`, and `mock_exam`
+  - generic advanced-builder creation for `practice`, `quiz`, and `mock_exam`
+  - preset-pack to advanced-builder handoff for seeded family packs
+  - family preset-derived create/save persistence for admin and institute mutable lanes
+  - managed preset-library create/save persistence for admin and institute mutable lanes
+  - assignment-mode enumeration for the currently exposed builder catalog in admin and institute mutable lanes
+  - `entitlement_only` policy persistence in mutable admin and institute exam-detail flows
+  - `stars_only` and `stars_or_entitlement` persistence in mutable admin and institute policy/security matrix lanes
+  - `focus` and `fullscreen` security-mode persistence in mutable admin and institute policy/security matrix lanes
+  - `selected_students` assignment persistence
+  - assigned learner visibility through the student app
+  - multi-learner publish-ready and leaderboard-ready downstream results flow
+  - ranked learner visibility for at least two learners on leaderboard-ready publication
+  - institute-owned descriptive review scoring and publication continuity
+- The remaining scenario space here is still useful as expansion planning for:
+  - runtime enumeration of additional assignment modes
+  - multi-role descriptive moderation and publication realism
+
 ## Goal
 
 Verify that exams created through each supported authoring library:
@@ -75,6 +96,8 @@ These values are confirmed in the current codebase and should be treated as the 
 ### Student assignment patterns confirmed in current mutable lanes
 
 - `selected_students` is confirmed live and already used by mutable teacher lanes
+- `selected_students` is also the current browser-proven baseline in mutable admin and institute exam-creation lanes
+- `scope` is now browser-proven in dedicated mutable admin and institute assignment-mode matrix lanes
 - assignment mode is backend-catalog-driven, so automation should enumerate all visible options at runtime and create at least one scenario per exposed option
 
 ### Lifecycle states relevant to visibility

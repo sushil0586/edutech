@@ -20,6 +20,21 @@ async function gotoWithRetry(page: Page, url: string, attempts = 3) {
   throw lastError;
 }
 
+async function expectInstituteResultsLanding(page: Page) {
+  await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
+
+  const emptyStateHeading = page.getByRole("heading", {
+    name: /overview becomes useful after exams and attempts exist in your institute scope/i,
+  });
+  if (await emptyStateHeading.isVisible().catch(() => false)) {
+    await expect(emptyStateHeading).toBeVisible();
+    await expect(page.getByRole("link", { name: /open exams/i }).first()).toBeVisible();
+    return;
+  }
+
+  await expect(page.getByText(/^exam publish readiness$/i).first()).toBeVisible();
+}
+
 test.describe("Institute cross-browser shell sanity", () => {
   test.skip(testRequiresRole("institute"), "Institute Playwright credentials are not configured.");
 
@@ -43,8 +58,7 @@ test.describe("Institute cross-browser shell sanity", () => {
 
     await page.getByRole("link", { name: /^results$/i }).first().click();
     await expect(page).toHaveURL(/\/institute\/results(?:\?.*)?$/);
-    await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
-    await expect(page.getByText(/^exam publish readiness$/i).first()).toBeVisible();
+    await expectInstituteResultsLanding(page);
 
     await page.getByRole("link", { name: /^reviews$/i }).first().click();
     await expect(page).toHaveURL(/\/institute\/reviews(?:\?.*)?$/);

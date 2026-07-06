@@ -742,10 +742,10 @@
     },
     {
       "question_type": "mcq_single",
-      "difficulty_level": "advanced",
+      "difficulty_level": "foundation",
       "question_text": "Why should a leaf not be heated directly over a flame while removing chlorophyll with alcohol during a school experiment?",
       "explanation": "Alcohol catches fire easily, so it should be heated indirectly using a water bath. This makes the experiment safer.",
-      "default_marks": "2.00",
+      "default_marks": "1.00",
       "negative_marks": "0.25",
       "options": [
         {
@@ -772,10 +772,10 @@
     },
     {
       "question_type": "mcq_single",
-      "difficulty_level": "advanced",
+      "difficulty_level": "foundation",
       "question_text": "A gardener notices that leaves of a healthy potted plant are coated with a thick layer of dust for many days. Which effect is most likely if the dust is not cleaned?",
       "explanation": "Dust can block some sunlight and may also affect stomata on leaf surfaces. This can reduce photosynthesis and weaken the plant over time.",
-      "default_marks": "2.00",
+      "default_marks": "1.00",
       "negative_marks": "0.25",
       "options": [
         {
@@ -832,10 +832,10 @@
     },
     {
       "question_type": "mcq_single",
-      "difficulty_level": "advanced",
+      "difficulty_level": "foundation",
       "question_text": "A wilted plant becomes fresh again a few hours after watering. Which sequence best explains this?",
       "explanation": "After watering, roots absorb water, transport it upward, and cells regain firmness. This makes the leaves and stem stand upright again.",
-      "default_marks": "2.00",
+      "default_marks": "1.00",
       "negative_marks": "0.25",
       "options": [
         {
@@ -862,10 +862,10 @@
     },
     {
       "question_type": "mcq_single",
-      "difficulty_level": "advanced",
+      "difficulty_level": "foundation",
       "question_text": "Which piece of evidence best supports the idea that chlorophyll is important for photosynthesis?",
       "explanation": "In a variegated leaf, only the green regions contain chlorophyll. If only those parts give a starch test, that is strong evidence for chlorophyll's role.",
-      "default_marks": "2.00",
+      "default_marks": "1.00",
       "negative_marks": "0.25",
       "options": [
         {
@@ -969,10 +969,10 @@
     },
     {
       "question_type": "mcq_single",
-      "difficulty_level": "advanced",
+      "difficulty_level": "foundation",
       "question_text": "Why do leaves of some indoor plants become pale and weak when kept for a long time away from light?",
       "explanation": "Without enough light, photosynthesis decreases. As a result, the plant cannot make enough food and may lose healthy green growth.",
-      "default_marks": "2.00",
+      "default_marks": "1.00",
       "negative_marks": "0.25",
       "options": [
         {
@@ -999,10 +999,10 @@
     },
     {
       "question_type": "mcq_single",
-      "difficulty_level": "advanced",
+      "difficulty_level": "foundation",
       "question_text": "Which is the best explanation for why cactus leaves are modified into spines?",
       "explanation": "Cacti live in dry areas. Spines reduce water loss, while the stem becomes green and carries out photosynthesis.",
-      "default_marks": "2.00",
+      "default_marks": "1.00",
       "negative_marks": "0.25",
       "options": [
         {
@@ -1136,10 +1136,10 @@
     },
     {
       "question_type": "mcq_single",
-      "difficulty_level": "advanced",
+      "difficulty_level": "foundation",
       "question_text": "A school gardener can only improve one condition for a weak green plant today: more light, a painted pot, colored ribbons, or a new name tag. Which choice is most scientifically useful first?",
       "explanation": "More light directly supports photosynthesis. The other choices do not improve the plant's food-making process.",
-      "default_marks": "2.00",
+      "default_marks": "1.00",
       "negative_marks": "0.25",
       "options": [
         {
@@ -1166,10 +1166,10 @@
     },
     {
       "question_type": "mcq_single",
-      "difficulty_level": "advanced",
+      "difficulty_level": "foundation",
       "question_text": "Which observation best shows that water can travel upward through a stem?",
       "explanation": "If a white flower or cut stem placed in colored water shows color in upper parts later, it indicates upward movement of water.",
-      "default_marks": "2.00",
+      "default_marks": "1.00",
       "negative_marks": "0.25",
       "options": [
         {
@@ -1256,10 +1256,10 @@
     },
     {
       "question_type": "mcq_single",
-      "difficulty_level": "advanced",
+      "difficulty_level": "foundation",
       "question_text": "Assertion: A leaf with more chlorophyll usually appears greener.\nReason: Chlorophyll is the pigment that gives leaves their green color.",
       "explanation": "Both statements are true, and the reason correctly explains the assertion. Chlorophyll is responsible for the green appearance of leaves.",
-      "default_marks": "2.00",
+      "default_marks": "1.00",
       "negative_marks": "0.25",
       "options": [
         {
@@ -1303,10 +1303,10 @@
     },
     {
       "question_type": "mcq_single",
-      "difficulty_level": "advanced",
+      "difficulty_level": "foundation",
       "question_text": "If a plant has green stems but very tiny leaves, what can still be concluded in many such plants?",
       "explanation": "In some plants such as cacti, the stem is green and performs photosynthesis even when leaves are reduced or modified.",
-      "default_marks": "2.00",
+      "default_marks": "1.00",
       "negative_marks": "0.25",
       "options": [
         {

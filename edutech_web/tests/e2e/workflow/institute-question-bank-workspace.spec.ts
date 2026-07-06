@@ -35,9 +35,18 @@ test.describe("Institute question bank workspace", () => {
     await expect(page).toHaveURL(/search=square\+root|search=square%20root/);
     await expect(searchField).toHaveValue("square root");
 
+    await searchField.fill("playwright-no-match-zzqv-1781");
+    await page.getByRole("button", { name: /apply filters/i }).click();
+    await expect(page.getByText(/no questions match these filters/i).first()).toBeVisible();
+    await expect(page.getByText(/active controls are shaping this empty state/i).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /reset filters and show all questions/i }).first()).toBeVisible();
+    await page.getByRole("link", { name: /reset filters and show all questions/i }).first().click();
+    await expect(page).toHaveURL(/\/institute\/question-bank(?:\?.*)?$/);
+    await expect(page.getByRole("heading", { name: /question bank/i }).first()).toBeVisible();
+
     const firstDetails = page.locator("details.questionBankDetails").first();
     if (await firstDetails.isVisible().catch(() => false)) {
-      await expect(firstDetails.locator("summary")).toContainText(/preview details/i);
+      await expect(firstDetails.locator("summary")).toContainText(/preview details|open full review/i);
       await expect(firstDetails).not.toHaveAttribute("open", "");
       await firstDetails.locator("summary").click();
       await expect(firstDetails).toHaveAttribute("open", "");

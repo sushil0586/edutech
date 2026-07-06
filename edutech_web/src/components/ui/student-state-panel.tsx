@@ -7,7 +7,10 @@ type StudentStatePanelProps = {
   bullets?: string[];
   ctaHref?: string;
   ctaLabel?: string;
+  secondaryCtaHref?: string;
+  secondaryCtaLabel?: string;
   statusLabel?: string;
+  footnote?: string;
 };
 
 export function StudentStatePanel({
@@ -17,7 +20,10 @@ export function StudentStatePanel({
   bullets = [],
   ctaHref,
   ctaLabel,
+  secondaryCtaHref,
+  secondaryCtaLabel,
   statusLabel = "Live data only",
+  footnote = "Returned from the current live app flow and ready once configuration is restored.",
 }: StudentStatePanelProps) {
   return (
     <section className="featurePlaceholder statePanel">
@@ -45,12 +51,21 @@ export function StudentStatePanel({
         </div>
       ) : null}
 
-      {ctaHref && ctaLabel ? (
+      {((ctaHref && ctaLabel) || (secondaryCtaHref && secondaryCtaLabel)) ? (
         <div className="placeholderFooter">
-          <span className="statePanelFootnote">Returned from the current live app flow and ready once configuration is restored.</span>
-          <Link className="button buttonSecondary" href={ctaHref}>
-            {ctaLabel}
-          </Link>
+          <span className="statePanelFootnote">{footnote}</span>
+          <div className="resultCardActions">
+            {secondaryCtaHref && secondaryCtaLabel ? (
+              <Link className="button buttonGhost" href={secondaryCtaHref}>
+                {secondaryCtaLabel}
+              </Link>
+            ) : null}
+            {ctaHref && ctaLabel ? (
+              <Link className="button buttonSecondary" href={ctaHref}>
+                {ctaLabel}
+              </Link>
+            ) : null}
+          </div>
         </div>
       ) : null}
     </section>

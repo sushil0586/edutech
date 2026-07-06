@@ -348,6 +348,70 @@ CLASS_7_CBSE_CORE = {
 }
 
 
+CLASS_8_CBSE_CORE = {
+    "program": {
+        "name": "Class 8",
+        "code": "CLS8",
+        "category": "school",
+        "description": (
+            "Class 8 academic container aligned to a CBSE/NCERT-first middle school "
+            "structure, starting with a canonical math onboarding pack."
+        ),
+        "sort_order": 80,
+    },
+    "subjects": [
+        {
+            "name": "Math",
+            "code": "CLS8-MATH",
+            "description": (
+                "Grade 8 mathematics aligned to NCERT core progression with onboarding-friendly "
+                "topic groups for institute bootstrap and package-linked access."
+            ),
+            "sort_order": 10,
+            "topics": [
+                {
+                    "name": "Rational Numbers",
+                    "code": "CLS8-MATH-RATIONAL",
+                    "description": "Properties, ordering, and operations on rational numbers.",
+                    "sort_order": 10,
+                    "children": [
+                        ("Rational Numbers", "CLS8-MATH-RATIONAL-CORE", 10),
+                    ],
+                },
+                {
+                    "name": "Linear Equations in One Variable",
+                    "code": "CLS8-MATH-LINEAR-EQ",
+                    "description": "Solving and interpreting one-variable linear equations.",
+                    "sort_order": 20,
+                    "children": [
+                        ("Linear Equations in One Variable", "CLS8-MATH-LINEAR-EQ-CORE", 10),
+                    ],
+                },
+                {
+                    "name": "Comparing Quantities",
+                    "code": "CLS8-MATH-COMP-QUANT",
+                    "description": "Percentages, profit-loss, discount, and simple interest.",
+                    "sort_order": 30,
+                    "children": [
+                        ("Comparing Quantities", "CLS8-MATH-COMP-QUANT-CORE", 10),
+                    ],
+                },
+                {
+                    "name": "Algebraic Expressions and Identities",
+                    "code": "CLS8-MATH-ALGEBRA-ID",
+                    "description": "Terms, expressions, multiplication, and standard identities.",
+                    "sort_order": 40,
+                    "children": [
+                        ("Algebraic Expressions and Identities", "CLS8-MATH-ALGEBRA-ID-CORE", 10),
+                    ],
+                },
+            ],
+        },
+    ],
+}
+
+
 PRESETS = {
     "class_7_cbse_core": CLASS_7_CBSE_CORE,
+    "class_8_cbse_core": CLASS_8_CBSE_CORE,
 }

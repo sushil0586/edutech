@@ -1,0 +1,1439 @@
+{
+  "topic_code": "SCI-PHYSICS-HEAT",
+  "topic_name": "Heat Transfer in Nature",
+  "questions": [
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which of the following is a good conductor of heat?",
+      "explanation": "Metals such as iron allow heat to pass through them easily, so they are good conductors of heat.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Wood",
+          "is_correct": false
+        },
+        {
+          "option_text": "Iron",
+          "is_correct": true
+        },
+        {
+          "option_text": "Plastic",
+          "is_correct": false
+        },
+        {
+          "option_text": "Rubber",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "classification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "What happens to mercury in a thermometer when the temperature rises?",
+      "explanation": "Mercury expands on heating, so it rises up in the narrow tube of the thermometer.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "It freezes immediately",
+          "is_correct": false
+        },
+        {
+          "option_text": "It rises in the tube",
+          "is_correct": true
+        },
+        {
+          "option_text": "It changes into gas at once",
+          "is_correct": false
+        },
+        {
+          "option_text": "It becomes shorter",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "indicator_result",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Heat always flows from:",
+      "explanation": "Heat moves from a hotter object or region to a colder object or region until the temperatures become more equal.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Cold object to hot object",
+          "is_correct": false
+        },
+        {
+          "option_text": "Hot object to cold object",
+          "is_correct": true
+        },
+        {
+          "option_text": "Heavy object to light object",
+          "is_correct": false
+        },
+        {
+          "option_text": "Bright object to dark object",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "true_false",
+      "difficulty_level": "foundation",
+      "question_text": "Woollen clothes help us stay warm in winter.",
+      "explanation": "Wool traps air, and air is a poor conductor of heat. This reduces loss of body heat.",
+      "default_marks": "1.00",
+      "negative_marks": "0.00",
+      "options": [
+        {
+          "option_text": "True",
+          "is_correct": true
+        },
+        {
+          "option_text": "False",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "true_false_concept",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which kitchen utensil part is often made of plastic or wood?",
+      "explanation": "Handles are often made of plastic or wood because these materials are poor conductors of heat and help prevent burns.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "The whole pan base",
+          "is_correct": false
+        },
+        {
+          "option_text": "The handle",
+          "is_correct": true
+        },
+        {
+          "option_text": "The flame",
+          "is_correct": false
+        },
+        {
+          "option_text": "The metal spoon bowl",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "familiar_example_identification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "The SI unit commonly used to measure temperature in science is:",
+      "explanation": "Temperature is commonly measured in degree Celsius in school science.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Metre",
+          "is_correct": false
+        },
+        {
+          "option_text": "Kilogram",
+          "is_correct": false
+        },
+        {
+          "option_text": "Degree Celsius",
+          "is_correct": true
+        },
+        {
+          "option_text": "Litre",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which of the following is a poor conductor of heat?",
+      "explanation": "Wood does not allow heat to pass through easily, so it is a poor conductor.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Copper",
+          "is_correct": false
+        },
+        {
+          "option_text": "Aluminium",
+          "is_correct": false
+        },
+        {
+          "option_text": "Wood",
+          "is_correct": true
+        },
+        {
+          "option_text": "Steel",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "classification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which part of a house is often painted white in hot regions to reduce heating?",
+      "explanation": "White surfaces reflect more sunlight and absorb less heat, helping keep buildings cooler.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Underground pipes",
+          "is_correct": false
+        },
+        {
+          "option_text": "Roof or outer walls",
+          "is_correct": true
+        },
+        {
+          "option_text": "Door hinges",
+          "is_correct": false
+        },
+        {
+          "option_text": "Water taps",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "familiar_example_identification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Transfer of heat through direct contact is called:",
+      "explanation": "Conduction is the process in which heat passes through a substance by direct contact of particles.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Conduction",
+          "is_correct": true
+        },
+        {
+          "option_text": "Convection",
+          "is_correct": false
+        },
+        {
+          "option_text": "Radiation",
+          "is_correct": false
+        },
+        {
+          "option_text": "Reflection",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "true_false",
+      "difficulty_level": "foundation",
+      "question_text": "Dark-colored clothes usually absorb more heat than light-colored clothes.",
+      "explanation": "Dark colors absorb more heat energy from sunlight than light colors.",
+      "default_marks": "1.00",
+      "negative_marks": "0.00",
+      "options": [
+        {
+          "option_text": "True",
+          "is_correct": true
+        },
+        {
+          "option_text": "False",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "true_false_concept",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Why should we not touch a hot iron rod with bare hands?",
+      "explanation": "Iron is a good conductor of heat, so the heat quickly travels to the hand and can cause burns.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Because iron becomes lighter when hot",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because iron changes color permanently",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because heat from the rod can quickly reach the hand",
+          "is_correct": true
+        },
+        {
+          "option_text": "Because iron starts absorbing air",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "safety_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which clothing is usually more suitable on a sunny summer afternoon?",
+      "explanation": "Light-colored cotton clothes reflect more heat and allow sweat to evaporate more easily.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Light-colored cotton clothes",
+          "is_correct": true
+        },
+        {
+          "option_text": "Thick black woollen clothes",
+          "is_correct": false
+        },
+        {
+          "option_text": "Wet heavy blankets",
+          "is_correct": false
+        },
+        {
+          "option_text": "Metal-coated clothes",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "case_based_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "If steam burns the skin more severely than hot water at the same temperature, what can be concluded?",
+      "explanation": "Steam carries extra heat energy and can release more heat when it condenses on the skin.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Steam is always colder than water",
+          "is_correct": false
+        },
+        {
+          "option_text": "Steam can transfer more heat to the skin",
+          "is_correct": true
+        },
+        {
+          "option_text": "Water does not contain heat",
+          "is_correct": false
+        },
+        {
+          "option_text": "Steam is not a form of water",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "what_can_be_concluded",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which observation best shows that metal is a good conductor of heat?",
+      "explanation": "If one end of a metal spoon in hot soup becomes hot quickly, it shows heat is travelling through the metal.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "The spoon floats in water",
+          "is_correct": false
+        },
+        {
+          "option_text": "The other end of the spoon becomes hot soon",
+          "is_correct": true
+        },
+        {
+          "option_text": "The spoon becomes lighter",
+          "is_correct": false
+        },
+        {
+          "option_text": "The spoon changes into liquid",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "evidence_based_choice",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Why do people use quilts in winter?",
+      "explanation": "Quilts trap air between their layers. Since air is a poor conductor, body heat escapes more slowly.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Quilts produce heat from nothing",
+          "is_correct": false
+        },
+        {
+          "option_text": "Quilts reduce heat loss by trapping air",
+          "is_correct": true
+        },
+        {
+          "option_text": "Quilts absorb cold from the room",
+          "is_correct": false
+        },
+        {
+          "option_text": "Quilts make the body stop sweating forever",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "best_explanation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Assertion: A metal pan gets heated quickly on a stove.\nReason: Metals are good conductors of heat.",
+      "explanation": "Both the assertion and reason are true, and the reason correctly explains the assertion.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Both Assertion and Reason are true, and Reason correctly explains Assertion",
+          "is_correct": true
+        },
+        {
+          "option_text": "Both Assertion and Reason are true, but Reason does not explain Assertion",
+          "is_correct": false
+        },
+        {
+          "option_text": "Assertion is true, but Reason is false",
+          "is_correct": false
+        },
+        {
+          "option_text": "Assertion is false, but Reason is true",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "assertion_reason",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Why is it better to wear white clothes than black clothes in summer?",
+      "explanation": "White clothes reflect more sunlight, so they absorb less heat and help the body stay cooler.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "White clothes always produce cold air",
+          "is_correct": false
+        },
+        {
+          "option_text": "White clothes reflect more heat from sunlight",
+          "is_correct": true
+        },
+        {
+          "option_text": "Black clothes are poor conductors",
+          "is_correct": false
+        },
+        {
+          "option_text": "White clothes stop sweating completely",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "daily_life_application",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "foundation",
+      "question_text": "Name any two good conductors of heat.",
+      "explanation": "Metals such as copper, iron, and aluminium are good conductors of heat.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "archetype": "concept_explanation",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "Copper and iron",
+          "Aluminium and copper",
+          "Iron and aluminium"
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "If one end of a wax-coated metal rod is heated and the wax melts farther along the rod, what does this indicate?",
+      "explanation": "The melting wax shows that heat is travelling through the rod by conduction.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "The rod is becoming colder",
+          "is_correct": false
+        },
+        {
+          "option_text": "Wax can move heat better than metal",
+          "is_correct": false
+        },
+        {
+          "option_text": "Heat is spreading through the metal rod",
+          "is_correct": true
+        },
+        {
+          "option_text": "The rod is losing all its mass",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "observation_based_inference",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which statement about temperature and heat is correct?",
+      "explanation": "Temperature tells how hot or cold an object is, while heat is the energy that flows from hotter to colder objects.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Heat and temperature always mean exactly the same thing",
+          "is_correct": false
+        },
+        {
+          "option_text": "Temperature measures hotness, while heat is energy transfer",
+          "is_correct": true
+        },
+        {
+          "option_text": "Heat is measured only by color",
+          "is_correct": false
+        },
+        {
+          "option_text": "Temperature can move from cold to hot only",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "misconception_correction",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "A metal spoon and a wooden spoon are placed in hot water. Which spoon handle will usually feel hotter first, and why?",
+      "explanation": "Metal conducts heat better than wood, so heat reaches the metal handle more quickly.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "The metal spoon handle, because metal conducts heat better",
+          "is_correct": true
+        },
+        {
+          "option_text": "The wooden spoon handle, because wood stores more heat",
+          "is_correct": false
+        },
+        {
+          "option_text": "Both handles always feel equally hot",
+          "is_correct": false
+        },
+        {
+          "option_text": "Neither handle can become hot",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "simple_experiment_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "A student wants to compare how fast different materials heat up in sunlight. What is the best next step for a fair test?",
+      "explanation": "The student should keep the pieces similar in size and place them under the same sunlight for the same amount of time.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Use pieces of very different sizes and colors without notes",
+          "is_correct": false
+        },
+        {
+          "option_text": "Heat one piece in fire and another in sunlight",
+          "is_correct": false
+        },
+        {
+          "option_text": "Keep similar-sized samples under the same sunlight for equal time",
+          "is_correct": true
+        },
+        {
+          "option_text": "Test only one material and guess the others",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "best_next_step",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "In a classroom activity, colored warm water is placed in one corner of a tank of water. The color slowly spreads upward and across. What does this mainly show?",
+      "explanation": "Warm water rises and cooler water sinks, setting up convection currents in liquids.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Heat travels only through solids",
+          "is_correct": false
+        },
+        {
+          "option_text": "Warm water always becomes heavier",
+          "is_correct": false
+        },
+        {
+          "option_text": "Convection currents are formed in water",
+          "is_correct": true
+        },
+        {
+          "option_text": "Color itself produces heat",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "indicator_interpretation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Why does sea breeze usually blow from sea toward land during the daytime?",
+      "explanation": "Land heats up faster than sea water during the day. Warm air over land rises, and cooler air from the sea moves in to replace it.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Sea water always becomes hotter first",
+          "is_correct": false
+        },
+        {
+          "option_text": "Land heats faster, so cooler sea air moves toward land",
+          "is_correct": true
+        },
+        {
+          "option_text": "Air moves only because of waves",
+          "is_correct": false
+        },
+        {
+          "option_text": "The sea pushes air mechanically toward land",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "observation_based_inference",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Why are earthen pots often used for keeping water cool in summer?",
+      "explanation": "A little water seeps through the tiny pores and evaporates from the outer surface. Evaporation removes heat and cools the water inside.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Earthen pots create cold water by themselves",
+          "is_correct": false
+        },
+        {
+          "option_text": "Clay blocks all movement of heat forever",
+          "is_correct": false
+        },
+        {
+          "option_text": "Evaporation from the pot surface helps cool the water",
+          "is_correct": true
+        },
+        {
+          "option_text": "The pot absorbs only cold from the air",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "daily_life_application",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which statement correctly describes convection?",
+      "explanation": "Convection is the transfer of heat by actual movement of particles in liquids and gases.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Convection happens only in solids",
+          "is_correct": false
+        },
+        {
+          "option_text": "Convection happens when warm fluid rises and cooler fluid sinks",
+          "is_correct": true
+        },
+        {
+          "option_text": "Convection needs no particles at all",
+          "is_correct": false
+        },
+        {
+          "option_text": "Convection and reflection are the same thing",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "misconception_correction",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which pair is correctly matched?",
+      "explanation": "Conduction mainly occurs in solids, while convection mainly occurs in fluids such as liquids and gases.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Conduction - only in empty space",
+          "is_correct": false
+        },
+        {
+          "option_text": "Radiation - only in liquids",
+          "is_correct": false
+        },
+        {
+          "option_text": "Convection - mainly in liquids and gases",
+          "is_correct": true
+        },
+        {
+          "option_text": "Conduction - only in gases",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "compare_and_classify",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "intermediate",
+      "question_text": "Why is air trapped between wool fibres useful in winter clothing?",
+      "explanation": "Air is a poor conductor of heat, so trapped air reduces loss of body heat.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "archetype": "concept_explanation",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "Air is a poor conductor and slows down heat loss.",
+          "Trapped air helps keep body heat from escaping quickly."
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "A person stands near a bonfire and feels warm even without touching the fire. Which mode of heat transfer is mainly responsible?",
+      "explanation": "Heat from the bonfire reaches the person mainly by radiation.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Conduction only",
+          "is_correct": false
+        },
+        {
+          "option_text": "Evaporation only",
+          "is_correct": false
+        },
+        {
+          "option_text": "Radiation",
+          "is_correct": true
+        },
+        {
+          "option_text": "Freezing",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "case_based_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which observation best supports the idea that black surfaces absorb more heat?",
+      "explanation": "If two similar containers are left in sunlight and the black one becomes hotter faster, it shows stronger heat absorption.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "The white container looks brighter",
+          "is_correct": false
+        },
+        {
+          "option_text": "The black container becomes hotter more quickly in sunlight",
+          "is_correct": true
+        },
+        {
+          "option_text": "The black container is heavier",
+          "is_correct": false
+        },
+        {
+          "option_text": "The white container reflects sound",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "evidence_based_choice",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "If a steel ruler becomes hot at one end and warm at the other after some time, what can be concluded?",
+      "explanation": "This shows heat is passing through the ruler by conduction.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Heat can travel only through water",
+          "is_correct": false
+        },
+        {
+          "option_text": "The ruler is creating heat at both ends",
+          "is_correct": false
+        },
+        {
+          "option_text": "Heat can move through steel by conduction",
+          "is_correct": true
+        },
+        {
+          "option_text": "The ruler is changing into another material",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "what_can_be_concluded",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Why does hot air usually rise upward?",
+      "explanation": "On heating, air expands and becomes less dense than the cooler air around it, so it rises.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Hot air becomes heavier",
+          "is_correct": false
+        },
+        {
+          "option_text": "Hot air expands and becomes less dense",
+          "is_correct": true
+        },
+        {
+          "option_text": "Hot air loses all particles",
+          "is_correct": false
+        },
+        {
+          "option_text": "Gravity stops acting on hot air",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "why_this_happens",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "You must hold a hot cooking vessel for a few seconds. Which choice is most sensible?",
+      "explanation": "Using a thick cloth or heat-resistant glove reduces heat transfer to the hand.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Hold it with wet bare fingers",
+          "is_correct": false
+        },
+        {
+          "option_text": "Use a dry thick cloth or heat-resistant glove",
+          "is_correct": true
+        },
+        {
+          "option_text": "Blow on the vessel and grab it immediately",
+          "is_correct": false
+        },
+        {
+          "option_text": "Touch it at the base first",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "decision_under_uncertainty",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "In an activity, paper spiral hung above a candle begins to rotate. What does this mainly demonstrate?",
+      "explanation": "The candle heats the air, the warm air rises, and the moving air can turn the spiral. This shows convection in air.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Only conduction in paper",
+          "is_correct": false
+        },
+        {
+          "option_text": "The paper makes wind on its own",
+          "is_correct": false
+        },
+        {
+          "option_text": "Rising warm air due to convection",
+          "is_correct": true
+        },
+        {
+          "option_text": "Candlelight pulls the spiral upward magnetically",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "experiment_interpretation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Assertion: Land breeze generally blows from land toward sea at night.\nReason: At night, land cools faster than sea.",
+      "explanation": "Both the assertion and reason are true, and the reason correctly explains the assertion.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Both Assertion and Reason are true, and Reason correctly explains Assertion",
+          "is_correct": true
+        },
+        {
+          "option_text": "Both Assertion and Reason are true, but Reason does not explain Assertion",
+          "is_correct": false
+        },
+        {
+          "option_text": "Assertion is true, but Reason is false",
+          "is_correct": false
+        },
+        {
+          "option_text": "Assertion is false, but Reason is true",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "assertion_reason",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Why should a clinical thermometer not be used to measure the temperature of very hot water?",
+      "explanation": "A clinical thermometer is designed for human body temperature range. Very hot water may damage it or give unsafe results.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Because water has no temperature",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because glass never expands",
+          "is_correct": false
+        },
+        {
+          "option_text": "Because it is made for body temperature range, not very hot liquids",
+          "is_correct": true
+        },
+        {
+          "option_text": "Because hot water always cools before being measured",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "safety_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "A metal bench and a wooden bench are kept outside on a winter morning. Both are at the same surrounding temperature, but the metal bench feels colder. What is the best explanation?",
+      "explanation": "Metal draws heat away from the body more quickly than wood because metal is a better conductor.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Metal always has a lower temperature than wood",
+          "is_correct": false
+        },
+        {
+          "option_text": "Metal removes heat from the body faster than wood",
+          "is_correct": true
+        },
+        {
+          "option_text": "Wood produces heat for the hand",
+          "is_correct": false
+        },
+        {
+          "option_text": "The color of the bench changes the winter air temperature",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "case_based_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_multiple",
+      "difficulty_level": "advanced",
+      "question_text": "Select all correct statements about radiation.",
+      "explanation": "Radiation is heat transfer that does not need a material medium and can travel through empty space.",
+      "default_marks": "2.00",
+      "negative_marks": "0.50",
+      "options": [
+        {
+          "option_text": "It can occur through empty space",
+          "is_correct": true
+        },
+        {
+          "option_text": "The Sun warms Earth mainly by this process",
+          "is_correct": true
+        },
+        {
+          "option_text": "It happens only in solids",
+          "is_correct": false
+        },
+        {
+          "option_text": "It always requires moving air",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "multi_select_truth_evaluation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "If the windows near the ceiling of a room are opened first, why can the room become cooler more effectively?",
+      "explanation": "Warm air tends to rise and collect near the top. Opening higher windows lets the warmer air escape first.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Cold air always stays at the top",
+          "is_correct": false
+        },
+        {
+          "option_text": "Windows create new cold air by themselves",
+          "is_correct": false
+        },
+        {
+          "option_text": "Warm air near the top escapes, helping cooler air circulate",
+          "is_correct": true
+        },
+        {
+          "option_text": "Heat cannot move inside rooms",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "observation_chain_inference",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which evidence best supports the idea that shiny surfaces are useful in reducing heat absorption?",
+      "explanation": "If two similar containers are kept in sunlight and the shiny one warms more slowly, it suggests the shiny surface reflects more radiation.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "The shiny container is more expensive",
+          "is_correct": false
+        },
+        {
+          "option_text": "The shiny container heats up more slowly under the same sunlight",
+          "is_correct": true
+        },
+        {
+          "option_text": "The dull container is heavier",
+          "is_correct": false
+        },
+        {
+          "option_text": "The shiny container makes louder sound when tapped",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "evidence_based_choice",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Why are double-walled flasks used to keep liquids hot or cold for a long time?",
+      "explanation": "They reduce heat transfer by conduction, convection, and radiation, often using vacuum and reflective surfaces.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "They add heat to liquids continuously",
+          "is_correct": false
+        },
+        {
+          "option_text": "They change hot liquids into cold ones",
+          "is_correct": false
+        },
+        {
+          "option_text": "They reduce heat transfer in several ways",
+          "is_correct": true
+        },
+        {
+          "option_text": "They absorb all the water inside",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "best_explanation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "advanced",
+      "question_text": "State one difference between conduction and convection.",
+      "explanation": "Conduction transfers heat without bulk movement of matter, while convection involves movement of particles in liquids or gases.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "archetype": "concept_explanation",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "Conduction occurs without bulk movement, but convection involves movement of fluid.",
+          "Conduction is common in solids, while convection happens in liquids and gases."
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "If a black metal can and a shiny metal can are filled with the same hot water, and the black can cools faster, what can be concluded?",
+      "explanation": "Black surfaces are generally better emitters of heat radiation, so they can lose heat faster.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Black surfaces stop heat transfer",
+          "is_correct": false
+        },
+        {
+          "option_text": "Shiny surfaces always absorb more heat and lose more too",
+          "is_correct": false
+        },
+        {
+          "option_text": "Black surfaces can emit heat faster than shiny surfaces",
+          "is_correct": true
+        },
+        {
+          "option_text": "Color has no relation to heat transfer",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "what_can_be_concluded",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Why does a steel spoon placed in a cup of hot tea become hot even above the tea level?",
+      "explanation": "Heat travels along the spoon by conduction, so the upper part also becomes hot.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Tea vapour turns the spoon into another metal",
+          "is_correct": false
+        },
+        {
+          "option_text": "Heat conducts through the spoon from the immersed part",
+          "is_correct": true
+        },
+        {
+          "option_text": "Only the air around the spoon heats it",
+          "is_correct": false
+        },
+        {
+          "option_text": "The handle produces heat on its own",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "why_this_happens",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Two students disagree on whether air can transfer heat by convection. What is the most sensible way to test this?",
+      "explanation": "A simple classroom setup using incense smoke or paper spiral above a warm source can show rising warm air clearly.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Ask only one student to guess",
+          "is_correct": false
+        },
+        {
+          "option_text": "Observe smoke or a paper spiral above a heat source",
+          "is_correct": true
+        },
+        {
+          "option_text": "Put air in a closed book",
+          "is_correct": false
+        },
+        {
+          "option_text": "Use a magnet on the air",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "decision_under_uncertainty",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "In an experiment, pins fixed with wax on a metal strip fall off one by one when one end is heated. What does this show?",
+      "explanation": "The falling pins show that heat is moving gradually through the metal strip by conduction.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "The wax is attracting the pins upward",
+          "is_correct": false
+        },
+        {
+          "option_text": "The strip is becoming shorter from both ends",
+          "is_correct": false
+        },
+        {
+          "option_text": "Heat is travelling along the metal strip",
+          "is_correct": true
+        },
+        {
+          "option_text": "Metals do not conduct heat at all",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "experiment_interpretation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "A person wraps a hot casserole in thick insulating material. What is the main benefit?",
+      "explanation": "The insulating layer slows down the loss of heat from the casserole to the surroundings.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "It makes the food cook faster without any heat source",
+          "is_correct": false
+        },
+        {
+          "option_text": "It increases the temperature of the room immediately",
+          "is_correct": false
+        },
+        {
+          "option_text": "It reduces heat loss and helps food stay warm longer",
+          "is_correct": true
+        },
+        {
+          "option_text": "It changes the food into a solid",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "case_based_reasoning",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_multiple",
+      "difficulty_level": "advanced",
+      "question_text": "Select all correct statements about materials and heat.",
+      "explanation": "Metals are generally good conductors, while materials like wood, plastic, air, and wool are poor conductors.",
+      "default_marks": "2.00",
+      "negative_marks": "0.50",
+      "options": [
+        {
+          "option_text": "Metals are usually good conductors of heat",
+          "is_correct": true
+        },
+        {
+          "option_text": "Air can act as an insulator when trapped",
+          "is_correct": true
+        },
+        {
+          "option_text": "Plastic handles can help prevent burns",
+          "is_correct": true
+        },
+        {
+          "option_text": "All solids conduct heat equally well",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "multi_select_truth_evaluation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty_level": "advanced",
+      "question_text": "Why is sea water usually cooler than nearby land during the daytime?",
+      "explanation": "Water heats up more slowly than land, so the sea usually remains cooler during the day.",
+      "default_marks": "2.00",
+      "negative_marks": "0.00",
+      "options": [],
+      "metadata": {
+        "archetype": "concept_explanation",
+        "source_pack": "class7_curated_v2",
+        "accepted_answers": [
+          "Water heats more slowly than land, so sea water stays cooler in daytime.",
+          "Land warms faster, while the sea takes longer to heat."
+        ]
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Why is sweating useful on a hot day?",
+      "explanation": "When sweat evaporates from the skin, it takes away heat from the body and helps cool it down.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "Sweat adds heat to the skin",
+          "is_correct": false
+        },
+        {
+          "option_text": "Sweat prevents all air movement",
+          "is_correct": false
+        },
+        {
+          "option_text": "Evaporation of sweat removes heat from the body",
+          "is_correct": true
+        },
+        {
+          "option_text": "Sweat turns into ice on the skin",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "best_explanation",
+        "source_pack": "class7_curated_v2"
+      }
+    }
+  ]
+}
