@@ -22,6 +22,7 @@ from apps.accounts.permissions import (
     IsStudent,
     IsTeacherOrInstituteAdmin,
 )
+from apps.accounts.models import AccountProfile
 from apps.accounts.services import (
     create_institute_login,
     create_student_login,
@@ -94,6 +95,24 @@ def _hydrate_exam_access_policies(exams):
     from apps.exams.services import hydrate_exam_access_policies
 
     return hydrate_exam_access_policies(exams)
+
+
+def _get_hydrated_account_profile_for_session(user):
+    return (
+        AccountProfile.objects.select_related(
+            "user",
+            "institute",
+            "student_profile__program",
+            "student_profile__academic_year",
+            "student_profile__cohort",
+            "teacher_profile",
+            "parent_profile",
+            "location_profile",
+            "acquisition_profile",
+        )
+        .filter(user=user)
+        .first()
+    )
 
 
 class LoginView(APIView):
@@ -180,7 +199,10 @@ class MeView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        return Response(AccountProfileSerializer(request.user.account_profile).data)
+        profile = _get_hydrated_account_profile_for_session(request.user)
+        if profile is None:
+            return Response({"detail": "Account profile is inactive or missing."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(AccountProfileSerializer(profile).data)
 
 
 class OnboardingProfileView(APIView):
@@ -460,6 +482,12 @@ class StudentAvailableExamView(APIView):
             request.user,
         ).filter(is_active=True).prefetch_related(
             Prefetch(
+                "sections",
+                queryset=ExamSection.objects.filter(is_active=True)
+                .select_related("subject")
+                .order_by("section_order", "created_at"),
+            ),
+            Prefetch(
                 "student_assignments",
                 to_attr="_prefetched_student_assignments",
             ),
@@ -500,8 +528,12 @@ class StudentExamDetailView(APIView):
                 "subject",
                 "source_teacher",
             ).prefetch_related(
-                "sections",
-                "student_assignments",
+                Prefetch(
+                    "sections",
+                    queryset=ExamSection.objects.filter(is_active=True)
+                    .select_related("subject")
+                    .order_by("section_order", "created_at"),
+                ),
                 Prefetch(
                     "exam_questions",
                     queryset=ExamQuestion.objects.filter(is_active=True)
@@ -557,8 +589,12 @@ class StudentExamAccessKeyResolveView(APIView):
                 "subject",
                 "source_teacher",
             ).prefetch_related(
-                "sections",
-                "student_assignments",
+                Prefetch(
+                    "sections",
+                    queryset=ExamSection.objects.filter(is_active=True)
+                    .select_related("subject")
+                    .order_by("section_order", "created_at"),
+                ),
                 Prefetch(
                     "exam_questions",
                     queryset=ExamQuestion.objects.filter(is_active=True)
@@ -779,6 +815,16 @@ class TeacherExamListView(APIView):
         if exam_filter in {"economy_gated", "stars_gated", "entitlement_gated"}:
             scoped_exams = list(queryset)
             resolved_policies = _hydrate_exam_access_policies(scoped_exams)
+            star_gated_count = 0
+            entitlement_gated_count = 0
+
+            for policy in resolved_policies.values():
+                if policy is None:
+                    continue
+                if policy.policy_type in {"stars_only", "stars_or_entitlement"}:
+                    star_gated_count += 1
+                if policy.policy_type in {"entitlement_only", "stars_or_entitlement"}:
+                    entitlement_gated_count += 1
 
             def matches_policy(policy):
                 if policy is None:
@@ -797,6 +843,8 @@ class TeacherExamListView(APIView):
             queryset = queryset.filter(id__in=matching_exam_ids)
             economy_summary = {
                 "total_star_cost": total_star_cost,
+                "star_gated_count": star_gated_count,
+                "entitlement_gated_count": entitlement_gated_count,
             }
 
         if exam_sort == "start_soon":

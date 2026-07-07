@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { InstitutePageHeader } from "@/components/ui/institute-page-header";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { TeacherQuestionImportWorkspace } from "@/components/ui/teacher-question-import-workspace";
@@ -14,12 +15,37 @@ type InstituteQuestionFeatureEntitlement = {
   status: string;
 };
 
-export default async function InstituteQuestionImportPage() {
+function InstituteQuestionImportLoadingShell() {
+  return (
+    <div className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteQuestionImportPageVivid">
+      <InstitutePageHeader
+        title="Import Questions"
+        description="Bring structured CSV question sets into the institute bank with a preview-first workflow backed by the live backend validators."
+      />
+
+      <section className="studentInsightHeroCard studentInsightHeroCardCompact">
+        <div className="studentInsightHeroCopy">
+          <span className="studentDashboardTag">Preview-First Import</span>
+          <strong>Loading the import workspace</strong>
+          <p>
+            The institute import shell is ready. Feature entitlement and template details are loading in the background.
+          </p>
+          <small>Preparing the current CSV template and entitlement lane</small>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+async function InstituteQuestionImportPageContent() {
   await requireInstituteAdminSession();
 
-  const featureEntitlements = await fetchPortalList<InstituteQuestionFeatureEntitlement>(
-    "/api/v1/economy/admin/institute-question-bank-feature-entitlements/",
-  ).catch(() => []);
+  const [featureEntitlements, template] = await Promise.all([
+    fetchPortalList<InstituteQuestionFeatureEntitlement>(
+      "/api/v1/economy/admin/institute-question-bank-feature-entitlements/",
+    ).catch(() => []),
+    fetchTeacherQuestionImportTemplate().catch(() => null),
+  ]);
   const hasBulkImportAccess = featureEntitlements.some(
     (entitlement) =>
       entitlement.feature_code === QUESTION_BANK_BULK_IMPORT_FEATURE_CODE &&
@@ -47,9 +73,7 @@ export default async function InstituteQuestionImportPage() {
     );
   }
 
-  const template =
-    (await fetchTeacherQuestionImportTemplate().catch(() => null)) ??
-    buildFallbackQuestionImportTemplate();
+  const resolvedTemplate = template ?? buildFallbackQuestionImportTemplate();
 
   return (
     <div className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteQuestionImportPageVivid">
@@ -66,17 +90,25 @@ export default async function InstituteQuestionImportPage() {
             Imports should never be blind. Use the template, preview the payload, and only finalize when row-level
             validation matches the academic structure you expect.
           </p>
-          <small>{template.columns.length} template columns available for the current CSV format</small>
+          <small>{resolvedTemplate.columns.length} template columns available for the current CSV format</small>
         </div>
       </section>
 
       <TeacherQuestionImportWorkspace
         backHref="/institute/question-bank"
-        csvContent={template.csv_content}
+        csvContent={resolvedTemplate.csv_content}
         formId="institute-question-import-form"
-        templateColumns={template.columns}
+        templateColumns={resolvedTemplate.columns}
         workspaceClassName="instituteQuestionImportWorkspaceVivid"
       />
     </div>
+  );
+}
+
+export default function InstituteQuestionImportPage() {
+  return (
+    <Suspense fallback={<InstituteQuestionImportLoadingShell />}>
+      <InstituteQuestionImportPageContent />
+    </Suspense>
   );
 }

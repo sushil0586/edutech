@@ -5,6 +5,22 @@ These commands are prepared for the current stage environment:
 - base URL: `https://learn.accerio.in`
 - student password: `Demo@12345`
 
+## Shared Stage Credentials
+
+Use these first for browser sanity and route validation before running `k6`:
+
+- `demo-platform-admin` / `Demo@12345`
+- `demo-institute-admin` / `Demo@12345`
+- `demo-teacher` / `Demo@12345`
+- `demo-student` / `Demo@12345`
+
+These are not the main high-concurrency pool. They are the Wave 1 validation accounts for:
+
+- stage login confirmation
+- role-shell confirmation
+- student exam visibility confirmation
+- institute and teacher results/reviews/live/analysis route confirmation
+
 ## Available Student Pool
 
 Current seeded pilot student users:
@@ -87,6 +103,51 @@ K6_STAGES_JSON='[
 ]' \
 k6 run performance/k6/student-login-and-exam-discovery.js
 ```
+
+Important note:
+
+- the backend login throttle is currently `10/minute`
+- this ramp shape reuses the same student identities repeatedly
+- on the current script shape, the test can start returning `429` before it becomes a clean pure-capacity signal
+- if you want a clean higher-scale auth test, either:
+  - temporarily raise the stage login throttle for the validation window
+  - increase the unique user pool enough that repeated logins per identity stay below the throttle window
+  - switch the scenario shape so the same authenticated session is reused instead of relogging every loop
+
+## 4.1 Ramp Run: Reuse Session And Exam Discovery
+
+Use this when you want a cleaner higher-scale discovery test without repeatedly logging the same identity on every loop:
+
+```bash
+K6_STAGES_JSON='[
+  {"duration":"1m","target":10},
+  {"duration":"2m","target":20},
+  {"duration":"2m","target":30},
+  {"duration":"1m","target":0}
+]' \
+k6 run performance/k6/student-session-and-exam-discovery.js
+```
+
+What this measures better:
+
+- authenticated session reuse
+- `/auth/me/` behavior under repeated access
+- student exam discovery under higher concurrency
+
+What this does not measure directly:
+
+- repeated login throughput per loop
+
+Current observed signal on the `2 vCPU` stage host:
+
+- a controlled interrupted run reached `11` active VUs cleanly
+- `0%` request failures
+- `http_req_duration` about:
+  - `avg 277ms`
+  - `p90 325ms`
+  - `p95 369ms`
+
+Treat this as the current best higher-scale session-discovery baseline before the instance resize.
 
 ## 5. Smoke Run: Exam Runtime
 
@@ -210,3 +271,94 @@ K6_SAVE_COUNT=5 \
 K6_SUBMIT_AT_END=true \
 k6 run performance/k6/student-exam-runtime.js
 ```
+
+## 13. Stage Performance Wave 1
+
+Run this exact order for the next performance-confidence step:
+
+1. Browser sanity with the shared demo accounts
+2. Host monitoring setup on `3.106.125.117`
+3. Student login/discovery smoke load
+4. Student login/discovery ramp
+5. Student runtime smoke load only if the demo or pooled students have visible startable exams
+
+### 13.1 Browser sanity
+
+Confirm each login manually first:
+
+- platform admin -> `/admin`
+- institute admin -> `/institute/dashboard`
+- teacher -> `/teacher/dashboard`
+- student -> `/app/dashboard`
+
+Then confirm these high-value stage routes load cleanly:
+
+- student:
+  - `/app/exams`
+  - one exam detail route if visible
+  - `/app/results`
+  - `/app/analytics`
+- institute:
+  - `/institute/results`
+  - `/institute/reviews`
+  - `/institute/results/live`
+  - `/institute/results/analysis`
+- teacher:
+  - `/teacher/results`
+  - `/teacher/reviews`
+  - `/teacher/results/live`
+  - `/teacher/results/analysis`
+
+Do not start `k6` if:
+
+- login fails for any required account
+- student exam visibility is empty for all candidate users
+- results or review shells are crashing before load begins
+
+### 13.2 Host monitoring
+
+Open one SSH session and follow:
+
+```bash
+ssh -i ~/Downloads/bansalsushil05.pem ubuntu@3.106.125.117
+htop
+```
+
+Also keep these ready in separate tabs:
+
+```bash
+sudo journalctl -u nexora-learn-backend -f
+```
+
+```bash
+sudo tail -f /var/log/nginx/error.log
+```
+
+```bash
+watch -n 10 'df -h && echo "---" && free -h && echo "---" && sudo -u postgres psql -c "select count(*) from pg_stat_activity;"'
+```
+
+### 13.3 Wave 1 success criteria
+
+Count Wave 1 as a good first pass if:
+
+- shared stage logins work
+- student login/discovery smoke passes without unusual auth failures
+- ramp run completes without sustained `5xx` growth
+- backend and frontend services stay up throughout the run
+- disk usage stays below the current danger zone
+- no obvious DB connection runaway appears during the run
+
+### 13.4 Record after each run
+
+Write down:
+
+- date and time
+- command used
+- VU or stage shape
+- p95 and p99 latency
+- failure rate
+- host CPU and memory readout
+- peak DB connection count
+- nginx `5xx` count or absence of `5xx`
+- whether the student exam pool had enough visible/startable attempts

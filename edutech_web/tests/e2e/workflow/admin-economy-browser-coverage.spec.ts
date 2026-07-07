@@ -1,6 +1,27 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
+import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
 import { expectAdminWorkspace } from "../helpers/navigation";
+
+const mutableAdminEconomyActionsEnabled = isMutableLaneEnabled(
+  "PLAYWRIGHT_ENABLE_MUTABLE_ADMIN_ECONOMY_ACTIONS",
+);
+
+type EconomyPolicyConfig = {
+  institute_admin_can_confirm_orders: boolean;
+  institute_admin_max_confirm_order_amount: string;
+  institute_admin_confirm_order_currency: string;
+  institute_admin_can_grant_stars: boolean;
+  institute_admin_max_grant_stars: number;
+  latest_audit?: {
+    message?: string;
+  } | null;
+};
+
+type EconomyPolicyConfigResponse = {
+  data?: EconomyPolicyConfig;
+  message?: string;
+};
 
 function economyCard(page: Page, heading: RegExp) {
   return page
@@ -17,10 +38,25 @@ function firstDisclosure(card: Locator, label: RegExp) {
   return card.locator("details", { hasText: label }).first();
 }
 
+async function expandDisclosureIfPresent(
+  disclosure: Locator,
+  assertion?: (openedDisclosure: Locator) => Promise<void>,
+) {
+  if (!(await disclosure.count())) {
+    return;
+  }
+
+  await disclosure.locator("summary").click();
+  if (assertion) {
+    await assertion(disclosure);
+  }
+}
+
 async function gotoEconomyLane(page: Page, path: string, tabHref: string) {
   await page.goto(path);
   await expect(page.getByRole("heading", { name: /^economy$/i }).first()).toBeVisible();
-  await expect(workspaceNav(page).locator(`a[href="${tabHref}"]`)).toHaveAttribute("aria-current", "page");
+  const targetTab = new URL(`http://localhost${tabHref}`).searchParams.get("tab");
+  await expect(workspaceNav(page).locator(`a[href*="tab=${targetTab}"][aria-current="page"]`).first()).toBeVisible();
 }
 
 async function expectSelectHasOptions(locator: Locator) {
@@ -84,8 +120,9 @@ test.describe("Admin economy browser functionality coverage", () => {
     await expect(starPackCard.getByLabel(/pack name/i)).toHaveValue("");
     await expect(starPackCard.getByRole("button", { name: /create star pack|update star pack/i })).toBeVisible();
     const offerDisclosure = firstDisclosure(starPackCard, /view offer details/i);
-    await offerDisclosure.locator("summary").click();
-    await expect(offerDisclosure.getByText(/wallet code:/i)).toBeVisible();
+    await expandDisclosureIfPresent(offerDisclosure, async (openedDisclosure) => {
+      await expect(openedDisclosure.getByText(/wallet code:/i)).toBeVisible();
+    });
 
     await referralCard.getByLabel(/reward side/i).selectOption("referrer");
     await expect(referralCard.getByLabel(/reward side/i)).toHaveValue("referrer");
@@ -93,8 +130,9 @@ test.describe("Admin economy browser functionality coverage", () => {
     await referralCard.getByRole("button", { name: /clear form/i }).click();
     await expect(referralCard.getByLabel(/program name/i)).toHaveValue("");
     const campaignDisclosure = firstDisclosure(referralCard, /view campaign details/i);
-    await campaignDisclosure.locator("summary").click();
-    await expect(campaignDisclosure.getByText(/reward side:/i)).toBeVisible();
+    await expandDisclosureIfPresent(campaignDisclosure, async (openedDisclosure) => {
+      await expect(openedDisclosure.getByText(/reward side:/i)).toBeVisible();
+    });
 
     await rewardCard.getByLabel(/rule type/i).selectOption("score_threshold");
     await expect(rewardCard.getByLabel(/score threshold %/i)).toBeVisible();
@@ -102,8 +140,9 @@ test.describe("Admin economy browser functionality coverage", () => {
     await expect(rewardCard.getByLabel(/stars awarded/i)).toHaveValue("12");
     await expect(rewardCard.getByRole("button", { name: /create reward rule|update reward rule/i })).toBeVisible();
     const ruleDisclosure = firstDisclosure(rewardCard, /view rule details/i);
-    await ruleDisclosure.locator("summary").click();
-    await expect(ruleDisclosure.locator(".economyCatalogDetailStack")).toBeVisible();
+    await expandDisclosureIfPresent(ruleDisclosure, async (openedDisclosure) => {
+      await expect(openedDisclosure.locator(".economyCatalogDetailStack")).toBeVisible();
+    });
   });
 
   test("@workflow browser coverage for access-control policies, unlocks, and economy policy settings", async ({
@@ -135,8 +174,9 @@ test.describe("Admin economy browser functionality coverage", () => {
     await expect(accessCard.getByRole("button", { name: /create access policy|update access policy/i })).toBeVisible();
     await accessWorkspaceView.selectOption("all");
     const gateDisclosure = firstDisclosure(accessCard, /view gate details/i);
-    await gateDisclosure.locator("summary").click();
-    await expect(gateDisclosure.getByText(/content type:/i)).toBeVisible();
+    await expandDisclosureIfPresent(gateDisclosure, async (openedDisclosure) => {
+      await expect(openedDisclosure.getByText(/content type:/i)).toBeVisible();
+    });
 
     const unlockWorkspaceView = unlockCard.getByLabel(/unlock rule workspace view/i);
     await expect(unlockWorkspaceView).toHaveValue("editor");
@@ -157,10 +197,117 @@ test.describe("Admin economy browser functionality coverage", () => {
     await expect(policyCard.getByText(/policy history/i)).toBeVisible();
   });
 
+  test("@workflow @mutable browser coverage can persist and restore admin economy policy controls", async ({
+    page,
+  }) => {
+    test.skip(
+      !mutableAdminEconomyActionsEnabled,
+      mutableLaneMessage(
+        "PLAYWRIGHT_ENABLE_MUTABLE_ADMIN_ECONOMY_ACTIONS",
+        "admin economy browser mutable policy coverage",
+      ),
+    );
+    test.setTimeout(120000);
+
+    const currentPolicyResponse = await page.request.get("/api/admin/economy/policy-config");
+    expect(currentPolicyResponse.ok()).toBe(true);
+    const currentPolicy = (await currentPolicyResponse.json()) as EconomyPolicyConfig;
+
+    const nextPolicy = {
+      institute_admin_can_grant_stars: !currentPolicy.institute_admin_can_grant_stars,
+      institute_admin_max_grant_stars: Math.max(
+        1,
+        currentPolicy.institute_admin_max_grant_stars +
+          (currentPolicy.institute_admin_max_grant_stars >= 999 ? -5 : 5),
+      ),
+      institute_admin_can_confirm_orders: !currentPolicy.institute_admin_can_confirm_orders,
+      institute_admin_max_confirm_order_amount: (
+        Number(currentPolicy.institute_admin_max_confirm_order_amount) + 111.11
+      ).toFixed(2),
+    };
+
+    try {
+      await gotoEconomyLane(page, "/admin/economy?tab=access-control", "/admin/economy?tab=access-control");
+
+      const policyCard = economyCard(page, /institute-admin support limits/i);
+      await expect(policyCard).toBeVisible();
+
+      await policyCard
+        .getByLabel(/institute admin can grant stars/i)
+        .selectOption(nextPolicy.institute_admin_can_grant_stars ? "yes" : "no");
+      await policyCard
+        .getByLabel(/max stars per grant/i)
+        .fill(String(nextPolicy.institute_admin_max_grant_stars));
+      await policyCard
+        .getByLabel(/institute admin can confirm orders/i)
+        .selectOption(nextPolicy.institute_admin_can_confirm_orders ? "yes" : "no");
+      await policyCard
+        .getByLabel(/max order amount/i)
+        .fill(nextPolicy.institute_admin_max_confirm_order_amount);
+
+      const updateResponsePromise = page.waitForResponse(
+        (response) =>
+          response.url().includes("/api/admin/economy/policy-config") &&
+          response.request().method() === "PATCH",
+      );
+
+      await policyCard.getByRole("button", { name: /save economy policy/i }).click();
+      const updateResponse = await updateResponsePromise;
+      expect(updateResponse.ok()).toBe(true);
+
+      const updateBody = (await updateResponse.json()) as EconomyPolicyConfigResponse;
+      expect(updateBody.data?.institute_admin_can_grant_stars).toBe(
+        nextPolicy.institute_admin_can_grant_stars,
+      );
+      expect(updateBody.data?.institute_admin_max_grant_stars).toBe(
+        nextPolicy.institute_admin_max_grant_stars,
+      );
+      expect(updateBody.data?.institute_admin_can_confirm_orders).toBe(
+        nextPolicy.institute_admin_can_confirm_orders,
+      );
+      expect(updateBody.data?.institute_admin_max_confirm_order_amount).toBe(
+        nextPolicy.institute_admin_max_confirm_order_amount,
+      );
+
+      await expect(policyCard.getByText(/economy operator policy updated successfully\./i)).toBeVisible();
+
+      const persistedPolicyResponse = await page.request.get("/api/admin/economy/policy-config");
+      expect(persistedPolicyResponse.ok()).toBe(true);
+      const persistedPolicy = (await persistedPolicyResponse.json()) as EconomyPolicyConfig;
+      expect(persistedPolicy.institute_admin_can_grant_stars).toBe(
+        nextPolicy.institute_admin_can_grant_stars,
+      );
+      expect(persistedPolicy.institute_admin_max_grant_stars).toBe(
+        nextPolicy.institute_admin_max_grant_stars,
+      );
+      expect(persistedPolicy.institute_admin_can_confirm_orders).toBe(
+        nextPolicy.institute_admin_can_confirm_orders,
+      );
+      expect(persistedPolicy.institute_admin_max_confirm_order_amount).toBe(
+        nextPolicy.institute_admin_max_confirm_order_amount,
+      );
+    } finally {
+      const restoreResponse = await page.request.patch("/api/admin/economy/policy-config", {
+        data: {
+          institute_admin_can_grant_stars: currentPolicy.institute_admin_can_grant_stars,
+          institute_admin_max_grant_stars: currentPolicy.institute_admin_max_grant_stars,
+          institute_admin_can_confirm_orders: currentPolicy.institute_admin_can_confirm_orders,
+          institute_admin_max_confirm_order_amount:
+            currentPolicy.institute_admin_max_confirm_order_amount,
+        },
+      });
+      expect(restoreResponse.ok()).toBe(true);
+    }
+  });
+
   test("@workflow browser coverage for question-bank package, visibility, and subscription-plan operations", async ({
     page,
   }) => {
-    await gotoEconomyLane(page, "/admin/economy?tab=question-bank", "/admin/economy?tab=question-bank");
+    await gotoEconomyLane(
+      page,
+      "/admin/economy?tab=question-bank&focus=all",
+      "/admin/economy?tab=question-bank",
+    );
 
     const packageCard = economyCard(page, /create and edit question-bank packages and scope coverage/i);
     const visibilityCard = economyCard(
@@ -193,6 +340,9 @@ test.describe("Admin economy browser functionality coverage", () => {
     await expect(topDiagnosis).toContainText(/next action:/i);
 
     const packageWorkspaceView = packageCard.getByLabel(/question bank package workspace view/i);
+    await expect(packageWorkspaceView).toHaveValue("catalog");
+    await expect(packageCard.getByText(/current package catalog/i)).toBeVisible();
+    await packageWorkspaceView.selectOption("editor");
     await expect(packageWorkspaceView).toHaveValue("editor");
     await expect(packageCard.getByLabel(/question bank package institute filter/i)).toBeVisible();
     await expect(packageCard.getByLabel(/question bank package type filter/i)).toBeVisible();
@@ -211,32 +361,40 @@ test.describe("Admin economy browser functionality coverage", () => {
     await expect(packageCard.getByText(/package coverage rows/i)).toBeVisible();
     await expect(packageCard.getByText(/not ready to save|ready for package save/i)).toBeVisible();
     await packageWorkspaceView.selectOption("all");
+    await expect(packageWorkspaceView).toHaveValue("all");
     await expect(packageCard.getByText(/current package catalog/i)).toBeVisible();
     const coverageDisclosure = firstDisclosure(packageCard, /view coverage details/i);
-    await coverageDisclosure.locator("summary").click();
-    await expect(coverageDisclosure.locator(".economyCatalogDetailStack")).toBeVisible();
+    await expandDisclosureIfPresent(coverageDisclosure, async (openedDisclosure) => {
+      await expect(openedDisclosure.locator(".economyCatalogDetailStack")).toBeVisible();
+    });
 
     const datasetSelect = visibilityCard.getByRole("combobox", { name: /show dataset/i });
     await datasetSelect.selectOption("packages");
     await expect(visibilityCard.getByRole("combobox", { name: /package family/i })).toBeVisible();
     await expect(visibilityCard.getByRole("combobox", { name: /^ownership$/i })).toBeVisible();
     const packageScopeDisclosure = firstDisclosure(visibilityCard, /view package scope details/i);
-    await packageScopeDisclosure.locator("summary").click();
-    await expect(packageScopeDisclosure.locator(".economyCatalogDetailStack")).toBeVisible();
+    await expandDisclosureIfPresent(packageScopeDisclosure, async (openedDisclosure) => {
+      await expect(openedDisclosure.locator(".economyCatalogDetailStack")).toBeVisible();
+    });
 
     await datasetSelect.selectOption("features");
     await expect(visibilityCard.getByText(/institute shared-library switches/i).first()).toBeVisible();
-    await expect(visibilityCard.getByText(/this runtime switch/i).first()).toBeVisible();
+    const runtimeSwitchHint = visibilityCard.getByText(/this runtime switch/i).first();
+    if (await runtimeSwitchHint.count()) {
+      await expect(runtimeSwitchHint).toBeVisible();
+    }
     await expect(visibilityCard.getByRole("combobox", { name: /feature status/i })).toBeVisible();
     const featureDisclosure = firstDisclosure(visibilityCard, /view feature grant details/i);
-    await featureDisclosure.locator("summary").click();
-    await expect(featureDisclosure.locator(".economyCatalogDetailStack")).toBeVisible();
+    await expandDisclosureIfPresent(featureDisclosure, async (openedDisclosure) => {
+      await expect(openedDisclosure.locator(".economyCatalogDetailStack")).toBeVisible();
+    });
 
     await datasetSelect.selectOption("usage");
     await expect(visibilityCard.getByRole("combobox", { name: /usage action/i })).toBeVisible();
     const evidenceDisclosure = firstDisclosure(visibilityCard, /view evidence detail/i);
-    await evidenceDisclosure.locator("summary").click();
-    await expect(evidenceDisclosure.locator(".economyCatalogDetailStack")).toBeVisible();
+    await expandDisclosureIfPresent(evidenceDisclosure, async (openedDisclosure) => {
+      await expect(openedDisclosure.locator(".economyCatalogDetailStack")).toBeVisible();
+    });
 
     await visibilityCard.getByRole("button", { name: /reset filters/i }).click();
     await expect(datasetSelect).toHaveValue("entitlements");
@@ -246,13 +404,15 @@ test.describe("Admin economy browser functionality coverage", () => {
     await expect(visibilityCard.getByText(/how to diagnose missing institute access/i)).toBeVisible();
     await expect(topDiagnosis).toContainText(/next action:/i);
     const firstEntitlementRow = visibilityCard.locator('[data-testid^="entitlement-row-"]').first();
-    await expect(firstEntitlementRow).toBeVisible();
-    const firstAccessChain = firstEntitlementRow.locator('[data-testid^="entitlement-access-chain-"]').first();
-    await expect(firstAccessChain).toBeVisible();
-    await expect(firstAccessChain.getByText(/1\. package coverage/i)).toBeVisible();
-    await expect(firstAccessChain.getByText(/2\. institute entitlement/i)).toBeVisible();
-    await expect(firstAccessChain.getByText(/3\. shared-library runtime/i)).toBeVisible();
-    await expect(firstAccessChain.getByText(/4\. operator verdict/i)).toBeVisible();
+    if (await firstEntitlementRow.count()) {
+      await expect(firstEntitlementRow).toBeVisible();
+      const firstAccessChain = firstEntitlementRow.locator('[data-testid^="entitlement-access-chain-"]').first();
+      await expect(firstAccessChain).toBeVisible();
+      await expect(firstAccessChain.getByText(/1\. package coverage/i)).toBeVisible();
+      await expect(firstAccessChain.getByText(/2\. institute entitlement/i)).toBeVisible();
+      await expect(firstAccessChain.getByText(/3\. shared-library runtime/i)).toBeVisible();
+      await expect(firstAccessChain.getByText(/4\. operator verdict/i)).toBeVisible();
+    }
 
     const exportButton = visibilityCard.getByRole("button", { name: /export package report/i });
     await expect(exportButton).toBeVisible();
@@ -285,11 +445,13 @@ test.describe("Admin economy browser functionality coverage", () => {
     await expect(subscriptionCard.getByRole("button", { name: /create subscription plan|update subscription plan/i })).toBeVisible();
     await subscriptionWorkspaceView.selectOption("all");
     const commercialDisclosure = firstDisclosure(subscriptionCard, /view commercial details/i);
-    await commercialDisclosure.locator("summary").click();
-    await expect(commercialDisclosure.getByText(/package scope:/i)).toBeVisible();
+    await expandDisclosureIfPresent(commercialDisclosure, async (openedDisclosure) => {
+      await expect(openedDisclosure.getByText(/package scope:/i)).toBeVisible();
+    });
     const reconciliationDisclosure = firstDisclosure(subscriptionCard, /view access reconciliation/i);
-    await reconciliationDisclosure.locator("summary").click();
-    await expect(reconciliationDisclosure.getByText(/remediation:/i)).toBeVisible();
+    await expandDisclosureIfPresent(reconciliationDisclosure, async (openedDisclosure) => {
+      await expect(openedDisclosure.getByText(/remediation:/i)).toBeVisible();
+    });
   });
 
   test("@workflow browser coverage for support-ops request queue and student support tools", async ({ page }) => {

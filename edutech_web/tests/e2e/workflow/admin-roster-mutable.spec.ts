@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
 import { expectAdminWorkspace } from "../helpers/navigation";
@@ -34,6 +34,48 @@ function firstNonEmptyOptionValue(values: string[]) {
   return values.find((value) => value.trim().length > 0) ?? null;
 }
 
+async function expectRosterRowAccountState(
+  row: Locator,
+  expectedState: "no_login" | "active_login" | "disabled_login",
+) {
+  const createLoginButton = row.getByRole("button", { name: /create login/i });
+  const resetPasswordButton = row.getByRole("button", { name: /reset password/i });
+  const disableLoginButton = row.getByRole("button", { name: /disable login/i });
+  const enableLoginButton = row.getByRole("button", { name: /enable login/i });
+
+  if (expectedState === "no_login") {
+    await expect(createLoginButton).toBeVisible();
+    await expect(resetPasswordButton).toHaveCount(0);
+    await expect(disableLoginButton).toHaveCount(0);
+    await expect(enableLoginButton).toHaveCount(0);
+    await expect(row).toContainText(/pending access/i);
+    return;
+  }
+
+  await expect(createLoginButton).toHaveCount(0);
+  await expect(resetPasswordButton).toBeVisible();
+
+  if (expectedState === "active_login") {
+    await expect(disableLoginButton).toBeVisible();
+    await expect(enableLoginButton).toHaveCount(0);
+    await expect(row).toContainText(/access ready/i);
+    return;
+  }
+
+  await expect(disableLoginButton).toHaveCount(0);
+  await expect(enableLoginButton).toBeVisible();
+}
+
+async function openRosterRow(page: Page, view: "teachers" | "students", searchValue: string) {
+  await page.goto(`/admin/people?view=${view}`);
+  const rosterHeading = view === "teachers" ? /teacher roster/i : /student roster/i;
+  await expect(page.getByRole("heading", { name: rosterHeading })).toBeVisible();
+  await page.getByRole("textbox", { name: /search roster/i }).fill(searchValue);
+  const row = page.locator(".adminPeopleRosterTable tbody tr").filter({ hasText: searchValue }).first();
+  await expect(row).toBeVisible();
+  return row;
+}
+
 test.describe("Admin mutable roster actions", () => {
   test.skip(
     testRequiresRole("admin"),
@@ -47,6 +89,49 @@ test.describe("Admin mutable roster actions", () => {
       "disposable admin roster mutation coverage",
     ),
   );
+
+  test("@workflow admin create dialogs keep negative validation truthful for teacher and student roster flows", async ({
+    page,
+  }) => {
+    await loginAsRole(page, "admin");
+    await expectAdminWorkspace(page);
+
+    await page.goto("/admin/people?view=teachers");
+    await expect(page.getByRole("heading", { name: /teacher roster/i })).toBeVisible();
+
+    await page.getByRole("button", { name: /^create teacher$/i }).click();
+    const teacherDialog = page.getByRole("dialog");
+    await expect(teacherDialog.getByRole("heading", { name: /new teacher profile/i })).toBeVisible();
+    await teacherDialog.getByRole("button", { name: /^create teacher$/i }).click();
+    await expect(teacherDialog).toBeVisible();
+    await expect(teacherDialog.getByText(/fill the required fields to continue\./i)).toBeVisible();
+    await expect(teacherDialog.getByText(/employee code is required\./i)).toBeVisible();
+    await expect(teacherDialog.getByText(/first name is required\./i)).toBeVisible();
+    await expect(teacherDialog.getByLabel(/employee code/i)).toHaveAttribute("aria-invalid", "true");
+    await expect(teacherDialog.getByLabel(/first name/i)).toHaveAttribute("aria-invalid", "true");
+    await expect(teacherDialog.getByRole("button", { name: /close/i })).toBeVisible();
+    await teacherDialog.getByRole("button", { name: /close/i }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+
+    await page.goto("/admin/people?view=students");
+    await expect(page.getByRole("heading", { name: /student roster/i })).toBeVisible();
+
+    await page.getByRole("button", { name: /^create student$/i }).click();
+    const studentDialog = page.getByRole("dialog");
+    await expect(studentDialog.getByRole("heading", { name: /new student profile/i })).toBeVisible();
+    await studentDialog.getByRole("button", { name: /^create student$/i }).click();
+    await expect(studentDialog).toBeVisible();
+    await expect(studentDialog.getByText(/fill the required fields to continue\./i)).toBeVisible();
+    await expect(studentDialog.getByText(/admission number is required\./i)).toBeVisible();
+    await expect(studentDialog.getByText(/first name is required\./i)).toBeVisible();
+    await expect(studentDialog.getByText(/academic year is required\./i)).toBeVisible();
+    await expect(studentDialog.getByText(/program is required\./i)).toBeVisible();
+    await expect(studentDialog.getByLabel(/admission no/i)).toHaveAttribute("aria-invalid", "true");
+    await expect(studentDialog.getByLabel(/first name/i)).toHaveAttribute("aria-invalid", "true");
+    await expect(studentDialog.getByLabel(/academic year/i)).toHaveAttribute("aria-invalid", "true");
+    await expect(studentDialog.getByLabel(/program/i)).toHaveAttribute("aria-invalid", "true");
+    await expect(studentDialog.getByRole("button", { name: /close/i })).toBeVisible();
+  });
 
   test("@workflow @mutable admin can create, edit, and manage roster access for disposable teacher and student records", async ({
     page,
@@ -111,6 +196,8 @@ test.describe("Admin mutable roster actions", () => {
           return (await teacherDetailResponse.json()) as TeacherDetail;
         })
         .toMatchObject({ employee_code: teacherCode, has_login: false });
+      const teacherRowWithoutLogin = await openRosterRow(page, "teachers", teacherCode);
+      await expectRosterRowAccountState(teacherRowWithoutLogin, "no_login");
 
       const teacherUpdateResponse = await page.request.patch(`/api/admin/people/teachers/${teacherId}`, {
         data: {
@@ -139,6 +226,8 @@ test.describe("Admin mutable roster actions", () => {
       let teacherDetail = (await teacherDetailResponse.json()) as TeacherDetail;
       expect(teacherDetail.has_login).toBe(true);
       expect(teacherDetail.account_user_id).not.toBeNull();
+      const teacherRowWithActiveLogin = await openRosterRow(page, "teachers", teacherCode);
+      await expectRosterRowAccountState(teacherRowWithActiveLogin, "active_login");
 
       const resetTeacherPasswordResponse = await page.request.post(
         `/api/admin/account-management/users/${teacherDetail.account_user_id}/reset-password`,
@@ -156,6 +245,8 @@ test.describe("Admin mutable roster actions", () => {
       expect(teacherDetailResponse.ok()).toBe(true);
       teacherDetail = (await teacherDetailResponse.json()) as TeacherDetail;
       expect(teacherDetail.login_is_active).toBe(false);
+      const teacherRowWithDisabledLogin = await openRosterRow(page, "teachers", teacherCode);
+      await expectRosterRowAccountState(teacherRowWithDisabledLogin, "disabled_login");
 
       const enableTeacherLoginResponse = await page.request.post(
         `/api/admin/account-management/users/${teacherDetail.account_user_id}/enable`,
@@ -165,6 +256,8 @@ test.describe("Admin mutable roster actions", () => {
       expect(teacherDetailResponse.ok()).toBe(true);
       teacherDetail = (await teacherDetailResponse.json()) as TeacherDetail;
       expect(teacherDetail.login_is_active).toBe(true);
+      const teacherRowAfterEnable = await openRosterRow(page, "teachers", teacherCode);
+      await expectRosterRowAccountState(teacherRowAfterEnable, "active_login");
 
       await page.goto("/admin/people?view=students");
       await expect(page.getByRole("heading", { name: /student roster/i })).toBeVisible();
@@ -229,6 +322,8 @@ test.describe("Admin mutable roster actions", () => {
           return (await studentDetailResponse.json()) as StudentDetail;
         })
         .toMatchObject({ admission_no: studentAdmissionNo, has_login: false });
+      const studentRowWithoutLogin = await openRosterRow(page, "students", studentAdmissionNo);
+      await expectRosterRowAccountState(studentRowWithoutLogin, "no_login");
 
       const studentUpdateResponse = await page.request.patch(`/api/admin/people/students/${studentId}`, {
         data: {
@@ -257,6 +352,22 @@ test.describe("Admin mutable roster actions", () => {
       const studentDetail = (await studentDetailResponse.json()) as StudentDetail;
       expect(studentDetail.has_login).toBe(true);
       expect(studentDetail.account_user_id).not.toBeNull();
+      const studentRowWithActiveLogin = await openRosterRow(page, "students", studentAdmissionNo);
+      await expectRosterRowAccountState(studentRowWithActiveLogin, "active_login");
+
+      const disableStudentLoginResponse = await page.request.post(
+        `/api/admin/account-management/users/${studentDetail.account_user_id}/disable`,
+      );
+      expect(disableStudentLoginResponse.ok()).toBe(true);
+      const studentRowWithDisabledLogin = await openRosterRow(page, "students", studentAdmissionNo);
+      await expectRosterRowAccountState(studentRowWithDisabledLogin, "disabled_login");
+
+      const enableStudentLoginResponse = await page.request.post(
+        `/api/admin/account-management/users/${studentDetail.account_user_id}/enable`,
+      );
+      expect(enableStudentLoginResponse.ok()).toBe(true);
+      const studentRowAfterEnable = await openRosterRow(page, "students", studentAdmissionNo);
+      await expectRosterRowAccountState(studentRowAfterEnable, "active_login");
     } finally {
       if (studentId) {
         const deleteStudentResponse = await page.request.delete(`/api/admin/people/students/${studentId}`);

@@ -282,6 +282,23 @@ class ExamSectionSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
     def get_linked_questions_count(self, obj):
+        exam = getattr(obj, "exam", None)
+        if exam is not None:
+            cached_counts = getattr(exam, "_linked_question_count_by_section_cache", None)
+            if cached_counts is None:
+                prefetched_exam_questions = getattr(exam, "_prefetched_objects_cache", {}).get("exam_questions")
+                if prefetched_exam_questions is not None:
+                    cached_counts = {}
+                    for exam_question in prefetched_exam_questions:
+                        if not getattr(exam_question, "is_active", True):
+                            continue
+                        section_id = str(getattr(exam_question, "section_id", "") or "")
+                        if not section_id:
+                            continue
+                        cached_counts[section_id] = cached_counts.get(section_id, 0) + 1
+                    setattr(exam, "_linked_question_count_by_section_cache", cached_counts)
+            if cached_counts is not None:
+                return cached_counts.get(str(obj.id), 0)
         return obj.exam_questions.filter(is_active=True).count()
 
 

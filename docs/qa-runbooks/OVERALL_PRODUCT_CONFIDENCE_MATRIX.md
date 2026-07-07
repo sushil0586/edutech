@@ -1,6 +1,6 @@
 # Overall Product Confidence Matrix
 
-Last updated: 2026-07-06
+Last updated: 2026-07-07
 
 ## Purpose
 
@@ -27,6 +27,14 @@ Related documents:
 - [INSTITUTE_BUG_AND_UX_TRACKER.md](/Users/ansh/Documents/Eductech/docs/qa-runbooks/INSTITUTE_BUG_AND_UX_TRACKER.md)
 - [BACKEND_ANALYTICS_PERFORMANCE_RUNBOOK.md](/Users/ansh/Documents/Eductech/docs/qa-runbooks/BACKEND_ANALYTICS_PERFORMANCE_RUNBOOK.md)
 - [BACKEND_OPERATIONAL_ROUTE_PROFILING_RUNBOOK.md](/Users/ansh/Documents/Eductech/docs/qa-runbooks/BACKEND_OPERATIONAL_ROUTE_PROFILING_RUNBOOK.md)
+- [PLAYWRIGHT_PERFORMANCE_PENETRATION_MASTER_PLAN.md](/Users/ansh/Documents/Eductech/docs/qa-runbooks/PLAYWRIGHT_PERFORMANCE_PENETRATION_MASTER_PLAN.md)
+- [PLAYWRIGHT_PERFORMANCE_PENETRATION_EXECUTION_PACK.md](/Users/ansh/Documents/Eductech/docs/qa-runbooks/PLAYWRIGHT_PERFORMANCE_PENETRATION_EXECUTION_PACK.md)
+- [PLAYWRIGHT_BROWSER_9_BENCHMARK_PLAN.md](/Users/ansh/Documents/Eductech/docs/qa-runbooks/PLAYWRIGHT_BROWSER_9_BENCHMARK_PLAN.md)
+- [PERFORMANCE_MODULE_COVERAGE_MATRIX.md](/Users/ansh/Documents/Eductech/docs/qa-runbooks/PERFORMANCE_MODULE_COVERAGE_MATRIX.md)
+- [FILE_IMPORT_UPLOAD_PERFORMANCE_RUNBOOK.md](/Users/ansh/Documents/Eductech/docs/qa-runbooks/FILE_IMPORT_UPLOAD_PERFORMANCE_RUNBOOK.md)
+- [LOCAL_DEV_PENETRATION_BASELINE_2026-07-06.md](/Users/ansh/Documents/Eductech/docs/qa-runbooks/LOCAL_DEV_PENETRATION_BASELINE_2026-07-06.md)
+- [STAGE_SCALE_UP_VALIDATION_RUNBOOK.md](/Users/ansh/Documents/Eductech/docs/qa-runbooks/STAGE_SCALE_UP_VALIDATION_RUNBOOK.md)
+- [STAGE_SEED_CONTRACT_REMEDIATION_2026-07-06.md](/Users/ansh/Documents/Eductech/docs/qa-runbooks/STAGE_SEED_CONTRACT_REMEDIATION_2026-07-06.md)
 
 ---
 
@@ -71,6 +79,194 @@ It is now:
 It is not yet at the point where every dense operational lane is simple enough for low-support, wide-open rollout.
 
 ### Latest hardening movement
+
+As of `2026-07-06`, Playwright browser Phase 1 hardening also moved forward on the benchmark gap areas:
+
+- `edutech_web/tests/e2e/workflow/admin-institutes-mutable.spec.ts`
+  - institute account-control state assertions now explicitly prove:
+    - no login
+    - active login
+    - disabled login
+- `edutech_web/tests/e2e/workflow/admin-roster-mutable.spec.ts`
+  - teacher and student roster rows now explicitly prove mixed account-control states
+  - student mutable coverage now also verifies disable and re-enable lifecycle truth
+  - teacher and student create dialogs now also prove required-field validation truth in-browser
+- `edutech_web/tests/e2e/workflow/admin-roster-import-mutable.spec.ts`
+  - mixed valid and invalid student preview rows now prove partial-import truth explicitly before finalize
+- `edutech_web/tests/e2e/workflow/teacher-comprehension-mutable.spec.ts`
+  - comprehension editor structure, true empty-submit validation, and persisted update truth are now stronger
+- `edutech_web/tests/e2e/workflow/teacher-question-mutable.spec.ts`
+  - teacher bulk tag attach/remove and bulk topic reassignment are now cross-browser green on Firefox and WebKit
+- `edutech_web/tests/e2e/workflow/teacher-question-bank-linked-inventory.spec.ts`
+  - teacher linked-inventory coverage is now green locally against the healthy app server
+  - it proves the intended role distinction between institute-side linking and teacher-side read-only duplicate-first reuse
+  - it now anchors to the deterministic seeded teacher linked row instead of a fragile institute-side linker precondition
+- `edutech_web/tests/e2e/workflow/teacher-institute-shared-library-role-difference.spec.ts`
+  - teacher shared-library browser coverage now explicitly proves the control split across roles
+  - teacher sees `Request Access` with no direct linking control
+  - institute sees `Add to Institute Bank` inside the scoped linker flow for the same seeded product area
+- `edutech_web/tests/e2e/workflow/institute-results-descriptive.mutable.spec.ts`
+  - institute-side descriptive scoring is now mutated through the visible review form and rechecked after revisit
+- `edutech_web/tests/e2e/workflow/admin-economy-mutable.spec.ts`
+  - the reversible economy benchmark lane is now materially stronger than the earlier matrix wording suggested, with browser-proven:
+    - platform policy update plus restore
+    - subscription entitlement pause/reactivate
+    - entitlement lifecycle note/window mutation plus restore
+    - revoked-history restore to governing access
+    - feature entitlement pause/reactivate
+
+This narrows the main remaining Playwright browser benchmark gap mostly to:
+
+- broader repeated-run stability evidence
+- small-screen operator parity
+- broader role-difference workflow breadth outside the now-green teacher linked-inventory and shared-library control-split lanes
+
+As of `2026-07-07`, operator compact-viewport depth also improved beyond simple shell reachability:
+
+- `edutech_web/tests/e2e/workflow/teacher-mobile-question-bank-workflow.spec.ts`
+  - `1 passed`
+  - teacher compact viewport now proves a real question-bank task flow, not just menu reachability
+  - the lane covers mobile navigation into question bank, linked-row search, read-only linked inventory recognition, preview dialog open/close, and duplicate-first reuse visibility
+  - this does not finish operator small-screen hardening, but it moves teacher mobile confidence beyond shell-only evidence
+- `edutech_web/tests/e2e/workflow/teacher-mobile-reviews-workflow.spec.ts`
+  - `1 passed`
+  - teacher compact viewport now also proves a real reviews task flow, not just shell reachability
+  - the lane covers mobile navigation into reviews, status and page-size filtering, empty-state reset flow, results handoff, and exam-scoped review navigation
+  - this makes teacher small-screen confidence meaningfully broader than a single question-bank-only mobile path
+- `edutech_web/tests/e2e/workflow/teacher-mobile-authoring-workflow.spec.ts`
+  - `1 passed` on Chromium
+  - grouped result on Firefox and WebKit: `2 passed`
+  - teacher compact viewport now also proves a real disposable draft authoring task flow
+  - the lane covers mobile navigation into question creation, program and subject dependency behavior, no-options-required question-type selection, draft save, landing on the created draft, and API cleanup
+  - this removes the biggest remaining teacher small-screen gap from the current local/browser-engine picture
+- `edutech_web/tests/e2e/workflow/institute-mobile-question-bank-workflow.spec.ts`
+  - `1 passed`
+  - institute compact viewport now proves a real question-bank task flow, not just menu reachability
+  - the lane covers mobile navigation into question bank, intake guidance visibility, shared-library linker entry, linker program/subject selection, return to local bank, and create-question form dependency behavior
+  - this does not finish operator small-screen hardening, but it moves institute mobile confidence beyond shell-only evidence
+- `edutech_web/tests/e2e/workflow/institute-mobile-reviews-workflow.spec.ts`
+  - `1 passed`
+  - institute compact viewport now also proves a real reviews task flow, not just shell reachability
+  - the lane covers mobile navigation into reviews, status and assignment filtering, empty-state reset flow, and exam-scoped review navigation
+  - this makes institute small-screen confidence meaningfully broader than a single question-bank-only mobile path
+- `edutech_web/tests/e2e/workflow/admin-mobile-economy-workflow.spec.ts`
+  - `1 passed`
+  - admin compact viewport now proves a real economy task flow, not just menu reachability
+  - the lane covers mobile navigation into economy, lane switching across overview, catalog, access control, and support ops, plus dense policy-form interaction on the compact layout
+  - this gives all three operator roles at least one real compact-viewport task lane beyond shell-only evidence
+- focused cross-browser compact-viewport rerun pack:
+  - `admin-mobile-economy-workflow.spec.ts`
+  - `teacher-mobile-question-bank-workflow.spec.ts`
+  - `teacher-mobile-reviews-workflow.spec.ts`
+  - `institute-mobile-question-bank-workflow.spec.ts`
+  - `institute-mobile-reviews-workflow.spec.ts`
+  - grouped result on Firefox and WebKit: `10 passed`
+  - this materially reduces the risk that the new mobile hardening is Chromium-biased
+
+As of `2026-07-06`, the admin browser workspace baseline is also materially stronger on local dev against the healthy app server:
+
+- the admin workspace route family now reruns green as a grouped baseline:
+  - `admin-dashboard-workspace.spec.ts`
+  - `admin-institutes-workspace.spec.ts`
+  - `admin-people-workspace.spec.ts`
+  - `admin-economy-workspace.spec.ts`
+  - `admin-economy-browser-coverage.spec.ts`
+  - `admin-settings-workspace.spec.ts`
+  - `admin-security-workspace.spec.ts`
+  - `admin-reports-workspace.spec.ts`
+  - grouped result: `13 passed`
+- the main hardening corrections behind that rerun were:
+  - admin people now falls back truthfully when roster datasets are empty instead of behaving like a broken page
+  - admin people browser coverage now selects a populated institute when one exists and otherwise asserts the truthful empty state
+  - admin economy browser coverage now follows the lighter question-bank default flow before switching into editor assertions
+  - admin security browser coverage now targets the visible dashboard navigation contract instead of a hidden brand link
+  - admin people and admin economy server routes now return workspace-safe fallback states instead of generic route crashes when one upstream fetch fails
+- this does not yet mean the whole browser benchmark is `9/10`, but it does mean the admin route family is no longer one of the main blockers
+
+As of `2026-07-06`, the first operator compact-viewport baseline is also now green locally:
+
+- `edutech_web/tests/e2e/workflow/operator-mobile-shell-sanity.spec.ts`
+  - `3 passed`
+  - admin mobile shell now proves dashboard-to-economy-to-security reachability
+  - institute mobile shell now proves dashboard-to-economy-to-reviews reachability
+  - teacher mobile shell now proves dashboard-to-results-to-reviews reachability
+- this is still an early small-screen baseline rather than deep mobile workflow proof, but it removes the earlier claim that operator roles had no equivalent compact-viewport suite at all
+
+As of `2026-07-06`, cross-browser operator confidence is also stronger than simple route proof:
+
+- `edutech_web/tests/e2e/workflow/admin-economy-browser-coverage.spec.ts`
+  - focused mutable policy persist-and-restore lane is now green on Firefox and WebKit
+  - grouped result: `2 passed`
+  - this means admin now has one browser-proven reversible write path outside Chromium, not just shell and deep-route reachability
+- `edutech_web/tests/e2e/workflow/admin-institute-economy-policy-contract.mutable.spec.ts`
+  - institute-facing policy-disable contract is now green on Chromium, Firefox, and WebKit
+  - grouped result: `1 passed` on Chromium
+  - grouped result: `2 passed` on Firefox and WebKit
+  - this means institute now also has one browser-proven reversible policy-contract lane outside simple route reachability
+- `edutech_web/tests/e2e/workflow/teacher-exam-detail-mutable.spec.ts`
+  - teacher disposable exam-detail mutation lane is now green on Chromium, Firefox, and WebKit
+  - grouped result: `1 passed` on Chromium
+  - grouped result: `2 passed` on Firefox and WebKit
+  - this means all three operator role families now have at least one browser-proven reversible mutation or policy-contract lane beyond simple route reachability
+- `edutech_web/tests/e2e/workflow/teacher-exam-builder-mutable.spec.ts`
+  - teacher builder-to-persisted-detail mutation lane is now green on Chromium, Firefox, and WebKit
+  - grouped result: `1 passed` on Chromium
+  - grouped result: `2 passed` on Firefox and WebKit
+  - this means cross-browser proof now also includes one real create-save-reopen-mutate-cleanup builder workflow, not just shell, route, economy, and exam-detail lanes
+- `edutech_web/tests/e2e/workflow/teacher-results-analysis-workspace.spec.ts`
+  - teacher results analysis interaction lane is now green on Chromium, Firefox, and WebKit
+  - grouped result: `1 passed` on Chromium
+  - grouped result: `2 passed` on Firefox and WebKit
+  - this means cross-browser proof now also includes one real filter-and-drill analysis workflow, not just route reachability into results pages
+- `edutech_web/tests/e2e/workflow/institute-results-analysis-workspace.spec.ts`
+  - institute results analysis interaction lane is now green on Firefox and WebKit after being aligned to the current form-based filter UI
+  - grouped result: `2 passed`
+  - this means cross-browser results-interaction depth is no longer concentrated only in the teacher role
+- `edutech_web/tests/e2e/workflow/institute-exam-builder-workspace.spec.ts`
+  - institute builder utility and linked-question workflow lane is now green on Firefox and WebKit
+  - grouped result: `2 passed`
+  - this means cross-browser builder depth is no longer concentrated only in the teacher role
+- `edutech_web/tests/e2e/workflow/institute-question-bank-workspace.spec.ts`
+  - institute question-bank workspace and authoring-entry lane is now green on Firefox and WebKit
+  - grouped result: `2 passed`
+  - this means institute-side authoring depth now extends beyond builder and results into question-bank entry routes
+- `edutech_web/tests/e2e/workflow/admin-advanced-builder-workspace.spec.ts`
+  - admin advanced builder authoring lane is now green on Firefox and WebKit
+  - grouped result: `2 passed`
+  - this means the main browser benchmark gap is no longer simple admin authoring reachability
+- `edutech_web/tests/e2e/workflow/teacher-comprehension-mutable.spec.ts`
+  - teacher comprehension creation, persistence, update, and linked-child-question lane is now green on Firefox and WebKit
+  - grouped result: `2 passed`
+  - repeated result with `--repeat-each=2`: `4 passed`
+  - the lane was hardened to use the stable plain-text authoring mode plus truthful form-blocking assertions, which removes the earlier cross-browser contenteditable drift from this benchmark area
+- `edutech_web/tests/e2e/workflow/teacher-question-mutable.spec.ts`
+  - teacher bulk tag attach/remove and teacher bulk topic reassignment are now green on Firefox and WebKit
+  - grouped result for the focused tag/topic pack: `4 passed`
+  - the lane was hardened by aligning the test to the teacher detail API contract, polling persisted `tag_maps` instead of a non-existent `tags` array, and making disposable authoring tolerate valid program/subject combinations that do not expose concrete topic options immediately
+- focused repeated-run desktop stability proof now also exists on Firefox and WebKit:
+  - non-mutable operator desktop pack:
+    - `admin-advanced-builder-workspace.spec.ts`
+    - `admin-cross-browser-shell.spec.ts`
+    - `admin-cross-browser-deep-routes.spec.ts`
+    - `institute-cross-browser-shell.spec.ts`
+    - `institute-cross-browser-results.spec.ts`
+    - `institute-exam-builder-workspace.spec.ts`
+    - `institute-question-bank-workspace.spec.ts`
+    - `institute-results-analysis-workspace.spec.ts`
+    - `teacher-cross-browser-shell.spec.ts`
+    - `teacher-cross-browser-results.spec.ts`
+    - `teacher-results-analysis-workspace.spec.ts`
+    - grouped result with `--repeat-each=2`: `44 passed`
+  - mutable admin policy rerun:
+    - `admin-economy-browser-coverage.spec.ts`
+    - grouped result with `--repeat-each=2` on Firefox and WebKit: `4 passed`
+  - mutable institute and teacher rerun:
+    - `admin-institute-economy-policy-contract.mutable.spec.ts`
+    - `teacher-exam-detail-mutable.spec.ts`
+    - `teacher-exam-builder-mutable.spec.ts`
+    - grouped result with `--repeat-each=2` on Firefox and WebKit: `12 passed`
+  - the one Firefox flake in the admin economy rerun came from a brittle `changed:` audit-text assertion and was removed after the actual policy persistence had already succeeded
+  - this shifts the main browser benchmark gap away from repeated-run stability and toward compact-viewport workflow depth, linked-inventory realism, role-difference clarity, and broader destructive mutation breadth
 
 As of `2026-07-05`, the highest-value exam family lifecycle suites are now browser-proven green:
 
@@ -145,6 +341,49 @@ As of `2026-07-05`, backend operational read paths for institute, teacher, notif
 - a follow-up exam-list serializer memoization pass then reduced that same teacher exam list route further to about `36.55ms` cold and `25.34ms` warm while holding query count flat at `4`
 - a follow-up cached exam access-policy snapshot then reduced the teacher exam list warm path again from `4` queries to `3`, removing the `ContentAccessPolicy` query from repeat access
 - a follow-up cached notification-list metadata pass then reduced the notification list warm path from `5` queries to `2`, leaving only paginator `COUNT` plus page fetch on repeat access
+- as of `2026-07-06`, auth login-path hardening also has a first local code pass:
+  - successful login now avoids the previous double password verification path
+  - login response hydration now reuses a `select_related` account-profile fetch before serialization
+  - first stage revalidation improved direct login to about `1.25s` to `1.50s`
+  - first stage `k6` login-and-discovery smoke improved from the earlier `~14.47s p95` result to about `7.27s p95`
+  - stage latency is improved but still not yet strong enough to upgrade the performance confidence lane
+- a follow-up `/auth/me/` hardening pass then improved the steady-state direct stage read path further:
+  - hydrated session-profile reads now use `select_related(...)` in `MeView`
+  - student program-subject discovery now pulls only subject-name values on the read path
+  - warm direct stage timings now show about `login ~1.2s` and `me ~0.6s`
+  - the warm rerun of the same `k6` login-and-discovery smoke now lands around `6.88s p95`
+  - the remaining tail now appears increasingly dominated by concurrency queueing on the current stage gunicorn setup rather than a single obviously-bad auth query path
+- a stage-only gunicorn worker-model experiment then confirmed the infrastructure side of that diagnosis:
+  - on the current `2 vCPU` stage host, both `5` sync workers and `2 workers x 4 threads` drive CPU to about `100%` during the same auth smoke
+  - the threaded model improved median and average latency slightly, but the same smoke still landed around `6.91s p95`
+  - the remaining auth/discovery performance gap is now better explained by stage CPU saturation than by one remaining serializer-level bottleneck
+  - the stage backend was then reverted to the original `5` sync-worker live config after the comparison run
+- as of `2026-07-06`, the first safe local penetration baseline was also executed:
+  - sampled admin and student backend authorization checks held correctly with `401` and `403` responses
+  - frontend protected routes redirected unauthenticated traffic to `/login`
+  - the first meaningful hardening findings were:
+    - overly permissive wildcard CORS on auth and authenticated backend API surfaces in the local environment
+    - missing anti-clickjacking and broader browser hardening headers on frontend HTML responses
+- baseline details are captured in:
+    - [LOCAL_DEV_PENETRATION_BASELINE_2026-07-06.md](/Users/ansh/Documents/Eductech/docs/qa-runbooks/LOCAL_DEV_PENETRATION_BASELINE_2026-07-06.md)
+- as of `2026-07-06`, file-import backend write-path hardening also now has a first measured reduction pass:
+  - a disposable local profiler command now exists at:
+    - `./.venv/bin/python manage.py profile_question_import_write_path --repeat 1 --rows 3`
+  - question import finalize now reuses finalize-scope academic resolution, batches institute-question inserts, batches tag and option writes, and avoids re-reading option rows during master sync
+  - the first local disposable question-import finalize measurement improved from about `129` queries / `101.54ms` down to about `71` queries / `54.17ms`
+  - file import remains only partially covered overall because stage timing, upload-path timing, and concurrency evidence are still missing
+- as of `2026-07-06`, stage admin browser hardening is materially stronger:
+  - `admin-institutes-timing.spec.ts`, `admin-economy-workspace.spec.ts`, and `admin-economy-browser-coverage.spec.ts` are green on `https://learn.accerio.in`
+  - the Playwright API helpers were also corrected so stage browser tests now default to the same stage origin instead of silently reusing local `.env.local` API settings
+  - the remaining admin stage seed-contract blockers were then repaired on stage:
+    - AWS demo exam suite was seeded
+    - `NEXORA-PUBLIC` public-hub metadata was restored
+    - public `Class 8` / `CLS8-MATH` academics and `200` public master-library rows were seeded
+  - revalidation is now green for:
+    - `admin-aws-results-contract.spec.ts`
+    - `admin-class8-math-master-dataset.mutable.spec.ts`
+  - exact remediation commands and observed results are captured in:
+    - [STAGE_SEED_CONTRACT_REMEDIATION_2026-07-06.md](/Users/ansh/Documents/Eductech/docs/qa-runbooks/STAGE_SEED_CONTRACT_REMEDIATION_2026-07-06.md)
 
 This materially improves confidence in:
 
@@ -172,7 +411,7 @@ This materially improves confidence in:
 | Institute exams workspace | `9.25/10` | list, filters, pagination, zero-result recovery, create entry points, populated reruns, generic guided-wizard plus advanced-builder `practice` / `quiz` / `mock_exam` creation baseline, preset-pack to builder handoff baseline, family plus managed preset-derived create/save persistence baseline, `entitlement_only` policy persistence baseline, and stars-based policy plus non-normal security persistence across admin and institute shells are browser-proven | denser operator combinations are still more teachable than self-evident for first-time staff | stronger state explanations, a few more dense cross-surface combinations |
 | Exam detail and builder handoff | `8/10` | institute and teacher core detail contract, mutable access policy actions, builder handoff, status refresh, sync marks | institute flow is deeper than teacher by design, but this may still feel inconsistent | explicit intentional parity line, broader builder-depth proof |
 | Results and reviews | `9.7/10` | institute and teacher route family, readiness shell, filtered empty-state handling, attempts / leaderboard / analysis / live monitor coverage, institute review-queue navigation and scoped recovery baseline, AWS review-ready path, teacher manual-review queue assignment and scoring baseline, teacher multi-learner leaderboard publication distribution, institute-owned descriptive review-to-publication mutation, institute-to-teacher descriptive recheck/moderation/publication continuity coverage, both institute and teacher populated live-monitor attempt/intervention coverage, a disposable published-result storytelling path across student results plus analytics compare/timeline views, both institute and teacher populated analysis coverage across hero cards, risk board, student explorer, and question evidence, and student scoped drill-down continuity across compare, timeline, actions, and subject views are browser-proven or suite-backed | denser cross-surface scoped consistency and broader non-functional proof still lag the strongest workflow lanes | scoped analytics consistency under narrower filters, weak-network/runtime behavior, and performance realism |
-| Economy oversight | `8.75/10` | scope-first design, package visibility, entitlement truth, restore/reactivate flows, top-of-lane diagnosis, access-chain glossary, clearer governing-vs-historical rows, safer package scope editing, controlled star-grant baseline, entitlement lifecycle notes/date edits, institute-admin policy-disable contract, and admin-to-institute package-plan propagation are now browser-proven | the densest catalog and support surfaces still demand more operator comfort than simpler modules | more support-ops combinations, denser operator sanity on the heaviest economy surfaces |
+| Economy oversight | `8.9/10` | scope-first design, package visibility, entitlement truth, restore/reactivate flows, top-of-lane diagnosis, access-chain glossary, clearer governing-vs-historical rows, safer package scope editing, controlled star-grant baseline, entitlement lifecycle notes/date edits, institute-admin policy-disable contract, admin-to-institute package-plan propagation, and the full admin economy browser workspace lane set are now browser-proven | the densest catalog and support surfaces still demand more operator comfort than simpler modules | more support-ops combinations, denser operator sanity on the heaviest economy surfaces |
 | Teacher / institute role consistency | `8/10` | shell parity, results parity baseline, exam-detail parity baseline, question-bank mutable baseline for both roles | some role differences are still understood only by us, not obvious to all operators | finish comprehension parity, clarify intentional differences in-product |
 | Registration / onboarding variations | `8/10` | blank, preset-only, selected-subject, selected-topic-group, package-plus-builder, and reapply onboarding paths are now browser-proven | broader multi-institute and lower-support rollout depth is still thinner than single-institute guided onboarding | multi-institute onboarding proof, lower-support operator validation, less assumption-driven setup |
 | Performance / high concurrency | `6.5/10` | service-level profiling now exists, analytics cold-path query counts are materially reduced, targeted caching and indexing are in place, and a repeatable backend performance runbook now exists | not yet stage-load-proven and not yet exam-day concurrency-proven | route-level stage benchmarks, real load tests, cache behavior validation under concurrency, and DB proof on populated stage data |

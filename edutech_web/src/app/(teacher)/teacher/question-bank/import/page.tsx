@@ -17,9 +17,12 @@ type InstituteQuestionFeatureEntitlement = {
 export default async function TeacherQuestionImportPage() {
   await requireTeacherSession();
 
-  const featureEntitlements = await fetchPortalList<InstituteQuestionFeatureEntitlement>(
-    "/api/v1/economy/admin/institute-question-bank-feature-entitlements/",
-  ).catch(() => []);
+  const [featureEntitlements, template] = await Promise.all([
+    fetchPortalList<InstituteQuestionFeatureEntitlement>(
+      "/api/v1/economy/admin/institute-question-bank-feature-entitlements/",
+    ).catch(() => []),
+    fetchTeacherQuestionImportTemplate().catch(() => null),
+  ]);
   const hasBulkImportAccess = featureEntitlements.some(
     (entitlement) =>
       entitlement.feature_code === QUESTION_BANK_BULK_IMPORT_FEATURE_CODE &&
@@ -47,9 +50,7 @@ export default async function TeacherQuestionImportPage() {
     );
   }
 
-  const template =
-    (await fetchTeacherQuestionImportTemplate().catch(() => null)) ??
-    buildFallbackQuestionImportTemplate();
+  const resolvedTemplate = template ?? buildFallbackQuestionImportTemplate();
 
   return (
     <div className="studentPage studentPageTight studentDashboardModern teacherConsolePage teacherQuestionImportPageVivid">
@@ -66,13 +67,13 @@ export default async function TeacherQuestionImportPage() {
             Imports should never be blind. Use the template, preview the payload, and only finalize when row-level
             validation matches the academic structure you expect.
           </p>
-          <small>{template.columns.length} template columns available for the current CSV format</small>
+          <small>{resolvedTemplate.columns.length} template columns available for the current CSV format</small>
         </div>
       </section>
 
       <TeacherQuestionImportWorkspace
-        csvContent={template.csv_content}
-        templateColumns={template.columns}
+        csvContent={resolvedTemplate.csv_content}
+        templateColumns={resolvedTemplate.columns}
         workspaceClassName="teacherQuestionImportWorkspaceVivid"
       />
     </div>

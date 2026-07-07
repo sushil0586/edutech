@@ -1,24 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectStudentWorkspace } from "../helpers/navigation";
-
-async function gotoWithRetry(page: Page, url: string, attempts = 3) {
-  let lastError: unknown = null;
-  for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    try {
-      await page.goto(url);
-      return;
-    } catch (error) {
-      lastError = error;
-      const message = error instanceof Error ? error.message : String(error);
-      if (!message.includes("ERR_CONNECTION_REFUSED") || attempt === attempts) {
-        throw error;
-      }
-      await page.waitForTimeout(1500 * attempt);
-    }
-  }
-  throw lastError;
-}
+import { gotoWithRuntimeRecovery } from "../helpers/runtime";
 
 async function expectStudentResultsWorkspace(page: Page) {
   await expect(page).toHaveURL(/\/app\/results(?:\?.*)?$/);
@@ -69,7 +52,7 @@ test.describe("Student results workspace", () => {
     await loginAsRole(page, "student");
     await expectStudentWorkspace(page);
 
-    await gotoWithRetry(page, "/app/results");
+    await gotoWithRuntimeRecovery(page, "/app/results");
     await expectStudentResultsWorkspace(page);
 
     const filtersCard = page.locator("section.studentWorkspaceFiltersCard").first();
@@ -82,14 +65,14 @@ test.describe("Student results workspace", () => {
       await page.getByRole("link", { name: /view analytics/i }).first().click();
       await expect(page).toHaveURL(/\/app\/analytics(?:\?.*)?$/);
 
-      await gotoWithRetry(page, "/app/results");
+      await gotoWithRuntimeRecovery(page, "/app/results");
       await expectStudentResultsWorkspace(page);
 
       await expect(page.getByRole("link", { name: /open attempts/i }).first()).toBeVisible();
       await page.getByRole("link", { name: /open attempts/i }).first().click();
       await expect(page).toHaveURL(/\/app\/attempts(?:\?.*)?$/);
 
-      await gotoWithRetry(page, "/app/results");
+      await gotoWithRuntimeRecovery(page, "/app/results");
       await expectStudentResultsWorkspace(page);
 
       const resultsForm = filtersCard.locator("form.studentWorkspaceFiltersForm").first();
@@ -158,7 +141,7 @@ test.describe("Student results workspace", () => {
       await expect(page).toHaveURL(/\/app\/practice(?:\?.*)?$/);
       await expect(page.getByRole("heading", { name: /practice/i }).first()).toBeVisible();
 
-      await gotoWithRetry(page, "/app/results");
+      await gotoWithRuntimeRecovery(page, "/app/results");
       await expectStudentResultsWorkspace(page);
 
       const resultCard = page.locator("article.studentResultSurface").first();
@@ -180,15 +163,15 @@ test.describe("Student results workspace", () => {
 
       if (/\/app\/practice(?:\?.*)?$/.test(page.url())) {
         await expect(page.getByRole("heading", { name: /practice/i }).first()).toBeVisible();
-        await gotoWithRetry(page, "/app/results");
+        await gotoWithRuntimeRecovery(page, "/app/results");
         await expectStudentResultsWorkspace(page);
       } else if (/\/app\/attempts\/[^/]+(?:\?.*)?$/.test(page.url())) {
         await expect(page.getByText(/test in progress|attempt locked/i).first()).toBeVisible();
-        await gotoWithRetry(page, "/app/results");
+        await gotoWithRuntimeRecovery(page, "/app/results");
         await expectStudentResultsWorkspace(page);
       } else if (/\/app\/exams\/[^/?#]+(?:\?.*)?$/.test(page.url())) {
         await expect(page.getByRole("link", { name: /start|resume|open/i }).first()).toBeVisible();
-        await gotoWithRetry(page, "/app/results");
+        await gotoWithRuntimeRecovery(page, "/app/results");
         await expectStudentResultsWorkspace(page);
       }
 

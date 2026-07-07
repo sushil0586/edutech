@@ -12,6 +12,19 @@ const teacherCredentials = {
   password: process.env.PLAYWRIGHT_TEACHER_PASSWORD?.trim() || "Demo@12345",
 };
 
+async function selectFirstNonEmptyOption(
+  locator: import("@playwright/test").Locator,
+) {
+  const values = await locator.locator("option").evaluateAll((options) =>
+    options
+      .map((option) => (option as HTMLOptionElement).value)
+      .filter((value) => value.trim().length > 0),
+  );
+  const firstValue = values[0] ?? null;
+  expect(firstValue).not.toBeNull();
+  await locator.selectOption(firstValue!);
+}
+
 test.describe("Teacher and institute role consistency", () => {
   test("@workflow institute and teacher preserve the shared question-bank, exam-detail, and results contract", async ({
     browser,
@@ -26,7 +39,9 @@ test.describe("Teacher and institute role consistency", () => {
     await expect(institutePage.getByText(/find questions faster/i).first()).toBeVisible();
     await expect(institutePage.getByText(/why questions are or are not visible/i).first()).toBeVisible();
     await expect(institutePage.getByRole("link", { name: /import questions csv/i }).first()).toBeVisible();
+    await expect(institutePage.getByRole("link", { name: /import comprehension csv/i }).first()).toBeVisible();
     await expect(institutePage.getByRole("link", { name: /create question/i }).first()).toBeVisible();
+    await expect(institutePage.getByRole("link", { name: /create comprehension set/i }).first()).toBeVisible();
 
     await loginWithCredentials(teacherPage, teacherCredentials, "teacher");
     await expectTeacherWorkspace(teacherPage);
@@ -35,7 +50,52 @@ test.describe("Teacher and institute role consistency", () => {
     await expect(teacherPage.getByText(/find questions faster/i).first()).toBeVisible();
     await expect(teacherPage.getByText(/how licensed platform questions work here/i).first()).toBeVisible();
     await expect(teacherPage.getByRole("link", { name: /import questions csv/i }).first()).toBeVisible();
+    await expect(teacherPage.getByRole("link", { name: /import comprehension csv/i }).first()).toBeVisible();
     await expect(teacherPage.getByRole("link", { name: /create question/i }).first()).toBeVisible();
+    await expect(teacherPage.getByRole("link", { name: /create comprehension set/i }).first()).toBeVisible();
+
+    await institutePage.getByRole("link", { name: /create question/i }).first().click();
+    await teacherPage.getByRole("link", { name: /create question/i }).first().click();
+    await expect(institutePage).toHaveURL(/\/institute\/question-bank\/new(?:\?.*)?$/);
+    await expect(teacherPage).toHaveURL(/\/teacher\/question-bank\/new(?:\?.*)?$/);
+    await expect(institutePage.getByRole("heading", { name: /create question/i }).first()).toBeVisible();
+    await expect(teacherPage.getByRole("heading", { name: /create question/i }).first()).toBeVisible();
+
+    const instituteQuestionProgram = institutePage.locator('select[name="program"]');
+    const instituteQuestionSubject = institutePage.locator('select[name="subject"]');
+    const teacherQuestionProgram = teacherPage.locator('select[name="program"]');
+    const teacherQuestionSubject = teacherPage.locator('select[name="subject"]');
+    await expect(instituteQuestionSubject).toBeDisabled();
+    await expect(teacherQuestionSubject).toBeDisabled();
+    await selectFirstNonEmptyOption(instituteQuestionProgram);
+    await selectFirstNonEmptyOption(teacherQuestionProgram);
+    await expect(instituteQuestionSubject).toBeEnabled();
+    await expect(teacherQuestionSubject).toBeEnabled();
+
+    await institutePage.goto("/institute/question-bank");
+    await teacherPage.goto("/teacher/question-bank");
+    await institutePage.getByRole("link", { name: /create comprehension set/i }).first().click();
+    await teacherPage.getByRole("link", { name: /create comprehension set/i }).first().click();
+    await expect(institutePage).toHaveURL(/\/institute\/question-bank\/comprehension\/new(?:\?.*)?$/);
+    await expect(teacherPage).toHaveURL(/\/teacher\/question-bank\/comprehension\/new(?:\?.*)?$/);
+    await expect(institutePage.getByRole("heading", { name: /create comprehension set/i }).first()).toBeVisible();
+    await expect(teacherPage.getByRole("heading", { name: /create comprehension set/i }).first()).toBeVisible();
+    await expect(institutePage.getByText(/linked questions/i).first()).toBeVisible();
+    await expect(teacherPage.getByText(/linked questions/i).first()).toBeVisible();
+
+    const instituteComprehensionProgram = institutePage.locator('select[name="program"]');
+    const instituteComprehensionSubject = institutePage.locator('select[name="subject"]');
+    const teacherComprehensionProgram = teacherPage.locator('select[name="program"]');
+    const teacherComprehensionSubject = teacherPage.locator('select[name="subject"]');
+    await expect(instituteComprehensionSubject).toBeDisabled();
+    await expect(teacherComprehensionSubject).toBeDisabled();
+    await selectFirstNonEmptyOption(instituteComprehensionProgram);
+    await selectFirstNonEmptyOption(teacherComprehensionProgram);
+    await expect(instituteComprehensionSubject).toBeEnabled();
+    await expect(teacherComprehensionSubject).toBeEnabled();
+
+    await institutePage.goto("/institute/question-bank");
+    await teacherPage.goto("/teacher/question-bank");
 
     await expect(institutePage.getByText(/open shared library linker/i).first()).toBeVisible();
     await expect(teacherPage.getByText(/shared platform library/i).first()).toBeVisible();

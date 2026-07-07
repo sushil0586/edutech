@@ -15,7 +15,7 @@ test.describe("Admin security workspace", () => {
 
     await expect(page.getByRole("heading", { name: /security/i }).first()).toBeVisible();
     await expect(page.getByText(/security controls/i).first()).toBeVisible();
-    await expect(page.locator('a[href="/admin"]').first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /^dashboard$/i }).first()).toBeVisible();
     await expect(page.locator('a[href="/admin/settings"]').first()).toBeVisible();
 
     const searchInput = page.locator('input[type="search"][name="search"]').first();
@@ -113,7 +113,7 @@ test.describe("Admin security workspace", () => {
       }
     }
 
-    await page.locator('a[href="/admin"]').first().click();
+    await page.getByRole("link", { name: /^dashboard$/i }).first().click();
     await expect(page).toHaveURL(/\/admin(?:\?.*)?$/);
     await expectAdminWorkspace(page);
 

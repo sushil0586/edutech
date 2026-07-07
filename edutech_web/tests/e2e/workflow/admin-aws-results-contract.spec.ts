@@ -1,20 +1,34 @@
 import { expect, test, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectAdminWorkspace } from "../helpers/navigation";
+import { getRoleCredentials } from "../fixtures/env";
+import { resolveBackendBaseUrl } from "../helpers/backend-base-url";
 
-const backendBaseUrl = (
-  process.env.API_BASE_URL ??
-  process.env.NEXT_PUBLIC_API_BASE_URL ??
-  process.env.PLAYWRIGHT_API_BASE_URL ??
-  "http://127.0.0.1:9001"
-).replace(/\/$/, "");
+const backendBaseUrl = resolveBackendBaseUrl();
 
 const awsLiveCode = "DMO-AWS-PRACTICE-01";
 const awsPublishedCode = "DMO-AWS-RESULT-01";
 
 async function backendAccessToken(page: Page) {
-  const accessToken =
-    (await page.context().cookies()).find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
+  const credentials = getRoleCredentials("admin");
+  expect(credentials).not.toBeNull();
+
+  const response = await page.request.post(`${backendBaseUrl}/api/v1/auth/login/`, {
+    data: {
+      username: credentials!.username,
+      password: credentials!.password,
+    },
+    headers: {
+      "Content-Type": "application/json",
+    },
+    timeout: 15000,
+  });
+
+  expect(response.ok(), await response.text()).toBe(true);
+  const payload = (await response.json()) as {
+    access?: string;
+  };
+  const accessToken = payload.access?.trim() ?? "";
   expect(accessToken).not.toBe("");
   return accessToken;
 }
@@ -31,7 +45,7 @@ async function fetchAdminExamByCode(page: Page, examCode: string) {
       timeout: 15000,
     },
   );
-  expect(response.ok()).toBe(true);
+  expect(response.ok(), await response.text()).toBe(true);
   const payload = (await response.json()) as {
     results?: Array<{
       id: string;
@@ -40,7 +54,7 @@ async function fetchAdminExamByCode(page: Page, examCode: string) {
     }>;
   };
   const exam = payload.results?.find((item) => item.code === examCode) ?? null;
-  expect(exam).not.toBeNull();
+  expect(exam, `Expected seeded AWS exam ${examCode} to exist in admin exam search.`).not.toBeNull();
   return exam!;
 }
 

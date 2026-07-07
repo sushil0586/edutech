@@ -62,6 +62,10 @@ Current browser evidence:
   - `question-bank-deep.spec.ts`
   - `teacher-question-bank-shared-library-workspace.spec.ts`
   - `teacher-question-bank-shared-library-no-entitlement.spec.ts`
+- parity guardrail:
+  - `teacher-institute-role-consistency.spec.ts`
+    - now proves both roles expose the same create/import entry points for standard and comprehension authoring
+    - now proves both roles keep subject selectors disabled until program scope is chosen on both create-question and create-comprehension routes
 
 ### Results
 
@@ -222,6 +226,7 @@ Latest note:
 - Teacher bulk topic reassignment is now browser-proven too. The coverage uses truthful disposable academic-topic provisioning through the paired institute-admin role, so the teacher and institute credentials must point to the same institute for this lane.
 - Institute bulk topic reassignment is now browser-proven after aligning the test with the current workspace contract: the bulk `Topic target` dropdown is populated only when the matching program and subject filters are active.
 - Institute bulk tag attachment and removal are now browser-proven with deterministic disposable-tag setup and cleanup, so the institute mutable suite no longer depends on pre-seeded active tags.
+- Teacher and institute role-consistency coverage now also proves the shared authoring-shell contract across question creation and comprehension creation routes, while still preserving the intentional shared-library action difference.
 
 ### Exam Detail Mutable Actions
 

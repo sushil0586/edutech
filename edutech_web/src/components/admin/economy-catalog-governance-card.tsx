@@ -68,12 +68,46 @@ function formatDateTime(value: string) {
   }
 }
 
+function asArray<T>(value: T[] | null | undefined) {
+  return Array.isArray(value) ? value : [];
+}
+
+function normalizeGroup(
+  key: keyof EconomyCatalogOverview,
+  group: EconomyCatalogGroup | null | undefined,
+): EconomyCatalogGroup {
+  const items = asArray(group?.items);
+  const active = items.filter((item) => item.is_active).length;
+  return {
+    item_type: group?.item_type || key,
+    total: items.length,
+    active,
+    inactive: items.length - active,
+    items,
+  };
+}
+
+function normalizeOverview(
+  overview: EconomyCatalogOverview | null,
+): EconomyCatalogOverview | null {
+  if (!overview) {
+    return null;
+  }
+
+  return {
+    reward_rules: normalizeGroup("reward_rules", overview.reward_rules),
+    referral_programs: normalizeGroup("referral_programs", overview.referral_programs),
+    star_packs: normalizeGroup("star_packs", overview.star_packs),
+    subscription_plans: normalizeGroup("subscription_plans", overview.subscription_plans),
+  };
+}
+
 export function EconomyCatalogGovernanceCard({
   initialOverview,
 }: {
   initialOverview: EconomyCatalogOverview | null;
 }) {
-  const [overview, setOverview] = useState<EconomyCatalogOverview | null>(initialOverview);
+  const [overview, setOverview] = useState<EconomyCatalogOverview | null>(normalizeOverview(initialOverview));
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [pendingKey, setPendingKey] = useState("");
@@ -120,7 +154,7 @@ export function EconomyCatalogGovernanceCard({
               : item.item_type === "star_pack"
                 ? "star_packs"
                 : "subscription_plans";
-        const group = current[targetKey];
+        const group = normalizeGroup(targetKey, current[targetKey]);
         const previousItem = group.items.find((candidate) => candidate.id === item.id);
         const nextItems = group.items.map((candidate) => (candidate.id === item.id ? body.data! : candidate));
         const wasActive = previousItem?.is_active ?? false;
@@ -162,7 +196,7 @@ export function EconomyCatalogGovernanceCard({
 
         <div className="weakTopicStack">
           {GROUP_COPY.map((groupCopy) => {
-            const group = overview[groupCopy.key];
+            const group = normalizeGroup(groupCopy.key, overview[groupCopy.key]);
             return (
               <div className="featurePlaceholder" key={groupCopy.key}>
                 <strong>{groupCopy.title}</strong>

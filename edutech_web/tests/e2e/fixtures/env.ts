@@ -30,7 +30,9 @@ const roleDefaults: Record<PlaywrightRole, RoleCredentials> = {
     password: "Demo@12345",
   },
   institute: {
-    username: process.env.PLAYWRIGHT_OPBMS_USERNAME?.trim() || "opbms",
+    username:
+      process.env.PLAYWRIGHT_OPBMS_USERNAME?.trim() ||
+      "demo-institute-admin",
     password: process.env.PLAYWRIGHT_OPBMS_PASSWORD?.trim() || "Demo@12345",
   },
   teacher: {

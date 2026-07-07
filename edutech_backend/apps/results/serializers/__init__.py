@@ -234,15 +234,12 @@ class ExamLeaderboardSerializer(serializers.ModelSerializer):
         model = ExamResult
         fields = (
             "id",
-            "student",
             "student_name",
             "student_admission_no",
             "rank",
             "final_score",
             "percentage",
             "time_taken_seconds",
-            "result_status",
-            "is_published",
         )
 
 

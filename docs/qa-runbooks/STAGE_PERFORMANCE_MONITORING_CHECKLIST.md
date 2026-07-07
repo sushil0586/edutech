@@ -11,6 +11,17 @@ Server:
 ssh -i ~/Downloads/bansalsushil05.pem ubuntu@3.106.125.117
 ```
 
+Stage application:
+
+- base URL: `https://learn.accerio.in`
+
+Shared Wave 1 validation accounts:
+
+- `demo-platform-admin`
+- `demo-institute-admin`
+- `demo-teacher`
+- `demo-student`
+
 ## Goal
 
 During each performance run, watch:
@@ -22,6 +33,12 @@ During each performance run, watch:
 - nginx errors
 - backend service health
 - request latency symptoms
+
+Before starting `k6`, also confirm:
+
+- stage logins work for the required role accounts
+- student users still have visible startable exams
+- disk free space is comfortably above the last ENOSPC threshold
 
 ## 1. Basic Live Host View
 
@@ -258,6 +275,39 @@ What to watch:
 - load average relative to CPU core count
 
 If load average remains far above available cores for long periods, the host is under pressure.
+
+## 13. Wave 1 Pre-Flight
+
+Run this before the first controlled stage performance wave:
+
+```bash
+df -h
+```
+
+```bash
+free -h
+```
+
+```bash
+sudo systemctl status nexora-learn-backend --no-pager
+```
+
+```bash
+sudo systemctl status nexora-learn-web --no-pager
+```
+
+```bash
+sudo -u postgres psql -c "select count(*) from pg_stat_activity;"
+```
+
+Good pre-flight signs:
+
+- root disk not near `100%`
+- backend and frontend services both stable
+- no active restart loop
+- DB connection count normal before load starts
+
+If disk is again above `90%`, do not begin load until space is reclaimed.
 
 ## 13. Network Socket Pressure
 

@@ -1435,6 +1435,8 @@ export type TeacherExamPage = PaginatedResponse<TeacherExamListItem> & {
   applied_search: string;
   summary?: {
     total_star_cost: number;
+    star_gated_count?: number;
+    entitlement_gated_count?: number;
   };
 };
 
@@ -1581,15 +1583,12 @@ export type TeacherInsightSummary = {
 
 export type TeacherLeaderboardRow = {
   id: string;
-  student: string;
   student_name: string;
   student_admission_no: string;
   rank: number | null;
   final_score: string;
   percentage: string;
   time_taken_seconds: number | null;
-  result_status: string;
-  is_published: boolean;
 };
 
 export type TeacherAttemptAlert = {

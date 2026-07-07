@@ -55,14 +55,46 @@ def schedule_attempt_result_analytics_refresh(*, attempt, include_ranks=False, i
     )
 
 
-def refresh_exam_result_analytics(*, exam, attempts=None, include_ranks=False, include_summary=True):
+def refresh_exam_result_analytics(
+    *,
+    exam,
+    attempts=None,
+    include_ranks=False,
+    include_summary=True,
+    exam_questions=None,
+    summary_attempts=None,
+):
     for attempt in attempts or []:
-        calculate_student_topic_performance(attempt.exam, attempt.student, attempt)
+        prefetched_answers = getattr(attempt, "_prefetched_objects_cache", {}).get("answers", [])
+        answers_by_question_id = {
+            answer.question_id: answer
+            for answer in prefetched_answers
+            if answer.is_active
+        }
+        calculate_student_topic_performance(
+            attempt.exam,
+            attempt.student,
+            attempt,
+            exam_questions=exam_questions,
+            answers_by_question_id=answers_by_question_id or None,
+        )
         bump_student_insight_summary_cache_version(attempt.student)
     if include_ranks:
         calculate_exam_ranks(exam)
     if include_summary:
-        calculate_exam_performance_summary(exam)
+        summary_answers = None
+        if summary_attempts:
+            summary_answers = [
+                answer
+                for attempt in summary_attempts
+                for answer in getattr(attempt, "_prefetched_objects_cache", {}).get("answers", [])
+                if answer.is_active
+            ]
+        calculate_exam_performance_summary(
+            exam,
+            exam_questions=exam_questions,
+            answers=summary_answers,
+        )
     bump_teacher_insight_summary_cache_version()
     bump_institute_dashboard_summary_cache_version(getattr(exam, "institute_id", None))
 
@@ -197,38 +229,41 @@ def get_institute_dashboard_summary_cache_key(institute_id):
 
 
 def _score_distribution_buckets(results_qs):
-    bucket_specs = [
-        ("0-24", 0, 25),
-        ("25-49", 25, 50),
-        ("50-69", 50, 70),
-        ("70-84", 70, 85),
-        ("85-100", 85, 101),
-    ]
-    buckets = []
-    total = results_qs.count()
-    for label, lower, upper in bucket_specs:
-        if upper == 101:
-            count = results_qs.filter(percentage__gte=lower, percentage__lte=100).count()
-        else:
-            count = results_qs.filter(percentage__gte=lower, percentage__lt=upper).count()
-        buckets.append(
-            {
-                "label": label,
-                "min_percentage": lower,
-                "max_percentage": 100 if upper == 101 else upper - 1,
-                "count": count,
-                "percentage_share": round((count / total) * 100, 2) if total > 0 else 0.0,
-            }
-        )
-    return buckets
-
-
-def _section_performance_summary(exam):
-    exam_questions = list(
-        exam.exam_questions.filter(is_active=True)
-        .select_related("section", "question")
-        .order_by("question_order", "created_at")
+    bucket_aggregates = results_qs.aggregate(
+        total=Count("id"),
+        bucket_0_24=Count("id", filter=Q(percentage__gte=0, percentage__lt=25)),
+        bucket_25_49=Count("id", filter=Q(percentage__gte=25, percentage__lt=50)),
+        bucket_50_69=Count("id", filter=Q(percentage__gte=50, percentage__lt=70)),
+        bucket_70_84=Count("id", filter=Q(percentage__gte=70, percentage__lt=85)),
+        bucket_85_100=Count("id", filter=Q(percentage__gte=85, percentage__lte=100)),
     )
+    total = bucket_aggregates["total"] or 0
+    bucket_specs = [
+        ("0-24", 0, 24, bucket_aggregates["bucket_0_24"] or 0),
+        ("25-49", 25, 49, bucket_aggregates["bucket_25_49"] or 0),
+        ("50-69", 50, 69, bucket_aggregates["bucket_50_69"] or 0),
+        ("70-84", 70, 84, bucket_aggregates["bucket_70_84"] or 0),
+        ("85-100", 85, 100, bucket_aggregates["bucket_85_100"] or 0),
+    ]
+    return [
+        {
+            "label": label,
+            "min_percentage": lower,
+            "max_percentage": upper,
+            "count": count,
+            "percentage_share": round((count / total) * 100, 2) if total > 0 else 0.0,
+        }
+        for label, lower, upper, count in bucket_specs
+    ]
+
+
+def _section_performance_summary(exam, *, exam_questions=None, answers=None):
+    if exam_questions is None:
+        exam_questions = list(
+            exam.exam_questions.filter(is_active=True)
+            .select_related("section", "question")
+            .order_by("question_order", "created_at")
+        )
     if not exam_questions:
         return []
 
@@ -264,11 +299,12 @@ def _section_performance_summary(exam):
         entry = ensure_entry(key=section_key, label=section_label, order=section_order)
         entry["total_questions"] += 1
 
-    answers = StudentAnswer.objects.filter(
-        attempt__exam=exam,
-        attempt__is_active=True,
-        is_active=True,
-    ).select_related("question")
+    if answers is None:
+        answers = StudentAnswer.objects.filter(
+            attempt__exam=exam,
+            attempt__is_active=True,
+            is_active=True,
+        ).select_related("question")
 
     for answer in answers:
         exam_question = question_map.get(str(answer.question_id))
@@ -440,7 +476,13 @@ def _build_result_publish_issue(*, code, field, message, level):
     }
 
 
-def build_result_publish_readiness(exam):
+def build_result_publish_readiness(
+    exam,
+    *,
+    results=None,
+    active_attempts_in_progress=None,
+    unresolved_review_count=None,
+):
     from apps.results.models import ExamResult
 
     blockers = []
@@ -465,7 +507,13 @@ def build_result_publish_readiness(exam):
             )
         )
 
-    if exam.attempts.filter(status="in_progress", is_active=True).exists():
+    if active_attempts_in_progress is None:
+        active_attempts_in_progress = exam.attempts.filter(
+            status="in_progress",
+            is_active=True,
+        ).exists()
+
+    if active_attempts_in_progress:
         blockers.append(
             _build_result_publish_issue(
                 code=RESULT_PUBLISH_BLOCKER_ACTIVE_ATTEMPTS,
@@ -475,7 +523,8 @@ def build_result_publish_readiness(exam):
             )
         )
 
-    results = list(ExamResult.objects.filter(exam=exam, is_active=True))
+    if results is None:
+        results = list(ExamResult.objects.filter(exam=exam, is_active=True))
     if not results:
         blockers.append(
             _build_result_publish_issue(
@@ -486,7 +535,8 @@ def build_result_publish_readiness(exam):
             )
         )
     else:
-        unresolved_review_count = unresolved_review_tasks_queryset(exam=exam).count()
+        if unresolved_review_count is None:
+            unresolved_review_count = unresolved_review_tasks_queryset(exam=exam).count()
         if unresolved_review_count:
             blockers.append(
                 _build_result_publish_issue(
@@ -806,14 +856,23 @@ def _result_status_for_attempt(attempt):
 
 
 @transaction.atomic
-def generate_result_from_attempt(attempt):
+def generate_result_from_attempt(
+    attempt,
+    *,
+    invalidate_insight_caches=True,
+    manual_review_pending=None,
+):
     from apps.economy.services import process_exam_result_rewards
     from apps.results.models import ExamResult
 
     if attempt.status not in {"submitted", "auto_submitted"}:
         raise ValidationError({"attempt": "Attempt must be submitted or auto-submitted."})
-    if attempt_has_pending_manual_review(attempt):
+    if manual_review_pending is None:
+        manual_review_pending = attempt_has_pending_manual_review(attempt)
+    if manual_review_pending:
         raise ValidationError({"attempt": "Result cannot be generated until all manual-review answers are graded."})
+    publish_immediately = resolve_result_publish_mode(attempt.exam) == "immediate"
+    published_at = timezone.now() if publish_immediately else None
 
     result, created = ExamResult.objects.get_or_create(
         exam=attempt.exam,
@@ -831,6 +890,9 @@ def generate_result_from_attempt(attempt):
             "incorrect_answers": attempt.incorrect_answers,
             "skipped_questions": attempt.skipped_questions,
             "time_taken_seconds": attempt.time_taken_seconds,
+            "is_active": True,
+            "is_published": publish_immediately,
+            "published_at": published_at,
         },
     )
 
@@ -845,18 +907,31 @@ def generate_result_from_attempt(attempt):
         result.incorrect_answers = attempt.incorrect_answers
         result.skipped_questions = attempt.skipped_questions
         result.time_taken_seconds = attempt.time_taken_seconds
-    result.is_active = True
-    if resolve_result_publish_mode(attempt.exam) == "immediate":
-        result.is_published = True
-        result.published_at = timezone.now()
-    else:
-        result.is_published = False
-        result.published_at = None
-    result.save()
+        result.is_active = True
+        result.is_published = publish_immediately
+        result.published_at = published_at
+        result.updated_at = timezone.now()
+        type(result).objects.filter(pk=result.pk).update(
+            result_status=result.result_status,
+            total_marks=result.total_marks,
+            score=result.score,
+            negative_score=result.negative_score,
+            final_score=result.final_score,
+            percentage=result.percentage,
+            correct_answers=result.correct_answers,
+            incorrect_answers=result.incorrect_answers,
+            skipped_questions=result.skipped_questions,
+            time_taken_seconds=result.time_taken_seconds,
+            is_active=result.is_active,
+            is_published=result.is_published,
+            published_at=result.published_at,
+            updated_at=result.updated_at,
+        )
     process_exam_result_rewards(result=result)
-    bump_student_insight_summary_cache_version(attempt.student)
-    bump_teacher_insight_summary_cache_version()
-    bump_institute_dashboard_summary_cache_version(attempt.institute_id)
+    if invalidate_insight_caches:
+        bump_student_insight_summary_cache_version(attempt.student)
+        bump_teacher_insight_summary_cache_version()
+        bump_institute_dashboard_summary_cache_version(attempt.institute_id)
 
     return result
 
@@ -867,10 +942,23 @@ def generate_results_for_exam(exam):
     with transaction.atomic():
         _ensure_exam_status_allows_result_generation(exam)
 
+        active_answers_prefetch = Prefetch(
+            "answers",
+            queryset=StudentAnswer.objects.filter(is_active=True),
+        )
         attempts = list(
-            exam.attempts.select_related("student")
+            exam.attempts.select_related("student", "exam", "institute")
+            .prefetch_related(active_answers_prefetch)
             .filter(status__in=["submitted", "auto_submitted"], is_active=True)
             .order_by("student_id", "-attempt_no", "-created_at")
+        )
+        exam_questions = list(
+            exam.exam_questions.filter(is_active=True)
+            .select_related("section", "question", "question__subject", "question__topic")
+            .order_by("question_order", "created_at")
+        )
+        pending_manual_review_attempt_ids = set(
+            unresolved_review_tasks_queryset(exam=exam).values_list("attempt_id", flat=True)
         )
 
         attempts_by_student = {}
@@ -886,7 +974,13 @@ def generate_results_for_exam(exam):
                 continue
             selected_attempt_ids.add(attempt.id)
             selected_attempts.append(attempt)
-            results.append(generate_result_from_attempt(attempt))
+            results.append(
+                generate_result_from_attempt(
+                    attempt,
+                    invalidate_insight_caches=False,
+                    manual_review_pending=attempt.id in pending_manual_review_attempt_ids,
+                )
+            )
 
         if selected_attempt_ids:
             ExamResult.objects.filter(exam=exam).exclude(
@@ -897,6 +991,8 @@ def generate_results_for_exam(exam):
         exam=exam,
         attempts=selected_attempts,
         include_summary=True,
+        exam_questions=exam_questions,
+        summary_attempts=attempts,
     )
     return results
 
@@ -917,14 +1013,19 @@ def calculate_exam_ranks(exam):
     current_rank = 0
     previous_score = None
     previous_time_taken = None
+    changed_results = []
 
     for index, result in enumerate(results, start=1):
         if result.final_score != previous_score or result.time_taken_seconds != previous_time_taken:
             current_rank = index
             previous_score = result.final_score
             previous_time_taken = result.time_taken_seconds
-        result.rank = current_rank
-        result.save(update_fields=["rank"])
+        if result.rank != current_rank:
+            result.rank = current_rank
+            changed_results.append(result)
+
+    if changed_results:
+        ExamResult.objects.bulk_update(changed_results, ["rank"], batch_size=200)
 
     return results
 
@@ -934,9 +1035,21 @@ def publish_exam_results(exam):
     from apps.reports.services import notify_results_published
 
     with transaction.atomic():
-        _raise_result_publish_readiness_errors(build_result_publish_readiness(exam))
-
         results = list(ExamResult.objects.filter(exam=exam, is_active=True))
+        readiness = build_result_publish_readiness(
+            exam,
+            results=results,
+            active_attempts_in_progress=exam.attempts.filter(
+                status="in_progress",
+                is_active=True,
+            ).exists(),
+            unresolved_review_count=(
+                unresolved_review_tasks_queryset(exam=exam).count()
+                if results
+                else 0
+            ),
+        )
+        _raise_result_publish_readiness_errors(readiness)
 
         published_at = timezone.now()
         ExamResult.objects.filter(
@@ -952,7 +1065,14 @@ def publish_exam_results(exam):
 
 
 @transaction.atomic
-def calculate_student_topic_performance(exam, student, attempt=None):
+def calculate_student_topic_performance(
+    exam,
+    student,
+    attempt=None,
+    *,
+    exam_questions=None,
+    answers_by_question_id=None,
+):
     from apps.results.models import StudentTopicPerformance
 
     attempt = attempt or exam.attempts.filter(
@@ -966,11 +1086,15 @@ def calculate_student_topic_performance(exam, student, attempt=None):
 
     StudentTopicPerformance.objects.filter(exam=exam, student=student).delete()
 
-    exam_questions = list(
-        exam.exam_questions.filter(is_active=True)
-        .select_related("question", "question__subject", "question__topic")
-    )
-    answers = {answer.question_id: answer for answer in attempt.answers.filter(is_active=True)}
+    if exam_questions is None:
+        exam_questions = list(
+            exam.exam_questions.filter(is_active=True)
+            .select_related("question", "question__subject", "question__topic")
+        )
+    if answers_by_question_id is None:
+        answers_by_question_id = {
+            answer.question_id: answer for answer in attempt.answers.filter(is_active=True)
+        }
 
     grouped = {}
     for exam_question in exam_questions:
@@ -995,7 +1119,7 @@ def calculate_student_topic_performance(exam, student, attempt=None):
         bucket["total_questions"] += 1
         bucket["available_marks"] += exam_question.marks or Decimal("0.00")
 
-        answer = answers.get(question.id)
+        answer = answers_by_question_id.get(question.id)
         if answer and (answer.selected_option_id or (answer.answer_text or "").strip()):
             bucket["attempted_questions"] += 1
             if answer.is_correct:
@@ -1016,11 +1140,11 @@ def calculate_student_topic_performance(exam, student, attempt=None):
 
         performance_rows.append(
             StudentTopicPerformance(
-                institute=exam.institute,
+                institute_id=exam.institute_id,
                 exam=exam,
                 student=student,
-                subject=bucket["subject"],
-                topic=bucket["topic"],
+                subject_id=getattr(bucket["subject"], "id", None),
+                topic_id=getattr(bucket["topic"], "id", None),
                 total_questions=bucket["total_questions"],
                 attempted_questions=bucket["attempted_questions"],
                 correct_answers=bucket["correct_answers"],
@@ -1041,7 +1165,7 @@ def calculate_student_topic_performance(exam, student, attempt=None):
 
 
 @transaction.atomic
-def calculate_exam_performance_summary(exam):
+def calculate_exam_performance_summary(exam, *, exam_questions=None, answers=None):
     from apps.results.models import ExamPerformanceSummary, ExamResult
 
     results_qs = ExamResult.objects.filter(exam=exam, is_active=True)
@@ -1050,19 +1174,27 @@ def calculate_exam_performance_summary(exam):
         highest_score=Max("final_score"),
         lowest_score=Min("final_score"),
         average_percentage=Avg("percentage"),
+        total_results=Count("id"),
+        total_passed=Count("id", filter=Q(result_status="pass")),
+        total_failed=Count("id", filter=Q(result_status="fail")),
     )
 
-    total_results = results_qs.count()
-    total_passed = results_qs.filter(result_status="pass").count()
-    total_failed = results_qs.filter(result_status="fail").count()
+    total_results = aggregates["total_results"] or 0
+    total_passed = aggregates["total_passed"] or 0
+    total_failed = aggregates["total_failed"] or 0
+    calculated_at = timezone.now()
     metadata = {
         "score_distribution": _score_distribution_buckets(results_qs),
-        "section_performance": _section_performance_summary(exam),
+        "section_performance": _section_performance_summary(
+            exam,
+            exam_questions=exam_questions,
+            answers=answers,
+        ),
         "experience_profile": resolve_exam_experience_profile(exam),
     }
 
-    summary, _ = ExamPerformanceSummary.objects.get_or_create(
-        institute=exam.institute,
+    summary, created = ExamPerformanceSummary.objects.get_or_create(
+        institute_id=exam.institute_id,
         exam=exam,
         defaults={
             "total_students": total_results,
@@ -1073,10 +1205,12 @@ def calculate_exam_performance_summary(exam):
             "highest_score": aggregates["highest_score"] or Decimal("0.00"),
             "lowest_score": aggregates["lowest_score"] or Decimal("0.00"),
             "average_percentage": aggregates["average_percentage"] or Decimal("0.00"),
-            "last_calculated_at": timezone.now(),
+            "last_calculated_at": calculated_at,
             "metadata": metadata,
         },
     )
+    if created:
+        return summary
 
     summary.total_students = total_results
     summary.total_attempted = total_results
@@ -1086,7 +1220,7 @@ def calculate_exam_performance_summary(exam):
     summary.highest_score = aggregates["highest_score"] or Decimal("0.00")
     summary.lowest_score = aggregates["lowest_score"] or Decimal("0.00")
     summary.average_percentage = aggregates["average_percentage"] or Decimal("0.00")
-    summary.last_calculated_at = timezone.now()
+    summary.last_calculated_at = calculated_at
     summary.metadata = metadata
     summary.save()
 

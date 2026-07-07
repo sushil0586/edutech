@@ -313,6 +313,14 @@ class AuthenticationAccessControlTestCase(TestCase):
             teacher_gated_exams_response.data["summary"]["total_star_cost"],
             25,
         )
+        self.assertEqual(
+            teacher_gated_exams_response.data["summary"]["star_gated_count"],
+            1,
+        )
+        self.assertEqual(
+            teacher_gated_exams_response.data["summary"]["entitlement_gated_count"],
+            0,
+        )
 
         teacher_questions_response = self.client.get("/api/v1/teacher/questions/")
         self.assertEqual(teacher_questions_response.status_code, 200)

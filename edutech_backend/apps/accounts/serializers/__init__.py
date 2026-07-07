@@ -73,14 +73,14 @@ class AccountProfileSerializer(serializers.ModelSerializer):
             seen.add(normalized)
             subject_names.append(name)
 
-        program_subjects = Subject.objects.filter(
+        program_subject_names = Subject.objects.filter(
             institute=student.institute,
             is_active=True,
         ).filter(
             Q(program=student.program) | Q(program__isnull=True)
-        ).order_by("sort_order", "name")
-        for subject in program_subjects:
-            add_subject_name(subject.name)
+        ).order_by("sort_order", "name").values_list("name", flat=True)
+        for subject_name in program_subject_names:
+            add_subject_name(subject_name)
 
         result_subject_names = (
             student.topic_performances.filter(is_active=True)
@@ -202,30 +202,105 @@ class AccountProfileSerializer(serializers.ModelSerializer):
         )
 
 
+class LoginAccountProfileSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source="user.username", read_only=True)
+    email = serializers.CharField(source="user.email", read_only=True)
+    display_name = serializers.SerializerMethodField()
+    institute_name = serializers.SerializerMethodField()
+
+    def get_display_name(self, obj):
+        student_profile = getattr(obj, "student_profile", None)
+        if student_profile and student_profile.full_name.strip():
+            return student_profile.full_name.strip()
+        parent_profile = getattr(obj, "parent_profile", None)
+        if parent_profile and parent_profile.full_name.strip():
+            return parent_profile.full_name.strip()
+
+        user = getattr(obj, "user", None)
+        full_name = " ".join(
+            part.strip()
+            for part in [
+                getattr(user, "first_name", ""),
+                getattr(user, "last_name", ""),
+            ]
+            if part and part.strip()
+        )
+        if full_name:
+            return full_name
+        return getattr(user, "username", "")
+
+    def get_institute_name(self, obj):
+        institute = getattr(obj, "institute", None)
+        if institute and getattr(institute, "name", "").strip():
+            return institute.name.strip()
+        return None
+
+    class Meta:
+        model = AccountProfile
+        fields = (
+            "id",
+            "username",
+            "email",
+            "display_name",
+            "role",
+            "institute",
+            "institute_name",
+            "student_profile",
+            "teacher_profile",
+            "registration_context",
+            "onboarding_status",
+            "profile_completion_required",
+            "profile_completion_completed_at",
+            "onboarding_role",
+            "onboarding_version",
+            "is_active",
+        )
+
+
 class LoginSerializer(serializers.Serializer):
     username = serializers.CharField()
     password = serializers.CharField(write_only=True)
 
     def validate(self, attrs):
-        existing_user = User.objects.filter(username=attrs["username"]).first()
-        if existing_user and existing_user.check_password(attrs["password"]) and not existing_user.is_active:
-            raise serializers.ValidationError({"detail": "User account is inactive."})
-        user = authenticate(username=attrs["username"], password=attrs["password"])
+        username = attrs["username"]
+        password = attrs["password"]
+
+        user = authenticate(username=username, password=password)
         if user is None:
+            existing_user = User.objects.only("id", "is_active", "password").filter(username=username).first()
+            if existing_user and not existing_user.is_active and existing_user.check_password(password):
+                raise serializers.ValidationError({"detail": "User account is inactive."})
             raise serializers.ValidationError({"detail": "Invalid credentials."})
-        if not hasattr(user, "account_profile") or not user.account_profile.is_active:
+
+        profile = (
+            AccountProfile.objects.select_related(
+                "user",
+                "institute",
+                "student_profile__program",
+                "student_profile__academic_year",
+                "student_profile__cohort",
+                "teacher_profile",
+                "location_profile",
+                "acquisition_profile",
+            )
+            .filter(user=user)
+            .first()
+        )
+        if profile is None or not profile.is_active:
             raise serializers.ValidationError({"detail": "Account profile is inactive or missing."})
+
         attrs["user"] = user
+        attrs["account_profile"] = profile
         return attrs
 
     def create(self, validated_data):
         user = validated_data["user"]
         refresh = RefreshToken.for_user(user)
-        profile = user.account_profile
+        profile = validated_data["account_profile"]
         return {
             "refresh": str(refresh),
             "access": str(refresh.access_token),
-            "user": AccountProfileSerializer(profile).data,
+            "user": LoginAccountProfileSerializer(profile).data,
         }
 
 

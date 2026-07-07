@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type InstituteOption = {
   id: string;
@@ -67,7 +67,7 @@ type AdminQuestionBankPackage = {
   active_entitlement_count: number;
   linked_plan_count: number;
   default_plan_count: number;
-  scopes: Array<{
+  scopes?: Array<{
     id: string;
     program: string | null;
     program_name: string | null;
@@ -318,7 +318,7 @@ function summarizePackageSaveOutcome(
     packageCode: pkg.code,
     subjectLabels,
     topicLabels,
-    activeScopeCount: pkg.scopes.filter((scope) => scope.is_active).length,
+    activeScopeCount: (pkg.scopes ?? []).filter((scope) => scope.is_active).length,
     actionLabel,
   };
 }
@@ -377,6 +377,7 @@ export function EconomyQuestionBankPackageManagementCard({
   programs,
   subjects,
   topics,
+  initialWorkspaceView = "editor",
   onPackagesChange,
 }: {
   packages: AdminQuestionBankPackage[];
@@ -384,15 +385,17 @@ export function EconomyQuestionBankPackageManagementCard({
   programs: ProgramOption[];
   subjects: SubjectOption[];
   topics: TopicOption[];
+  initialWorkspaceView?: "editor" | "catalog" | "all";
   onPackagesChange?: (packages: AdminQuestionBankPackage[]) => void;
 }) {
-  const [workspaceView, setWorkspaceView] = useState<"editor" | "catalog" | "all">("editor");
+  const [workspaceView, setWorkspaceView] = useState<"editor" | "catalog" | "all">(initialWorkspaceView);
   const [catalogInstituteFilter, setCatalogInstituteFilter] = useState("all");
   const [catalogTypeFilter, setCatalogTypeFilter] = useState("all");
   const [catalogStatusFilter, setCatalogStatusFilter] = useState<"all" | "active" | "inactive">("active");
   const [catalogRowsToShow, setCatalogRowsToShow] = useState<"4" | "8" | "12">("8");
   const [editingId, setEditingId] = useState("");
   const [saving, setSaving] = useState(false);
+  const [loadingPackageId, setLoadingPackageId] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [instituteId, setInstituteId] = useState(institutes[0]?.id ?? "");
@@ -409,18 +412,84 @@ export function EconomyQuestionBankPackageManagementCard({
   const [scopePresetMode, setScopePresetMode] = useState<ScopePresetMode>("subject_library_all_subjects");
   const [presetSubjectId, setPresetSubjectId] = useState("");
   const [saveOutcome, setSaveOutcome] = useState<PackageSaveOutcome | null>(null);
+  const [editorPrograms, setEditorPrograms] = useState(programs);
+  const [editorSubjects, setEditorSubjects] = useState(subjects);
+  const [editorTopics, setEditorTopics] = useState(topics);
+  const [editorLookupsLoading, setEditorLookupsLoading] = useState(false);
+  const [editorLookupsError, setEditorLookupsError] = useState("");
+
+  const editorLookupsReady =
+    editorPrograms.length > 0 || editorSubjects.length > 0 || editorTopics.length > 0;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadEditorLookups() {
+      if (workspaceView !== "editor" && workspaceView !== "all") {
+        return;
+      }
+
+      setEditorLookupsLoading(true);
+      setEditorLookupsError("");
+
+      try {
+        const query = instituteId ? `?institute=${encodeURIComponent(instituteId)}` : "";
+        const response = await fetch(`/api/admin/economy/question-bank-package-lookups${query}`, {
+          method: "GET",
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          throw new Error("Package editor lookups could not be loaded.");
+        }
+
+        const payload = (await response.json()) as {
+          programs?: ProgramOption[];
+          subjects?: SubjectOption[];
+          topics?: TopicOption[];
+        };
+
+        if (cancelled) {
+          return;
+        }
+
+        setEditorPrograms(Array.isArray(payload.programs) ? payload.programs : []);
+        setEditorSubjects(Array.isArray(payload.subjects) ? payload.subjects : []);
+        setEditorTopics(Array.isArray(payload.topics) ? payload.topics : []);
+      } catch (lookupError) {
+        if (cancelled) {
+          return;
+        }
+        setEditorLookupsError(
+          lookupError instanceof Error
+            ? lookupError.message
+            : "Package editor lookups could not be loaded.",
+        );
+      } finally {
+        if (!cancelled) {
+          setEditorLookupsLoading(false);
+        }
+      }
+    }
+
+    void loadEditorLookups();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [instituteId, workspaceView]);
 
   const availablePrograms = useMemo(
-    () => programs.filter((program) => program.is_active && program.institute === instituteId),
-    [programs, instituteId],
+    () => editorPrograms.filter((program) => program.is_active && program.institute === instituteId),
+    [editorPrograms, instituteId],
   );
   const availableSubjects = useMemo(
-    () => subjects.filter((subject) => subject.is_active && subject.institute === instituteId),
-    [subjects, instituteId],
+    () => editorSubjects.filter((subject) => subject.is_active && subject.institute === instituteId),
+    [editorSubjects, instituteId],
   );
   const availableTopics = useMemo(
-    () => topics.filter((topic) => topic.is_active && topic.institute === instituteId),
-    [topics, instituteId],
+    () => editorTopics.filter((topic) => topic.is_active && topic.institute === instituteId),
+    [editorTopics, instituteId],
   );
   const lookupMaps = useMemo<ScopeLookupMaps>(
     () => ({
@@ -658,7 +727,9 @@ export function EconomyQuestionBankPackageManagementCard({
     setScopes([emptyScopeDraft()]);
   }
 
-  function loadForEdit(pkg: AdminQuestionBankPackage) {
+  function populateFormForEdit(pkg: AdminQuestionBankPackage) {
+    const packageScopes = pkg.scopes ?? [];
+
     setWorkspaceView("editor");
     setEditingId(pkg.id);
     setInstituteId(pkg.institute);
@@ -672,8 +743,8 @@ export function EconomyQuestionBankPackageManagementCard({
     setSortOrder(String(pkg.sort_order));
     setIsActive(pkg.is_active);
     setScopes(
-      pkg.scopes.length > 0
-        ? pkg.scopes.map((scope) => ({
+      packageScopes.length > 0
+        ? packageScopes.map((scope) => ({
             id: scope.id,
             program: scope.program || "",
             subject: scope.subject || "",
@@ -691,6 +762,37 @@ export function EconomyQuestionBankPackageManagementCard({
     setMessage("");
     setError("");
     setSaveOutcome(null);
+  }
+
+  async function loadForEdit(pkg: AdminQuestionBankPackage) {
+    setLoadingPackageId(pkg.id);
+    setMessage("");
+    setError("");
+    setSaveOutcome(null);
+
+    try {
+      const response = await fetch(`/api/admin/economy/question-bank-packages/${pkg.id}`, {
+        method: "GET",
+        cache: "no-store",
+      });
+      const body = (await response.json().catch(() => ({}))) as AdminQuestionBankPackage & {
+        detail?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(
+          typeof body.detail === "string" && body.detail.trim()
+            ? body.detail
+            : "Package detail could not be loaded.",
+        );
+      }
+
+      populateFormForEdit(body);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Package detail could not be loaded.");
+    } finally {
+      setLoadingPackageId("");
+    }
   }
 
   function updateScope(index: number, patch: Partial<PackageScopeDraft>) {
@@ -1121,6 +1223,20 @@ export function EconomyQuestionBankPackageManagementCard({
             Start with package identity and delivery posture, then define exactly which academic scope this package can expose.
           </p>
 
+          {editorLookupsLoading ? (
+            <div className="builderHintPanel" style={{ marginBottom: 16 }}>
+              <strong>Loading package editor lookups</strong>
+              <p>Programs, subjects, and topics are loading for the selected institute.</p>
+            </div>
+          ) : null}
+
+          {editorLookupsError ? (
+            <div className="builderHintPanel economyScopeWarningPanel" style={{ marginBottom: 16 }}>
+              <strong>Editor lookup load issue</strong>
+              <p>{editorLookupsError}</p>
+            </div>
+          ) : null}
+
           {editingId ? (
             <div className="builderHintPanel" style={{ marginBottom: 16 }}>
               <strong>Editing live package coverage</strong>
@@ -1502,6 +1618,12 @@ export function EconomyQuestionBankPackageManagementCard({
               <span>{scopes.length} coverage row{scopes.length === 1 ? "" : "s"} configured</span>
               <span>{scopes.filter((scope) => scope.is_active).length} active</span>
             </div>
+            {!editorLookupsReady && !editorLookupsLoading ? (
+              <div className="builderHintPanel" style={{ marginBottom: 16 }}>
+                <strong>Editor lookups are not ready yet</strong>
+                <p>Choose an institute and reopen the editor if academic scope selectors stay empty.</p>
+              </div>
+            ) : null}
             <div className="economyFormSection economyPackageRecipePanel">
               <div className="economyFormSectionHeader">
                 <strong>Fast setup recipes</strong>
@@ -1912,8 +2034,13 @@ export function EconomyQuestionBankPackageManagementCard({
                 <div className="economyPackageCatalogMeta">
                   <strong>{pkg.is_active ? "Active" : "Inactive"}</strong>
                   <span>{pkg.coverage_summary}</span>
-                  <button className="button buttonGhost" onClick={() => loadForEdit(pkg)} type="button">
-                    Edit
+                  <button
+                    className="button buttonGhost"
+                    disabled={loadingPackageId === pkg.id}
+                    onClick={() => void loadForEdit(pkg)}
+                    type="button"
+                  >
+                    {loadingPackageId === pkg.id ? "Loading..." : "Edit"}
                   </button>
                 </div>
               </div>

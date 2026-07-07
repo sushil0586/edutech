@@ -292,7 +292,7 @@ test.describe("Institute exams workspace", () => {
       expect(visibleTitles).toEqual([...visibleTitles].sort((left, right) => left.localeCompare(right)));
     }
 
-    await page.getByRole("link", { name: /^all$/i }).click();
+    await page.getByRole("link", { name: /reset filters/i }).click();
     await expect(page).toHaveURL(/\/institute\/exams(?:\?.*)?$/);
     await expect(page.getByText(/^status: all$/i).first()).toBeVisible();
 

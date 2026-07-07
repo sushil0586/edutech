@@ -24,6 +24,7 @@ class ProfileOperationalRoutesCommandTestCase(SimpleTestCase):
             parent_child_id="child-1",
             student_attempt_id="attempt-1",
             student_exam_id="exam-1",
+            teacher_exam_id="teacher-exam-1",
         )
 
         labels = {route["label"] for route in routes}
@@ -31,6 +32,7 @@ class ProfileOperationalRoutesCommandTestCase(SimpleTestCase):
         self.assertIn("student_available_exams", labels)
         self.assertIn("question_bank_questions_compact", labels)
         self.assertIn("question_bank_passages_list", labels)
+        self.assertIn("teacher_results_leaderboard", labels)
         self.assertIn("student_attempt_list", labels)
         self.assertIn("student_exam_detail", labels)
         self.assertIn("student_attempt_detail", labels)
@@ -78,6 +80,10 @@ class ProfileOperationalRoutesCommandTestCase(SimpleTestCase):
             return_value="exam-1",
         ), patch.object(
             command,
+            "_resolve_teacher_exam_id",
+            return_value="teacher-exam-1",
+        ), patch.object(
+            command,
             "_profile_route",
             side_effect=lambda **kwargs: {"label": kwargs["route"]["label"], "path": kwargs["route"]["path"]},
         ), patch.object(command.stdout, "write") as write_mock:
@@ -97,6 +103,7 @@ class ProfileOperationalRoutesCommandTestCase(SimpleTestCase):
         self.assertIn('"platform_admin": "demo-platform-admin"', output)
         self.assertIn('"label": "question_bank_questions_compact"', output)
         self.assertIn('"label": "question_bank_passages_list"', output)
+        self.assertIn('"label": "teacher_results_leaderboard"', output)
         self.assertIn('"label": "student_available_exams"', output)
         self.assertIn('"label": "student_exam_detail"', output)
         self.assertIn('"label": "student_attempt_detail"', output)

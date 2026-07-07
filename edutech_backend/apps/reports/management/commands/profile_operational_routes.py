@@ -100,6 +100,7 @@ class Command(BaseCommand):
         parent_child_id = self._resolve_parent_child_id(parent_user)
         student_attempt_id = self._resolve_student_attempt_id(student_user)
         student_exam_id = self._resolve_student_exam_id(student_user)
+        teacher_exam_id = self._resolve_teacher_exam_id(teacher_user)
 
         routes = self._build_routes(
             institute_admin_user=institute_admin_user,
@@ -110,6 +111,7 @@ class Command(BaseCommand):
             parent_child_id=parent_child_id,
             student_attempt_id=student_attempt_id,
             student_exam_id=student_exam_id,
+            teacher_exam_id=teacher_exam_id,
         )
 
         if route_label_filter:
@@ -221,6 +223,26 @@ class Command(BaseCommand):
         )
         return attempt.exam_id if attempt is not None else None
 
+    def _resolve_teacher_exam_id(self, user):
+        account_profile = getattr(user, "account_profile", None)
+        try:
+            teacher_profile = account_profile.teacher_profile if account_profile is not None else None
+        except Exception:  # noqa: BLE001
+            teacher_profile = None
+        if teacher_profile is None:
+            return None
+        attempt = (
+            StudentExamAttempt.objects.filter(
+                exam__source_teacher=teacher_profile,
+                exam__is_active=True,
+                is_active=True,
+            )
+            .select_related("exam")
+            .order_by("-started_at", "-created_at")
+            .first()
+        )
+        return attempt.exam_id if attempt is not None else None
+
     def _build_routes(
         self,
         *,
@@ -232,6 +254,7 @@ class Command(BaseCommand):
         parent_child_id,
         student_attempt_id,
         student_exam_id,
+        teacher_exam_id,
     ):
         routes = [
             {
@@ -325,6 +348,14 @@ class Command(BaseCommand):
                 "path": "/api/v1/economy/admin/institute-question-bank-entitlements/",
             },
         ]
+        if teacher_exam_id is not None:
+            routes.append(
+                {
+                    "label": "teacher_results_leaderboard",
+                    "user": teacher_user,
+                    "path": f"/api/v1/results/exam/{teacher_exam_id}/leaderboard/?page=1&page_size=6",
+                }
+            )
         if student_exam_id is not None:
             routes.append(
                 {

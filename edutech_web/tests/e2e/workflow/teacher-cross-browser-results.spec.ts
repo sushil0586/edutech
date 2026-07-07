@@ -39,9 +39,7 @@ test.describe("Teacher cross-browser results routes", () => {
     await expect(page.getByText(/^leaderboard$/i).first()).toBeVisible();
     await expect(page.getByText(/publication checklist/i).first()).toBeVisible();
 
-    await page.getByRole("link", {
-      name: /analysis.*topics, hard questions, and skip patterns/i,
-    }).first().click();
+    await page.getByRole("link", { name: /^analysis/i }).first().click();
     await expect(page).toHaveURL(/\/teacher\/results\/analysis(?:\?.*)?$/);
     await expect(page.getByText(/question risk board/i).first()).toBeVisible();
     await expect(page.getByText(/^student explorer$/i).first()).toBeVisible();
@@ -49,9 +47,7 @@ test.describe("Teacher cross-browser results routes", () => {
     await gotoWithRetry(page, "/teacher/results");
     await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
 
-    const liveMonitorNavLink = page.getByRole("link", {
-      name: /live monitor.*intervention queue and active alerts/i,
-    }).first();
+    const liveMonitorNavLink = page.getByRole("link", { name: /^live monitor/i }).first();
     await expect(liveMonitorNavLink).toBeVisible();
     await liveMonitorNavLink.click();
     await expect(page).toHaveURL(/\/teacher\/results\/live(?:\?.*)?$/);

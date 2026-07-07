@@ -1,5 +1,6 @@
 import hashlib
 import random
+import uuid
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
@@ -224,6 +225,29 @@ def _integrity_event_config(event_type):
     return INTEGRITY_EVENT_CONFIG[event_type]
 
 
+def _active_exam_sections(exam):
+    cached_sections = getattr(exam, "_active_exam_sections_cache", None)
+    if cached_sections is not None:
+        return cached_sections
+    sections = list(exam.sections.filter(is_active=True).order_by("section_order", "created_at"))
+    setattr(exam, "_active_exam_sections_cache", sections)
+    return sections
+
+
+def _active_exam_questions(exam):
+    cached_questions = getattr(exam, "_active_exam_questions_cache", None)
+    if cached_questions is not None:
+        return cached_questions
+    exam_questions = list(
+        exam.exam_questions.filter(is_active=True)
+        .select_related("question")
+        .prefetch_related("question__options")
+        .order_by("question_order", "created_at")
+    )
+    setattr(exam, "_active_exam_questions_cache", exam_questions)
+    return exam_questions
+
+
 def _get_next_attempt_number(student, exam):
     latest_attempt = (
         exam.attempts.select_for_update()
@@ -240,7 +264,7 @@ def _get_next_attempt_number(student, exam):
 
 def _build_runtime_config_snapshot(exam):
     sections = []
-    for section in exam.sections.filter(is_active=True).order_by("section_order", "created_at"):
+    for section in _active_exam_sections(exam):
         sections.append(
             {
                 "id": str(section.id),
@@ -293,10 +317,7 @@ def _calculate_attempt_expires_at(exam, started_at, *, extra_time_minutes=0):
     if exam.timer_mode == "section":
         section_durations = [
             section.duration_minutes
-            for section in exam.sections.filter(is_active=True).order_by(
-                "section_order",
-                "created_at",
-            )
+            for section in _active_exam_sections(exam)
             if section.duration_minutes
         ]
         if section_durations:
@@ -310,9 +331,7 @@ def _calculate_attempt_expires_at(exam, started_at, *, extra_time_minutes=0):
 
 
 def _build_section_runtime_snapshot(exam, started_at):
-    active_sections = list(
-        exam.sections.filter(is_active=True).order_by("section_order", "created_at")
-    )
+    active_sections = _active_exam_sections(exam)
     first_section = active_sections[0] if active_sections else None
     section_states = []
     for section in active_sections:
@@ -510,6 +529,13 @@ def attempt_integrity_summary(attempt):
     return summary
 
 
+def _invalidate_attempt_integrity_summary_cache(attempt):
+    if hasattr(attempt, "_integrity_summary_cache"):
+        delattr(attempt, "_integrity_summary_cache")
+    if hasattr(attempt, "_prefetched_active_integrity_events"):
+        delattr(attempt, "_prefetched_active_integrity_events")
+
+
 @transaction.atomic
 def log_integrity_event(attempt, *, event_type, metadata=None, event_at=None):
     if attempt.status != "in_progress":
@@ -552,6 +578,7 @@ def log_integrity_event(attempt, *, event_type, metadata=None, event_at=None):
     auto_submitted = False
     status_changed = False
     policy = resolve_attempt_security_policy(attempt)
+    _invalidate_attempt_integrity_summary_cache(attempt)
     summary = attempt_integrity_summary(attempt)
     if (
         event.counts_as_violation
@@ -573,6 +600,7 @@ def log_integrity_event(attempt, *, event_type, metadata=None, event_at=None):
                 "violation_action": policy.get("violation_action"),
             },
         )
+        _invalidate_attempt_integrity_summary_cache(attempt)
         if policy.get("violation_action") == "auto_submit":
             attempt = submit_attempt(attempt, auto_submitted=True)
             auto_submitted = True
@@ -594,12 +622,7 @@ def _stable_random(seed_value):
 
 
 def _build_delivery_snapshot(attempt):
-    exam_questions = list(
-        attempt.exam.exam_questions.filter(is_active=True)
-        .select_related("question")
-        .prefetch_related("question__options")
-        .order_by("question_order", "created_at")
-    )
+    exam_questions = _active_exam_questions(attempt.exam)
     runtime_config = _runtime_config(attempt)
     question_ids = [str(exam_question.id) for exam_question in exam_questions]
 
@@ -714,11 +737,27 @@ def start_attempt(student, exam):
         extra_time_minutes=accommodation_snapshot["applied_extra_time_minutes"],
     )
 
-    total_questions = exam.exam_questions.filter(is_active=True).count()
+    total_questions = len(_active_exam_questions(exam))
     if total_questions == 0:
         raise ValidationError({"exam": "Exam must have active questions before attempts can start."})
 
+    attempt_id = uuid.uuid4()
+    runtime_config_snapshot = _build_runtime_config_snapshot(exam)
+    section_runtime_snapshot = _build_section_runtime_snapshot(exam, started_at)
+    delivery_snapshot = _build_delivery_snapshot(
+        type(
+            "AttemptSnapshotCarrier",
+            (),
+            {
+                "id": attempt_id,
+                "exam": exam,
+                "metadata": {"runtime_config": runtime_config_snapshot},
+            },
+        )()
+    )
+
     attempt = StudentExamAttempt.objects.create(
+        id=attempt_id,
         institute=exam.institute,
         exam=exam,
         student=student,
@@ -729,11 +768,11 @@ def start_attempt(student, exam):
         total_questions=total_questions,
         metadata={
             "accommodation_snapshot": accommodation_snapshot,
-            "runtime_config": _build_runtime_config_snapshot(exam),
-            "section_runtime": _build_section_runtime_snapshot(exam, started_at),
+            "runtime_config": runtime_config_snapshot,
+            "section_runtime": section_runtime_snapshot,
+            "delivery_snapshot": delivery_snapshot,
         },
     )
-    ensure_delivery_snapshot(attempt)
     return attempt
 
 
@@ -1630,19 +1669,19 @@ def save_answer(
         answer_transcript = ""
         response_artifacts = []
 
-    answer, _ = StudentAnswer.objects.get_or_create(
-        attempt=attempt,
-        question=question,
-        defaults={
-            "selected_option": selected_option,
-            "selected_option_ids": selected_option_ids,
-            "answer_text": answer_text,
-            "answer_transcript": str(answer_transcript or ""),
-            "response_artifacts": _normalized_response_artifacts(response_artifacts),
-            "time_spent_seconds": time_spent_seconds,
-            "is_marked_for_review": is_marked_for_review,
-        },
+    answer = (
+        StudentAnswer.objects.filter(
+            attempt=attempt,
+            question=question,
+        )
+        .select_related("attempt", "question", "selected_option")
+        .first()
     )
+    if answer is None:
+        answer = StudentAnswer(
+            attempt=attempt,
+            question=question,
+        )
 
     _assign_answer_response_fields(
         answer=answer,
@@ -1705,6 +1744,8 @@ def review_manual_answer(*, answer, reviewed_by_teacher, marks_awarded, review_n
         question=answer.question,
         is_active=True,
     )
+    if reviewed_by_teacher is not None and reviewed_by_teacher.institute_id != answer.attempt.institute_id:
+        raise ValidationError({"reviewed_by_teacher": "Reviewer must belong to the same institute."})
     maximum_marks = exam_question.marks or Decimal("0.00")
     if awarded_marks < 0:
         raise ValidationError({"marks_awarded": "Marks awarded cannot be negative."})
@@ -1730,7 +1771,17 @@ def review_manual_answer(*, answer, reviewed_by_teacher, marks_awarded, review_n
     answer.reviewed_by_teacher = reviewed_by_teacher
     answer.reviewed_at = reviewed_at
     answer.review_notes = note_text
-    answer.save()
+    answer.updated_at = reviewed_at
+    type(answer).objects.filter(pk=answer.pk).update(
+        evaluation_status=answer.evaluation_status,
+        is_correct=answer.is_correct,
+        marks_awarded=answer.marks_awarded,
+        negative_marks_applied=answer.negative_marks_applied,
+        reviewed_by_teacher=answer.reviewed_by_teacher,
+        reviewed_at=answer.reviewed_at,
+        review_notes=answer.review_notes,
+        updated_at=answer.updated_at,
+    )
 
     task.status = ReviewTaskStatus.REVIEWED
     task.last_reviewed_by_teacher = reviewed_by_teacher
@@ -1748,19 +1799,18 @@ def review_manual_answer(*, answer, reviewed_by_teacher, marks_awarded, review_n
         task_metadata.pop("rubric_scores", None)
         task_metadata.pop("rubric_total", None)
     task.metadata = task_metadata
-    task.save(
-        update_fields=[
-            "status",
-            "last_reviewed_by_teacher",
-            "last_reviewed_at",
-            "latest_marks_awarded",
-            "latest_review_summary",
-            "review_started_at",
-            "resolved_at",
-            "metadata",
-            "is_active",
-            "updated_at",
-        ]
+    task.updated_at = reviewed_at
+    type(task).objects.filter(pk=task.pk).update(
+        status=task.status,
+        last_reviewed_by_teacher=task.last_reviewed_by_teacher,
+        last_reviewed_at=task.last_reviewed_at,
+        latest_marks_awarded=task.latest_marks_awarded,
+        latest_review_summary=task.latest_review_summary,
+        review_started_at=task.review_started_at,
+        resolved_at=task.resolved_at,
+        metadata=task.metadata,
+        is_active=task.is_active,
+        updated_at=task.updated_at,
     )
 
     StudentAnswerReviewEvent.objects.create(
@@ -1789,7 +1839,19 @@ def review_manual_answer(*, answer, reviewed_by_teacher, marks_awarded, review_n
     scoring = calculate_attempt_score(answer.attempt)
     for field, value in scoring.items():
         setattr(answer.attempt, field, value)
-    answer.attempt.save()
+    answer.attempt.updated_at = timezone.now()
+    type(answer.attempt).objects.filter(pk=answer.attempt.pk).update(
+        total_questions=answer.attempt.total_questions,
+        attempted_questions=answer.attempt.attempted_questions,
+        correct_answers=answer.attempt.correct_answers,
+        incorrect_answers=answer.attempt.incorrect_answers,
+        skipped_questions=answer.attempt.skipped_questions,
+        score=answer.attempt.score,
+        negative_score=answer.attempt.negative_score,
+        final_score=answer.attempt.final_score,
+        percentage=answer.attempt.percentage,
+        updated_at=answer.attempt.updated_at,
+    )
 
     if answer.attempt.status in {"submitted", "auto_submitted"}:
         try:
@@ -2169,15 +2231,14 @@ def claim_review_task_for_teacher(*, task, teacher_profile, actor_user=None):
     task.assigned_at = task.assigned_at or now
     task.status = ReviewTaskStatus.IN_REVIEW
     task.review_started_at = task.review_started_at or now
-    task.save(
-        update_fields=[
-            "assigned_to_teacher",
-            "assigned_by_user",
-            "assigned_at",
-            "status",
-            "review_started_at",
-            "updated_at",
-        ]
+    task.updated_at = now
+    type(task).objects.filter(pk=task.pk).update(
+        assigned_to_teacher=task.assigned_to_teacher,
+        assigned_by_user=task.assigned_by_user,
+        assigned_at=task.assigned_at,
+        status=task.status,
+        review_started_at=task.review_started_at,
+        updated_at=task.updated_at,
     )
 
     StudentAnswerReviewEvent.objects.create(
@@ -2210,6 +2271,9 @@ def request_review_recheck(*, task, requested_by_user=None, requested_by_teacher
     note_text = str(review_notes or "").strip()
     answer = task.answer
 
+    if requested_by_teacher is not None and requested_by_teacher.institute_id != task.institute_id:
+        raise ValidationError({"requested_by_teacher": "Reviewer must belong to the same institute."})
+
     answer.evaluation_status = answer.EvaluationStatus.MANUAL_PENDING
     answer.is_correct = False
     answer.marks_awarded = Decimal("0.00")
@@ -2217,7 +2281,17 @@ def request_review_recheck(*, task, requested_by_user=None, requested_by_teacher
     answer.reviewed_by_teacher = None
     answer.reviewed_at = None
     answer.review_notes = note_text
-    answer.save()
+    answer.updated_at = now
+    type(answer).objects.filter(pk=answer.pk).update(
+        evaluation_status=answer.evaluation_status,
+        is_correct=answer.is_correct,
+        marks_awarded=answer.marks_awarded,
+        negative_marks_applied=answer.negative_marks_applied,
+        reviewed_by_teacher=answer.reviewed_by_teacher,
+        reviewed_at=answer.reviewed_at,
+        review_notes=answer.review_notes,
+        updated_at=answer.updated_at,
+    )
 
     task.status = ReviewTaskStatus.RECHECK_REQUESTED
     task.resolved_at = None
@@ -2227,17 +2301,16 @@ def request_review_recheck(*, task, requested_by_user=None, requested_by_teacher
     if requested_by_teacher is not None:
         task.assigned_to_teacher = requested_by_teacher
         task.assigned_at = now
-    task.save(
-        update_fields=[
-            "status",
-            "resolved_at",
-            "last_reviewed_at",
-            "latest_marks_awarded",
-            "latest_review_summary",
-            "assigned_to_teacher",
-            "assigned_at",
-            "updated_at",
-        ]
+    task.updated_at = now
+    type(task).objects.filter(pk=task.pk).update(
+        status=task.status,
+        resolved_at=task.resolved_at,
+        last_reviewed_at=task.last_reviewed_at,
+        latest_marks_awarded=task.latest_marks_awarded,
+        latest_review_summary=task.latest_review_summary,
+        assigned_to_teacher=task.assigned_to_teacher,
+        assigned_at=task.assigned_at,
+        updated_at=task.updated_at,
     )
 
     StudentAnswerReviewEvent.objects.create(
@@ -2259,7 +2332,98 @@ def request_review_recheck(*, task, requested_by_user=None, requested_by_teacher
 
 
 @transaction.atomic
-def moderate_review_task(*, task, reviewed_by_teacher, marks_awarded, review_notes="", actor_user=None, rubric_scores=None):
+def bulk_request_review_recheck_tasks(*, tasks, requested_by_user=None, requested_by_teacher=None, review_notes=""):
+    if not tasks:
+        return []
+
+    tasks = list(tasks)
+    now = timezone.now()
+    note_text = str(review_notes or "").strip()
+    updated_tasks = []
+    review_events = []
+
+    for task in tasks:
+        if requested_by_teacher is not None and requested_by_teacher.institute_id != task.institute_id:
+            raise ValidationError({"requested_by_teacher": "Reviewer must belong to the same institute."})
+
+        previous_status = task.status
+        answer = task.answer
+
+        answer.evaluation_status = answer.EvaluationStatus.MANUAL_PENDING
+        answer.is_correct = False
+        answer.marks_awarded = Decimal("0.00")
+        answer.negative_marks_applied = Decimal("0.00")
+        answer.reviewed_by_teacher = None
+        answer.reviewed_at = None
+        answer.review_notes = note_text
+        answer.updated_at = now
+        type(answer).objects.filter(pk=answer.pk).update(
+            evaluation_status=answer.evaluation_status,
+            is_correct=answer.is_correct,
+            marks_awarded=answer.marks_awarded,
+            negative_marks_applied=answer.negative_marks_applied,
+            reviewed_by_teacher=answer.reviewed_by_teacher,
+            reviewed_at=answer.reviewed_at,
+            review_notes=answer.review_notes,
+            updated_at=answer.updated_at,
+        )
+
+        task.status = ReviewTaskStatus.RECHECK_REQUESTED
+        task.resolved_at = None
+        task.last_reviewed_at = None
+        task.latest_marks_awarded = Decimal("0.00")
+        task.latest_review_summary = note_text
+        if requested_by_teacher is not None:
+            task.assigned_to_teacher = requested_by_teacher
+            task.assigned_at = now
+        task.updated_at = now
+        type(task).objects.filter(pk=task.pk).update(
+            status=task.status,
+            resolved_at=task.resolved_at,
+            last_reviewed_at=task.last_reviewed_at,
+            latest_marks_awarded=task.latest_marks_awarded,
+            latest_review_summary=task.latest_review_summary,
+            assigned_to_teacher=task.assigned_to_teacher,
+            assigned_at=task.assigned_at,
+            updated_at=task.updated_at,
+        )
+
+        review_events.append(
+            StudentAnswerReviewEvent(
+                review_task=task,
+                answer=task.answer,
+                attempt=task.attempt,
+                exam=task.exam,
+                student=task.student,
+                question=task.question,
+                actor_user=requested_by_user,
+                actor_teacher=requested_by_teacher,
+                event_type=ReviewEventType.RECHECK_REQUESTED,
+                from_status=previous_status,
+                to_status=task.status,
+                marks_awarded=Decimal("0.00"),
+                notes=note_text or "Review returned for recheck.",
+            )
+        )
+        updated_tasks.append(task)
+
+    StudentAnswerReviewEvent.objects.bulk_create(review_events, batch_size=100)
+    return updated_tasks
+
+
+def _moderate_review_task(
+    *,
+    task,
+    reviewed_by_teacher,
+    marks_awarded,
+    review_notes="",
+    actor_user=None,
+    rubric_scores=None,
+    exam_question=None,
+    skip_attempt_refresh=False,
+    regenerate_result=True,
+    persist_review_event=True,
+):
     from apps.results.services import generate_result_from_attempt
 
     try:
@@ -2267,10 +2431,12 @@ def moderate_review_task(*, task, reviewed_by_teacher, marks_awarded, review_not
     except (InvalidOperation, TypeError, ValueError) as exc:
         raise ValidationError({"marks_awarded": "Marks awarded must be a valid number."}) from exc
 
-    exam_question = task.attempt.exam.exam_questions.select_related("question").get(
+    exam_question = exam_question or task.attempt.exam.exam_questions.select_related("question").get(
         question=task.question,
         is_active=True,
     )
+    if reviewed_by_teacher is not None and reviewed_by_teacher.institute_id != task.institute_id:
+        raise ValidationError({"reviewed_by_teacher": "Reviewer must belong to the same institute."})
     maximum_marks = exam_question.marks or Decimal("0.00")
     if awarded_marks < 0:
         raise ValidationError({"marks_awarded": "Marks awarded cannot be negative."})
@@ -2296,7 +2462,17 @@ def moderate_review_task(*, task, reviewed_by_teacher, marks_awarded, review_not
     answer.reviewed_by_teacher = reviewed_by_teacher
     answer.reviewed_at = reviewed_at
     answer.review_notes = note_text
-    answer.save()
+    answer.updated_at = reviewed_at
+    type(answer).objects.filter(pk=answer.pk).update(
+        evaluation_status=answer.evaluation_status,
+        is_correct=answer.is_correct,
+        marks_awarded=answer.marks_awarded,
+        negative_marks_applied=answer.negative_marks_applied,
+        reviewed_by_teacher=answer.reviewed_by_teacher,
+        reviewed_at=answer.reviewed_at,
+        review_notes=answer.review_notes,
+        updated_at=answer.updated_at,
+    )
 
     task.status = ReviewTaskStatus.MODERATED
     task.last_reviewed_by_teacher = reviewed_by_teacher
@@ -2318,22 +2494,21 @@ def moderate_review_task(*, task, reviewed_by_teacher, marks_awarded, review_not
         task_metadata.pop("moderation_rubric_scores", None)
         task_metadata.pop("moderation_rubric_total", None)
     task.metadata = task_metadata
-    task.save(
-        update_fields=[
-            "status",
-            "last_reviewed_by_teacher",
-            "last_reviewed_at",
-            "latest_marks_awarded",
-            "latest_review_summary",
-            "review_started_at",
-            "resolved_at",
-            "metadata",
-            "is_active",
-            "updated_at",
-        ]
+    task.updated_at = reviewed_at
+    type(task).objects.filter(pk=task.pk).update(
+        status=task.status,
+        last_reviewed_by_teacher=task.last_reviewed_by_teacher,
+        last_reviewed_at=task.last_reviewed_at,
+        latest_marks_awarded=task.latest_marks_awarded,
+        latest_review_summary=task.latest_review_summary,
+        review_started_at=task.review_started_at,
+        resolved_at=task.resolved_at,
+        metadata=task.metadata,
+        is_active=task.is_active,
+        updated_at=task.updated_at,
     )
 
-    StudentAnswerReviewEvent.objects.create(
+    review_event = StudentAnswerReviewEvent(
         review_task=task,
         answer=answer,
         attempt=answer.attempt,
@@ -2358,13 +2533,29 @@ def moderate_review_task(*, task, reviewed_by_teacher, marks_awarded, review_not
             else {}
         ),
     )
+    if persist_review_event:
+        review_event.save()
+    task._buffered_review_event = review_event
 
-    scoring = calculate_attempt_score(answer.attempt)
-    for field, value in scoring.items():
-        setattr(answer.attempt, field, value)
-    answer.attempt.save()
+    if not skip_attempt_refresh:
+        scoring = calculate_attempt_score(answer.attempt)
+        for field, value in scoring.items():
+            setattr(answer.attempt, field, value)
+        answer.attempt.updated_at = timezone.now()
+        type(answer.attempt).objects.filter(pk=answer.attempt.pk).update(
+            total_questions=answer.attempt.total_questions,
+            attempted_questions=answer.attempt.attempted_questions,
+            correct_answers=answer.attempt.correct_answers,
+            incorrect_answers=answer.attempt.incorrect_answers,
+            skipped_questions=answer.attempt.skipped_questions,
+            score=answer.attempt.score,
+            negative_score=answer.attempt.negative_score,
+            final_score=answer.attempt.final_score,
+            percentage=answer.attempt.percentage,
+            updated_at=answer.attempt.updated_at,
+        )
 
-    if answer.attempt.status in {"submitted", "auto_submitted"}:
+    if regenerate_result and answer.attempt.status in {"submitted", "auto_submitted"}:
         try:
             generate_result_from_attempt(answer.attempt)
         except ValidationError:
@@ -2373,15 +2564,165 @@ def moderate_review_task(*, task, reviewed_by_teacher, marks_awarded, review_not
     return task
 
 
-def calculate_attempt_score(attempt):
+@transaction.atomic
+def moderate_review_task(
+    *,
+    task,
+    reviewed_by_teacher,
+    marks_awarded,
+    review_notes="",
+    actor_user=None,
+    rubric_scores=None,
+    exam_question=None,
+    skip_attempt_refresh=False,
+    regenerate_result=True,
+    persist_review_event=True,
+):
+    return _moderate_review_task(
+        task=task,
+        reviewed_by_teacher=reviewed_by_teacher,
+        marks_awarded=marks_awarded,
+        review_notes=review_notes,
+        actor_user=actor_user,
+        rubric_scores=rubric_scores,
+        exam_question=exam_question,
+        skip_attempt_refresh=skip_attempt_refresh,
+        regenerate_result=regenerate_result,
+        persist_review_event=persist_review_event,
+    )
+
+
+@transaction.atomic
+def bulk_moderate_review_tasks(*, tasks, reviewed_by_teacher, review_notes="", actor_user=None):
+    from apps.results.services import generate_result_from_attempt
+
+    if not tasks:
+        return []
+
+    tasks = list(tasks)
+    task_ids = [task.id for task in tasks]
+    if task_ids:
+        hydrated_tasks = StudentAnswerReviewTask.objects.filter(id__in=task_ids).select_related(
+            "attempt__exam",
+            "attempt__exam__subject",
+            "attempt__institute",
+            "attempt__student",
+            "answer__attempt__exam",
+            "answer__attempt__exam__subject",
+            "answer__attempt__institute",
+            "answer__attempt__student",
+            "answer__question",
+            "question",
+            "exam",
+            "student",
+            "last_reviewed_by_teacher",
+        )
+        task_by_id = {task.id: task for task in hydrated_tasks}
+        tasks = [task_by_id.get(task_id, task) for task_id, task in ((task.id, task) for task in tasks)]
+
+    attempts = {}
+    exam_questions_by_exam = {}
+    for task in tasks:
+        if task.attempt_id not in attempts:
+            attempts[task.attempt_id] = task.attempt
+        if task.exam_id not in exam_questions_by_exam:
+            exam_questions_by_exam[task.exam_id] = {
+                item.question_id: item
+                for item in ExamQuestion.objects.filter(
+                    exam_id=task.exam_id,
+                    is_active=True,
+                ).select_related("question")
+            }
+
+    answers_by_attempt = {}
+    for attempt_id, attempt in attempts.items():
+        answers = list(
+            attempt.answers.select_related("question", "selected_option").filter(is_active=True)
+        )
+        answers_by_attempt[attempt_id] = answers
+
+    updated_tasks = []
+    tasks_by_attempt = {}
+    review_events = []
+    for task in tasks:
+        tasks_by_attempt.setdefault(task.attempt_id, []).append(task)
+
+    for attempt_id, attempt_tasks in tasks_by_attempt.items():
+        attempt = attempts[attempt_id]
+        exam_questions = list(exam_questions_by_exam[attempt.exam_id].values())
+        answer_by_id = {answer.id: answer for answer in answers_by_attempt[attempt_id]}
+
+        for task in attempt_tasks:
+            moderation_note = review_notes or task.latest_review_summary
+            updated_task = _moderate_review_task(
+                task=task,
+                reviewed_by_teacher=reviewed_by_teacher or task.last_reviewed_by_teacher,
+                marks_awarded=task.latest_marks_awarded,
+                review_notes=moderation_note,
+                actor_user=actor_user,
+                exam_question=exam_questions_by_exam[task.exam_id][task.question_id],
+                skip_attempt_refresh=True,
+                regenerate_result=False,
+                persist_review_event=False,
+            )
+            buffered_review_event = getattr(updated_task, "_buffered_review_event", None)
+            if buffered_review_event is not None:
+                review_events.append(buffered_review_event)
+            buffered_answer = answer_by_id.get(task.answer_id)
+            if buffered_answer is not None:
+                buffered_answer.evaluation_status = updated_task.answer.evaluation_status
+                buffered_answer.is_correct = updated_task.answer.is_correct
+                buffered_answer.marks_awarded = updated_task.answer.marks_awarded
+                buffered_answer.negative_marks_applied = updated_task.answer.negative_marks_applied
+                buffered_answer.reviewed_by_teacher = updated_task.answer.reviewed_by_teacher
+                buffered_answer.reviewed_at = updated_task.answer.reviewed_at
+                buffered_answer.review_notes = updated_task.answer.review_notes
+            updated_tasks.append(updated_task)
+
+        scoring = calculate_attempt_score(
+            attempt,
+            answers=answers_by_attempt[attempt_id],
+            exam_questions=exam_questions,
+        )
+        for field, value in scoring.items():
+            setattr(attempt, field, value)
+        attempt.updated_at = timezone.now()
+        type(attempt).objects.filter(pk=attempt.pk).update(
+            total_questions=attempt.total_questions,
+            attempted_questions=attempt.attempted_questions,
+            correct_answers=attempt.correct_answers,
+            incorrect_answers=attempt.incorrect_answers,
+            skipped_questions=attempt.skipped_questions,
+            score=attempt.score,
+            negative_score=attempt.negative_score,
+            final_score=attempt.final_score,
+            percentage=attempt.percentage,
+            updated_at=attempt.updated_at,
+        )
+
+        if attempt.status in {"submitted", "auto_submitted"}:
+            try:
+                generate_result_from_attempt(attempt)
+            except ValidationError:
+                pass
+
+    if review_events:
+        StudentAnswerReviewEvent.objects.bulk_create(review_events, batch_size=100)
+
+    return updated_tasks
+
+
+def calculate_attempt_score(attempt, *, answers=None, exam_questions=None):
     from apps.attempts.models import StudentAnswer
 
-    answers = list(
-        attempt.answers.select_related("question", "selected_option").filter(is_active=True)
-    )
-    exam_questions = list(
-        attempt.exam.exam_questions.filter(is_active=True).select_related("question")
-    )
+    if answers is None:
+        answers = list(
+            attempt.answers.select_related("question", "selected_option").filter(is_active=True)
+        )
+    if exam_questions is None:
+        exam_questions = list(
+            attempt.exam.exam_questions.filter(is_active=True).select_related("question")
+        )
 
     answer_map = {answer.question_id: answer for answer in answers}
 
@@ -2468,6 +2809,7 @@ def submit_attempt(attempt, *, auto_submitted=False):
         scoring = calculate_attempt_score(attempt)
         submitted_at = timezone.now()
         time_taken = max(int((submitted_at - attempt.started_at).total_seconds()), 0)
+        updated_at = timezone.now()
 
         attempt.status = "auto_submitted" if auto_submitted else "submitted"
         attempt.submitted_at = submitted_at
@@ -2477,7 +2819,23 @@ def submit_attempt(attempt, *, auto_submitted=False):
         for field, value in scoring.items():
             setattr(attempt, field, value)
 
-        attempt.save()
+        type(attempt).objects.filter(pk=attempt.pk).update(
+            status=attempt.status,
+            submitted_at=attempt.submitted_at,
+            time_taken_seconds=attempt.time_taken_seconds,
+            is_auto_submitted=attempt.is_auto_submitted,
+            total_questions=attempt.total_questions,
+            attempted_questions=attempt.attempted_questions,
+            correct_answers=attempt.correct_answers,
+            incorrect_answers=attempt.incorrect_answers,
+            skipped_questions=attempt.skipped_questions,
+            score=attempt.score,
+            negative_score=attempt.negative_score,
+            final_score=attempt.final_score,
+            percentage=attempt.percentage,
+            updated_at=updated_at,
+        )
+        attempt.updated_at = updated_at
         runtime_config = _runtime_config(attempt)
         should_publish_immediate = runtime_config.get("result_publish_mode") == "immediate"
         if should_publish_immediate:

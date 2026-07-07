@@ -70,7 +70,7 @@ type AdminQuestionBankPackage = {
   active_entitlement_count: number;
   linked_plan_count: number;
   default_plan_count: number;
-  scopes: Array<{
+  scopes?: Array<{
     id: string;
     program: string | null;
     program_name: string | null;
@@ -259,6 +259,7 @@ export function EconomyQuestionBankAdminWorkspace({
           programs={programs}
           subjects={subjects}
           topics={topics}
+          initialWorkspaceView="catalog"
           onPackagesChange={setPackages}
         />
       ) : null}

@@ -1,6 +1,7 @@
 import { expect, test, type Locator } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectInstituteWorkspace } from "../helpers/navigation";
+import { gotoWithRuntimeRecovery } from "../helpers/runtime";
 
 async function selectFirstNonEmptyOption(locator: Locator) {
   const values = await locator.locator("option").evaluateAll((options) =>
@@ -25,7 +26,7 @@ test.describe("Institute question bank workspace", () => {
     await loginAsRole(page, "institute");
     await expectInstituteWorkspace(page);
 
-    await page.goto("/institute/question-bank");
+    await gotoWithRuntimeRecovery(page, "/institute/question-bank");
     await expect(page.getByRole("heading", { name: /question bank/i }).first()).toBeVisible();
     await expect(page.getByText(/find questions faster/i)).toBeVisible();
 
@@ -56,12 +57,12 @@ test.describe("Institute question bank workspace", () => {
     await expect(page).toHaveURL(/\/institute\/question-bank\/import(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /import questions/i }).first()).toBeVisible();
 
-    await page.goto("/institute/question-bank");
+    await gotoWithRuntimeRecovery(page, "/institute/question-bank");
     await page.getByRole("link", { name: /import comprehension csv/i }).click();
     await expect(page).toHaveURL(/\/institute\/question-bank\/comprehension\/import(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /import comprehension sets/i }).first()).toBeVisible();
 
-    await page.goto("/institute/question-bank");
+    await gotoWithRuntimeRecovery(page, "/institute/question-bank");
     await page.getByRole("link", { name: /create question/i }).click();
     await expect(page).toHaveURL(/\/institute\/question-bank\/new(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /create question/i }).first()).toBeVisible();
@@ -72,7 +73,7 @@ test.describe("Institute question bank workspace", () => {
     await selectFirstNonEmptyOption(questionProgramSelect);
     await expect(questionSubjectSelect).toBeEnabled();
 
-    await page.goto("/institute/question-bank");
+    await gotoWithRuntimeRecovery(page, "/institute/question-bank");
     await page.getByRole("link", { name: /create comprehension set/i }).click();
     await expect(page).toHaveURL(/\/institute\/question-bank\/comprehension\/new(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /create comprehension set/i }).first()).toBeVisible();

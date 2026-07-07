@@ -64,6 +64,12 @@ CORS_ALLOWED_ORIGINS=https://learn.yourdomain.com
 CSRF_TRUSTED_ORIGINS=https://learn.yourdomain.com
 ```
 
+Security note:
+
+- keep `CORS_ALLOW_ALL_ORIGINS=False`
+- do not use wildcard origins on stage
+- if you need multiple known browser hosts, list them explicitly in `CORS_ALLOWED_ORIGINS`
+
 ## 4. Backend Validation And Prepare
 
 ```bash
@@ -151,6 +157,28 @@ sudo certbot --nginx -d learn.yourdomain.com
 ```bash
 curl -i https://learn.yourdomain.com/api/v1/health/
 ```
+
+Security verification after deploy:
+
+```bash
+curl -I -s https://learn.yourdomain.com/login
+curl -I -s https://learn.yourdomain.com/admin
+curl -s -D - -o /dev/null \
+  -X OPTIONS https://learn.yourdomain.com/api/v1/auth/login/ \
+  -H 'Origin: http://evil.example' \
+  -H 'Access-Control-Request-Method: POST'
+```
+
+Expected:
+
+- frontend HTML responses include:
+  - `X-Frame-Options: DENY`
+  - `X-Content-Type-Options: nosniff`
+  - `Referrer-Policy: strict-origin-when-cross-origin`
+  - `Permissions-Policy`
+  - `Content-Security-Policy`
+- backend sampled CORS responses do not include:
+  - `access-control-allow-origin: *`
 
 Then verify manually:
 

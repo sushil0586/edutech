@@ -22,7 +22,8 @@ async function forwardRequest(request: NextRequest, method: "GET" | "POST") {
   }
 
   const body = method === "POST" ? await request.json().catch(() => ({})) : undefined;
-  const response = await fetch(`${API_BASE_URL}/api/v1/economy/admin/question-bank-packages/`, {
+  const search = request.nextUrl.search;
+  const response = await fetch(`${API_BASE_URL}/api/v1/economy/admin/question-bank-packages/${search}`, {
     method,
     headers: {
       Authorization: `Bearer ${session.accessToken}`,

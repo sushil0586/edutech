@@ -59,10 +59,85 @@ This opt-in lane currently covers:
 - teacher results deep-route sanity
 - institute shell route sanity
 - institute results deep-route sanity
+- latest local rerun on `2026-07-06` stayed green for the focused operator desktop pack on Firefox and WebKit:
+  - `admin-cross-browser-shell.spec.ts`
+  - `admin-cross-browser-deep-routes.spec.ts`
+  - `institute-cross-browser-shell.spec.ts`
+  - `institute-cross-browser-results.spec.ts`
+  - `teacher-cross-browser-shell.spec.ts`
+  - `teacher-cross-browser-results.spec.ts`
+  - grouped result: `12 passed`
+- latest local rerun on `2026-07-06` also proved one reversible admin write lane on Firefox and WebKit:
+  - `admin-economy-browser-coverage.spec.ts`
+  - focused test: `@workflow @mutable browser coverage can persist and restore admin economy policy controls`
+  - grouped result: `2 passed`
+- latest local rerun on `2026-07-06` also proved one reversible institute-facing policy contract lane:
+  - `admin-institute-economy-policy-contract.mutable.spec.ts`
+  - focused test: `@workflow @mutable platform policy changes disable institute-admin grant and confirm actions`
+  - grouped result: `1 passed` on Chromium
+  - grouped result: `2 passed` on Firefox and WebKit
+- latest local rerun on `2026-07-06` also proved one reversible teacher mutation lane:
+  - `teacher-exam-detail-mutable.spec.ts`
+  - focused test: `@workflow @mutable teacher can validate core exam detail page links and policy actions`
+  - grouped result: `1 passed` on Chromium
+  - grouped result: `2 passed` on Firefox and WebKit
+- latest local rerun on `2026-07-06` also proved one builder-to-persisted-detail mutation lane:
+  - `teacher-exam-builder-mutable.spec.ts`
+  - focused test: `@workflow @mutable teacher can create a disposable exam shell and mutate sections and linked questions`
+  - grouped result: `1 passed` on Chromium
+  - grouped result: `2 passed` on Firefox and WebKit
+- latest local rerun on `2026-07-06` also proved one results interaction lane:
+  - `teacher-results-analysis-workspace.spec.ts`
+  - focused test: `@workflow teacher can filter and drill through the results analysis workspace`
+  - grouped result: `1 passed` on Chromium
+  - grouped result: `2 passed` on Firefox and WebKit
+- latest local rerun on `2026-07-07` also proved one institute-side results interaction lane:
+  - `institute-results-analysis-workspace.spec.ts`
+  - focused test: `@workflow institute can filter and drill through the results analysis workspace`
+  - grouped result: `2 passed` on Firefox and WebKit
+- latest local rerun on `2026-07-07` also proved one institute-side builder workflow lane:
+  - `institute-exam-builder-workspace.spec.ts`
+  - focused test: `@workflow institute can inspect builder utility handoffs and linked-question workspace`
+  - grouped result: `2 passed` on Firefox and WebKit
+- latest local rerun on `2026-07-07` also proved one institute-side authoring-entry lane:
+  - `institute-question-bank-workspace.spec.ts`
+  - focused test: `@workflow institute can work through question bank workspace and authoring entry routes`
+  - grouped result: `2 passed` on Firefox and WebKit
+- latest local rerun on `2026-07-07` also proved one admin-side authoring lane:
+  - `admin-advanced-builder-workspace.spec.ts`
+  - focused test: `@workflow admin can inspect advanced builder controls and preset governance lanes`
+  - grouped result: `2 passed` on Firefox and WebKit
+- latest repeated-run sweep on `2026-07-06` stayed green for the focused operator desktop pack on Firefox and WebKit:
+  - `admin-advanced-builder-workspace.spec.ts`
+  - `admin-cross-browser-shell.spec.ts`
+  - `admin-cross-browser-deep-routes.spec.ts`
+  - `institute-cross-browser-shell.spec.ts`
+  - `institute-cross-browser-results.spec.ts`
+  - `institute-exam-builder-workspace.spec.ts`
+  - `institute-question-bank-workspace.spec.ts`
+  - `institute-results-analysis-workspace.spec.ts`
+  - `teacher-cross-browser-shell.spec.ts`
+  - `teacher-cross-browser-results.spec.ts`
+  - `teacher-results-analysis-workspace.spec.ts`
+  - grouped result with `--repeat-each=2`: `44 passed`
+- latest repeated-run sweep on `2026-07-06` also stayed green for the current focused mutable cross-browser proof pack:
+  - `admin-economy-browser-coverage.spec.ts`
+  - focused test: `@workflow @mutable browser coverage can persist and restore admin economy policy controls`
+  - grouped result with `--repeat-each=2` on Firefox and WebKit: `4 passed`
+  - `admin-institute-economy-policy-contract.mutable.spec.ts`
+  - `teacher-exam-detail-mutable.spec.ts`
+  - `teacher-exam-builder-mutable.spec.ts`
+  - grouped result with `--repeat-each=2` on Firefox and WebKit: `12 passed`
 
 Important scope note:
 
-- admin, institute, and teacher cross-browser sanity is currently desktop-oriented route and shell coverage
+- admin, institute, and teacher cross-browser sanity is still desktop-oriented first, but it now includes a focused set of real workflow interactions and reversible mutations
+- admin now also has one safe economy policy persist-and-restore mutation lane in Firefox/WebKit
+- institute now also has one safe policy-contract mutation lane exercised through its operator surface
+- teacher now also has one safe disposable exam-detail mutation lane exercised across Chromium, Firefox, and WebKit
+- teacher now also has one safe builder-to-persisted-detail mutation lane exercised across Chromium, Firefox, and WebKit
+- teacher now also has one safe results-analysis interaction lane exercised across Chromium, Firefox, and WebKit
+- the current focused desktop pack now also has repeat stability evidence, not just one-pass evidence
 - it is strong evidence for Chromium, Firefox, and WebKit reachability on dense operator workspaces
 - it is not yet a smaller-screen validation lane for those operator surfaces
 
@@ -88,7 +163,57 @@ This lane currently covers:
 Current limitation:
 
 - this mobile-web lane is currently student-focused
-- dense admin, institute, and teacher operator screens do not yet have an equivalent small-screen baseline suite
+- operator roles now also have a first compact-viewport baseline in `tests/e2e/workflow/operator-mobile-shell-sanity.spec.ts`
+- admin now also has a denser compact-viewport economy workflow in `tests/e2e/workflow/admin-mobile-economy-workflow.spec.ts`
+- admin now also has a denser compact-viewport people lane workflow in `tests/e2e/workflow/admin-mobile-people-workflow.spec.ts`
+- admin now also has a denser compact-viewport security filtering workflow in `tests/e2e/workflow/admin-mobile-security-workflow.spec.ts`
+- admin now also has a denser compact-viewport reports filtering workflow in `tests/e2e/workflow/admin-mobile-reports-workflow.spec.ts`
+- teacher now also has a denser compact-viewport question-bank task flow in `tests/e2e/workflow/teacher-mobile-question-bank-workflow.spec.ts`
+- teacher now also has a denser compact-viewport reviews task flow in `tests/e2e/workflow/teacher-mobile-reviews-workflow.spec.ts`
+- teacher now also has a denser compact-viewport disposable draft authoring flow in `tests/e2e/workflow/teacher-mobile-authoring-workflow.spec.ts`
+- institute now also has a denser compact-viewport question-bank intake and authoring task flow in `tests/e2e/workflow/institute-mobile-question-bank-workflow.spec.ts`
+- institute now also has a denser compact-viewport reviews task flow in `tests/e2e/workflow/institute-mobile-reviews-workflow.spec.ts`
+- institute now also has a denser compact-viewport exams controls and handoff flow in `tests/e2e/workflow/institute-mobile-exams-workflow.spec.ts`
+- the focused operator mobile pack is now also green on Firefox and WebKit with `10 passed`
+- latest local rerun on `2026-07-07` also proved the institute mobile exams lane on Firefox and WebKit:
+  - `institute-mobile-exams-workflow.spec.ts`
+  - grouped result: `2 passed`
+- latest local rerun on `2026-07-07` also proved the admin mobile people lane on Firefox and WebKit:
+  - `admin-mobile-people-workflow.spec.ts`
+  - grouped result: `2 passed`
+- latest local rerun on `2026-07-07` also proved the admin mobile security lane on Firefox and WebKit:
+  - `admin-mobile-security-workflow.spec.ts`
+  - grouped result: `2 passed`
+- latest local rerun on `2026-07-07` also proved the admin mobile reports lane on Firefox and WebKit:
+  - `admin-mobile-reports-workflow.spec.ts`
+  - grouped result: `2 passed`
+- latest local repeated-run sweep on `2026-07-07` stayed green for the focused compact operator workflow pack on Chromium:
+  - `operator-mobile-shell-sanity.spec.ts`
+  - `admin-mobile-economy-workflow.spec.ts`
+  - `admin-mobile-people-workflow.spec.ts`
+  - `admin-mobile-security-workflow.spec.ts`
+  - `admin-mobile-reports-workflow.spec.ts`
+  - `teacher-mobile-question-bank-workflow.spec.ts`
+  - `teacher-mobile-reviews-workflow.spec.ts`
+  - `teacher-mobile-authoring-workflow.spec.ts`
+  - `institute-mobile-question-bank-workflow.spec.ts`
+  - `institute-mobile-reviews-workflow.spec.ts`
+  - `institute-mobile-exams-workflow.spec.ts`
+  - grouped result with `--repeat-each=2`: `26 passed`
+- latest local repeated-run sweep on `2026-07-07` also stayed green for the same focused compact operator workflow pack on Firefox and WebKit:
+  - `operator-mobile-shell-sanity.spec.ts`
+  - `admin-mobile-economy-workflow.spec.ts`
+  - `admin-mobile-people-workflow.spec.ts`
+  - `admin-mobile-security-workflow.spec.ts`
+  - `admin-mobile-reports-workflow.spec.ts`
+  - `teacher-mobile-question-bank-workflow.spec.ts`
+  - `teacher-mobile-reviews-workflow.spec.ts`
+  - `teacher-mobile-authoring-workflow.spec.ts`
+  - `institute-mobile-question-bank-workflow.spec.ts`
+  - `institute-mobile-reviews-workflow.spec.ts`
+  - `institute-mobile-exams-workflow.spec.ts`
+  - grouped result with `--project=firefox --project=webkit --repeat-each=2`: `52 passed`
+- operator small-screen depth is still narrower than the student mobile-web lane and is not yet a replacement for broader workflow proof
 
 This lane is intentionally not a replacement for:
 
@@ -197,6 +322,20 @@ npx playwright test tests/e2e/workflow/teacher-exam-builder-mutable.spec.ts
 
 ```bash
 cd edutech_web
+PLAYWRIGHT_ENABLE_MUTABLE_TEACHER_COMPREHENSION_ACTIONS=1 \
+PLAYWRIGHT_ENABLE_CROSS_BROWSER=1 \
+npx playwright test tests/e2e/workflow/teacher-comprehension-mutable.spec.ts --project=firefox --project=webkit
+```
+
+```bash
+cd edutech_web
+PLAYWRIGHT_ENABLE_MUTABLE_QUESTION_BANK_ACTIONS=1 \
+PLAYWRIGHT_ENABLE_CROSS_BROWSER=1 \
+npx playwright test tests/e2e/workflow/teacher-question-mutable.spec.ts --project=firefox --project=webkit -g "attach and remove a tag|change topic through a bulk action"
+```
+
+```bash
+cd edutech_web
 PLAYWRIGHT_ENABLE_MUTABLE_TEACHER_EXAM_DETAIL_ACTIONS=1 \
 npx playwright test tests/e2e/workflow/teacher-exam-detail-mutable.spec.ts
 ```
@@ -241,8 +380,9 @@ Current economy mutable note:
 Current small-screen note:
 
 - student already has a dedicated phone-viewport mobile-web baseline lane
-- admin, institute, and teacher cross-browser lanes are still desktop-oriented today
-- dense operator shells still do not have an equivalent small-screen baseline suite yet
+- admin, institute, and teacher cross-browser lanes are still mostly desktop-oriented today
+- operator roles do now have a compact-viewport baseline suite plus one denser teacher mobile question-bank workflow lane
+- dense admin and institute operator workflows still need equivalent small-screen depth
 
 ```bash
 cd edutech_web
@@ -296,7 +436,9 @@ What this does:
 
 - seeds demo shared-library access, blocked-state, and quota-demo coverage
 - verifies teacher and institute no-entitlement truthfulness
+- verifies teacher request-only versus institute link-control role split
 - verifies institute link-to-local-bank flow
+- verifies teacher linked-inventory duplicate-first read-only behavior with no institute linking controls
 - verifies institute shared-library to exam-builder flow
 - verifies teacher request-access flow
 - verifies teacher and institute quota-exhausted blocking

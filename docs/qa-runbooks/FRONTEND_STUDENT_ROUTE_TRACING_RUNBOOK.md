@@ -56,6 +56,14 @@ Trace the full student Phase 3 starter set in one pass:
 npm run test:e2e:trace:student-phase3
 ```
 
+Focused timing probes:
+
+```bash
+npm run test:e2e:timing:student-results
+npm run test:e2e:timing:student-summary
+npm run test:e2e:timing:student-review
+```
+
 ## Current Spec Set
 
 The current Phase 3 starter traces use:
@@ -258,6 +266,43 @@ Next action:
 - Interpretation:
   - passive anchors can trim some route noise on follow-up flows
   - they are not enough by themselves to solve the remaining repeated `_rsc` traffic
+
+## Dedicated Student Timing Probes
+
+- Date: 2026-07-06
+- Added focused timing probes:
+  - `tests/e2e/workflow/student-results-timing.spec.ts`
+  - `tests/e2e/workflow/student-summary-timing.spec.ts`
+  - `tests/e2e/workflow/student-review-timing.spec.ts`
+- Validation:
+  - `npm run test:e2e:timing:student-results` -> `1 passed (2.4s)`
+  - `npm run test:e2e:timing:student-summary` -> `1 passed (3.0s)`
+  - `npm run test:e2e:timing:student-review` -> `1 passed (2.7s)`
+- Measured timings:
+  - `student-results`
+    - `results-open`: `135ms`
+    - `results-filter-apply`: `248ms`
+    - `results-filter-reset`: `91ms`
+    - `results-open-summary`: `137ms`
+    - `results-open-review`: `203ms`
+  - `student-summary`
+    - `summary-open`: `173ms`
+    - `summary-open-attempts`: `270ms`
+    - `summary-return`: `157ms`
+    - `summary-open-results`: `268ms`
+    - `summary-open-review`: `96ms`
+  - `student-review`
+    - `review-open`: `177ms`
+    - `review-open-results`: `183ms`
+    - `review-return`: `249ms`
+    - `review-open-summary`: `125ms`
+- Interpretation:
+  - the student post-submit route family is locally healthy in isolation
+  - the earlier student trace noise was real browser churn, but these isolated timings do not support summary, review, or results as the strongest current local frontend bottlenecks
+  - this means the next performance wave should prioritize modules with materially higher isolated timings instead of spending more local effort on student post-submit pages
+- Best next move:
+  - stop local micro-optimization work on student post-submit routes for now
+  - use these probes as regression baselines and shift the next frontend pass toward modules with heavier isolated route timings
 - Best next move:
   - stop broad student link experiments for now
   - either move to stage-density validation or start the same frontend profiling pass for institute and teacher routes

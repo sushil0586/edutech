@@ -1,24 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectStudentWorkspace } from "../helpers/navigation";
-
-async function gotoWithRetry(page: Page, url: string, attempts = 3) {
-  let lastError: unknown = null;
-  for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    try {
-      await page.goto(url);
-      return;
-    } catch (error) {
-      lastError = error;
-      const message = error instanceof Error ? error.message : String(error);
-      if (!message.includes("ERR_CONNECTION_REFUSED") || attempt === attempts) {
-        throw error;
-      }
-      await page.waitForTimeout(1500 * attempt);
-    }
-  }
-  throw lastError;
-}
+import { gotoWithRuntimeRecovery } from "../helpers/runtime";
 
 async function expectOneOfVisible(locators: Locator[]) {
   for (const locator of locators) {
@@ -32,7 +15,7 @@ async function expectOneOfVisible(locators: Locator[]) {
 }
 
 async function resolveExamDetailEntry(page: Page) {
-  await gotoWithRetry(page, "/app/exams");
+  await gotoWithRuntimeRecovery(page, "/app/exams");
   await expect(page).toHaveURL(/\/app\/exams(?:\?.*)?$/);
   await expect(page.getByRole("heading", { name: /mock tests/i }).first()).toBeVisible();
 
@@ -52,7 +35,7 @@ async function resolveExamDetailEntry(page: Page) {
     };
   }
 
-  await gotoWithRetry(page, "/app/dashboard");
+  await gotoWithRuntimeRecovery(page, "/app/dashboard");
   await expect(page).toHaveURL(/\/app\/dashboard(?:\?.*)?$/);
   await expect(page.getByText(/recommended for you/i).first()).toBeVisible();
 
@@ -134,7 +117,7 @@ test.describe("Student exam detail workspace", () => {
       );
     }
 
-    await gotoWithRetry(page, detailHref!);
+    await gotoWithRuntimeRecovery(page, detailHref!);
     await expect(page).toHaveURL(new RegExp(`${detailHref!.replace(/\//g, "\\/")}(?:\\?.*)?$`));
     await page.getByRole("link", { name: /back to exams/i }).click();
     await expect(page).toHaveURL(/\/app\/exams(?:\?.*)?$/);

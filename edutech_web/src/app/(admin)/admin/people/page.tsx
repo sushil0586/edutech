@@ -3,6 +3,8 @@ import { RosterBrowser } from "@/components/admin/roster-browser";
 import { RosterImportControls } from "@/components/admin/roster-import-controls";
 import { StudentCreateDialog } from "@/components/admin/student-create-dialog";
 import { TeacherCreateDialog } from "@/components/admin/teacher-create-dialog";
+import { PlatformAdminPageHeader } from "@/components/ui/platform-admin-page-header";
+import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import {
   type AcademicYearRecord,
   type CohortRecord,
@@ -108,9 +110,15 @@ export default async function AdminPeoplePage({
     ? `?institute=${selectedInstituteId}&page_size=100`
     : "?page_size=100";
   const [academicYears, programs, cohorts] = await Promise.all([
-    fetchPortalList<AcademicYearRecord>(`/api/v1/academics/academic-years/${instituteQuery}`),
-    fetchPortalList<ProgramRecord>(`/api/v1/academics/programs/${instituteQuery}`),
-    fetchPortalList<CohortRecord>(`/api/v1/academics/cohorts/${instituteQuery}`),
+    fetchPortalList<AcademicYearRecord>(`/api/v1/academics/academic-years/${instituteQuery}`).catch(
+      () => [] as AcademicYearRecord[],
+    ),
+    fetchPortalList<ProgramRecord>(`/api/v1/academics/programs/${instituteQuery}`).catch(
+      () => [] as ProgramRecord[],
+    ),
+    fetchPortalList<CohortRecord>(`/api/v1/academics/cohorts/${instituteQuery}`).catch(
+      () => [] as CohortRecord[],
+    ),
   ]);
   const rosterQuery = selectedInstituteId
     ? `?institute=${selectedInstituteId}&page_size=8`
@@ -122,13 +130,49 @@ export default async function AdminPeoplePage({
     : activeResourcePath;
   const [visibleRows, visibleCount] = await Promise.all([
     activeView === "students"
-      ? fetchPortalList<StudentRosterRow>(`${activeResourcePath}${rosterQuery}`)
-      : fetchPortalList<TeacherRosterRow>(`${activeResourcePath}${rosterQuery}`),
+      ? fetchPortalList<StudentRosterRow>(`${activeResourcePath}${rosterQuery}`).catch(
+          () => [] as StudentRosterRow[],
+        )
+      : fetchPortalList<TeacherRosterRow>(`${activeResourcePath}${rosterQuery}`).catch(
+          () => [] as TeacherRosterRow[],
+        ),
     loadCount(activeCountPath),
   ]);
 
+  const hasWorkspaceLoadIssue =
+    institutes.length === 0 ||
+    (selectedInstituteId !== null &&
+      (academicYears.length === 0 || programs.length === 0) &&
+      visibleCount === 0 &&
+      visibleRows.length === 0);
+
   return (
     <section className="studentPage studentPageTight studentDashboardModern adminPeoplePage adminPeoplePageCompact instituteConsolePage">
+      <PlatformAdminPageHeader
+        title="People"
+        description="Browse institute roster records, manage login state, and coordinate controlled student and teacher imports."
+        statusLabel={hasWorkspaceLoadIssue ? "Partial data" : "Live roster"}
+        statusTone={hasWorkspaceLoadIssue ? "warning" : "live"}
+      />
+
+      {hasWorkspaceLoadIssue ? (
+        <StudentStatePanel
+          eyebrow="Roster workspace"
+          title="People workspace loaded with limited live data"
+          description="The page stayed available, but one or more roster or academic dependencies did not return cleanly. Retry after backend checks to restore full create and import behavior."
+          bullets={[
+            "Institute directory",
+            "Academic years and programs",
+            "Student or teacher roster feed",
+          ]}
+          ctaHref="/admin"
+          ctaLabel="Back to Dashboard"
+          secondaryCtaHref={`/admin/people?institute=${selectedInstituteId ?? ""}&view=${activeView}`}
+          secondaryCtaLabel="Retry People"
+          statusLabel="Controlled fallback"
+        />
+      ) : null}
+
       <section className="contentCard adminPeopleControlPanel">
         <div className="adminPeopleViewTabs">
           <Link

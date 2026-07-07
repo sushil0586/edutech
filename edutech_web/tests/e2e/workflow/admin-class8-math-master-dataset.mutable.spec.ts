@@ -1,6 +1,8 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectAdminWorkspace } from "../helpers/navigation";
+import { getRoleCredentials } from "../fixtures/env";
+import { resolveBackendBaseUrl } from "../helpers/backend-base-url";
 
 type InstituteRecord = {
   id: string;
@@ -53,12 +55,7 @@ const CLASS_8_MATH_TOPIC_GROUPS = [
 const EXPECTED_TOTAL_QUESTIONS = 200;
 const EXPECTED_QUESTIONS_PER_TOPIC_GROUP = 50;
 const CANDIDATE_PUBLIC_INSTITUTE_CODES = ["PUB001", "NEXORA-PUBLIC"] as const;
-const backendBaseUrl = (
-  process.env.API_BASE_URL ??
-  process.env.NEXT_PUBLIC_API_BASE_URL ??
-  process.env.PLAYWRIGHT_API_BASE_URL ??
-  "http://127.0.0.1:9001"
-).replace(/\/$/, "");
+const backendBaseUrl = resolveBackendBaseUrl();
 
 function normalizeQuestionText(value: string) {
   return value.replace(/\s+/g, " ").trim().toLowerCase();
@@ -84,6 +81,30 @@ async function fetchResults<T>(request: APIRequestContext, accessToken: string, 
     return body.results;
   }
   return Array.isArray(body as unknown) ? (body as T[]) : [];
+}
+
+async function fetchFreshAdminAccessToken(page: Page) {
+  const credentials = getRoleCredentials("admin");
+  expect(credentials).not.toBeNull();
+
+  const response = await page.request.post(`${backendBaseUrl}/api/v1/auth/login/`, {
+    data: {
+      username: credentials!.username,
+      password: credentials!.password,
+    },
+    headers: {
+      "Content-Type": "application/json",
+    },
+    timeout: 15000,
+  });
+
+  expect(response.ok(), await response.text()).toBe(true);
+  const payload = (await response.json()) as {
+    access?: string;
+  };
+  const accessToken = payload.access?.trim() ?? "";
+  expect(accessToken).not.toBe("");
+  return accessToken;
 }
 
 async function fetchAllPaginatedResults<T>(
@@ -133,10 +154,7 @@ test.describe("Admin Class 8 Math master dataset verification", () => {
     await expectAdminWorkspace(page);
     await openAcademicSetup(page);
 
-    const adminAccessToken = (
-      await page.context().cookies()
-    ).find((cookie) => cookie.name === "nexora_access_token")?.value?.trim() ?? "";
-    expect(adminAccessToken).not.toBe("");
+    const adminAccessToken = await fetchFreshAdminAccessToken(page);
 
     const institutes = await fetchResults<InstituteRecord>(
       page.request,

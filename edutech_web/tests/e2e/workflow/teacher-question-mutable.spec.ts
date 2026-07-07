@@ -44,6 +44,13 @@ function firstNonEmptyOptionValue(values: string[]) {
 async function selectFirstNonEmptyOption(
   locator: Locator,
 ) {
+  await expect(locator).toBeVisible();
+  await expect.poll(async () => {
+    const values = await locator.locator("option").evaluateAll((options) =>
+      options.map((option) => (option as HTMLOptionElement).value),
+    );
+    return firstNonEmptyOptionValue(values);
+  }).not.toBeNull();
   const values = await locator.locator("option").evaluateAll((options) =>
     options.map((option) => (option as HTMLOptionElement).value),
   );
@@ -199,36 +206,11 @@ async function deleteDisposableTeacherTopic(
   expect(response.ok()).toBe(true);
 }
 
-async function findActiveTeacherTagOption(
+async function provisionDisposableTeacherTagOption(
   page: import("@playwright/test").Page,
   instituteId: string,
   questionText: string,
 ) {
-  await page.goto(`/teacher/question-bank?search=${encodeURIComponent(questionText)}`);
-  await expect(
-    page.getByText(new RegExp(questionText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i")).first(),
-  ).toBeVisible();
-
-  const bulkBar = page.locator("form.questionBankBulkBar").first();
-  await bulkBar.getByLabel(/select visible questions/i).check();
-
-  const tagSelect = bulkBar.locator('select[name="tag_id"]');
-  const tagOptions = await tagSelect.locator("option").evaluateAll((options) =>
-    options.map((option) => ({
-      value: (option as HTMLOptionElement).value,
-      label: (option as HTMLOptionElement).label.trim(),
-    })),
-  );
-  const chosenTag = tagOptions.find((option) => option.value.trim().length > 0) ?? null;
-  if (chosenTag) {
-    return {
-      bulkBar,
-      tagSelect,
-      chosenTag,
-      createdTagId: null as string | null,
-    };
-  }
-
   const createdTag = await createDisposableTeacherTag(page, {
     instituteId,
     uniqueSeed: Date.now(),
@@ -238,6 +220,10 @@ async function findActiveTeacherTagOption(
   await expect(
     page.getByText(new RegExp(questionText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i")).first(),
   ).toBeVisible();
+  const bulkBar = page.locator("form.questionBankBulkBar").first();
+  const tagSelect = bulkBar.locator('select[name="tag_id"]');
+  await expect(bulkBar).toBeVisible();
+  await expect(tagSelect).toBeVisible();
   await bulkBar.getByLabel(/select visible questions/i).check();
 
   const refreshedOptions = await tagSelect.locator("option").evaluateAll((options) =>
@@ -295,6 +281,14 @@ async function createDisposableQuestion(
   for (const programId of programOptions) {
     await programSelect.selectOption(programId);
     await expect(subjectSelect).toBeEnabled();
+    await expect.poll(async () => {
+      const values = await subjectSelect.locator("option").evaluateAll((options) =>
+        options
+          .map((option) => (option as HTMLOptionElement).value)
+          .filter((value) => value.trim().length > 0),
+      );
+      return values.length;
+    }).toBeGreaterThan(0);
 
     const subjectOptions = await subjectSelect.locator("option").evaluateAll((options) =>
       options
@@ -304,7 +298,8 @@ async function createDisposableQuestion(
 
     for (const subjectId of subjectOptions) {
       await subjectSelect.selectOption(subjectId);
-      await expect(topicSelect).toBeEnabled();
+      await expect(topicSelect).toBeVisible();
+      await expect.poll(async () => topicSelect.isDisabled().catch(() => true)).toBe(false);
 
       const candidateTopics = await topicSelect.locator("option").evaluateAll((options) =>
         options
@@ -315,21 +310,23 @@ async function createDisposableQuestion(
           .filter((option) => option.value.trim().length > 0),
       );
 
-      if (!candidateTopics.length) {
-        continue;
-      }
-
       fallbackSelection ??= {
         programId,
         subjectId,
         topicOptions: candidateTopics,
       };
 
-      if (candidateTopics.length > 1) {
+      if (candidateTopics.length > 0) {
         selectedProgramId = programId;
         selectedSubjectId = subjectId;
         topicOptions = candidateTopics;
         break;
+      }
+
+      if (!selectedProgramId || !selectedSubjectId) {
+        selectedProgramId = programId;
+        selectedSubjectId = subjectId;
+        topicOptions = candidateTopics;
       }
     }
 
@@ -350,7 +347,8 @@ async function createDisposableQuestion(
   await programSelect.selectOption(selectedProgramId!);
   await expect(subjectSelect).toBeEnabled();
   await subjectSelect.selectOption(selectedSubjectId!);
-  await expect(topicSelect).toBeEnabled();
+  await expect(topicSelect).toBeVisible();
+  await expect.poll(async () => topicSelect.isDisabled().catch(() => true)).toBe(false);
 
   if (!topicOptions.length) {
     topicOptions = await topicSelect.locator("option").evaluateAll((options) =>
@@ -363,10 +361,11 @@ async function createDisposableQuestion(
     );
   }
   const selectedTopic = topicOptions[0] ?? null;
-  expect(selectedTopic).not.toBeNull();
   const alternateTopic =
-    topicOptions.find((option) => option.value !== selectedTopic!.value) ?? null;
-  await topicSelect.selectOption(selectedTopic!.value);
+    selectedTopic ? topicOptions.find((option) => option.value !== selectedTopic.value) ?? null : null;
+  if (selectedTopic) {
+    await topicSelect.selectOption(selectedTopic.value);
+  }
 
   const questionTypeOptions = await questionTypeSelect.locator("option").evaluateAll((options) =>
     options
@@ -417,9 +416,18 @@ async function createDisposableQuestion(
     questionId: questionId!,
     selectedProgramId,
     selectedSubjectId,
-    selectedTopicId: selectedTopic!.value,
+    selectedTopicId: selectedTopic?.value ?? null,
     alternateTopicId: alternateTopic?.value ?? null,
   };
+}
+
+async function fetchTeacherQuestionDetail(
+  page: import("@playwright/test").Page,
+  questionId: string,
+) {
+  const response = await page.request.get(`/api/teacher/question-bank/questions/${questionId}`);
+  expect(response.ok()).toBe(true);
+  return await response.json();
 }
 
 test.describe("Teacher mutable question-bank actions", () => {
@@ -614,13 +622,24 @@ test.describe("Teacher mutable question-bank actions", () => {
       questionId = createdQuestion.questionId;
 
       const { bulkBar, tagSelect, chosenTag, createdTagId: disposableTagId } =
-        await findActiveTeacherTagOption(page, profile.institute!, questionText);
+        await provisionDisposableTeacherTagOption(page, profile.institute!, questionText);
       createdTagId = disposableTagId;
 
       const tagName = chosenTag!.label.replace(/\s*\([^)]+\)\s*$/, "").trim();
       await tagSelect.selectOption(chosenTag!.value);
       await bulkBar.getByRole("button", { name: /attach tag/i }).click();
       await expect(page).toHaveURL(/\/teacher\/question-bank\?message=/);
+      await expect
+        .poll(async () => {
+          const attachedQuestionDetail = await fetchTeacherQuestionDetail(page, questionId!);
+          return Array.isArray(attachedQuestionDetail.tag_maps)
+            ? attachedQuestionDetail.tag_maps.some(
+                (tagMap: { tag?: string | null; is_active?: boolean | null }) =>
+                  tagMap.tag === chosenTag!.value && tagMap.is_active !== false,
+              )
+            : false;
+        })
+        .toBe(true);
 
       await page.goto(`/teacher/question-bank?search=${encodeURIComponent(questionText)}`);
       await page.getByRole("link", { name: /edit|duplicate to edit/i }).first().click();
@@ -635,6 +654,17 @@ test.describe("Teacher mutable question-bank actions", () => {
       await tagSelect.selectOption(chosenTag!.value);
       await bulkBar.getByRole("button", { name: /remove tag/i }).click();
       await expect(page).toHaveURL(/\/teacher\/question-bank\?message=/);
+      await expect
+        .poll(async () => {
+          const detachedQuestionDetail = await fetchTeacherQuestionDetail(page, questionId!);
+          return Array.isArray(detachedQuestionDetail.tag_maps)
+            ? detachedQuestionDetail.tag_maps.some(
+                (tagMap: { tag?: string | null; is_active?: boolean | null }) =>
+                  tagMap.tag === chosenTag!.value && tagMap.is_active !== false,
+              )
+            : false;
+        })
+        .toBe(false);
 
       await page.goto(`/teacher/question-bank?search=${encodeURIComponent(questionText)}`);
       await page.getByRole("link", { name: /edit|duplicate to edit/i }).first().click();

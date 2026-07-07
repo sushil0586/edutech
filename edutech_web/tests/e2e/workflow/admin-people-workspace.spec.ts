@@ -115,6 +115,45 @@ async function resolveStudentImportScopeFromApi(page: Page) {
   };
 }
 
+async function selectInstituteWithRosterRows(
+  page: Page,
+  resource: "students" | "teachers",
+) {
+  const instituteSelect = page.getByRole("combobox", { name: /select institute/i });
+  const instituteOptions = await instituteSelect.locator("option").evaluateAll((options) =>
+    options.map((option) => ({
+      value: (option as HTMLOptionElement).value,
+      label: (option as HTMLOptionElement).label,
+    })),
+  );
+
+  for (const option of instituteOptions) {
+    if (!option.value) {
+      continue;
+    }
+
+    const response = await page.request.get(
+      `/api/admin/people/${resource}?institute=${encodeURIComponent(option.value)}&page_size=1`,
+    );
+    if (!response.ok()) {
+      continue;
+    }
+
+    const payload = (await response.json()) as { results?: Array<Record<string, unknown>> } | Array<Record<string, unknown>>;
+    const rows = Array.isArray(payload) ? payload : (payload.results ?? []);
+    if (rows.length === 0) {
+      continue;
+    }
+
+    await instituteSelect.selectOption(option.value);
+    await page.getByRole("button", { name: /^open$/i }).click();
+    await expect(page).toHaveURL(new RegExp(`/admin/people\\?[^#]*institute=${option.value}`));
+    return option;
+  }
+
+  return null;
+}
+
 async function openDialogFromAction(
   page: Page,
   actionName: RegExp,
@@ -171,10 +210,13 @@ test.describe("Admin people workspace", () => {
     await expect(page.getByRole("textbox", { name: /search roster/i })).toBeVisible();
     await expect(page.getByRole("combobox", { name: /filter login status/i })).toBeVisible();
     await expect(page.getByRole("combobox", { name: /sort by name/i })).toBeVisible();
-    await page.getByRole("button", { name: /^open$/i }).click();
-    await expect(page).toHaveURL(/\/admin\/people\?[^#]*institute=/);
-    await expect(page.getByText(/records/i).first()).toBeVisible();
-    await expectRosterRowAccountContract(page.locator(".adminPeopleRosterTable tbody tr").first());
+    const populatedStudentInstitute = await selectInstituteWithRosterRows(page, "students");
+    await expect(page.getByText(/shown/i).first()).toBeVisible();
+    if (populatedStudentInstitute) {
+      await expectRosterRowAccountContract(page.locator(".adminPeopleRosterTable tbody tr").first());
+    } else {
+      await expect(page.getByText(/no student records are available yet/i)).toBeVisible();
+    }
 
     await openDialogFromAction(page, /create student/i, /new student profile/i);
     await page.getByRole("button", { name: /create student/i }).last().click();
@@ -241,7 +283,12 @@ test.describe("Admin people workspace", () => {
     await expect(page.getByRole("textbox", { name: /search roster/i })).toBeVisible();
     await page.getByRole("textbox", { name: /search roster/i }).fill("");
     await page.getByRole("combobox", { name: /filter login status/i }).selectOption("all");
-    await expectRosterRowAccountContract(page.locator(".adminPeopleRosterTable tbody tr").first());
+    const populatedTeacherInstitute = await selectInstituteWithRosterRows(page, "teachers");
+    if (populatedTeacherInstitute) {
+      await expectRosterRowAccountContract(page.locator(".adminPeopleRosterTable tbody tr").first());
+    } else {
+      await expect(page.getByText(/no teacher records are available yet/i)).toBeVisible();
+    }
 
     await openDialogFromAction(page, /create teacher/i, /new teacher profile/i);
     await page.getByRole("button", { name: /create teacher/i }).last().click();

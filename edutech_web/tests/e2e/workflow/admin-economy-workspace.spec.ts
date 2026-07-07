@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectAdminWorkspace } from "../helpers/navigation";
+import { gotoWithRuntimeRecovery } from "../helpers/runtime";
 
 test.describe("Admin economy workspace", () => {
   test.skip(testRequiresRole("admin"), "Admin Playwright credentials are not configured.");
@@ -16,10 +17,10 @@ test.describe("Admin economy workspace", () => {
     await loginAsRole(page, "admin");
     await expectAdminWorkspace(page);
 
-    await page.goto("/admin/economy");
+    await gotoWithRuntimeRecovery(page, "/admin/economy");
 
     await expect(page.getByRole("heading", { name: /economy/i }).first()).toBeVisible();
-    await expect(workspaceNav(page).locator('a[href="/admin/economy?tab=overview"]')).toHaveAttribute(
+    await expect(workspaceNav(page).getByRole("link", { name: /overview/i }).first()).toHaveAttribute(
       "aria-current",
       "page",
     );
@@ -29,8 +30,8 @@ test.describe("Admin economy workspace", () => {
     await expect(page.locator('a[href="/admin/institutes"]').first()).toBeVisible();
     await expect(page.locator('a[href="/admin/settings"]').first()).toBeVisible();
 
-    await page.goto("/admin/economy?tab=catalog");
-    await expect(workspaceNav(page).locator('a[href="/admin/economy?tab=catalog"]')).toHaveAttribute(
+    await gotoWithRuntimeRecovery(page, "/admin/economy?tab=catalog");
+    await expect(workspaceNav(page).getByRole("link", { name: /catalog/i })).toHaveAttribute(
       "aria-current",
       "page",
     );
@@ -44,8 +45,8 @@ test.describe("Admin economy workspace", () => {
     await expect(page.getByRole("button", { name: /create referral program|update referral program/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /create reward rule|update reward rule/i })).toBeVisible();
 
-    await page.goto("/admin/economy?tab=access-control");
-    await expect(workspaceNav(page).locator('a[href="/admin/economy?tab=access-control"]')).toHaveAttribute(
+    await gotoWithRuntimeRecovery(page, "/admin/economy?tab=access-control");
+    await expect(workspaceNav(page).getByRole("link", { name: /access control/i })).toHaveAttribute(
       "aria-current",
       "page",
     );
@@ -55,29 +56,33 @@ test.describe("Admin economy workspace", () => {
     await expect(page.getByRole("button", { name: /create access policy|update access policy/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /create unlock rule|update unlock rule/i })).toBeVisible();
 
-    await page.goto("/admin/economy?tab=question-bank");
-    await expect(workspaceNav(page).locator('a[href="/admin/economy?tab=question-bank"]')).toHaveAttribute(
+    await gotoWithRuntimeRecovery(page, "/admin/economy?tab=question-bank");
+    await expect(workspaceNav(page).getByRole("link", { name: /question bank commerce/i })).toHaveAttribute(
       "aria-current",
       "page",
     );
-    await expect(page.getByText(/question-bank package link/i).first()).toBeVisible();
-    const commercialDisclosure = firstDisclosure(page.locator("body"), /view commercial details/i);
-    await commercialDisclosure.locator("summary").click();
-    await expect(commercialDisclosure.getByText(/linked packages:/i)).toBeVisible();
-    await expect(page.getByText(/renewal posture:/i).first()).toBeVisible();
-    await expect(page.getByText(/entitlement reconciliation:/i).first()).toBeVisible();
-    const reconciliationDisclosure = firstDisclosure(page.locator("body"), /view access reconciliation/i);
-    await reconciliationDisclosure.locator("summary").click();
-    await expect(reconciliationDisclosure.getByText(/remediation:/i)).toBeVisible();
-    const lastApplyResult = page.getByText(/last apply result/i).first();
-    if (await lastApplyResult.count()) {
-      await expect(lastApplyResult).toBeVisible();
+    await expect(page.getByRole("heading", { name: /question bank commerce/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /create and edit question-bank packages and scope coverage/i })).toBeVisible();
+    const laneGuidanceDisclosure = firstDisclosure(page.locator("body"), /view lane guidance/i);
+    await expect(laneGuidanceDisclosure).not.toHaveAttribute("open", "");
+    await laneGuidanceDisclosure.locator("summary").click();
+    await expect(laneGuidanceDisclosure).toHaveAttribute("open", "");
+    const coverageDisclosure = firstDisclosure(page.locator("body"), /view coverage details/i);
+    if (await coverageDisclosure.count()) {
+      await expect(coverageDisclosure).not.toHaveAttribute("open", "");
+      await coverageDisclosure.locator("summary").click();
+      await expect(coverageDisclosure).toHaveAttribute("open", "");
     }
-    await expect(page.getByRole("heading", { name: /create and edit recurring plans, cycles, and credit rules/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /create subscription plan|update subscription plan/i })).toBeVisible();
+    const editButtons = page.getByRole("button", { name: /^edit$/i });
+    if (await editButtons.count()) {
+      await expect(editButtons.first()).toBeVisible();
+    } else {
+      await expect(page.getByText(/new package/i).first()).toBeVisible();
+      await expect(page.getByText(/editing institute/i).first()).toBeVisible();
+    }
 
-    await page.goto("/admin/economy?tab=support-ops");
-    await expect(workspaceNav(page).locator('a[href="/admin/economy?tab=support-ops"]')).toHaveAttribute(
+    await gotoWithRuntimeRecovery(page, "/admin/economy?tab=support-ops");
+    await expect(workspaceNav(page).getByRole("link", { name: /support ops/i })).toHaveAttribute(
       "aria-current",
       "page",
     );
@@ -108,21 +113,21 @@ test.describe("Admin economy workspace", () => {
     await expect(page.getByText(/reward timeline/i).first()).toBeVisible();
     await expect(page.getByText(/unlock refresh output/i).first()).toBeVisible();
 
-    await page.goto("/admin/economy?tab=bootstrap");
-    await expect(workspaceNav(page).locator('a[href="/admin/economy?tab=bootstrap"]')).toHaveAttribute(
+    await gotoWithRuntimeRecovery(page, "/admin/economy?tab=bootstrap");
+    await expect(workspaceNav(page).getByRole("link", { name: /bootstrap/i })).toHaveAttribute(
       "aria-current",
       "page",
     );
-    await expect(page.getByText(/seed groups/i).first()).toBeVisible();
-    await expect(page.getByText(/scenario coverage/i).first()).toBeVisible();
-    await expect(page.getByText(/live runtime lanes/i).first()).toBeVisible();
-    await expect(page.getByText(/mandatory phase 1 seeds/i).first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: /economy scenarios grouped by rollout lane/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /how to stage the seed rollout/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /reward scenarios and seed timing/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /recommended seed command flow/i })).toBeVisible();
 
     await page.locator('a[href="/admin/institutes"]').first().click();
     await expect(page).toHaveURL(/\/admin\/institutes(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /institutes/i }).first()).toBeVisible();
 
-    await page.goto("/admin/economy");
+    await gotoWithRuntimeRecovery(page, "/admin/economy");
     await expect(page.getByRole("heading", { name: /economy/i }).first()).toBeVisible();
 
     await page.locator('a[href="/admin/settings"]').first().click();

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
 import { expectAdminWorkspace } from "../helpers/navigation";
@@ -14,6 +14,37 @@ type CreateInstitutePayload = {
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+async function expectInstituteAccountPanelState(
+  accountPanel: Locator,
+  expectedState: "no_login" | "active_login" | "disabled_login",
+) {
+  const createLoginButton = accountPanel.getByRole("button", { name: /create login/i });
+  const resetPasswordButton = accountPanel.getByRole("button", { name: /reset password/i });
+  const disableLoginButton = accountPanel.getByRole("button", { name: /disable login/i });
+  const enableLoginButton = accountPanel.getByRole("button", { name: /enable login/i });
+
+  if (expectedState === "no_login") {
+    await expect(createLoginButton).toBeVisible();
+    await expect(resetPasswordButton).toHaveCount(0);
+    await expect(disableLoginButton).toHaveCount(0);
+    await expect(enableLoginButton).toHaveCount(0);
+    await expect(accountPanel).toContainText(/no linked login/i);
+    return;
+  }
+
+  await expect(createLoginButton).toHaveCount(0);
+  await expect(resetPasswordButton).toBeVisible();
+
+  if (expectedState === "active_login") {
+    await expect(disableLoginButton).toBeVisible();
+    await expect(enableLoginButton).toHaveCount(0);
+    return;
+  }
+
+  await expect(disableLoginButton).toHaveCount(0);
+  await expect(enableLoginButton).toBeVisible();
 }
 
 test.describe("Admin mutable institute actions", () => {
@@ -112,6 +143,7 @@ test.describe("Admin mutable institute actions", () => {
 
       const accountPanel = detailCard.locator(".adminInstituteAccountPanel").first();
       await expect(accountPanel).toContainText(/credential controls/i);
+      await expectInstituteAccountPanelState(accountPanel, "no_login");
 
       const createLoginResponsePromise = page.waitForResponse(
         (response) =>
@@ -122,8 +154,7 @@ test.describe("Admin mutable institute actions", () => {
       const createLoginResponse = await createLoginResponsePromise;
       expect(createLoginResponse.ok()).toBe(true);
       await expect(accountPanel.getByText(/created login for/i)).toBeVisible();
-      await expect(accountPanel.getByRole("button", { name: /reset password/i })).toBeVisible();
-      await expect(accountPanel.getByRole("button", { name: /disable login/i })).toBeVisible();
+      await expectInstituteAccountPanelState(accountPanel, "active_login");
 
       const resetPasswordResponsePromise = page.waitForResponse(
         (response) =>
@@ -150,7 +181,7 @@ test.describe("Admin mutable institute actions", () => {
       const disableLoginResponse = await disableLoginResponsePromise;
       expect(disableLoginResponse.ok()).toBe(true);
       await expect(accountPanel.getByText(/login disabled successfully\./i)).toBeVisible();
-      await expect(accountPanel.getByRole("button", { name: /enable login/i })).toBeVisible();
+      await expectInstituteAccountPanelState(accountPanel, "disabled_login");
 
       const enableLoginResponsePromise = page.waitForResponse(
         (response) =>
@@ -162,7 +193,7 @@ test.describe("Admin mutable institute actions", () => {
       const enableLoginResponse = await enableLoginResponsePromise;
       expect(enableLoginResponse.ok()).toBe(true);
       await expect(accountPanel.getByText(/login enabled successfully\./i)).toBeVisible();
-      await expect(accountPanel.getByRole("button", { name: /disable login/i })).toBeVisible();
+      await expectInstituteAccountPanelState(accountPanel, "active_login");
     } finally {
       if (instituteId) {
         const deleteResponse = await page.request.delete(`/api/admin/institutes/${instituteId}`);

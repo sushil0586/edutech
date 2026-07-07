@@ -371,13 +371,13 @@ def notify_results_published(exam, results):
 
 @transaction.atomic
 def notify_question_missing_explanation(question):
+    if question.explanation.strip():
+        return None
     teacher = question.created_by_teacher
     if teacher is None:
         return None
     account_profile = getattr(teacher, "account_profile", None)
     if account_profile is None:
-        return None
-    if question.explanation.strip():
         return None
 
     return _create_notification_if_missing(

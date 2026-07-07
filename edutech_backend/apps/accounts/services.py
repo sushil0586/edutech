@@ -859,8 +859,8 @@ def create_institute_login(*, institute, username=None, password=None, auto_gene
 
 
 @transaction.atomic
-def create_student_login(*, student, username=None, password=None, auto_generate=False):
-    if hasattr(student, "account_profile"):
+def create_student_login(*, student, username=None, password=None, auto_generate=False, skip_existing_check=False):
+    if not skip_existing_check and hasattr(student, "account_profile"):
         raise ValidationError({"student": ["Login already exists for this student."]})
 
     generated_password = None
@@ -877,19 +877,23 @@ def create_student_login(*, student, username=None, password=None, auto_generate
         email=student.email or f"{username}@nexora.local",
         is_active=True,
     )
-    profile = AccountProfile.objects.create(
+    profile = AccountProfile(
         user=user,
         role=AccountRole.STUDENT,
         institute=student.institute,
         student_profile=student,
         is_active=True,
     )
+    now = timezone.now()
+    profile.created_at = now
+    profile.updated_at = now
+    AccountProfile.objects.bulk_create([profile], batch_size=1)
     return profile, generated_password
 
 
 @transaction.atomic
-def create_teacher_login(*, teacher, username=None, password=None, auto_generate=False):
-    if hasattr(teacher, "account_profile"):
+def create_teacher_login(*, teacher, username=None, password=None, auto_generate=False, skip_existing_check=False):
+    if not skip_existing_check and hasattr(teacher, "account_profile"):
         raise ValidationError({"teacher": ["Login already exists for this teacher."]})
 
     generated_password = None
@@ -906,14 +910,75 @@ def create_teacher_login(*, teacher, username=None, password=None, auto_generate
         email=teacher.email or f"{username}@nexora.local",
         is_active=True,
     )
-    profile = AccountProfile.objects.create(
+    profile = AccountProfile(
         user=user,
         role=AccountRole.TEACHER,
         institute=teacher.institute,
         teacher_profile=teacher,
         is_active=True,
     )
+    now = timezone.now()
+    profile.created_at = now
+    profile.updated_at = now
+    AccountProfile.objects.bulk_create([profile], batch_size=1)
     return profile, generated_password
+
+
+def _build_import_student_profile(*, institute, payload, academic_year_map, program_map, cohort_map):
+    first_name = payload["first_name"]
+    last_name = payload.get("last_name", "")
+    joined_at = _parse_date(payload["joined_at"], "joined_at") or date.today()
+    date_of_birth = (
+        _parse_date(payload.get("date_of_birth"), "date_of_birth")
+        if payload.get("date_of_birth")
+        else None
+    )
+    student = StudentProfile(
+        institute=institute,
+        academic_year=academic_year_map[payload["academic_year"]],
+        program=program_map[payload["program"]],
+        cohort=cohort_map.get(payload["cohort"]) if payload.get("cohort") else None,
+        admission_no=payload["admission_no"],
+        first_name=first_name,
+        last_name=last_name,
+        full_name=" ".join(part.strip() for part in [first_name, last_name] if part and part.strip()),
+        gender=payload.get("gender") or StudentProfile._meta.get_field("gender").default,
+        date_of_birth=date_of_birth,
+        email=payload.get("email", ""),
+        phone=payload.get("phone", ""),
+        guardian_name=payload.get("guardian_name", ""),
+        guardian_phone=payload.get("guardian_phone", ""),
+        address=payload.get("address", ""),
+        joined_at=joined_at,
+        is_active=payload.get("is_active", True),
+    )
+    now = timezone.now()
+    student.created_at = now
+    student.updated_at = now
+    return student
+
+
+def _build_import_teacher_profile(*, institute, payload):
+    first_name = payload["first_name"]
+    last_name = payload.get("last_name", "")
+    teacher = TeacherProfile(
+        institute=institute,
+        employee_code=payload["employee_code"],
+        first_name=first_name,
+        last_name=last_name,
+        full_name=" ".join(part.strip() for part in [first_name, last_name] if part and part.strip()),
+        email=payload.get("email", ""),
+        phone=payload.get("phone", ""),
+        qualification=payload.get("qualification", ""),
+        specialization=payload.get("specialization", ""),
+        bio=payload.get("bio", ""),
+        joined_at=_parse_date(payload["joined_at"], "joined_at") or date.today(),
+        is_active=payload.get("is_active", True),
+    )
+    now = timezone.now()
+    teacher.created_at = now
+    teacher.updated_at = now
+    return teacher
 
 
 def get_scoped_student_for_admin(*, student_id, requesting_profile):
@@ -1418,34 +1483,25 @@ def import_bulk_students(*, institute, valid_payloads):
         for item in Cohort.objects.filter(pk__in=cohort_ids, institute=institute)
     }
 
+    no_login_students = []
+    no_login_rows = []
     for index, payload in enumerate(valid_payloads, start=1):
         try:
-            student = StudentProfile.objects.create(
+            student = _build_import_student_profile(
                 institute=institute,
-                academic_year=academic_year_map[payload["academic_year"]],
-                program=program_map[payload["program"]],
-                cohort=cohort_map.get(payload["cohort"]) if payload.get("cohort") else None,
-                admission_no=payload["admission_no"],
-                first_name=payload["first_name"],
-                last_name=payload.get("last_name", ""),
-                gender=payload.get("gender") or StudentProfile._meta.get_field("gender").default,
-                date_of_birth=_parse_date(payload.get("date_of_birth"), "date_of_birth")
-                if payload.get("date_of_birth")
-                else None,
-                email=payload.get("email", ""),
-                phone=payload.get("phone", ""),
-                guardian_name=payload.get("guardian_name", ""),
-                guardian_phone=payload.get("guardian_phone", ""),
-                address=payload.get("address", ""),
-                joined_at=_parse_date(payload["joined_at"], "joined_at") or date.today(),
-                is_active=payload.get("is_active", True),
+                payload=payload,
+                academic_year_map=academic_year_map,
+                program_map=program_map,
+                cohort_map=cohort_map,
             )
             if payload.get("create_login"):
+                StudentProfile.objects.bulk_create([student], batch_size=1)
                 account_profile, generated_password = create_student_login(
                     student=student,
                     username=payload.get("username"),
                     password=payload.get("password"),
                     auto_generate=payload.get("auto_generate", False),
+                    skip_existing_check=True,
                 )
                 credentials.append(
                     {
@@ -1456,10 +1512,21 @@ def import_bulk_students(*, institute, valid_payloads):
                         "generated_password": generated_password,
                     }
                 )
+            else:
+                no_login_students.append(student)
+                no_login_rows.append(index)
             created_count += 1
         except Exception as exc:  # noqa: BLE001
             failed_count += 1
             errors.append({"row_number": index, "detail": str(exc)})
+
+    if no_login_students:
+        try:
+            StudentProfile.objects.bulk_create(no_login_students, batch_size=100)
+        except Exception as exc:  # noqa: BLE001
+            created_count -= len(no_login_rows)
+            failed_count += len(no_login_rows)
+            errors.extend({"row_number": row_number, "detail": str(exc)} for row_number in no_login_rows)
 
     return {
         "created_count": created_count,
@@ -1475,28 +1542,23 @@ def import_bulk_teachers(*, institute, valid_payloads):
     failed_count = 0
     credentials = []
     errors = []
+    no_login_teachers = []
+    no_login_rows = []
 
     for index, payload in enumerate(valid_payloads, start=1):
         try:
-            teacher = TeacherProfile.objects.create(
+            teacher = _build_import_teacher_profile(
                 institute=institute,
-                employee_code=payload["employee_code"],
-                first_name=payload["first_name"],
-                last_name=payload.get("last_name", ""),
-                email=payload.get("email", ""),
-                phone=payload.get("phone", ""),
-                qualification=payload.get("qualification", ""),
-                specialization=payload.get("specialization", ""),
-                bio=payload.get("bio", ""),
-                joined_at=_parse_date(payload["joined_at"], "joined_at") or date.today(),
-                is_active=payload.get("is_active", True),
+                payload=payload,
             )
             if payload.get("create_login"):
+                TeacherProfile.objects.bulk_create([teacher], batch_size=1)
                 account_profile, generated_password = create_teacher_login(
                     teacher=teacher,
                     username=payload.get("username"),
                     password=payload.get("password"),
                     auto_generate=payload.get("auto_generate", False),
+                    skip_existing_check=True,
                 )
                 credentials.append(
                     {
@@ -1507,10 +1569,21 @@ def import_bulk_teachers(*, institute, valid_payloads):
                         "generated_password": generated_password,
                     }
                 )
+            else:
+                no_login_teachers.append(teacher)
+                no_login_rows.append(index)
             created_count += 1
         except Exception as exc:  # noqa: BLE001
             failed_count += 1
             errors.append({"row_number": index, "detail": str(exc)})
+
+    if no_login_teachers:
+        try:
+            TeacherProfile.objects.bulk_create(no_login_teachers, batch_size=100)
+        except Exception as exc:  # noqa: BLE001
+            created_count -= len(no_login_rows)
+            failed_count += len(no_login_rows)
+            errors.extend({"row_number": row_number, "detail": str(exc)} for row_number in no_login_rows)
 
     return {
         "created_count": created_count,

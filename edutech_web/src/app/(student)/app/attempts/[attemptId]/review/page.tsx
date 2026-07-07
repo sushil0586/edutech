@@ -468,16 +468,6 @@ export default async function AttemptReviewPage({
                   : practiceFollowUp.action.label}
               </Link>
             )}
-            <Link
-              className="button buttonGhost"
-              href={buildFilterHref("/app/attempts", [
-                ["subject", scopedSubjectParam],
-                ["source", scopedSourceQueryParam],
-                ["teacher", scopedTeacherQueryParam],
-              ])}
-            >
-              Open Attempts
-            </Link>
           </div>
         </article>
       </section>
@@ -556,16 +546,6 @@ export default async function AttemptReviewPage({
             >
               Back To Summary
             </Link>
-            <StudentPassiveNavLink
-              className="button buttonGhost"
-              href={buildFilterHref("/app/attempts", [
-                ["subject", scopedSubjectParam],
-                ["source", scopedSourceQueryParam],
-                ["teacher", scopedTeacherQueryParam],
-              ])}
-            >
-              Stay In Attempts
-            </StudentPassiveNavLink>
           </div>
         </article>
       </section>

@@ -35,7 +35,7 @@ type AdminQuestionBankPackage = {
   active_entitlement_count: number;
   linked_plan_count: number;
   default_plan_count: number;
-  scopes: Array<{
+  scopes?: Array<{
     id: string;
     program: string | null;
     program_name: string | null;
@@ -275,7 +275,7 @@ function getEntitlementStateBanner(entitlement: AdminInstituteQuestionEntitlemen
 }
 
 function describeScope(
-  scope: AdminQuestionBankPackage["scopes"][number],
+  scope: NonNullable<AdminQuestionBankPackage["scopes"]>[number],
 ) {
   return [
     scope.program_name,
@@ -355,7 +355,7 @@ function describePackageCoverage(pkg: AdminQuestionBankPackage) {
   if (pkg.coverage_program_labels.length > 0) {
     return `Programs in package: ${pkg.coverage_program_labels.join(", ")}.`;
   }
-  if (pkg.scopes.length > 0) {
+  if ((pkg.scopes ?? []).length > 0) {
     return `Package scope rows exist, but only low-detail scope labels are available right now.`;
   }
   return "No academic scope rows are configured yet.";
@@ -1962,8 +1962,8 @@ export function EconomyQuestionBankVisibilityCard({
                             <span>Subjects: {pkg.coverage_subject_labels.slice(0, 6).join(", ")}</span>
                           ) : pkg.coverage_program_labels.length > 0 ? (
                             <span>Programs: {pkg.coverage_program_labels.slice(0, 6).join(", ")}</span>
-                          ) : pkg.scopes.length > 0 ? (
-                            <span>{describeScope(pkg.scopes[0]) || "Scope configured"}</span>
+                          ) : (pkg.scopes ?? []).length > 0 ? (
+                            <span>{describeScope((pkg.scopes ?? [])[0]) || "Scope configured"}</span>
                           ) : (
                             <span>No scope rows configured</span>
                           )}

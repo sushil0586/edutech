@@ -2228,7 +2228,11 @@ def choose_attempt_for_result_policy(exam, attempts):
 def validate_exam_questions(exam, exam_questions=None):
     queryset = exam_questions
     if queryset is None:
-        queryset = exam.exam_questions.filter(is_active=True).select_related("question", "section", "section__subject")
+        queryset = exam.exam_questions.filter(is_active=True).select_related(
+            "question",
+            "section",
+            "section__subject",
+        ).prefetch_related("question__options")
 
     question_list = list(queryset)
     if not question_list:
@@ -2412,9 +2416,14 @@ def build_exam_publish_readiness(exam, exam_questions=None):
                 continue
 
             try:
+                prefetched_options = getattr(question, "_prefetched_objects_cache", {}).get("options")
                 validate_question_options(
                     question.question_type,
-                    question.options.filter(is_active=True),
+                    (
+                        [option for option in prefetched_options if getattr(option, "is_active", True)]
+                        if prefetched_options is not None
+                        else question.options.filter(is_active=True)
+                    ),
                 )
             except ValidationError as exc:
                 invalid_question_count += 1
@@ -2605,7 +2614,14 @@ def publish_exam(exam, changed_by=None, remarks=""):
     from apps.economy.services import record_exam_question_bank_usage
     from apps.reports.services import notify_exam_published
 
-    _raise_exam_publish_readiness_errors(build_exam_publish_readiness(exam))
+    exam_questions = list(
+        exam.exam_questions.filter(is_active=True)
+        .select_related("question", "section", "section__subject")
+        .prefetch_related("question__options")
+    )
+    _raise_exam_publish_readiness_errors(
+        build_exam_publish_readiness(exam, exam_questions=exam_questions)
+    )
 
     exam = _record_status_change(
         exam,
@@ -2617,6 +2633,7 @@ def publish_exam(exam, changed_by=None, remarks=""):
     record_exam_question_bank_usage(
         exam=exam,
         action_type=InstituteQuestionUsageActionType.EXAM_PUBLISHED,
+        exam_questions=exam_questions,
         performed_by=changed_by,
         metadata={
             "operation": "publish_exam",

@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectInstituteWorkspace } from "../helpers/navigation";
+import { gotoWithRuntimeRecovery } from "../helpers/runtime";
 
 test.describe("Institute dashboard workspace", () => {
   test.skip(testRequiresRole("institute"), "Institute Playwright credentials are not configured.");
@@ -11,7 +12,7 @@ test.describe("Institute dashboard workspace", () => {
     await loginAsRole(page, "institute");
     await expectInstituteWorkspace(page);
 
-    await page.goto("/institute/dashboard");
+    await gotoWithRuntimeRecovery(page, "/institute/dashboard");
 
     await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible();
     await expect(page.getByText(/institute control/i).first()).toBeVisible();
@@ -55,21 +56,21 @@ test.describe("Institute dashboard workspace", () => {
     await expect(page).toHaveURL(/\/institute\/people(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /people/i }).first()).toBeVisible();
 
-    await page.goto("/institute/dashboard");
+    await gotoWithRuntimeRecovery(page, "/institute/dashboard");
     await expect(page.getByText(/dashboard focus/i).first()).toBeVisible();
 
     await page.getByRole("link", { name: /open academic setup/i }).first().click();
     await expect(page).toHaveURL(/\/institute\/academic-setup(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /academic setup/i }).first()).toBeVisible();
 
-    await page.goto("/institute/dashboard?focus=assessments");
+    await gotoWithRuntimeRecovery(page, "/institute/dashboard?focus=assessments");
     await expect(page.getByText(/focus:\s*assessments/i)).toBeVisible();
 
     await page.getByRole("link", { name: /open exams/i }).first().click();
     await expect(page).toHaveURL(/\/institute\/exams(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /exam management/i }).first()).toBeVisible();
 
-    await page.goto("/institute/dashboard");
+    await gotoWithRuntimeRecovery(page, "/institute/dashboard");
     await expect(page.getByText(/institute control/i).first()).toBeVisible();
 
     await page.getByRole("link", { name: /open reviews/i }).first().click();

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { OperatorWorkspaceLink as Link } from "@/components/ui/operator-workspace-link";
 import { FilterSummaryPills } from "@/components/ui/filter-summary-pills";
 import { PageHeader } from "@/components/ui/page-header";
 import { buildFilterHref, formatFilterValue, resolveFilterValue } from "@/lib/workspace/filter-utils";

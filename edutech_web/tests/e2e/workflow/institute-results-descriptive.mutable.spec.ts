@@ -390,24 +390,18 @@ test.describe("Institute mutable descriptive results actions", () => {
       await expect(page.getByText(new RegExp(escapeRegExp(studentDisplayName), "i")).first()).toBeVisible();
       await expect(page.getByText(new RegExp(escapeRegExp(questionText), "i")).first()).toBeVisible();
       await expect(page.getByText(new RegExp(escapeRegExp(answerText), "i")).first()).toBeVisible();
+      const marksAwardedInput = page.locator('input[name="marks_awarded"]').first();
+      const reviewNotesInput = page.locator('textarea[name="review_notes"]').first();
+      const saveReviewButton = page.getByRole("button", { name: /^save review$/i }).first();
+      await expect(marksAwardedInput).toBeVisible();
+      await expect(reviewNotesInput).toBeVisible();
+      await expect(saveReviewButton).toBeVisible();
+      await marksAwardedInput.fill("8");
+      await reviewNotesInput.fill(reviewNotes);
+      await saveReviewButton.click();
 
-      const instituteAccessToken = await getCurrentSessionAccessToken(page);
-      const reviewResponse = await requestBackendJson<{
-        data?: {
-          status?: string;
-          latest_marks_awarded?: string;
-          latest_review_summary?: string;
-        };
-      }>(page, `/api/v1/attempts/review-tasks/${reviewTaskId}/submit-review/`, {
-        method: "POST",
-        accessToken: instituteAccessToken,
-        data: {
-          marks_awarded: "8.00",
-          review_notes: reviewNotes,
-        },
-      });
-      expect(reviewResponse.response.ok()).toBe(true);
-      expect(reviewResponse.payload.data?.status).toBe("reviewed");
+      await expect(page).toHaveURL(/message=/);
+      await expect(page.getByText(/review (saved successfully|task updated successfully)\./i)).toBeVisible();
 
       await page.goto(`/institute/reviews?exam=${examId}&task=${reviewTaskId}`);
       await expect(
@@ -415,6 +409,8 @@ test.describe("Institute mutable descriptive results actions", () => {
       ).toBeVisible();
       await expect(page.getByText(new RegExp(escapeRegExp(reviewNotes), "i")).first()).toBeVisible();
       await expect(page.getByText(/marks:\s*8/i).first()).toBeVisible();
+      await expect(page.locator('input[name="marks_awarded"]').first()).toHaveValue("8");
+      await expect(page.locator('textarea[name="review_notes"]').first()).toHaveValue(reviewNotes);
 
       await page.goto(`/institute/results?exam=${examId}`);
       await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();

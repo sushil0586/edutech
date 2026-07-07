@@ -10,6 +10,7 @@ from django.db import transaction
 from apps.economy.services import (
     institute_has_master_question_access,
     record_master_question_link_usage,
+    resolve_question_bank_entitlement_for_master_question_use,
     validate_institute_question_quota_access,
 )
 from apps.academics.services import (
@@ -337,7 +338,7 @@ def _derive_master_visibility(question):
 
 
 @transaction.atomic
-def sync_master_question_from_institute_question(question):
+def sync_master_question_from_institute_question(question, *, option_payloads=None):
     master_defaults = {
         "source_institute": question.institute,
         "source_program": question.program,
@@ -371,19 +372,31 @@ def sync_master_question_from_institute_question(question):
         question.save(update_fields=["master_question", "updated_at"])
 
     master.options.all().delete()
-    option_payloads = [
+    normalized_option_payloads = option_payloads
+    if normalized_option_payloads is None:
+        normalized_option_payloads = [
+            {
+                "content_format": option.content_format,
+                "option_text": option.option_text,
+                "option_order": option.option_order,
+                "is_correct": option.is_correct,
+                "is_active": option.is_active,
+            }
+            for option in question.options.all().order_by("option_order")
+        ]
+    master_option_payloads = [
         MasterQuestionOption(
             master_question=master,
-            content_format=option.content_format,
-            option_text=option.option_text,
-            option_order=option.option_order,
-            is_correct=option.is_correct,
-            is_active=option.is_active,
+            content_format=option.get("content_format", question.content_format),
+            option_text=option["option_text"],
+            option_order=option.get("option_order", 1),
+            is_correct=option.get("is_correct", False),
+            is_active=option.get("is_active", True),
         )
-        for option in question.options.all().order_by("option_order")
+        for option in normalized_option_payloads
     ]
-    if option_payloads:
-        MasterQuestionOption.objects.bulk_create(option_payloads)
+    if master_option_payloads:
+        MasterQuestionOption.objects.bulk_create(master_option_payloads)
     return master
 
 
@@ -406,19 +419,24 @@ def request_master_question_access(
                 )
             }
         )
-    access, _ = InstituteQuestionAccess.objects.update_or_create(
+    access = InstituteQuestionAccess.objects.filter(
         institute=institute,
         master_question=master_question,
-        defaults={
-            "requested_by_teacher": requested_by_teacher,
-            "local_program": local_program,
-            "local_subject": local_subject,
-            "local_topic": local_topic,
-            "status": InstituteQuestionAccessStatus.REQUESTED,
-            "notes": notes,
-            "is_active": True,
-        },
-    )
+    ).first()
+    if access is None:
+        access = InstituteQuestionAccess(
+            institute=institute,
+            master_question=master_question,
+        )
+
+    access.requested_by_teacher = requested_by_teacher
+    access.local_program = local_program
+    access.local_subject = local_subject
+    access.local_topic = local_topic
+    access.status = InstituteQuestionAccessStatus.REQUESTED
+    access.notes = notes
+    access.is_active = True
+    access.save()
     return access
 
 
@@ -442,49 +460,60 @@ def link_master_question_to_institute(
                 )
             }
         )
-    existing_access = (
+    access = (
         InstituteQuestionAccess.objects.filter(
             institute=institute,
             master_question=master_question,
-            is_active=True,
-            status=InstituteQuestionAccessStatus.LINKED,
-            linked_question__isnull=False,
         )
         .select_related("linked_question")
         .first()
     )
+    existing_access = (
+        access
+        if access is not None
+        and access.is_active
+        and access.status == InstituteQuestionAccessStatus.LINKED
+        and access.linked_question_id is not None
+        else None
+    )
+    entitlement = None
     if existing_access is None:
-        validate_institute_question_quota_access(
+        entitlement = validate_institute_question_quota_access(
             institute=institute,
             master_question=master_question,
         )
     subject = local_subject or master_question.source_subject
     topic = local_topic or master_question.source_topic
     program = local_program or master_question.source_program or getattr(subject, "program", None)
-    question, _ = Question.objects.update_or_create(
+    question = Question.objects.filter(
         institute=institute,
         master_question=master_question,
-        defaults={
-            "question_text": master_question.question_text,
-            "program": program,
-            "subject": subject,
-            "topic": topic,
-            "created_by_teacher": requested_by_teacher,
-            "question_type": master_question.question_type,
-            "difficulty_level": master_question.difficulty_level,
-            "content_format": master_question.content_format,
-            "explanation": master_question.explanation,
-            "default_marks": master_question.default_marks,
-            "negative_marks": master_question.negative_marks,
-            "is_verified": master_question.is_verified,
-            "is_active": True,
-            "metadata": {
-                "linked_from_master": str(master_question.id),
-                "link_mode": "approved_request",
-                **(master_question.metadata if isinstance(master_question.metadata, dict) else {}),
-            },
-        },
-    )
+    ).first()
+    if question is None:
+        question = Question(
+            institute=institute,
+            master_question=master_question,
+        )
+
+    question.question_text = master_question.question_text
+    question.program = program
+    question.subject = subject
+    question.topic = topic
+    question.created_by_teacher = requested_by_teacher
+    question.question_type = master_question.question_type
+    question.difficulty_level = master_question.difficulty_level
+    question.content_format = master_question.content_format
+    question.explanation = master_question.explanation
+    question.default_marks = master_question.default_marks
+    question.negative_marks = master_question.negative_marks
+    question.is_verified = master_question.is_verified
+    question.is_active = True
+    question.metadata = {
+        "linked_from_master": str(master_question.id),
+        "link_mode": "approved_request",
+        **(master_question.metadata if isinstance(master_question.metadata, dict) else {}),
+    }
+    question.save()
     question.options.all().delete()
     option_payloads = [
         QuestionOption(
@@ -500,25 +529,32 @@ def link_master_question_to_institute(
     if option_payloads:
         QuestionOption.objects.bulk_create(option_payloads)
 
-    access, _ = InstituteQuestionAccess.objects.update_or_create(
-        institute=institute,
-        master_question=master_question,
-        defaults={
-            "requested_by_teacher": requested_by_teacher,
-            "approved_by": approved_by,
-            "linked_question": question,
-            "local_program": program,
-            "local_subject": subject,
-            "local_topic": topic,
-            "status": InstituteQuestionAccessStatus.LINKED,
-            "notes": notes,
-            "is_active": True,
-        },
-    )
+    if access is None:
+        access = InstituteQuestionAccess(
+            institute=institute,
+            master_question=master_question,
+        )
+
+    access.requested_by_teacher = requested_by_teacher
+    access.approved_by = approved_by
+    access.linked_question = question
+    access.local_program = program
+    access.local_subject = subject
+    access.local_topic = topic
+    access.status = InstituteQuestionAccessStatus.LINKED
+    access.notes = notes
+    access.is_active = True
+    access.save()
+    if entitlement is None and existing_access is None:
+        entitlement = resolve_question_bank_entitlement_for_master_question_use(
+            institute,
+            master_question=master_question,
+        )
     record_master_question_link_usage(
         institute=institute,
         master_question=master_question,
         question=question,
+        entitlement=entitlement,
         performed_by=approved_by,
         metadata={
             "access_status": access.status,
@@ -596,6 +632,10 @@ def notify_question_saved(question):
     from apps.reports.services import notify_question_missing_explanation
 
     notify_question_missing_explanation(question)
+
+
+def _import_tag_code(tag_value):
+    return tag_value.lower().replace(" ", "_")[:50]
 
 
 def question_import_template_csv():
@@ -1713,21 +1753,79 @@ def import_bulk_questions(*, institute, preview_payload, created_by=None):
     failures = []
     finalize_seen_question_fingerprints = {}
     finalize_seen_passage_orders = {}
+    program_cache = {}
+    subject_cache = {}
+    topic_cache = {}
+    passage_cache = {}
     for row in preview_rows:
         if row.get("status") != "valid":
             failures.append(row)
+
+    normalized_tag_names = []
+    seen_tag_codes = set()
+    for payload in valid_payloads:
+        for tag_value in payload.get("tags", []):
+            tag_code = _import_tag_code(tag_value)
+            if tag_code in seen_tag_codes:
+                continue
+            seen_tag_codes.add(tag_code)
+            normalized_tag_names.append((tag_code, tag_value))
+
+    tag_cache = {}
+    if normalized_tag_names:
+        tag_codes = [tag_code for tag_code, _ in normalized_tag_names]
+        for tag in QuestionTag.objects.filter(institute=institute, code__in=tag_codes):
+            tag_cache[tag.code] = tag
+        missing_tags = [
+            QuestionTag(
+                institute=institute,
+                code=tag_code,
+                name=tag_value,
+                is_active=True,
+            )
+            for tag_code, tag_value in normalized_tag_names
+            if tag_code not in tag_cache
+        ]
+        if missing_tags:
+            QuestionTag.objects.bulk_create(missing_tags, ignore_conflicts=True)
+            for tag in QuestionTag.objects.filter(institute=institute, code__in=tag_codes):
+                tag_cache[tag.code] = tag
+
+    question_batch = []
+    finalized_payloads = []
     for payload in valid_payloads:
         try:
-            program = _resolve_program_for_import(institute, payload.get("program"))
-            subject = _resolve_subject_for_import(institute, payload["subject"])
-            topic = _resolve_topic_for_import(institute, subject, payload.get("topic"))
-            passage = _resolve_passage_for_import(
-                institute,
-                subject,
-                topic,
+            program_name = payload.get("program")
+            if program_name not in program_cache:
+                program_cache[program_name] = _resolve_program_for_import(institute, program_name)
+            program = program_cache[program_name]
+
+            subject_name = payload["subject"]
+            if subject_name not in subject_cache:
+                subject_cache[subject_name] = _resolve_subject_for_import(institute, subject_name)
+            subject = subject_cache[subject_name]
+
+            topic_name = payload.get("topic")
+            topic_cache_key = (subject.id, topic_name)
+            if topic_cache_key not in topic_cache:
+                topic_cache[topic_cache_key] = _resolve_topic_for_import(institute, subject, topic_name)
+            topic = topic_cache[topic_cache_key]
+
+            passage_key = (
+                subject.id,
+                getattr(topic, "id", None),
                 payload.get("passage"),
                 payload.get("passage_title"),
             )
+            if passage_key not in passage_cache:
+                passage_cache[passage_key] = _resolve_passage_for_import(
+                    institute,
+                    subject,
+                    topic,
+                    payload.get("passage"),
+                    payload.get("passage_title"),
+                )
+            passage = passage_cache[passage_key]
             _ensure_no_duplicate_question_import(
                 institute=institute,
                 subject=subject,
@@ -1744,7 +1842,7 @@ def import_bulk_questions(*, institute, preview_payload, created_by=None):
                 source_row_number=payload.get("source_row_number") or 0,
                 seen_orders=finalize_seen_passage_orders,
             )
-            question = Question.objects.create(
+            question = Question(
                 institute=institute,
                 program=program,
                 subject=subject,
@@ -1762,19 +1860,8 @@ def import_bulk_questions(*, institute, preview_payload, created_by=None):
                 is_verified=payload["is_verified"],
                 metadata=payload["metadata"],
             )
-            QuestionOption.objects.bulk_create(
-                [QuestionOption(question=question, **option) for option in payload["options"]]
-            )
-            sync_master_question_from_institute_question(question)
-            for tag_value in payload.get("tags", []):
-                tag, _ = QuestionTag.objects.get_or_create(
-                    institute=institute,
-                    code=tag_value.lower().replace(" ", "_")[:50],
-                    defaults={"name": tag_value, "is_active": True},
-                )
-                QuestionTagMap.objects.get_or_create(question=question, tag=tag)
-            notify_question_saved(question)
-            created_questions.append(question)
+            question_batch.append(question)
+            finalized_payloads.append(payload)
         except Exception as exc:  # pragma: no cover - defensive partial import path
             failures.append(
                 {
@@ -1784,6 +1871,29 @@ def import_bulk_questions(*, institute, preview_payload, created_by=None):
                     "errors": {"detail": [str(exc)]},
                 }
             )
+
+    if question_batch:
+        Question.objects.bulk_create(question_batch)
+
+        option_batch = []
+        tag_map_batch = []
+        for question, payload in zip(question_batch, finalized_payloads):
+            option_batch.extend(QuestionOption(question=question, **option) for option in payload["options"])
+            for tag_value in payload.get("tags", []):
+                tag = tag_cache.get(_import_tag_code(tag_value))
+                if tag is not None:
+                    tag_map_batch.append(QuestionTagMap(question=question, tag=tag))
+
+        if option_batch:
+            QuestionOption.objects.bulk_create(option_batch)
+        if tag_map_batch:
+            QuestionTagMap.objects.bulk_create(tag_map_batch, ignore_conflicts=True)
+
+        for question, payload in zip(question_batch, finalized_payloads):
+            sync_master_question_from_institute_question(question, option_payloads=payload["options"])
+            notify_question_saved(question)
+            created_questions.append(question)
+
     return {
         "created_count": len(created_questions),
         "failed_count": len(failures),

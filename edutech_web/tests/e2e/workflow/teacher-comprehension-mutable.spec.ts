@@ -11,36 +11,15 @@ function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-async function selectTextWithinEditor(
-  editor: Locator,
-  needle: string,
-) {
-  const found = await editor.evaluate((node, target) => {
-    const root = node as HTMLElement;
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-
-    while (walker.nextNode()) {
-      const current = walker.currentNode as Text;
-      const index = current.data.indexOf(String(target));
-      if (index >= 0) {
-        const selection = window.getSelection();
-        const range = document.createRange();
-        range.setStart(current, index);
-        range.setEnd(current, index + String(target).length);
-        selection?.removeAllRanges();
-        selection?.addRange(range);
-        return true;
-      }
-    }
-
-    return false;
-  }, needle);
-
-  expect(found).toBe(true);
-}
-
 async function selectFirstNonEmptyOption(page: Page, selector: string) {
   const locator = page.locator(selector);
+  await expect(locator).toBeVisible();
+  await expect.poll(async () => {
+    const values = await locator.locator("option").evaluateAll((options) =>
+      options.map((option) => (option as HTMLOptionElement).value),
+    );
+    return values.find((option) => option.trim().length > 0) ?? null;
+  }).not.toBeNull();
   const values = await locator.locator("option").evaluateAll((options) =>
     options.map((option) => (option as HTMLOptionElement).value),
   );
@@ -76,12 +55,30 @@ test.describe("Teacher mutable comprehension actions", () => {
     const comprehensionTitle = `PW Comprehension ${uniqueSeed}`;
     const linkedQuestionText = `PW linked comprehension question ${uniqueSeed}`;
     const updatedComprehensionTitle = `${comprehensionTitle} Updated`;
-    let passageId: string | null = null;
-    let questionId: string | null = null;
+      const updatedPassageSentence = "Learners secure identities in the cloud.";
+      const updatedTeacherNote = "Updated teacher note";
+      let passageId: string | null = null;
+      let questionId: string | null = null;
 
     try {
       await page.goto("/teacher/question-bank/comprehension/new");
       await expect(page.getByRole("heading", { name: /create comprehension set/i }).first()).toBeVisible();
+      await expect(page.getByText(/group a shared passage with multiple downstream questions/i).first()).toBeVisible();
+      await expect(page.getByText(/^set identity$/i).first()).toBeVisible();
+      await expect(page.getByText(/^passage content$/i).first()).toBeVisible();
+      await expect(page.getByText(/^linked questions$/i).first()).toBeVisible();
+      await expect(page.getByText(/create the comprehension set cleanly/i).first()).toBeVisible();
+      await expect(page.locator('input[name="title"]')).toBeVisible();
+      await expect(page.getByRole("button", { name: /create comprehension set/i })).toBeVisible();
+      await expect(page.getByRole("button", { name: /delete comprehension set/i })).toHaveCount(0);
+
+      await page.locator('select[name="content_format"]').selectOption("plain_text");
+
+      await page.getByRole("button", { name: /create comprehension set/i }).click();
+      await expect(page).toHaveURL(/\/teacher\/question-bank\/comprehension\/new(?:\?.*)?$/);
+      await expect(page.locator('input[name="title"]')).toHaveValue("");
+      await expect(page.getByText(/^set title$/i).first()).toBeVisible();
+      await expect(page.getByText(/^passage text$/i).first()).toBeVisible();
 
       await selectFirstNonEmptyOption(page, 'select[name="program"]');
       await expect(page.locator('select[name="subject"]')).toBeEnabled();
@@ -90,90 +87,112 @@ test.describe("Teacher mutable comprehension actions", () => {
       await selectFirstNonEmptyOption(page, 'select[name="topic"]');
 
       await page.locator('input[name="title"]').fill(comprehensionTitle);
+      await page.getByRole("button", { name: /create comprehension set/i }).click();
+      await expect(page).toHaveURL(/\/teacher\/question-bank\/comprehension\/new(?:\?.*)?$/);
+      await expect(page.getByText(/^passage text$/i).first()).toBeVisible();
+      await expect(page.locator('input[name="title"]')).toHaveValue(comprehensionTitle);
 
-      const passageToolbar = page.getByRole("toolbar", { name: /passage_text rich text controls/i });
-      const passageEditor = page.locator('[contenteditable="true"]').first();
-      await expect(passageToolbar).toBeVisible();
+      const passageEditor = page.locator('textarea[name="passage_text"]');
+      const notesEditor = page.locator('textarea[name="description"]');
       await expect(passageEditor).toBeVisible();
+      await expect(notesEditor).toBeVisible();
 
-      await passageEditor.click();
-      await page.keyboard.type("Shared Responsibility");
-      await selectTextWithinEditor(passageEditor, "Shared Responsibility");
-      await passageToolbar.getByRole("combobox").first().selectOption("h2");
-      await passageEditor.click();
-      await page.keyboard.press("End");
-      await page.keyboard.press("Enter");
-      await page.keyboard.type("Customers secure workloads in the cloud.");
-      await selectTextWithinEditor(passageEditor, "Customers");
-      await passageToolbar.getByTitle(/italic/i).click();
-      await passageEditor.click();
-      await page.keyboard.press("End");
-      await page.keyboard.press("Enter");
-      await passageToolbar.getByTitle(/bulleted list/i).click();
-      await page.keyboard.type("Provider secures infrastructure");
-      await page.keyboard.press("Enter");
-      await page.keyboard.type("Customer secures identities");
-      await page.keyboard.press("Enter");
-      await passageToolbar.getByTitle(/bulleted list/i).click();
-      await page.keyboard.type("AWS reference portal");
-      await selectTextWithinEditor(passageEditor, "AWS reference portal");
-      page.once("dialog", async (dialog) => {
-        expect(dialog.message()).toMatch(/enter link url/i);
-        await dialog.accept("https://aws.amazon.com/shared-responsibility-model/");
-      });
-      await passageToolbar.getByTitle(/insert link/i).click();
-
-      const notesToolbar = page.getByRole("toolbar", { name: /description rich text controls/i });
-      const notesEditor = page.locator('[contenteditable="true"]').nth(1);
-      await expect(notesToolbar).toBeVisible();
-      await notesEditor.click();
-      await page.keyboard.type("Initial teacher note");
-      await selectTextWithinEditor(notesEditor, "Initial teacher note");
-      await notesToolbar.getByTitle(/underline/i).click();
-      await notesEditor.click();
-      await page.keyboard.press("End");
-      await page.keyboard.press("Enter");
-      await notesToolbar.getByRole("combobox").first().selectOption("h3");
-      await page.keyboard.type("Scoring reminders");
-      await notesEditor.click();
-      await page.keyboard.press("End");
-      await page.keyboard.press("Enter");
-      await notesToolbar.getByTitle(/numbered list/i).click();
-      await page.keyboard.type("Accept precise terminology");
-      await page.keyboard.press("Enter");
-      await page.keyboard.type("Reward complete explanations");
-      await page.keyboard.press("Enter");
-      await notesToolbar.getByTitle(/numbered list/i).click();
+      await passageEditor.fill(
+        [
+          "Shared Responsibility",
+          "",
+          "Customers secure workloads in the cloud.",
+          "",
+          "- Provider secures infrastructure",
+          "- Customer secures identities",
+          "",
+          "AWS reference portal: https://aws.amazon.com/shared-responsibility-model/",
+        ].join("\n"),
+      );
+      await notesEditor.fill(
+        [
+          "Initial teacher note",
+          "",
+          "Scoring reminders",
+          "1. Accept precise terminology",
+          "2. Reward complete explanations",
+        ].join("\n"),
+      );
 
       await page.getByRole("button", { name: /create comprehension set/i }).click();
-      await expect(page).toHaveURL(/\/teacher\/question-bank\/comprehension\/.+\?message=/);
-      await expect(page.getByText(/comprehension set created successfully\./i)).toBeVisible();
+      await expect
+        .poll(() => page.url(), { timeout: 30000 })
+        .toMatch(/\/teacher\/question-bank\/comprehension\/(?!new)[^/?#]+(?:\?.*)?$/);
+      const createdMessage = page.getByText(/comprehension set created successfully\./i).first();
+      if (await createdMessage.isVisible().catch(() => false)) {
+        await expect(createdMessage).toBeVisible();
+      }
 
       const detailBaseUrl = page.url().split("?")[0] ?? page.url();
       const passageIdMatch = detailBaseUrl.match(/\/teacher\/question-bank\/comprehension\/([^/?#]+)/);
       passageId = passageIdMatch?.[1] ?? null;
       expect(passageId).not.toBeNull();
 
-      const renderedPassage = page.locator('[contenteditable="true"]').first();
-      await expect(renderedPassage.locator("h2")).toBeVisible();
-      await expect(renderedPassage.locator("em, i")).toContainText(/customers/i);
-      await expect(renderedPassage.locator("ul li").first()).toContainText(/provider secures infrastructure/i);
-      await expect(renderedPassage.locator("ul li").nth(1)).toContainText(/customer secures identities/i);
-      await expect(
-        renderedPassage.locator('a[href="https://aws.amazon.com/shared-responsibility-model/"]'),
-      ).toContainText(/aws reference portal/i);
-      const renderedNotes = page.locator('[contenteditable="true"]').nth(1);
-      await expect(renderedNotes.locator("u").first()).toBeVisible();
-      await expect(renderedNotes.locator("h3")).toContainText(/scoring/i);
-      await expect(renderedNotes.locator("ol li").first()).toContainText(/accept precise terminology/i);
-      await expect(renderedNotes.locator("ol li").nth(1)).toContainText(/reward complete explanations/i);
-      await expect(page.getByText(/no linked questions yet/i)).toBeVisible();
+      const renderedPassage = page.locator('textarea[name="passage_text"]');
+      const renderedNotes = page.locator('textarea[name="description"]');
+      await expect(renderedPassage).toHaveValue(/Shared Responsibility/);
+      await expect(renderedPassage).toHaveValue(/Customers secure workloads in the cloud\./);
+      await expect(renderedPassage).toHaveValue(/Provider secures infrastructure/);
+      await expect(renderedPassage).toHaveValue(/Customer secures identities/);
+      await expect(renderedPassage).toHaveValue(/AWS reference portal:/);
+      await expect(renderedNotes).toHaveValue(/Initial teacher note/);
+      await expect(renderedNotes).toHaveValue(/Scoring reminders/);
+      await expect(renderedNotes).toHaveValue(/Accept precise terminology/);
+      await expect(renderedNotes).toHaveValue(/Reward complete explanations/);
+      await expect(page.getByText(/^no linked questions yet$/i).first()).toBeVisible();
 
       await page.locator('input[name="title"]').fill(updatedComprehensionTitle);
+      await passageEditor.fill(
+        [
+          "Shared Responsibility",
+          "",
+          updatedPassageSentence,
+          "",
+          "- Provider secures infrastructure",
+          "- Customer secures identities",
+          "",
+          "AWS reference portal: https://aws.amazon.com/shared-responsibility-model/",
+        ].join("\n"),
+      );
+      await notesEditor.fill(
+        [
+          updatedTeacherNote,
+          "",
+          "Scoring reminders",
+          "1. Accept precise terminology",
+          "2. Reward complete explanations",
+        ].join("\n"),
+      );
       await page.getByRole("button", { name: /save comprehension set/i }).click();
       await expect(page).toHaveURL(/message=/);
-      await expect(page.getByText(/comprehension set updated successfully\./i)).toBeVisible();
+      await expect(page.getByText(/comprehension set updated successfully\./i).first()).toBeVisible();
       await expect(page.locator('input[name="title"]')).toHaveValue(updatedComprehensionTitle);
+      await expect(renderedPassage).toHaveValue(new RegExp(escapeRegExp(updatedPassageSentence)));
+      await expect(renderedPassage).not.toHaveValue(/Customers secure workloads in the cloud\./i);
+      await expect(renderedNotes).toHaveValue(new RegExp(escapeRegExp(updatedTeacherNote)));
+      await expect(renderedNotes).not.toHaveValue(/Initial teacher note/i);
+
+      await page.goto(`/teacher/question-bank/comprehension/${passageId}`);
+      await expect(page.getByRole("heading", { name: /edit comprehension set/i }).first()).toBeVisible();
+      await expect(page.locator('input[name="title"]')).toHaveValue(updatedComprehensionTitle);
+      await expect(page.locator('textarea[name="passage_text"]')).toHaveValue(/Shared Responsibility/);
+      await expect(page.locator('textarea[name="passage_text"]')).toHaveValue(
+        new RegExp(escapeRegExp(updatedPassageSentence)),
+      );
+      await expect(page.locator('textarea[name="passage_text"]')).not.toHaveValue(
+        /Customers secure workloads in the cloud\./i,
+      );
+      await expect(page.locator('textarea[name="description"]')).toHaveValue(/Scoring reminders/);
+      await expect(page.locator('textarea[name="description"]')).toHaveValue(
+        new RegExp(escapeRegExp(updatedTeacherNote)),
+      );
+      await expect(page.locator('textarea[name="description"]')).not.toHaveValue(/Initial teacher note/i);
+      await expect(page.getByRole("button", { name: /save comprehension set/i })).toBeVisible();
 
       await page.goto("/teacher/question-bank/new");
       await expect(page.getByRole("heading", { name: /create question/i }).first()).toBeVisible();
@@ -219,19 +238,20 @@ test.describe("Teacher mutable comprehension actions", () => {
 
       await page.getByRole("button", { name: /^create question$/i }).click();
       await expect(page).toHaveURL(/\/teacher\/question-bank\/.+\?message=/);
-      await expect(page.getByText(/question created successfully\./i)).toBeVisible();
+      await expect(page.getByText(/question created successfully\./i).first()).toBeVisible();
 
       const questionDetailUrl = page.url().split("?")[0] ?? page.url();
       const questionIdMatch = questionDetailUrl.match(/\/teacher\/question-bank\/([^/?#]+)/);
       questionId = questionIdMatch?.[1] ?? null;
       expect(questionId).not.toBeNull();
-      await expect(page.getByText(/linked to a comprehension set/i)).toBeVisible();
+      await expect(page.getByText(/linked to a comprehension set/i).first()).toBeVisible();
 
       await page.goto(`/teacher/question-bank/comprehension/${passageId}`);
       await expect(page.getByRole("heading", { name: /edit comprehension set/i }).first()).toBeVisible();
       await expect(page.getByText(new RegExp(escapeRegExp(linkedQuestionText), "i")).first()).toBeVisible();
-      await expect(page.getByText(/order 1/i)).toBeVisible();
-      await expect(page.getByText(/short_answer/i)).toBeVisible();
+      await expect(page.getByText(/order 1/i).first()).toBeVisible();
+      await expect(page.getByText(/short_answer/i).first()).toBeVisible();
+      await expect(page.getByText(/save this set first, then open the regular question editor/i)).toHaveCount(0);
     } finally {
       if (questionId) {
         await loginAsRole(page, "teacher");

@@ -881,20 +881,23 @@ class AdminQuestionBankPackageListView(APIView):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
 
     def get(self, request):
-        queryset = (
-            QuestionBankPackage.objects.select_related("institute")
-            .prefetch_related(
-                "scopes__program",
-                "scopes__subject",
-                "scopes__topic",
-                "institute_entitlements",
-                "subscription_plan_links",
-                "usage_entries",
-            )
-            .order_by("institute__name", "sort_order", "name")
+        compact = str(request.query_params.get("compact", "")).lower() in {"1", "true", "yes"}
+        queryset = QuestionBankPackage.objects.select_related("institute").prefetch_related(
+            "scopes__program",
+            "scopes__subject",
+            "scopes__topic",
+            "institute_entitlements",
+            "subscription_plan_links",
         )
+        if not compact:
+            queryset = queryset.prefetch_related("usage_entries")
+        queryset = queryset.order_by("institute__name", "sort_order", "name")
         return Response(
-            AdminQuestionBankPackageSerializer(queryset, many=True).data,
+            AdminQuestionBankPackageSerializer(
+                queryset,
+                many=True,
+                context={"include_scopes": not compact},
+            ).data,
             status=status.HTTP_200_OK,
         )
 

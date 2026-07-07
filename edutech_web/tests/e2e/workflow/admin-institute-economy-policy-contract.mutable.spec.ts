@@ -113,6 +113,10 @@ test.describe("Admin to institute economy policy contract", () => {
       await expect(refreshButton).toBeVisible();
       await expect(refreshButton).toBeEnabled();
 
+      const workspaceView = page.getByLabel(/institute economy workspace view/i);
+      await expect(workspaceView).toBeVisible();
+      await workspaceView.selectOption("orders");
+
       const operatorQueuePanel = operatorQueueCard(page);
       await expect(operatorQueuePanel).toBeVisible();
       const confirmationDisabledButtons = operatorQueuePanel.getByRole("button", {

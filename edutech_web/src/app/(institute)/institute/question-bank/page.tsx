@@ -10,7 +10,8 @@ import {
   fetchTeacherPrograms,
   fetchTeacherQuestionDetail,
   type MasterQuestionLibraryPage,
-  fetchTeacherQuestionPassagePage,
+  type LookupSubject,
+  type LookupTopic,
   fetchTeacherQuestionPage,
   fetchTeacherQuestionTags,
   fetchTeacherSubjects,
@@ -85,11 +86,6 @@ function buildHref(path: string, params: Record<string, string | number | boolea
   return `${path}${buildQuestionBankQuery(params)}`;
 }
 
-function summarizeRichText(value: string | null | undefined, fallback: string) {
-  const normalized = (value || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-  return normalized || fallback;
-}
-
 function summarizePreview(items: string[], singularLabel: string, pluralLabel: string) {
   if (!items.length) {
     return "";
@@ -102,39 +98,15 @@ function summarizePreview(items: string[], singularLabel: string, pluralLabel: s
   return `${items[0]} +${items.length - 1} more ${items.length - 1 === 1 ? singularLabel : pluralLabel}`;
 }
 
-function buildQuestionScopeFilters(params: {
-  search: string;
-  teacher: string;
-  program: string;
-  subject: string;
-  topic: string;
-  tag: string;
-  questionType: string;
-  difficultyLevel: string;
-  missingExplanation: boolean;
-  sourceState?: string;
-}) {
-  return {
-    search: params.search || undefined,
-    created_by_teacher: params.teacher || undefined,
-    program: params.program || undefined,
-    subject: params.subject || undefined,
-    topic: params.topic || undefined,
-    tag: params.tag || undefined,
-    question_type: params.questionType || undefined,
-    difficulty_level: params.difficultyLevel || undefined,
-    missing_explanation: params.missingExplanation,
-    source_state: params.sourceState || undefined,
-    page: 1,
-    page_size: 1,
-  };
-}
-
 function readLoadError(error: unknown, fallback: string) {
   if (error instanceof Error && error.message.trim()) {
     return error.message.trim();
   }
   return fallback;
+}
+
+function asArray<T>(value: T[] | null | undefined) {
+  return Array.isArray(value) ? value : [];
 }
 
 async function applyQuestionBulkAction(formData: FormData) {
@@ -276,7 +248,6 @@ export async function InstituteQuestionBankPageView({
     fetchTeacherOptionCatalog(),
     fetchTeacherPrograms(),
     fetchTeacherQuestionTags(),
-    fetchTeacherQuestionPassagePage({ page_size: 20 }),
     fetchPortalList<TeacherOption>(
       `/api/v1/teachers/${profile.institute ? `?institute=${profile.institute}&page_size=100` : "?page_size=100"}`,
     ),
@@ -291,20 +262,27 @@ export async function InstituteQuestionBankPageView({
   const optionCatalogResult = bootstrapResults[0];
   const programsResult = bootstrapResults[1];
   const tagsResult = bootstrapResults[2];
-  const passageResult = bootstrapResults[3];
-  const teachersResult = bootstrapResults[4];
-  const entitlementsResult = bootstrapResults[5];
+  const teachersResult = bootstrapResults[3];
+  const entitlementsResult = bootstrapResults[4];
 
-  const optionCatalogEntries =
-    optionCatalogResult.status === "fulfilled" ? optionCatalogResult.value : [];
-  const programs = programsResult.status === "fulfilled" ? programsResult.value : [];
-  const tags = tagsResult.status === "fulfilled" ? tagsResult.value : [];
-  const passagePage = passageResult.status === "fulfilled" ? passageResult.value : null;
-  const teachers = teachersResult.status === "fulfilled" ? teachersResult.value : [];
-  const questionBankEntitlements =
-    entitlementsResult.status === "fulfilled" ? entitlementsResult.value : [];
-  const featureEntitlements =
-    bootstrapResults[6].status === "fulfilled" ? bootstrapResults[6].value : [];
+  const optionCatalogEntries = asArray(
+    optionCatalogResult.status === "fulfilled" ? optionCatalogResult.value : [],
+  );
+  const programs = asArray(
+    programsResult.status === "fulfilled" ? programsResult.value : [],
+  );
+  const tags = asArray(
+    tagsResult.status === "fulfilled" ? tagsResult.value : [],
+  );
+  const teachers = asArray(
+    teachersResult.status === "fulfilled" ? teachersResult.value : [],
+  );
+  const questionBankEntitlements = asArray(
+    entitlementsResult.status === "fulfilled" ? entitlementsResult.value : [],
+  );
+  const featureEntitlements = asArray(
+    bootstrapResults[5].status === "fulfilled" ? bootstrapResults[5].value : [],
+  );
   const hasSharedLibraryAccess = featureEntitlements.some(
     (entitlement) =>
       entitlement.feature_code === QUESTION_BANK_SHARED_LIBRARY_FEATURE_CODE &&
@@ -312,15 +290,15 @@ export async function InstituteQuestionBankPageView({
   );
   const validTeacher = teachers.some((entry) => entry.id === teacher) ? teacher : "";
   const validProgram = programs.some((entry) => entry.id === program) ? program : "";
-  const subjects = await fetchTeacherSubjects({
+  const subjects = asArray(await fetchTeacherSubjects({
     program: validProgram || undefined,
-  }).catch(() => []);
+  }).catch(() => [] as LookupSubject[]));
 
   const validSubject =
     validProgram && subjects.some((entry) => entry.id === subject) ? subject : "";
-  const topics = await fetchTeacherTopics({
+  const topics = asArray(await fetchTeacherTopics({
     subject: validSubject || undefined,
-  }).catch(() => []);
+  }).catch(() => [] as LookupTopic[]));
 
   const validTopic =
     validSubject && topics.some((entry) => entry.id === topic) ? topic : "";
@@ -422,46 +400,33 @@ export async function InstituteQuestionBankPageView({
   }
 
   const optionCatalog = groupTeacherOptionCatalog(optionCatalogEntries);
-  const verifiedCount = questionPage.results.filter((question) => question.is_verified).length;
-  const missingExplanationCount = questionPage.results.filter(
+  const questionResults = asArray(questionPage.results);
+  const verifiedCount = questionResults.filter((question) => question.is_verified).length;
+  const missingExplanationCount = questionResults.filter(
     (question) => !question.has_explanation,
   ).length;
-  const scopeFilters = buildQuestionScopeFilters({
-    search,
-    teacher: validTeacher,
-    program: validProgram,
-    subject: validSubject,
-    topic: validTopic,
-    tag,
-    questionType,
-    difficultyLevel,
-    missingExplanation: missingExplanation,
-    sourceState,
-  });
-  const qualitySummaryResults = await Promise.allSettled([
-    fetchTeacherQuestionPage({ ...scopeFilters, revision_priority: "high" }),
-    fetchTeacherQuestionPage({ ...scopeFilters, quality_signal: "ambiguous" }),
-    fetchTeacherQuestionPage({ ...scopeFilters, quality_signal: "skip_risk" }),
-    fetchTeacherQuestionPage({ ...scopeFilters, quality_signal: "emerging" }),
-  ]);
-  const highPriorityRevisionCount =
-    qualitySummaryResults[0].status === "fulfilled" ? qualitySummaryResults[0].value.count : 0;
-  const ambiguousCount =
-    qualitySummaryResults[1].status === "fulfilled" ? qualitySummaryResults[1].value.count : 0;
-  const skipRiskCount =
-    qualitySummaryResults[2].status === "fulfilled" ? qualitySummaryResults[2].value.count : 0;
-  const emergingCount =
-    qualitySummaryResults[3].status === "fulfilled" ? qualitySummaryResults[3].value.count : 0;
-  const linkedAccessActiveCount = questionPage.results.filter(
+  const highPriorityRevisionCount = questionResults.filter(
+    (question) => question.revision_priority === "high",
+  ).length;
+  const ambiguousCount = questionResults.filter(
+    (question) => question.quality_signal === "ambiguous",
+  ).length;
+  const skipRiskCount = questionResults.filter(
+    (question) => question.quality_signal === "skip_risk",
+  ).length;
+  const emergingCount = questionResults.filter(
+    (question) => question.quality_signal === "emerging",
+  ).length;
+  const linkedAccessActiveCount = questionResults.filter(
     (question) => question.is_shared_library_link && question.shared_library_access_active === true,
   ).length;
-  const linkedAccessPausedCount = questionPage.results.filter(
+  const linkedAccessPausedCount = questionResults.filter(
     (question) => question.is_shared_library_link && question.shared_library_access_active === false,
   ).length;
-  const linkedVerifiedCount = questionPage.results.filter(
+  const linkedVerifiedCount = questionResults.filter(
     (question) => question.is_shared_library_link && question.is_verified,
   ).length;
-  const linkedMissingExplanationCount = questionPage.results.filter(
+  const linkedMissingExplanationCount = questionResults.filter(
     (question) => question.is_shared_library_link && !question.has_explanation,
   ).length;
   const activeQuestionBankEntitlements = questionBankEntitlements.filter(
@@ -477,7 +442,7 @@ export async function InstituteQuestionBankPageView({
   const currentTopicLabel =
     topics.find((entry) => entry.id === validTopic)?.name || "All topics";
   const packageScopePreview = activeQuestionBankEntitlements
-    .flatMap((entitlement) => entitlement.scope_summary)
+    .flatMap((entitlement) => asArray(entitlement.scope_summary))
     .filter(Boolean)
     .slice(0, 2);
   const packageNamePreview = activeQuestionBankEntitlements
@@ -494,7 +459,7 @@ export async function InstituteQuestionBankPageView({
   const packagePreviewLabel = summarizePreview(packageNamePreview, "package", "packages");
   const featurePreviewLabel = summarizePreview(featureNamePreview, "feature", "features");
   const packageScopeLabel = summarizePreview(packageScopePreview, "scope lane", "scope lanes");
-  const linkedRowsOnThisPage = questionPage.results.length;
+  const linkedRowsOnThisPage = questionResults.length;
   const activePackageCoverageLabel =
     packageScopeLabel ||
     (activeQuestionBankEntitlements.length > 0
@@ -891,66 +856,32 @@ export async function InstituteQuestionBankPageView({
             <small>{topics.length} topic options across the current subject lane</small>
           </article>
           <article className="builderSummaryCard">
-            <span>Comprehension sets</span>
-            <strong>{passagePage?.count ?? 0}</strong>
-            <small>Shared passages available for linked question authoring</small>
+            <span>Comprehension lane</span>
+            <strong>Ready</strong>
+            <small>Open the comprehension create or import lanes when the current question needs a shared passage.</small>
           </article>
           <article className="builderSummaryCard">
             <span>Revision queue</span>
             <strong>{highPriorityRevisionCount}</strong>
-            <small>High-priority questions across the current institute selection that need editorial cleanup</small>
+            <small>High-priority questions on this visible page slice that need editorial cleanup</small>
           </article>
           <article className="builderSummaryCard">
             <span>Ambiguous items</span>
             <strong>{ambiguousCount}</strong>
-            <small>Questions where wrong and skip behavior suggests wording or distractor problems</small>
+            <small>Visible questions where wrong and skip behavior suggests wording or distractor problems</small>
           </article>
           <article className="builderSummaryCard">
             <span>Skip risk</span>
             <strong>{skipRiskCount}</strong>
-            <small>Questions students defer often and may need simpler phrasing or stronger scaffolds</small>
+            <small>Visible questions students defer often and may need simpler phrasing or stronger scaffolds</small>
           </article>
           <article className="builderSummaryCard">
             <span>Emerging data</span>
             <strong>{emergingCount}</strong>
-            <small>Questions with early response volume that should be monitored before heavy edits</small>
+            <small>Visible questions with early response volume that should be monitored before heavy edits</small>
           </article>
         </section>
       )}
-
-      {!linkedOnly && passagePage?.results?.length ? (
-        <section className="contentCard">
-          <div className="sectionHeading">
-            <strong>Recent comprehension sets</strong>
-            <span>{passagePage.count} in the current institute selection</span>
-          </div>
-          <div className="questionBankList">
-            {passagePage.results.slice(0, 4).map((passage) => (
-              <article className="questionBankCard" key={passage.id}>
-                <div className="questionBankCardHeader">
-                  <div className="questionBankCardCopy">
-                    <strong>{passage.title}</strong>
-                    <div className="questionBankChipRow">
-                      <span className="questionBankMetaChip">{passage.content_format}</span>
-                      <span className="questionBankMetaChip">{passage.linked_question_count} linked</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="questionBankCardFooter">
-                  <div className="questionBankCardMetaNote">
-                    <span>{summarizeRichText(passage.description, "No institute note added yet.")}</span>
-                  </div>
-                  <div className="questionBankCardActions">
-                    <Link className="button buttonSecondary" href={`/institute/question-bank/comprehension/${passage.id}`}>
-                      Open Set
-                    </Link>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-      ) : null}
 
       {!linkedOnly ? (
       <section className="contentCard">

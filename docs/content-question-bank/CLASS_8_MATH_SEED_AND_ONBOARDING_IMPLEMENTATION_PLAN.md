@@ -1,5 +1,22 @@
 # Class 8 Math Seed And Onboarding Implementation Plan
 
+## Status Note
+
+This document contains historical implementation planning context.
+
+As of `2026-07-06`, part of this plan is now outdated:
+
+- the backend already includes the `class_8_cbse_core` academic preset
+- `seed_public_academics --preset class_8_cbse_core` already exists
+- `seed_master_question_library --preset class_8_cbse_core --subjects math --questions-per-topic 50` can already generate the `200` public Class 8 Math master rows
+
+So the current blocker is no longer missing preset support in code.
+The current blocker is stage seed execution.
+
+Use this runbook for the live stage remediation sequence:
+
+- [STAGE_SEED_CONTRACT_REMEDIATION_2026-07-06.md](/Users/ansh/Documents/Eductech/docs/qa-runbooks/STAGE_SEED_CONTRACT_REMEDIATION_2026-07-06.md)
+
 ## Current Finding
 The first Playwright verification spec for Class 8 Math is correctly failing because the required public academic seed does not exist yet.
 

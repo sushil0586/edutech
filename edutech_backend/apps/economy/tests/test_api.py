@@ -311,6 +311,46 @@ class EconomyApiTestCase(TestCase):
             any(item["question_bank_package_code"] == "DEMO_SHARED_LIBRARY_ACCESS" for item in entitlement_response.data)
         )
 
+    def test_platform_admin_can_view_compact_question_bank_package_overview(self):
+        public_hub = self.builder.create_institute(
+            code="PUBPKGC1",
+            name="Compact Package Hub",
+            metadata={"is_public_content_hub": True},
+        )
+        program = self.builder.create_program(public_hub, code="CLS10", name="Class 10")
+        subject = self.builder.create_subject(public_hub, program, code="MATH10", name="Mathematics")
+        topic = self.builder.create_topic(public_hub, subject, code="ALG10", name="Linear Equations")
+        package = QuestionBankPackage.objects.create(
+            institute=public_hub,
+            name="Demo Shared Library Access",
+            code="DEMO_SHARED_LIBRARY_ACCESS",
+            description="Compact package response fixture.",
+            package_type=QuestionBankPackageType.SUBJECT_LIBRARY,
+            ownership_type=QuestionBankOwnershipType.PLATFORM,
+            access_mode="link_on_demand",
+        )
+        QuestionBankPackageScope.objects.create(
+            institute=public_hub,
+            package=package,
+            program=program,
+            subject=subject,
+            topic=topic,
+            max_questions_total=500,
+            max_questions_per_topic=500,
+        )
+
+        self.client.force_authenticate(user=self.platform_admin_user)
+
+        response = self.client.get("/api/v1/economy/admin/question-bank-packages/?compact=1")
+
+        self.assertEqual(response.status_code, 200)
+        package_item = next(
+            item for item in response.data if item["code"] == "DEMO_SHARED_LIBRARY_ACCESS"
+        )
+        self.assertNotIn("scopes", package_item)
+        self.assertNotIn("usage_entry_count", package_item)
+        self.assertEqual(package_item["coverage_summary"], "1 subject · 1 topic · 1 scope row")
+
     def test_platform_admin_can_create_question_bank_package_with_scope(self):
         public_hub = self.builder.create_institute(
             code="PUBPKG01",

@@ -52,7 +52,7 @@ export default async function TeacherQuestionCreatePage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requireTeacherSession();
+  const profile = await requireTeacherSession();
   const resolvedSearchParams = await searchParams;
   const duplicateId = Array.isArray(resolvedSearchParams.duplicate)
     ? resolvedSearchParams.duplicate[0] ?? ""
@@ -62,17 +62,14 @@ export default async function TeacherQuestionCreatePage({
     : resolvedSearchParams.error ?? "";
   const validationErrors = parseQuestionBankValidationErrors(resolvedSearchParams.validation);
 
-  const data = await Promise.all([
+  const baseData = await Promise.all([
     fetchTeacherOptionCatalog(),
     fetchTeacherQuestionTypeRegistry(),
-    fetchTeacherPrograms(),
-    fetchTeacherSubjects(),
-    fetchTeacherTopics(),
-    fetchTeacherQuestionPassages(),
+    fetchTeacherPrograms({ institute: profile.institute }),
     duplicateId ? fetchTeacherQuestionDetail(duplicateId) : Promise.resolve(null),
   ]).catch(() => null);
 
-  if (!data) {
+  if (!baseData) {
     return (
       <div className="studentPage">
         <TeacherPageHeader
@@ -96,7 +93,30 @@ export default async function TeacherQuestionCreatePage({
     );
   }
 
-  const [optionCatalogEntries, questionTypeDefinitions, programs, subjects, topics, passages, duplicateQuestion] = data;
+  const [optionCatalogEntries, questionTypeDefinitions, programs, duplicateQuestion] = baseData;
+  const initialProgram = duplicateQuestion?.program ?? "";
+  const initialSubject = duplicateQuestion?.subject ?? "";
+  const scopedLookups = await Promise.all([
+    initialProgram
+      ? fetchTeacherSubjects({
+          institute: profile.institute,
+          program: initialProgram,
+        }).catch(() => [])
+      : Promise.resolve([]),
+    initialSubject
+      ? fetchTeacherTopics({
+          institute: profile.institute,
+          subject: initialSubject,
+        }).catch(() => [])
+      : Promise.resolve([]),
+    initialSubject
+      ? fetchTeacherQuestionPassages({
+          program: initialProgram || undefined,
+          subject: initialSubject,
+        }).catch(() => [])
+      : Promise.resolve([]),
+  ]);
+  const [subjects, topics, passages] = scopedLookups;
   const optionCatalog = groupTeacherOptionCatalog(optionCatalogEntries);
 
   return (
@@ -114,6 +134,7 @@ export default async function TeacherQuestionCreatePage({
         }
         pageTitle={duplicateQuestion ? "Duplicate Question" : "Create Question"}
         pageClassName="teacherConsolePage teacherQuestionEditorPageVivid"
+        lookupEndpoint="/api/teacher/question-bank/create-lookups"
         passages={passages}
         programs={programs}
         questionTypeDefinitions={questionTypeDefinitions}

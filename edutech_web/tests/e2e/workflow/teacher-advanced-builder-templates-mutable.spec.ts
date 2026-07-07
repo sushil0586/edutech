@@ -2,11 +2,17 @@ import { readFile } from "node:fs/promises";
 import { expect, test, type Download } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
-import { expectTeacherWorkspace } from "../helpers/navigation";
+import { expectAdminWorkspace, expectTeacherWorkspace } from "../helpers/navigation";
 
 const mutableExamBuilderActionsEnabled = isMutableLaneEnabled(
   "PLAYWRIGHT_ENABLE_MUTABLE_EXAM_BUILDER_ACTIONS",
 );
+const backendBaseUrl = (
+  process.env.PLAYWRIGHT_API_BASE_URL ??
+  process.env.API_BASE_URL ??
+  process.env.NEXT_PUBLIC_API_BASE_URL ??
+  "http://127.0.0.1:9001"
+).replace(/\/$/, "");
 
 type AdvancedTemplateListResponse = {
   results?: Array<{
@@ -14,6 +20,20 @@ type AdvancedTemplateListResponse = {
     name: string;
   }>;
 };
+
+async function getAccessToken(page: Parameters<typeof loginAsRole>[0]) {
+  const cookies = await page.context().cookies();
+  return cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
+}
+
+async function listAdvancedTemplates(page: Parameters<typeof loginAsRole>[0], accessToken: string) {
+  return page.request.get(`${backendBaseUrl}/api/v1/exams/advanced-templates/`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+}
 
 async function expectJsonDownload(download: Download, expectedFileName: string, expectedFragments: string[]) {
   expect(download.suggestedFilename()).toBe(expectedFileName);
@@ -54,8 +74,19 @@ test.describe("Teacher advanced builder template actions", () => {
     const importedTemplateName = `${templateName} Copy`;
 
     async function cleanupTemplates() {
-      const listResponse = await page.request.get("/api/exams/advanced-templates");
-      expect(listResponse.ok()).toBe(true);
+      let accessToken = await getAccessToken(page);
+      expect(accessToken).toBeTruthy();
+
+      let listResponse = await listAdvancedTemplates(page, accessToken);
+      if (!listResponse.ok()) {
+        await loginAsRole(page, "admin");
+        await expectAdminWorkspace(page);
+        accessToken = await getAccessToken(page);
+        expect(accessToken).toBeTruthy();
+        listResponse = await listAdvancedTemplates(page, accessToken);
+      }
+
+      expect(listResponse.ok(), await listResponse.text()).toBe(true);
       const payload = (await listResponse.json()) as AdvancedTemplateListResponse;
       const matchingTemplates =
         payload.results?.filter(
@@ -66,8 +97,16 @@ test.describe("Teacher advanced builder template actions", () => {
         ) ?? [];
 
       for (const template of matchingTemplates) {
-        const deleteResponse = await page.request.delete(`/api/exams/advanced-templates/${template.id}`);
-        expect(deleteResponse.ok()).toBe(true);
+        const deleteResponse = await page.request.delete(
+          `${backendBaseUrl}/api/v1/exams/advanced-templates/${template.id}/`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+          },
+        );
+        expect(deleteResponse.ok(), await deleteResponse.text()).toBe(true);
       }
     }
 

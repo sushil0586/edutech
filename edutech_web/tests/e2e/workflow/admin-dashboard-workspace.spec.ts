@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectAdminWorkspace } from "../helpers/navigation";
+import { gotoWithRuntimeRecovery } from "../helpers/runtime";
 
 test.describe("Admin dashboard workspace", () => {
   test.skip(testRequiresRole("admin"), "Admin Playwright credentials are not configured.");
@@ -9,7 +10,7 @@ test.describe("Admin dashboard workspace", () => {
     await loginAsRole(page, "admin");
     await expectAdminWorkspace(page);
 
-    await page.goto("/admin");
+    await gotoWithRuntimeRecovery(page, "/admin");
 
     await expect(page.getByRole("heading", { name: /platform control for/i }).first()).toBeVisible();
     await expect(page.getByText(/dashboard focus/i).first()).toBeVisible();
@@ -36,20 +37,20 @@ test.describe("Admin dashboard workspace", () => {
     await expect(page).toHaveURL(/\/admin\/academic-setup(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /academic setup/i }).first()).toBeVisible();
 
-    await page.goto("/admin");
+    await gotoWithRuntimeRecovery(page, "/admin");
     await expect(page.getByRole("heading", { name: /platform control for/i }).first()).toBeVisible();
 
     await page.getByRole("link", { name: /go to reports/i }).first().click();
     await expect(page).toHaveURL(/\/admin\/reports(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /reports/i }).first()).toBeVisible();
 
-    await page.goto("/admin?focus=institutes");
+    await gotoWithRuntimeRecovery(page, "/admin?focus=institutes");
     await expect(page.getByText(/focus:\s*institutes/i)).toBeVisible();
     await page.getByRole("link", { name: /open institutes/i }).first().click();
     await expect(page).toHaveURL(/\/admin\/institutes(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /institutes/i }).first()).toBeVisible();
 
-    await page.goto("/admin?focus=people");
+    await gotoWithRuntimeRecovery(page, "/admin?focus=people");
     await expect(page.getByText(/focus:\s*people/i)).toBeVisible();
     await page.getByRole("link", { name: /go to people/i }).first().click();
     await expect(page).toHaveURL(/\/admin\/people(?:\?.*)?$/);

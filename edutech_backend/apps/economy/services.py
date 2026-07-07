@@ -890,13 +890,26 @@ def process_exam_result_rewards(*, result, created_by=None, processed_at=None):
     processed_time = processed_at or timezone.now()
     created_events = []
     subject = getattr(result.exam, "subject", None)
+    reward_rules = list(
+        RewardRule.objects.filter(
+            institute=result.institute,
+            rule_type__in=[
+                RewardRuleType.EXAM_COMPLETION,
+                RewardRuleType.SCORE_THRESHOLD,
+            ],
+            is_active=True,
+        )
+        .filter(
+            Q(valid_from__isnull=True) | Q(valid_from__lte=processed_time),
+            Q(valid_until__isnull=True) | Q(valid_until__gte=processed_time),
+        )
+        .filter(Q(subject=subject) | Q(subject__isnull=True) if subject is not None else Q(subject__isnull=True))
+        .order_by("rule_type", "priority", "created_at")
+    )
 
-    for reward_rule in _active_reward_rules_queryset(
-        institute=result.institute,
-        rule_type=RewardRuleType.EXAM_COMPLETION,
-        at_time=processed_time,
-        subject=subject,
-    ):
+    for reward_rule in reward_rules:
+        if reward_rule.rule_type != RewardRuleType.EXAM_COMPLETION:
+            continue
         event, created = issue_reward_for_event(
             student=result.student,
             reward_rule=reward_rule,
@@ -910,12 +923,9 @@ def process_exam_result_rewards(*, result, created_by=None, processed_at=None):
             created_events.append(event)
 
     percentage = float(result.percentage or 0)
-    for reward_rule in _active_reward_rules_queryset(
-        institute=result.institute,
-        rule_type=RewardRuleType.SCORE_THRESHOLD,
-        at_time=processed_time,
-        subject=subject,
-    ):
+    for reward_rule in reward_rules:
+        if reward_rule.rule_type != RewardRuleType.SCORE_THRESHOLD:
+            continue
         threshold = float(reward_rule.score_threshold_percentage or 0)
         if percentage < threshold:
             continue
@@ -1122,25 +1132,27 @@ def package_scope_matches_master_question(*, scope, master_question):
 
 
 def find_matching_question_bank_packages_for_master_question(institute, *, master_question, at_time=None):
-    entitlements = active_institute_question_entitlements(institute, at_time=at_time).prefetch_related(
-        "question_bank_package__scopes"
+    entitlements = _active_question_bank_entitlement_snapshot(
+        institute,
+        at_time=at_time,
     )
     matches = []
     for entitlement in entitlements:
         package = entitlement.question_bank_package
-        package_scopes = list(package.scopes.filter(is_active=True))
+        package_scopes = _active_package_scopes(package)
         if any(package_scope_matches_master_question(scope=scope, master_question=master_question) for scope in package_scopes):
             matches.append(package)
     return matches
 
 
 def find_matching_question_bank_entitlements_for_master_question(institute, *, master_question, at_time=None):
-    entitlements = active_institute_question_entitlements(institute, at_time=at_time).prefetch_related(
-        "question_bank_package__scopes"
+    entitlements = _active_question_bank_entitlement_snapshot(
+        institute,
+        at_time=at_time,
     )
     matches = []
     for entitlement in entitlements:
-        package_scopes = list(entitlement.question_bank_package.scopes.filter(is_active=True))
+        package_scopes = _active_package_scopes(entitlement.question_bank_package)
         if any(package_scope_matches_master_question(scope=scope, master_question=master_question) for scope in package_scopes):
             matches.append(entitlement)
     return matches
@@ -1159,6 +1171,13 @@ def _active_package_scopes(package):
     prefetched = getattr(package, "_prefetched_active_scopes", None)
     if prefetched is not None:
         return prefetched
+
+    prefetched_cache = getattr(package, "_prefetched_objects_cache", None) or {}
+    prefetched_scopes = prefetched_cache.get("scopes")
+    if prefetched_scopes is not None:
+        scopes = list(prefetched_scopes)
+        setattr(package, "_prefetched_active_scopes", scopes)
+        return scopes
 
     scopes = list(package.scopes.filter(is_active=True))
     setattr(package, "_prefetched_active_scopes", scopes)
@@ -1776,7 +1795,7 @@ def record_institute_question_usage(
         performed_by_user = account_profile.user
     else:
         performed_by_user = getattr(performed_by_user, "user", performed_by_user)
-    return InstituteQuestionUsageLedger.objects.create(
+    entry = InstituteQuestionUsageLedger(
         institute=institute,
         question_bank_package=question_bank_package,
         entitlement=entitlement,
@@ -1789,6 +1808,11 @@ def record_institute_question_usage(
         effective_at=effective_at or timezone.now(),
         metadata=metadata or {},
     )
+    now = timezone.now()
+    entry.created_at = now
+    entry.updated_at = now
+    InstituteQuestionUsageLedger.objects.bulk_create([entry], batch_size=1)
+    return entry
 
 
 def record_master_question_link_usage(
@@ -1796,6 +1820,7 @@ def record_master_question_link_usage(
     institute,
     master_question,
     question,
+    entitlement=None,
     performed_by=None,
     effective_at=None,
     metadata=None,
@@ -1810,11 +1835,12 @@ def record_master_question_link_usage(
     if existing_entry is not None:
         return existing_entry
 
-    entitlement = resolve_question_bank_entitlement_for_master_question_use(
-        institute,
-        master_question=master_question,
-        at_time=effective_at,
-    )
+    if entitlement is None:
+        entitlement = resolve_question_bank_entitlement_for_master_question_use(
+            institute,
+            master_question=master_question,
+            at_time=effective_at,
+        )
     if entitlement is None:
         return None
     return record_institute_question_usage(
@@ -1834,6 +1860,7 @@ def record_exam_question_bank_usage(
     *,
     exam,
     action_type,
+    exam_questions=None,
     performed_by=None,
     effective_at=None,
     metadata=None,
@@ -1844,7 +1871,10 @@ def record_exam_question_bank_usage(
     }
     if action_type not in supported_actions:
         raise ValidationError({"action_type": "Unsupported exam usage action."})
-    grouped_entries = group_exam_question_bank_usage_buckets(exam=exam)
+    grouped_entries = group_exam_question_bank_usage_buckets(
+        exam=exam,
+        exam_questions=exam_questions,
+    )
     if not grouped_entries:
         return []
 
@@ -1896,8 +1926,7 @@ def record_exam_question_bank_usage(
     return recorded_entries
 
 
-@transaction.atomic
-def grant_institute_question_bank_entitlement(
+def _grant_institute_question_bank_entitlement(
     *,
     institute,
     question_bank_package,
@@ -1925,7 +1954,7 @@ def grant_institute_question_bank_entitlement(
         .first()
     )
     if entitlement is None:
-        entitlement = InstituteQuestionEntitlement.objects.create(
+        entitlement = InstituteQuestionEntitlement(
             institute=institute,
             question_bank_package=question_bank_package,
             status=InstituteQuestionEntitlementStatus.ACTIVE,
@@ -1938,6 +1967,10 @@ def grant_institute_question_bank_entitlement(
             notes=notes,
             metadata=metadata or {},
         )
+        now = timezone.now()
+        entitlement.created_at = now
+        entitlement.updated_at = now
+        InstituteQuestionEntitlement.objects.bulk_create([entitlement], batch_size=1)
         record_institute_question_usage(
             institute=institute,
             question_bank_package=question_bank_package,
@@ -1984,6 +2017,34 @@ def grant_institute_question_bank_entitlement(
 
 
 @transaction.atomic
+def grant_institute_question_bank_entitlement(
+    *,
+    institute,
+    question_bank_package,
+    granted_via=InstituteQuestionEntitlementGrantMode.ADMIN_GRANT,
+    subscription_plan=None,
+    subscription_plan_cycle=None,
+    starts_at=None,
+    ends_at=None,
+    granted_by=None,
+    notes="",
+    metadata=None,
+):
+    return _grant_institute_question_bank_entitlement(
+        institute=institute,
+        question_bank_package=question_bank_package,
+        granted_via=granted_via,
+        subscription_plan=subscription_plan,
+        subscription_plan_cycle=subscription_plan_cycle,
+        starts_at=starts_at,
+        ends_at=ends_at,
+        granted_by=granted_by,
+        notes=notes,
+        metadata=metadata,
+    )
+
+
+@transaction.atomic
 def update_institute_question_bank_entitlement_status(
     *,
     entitlement,
@@ -2015,7 +2076,15 @@ def update_institute_question_bank_entitlement_status(
     elif status == InstituteQuestionEntitlementStatus.ACTIVE:
         entitlement.revoked_by = None
 
-    entitlement.save()
+    entitlement.updated_at = timezone.now()
+    type(entitlement).objects.filter(pk=entitlement.pk).update(
+        status=entitlement.status,
+        notes=entitlement.notes,
+        starts_at=entitlement.starts_at,
+        ends_at=entitlement.ends_at,
+        revoked_by=entitlement.revoked_by,
+        updated_at=entitlement.updated_at,
+    )
     record_institute_question_usage(
         institute=entitlement.institute,
         question_bank_package=entitlement.question_bank_package,
@@ -2032,14 +2101,22 @@ def update_institute_question_bank_entitlement_status(
     return entitlement
 
 
-def group_exam_question_bank_usage_buckets(*, exam):
+def group_exam_question_bank_usage_buckets(*, exam, exam_questions=None):
     from apps.exams.models import ExamQuestion
 
-    exam_questions = list(
-        ExamQuestion.objects.select_related("question")
-        .filter(exam=exam, is_active=True, question__is_active=True)
-        .order_by("question_order", "created_at")
-    )
+    if exam_questions is None:
+        exam_questions = list(
+            ExamQuestion.objects.select_related("question")
+            .filter(exam=exam, is_active=True, question__is_active=True)
+            .order_by("question_order", "created_at")
+        )
+    else:
+        exam_questions = [
+            exam_question
+            for exam_question in exam_questions
+            if getattr(exam_question, "is_active", True)
+            and getattr(getattr(exam_question, "question", None), "is_active", True)
+        ]
     if not exam_questions:
         return []
 
@@ -2162,7 +2239,7 @@ def grant_institute_feature_entitlement(
         .first()
     )
     if entitlement is None:
-        entitlement = InstituteQuestionFeatureEntitlement.objects.create(
+        entitlement = InstituteQuestionFeatureEntitlement(
             institute=institute,
             feature_code=normalized_code,
             status=InstituteQuestionEntitlementStatus.ACTIVE,
@@ -2172,6 +2249,10 @@ def grant_institute_feature_entitlement(
             ends_at=ends_at,
             metadata=metadata or {},
         )
+        now = timezone.now()
+        entitlement.created_at = now
+        entitlement.updated_at = now
+        InstituteQuestionFeatureEntitlement.objects.bulk_create([entitlement], batch_size=1)
         _invalidate_question_bank_feature_cache(
             institute=institute,
             feature_code=normalized_code,
@@ -2184,7 +2265,19 @@ def grant_institute_feature_entitlement(
     entitlement.starts_at = starts_at
     entitlement.ends_at = ends_at
     entitlement.metadata = metadata or {}
-    entitlement.save()
+    normalized_code = str(entitlement.feature_code or "").strip().upper()
+    entitlement.feature_code = normalized_code
+    entitlement.updated_at = timezone.now()
+    type(entitlement).objects.filter(pk=entitlement.pk).update(
+        status=entitlement.status,
+        source_package=entitlement.source_package,
+        source_subscription_plan=entitlement.source_subscription_plan,
+        starts_at=entitlement.starts_at,
+        ends_at=entitlement.ends_at,
+        metadata=entitlement.metadata,
+        feature_code=entitlement.feature_code,
+        updated_at=entitlement.updated_at,
+    )
     _invalidate_question_bank_feature_cache(
         institute=institute,
         feature_code=normalized_code,
@@ -2206,7 +2299,12 @@ def update_institute_question_feature_entitlement_status(
     entitlement.status = status
     if status == InstituteQuestionEntitlementStatus.REVOKED:
         entitlement.ends_at = entitlement.ends_at or timezone.now()
-    entitlement.save()
+    entitlement.updated_at = timezone.now()
+    type(entitlement).objects.filter(pk=entitlement.pk).update(
+        status=entitlement.status,
+        ends_at=entitlement.ends_at,
+        updated_at=entitlement.updated_at,
+    )
     _invalidate_question_bank_feature_cache(
         institute=entitlement.institute,
         feature_code=entitlement.feature_code,
@@ -2214,8 +2312,7 @@ def update_institute_question_feature_entitlement_status(
     return entitlement
 
 
-@transaction.atomic
-def apply_subscription_plan_question_bank_links_to_institute(
+def _apply_subscription_plan_question_bank_links_to_institute(
     *,
     subscription_plan,
     target_institute,
@@ -2246,7 +2343,7 @@ def apply_subscription_plan_question_bank_links_to_institute(
     entitlements = []
     for link in active_links:
         package = link.question_bank_package
-        entitlement, _ = grant_institute_question_bank_entitlement(
+        entitlement, _ = _grant_institute_question_bank_entitlement(
             institute=target_institute,
             question_bank_package=package,
             granted_via=InstituteQuestionEntitlementGrantMode.SUBSCRIPTION,
@@ -2265,6 +2362,26 @@ def apply_subscription_plan_question_bank_links_to_institute(
         entitlements.append(entitlement)
 
     return entitlements
+
+
+@transaction.atomic
+def apply_subscription_plan_question_bank_links_to_institute(
+    *,
+    subscription_plan,
+    target_institute,
+    grant_modes=None,
+    granted_by=None,
+    notes="",
+    activation_context_metadata=None,
+):
+    return _apply_subscription_plan_question_bank_links_to_institute(
+        subscription_plan=subscription_plan,
+        target_institute=target_institute,
+        grant_modes=grant_modes,
+        granted_by=granted_by,
+        notes=notes,
+        activation_context_metadata=activation_context_metadata,
+    )
 
 
 @transaction.atomic
@@ -2298,6 +2415,13 @@ def create_institute_subscription_request(
         )
 
     normalized_grant_modes = [str(mode).strip() for mode in (grant_modes or ["included", "trial"]) if str(mode).strip()]
+    allowed_modes = {"included", "trial", "optional_addon"}
+    invalid_modes = [mode for mode in normalized_grant_modes if mode not in allowed_modes]
+    if invalid_modes:
+        raise ValidationError({"grant_modes": f"Unsupported grant mode(s): {', '.join(map(str, invalid_modes))}."})
+    requester_profile = getattr(requested_by, "account_profile", None)
+    if requester_profile is not None and getattr(requester_profile, "institute_id", None) not in {None, institute.id}:
+        raise ValidationError({"requested_by": "Requesting user must belong to the same institute."})
     active_package_links = list(
         subscription_plan_cycle.plan.question_bank_package_links.select_related("question_bank_package")
         .filter(is_active=True, grant_mode__in=normalized_grant_modes)
@@ -2316,7 +2440,7 @@ def create_institute_subscription_request(
     if pending_request is not None:
         return pending_request, False
 
-    request = InstituteSubscriptionRequest.objects.create(
+    request = InstituteSubscriptionRequest(
         institute=institute,
         subscription_plan_cycle=subscription_plan_cycle,
         status=InstituteSubscriptionRequestStatus.PENDING,
@@ -2331,6 +2455,10 @@ def create_institute_subscription_request(
             "subscription_plan_code": subscription_plan_cycle.plan.code,
         },
     )
+    now = timezone.now()
+    request.created_at = now
+    request.updated_at = now
+    InstituteSubscriptionRequest.objects.bulk_create([request], batch_size=1)
     return request, True
 
 
@@ -2368,7 +2496,7 @@ def review_institute_subscription_request(
 
     entitlements = []
     if normalized_decision == "approve":
-        entitlements = apply_subscription_plan_question_bank_links_to_institute(
+        entitlements = _apply_subscription_plan_question_bank_links_to_institute(
             subscription_plan=subscription_request.subscription_plan_cycle.plan,
             target_institute=subscription_request.institute,
             grant_modes=subscription_request.grant_modes or ["included", "trial"],
@@ -2405,7 +2533,15 @@ def review_institute_subscription_request(
         merged_metadata["decision"] = "rejected"
         subscription_request.metadata = merged_metadata
 
-    subscription_request.save()
+    subscription_request.updated_at = timezone.now()
+    type(subscription_request).objects.filter(pk=subscription_request.pk).update(
+        status=subscription_request.status,
+        reviewed_by=subscription_request.reviewed_by,
+        reviewed_at=subscription_request.reviewed_at,
+        operator_notes=subscription_request.operator_notes,
+        metadata=subscription_request.metadata,
+        updated_at=subscription_request.updated_at,
+    )
     return subscription_request, entitlements
 
 

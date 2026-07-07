@@ -611,34 +611,9 @@ export default async function InstituteExamsPage({
               <div className="workspaceFilterQuickChips">
                 {[
                   {
-                    label: "All",
-                    href: buildInstituteExamFilterHref({ teacher: teacherFilter, pageSize: examPageSize }),
-                    active: !teacherFilter && statusFilter === "all" && sortOption === "recommended" && groupOption === "none",
-                  },
-                  {
-                    label: "Live",
-                    href: buildInstituteExamFilterHref({ teacher: teacherFilter, status: "live", sort: sortOption, group: groupOption, pageSize: examPageSize }),
-                    active: statusFilter === "live",
-                  },
-                  {
                     label: "Scheduled",
                     href: buildInstituteExamFilterHref({ teacher: teacherFilter, status: "scheduled", sort: sortOption, group: groupOption, pageSize: examPageSize }),
                     active: statusFilter === "scheduled",
-                  },
-                  {
-                    label: "Drafts",
-                    href: buildInstituteExamFilterHref({ teacher: teacherFilter, status: "draft", sort: sortOption, group: groupOption, pageSize: examPageSize }),
-                    active: statusFilter === "draft",
-                  },
-                  {
-                    label: "Completed",
-                    href: buildInstituteExamFilterHref({ teacher: teacherFilter, status: "completed", sort: sortOption, group: groupOption, pageSize: examPageSize }),
-                    active: statusFilter === "completed",
-                  },
-                  {
-                    label: "Starts Soon",
-                    href: buildInstituteExamFilterHref({ teacher: teacherFilter, status: statusFilter, sort: "start_soon", group: groupOption, pageSize: examPageSize }),
-                    active: sortOption === "start_soon",
                   },
                   {
                     label: "Highest Marks",

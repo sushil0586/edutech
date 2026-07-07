@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { TeacherQuestionEditor } from "@/components/ui/teacher-question-editor";
@@ -47,12 +48,34 @@ async function createQuestionAction(formData: FormData) {
   }
 }
 
-export default async function InstituteQuestionCreatePage({
+function InstituteQuestionCreateLoadingShell() {
+  return (
+    <div className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteQuestionEditorPageVivid">
+      <InstitutePageHeader
+        title="Create Question"
+        description="Author a reusable assessment question with clear scoring, explanation, and answer structure."
+      />
+
+      <section className="studentInsightHeroCard">
+        <div className="studentInsightHeroCopy">
+          <span className="studentDashboardTag">Question Authoring</span>
+          <strong>Loading the institute question editor</strong>
+          <p>
+            The editor shell is ready. Academic lookups, question types, and duplicate context are loading in the background.
+          </p>
+          <small>Preparing the authoring lane for the current institute scope</small>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+async function InstituteQuestionCreatePageContent({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requireInstituteAdminSession();
+  const profile = await requireInstituteAdminSession();
   const resolvedSearchParams = await searchParams;
   const duplicateId = Array.isArray(resolvedSearchParams.duplicate)
     ? resolvedSearchParams.duplicate[0] ?? ""
@@ -62,17 +85,14 @@ export default async function InstituteQuestionCreatePage({
     : resolvedSearchParams.error ?? "";
   const validationErrors = parseQuestionBankValidationErrors(resolvedSearchParams.validation);
 
-  const data = await Promise.all([
+  const baseData = await Promise.all([
     fetchTeacherOptionCatalog(),
     fetchTeacherQuestionTypeRegistry(),
-    fetchTeacherPrograms(),
-    fetchTeacherSubjects(),
-    fetchTeacherTopics(),
-    fetchTeacherQuestionPassages(),
+    fetchTeacherPrograms({ institute: profile.institute }),
     duplicateId ? fetchTeacherQuestionDetail(duplicateId) : Promise.resolve(null),
   ]).catch(() => null);
 
-  if (!data) {
+  if (!baseData) {
     return (
       <div className="studentPage">
         <InstitutePageHeader
@@ -96,7 +116,30 @@ export default async function InstituteQuestionCreatePage({
     );
   }
 
-  const [optionCatalogEntries, questionTypeDefinitions, programs, subjects, topics, passages, duplicateQuestion] = data;
+  const [optionCatalogEntries, questionTypeDefinitions, programs, duplicateQuestion] = baseData;
+  const initialProgram = duplicateQuestion?.program ?? "";
+  const initialSubject = duplicateQuestion?.subject ?? "";
+  const scopedLookups = await Promise.all([
+    initialProgram
+      ? fetchTeacherSubjects({
+          institute: profile.institute,
+          program: initialProgram,
+        }).catch(() => [])
+      : Promise.resolve([]),
+    initialSubject
+      ? fetchTeacherTopics({
+          institute: profile.institute,
+          subject: initialSubject,
+        }).catch(() => [])
+      : Promise.resolve([]),
+    initialSubject
+      ? fetchTeacherQuestionPassages({
+          program: initialProgram || undefined,
+          subject: initialSubject,
+        }).catch(() => [])
+      : Promise.resolve([]),
+  ]);
+  const [subjects, topics, passages] = scopedLookups;
   const optionCatalog = groupTeacherOptionCatalog(optionCatalogEntries);
 
   return (
@@ -116,6 +159,7 @@ export default async function InstituteQuestionCreatePage({
         }
         pageTitle={duplicateQuestion ? "Duplicate Question" : "Create Question"}
         pageClassName="instituteConsolePage instituteQuestionEditorPageVivid"
+        lookupEndpoint="/api/institute/question-bank/create-lookups"
         passages={passages}
         programs={programs}
         questionTypeDefinitions={questionTypeDefinitions}
@@ -126,5 +170,15 @@ export default async function InstituteQuestionCreatePage({
         validationMessage={error ? decodeURIComponent(error) : ""}
       />
     </>
+  );
+}
+
+export default function InstituteQuestionCreatePage(props: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  return (
+    <Suspense fallback={<InstituteQuestionCreateLoadingShell />}>
+      <InstituteQuestionCreatePageContent {...props} />
+    </Suspense>
   );
 }

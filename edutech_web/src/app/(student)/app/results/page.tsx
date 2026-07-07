@@ -1097,16 +1097,6 @@ export default async function ResultsPage({
                 <StudentPassiveNavLink className="button buttonSecondary" href="/app/analytics">
                   View Analytics
                 </StudentPassiveNavLink>
-                <StudentPassiveNavLink
-                  className="button buttonGhost"
-                  href={buildResultsFilterHref({
-                    subject: scopedSubjectParam,
-                    source: scopedSourceParam,
-                    teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
-                  })}
-                >
-                  Stay In Results
-                </StudentPassiveNavLink>
               </div>
             </article>
           </section>

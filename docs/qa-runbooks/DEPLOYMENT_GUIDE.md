@@ -86,6 +86,11 @@ Recommended values when frontend and backend share the same host:
 - `CORS_ALLOWED_ORIGINS=https://learn.yourdomain.com`
 - `CSRF_TRUSTED_ORIGINS=https://learn.yourdomain.com`
 
+Security rule:
+
+- keep `CORS_ALLOW_ALL_ORIGINS=False` on stage and production
+- only list known browser origins in `CORS_ALLOWED_ORIGINS`
+
 ## Backend Pre-Deploy Commands
 
 Run from `edutech_backend/`:
@@ -153,6 +158,18 @@ Run from `edutech_web/`:
 npm install
 npm run build
 ```
+
+The frontend build now also ships browser hardening headers from:
+
+- [next.config.ts](/Users/ansh/Documents/Eductech/edutech_web/next.config.ts:1)
+
+The stage or production response should include:
+
+- `X-Frame-Options: DENY`
+- `X-Content-Type-Options: nosniff`
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `Permissions-Policy`
+- `Content-Security-Policy`
 
 Optional local production verification:
 

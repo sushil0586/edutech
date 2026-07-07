@@ -814,6 +814,13 @@ class AdminQuestionBankPackageSerializer(serializers.ModelSerializer):
             "scopes",
         )
 
+    def get_fields(self):
+        fields = super().get_fields()
+        if not self.context.get("include_scopes", True):
+            fields.pop("scopes", None)
+            fields.pop("usage_entry_count", None)
+        return fields
+
     def _title_case_label(self, value):
         if not value:
             return None

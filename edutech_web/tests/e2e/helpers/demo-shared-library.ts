@@ -59,7 +59,7 @@ function resolveDonorInstituteCode() {
   );
 }
 
-function resolveSeedSubjectCodes() {
+function resolveSeedSubjectCodes(targetInstituteCode: string) {
   const donorInstituteCode = resolveDonorInstituteCode();
 
   try {
@@ -71,13 +71,17 @@ function resolveSeedSubjectCodes() {
         "-c",
         [
           "import json",
+          "from apps.academics.models import Subject",
           "from apps.question_bank.models import MasterQuestion",
-          `codes = list(` +
+          `donor_codes = list(` +
             "MasterQuestion.objects.filter(" +
             `source_institute__code='${donorInstituteCode}', ` +
             "is_active=True, source_subject__isnull=False" +
-            ").values_list('source_subject__code', flat=True).distinct()[:8])",
-          "print(json.dumps([code for code in codes if code]))",
+            ").values_list('source_subject__code', flat=True).distinct())",
+          `target_codes = set(Subject.objects.filter(institute__code='${targetInstituteCode}', is_active=True).values_list('code', flat=True))`,
+          "compatible = [code for code in donor_codes if code and code in target_codes]",
+          "fallback = [code for code in donor_codes if code]",
+          "print(json.dumps({'compatible': compatible[:8], 'fallback': fallback[:8]}))",
         ].join("; "),
       ],
       {
@@ -89,8 +93,17 @@ function resolveSeedSubjectCodes() {
       .toString()
       .trim();
 
-    const parsed = JSON.parse(rawOutput) as string[];
-    const subjectCodes = parsed.filter((code) => typeof code === "string" && code.trim()).map((code) => code.trim());
+    const parsed = JSON.parse(rawOutput) as {
+      compatible?: string[];
+      fallback?: string[];
+    };
+    const compatibleCodes = (parsed.compatible ?? [])
+      .filter((code) => typeof code === "string" && code.trim())
+      .map((code) => code.trim());
+    const fallbackCodes = (parsed.fallback ?? [])
+      .filter((code) => typeof code === "string" && code.trim())
+      .map((code) => code.trim());
+    const subjectCodes = compatibleCodes.length > 0 ? compatibleCodes : fallbackCodes;
     if (subjectCodes.length === 0) {
       throw new Error("No donor subject codes available.");
     }
@@ -118,7 +131,7 @@ function resolveSeedSubjectCodes() {
 
 export function resetAndSeedDemoSharedLibraryWorkflow(targetInstituteCode?: string) {
   const resolvedInstituteCode = resolveTargetInstituteCode(targetInstituteCode);
-  const subjectCodes = resolveSeedSubjectCodes();
+  const subjectCodes = resolveSeedSubjectCodes(resolvedInstituteCode);
   runManagePyCommand([
     "reset_demo_shared_library_workflow",
     "--target-institute-code",

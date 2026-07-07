@@ -12,6 +12,8 @@ import { TeacherRubricReviewFields } from "@/components/ui/teacher-rubric-review
 import { TeacherPageHeader } from "@/components/ui/teacher-page-header";
 import type {
   ReadinessIssue,
+  TeacherExamListItem,
+  TeacherExamPublishLog,
   TeacherQuestionAnalysisPage,
   TeacherResultSummary,
 } from "@/features/dashboard/types";
@@ -21,10 +23,12 @@ import {
   createTeacherAttemptInterventionNote,
   fetchTeacherAttemptInterventions,
   fetchTeacherAttemptQuestionAnalysis,
+  fetchTeacherExamDetail,
   fetchTeacherExamAttemptPage,
   fetchTeacherExamPublishReadiness,
   fetchTeacherExamLeaderboard,
   fetchTeacherExams,
+  fetchTeacherExamPage,
   fetchTeacherLiveExamMonitor,
   fetchTeacherQuestionAnalysis,
   fetchTeacherResultPublishReadiness,
@@ -55,7 +59,8 @@ type HeaderComponent = typeof InstitutePageHeader | typeof TeacherPageHeader;
 type ResultsWorkspaceRole = "institute" | "teacher";
 type ResultsWorkspaceView = "overview" | "live" | "attempts" | "leaderboard" | "analysis";
 
-type ResultsExamCard = Awaited<ReturnType<typeof fetchTeacherExams>>[number];
+type ResultsExamRecord = Awaited<ReturnType<typeof fetchTeacherExams>>[number] | TeacherExamListItem;
+type ResultsExamCard = ResultsExamRecord;
 type ResultsAttempt = Awaited<ReturnType<typeof fetchTeacherExamAttemptPage>>["results"][number];
 type ResultsLeaderboardRow = Awaited<ReturnType<typeof fetchTeacherExamLeaderboard>>["results"][number];
 type ResultsTopicRow = Awaited<ReturnType<typeof fetchTeacherTopicPerformance>>["results"][number];
@@ -1488,6 +1493,10 @@ function resultsViewPath(basePath: string, view: ResultsWorkspaceView) {
   return `${basePath}/${view}`;
 }
 
+function getLatestPublishLog(exam: ResultsExamRecord): TeacherExamPublishLog | null {
+  return "publish_logs" in exam ? exam.publish_logs[0] ?? null : null;
+}
+
 function buildResultsHref(
   path: string,
   args: {
@@ -2290,7 +2299,7 @@ type WorkspaceContext = {
   integrityWarningAttempts: number;
   integrityWarningsTotal: number;
   thresholdReachedAttempts: number;
-  latestPublishLog: ResultsExamCard["publish_logs"][number] | null;
+  latestPublishLog: TeacherExamPublishLog | null;
   examLifecycleStatus: string;
   baseHrefArgs: {
     examId: string;
@@ -2319,6 +2328,9 @@ type WorkspaceContext = {
 
 function renderViewNavigation(context: WorkspaceContext) {
   const { config, view, baseHrefArgs } = context;
+  const attemptsBadgeCount = context.attemptsPageData.count || context.selectedSummary?.total_attempted || 0;
+  const leaderboardBadgeCount = context.leaderboardPageData.count || context.selectedSummary?.total_results_count || 0;
+  const analysisBadgeCount = context.questionAnalysisPageData.count || context.selectedExam.active_questions_count || 0;
   const items = [
     {
       id: "overview" as const,
@@ -2336,21 +2348,43 @@ function renderViewNavigation(context: WorkspaceContext) {
       id: "attempts" as const,
       title: "Attempts",
       note: "Review filters and attempt-by-attempt details",
-      badge: `${context.attemptsPageData.count} matching`,
+      badge: `${attemptsBadgeCount} matching`,
     },
     {
       id: "leaderboard" as const,
       title: "Leaderboard",
       note: "Ranks, publication state, and top outcomes",
-      badge: `${context.leaderboardPageData.count} ranked`,
+      badge: `${leaderboardBadgeCount} ranked`,
     },
     {
       id: "analysis" as const,
       title: "Analysis",
       note: "Topics, hard questions, and skip patterns",
-      badge: `${context.questionAnalysisPageData.count} questions`,
+      badge: `${analysisBadgeCount} questions`,
     },
   ];
+
+  if (view !== "overview") {
+    return (
+      <section className="contentCard">
+        <div className="sectionHeading">
+          <strong>Switch result lane</strong>
+          <span>{config.roleNoun} workflow views</span>
+        </div>
+        <div className="workspaceFilterActions workspaceFilterActionsFullRow">
+          {items.map((item) => (
+            <Link
+              key={item.id}
+              className={`button ${view === item.id ? "buttonPrimary" : "buttonSecondary"}`}
+              href={buildResultsHref(resultsViewPath(config.basePath, item.id), baseHrefArgs)}
+            >
+              {item.title}: {item.badge}
+            </Link>
+          ))}
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="resultsSummaryGrid teacherResultsStatsGrid teacherResultsStatsGridFive">
@@ -2372,8 +2406,10 @@ function renderViewNavigation(context: WorkspaceContext) {
 function renderExamSidebar(context: WorkspaceContext) {
   const {
     config,
+    view,
     currentPath,
     selectedExam,
+    selectedSummary,
     groupedExamCards,
     visibleExamCardsLength,
     examListFilter,
@@ -2415,6 +2451,71 @@ function renderExamSidebar(context: WorkspaceContext) {
     examListSort,
     examListGroup,
   });
+  const compactSidebarItems = groupedExamCards
+    .flatMap((group) => group.items)
+    .filter(({ exam }) => exam.id !== selectedExam.id)
+    .slice(0, 4);
+
+  if (view !== "overview") {
+    return (
+      <article className="contentCard teacherResultsSidebar">
+        <div className="sectionHeading">
+          <strong>Exam context</strong>
+          <span>{visibleExamCardsLength} visible</span>
+        </div>
+
+        <div className="builderHintPanel">
+          <strong>{selectedExam.title}</strong>
+          <p>
+            {selectedExam.code}
+            {selectedSummary ? ` · ${selectedSummary.total_attempted} attempts · ${percentage(selectedSummary.average_percentage)} average` : ""}
+          </p>
+          <small>
+            This route keeps exam switching available, but the full browsing and filtering surface stays on the overview page.
+          </small>
+        </div>
+
+        <div className="workspaceFilterActions workspaceFilterActionsFullRow">
+          <Link className="button buttonSecondary" href={buildResultsHref(config.basePath, { ...context.baseHrefArgs })}>
+            Open overview
+          </Link>
+          <Link className="button buttonGhost" href={`${config.examBasePath}/${selectedExam.id}`}>
+            Open exam
+          </Link>
+        </div>
+
+        {compactSidebarItems.length ? (
+          <div className="resultsList">
+            {compactSidebarItems.map(({ exam, summary }) => (
+              <Link
+                key={`compact-${exam.id}`}
+                className="resultCard"
+                href={buildResultsHref(currentPath, {
+                  ...context.baseHrefArgs,
+                  examId: exam.id,
+                })}
+              >
+                <div className="resultCardTop">
+                  <div>
+                    <strong>{exam.title}</strong>
+                    <span>{exam.code}</span>
+                  </div>
+                  <span className="statusPill statusDemo">
+                    {summary ? `${summary.total_attempted} attempts` : exam.status.replaceAll("_", " ")}
+                  </span>
+                </div>
+                <small>
+                  {summary
+                    ? `${percentage(summary.average_percentage)} average · ${summary.pending_review_tasks_count} review blocker${summary.pending_review_tasks_count === 1 ? "" : "s"}`
+                    : "Switch to this exam in the current view."}
+                </small>
+              </Link>
+            ))}
+          </div>
+        ) : null}
+      </article>
+    );
+  }
 
   return (
     <article className="contentCard teacherResultsSidebar">
@@ -3178,9 +3279,6 @@ function renderOverviewView(context: WorkspaceContext) {
           <Link className="button buttonGhost" href={`${config.examBasePath}/${selectedExam.id}`}>
             Open Exam
           </Link>
-          <Link className="button buttonGhost" href={`${config.examBasePath}/${selectedExam.id}/builder`}>
-            Open Builder
-          </Link>
           <Link className="button buttonGhost" href={`${config.reviewsBasePath}?exam=${selectedExam.id}`}>
             Open Reviews
           </Link>
@@ -3462,15 +3560,6 @@ function renderLiveMonitorView(context: WorkspaceContext) {
                       <strong>{attempt.student_name}</strong>
                       <span>{healthReason(attempt)}</span>
                     </div>
-                    <Link
-                      className="button buttonGhost"
-                      href={buildResultsHref(currentPath, {
-                        ...baseHrefArgs,
-                        attemptId: attempt.id,
-                      })}
-                    >
-                      Review
-                    </Link>
                   </div>
                 ))}
               </div>
@@ -3492,15 +3581,6 @@ function renderLiveMonitorView(context: WorkspaceContext) {
                       <strong>{attempt.student_name}</strong>
                       <span>{recommendedAction(attempt, config.roleNounLower)}</span>
                     </div>
-                    <Link
-                      className="button buttonGhost"
-                      href={buildResultsHref(currentPath, {
-                        ...baseHrefArgs,
-                        attemptId: attempt.id,
-                      })}
-                    >
-                      Inspect
-                    </Link>
                   </div>
                 ))}
               </div>
@@ -4053,7 +4133,6 @@ function renderAttemptsView(context: WorkspaceContext) {
 
 function renderLeaderboardView(context: WorkspaceContext) {
   const {
-    config,
     selectedExam,
     selectedSummary,
     leaderboardPageData,
@@ -4096,18 +4175,19 @@ function renderLeaderboardView(context: WorkspaceContext) {
           <strong>Publication checklist</strong>
           <span>{selectedExam.code}</span>
         </div>
-        <div className="teacherWorkflowGrid">
-          {workflowSteps.map((step, index) => (
-            <article className="teacherWorkflowCard" key={`leaderboard-${step.id}`}>
-              <div className="teacherWorkflowHeader">
-                <div className="teacherWorkflowStepNo">Step {index + 1}</div>
-                <span className={`statusPill ${step.tone}`}>{step.statusLabel}</span>
-              </div>
-              <strong>{step.title}</strong>
-              <p>{step.detail}</p>
-              <small>{step.helper}</small>
-            </article>
-          ))}
+        <div className="builderHintPanel">
+          <strong>Use this page to confirm rank posture before publishing widely</strong>
+          <p>
+            The leaderboard route should stay focused on rank visibility and publication posture, so the workflow
+            checklist is intentionally compact here instead of repeating the full overview guidance cards.
+          </p>
+          <ol>
+            {workflowSteps.map((step, index) => (
+              <li key={`leaderboard-${step.id}`}>
+                Step {index + 1}: {step.title} - {step.statusLabel}. {step.detail}
+              </li>
+            ))}
+          </ol>
         </div>
       </section>
 
@@ -4655,20 +4735,41 @@ function renderAnalysisView(context: WorkspaceContext) {
             <strong>Question risk board</strong>
             <span>{questionAnalysisPageData.count} shown</span>
           </div>
-          <div className="questionBankButtonRow">
-            <Link className={`button ${questionFilter === "all" ? "buttonPrimary" : "buttonGhost"}`} href={buildResultsHref(currentPath, { ...baseHrefArgs, questionFilter: "all", questionPage: 1 })}>
-              All
-            </Link>
-            <Link className={`button ${questionFilter === "hard_questions" ? "buttonPrimary" : "buttonGhost"}`} href={buildResultsHref(currentPath, { ...baseHrefArgs, questionFilter: "hard_questions", questionPage: 1 })}>
-              Hard
-            </Link>
-            <Link className={`button ${questionFilter === "skipped_often" ? "buttonPrimary" : "buttonGhost"}`} href={buildResultsHref(currentPath, { ...baseHrefArgs, questionFilter: "skipped_often", questionPage: 1 })}>
-              Skipped Often
-            </Link>
-            <Link className={`button ${questionFilter === "revision_candidates" ? "buttonPrimary" : "buttonGhost"}`} href={buildResultsHref(currentPath, { ...baseHrefArgs, questionFilter: "revision_candidates", questionPage: 1 })}>
-              Revision Candidates
-            </Link>
-          </div>
+          <form className="workspaceFiltersForm" method="GET">
+            <input name="exam" type="hidden" value={selectedExam.id} />
+            <input name="attempt_filter" type="hidden" value={baseHrefArgs.attemptFilter} />
+            <input name="attempt_sort" type="hidden" value={baseHrefArgs.attemptSort} />
+            <input name="attempt_group" type="hidden" value={baseHrefArgs.attemptGroup} />
+            <input name="attempt_page" type="hidden" value={String(baseHrefArgs.attemptPage)} />
+            <input name="attempt_page_size" type="hidden" value={String(baseHrefArgs.attemptPageSize)} />
+            <input name="exam_list_filter" type="hidden" value={baseHrefArgs.examListFilter} />
+            <input name="exam_list_sort" type="hidden" value={baseHrefArgs.examListSort} />
+            <input name="exam_list_group" type="hidden" value={baseHrefArgs.examListGroup} />
+            <input name="exam_page" type="hidden" value={String(baseHrefArgs.examPage)} />
+            <input name="exam_page_size" type="hidden" value={String(baseHrefArgs.examPageSize)} />
+            <input name="leaderboard_page" type="hidden" value={String(baseHrefArgs.leaderboardPage)} />
+            <input name="leaderboard_page_size" type="hidden" value={String(baseHrefArgs.leaderboardPageSize)} />
+            <input name="topic_page" type="hidden" value={String(baseHrefArgs.topicPage)} />
+            <input name="topic_page_size" type="hidden" value={String(baseHrefArgs.topicPageSize)} />
+            <input name="question_page" type="hidden" value="1" />
+            <input name="question_page_size" type="hidden" value={String(baseHrefArgs.questionPageSize)} />
+            <input name="student_question_filter" type="hidden" value={baseHrefArgs.studentQuestionFilter} />
+            <input name="student_question_search" type="hidden" value={baseHrefArgs.studentQuestionSearch} />
+            <label className="workspaceFilterField">
+              <span>Question filter</span>
+              <select defaultValue={questionFilter} name="question_filter">
+                <option value="all">All questions</option>
+                <option value="hard_questions">Hard questions</option>
+                <option value="skipped_often">Skipped often</option>
+                <option value="revision_candidates">Revision candidates</option>
+              </select>
+            </label>
+            <div className="workspaceFilterActions">
+              <button className="button buttonPrimary" type="submit">
+                Apply question filter
+              </button>
+            </div>
+          </form>
           <div className="questionBankTagRow">
             <span className="questionBankTagChip">
               {questionQualitySummary?.revision_candidates ?? 0} revision candidates
@@ -4951,27 +5052,6 @@ function renderAnalysisView(context: WorkspaceContext) {
                 </div>
 
                 <div className="analyticsResultQuestionToolbar">
-                  <div className="questionBankButtonRow">
-                    {[
-                      { label: "All", value: "all" as const },
-                      { label: "Wrong", value: "wrong" as const },
-                      { label: "Skipped", value: "skipped" as const },
-                      { label: "Marked", value: "marked" as const },
-                      { label: "Slow", value: "slow" as const },
-                    ].map((chip) => (
-                      <Link
-                        key={chip.value}
-                        className={`button ${studentQuestionFilter === chip.value ? "buttonPrimary" : "buttonGhost"}`}
-                        href={buildResultsHref(currentPath, {
-                          ...baseHrefArgs,
-                          studentQuestionFilter: chip.value,
-                        })}
-                      >
-                        {chip.label}
-                      </Link>
-                    ))}
-                  </div>
-
                   <form className="analyticsResultSearchForm" method="GET">
                     <input name="exam" type="hidden" value={selectedExam.id} />
                     <input name="attempt" type="hidden" value={selectedStudentAttempt.id} />
@@ -4992,7 +5072,16 @@ function renderAnalysisView(context: WorkspaceContext) {
                     <input name="topic_page_size" type="hidden" value={String(baseHrefArgs.topicPageSize)} />
                     <input name="question_page" type="hidden" value={String(baseHrefArgs.questionPage)} />
                     <input name="question_page_size" type="hidden" value={String(baseHrefArgs.questionPageSize)} />
-                    <input name="student_question_filter" type="hidden" value={studentQuestionFilter} />
+                    <label className="workspaceFilterField">
+                      <span>Question filter</span>
+                      <select defaultValue={studentQuestionFilter} name="student_question_filter">
+                        <option value="all">All questions</option>
+                        <option value="wrong">Wrong only</option>
+                        <option value="skipped">Skipped only</option>
+                        <option value="marked">Marked only</option>
+                        <option value="slow">Slow only</option>
+                      </select>
+                    </label>
                     <label className="workspaceFilterField analyticsResultSearchField">
                       <span>Question search</span>
                       <input defaultValue={studentQuestionSearch} name="student_question_search" placeholder="Search question, subject, or topic" />
@@ -5367,9 +5456,6 @@ function renderAnalysisView(context: WorkspaceContext) {
               <Link className="button buttonSecondary" href={config.questionBankPath}>
                 Open Question Bank
               </Link>
-              <Link className="button buttonGhost" href={`${config.examBasePath}/${selectedExam.id}/builder`}>
-                Open Builder
-              </Link>
             </div>
           </section>
         </div>
@@ -5424,12 +5510,41 @@ export async function ResultsWorkspacePage({
   const error = readSingle(resolvedSearchParams.error);
   const message = readSingle(resolvedSearchParams.message);
 
-  const [summaries, teacherExams] = await Promise.all([
+  const useCompactExamBootstrap = view !== "overview";
+  const compactExamPageSize = Math.max(examPageSize, 5);
+
+  const [summaries, teacherExams, compactExamPage, selectedSubviewExamDetail] = await Promise.all([
     fetchTeacherResultSummary().catch(() => null),
-    fetchTeacherExams().catch(() => null),
+    useCompactExamBootstrap ? Promise.resolve(null) : fetchTeacherExams().catch(() => null),
+    useCompactExamBootstrap
+      ? fetchTeacherExamPage({ page: 1, pageSize: compactExamPageSize }).catch(() => null)
+      : Promise.resolve(null),
+    useCompactExamBootstrap && selectedExamId
+      ? fetchTeacherExamDetail(selectedExamId).catch(() => null)
+      : Promise.resolve(null),
   ]);
 
-  if (!summaries || !teacherExams) {
+  const examRecords: ResultsExamRecord[] = useCompactExamBootstrap
+    ? (() => {
+        if (!compactExamPage) {
+          return [];
+        }
+        const compactItems = compactExamPage.results;
+        if (!selectedSubviewExamDetail) {
+          return compactItems;
+        }
+        const hasSelectedExam = compactItems.some((exam) => exam.id === selectedSubviewExamDetail.id);
+        if (!hasSelectedExam) {
+          return [selectedSubviewExamDetail, ...compactItems];
+        }
+        return compactItems.map((exam) =>
+          exam.id === selectedSubviewExamDetail.id ? selectedSubviewExamDetail : exam,
+        );
+      })()
+    : teacherExams ?? [];
+  const examBootstrapUnavailable = useCompactExamBootstrap ? !compactExamPage : !teacherExams;
+
+  if (!summaries || examBootstrapUnavailable) {
     return (
       <div className="studentPage">
         <Header
@@ -5453,7 +5568,7 @@ export async function ResultsWorkspacePage({
     );
   }
 
-  if (teacherExams.length === 0) {
+  if (examRecords.length === 0) {
     const emptyState = buildResultsEmptyStateContent(config.roleNounLower, view);
     return (
       <div className="studentPage">
@@ -5477,8 +5592,9 @@ export async function ResultsWorkspacePage({
     );
   }
 
-  const summaryByExamId = new Map(summaries.map((summary) => [summary.exam, summary]));
-  const resultExamCards = teacherExams.map((exam) => ({
+  const resultSummaries = summaries;
+  const summaryByExamId = new Map(resultSummaries.map((summary) => [summary.exam, summary]));
+  const resultExamCards = examRecords.map((exam) => ({
     exam,
     summary: summaryByExamId.get(exam.id) ?? null,
   }));
@@ -5499,39 +5615,32 @@ export async function ResultsWorkspacePage({
   const selectedExam = selectedExamCard.exam;
   const selectedSummary = selectedExamCard.summary;
 
-  const detailData = await Promise.allSettled([
-    fetchTeacherLiveExamMonitor(selectedExam.id),
-    fetchTeacherExamPublishReadiness(selectedExam.id),
-    fetchTeacherResultPublishReadiness(selectedExam.id),
-    fetchTeacherExamLeaderboard(selectedExam.id, {
-      page: leaderboardPage,
-      pageSize: leaderboardPageSize,
-    }),
-    fetchTeacherExamAttemptPage(selectedExam.id, {
-      page: attemptPage,
-      pageSize: attemptPageSize,
-      filter: attemptFilter,
-      sort: attemptSort,
-      attemptId: selectedAttemptId,
-    }),
-    fetchTeacherQuestionAnalysis(selectedExam.id, {
-      page: questionPage,
-      pageSize: questionPageSize,
-      filter: questionFilter as "all" | "hard_questions" | "skipped_often" | "revision_candidates",
-    }),
-    fetchTeacherTopicPerformance(selectedExam.id, {
-      page: topicPage,
-      pageSize: topicPageSize,
-    }),
-  ]);
+  const needsMonitor = view === "overview" || view === "live";
+  const needsReadiness = view === "overview";
+  const needsLeaderboard = view === "overview" || view === "leaderboard" || view === "analysis";
+  const needsAttempts = view === "attempts" || view === "analysis" || view === "live";
+  const needsQuestionAnalysis = view === "analysis";
+  const needsTopicPerformance = view === "analysis";
+  const leaderboardRequestPage = view === "overview" ? 1 : leaderboardPage;
+  const leaderboardRequestPageSize = view === "overview" ? 1 : leaderboardPageSize;
 
-  const monitor = detailData[0]?.status === "fulfilled" ? detailData[0].value : null;
-  const examPublishReadiness = detailData[1]?.status === "fulfilled" ? detailData[1].value : null;
-  const resultPublishReadiness = detailData[2]?.status === "fulfilled" ? detailData[2].value : null;
-  const leaderboardPageData =
-    detailData[3]?.status === "fulfilled"
-      ? detailData[3].value
-      : {
+  const [
+    monitor,
+    examPublishReadiness,
+    resultPublishReadiness,
+    leaderboardPageData,
+    attemptsPageData,
+    questionAnalysisPageData,
+    topicPerformancePageData,
+  ] = await Promise.all([
+    needsMonitor ? fetchTeacherLiveExamMonitor(selectedExam.id).catch(() => null) : Promise.resolve(null),
+    needsReadiness ? fetchTeacherExamPublishReadiness(selectedExam.id).catch(() => null) : Promise.resolve(null),
+    needsReadiness ? fetchTeacherResultPublishReadiness(selectedExam.id).catch(() => null) : Promise.resolve(null),
+    needsLeaderboard
+      ? fetchTeacherExamLeaderboard(selectedExam.id, {
+          page: leaderboardRequestPage,
+          pageSize: leaderboardRequestPageSize,
+        }).catch(() => ({
           count: 0,
           next: null,
           previous: null,
@@ -5543,11 +5652,28 @@ export async function ResultsWorkspacePage({
             all_ranked: false,
             published_results: false,
           },
-        };
-  const attemptsPageData =
-    detailData[4]?.status === "fulfilled"
-      ? detailData[4].value
-      : {
+        }))
+      : Promise.resolve({
+          count: 0,
+          next: null,
+          previous: null,
+          results: [],
+          summary: {
+            total: 0,
+            ranked_count: 0,
+            published_count: 0,
+            all_ranked: false,
+            published_results: false,
+          },
+        }),
+    needsAttempts
+      ? fetchTeacherExamAttemptPage(selectedExam.id, {
+          page: attemptPage,
+          pageSize: attemptPageSize,
+          filter: attemptFilter,
+          sort: attemptSort,
+          attemptId: selectedAttemptId,
+        }).catch(() => ({
           count: 0,
           next: null,
           previous: null,
@@ -5557,26 +5683,47 @@ export async function ResultsWorkspacePage({
           applied_sort: "latest",
           applied_search: "",
           selected_attempt: null,
-        };
-  const questionAnalysisPageData =
-    detailData[5]?.status === "fulfilled"
-      ? detailData[5].value
-      : { count: 0, next: null, previous: null, results: [] };
-  const topicPerformancePageData =
-    detailData[6]?.status === "fulfilled"
-      ? detailData[6].value
-      : { count: 0, next: null, previous: null, results: [] };
+        }))
+      : Promise.resolve({
+          count: 0,
+          next: null,
+          previous: null,
+          results: [],
+          summary: { total_attempts: 0 },
+          applied_filter: "all",
+          applied_sort: "latest",
+          applied_search: "",
+          selected_attempt: null,
+        }),
+    needsQuestionAnalysis
+      ? fetchTeacherQuestionAnalysis(selectedExam.id, {
+          page: questionPage,
+          pageSize: questionPageSize,
+          filter: questionFilter as "all" | "hard_questions" | "skipped_often" | "revision_candidates",
+        }).catch(() => ({ count: 0, next: null, previous: null, results: [] }))
+      : Promise.resolve({ count: 0, next: null, previous: null, results: [] }),
+    needsTopicPerformance
+      ? fetchTeacherTopicPerformance(selectedExam.id, {
+          page: topicPage,
+          pageSize: topicPageSize,
+        }).catch(() => ({ count: 0, next: null, previous: null, results: [] }))
+      : Promise.resolve({ count: 0, next: null, previous: null, results: [] }),
+  ]);
 
-  const totalAttempts = summaries.reduce((sum, item) => sum + item.total_attempted, 0);
-  const totalPassed = summaries.reduce((sum, item) => sum + item.total_passed, 0);
-  const totalFailed = summaries.reduce((sum, item) => sum + item.total_failed, 0);
+  const totalAttempts = resultSummaries.reduce((sum, item) => sum + item.total_attempted, 0);
+  const totalPassed = resultSummaries.reduce((sum, item) => sum + item.total_passed, 0);
+  const totalFailed = resultSummaries.reduce((sum, item) => sum + item.total_failed, 0);
   const averageAcrossExams =
-    summaries.length > 0
-      ? Math.round(summaries.reduce((sum, item) => sum + Number(item.average_percentage), 0) / summaries.length)
+    resultSummaries.length > 0
+      ? Math.round(
+          resultSummaries.reduce((sum, item) => sum + Number(item.average_percentage), 0) /
+            resultSummaries.length,
+        )
       : 0;
   const selectedPendingCount = selectedSummary
     ? pendingCount(selectedSummary.total_attempted, selectedSummary.total_passed, selectedSummary.total_failed)
     : 0;
+  const attemptsCountForReadiness = attemptsPageData.summary.total_attempts || selectedSummary?.total_attempted || 0;
   const selectedReviewBlockCount = selectedSummary?.pending_review_tasks_count ?? 0;
   const selectedRecheckCount = selectedSummary?.recheck_review_tasks_count ?? 0;
   const attempts = attemptsPageData.results;
@@ -5599,7 +5746,7 @@ export async function ResultsWorkspacePage({
     selectedSummary,
     resultsPublished,
     canPublishResults,
-    attemptsCount: attemptsPageData.summary.total_attempts,
+    attemptsCount: attemptsCountForReadiness,
     evaluatedResults,
     rankedLeaderboardReady,
     selectedPendingCount,
@@ -5641,14 +5788,14 @@ export async function ResultsWorkspacePage({
     canMarkCompleted,
     canPublishResults,
     resultsPublished,
-    attemptsCount: attemptsPageData.summary.total_attempts,
+    attemptsCount: attemptsCountForReadiness,
     evaluatedResults,
     rankedLeaderboardReady,
     examBasePath: config.examBasePath,
     reviewsBasePath: config.reviewsBasePath,
   });
   const recommendedWorkflowStep = nextWorkflowStep(workflowSteps);
-  const latestPublishLog = selectedExam.publish_logs[0] ?? null;
+  const latestPublishLog = getLatestPublishLog(selectedExam);
   const integrityWarningAttempts = monitor?.integrity_warning_attempts ?? 0;
   const integrityWarningsTotal = monitor?.integrity_warnings_total ?? 0;
   const thresholdReachedAttempts = monitor?.threshold_reached_attempts ?? 0;
@@ -5704,9 +5851,10 @@ export async function ResultsWorkspacePage({
           applied_filter: studentQuestionFilter,
           results: [],
         };
-  const selectedAttemptInterventions = selectedAttempt
-    ? await fetchTeacherAttemptInterventions(selectedAttempt.id).catch(() => [])
-    : [];
+  const selectedAttemptInterventions =
+    selectedAttempt && (view === "attempts" || view === "live")
+      ? await fetchTeacherAttemptInterventions(selectedAttempt.id).catch(() => [])
+      : [];
 
   const context: WorkspaceContext = {
     config,
@@ -5812,51 +5960,73 @@ export async function ResultsWorkspacePage({
       {message ? <p className="feedbackBanner feedbackBannerSuccess">{decodeURIComponent(message)}</p> : null}
       {error ? <p className="feedbackBanner feedbackBannerError">{decodeURIComponent(error)}</p> : null}
 
-      <section className="studentInsightHeroCard studentInsightHeroCardCompact">
-        <div className="studentInsightHeroCopy">
-          <span className="studentDashboardTag">Outcome Control</span>
-          <strong>{config.roleNoun} result operations</strong>
-          <small>
-            {totalAttempts} attempts · {attemptsByHealth.critical} critical · {attemptsByHealth.watch} watch-list
-          </small>
-        </div>
-        <div className="studentInsightHeroActions">
-          <Link className="button buttonPrimary" href={`${config.examBasePath}/${selectedExam.id}`}>
-            Open Exam
-          </Link>
-          <Link className="button buttonSecondary" href={`${config.examBasePath}/${selectedExam.id}/builder`}>
-            Open Builder
-          </Link>
-        </div>
-      </section>
+      {view === "overview" ? (
+        <>
+          <section className="studentInsightHeroCard studentInsightHeroCardCompact">
+            <div className="studentInsightHeroCopy">
+              <span className="studentDashboardTag">Outcome Control</span>
+              <strong>{config.roleNoun} result operations</strong>
+              <small>
+                {totalAttempts} attempts · {attemptsByHealth.critical} critical · {attemptsByHealth.watch} watch-list
+              </small>
+            </div>
+            <div className="studentInsightHeroActions">
+              <Link className="button buttonPrimary" href={`${config.examBasePath}/${selectedExam.id}`}>
+                Open Exam
+              </Link>
+              <Link className="button buttonSecondary" href={`${config.examBasePath}/${selectedExam.id}/builder`}>
+                Open Builder
+              </Link>
+            </div>
+          </section>
 
-      <section className="resultsSummaryGrid">
-        <article className="metricCard metricCardPrimary dashboardHeroCard">
-          <span>Visible Exams</span>
-          <strong>{visibleExamCards.length}</strong>
-          <small>{config.roleNoun}-scoped exams available in this results workspace</small>
-        </article>
-        <article className="metricCard dashboardHeroCard">
-          <span>Total Attempts</span>
-          <strong>{totalAttempts}</strong>
-          <small>{totalPassed} passed and {totalFailed} failed so far</small>
-        </article>
-        <article className="metricCard dashboardHeroCard">
-          <span>Average Performance</span>
-          <strong>{averageAcrossExams}%</strong>
-          <small>Average percentage across all returned exam summaries</small>
-        </article>
-        <article className="metricCard dashboardHeroCard">
-          <span>High Release Risk</span>
-          <strong>{highRiskExamCount}</strong>
-          <small>Exams where review backlog is most likely to delay publication</small>
-        </article>
-        <article className="metricCard dashboardHeroCard">
-          <span>Medium Release Risk</span>
-          <strong>{mediumRiskExamCount}</strong>
-          <small>Exams that need review attention before pressure grows further</small>
-        </article>
-      </section>
+          <section className="resultsSummaryGrid">
+            <article className="metricCard metricCardPrimary dashboardHeroCard">
+              <span>Visible Exams</span>
+              <strong>{visibleExamCards.length}</strong>
+              <small>{config.roleNoun}-scoped exams available in this results workspace</small>
+            </article>
+            <article className="metricCard dashboardHeroCard">
+              <span>Total Attempts</span>
+              <strong>{totalAttempts}</strong>
+              <small>{totalPassed} passed and {totalFailed} failed so far</small>
+            </article>
+            <article className="metricCard dashboardHeroCard">
+              <span>Average Performance</span>
+              <strong>{averageAcrossExams}%</strong>
+              <small>Average percentage across all returned exam summaries</small>
+            </article>
+            <article className="metricCard dashboardHeroCard">
+              <span>High Release Risk</span>
+              <strong>{highRiskExamCount}</strong>
+              <small>Exams where review backlog is most likely to delay publication</small>
+            </article>
+            <article className="metricCard dashboardHeroCard">
+              <span>Medium Release Risk</span>
+              <strong>{mediumRiskExamCount}</strong>
+              <small>Exams that need review attention before pressure grows further</small>
+            </article>
+          </section>
+        </>
+      ) : (
+        <section className="studentInsightHeroCard studentInsightHeroCardCompact">
+          <div className="studentInsightHeroCopy">
+            <span className="studentDashboardTag">Exam Context</span>
+            <strong>{selectedExam.title}</strong>
+            <small>
+              {selectedExam.code} · {selectedSummary ? `${selectedSummary.total_attempted} attempts · ${percentage(selectedSummary.average_percentage)} average` : "Results context loaded"}
+            </small>
+          </div>
+          <div className="studentInsightHeroActions">
+            <Link className="button buttonPrimary" href={buildResultsHref(config.basePath, { ...context.baseHrefArgs })}>
+              Open Overview
+            </Link>
+            <Link className="button buttonSecondary" href={`${config.examBasePath}/${selectedExam.id}`}>
+              Open Exam
+            </Link>
+          </div>
+        </section>
+      )}
 
       {renderViewNavigation(context)}
 

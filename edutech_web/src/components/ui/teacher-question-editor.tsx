@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { StudentPageHeader } from "@/components/ui/student-page-header";
 import type {
   LookupProgram,
@@ -179,6 +179,7 @@ export function TeacherQuestionEditor({
   initialQuestion,
   duplicateMode = false,
   pageClassName = "",
+  lookupEndpoint,
   validationErrors,
   validationMessage = "",
 }: {
@@ -198,6 +199,7 @@ export function TeacherQuestionEditor({
   initialQuestion?: TeacherQuestion | null;
   duplicateMode?: boolean;
   pageClassName?: string;
+  lookupEndpoint?: string;
   validationErrors?: QuestionBankValidationErrors;
   validationMessage?: string;
 }) {
@@ -210,6 +212,10 @@ export function TeacherQuestionEditor({
   const [subjectId, setSubjectId] = useState(initialQuestion?.subject ?? "");
   const [topicId, setTopicId] = useState(initialQuestion?.topic ?? "");
   const [passageId, setPassageId] = useState(initialQuestion?.passage ?? "");
+  const [loadedSubjects, setLoadedSubjects] = useState(subjects);
+  const [loadedTopics, setLoadedTopics] = useState(topics);
+  const [loadedPassages, setLoadedPassages] = useState(passages);
+  const [lookupLoading, setLookupLoading] = useState(false);
   const [defaultMarksValue, setDefaultMarksValue] = useState(initialQuestion?.default_marks ?? "1.00");
   const [negativeMarksValue, setNegativeMarksValue] = useState(initialQuestion?.negative_marks ?? "0.00");
   const [options, setOptions] = useState<EditableOption[]>(
@@ -257,6 +263,69 @@ export function TeacherQuestionEditor({
     () => new Set(allowedQuestionTypeCodes),
     [allowedQuestionTypeCodes],
   );
+  useEffect(() => {
+    if (!lookupEndpoint) {
+      return;
+    }
+
+    if (!programId) {
+      return;
+    }
+
+    let isActive = true;
+    const controller = new AbortController();
+    const params = new URLSearchParams();
+    params.set("program", programId);
+    if (subjectId) {
+      params.set("subject", subjectId);
+    }
+
+    void (async () => {
+      setLookupLoading(true);
+      try {
+        const response = await fetch(`${lookupEndpoint}?${params.toString()}`, {
+          method: "GET",
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          throw new Error("Unable to load question-bank lookups.");
+        }
+        const payload = (await response.json()) as {
+          subjects?: LookupSubject[];
+          topics?: LookupTopic[];
+          passages?: TeacherQuestionPassageSummary[];
+        };
+        if (!isActive) {
+          return;
+        }
+        setLoadedSubjects(Array.isArray(payload.subjects) ? payload.subjects : []);
+        setLoadedTopics(Array.isArray(payload.topics) ? payload.topics : []);
+        setLoadedPassages(Array.isArray(payload.passages) ? payload.passages : []);
+      } catch {
+        if (!isActive) {
+          return;
+        }
+        setLoadedSubjects([]);
+        setLoadedTopics([]);
+        setLoadedPassages([]);
+      } finally {
+        if (isActive) {
+          setLookupLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      isActive = false;
+      controller.abort();
+    };
+  }, [lookupEndpoint, programId, subjectId]);
+
+  const subjectSource = lookupEndpoint ? loadedSubjects : subjects;
+  const topicSource = lookupEndpoint ? loadedTopics : topics;
+  const passageSource = lookupEndpoint ? loadedPassages : passages;
+
   const filteredQuestionTypeOptions = useMemo(() => {
     if (!allowedQuestionTypeSet.size) {
       return questionTypeOptions;
@@ -300,8 +369,8 @@ export function TeacherQuestionEditor({
       return [] as LookupSubject[];
     }
 
-    return subjects.filter((subject) => subject.program === programId);
-  }, [programId, subjects]);
+    return subjectSource.filter((subject) => subject.program === programId);
+  }, [programId, subjectSource]);
 
   const selectedSubjectId =
     subjectId && subjectOptions.some((subject) => subject.id === subjectId)
@@ -313,8 +382,8 @@ export function TeacherQuestionEditor({
       return [] as LookupTopic[];
     }
 
-    return sortTopicOptions(topics.filter((topic) => topic.subject === selectedSubjectId));
-  }, [selectedSubjectId, topics]);
+    return sortTopicOptions(topicSource.filter((topic) => topic.subject === selectedSubjectId));
+  }, [selectedSubjectId, topicSource]);
 
   const selectedTopicId =
     topicId && topicOptions.some((topic) => topic.id === topicId)
@@ -326,7 +395,7 @@ export function TeacherQuestionEditor({
       return [] as TeacherQuestionPassageSummary[];
     }
 
-    return passages.filter((passage) => {
+    return passageSource.filter((passage) => {
       if (programId && passage.program && passage.program !== programId) {
         return false;
       }
@@ -335,7 +404,7 @@ export function TeacherQuestionEditor({
       }
       return true;
     });
-  }, [passages, programId, selectedSubjectId]);
+  }, [passageSource, programId, selectedSubjectId]);
 
   const selectedPassageId =
     passageId && passageOptions.some((passage) => passage.id === passageId)
@@ -615,7 +684,9 @@ export function TeacherQuestionEditor({
                 </select>
                 <small>
                   {programId
-                    ? "Only subjects mapped to the selected program are shown."
+                    ? lookupLoading
+                      ? "Loading subjects for the selected program."
+                      : "Only subjects mapped to the selected program are shown."
                     : "Program selection unlocks the correct subject list."}
                 </small>
                 {subjectError ? <small className="setupFieldError">{subjectError}</small> : null}
@@ -626,12 +697,18 @@ export function TeacherQuestionEditor({
                 <select
                   aria-invalid={Boolean(topicError)}
                   className={topicError ? "setupFieldInvalid" : undefined}
-                  disabled={!selectedSubjectId}
+                  disabled={!selectedSubjectId || lookupLoading}
                   name="topic"
                   onChange={(event) => setTopicId(event.target.value)}
                   value={selectedTopicId}
                 >
-                  <option value="">{selectedSubjectId ? "No topic" : "Select subject first"}</option>
+                  <option value="">
+                    {selectedSubjectId
+                      ? lookupLoading
+                        ? "Loading topics"
+                        : "No topic"
+                      : "Select subject first"}
+                  </option>
                   {topicOptions.map((topic) => (
                     <option key={topic.id} value={topic.id}>
                       {formatTopicOptionLabel(topic)}
@@ -640,7 +717,9 @@ export function TeacherQuestionEditor({
                 </select>
                 <small>
                   {selectedSubjectId
-                    ? "Topics are filtered to the selected subject."
+                    ? lookupLoading
+                      ? "Loading topics for the selected subject."
+                      : "Topics are filtered to the selected subject."
                     : "Choose a subject before narrowing the question into a topic."}
                 </small>
                 {topicError ? <small className="setupFieldError">{topicError}</small> : null}
@@ -651,12 +730,18 @@ export function TeacherQuestionEditor({
                 <select
                   aria-invalid={Boolean(passageError)}
                   className={passageError ? "setupFieldInvalid" : undefined}
-                  disabled={!selectedSubjectId}
+                  disabled={!selectedSubjectId || lookupLoading}
                   name="passage"
                   onChange={(event) => setPassageId(event.target.value)}
                   value={selectedPassageId}
                 >
-                  <option value="">{selectedSubjectId ? "Standalone question" : "Select subject first"}</option>
+                  <option value="">
+                    {selectedSubjectId
+                      ? lookupLoading
+                        ? "Loading comprehension sets"
+                        : "Standalone question"
+                      : "Select subject first"}
+                  </option>
                   {passageOptions.map((passage) => (
                     <option key={passage.id} value={passage.id}>
                       {passage.title}
@@ -665,7 +750,9 @@ export function TeacherQuestionEditor({
                 </select>
                 <small>
                   {selectedSubjectId
-                    ? "Only comprehension sets from the same academic lane are available."
+                    ? lookupLoading
+                      ? "Loading comprehension sets from the same academic lane."
+                      : "Only comprehension sets from the same academic lane are available."
                     : "Linked passages appear after subject selection so comprehension mapping stays clean."}
                 </small>
                 {passageError ? <small className="setupFieldError">{passageError}</small> : null}

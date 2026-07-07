@@ -1,12 +1,8 @@
 import { expect, Page } from "@playwright/test";
 import { getRoleCredentials, missingRoleEnvVars, type PlaywrightRole } from "../fixtures/env";
+import { resolveBackendBaseUrl } from "./backend-base-url";
 
-const backendBaseUrl = (
-  process.env.API_BASE_URL ??
-  process.env.NEXT_PUBLIC_API_BASE_URL ??
-  process.env.PLAYWRIGHT_API_BASE_URL ??
-  "http://127.0.0.1:9001"
-).replace(/\/$/, "");
+const backendBaseUrl = resolveBackendBaseUrl();
 const frontendBaseUrl = (process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000").replace(/\/$/, "");
 
 type SessionTokens = {

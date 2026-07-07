@@ -68,6 +68,15 @@ Include captured SQL samples when you need to see which queries make up the rout
   --include-query-sql
 ```
 
+Profile the teacher leaderboard route directly when narrowing the remaining results-workspace hotspot:
+
+```bash
+./.venv/bin/python manage.py profile_operational_routes \
+  --route-label teacher_results_leaderboard \
+  --repeat 1 \
+  --include-query-sql
+```
+
 ## What It Measures
 
 For each supported route, the profiler records:
@@ -83,6 +92,7 @@ Current route set:
 - `GET /api/v1/institute/dashboard/summary/`
 - `GET /api/v1/teacher/exams/?page=1&page_size=10&filter=all&sort=recommended`
 - `GET /api/v1/teacher/results/summary/`
+- `GET /api/v1/results/exam/{teacher_exam_id}/leaderboard/?page=1&page_size=6`
 - `GET /api/v1/attempts/review-tasks/summary/`
 - `GET /api/v1/question-bank/master-library/?page=1&page_size=10`
 - `GET /api/v1/student/exams/available/`
@@ -103,6 +113,7 @@ New focused route labels for one-at-a-time profiling:
 
 - `question_bank_questions_compact`
 - `question_bank_passages_list`
+- `teacher_results_leaderboard`
 - `student_available_exams`
 - `student_exam_detail`
 - `student_attempt_list`

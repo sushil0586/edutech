@@ -469,28 +469,18 @@ export default async function AttemptSummaryPage({
             ) : (
               <Link
                 className="button buttonSecondary"
-              href={
-                practiceFollowUp.action.mode === "link" &&
-                practiceFollowUp.action.href === "/app/practice"
-                  ? scopedPracticeHref
-                  : practiceFollowUp.action.href
-              }
+                href={
+                  practiceFollowUp.action.mode === "link" &&
+                  practiceFollowUp.action.href === "/app/practice"
+                    ? scopedPracticeHref
+                    : practiceFollowUp.action.href
+                }
               >
                 {practiceFollowUp.action.mode === "link"
                   ? stateCopy.practiceCta
                   : practiceFollowUp.action.label}
               </Link>
             )}
-            <Link
-              className="button buttonGhost"
-              href={buildFilterHref("/app/attempts", [
-                ["subject", scopedSubjectParam],
-                ["source", sourceParam?.trim()],
-                ["teacher", teacher?.trim()],
-              ])}
-            >
-              Open Attempts
-            </Link>
           </div>
         </article>
       </section>

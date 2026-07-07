@@ -129,6 +129,13 @@ function buildCsv(columns: readonly string[], row: Record<string, string>) {
   ].join("\n");
 }
 
+function buildCsvRows(columns: readonly string[], rows: Array<Record<string, string>>) {
+  return [
+    columns.join(","),
+    ...rows.map((row) => columns.map((column) => escapeCsvValue(row[column] ?? "")).join(",")),
+  ].join("\n");
+}
+
 function normalizeAcademicLabel(label: string) {
   return label.replace(/\s+\([^)]+\)\s*$/, "").trim();
 }
@@ -137,10 +144,13 @@ async function buildImportFile(
   testInfo: TestInfo,
   fileName: string,
   columns: readonly string[],
-  row: Record<string, string>,
+  rowOrRows: Record<string, string> | Array<Record<string, string>>,
 ) {
   const filePath = testInfo.outputPath(fileName);
-  await writeFile(filePath, buildCsv(columns, row), "utf8");
+  const csvContent = Array.isArray(rowOrRows)
+    ? buildCsvRows(columns, rowOrRows)
+    : buildCsv(columns, rowOrRows);
+  await writeFile(filePath, csvContent, "utf8");
   return filePath;
 }
 
@@ -291,6 +301,140 @@ test.describe("Admin mutable roster import actions", () => {
       "disposable admin roster import coverage",
     ),
   );
+
+  test("@workflow @mutable admin preview keeps mixed valid and invalid student import rows visually honest", async ({
+    page,
+  }, testInfo) => {
+    await loginAsRole(page, "admin");
+    await expectAdminWorkspace(page);
+
+    const uniqueSeed = Date.now();
+    const studentImportScope =
+      process.env.PLAYWRIGHT_STUDENT_IMPORT_ACADEMIC_YEAR?.trim() &&
+      process.env.PLAYWRIGHT_STUDENT_IMPORT_PROGRAM?.trim()
+        ? await resolveStudentImportScope()
+        : await resolveStudentImportScopeFromApi(page);
+
+    const validStudentAdmissionNo = `PW-ASI-MIX-${uniqueSeed}`;
+    const invalidStudentAdmissionNo = `PW-ASI-BAD-${uniqueSeed}`;
+    const validStudentUsername = `pw.admin.mix.student.${uniqueSeed}`;
+    const mixedStudentFilePath = await buildImportFile(
+      testInfo,
+      "admin-students-mixed-import.csv",
+      studentImportColumns,
+      [
+        {
+          admission_no: validStudentAdmissionNo,
+          first_name: `PWAdminMixed${uniqueSeed}`,
+          last_name: "Valid",
+          gender: "female",
+          academic_year: studentImportScope.academicYearName,
+          program: studentImportScope.programName,
+          cohort: studentImportScope.cohortName,
+          email: `pw.admin.mix.student.${uniqueSeed}@example.test`,
+          phone: `83000${String(uniqueSeed).slice(-5)}`,
+          guardian_name: "Playwright Guardian",
+          guardian_phone: `73000${String(uniqueSeed).slice(-5)}`,
+          address: "Playwright Street",
+          joined_at: "2026-06-23",
+          is_active: "true",
+          create_login: "true",
+          username: validStudentUsername,
+          password: "Student@123",
+        },
+        {
+          admission_no: invalidStudentAdmissionNo,
+          first_name: "",
+          last_name: "Invalid",
+          gender: "male",
+          academic_year: studentImportScope.academicYearName,
+          program: studentImportScope.programName,
+          cohort: studentImportScope.cohortName,
+          email: `pw.admin.mix.student.invalid.${uniqueSeed}@example.test`,
+          phone: `84000${String(uniqueSeed).slice(-5)}`,
+          guardian_name: "",
+          guardian_phone: "",
+          address: "",
+          joined_at: "2026-06-23",
+          is_active: "true",
+          create_login: "false",
+          username: "",
+          password: "",
+        },
+      ],
+    );
+
+    let studentId: string | null = null;
+
+    try {
+      await page.goto("/admin/people?view=students");
+      await expect(page.getByRole("heading", { name: /student roster/i })).toBeVisible();
+
+      await page.getByRole("button", { name: /import students/i }).click();
+      const dialog = page.getByRole("dialog");
+      await expect(dialog.getByRole("heading", { name: /bulk import students/i })).toBeVisible();
+
+      await dialog.locator('input[type="file"]').setInputFiles(mixedStudentFilePath);
+      const previewResponsePromise = page.waitForResponse(
+        (response) =>
+          /\/api\/admin\/roster\/students\/preview$/.test(response.url()) &&
+          response.request().method() === "POST",
+      );
+      await dialog.getByRole("button", { name: /preview import/i }).click();
+      const previewResponse = await previewResponsePromise;
+      expect(previewResponse.ok()).toBe(true);
+
+      await expect(dialog.getByText(/preview generated\./i)).toBeVisible();
+      const previewPanel = dialog.locator(".rosterPreviewPanel");
+      await expect(previewPanel).toContainText(/rows/i);
+      await expect(previewPanel).toContainText(/^2$/);
+      await expect(previewPanel).toContainText(/valid/i);
+      await expect(previewPanel).toContainText(/^1$/);
+      await expect(previewPanel).toContainText(/invalid/i);
+
+      const validPreviewRow = previewPanel.locator(".rosterPreviewRow").filter({
+        hasText: validStudentAdmissionNo,
+      }).first();
+      await expect(validPreviewRow).toContainText(/valid/i);
+      await expect(validPreviewRow).toContainText(/login included/i);
+      await expect(validPreviewRow).toContainText(/ready to import\./i);
+
+      const invalidPreviewRow = previewPanel.locator(".rosterPreviewRow").filter({
+        hasText: invalidStudentAdmissionNo,
+      }).first();
+      await expect(invalidPreviewRow).toContainText(/issue/i);
+      await expect(invalidPreviewRow).toContainText(/profile only/i);
+      await expect(invalidPreviewRow).toContainText(/first_name: first name is required\./i);
+
+      const finalizeResponsePromise = page.waitForResponse(
+        (response) =>
+          /\/api\/admin\/roster\/students\/finalize$/.test(response.url()) &&
+          response.request().method() === "POST",
+      );
+      await dialog.getByRole("button", { name: /import valid rows/i }).click();
+      const finalizeResponse = await finalizeResponsePromise;
+      expect(finalizeResponse.ok()).toBe(true);
+      const finalizePayload = (await finalizeResponse.json()) as BulkImportResponse;
+
+      expect(finalizePayload.created_count).toBe(1);
+      expect(finalizePayload.failed_count).toBe(0);
+      expect(finalizePayload.credentials).toHaveLength(1);
+      expect(finalizePayload.credentials[0]?.username).toBe(validStudentUsername);
+      studentId = finalizePayload.credentials[0]?.profile_id ?? null;
+      expect(studentId).not.toBeNull();
+
+      const importedStudentResponse = await page.request.get(`/api/admin/people/students/${studentId}`);
+      expect(importedStudentResponse.ok()).toBe(true);
+      const importedStudent = (await importedStudentResponse.json()) as StudentRecord;
+      expect(importedStudent.admission_no).toBe(validStudentAdmissionNo);
+      expect(importedStudent.login_username).toBe(validStudentUsername);
+    } finally {
+      if (studentId) {
+        const deleteStudentResponse = await page.request.delete(`/api/admin/people/students/${studentId}`);
+        expect(deleteStudentResponse.ok()).toBe(true);
+      }
+    }
+  });
 
   test("@workflow @mutable admin can preview and finalize disposable student and teacher CSV imports", async ({
     page,

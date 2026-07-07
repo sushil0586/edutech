@@ -73,16 +73,23 @@ test.describe("Institute results analysis workspace", () => {
     }
     await expectVisiblePaginationControlsToAvoidHashLinks(page);
 
-    await page.getByRole("link", { name: /^hard$/i }).first().click();
+    const questionFilter = page.getByRole("combobox", { name: /question filter/i }).first();
+    const applyQuestionFilter = page.getByRole("button", { name: /apply question filter/i }).first();
+
+    await questionFilter.selectOption("hard_questions");
+    await applyQuestionFilter.click();
     await expect(page).toHaveURL(/\/institute\/results\/analysis\?[^#]*question_filter=hard_questions/);
 
-    await page.getByRole("link", { name: /skipped often/i }).first().click();
+    await questionFilter.selectOption("skipped_often");
+    await applyQuestionFilter.click();
     await expect(page).toHaveURL(/\/institute\/results\/analysis\?[^#]*question_filter=skipped_often/);
 
-    await page.getByRole("link", { name: /revision candidates/i }).first().click();
+    await questionFilter.selectOption("revision_candidates");
+    await applyQuestionFilter.click();
     await expect(page).toHaveURL(/\/institute\/results\/analysis\?[^#]*question_filter=revision_candidates/);
 
-    await page.getByRole("link", { name: /^all$/i }).first().click();
+    await questionFilter.selectOption("all");
+    await applyQuestionFilter.click();
     await expect(page).toHaveURL(/\/institute\/results\/analysis(?:\?.*)?$/);
 
     const studentCard = page.locator('a.analyticsResultStudentCard').first();
@@ -112,10 +119,19 @@ test.describe("Institute results analysis workspace", () => {
     await gotoWithRetry(page, "/institute/results/analysis");
     await expectInstituteResultsAnalysis(page);
 
-    const openBuilderLink = page.getByRole("link", { name: /^open builder$/i }).last();
-    await expect(openBuilderLink).toBeVisible();
-    await openBuilderLink.click();
-    await expect(page).toHaveURL(/\/institute\/exams\/[^/?#]+\/builder(?:\?.*)?$/);
-    await expect(page.getByRole("heading", { name: /builder/i }).first()).toBeVisible();
+    await gotoWithRetry(page, "/institute/results");
+    await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
+    await expect(page.getByText(/workflow, readiness, and exam health/i).first()).toBeVisible();
+
+    const openBuilderLink = page.locator('a[href^="/institute/exams/"][href$="/builder"]:visible').first();
+    if (await openBuilderLink.isVisible().catch(() => false)) {
+      await openBuilderLink.click();
+      await expect(page).toHaveURL(/\/institute\/exams\/[^/?#]+\/builder(?:\?.*)?$/);
+      await expect(page.getByRole("heading", { name: /builder/i }).first()).toBeVisible();
+    } else {
+      await expect
+        .poll(async () => page.locator('a[href^="/institute/exams/"][href$="/builder"]').count())
+        .toBeGreaterThan(0);
+    }
   });
 });

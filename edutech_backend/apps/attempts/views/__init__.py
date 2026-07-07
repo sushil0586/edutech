@@ -5,6 +5,7 @@ import os
 from django.core.files.storage import default_storage
 from django.core.exceptions import PermissionDenied
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db.models import Prefetch
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -22,7 +23,12 @@ from apps.accounts.scopes import (
     scope_student_queryset,
     scope_teacher_queryset,
 )
-from apps.attempts.models import StudentAnswer, StudentAnswerReviewTask, StudentExamAttempt
+from apps.attempts.models import (
+    AttemptIntegrityEvent,
+    StudentAnswer,
+    StudentAnswerReviewTask,
+    StudentExamAttempt,
+)
 from apps.attempts.media import (
     build_response_artifact_storage_path,
     validate_response_artifact_file,
@@ -54,6 +60,8 @@ from apps.exams.models import ExamSection
 from apps.exams.services import is_review_available_for_attempt
 from apps.attempts.services import (
     assign_review_task,
+    bulk_request_review_recheck_tasks,
+    bulk_moderate_review_tasks,
     claim_review_task_for_teacher,
     log_integrity_event,
     moderate_review_task,
@@ -110,21 +118,42 @@ class StudentExamAttemptViewSet(ReadOnlyModelViewSet):
                 "exam__subject",
                 "exam__program",
                 "exam__cohort",
+                "exam__source_teacher",
                 "student",
                 "result",
             )
             .prefetch_related(
                 "answers__question",
                 "answers__selected_option",
-                "exam__exam_questions__question",
-                "exam__exam_questions__question__passage",
-                "exam__exam_questions__section",
-                "exam__exam_questions__question__options",
-                "exam__exam_questions__question__attachments",
+                Prefetch(
+                    "exam__exam_questions",
+                    queryset=(
+                        self._active_exam_questions_queryset()
+                    ),
+                    to_attr="_prefetched_active_exam_questions",
+                ),
+                Prefetch(
+                    "integrity_events",
+                    queryset=AttemptIntegrityEvent.objects.filter(is_active=True).order_by(
+                        "-event_at",
+                        "-created_at",
+                    ),
+                    to_attr="_prefetched_active_integrity_events",
+                ),
             )
             .all()
         )
         return scope_attempt_workspace_queryset(queryset, self.request.user)
+
+    def _active_exam_questions_queryset(self):
+        from apps.exams.models import ExamQuestion
+
+        return (
+            ExamQuestion.objects.filter(is_active=True)
+            .select_related("question", "question__passage", "section")
+            .prefetch_related("question__options", "question__attachments")
+            .order_by("question_order", "created_at")
+        )
 
     @action(detail=False, methods=["post"], url_path="start")
     def start(self, request):
@@ -746,15 +775,12 @@ class StudentAnswerReviewTaskViewSet(ReadOnlyModelViewSet):
 
         updated_tasks = []
         try:
-            for task in tasks:
-                updated_tasks.append(
-                    request_review_recheck(
-                        task=task,
-                        requested_by_user=request.user,
-                        requested_by_teacher=getattr(profile, "teacher_profile", None),
-                        review_notes=serializer.validated_data.get("review_notes", ""),
-                    )
-                )
+            updated_tasks = bulk_request_review_recheck_tasks(
+                tasks=tasks,
+                requested_by_user=request.user,
+                requested_by_teacher=getattr(profile, "teacher_profile", None),
+                review_notes=serializer.validated_data.get("review_notes", ""),
+            )
         except DjangoValidationError as exc:
             return Response(_validation_error_data(exc), status=status.HTTP_400_BAD_REQUEST)
 
@@ -835,17 +861,12 @@ class StudentAnswerReviewTaskViewSet(ReadOnlyModelViewSet):
         updated_tasks = []
         shared_note = serializer.validated_data.get("review_notes", "")
         try:
-            for task in tasks:
-                moderation_note = shared_note or task.latest_review_summary
-                updated_tasks.append(
-                    moderate_review_task(
-                        task=task,
-                        reviewed_by_teacher=getattr(profile, "teacher_profile", None) or task.last_reviewed_by_teacher,
-                        marks_awarded=task.latest_marks_awarded,
-                        review_notes=moderation_note,
-                        actor_user=request.user,
-                    )
-                )
+            updated_tasks = bulk_moderate_review_tasks(
+                tasks=tasks,
+                reviewed_by_teacher=getattr(profile, "teacher_profile", None),
+                review_notes=shared_note,
+                actor_user=request.user,
+            )
         except DjangoValidationError as exc:
             return Response(_validation_error_data(exc), status=status.HTTP_400_BAD_REQUEST)
 

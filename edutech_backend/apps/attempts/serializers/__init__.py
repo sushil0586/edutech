@@ -182,9 +182,14 @@ def rubric_definition_for_question(question):
 
 
 def media_context_for_question(question):
-    attachments = list(
-        question.attachments.filter(is_active=True).order_by("display_order", "created_at")
-    )
+    prefetched_attachments = getattr(question, "_prefetched_objects_cache", {}).get("attachments")
+    if prefetched_attachments is not None:
+        attachments = [attachment for attachment in prefetched_attachments if getattr(attachment, "is_active", True)]
+        attachments.sort(key=lambda attachment: (attachment.display_order, attachment.created_at))
+    else:
+        attachments = list(
+            question.attachments.filter(is_active=True).order_by("display_order", "created_at")
+        )
     definition = get_question_type_definition(question.question_type)
     attachment_types = []
     for attachment in attachments:
@@ -829,12 +834,18 @@ class AttemptDetailSerializer(serializers.ModelSerializer):
             "updated_at",
         )
 
-    def get_questions(self, obj):
-        exam_questions = list(
+    def _active_exam_questions(self, obj):
+        prefetched_exam_questions = getattr(obj.exam, "_prefetched_active_exam_questions", None)
+        if prefetched_exam_questions is not None:
+            return list(prefetched_exam_questions)
+        return list(
             obj.exam.exam_questions.filter(is_active=True)
             .select_related("question", "question__passage", "section")
             .prefetch_related("question__options", "question__attachments")
         )
+
+    def get_questions(self, obj):
+        exam_questions = self._active_exam_questions(obj)
         ensure_delivery_snapshot(obj)
         ordered_questions = ordered_exam_questions_for_attempt(obj, exam_questions)
         return StudentExamQuestionDetailSerializer(

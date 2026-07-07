@@ -1,30 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectStudentWorkspace } from "../helpers/navigation";
-
-async function gotoWithRetry(page: Page, url: string, attempts = 3) {
-  let lastError: unknown = null;
-  for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    try {
-      await page.goto(url, { waitUntil: "domcontentloaded" });
-      return;
-    } catch (error) {
-      lastError = error;
-      const message = error instanceof Error ? error.message : String(error);
-      if (message.includes("ERR_ABORTED") && page.url().includes(url)) {
-        return;
-      }
-      if (
-        (!message.includes("ERR_CONNECTION_REFUSED") && !message.includes("ERR_ABORTED")) ||
-        attempt === attempts
-      ) {
-        throw error;
-      }
-      await page.waitForTimeout(1500 * attempt);
-    }
-  }
-  throw lastError;
-}
+import { gotoWithRuntimeRecovery } from "../helpers/runtime";
 
 async function followLinkTarget(
   page: Page,
@@ -34,7 +11,7 @@ async function followLinkTarget(
   await expect(locator).toBeVisible();
   const href = await locator.getAttribute("href");
   expect(href).toBeTruthy();
-  await gotoWithRetry(page, href!);
+  await gotoWithRuntimeRecovery(page, href!);
   await expect(page).toHaveURL(expectedUrl);
 }
 
@@ -47,7 +24,7 @@ test.describe("Student dashboard workspace", () => {
     await loginAsRole(page, "student");
     await expectStudentWorkspace(page);
 
-    await gotoWithRetry(page, "/app/dashboard");
+    await gotoWithRuntimeRecovery(page, "/app/dashboard");
     await expect(page).toHaveURL(/\/app\/dashboard(?:\?.*)?$/);
     await expect(page.getByText(/recommended for you/i).first()).toBeVisible();
     await expect(page.getByText(/action queue/i).first()).toBeVisible();
@@ -128,13 +105,13 @@ test.describe("Student dashboard workspace", () => {
     const attemptTimelineLink = page.getByRole("link", { name: /open attempt timeline/i }).first();
     await followLinkTarget(page, attemptTimelineLink, /\/app\/attempts(?:\?.*)?$/);
 
-    await gotoWithRetry(page, "/app/dashboard");
+    await gotoWithRuntimeRecovery(page, "/app/dashboard");
     await expect(page.getByText(/action queue/i).first()).toBeVisible();
 
     const walletLink = page.getByRole("link", { name: /open wallet/i }).first();
     await followLinkTarget(page, walletLink, /\/app\/wallet(?:\?.*)?$/);
 
-    await gotoWithRetry(page, "/app/dashboard");
+    await gotoWithRuntimeRecovery(page, "/app/dashboard");
     await expect(page.getByText(/recommended for you/i).first()).toBeVisible();
 
     const primaryRecommendationAction = page
@@ -147,7 +124,7 @@ test.describe("Student dashboard workspace", () => {
       /\/app\/(attempts\/[^/?#]+(?:\/summary)?|results|exams\/[^/?#]+)(?:\?.*)?$/,
     );
 
-    await gotoWithRetry(page, "/app/dashboard");
+    await gotoWithRuntimeRecovery(page, "/app/dashboard");
     await expect(page.getByText(/available for you/i).first()).toBeVisible();
     await followLinkTarget(
       page,
@@ -155,7 +132,7 @@ test.describe("Student dashboard workspace", () => {
       /\/app\/exams(?:\?.*)?$/,
     );
 
-    await gotoWithRetry(page, "/app/dashboard");
+    await gotoWithRuntimeRecovery(page, "/app/dashboard");
     await expect(page.getByText(/your progress/i).first()).toBeVisible();
     await followLinkTarget(
       page,
@@ -163,7 +140,7 @@ test.describe("Student dashboard workspace", () => {
       /\/app\/analytics(?:\?.*)?$/,
     );
 
-    await gotoWithRetry(page, "/app/dashboard");
+    await gotoWithRuntimeRecovery(page, "/app/dashboard");
     await expect(page.getByText(/latest activity/i).first()).toBeVisible();
     await followLinkTarget(
       page,
