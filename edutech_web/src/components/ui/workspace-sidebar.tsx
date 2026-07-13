@@ -43,7 +43,7 @@ export function WorkspaceSidebar({
     <>
       <div className="mobileWorkspaceNav">
         <div className="mobileWorkspaceNavBar">
-          <Link className="brand" href={homeHref} prefetch={false}>
+          <Link className="brand" href={homeHref}>
             <span className="brandMark">N</span>
             <span className="brandText">
               <strong>Nexora</strong>
@@ -72,7 +72,6 @@ export function WorkspaceSidebar({
                   href={item.href}
                   key={item.href}
                   onClick={() => setIsMobileMenuOpen(false)}
-                  prefetch={false}
                 >
                   <span className="appSidebarIcon" aria-hidden="true">
                     {item.icon}
@@ -97,7 +96,7 @@ export function WorkspaceSidebar({
       </div>
 
       <aside className="appSidebar appSidebarDesktop">
-        <Link className="brand" href={homeHref} prefetch={false}>
+        <Link className="brand" href={homeHref}>
           <span className="brandMark">N</span>
           <span className="brandText">
             <strong>Nexora</strong>
@@ -112,7 +111,6 @@ export function WorkspaceSidebar({
               className={`appSidebarLink ${isActive(item.href) ? "appSidebarLinkActive" : ""}`}
               href={item.href}
               key={item.href}
-              prefetch={false}
             >
               <span className="appSidebarIcon" aria-hidden="true">
                 {item.icon}

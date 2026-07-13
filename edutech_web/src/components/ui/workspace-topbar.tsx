@@ -43,6 +43,7 @@ export function WorkspaceTopbar({
   selectedSubject = "overall",
   walletSummary = null,
   unreadCount = 0,
+  walletHref,
   profileHref,
   profileLabel,
 }: {
@@ -61,6 +62,7 @@ export function WorkspaceTopbar({
   selectedSubject?: string;
   walletSummary?: StudentWalletSummary | null;
   unreadCount?: number;
+  walletHref?: string;
   profileHref?: string;
   profileLabel?: string;
 }) {
@@ -120,7 +122,7 @@ export function WorkspaceTopbar({
           </div>
         ) : null}
         {walletSummary ? (
-          <Link className="appTopbarWalletPill" href="/app/wallet" prefetch={false}>
+          <Link className="appTopbarWalletPill" href={walletHref ?? "/app/wallet"}>
             <span className="appTopbarWalletIcon" aria-hidden="true">
               *
             </span>
@@ -129,20 +131,26 @@ export function WorkspaceTopbar({
               <span>Stars</span>
             </div>
           </Link>
+        ) : walletHref ? (
+          <Link className="appTopbarAction" href={walletHref}>
+            <span className="appTopbarActionIcon" aria-hidden="true">
+              *
+            </span>
+            <span>Wallet</span>
+          </Link>
         ) : null}
         {profileHref ? (
           <Link
             className="appTopbarIconButton"
             href="/app/notifications"
             aria-label="Notifications"
-            prefetch={false}
           >
             <span aria-hidden="true">!</span>
             {unreadCount > 0 ? <i>{unreadCount > 9 ? "9+" : unreadCount}</i> : null}
           </Link>
         ) : null}
         {actions.map((action) => (
-          <Link className="appTopbarAction" href={action.href} key={action.href} prefetch={false}>
+          <Link className="appTopbarAction" href={action.href} key={action.href}>
             <span className="appTopbarActionIcon" aria-hidden="true">
               {action.icon}
             </span>
@@ -150,7 +158,7 @@ export function WorkspaceTopbar({
           </Link>
         ))}
         {profileHref ? (
-          <Link className="appTopbarAction" href={profileHref} prefetch={false}>
+          <Link className="appTopbarAction" href={profileHref}>
             <span className="appTopbarActionIcon" aria-hidden="true">
               {initial}
             </span>

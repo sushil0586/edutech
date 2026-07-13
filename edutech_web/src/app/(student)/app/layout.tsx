@@ -6,22 +6,14 @@ import Link from "next/link";
 import { WorkspaceSidebar } from "@/components/ui/workspace-sidebar";
 import { WorkspaceTopbar } from "@/components/ui/workspace-topbar";
 import {
-  fetchStudentUnreadCount,
-  fetchStudentWalletSummary,
-  getStudentDashboardData,
-} from "@/lib/api/student";
-import {
   ALL_SOURCES_CONTEXT,
   ALL_SUBJECTS_CONTEXT,
   DEFAULT_STUDENT_SOURCE_OPTIONS,
-  getStudentSourceOptions,
   getStudentSubjectOptions,
   resolveSelectedStudentSource,
-  resolveSelectedStudentSourceTeacher,
   resolveSelectedStudentSubject,
   selectedStudentSourceLabel,
   STUDENT_SOURCE_CONTEXT_COOKIE,
-  STUDENT_SOURCE_TEACHER_CONTEXT_COOKIE,
   STUDENT_SUBJECT_CONTEXT_COOKIE,
 } from "@/lib/student/subject-context";
 
@@ -48,30 +40,9 @@ export default async function StudentAppLayout({
   const profile = await requireStudentSession();
   const subjectOptions = getStudentSubjectOptions(profile);
   const cookieStore = await cookies();
-  const dashboardContext = await getStudentDashboardData().catch(() => ({
-    source: "error" as const,
-    apiConfigured: true,
-    summary: null,
-    exams: [],
-  }));
-  const sourceRecords = [
-    ...dashboardContext.exams,
-    ...(dashboardContext.summary?.source_breakdown ?? []),
-    ...(dashboardContext.summary?.recent_exams ?? []),
-  ];
-  const { sourceOptions: derivedSourceOptions, teacherOptions } =
-    getStudentSourceOptions(sourceRecords);
-  const sourceOptions =
-    derivedSourceOptions.length > 0
-      ? derivedSourceOptions
-      : DEFAULT_STUDENT_SOURCE_OPTIONS;
+  const sourceOptions = DEFAULT_STUDENT_SOURCE_OPTIONS;
   const selectedSource = resolveSelectedStudentSource(
     cookieStore.get(STUDENT_SOURCE_CONTEXT_COOKIE)?.value ?? ALL_SOURCES_CONTEXT,
-  );
-  const selectedTeacherId = resolveSelectedStudentSourceTeacher(
-    teacherOptions,
-    selectedSource,
-    cookieStore.get(STUDENT_SOURCE_TEACHER_CONTEXT_COOKIE)?.value ?? null,
   );
   const selectedSubject = resolveSelectedStudentSubject(
     subjectOptions,
@@ -79,24 +50,15 @@ export default async function StudentAppLayout({
   );
   const selectedSubjectLabel =
     subjectOptions.find((option) => option.value === selectedSubject)?.label ?? "Overall";
-  const summaryText =
-    selectedSource === ALL_SOURCES_CONTEXT && selectedSubject === ALL_SUBJECTS_CONTEXT
-      ? "Search tests, chapters, topics, and source lanes as the student catalog expands across your workspace."
-      : `${selectedStudentSourceLabel(selectedSource)}${
-          selectedSource === "teacher" && selectedTeacherId
-            ? ` · ${teacherOptions.find((item) => item.id === selectedTeacherId)?.name ?? "Teacher"}`
-            : ""
-        }${selectedSubject === ALL_SUBJECTS_CONTEXT ? "" : ` · ${selectedSubjectLabel}`} is active. The workspace will stay centered on this filter until you switch again.`;
-  const [walletSummaryResult, unreadCountResult] = await Promise.allSettled([
-    fetchStudentWalletSummary(),
-    fetchStudentUnreadCount(),
-  ]);
-  const walletSummary =
-    walletSummaryResult.status === "fulfilled" ? walletSummaryResult.value : null;
-  const unreadCount =
-    unreadCountResult.status === "fulfilled"
-      ? unreadCountResult.value.unread_count
-      : 0;
+  const summaryText = `${selectedStudentSourceLabel(selectedSource)}${
+    selectedSubject === ALL_SUBJECTS_CONTEXT ? "" : ` · ${selectedSubjectLabel}`
+  } is active. ${
+    profile.student_context?.program_name || profile.student_context?.cohort_name
+      ? `Learner workspace for ${profile.student_context?.program_name ?? "your program"}${
+          profile.student_context?.cohort_name ? ` · ${profile.student_context.cohort_name}` : ""
+        }.`
+      : "Search tests, chapters, topics, and source lanes across your student workspace."
+  }`;
 
   return (
     <div className="studentAppShell">
@@ -128,12 +90,11 @@ export default async function StudentAppLayout({
           searchPlaceholder="Search tests, chapters, topics, practice, results, or settings"
           sourceOptions={sourceOptions}
           selectedSource={selectedSource}
-          teacherOptions={teacherOptions}
-          selectedTeacherId={selectedTeacherId}
+          teacherOptions={[]}
+          selectedTeacherId={null}
           subjectOptions={subjectOptions}
           selectedSubject={selectedSubject}
-          walletSummary={walletSummary}
-          unreadCount={unreadCount}
+          walletHref="/app/wallet"
           profileHref="/app/profile"
           profileLabel={profile.display_name || profile.username}
         />
