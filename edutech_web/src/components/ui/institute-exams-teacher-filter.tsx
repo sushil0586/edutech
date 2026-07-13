@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type TeacherOption = {
   id: string;
@@ -20,52 +20,63 @@ export function InstituteExamsTeacherFilter({
   initialTeachers,
   selectedTeacherId,
 }: InstituteExamsTeacherFilterProps) {
-  const [teachers, setTeachers] = useState<TeacherOption[]>(initialTeachers);
+  const [loadedTeachers, setLoadedTeachers] = useState<TeacherOption[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const requestStartedRef = useRef(initialTeachers.length > 0);
+  const requestControllerRef = useRef<AbortController | null>(null);
+  const teachers = initialTeachers.length > 0 ? initialTeachers : loadedTeachers;
 
-  useEffect(() => {
-    setTeachers(initialTeachers);
-  }, [initialTeachers]);
-
-  useEffect(() => {
-    if (teachers.length > 0 || isLoading) {
+  function loadTeachersOnDemand() {
+    if (teachers.length > 0 || isLoading || requestStartedRef.current) {
       return;
     }
 
+    requestStartedRef.current = true;
     const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => {
-      setIsLoading(true);
-      void fetch(apiPath, {
-        method: "GET",
-        cache: "no-store",
-        signal: controller.signal,
+    requestControllerRef.current?.abort();
+    requestControllerRef.current = controller;
+    setIsLoading(true);
+
+    void fetch(apiPath, {
+      method: "GET",
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error("Unable to load institute teachers.");
+        }
+
+        const payload = (await response.json()) as { teachers?: TeacherOption[] };
+        setLoadedTeachers(Array.isArray(payload.teachers) ? payload.teachers : []);
       })
-        .then(async (response) => {
-          if (!response.ok) {
-            throw new Error("Unable to load institute teachers.");
-          }
+      .catch((error) => {
+        if (error instanceof Error && error.name === "AbortError") {
+          return;
+        }
+        requestStartedRef.current = false;
+      })
+      .finally(() => {
+        if (requestControllerRef.current === controller) {
+          requestControllerRef.current = null;
+        }
+        setIsLoading(false);
+      });
+  }
 
-          const payload = (await response.json()) as { teachers?: TeacherOption[] };
-          setTeachers(Array.isArray(payload.teachers) ? payload.teachers : []);
-        })
-        .catch((error) => {
-          if (error instanceof Error && error.name === "AbortError") {
-            return;
-          }
-        })
-        .finally(() => {
-          setIsLoading(false);
-        });
-    }, 150);
-
+  useEffect(() => {
     return () => {
-      window.clearTimeout(timeoutId);
-      controller.abort();
+      requestControllerRef.current?.abort();
     };
-  }, [apiPath, isLoading, teachers.length]);
+  }, []);
 
   return (
-    <select defaultValue={selectedTeacherId} name="teacher">
+    <select
+      defaultValue={selectedTeacherId}
+      name="teacher"
+      onFocus={loadTeachersOnDemand}
+      onPointerDown={loadTeachersOnDemand}
+    >
       <option value="">All teachers</option>
       {teachers.map((teacher) => (
         <option key={teacher.id} value={teacher.id}>

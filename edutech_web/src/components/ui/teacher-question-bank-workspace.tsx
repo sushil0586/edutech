@@ -737,6 +737,8 @@ export function TeacherQuestionBankWorkspace({
   const [sharedLibraryFilter, setSharedLibraryFilter] = useState("");
   const [availableTeachers, setAvailableTeachers] = useState(teachers);
   const [isTeacherOptionsLoading, setIsTeacherOptionsLoading] = useState(false);
+  const teacherOptionsLoadControllerRef = useRef<AbortController | null>(null);
+  const hasRequestedTeacherOptionsRef = useRef(teachers.length > 0);
   const [isCompact, setIsCompact] = useState(false);
   const [hasLoadedPreferences, setHasLoadedPreferences] = useState(false);
   const [pendingMasterQuestionId, setPendingMasterQuestionId] = useState<string | null>(null);
@@ -824,47 +826,60 @@ export function TeacherQuestionBankWorkspace({
     setAvailableTeachers(teachers);
   }, [teachers]);
 
-  useEffect(() => {
-    if (!showTeacherFilter || !teacherOptionsApiPath || availableTeachers.length > 0 || isTeacherOptionsLoading) {
+  function loadTeacherOptionsOnDemand() {
+    if (
+      !showTeacherFilter ||
+      !teacherOptionsApiPath ||
+      availableTeachers.length > 0 ||
+      isTeacherOptionsLoading ||
+      hasRequestedTeacherOptionsRef.current
+    ) {
       return;
     }
 
+    hasRequestedTeacherOptionsRef.current = true;
     const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => {
-      setIsTeacherOptionsLoading(true);
-      void fetch(teacherOptionsApiPath, {
-        method: "GET",
-        cache: "no-store",
-        signal: controller.signal,
-      })
-        .then(async (response) => {
-          if (!response.ok) {
-            throw new Error("Unable to load teacher filters right now.");
-          }
-          const payload = (await response.json()) as { teachers?: TeacherFilterOption[] };
-          setAvailableTeachers(Array.isArray(payload.teachers) ? payload.teachers : []);
-        })
-        .catch((error) => {
-          if (error instanceof Error && error.name === "AbortError") {
-            return;
-          }
-        })
-        .finally(() => {
-          setIsTeacherOptionsLoading(false);
-        });
-    }, 150);
+    teacherOptionsLoadControllerRef.current?.abort();
+    teacherOptionsLoadControllerRef.current = controller;
+    setIsTeacherOptionsLoading(true);
 
+    void fetch(teacherOptionsApiPath, {
+      method: "GET",
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error("Unable to load teacher filters right now.");
+        }
+        const payload = (await response.json()) as { teachers?: TeacherFilterOption[] };
+        setAvailableTeachers(Array.isArray(payload.teachers) ? payload.teachers : []);
+      })
+      .catch((error) => {
+        if (error instanceof Error && error.name === "AbortError") {
+          return;
+        }
+        hasRequestedTeacherOptionsRef.current = false;
+      })
+      .finally(() => {
+        if (teacherOptionsLoadControllerRef.current === controller) {
+          teacherOptionsLoadControllerRef.current = null;
+        }
+        setIsTeacherOptionsLoading(false);
+      });
+  }
+
+  useEffect(() => {
     return () => {
-      window.clearTimeout(timeoutId);
-      controller.abort();
+      teacherOptionsLoadControllerRef.current?.abort();
     };
-  }, [availableTeachers.length, isTeacherOptionsLoading, showTeacherFilter, teacherOptionsApiPath]);
+  }, []);
 
   useEffect(() => {
     return () => {
       cancelActiveBackgroundRequests();
     };
-  }, []);
+  }, [cancelActiveBackgroundRequests]);
 
   useEffect(() => {
     if (!isBrowser) {
@@ -896,7 +911,7 @@ export function TeacherQuestionBankWorkspace({
     return () => {
       document.removeEventListener("click", handleDocumentClick, true);
     };
-  }, [basePath, isBrowser]);
+  }, [basePath, cancelActiveBackgroundRequests, isBrowser]);
 
   useEffect(() => {
     if (!isBrowser) {
@@ -2202,10 +2217,15 @@ export function TeacherQuestionBankWorkspace({
           {showTeacherFilter ? (
             <label className="fieldStack">
               <span>Teacher</span>
-              <select defaultValue={activeFilters.teacher ?? ""} name="teacher">
-                <option value="">All teachers</option>
-                {isTeacherOptionsLoading && availableTeachers.length === 0 ? (
-                  <option disabled value="">
+                <select
+                  defaultValue={activeFilters.teacher ?? ""}
+                  name="teacher"
+                  onFocus={loadTeacherOptionsOnDemand}
+                  onPointerDown={loadTeacherOptionsOnDemand}
+                >
+                  <option value="">All teachers</option>
+                  {isTeacherOptionsLoading && availableTeachers.length === 0 ? (
+                    <option disabled value="">
                     Loading teachers...
                   </option>
                 ) : null}
