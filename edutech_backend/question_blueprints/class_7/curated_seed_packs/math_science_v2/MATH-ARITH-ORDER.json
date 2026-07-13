@@ -5,375 +5,1502 @@
     {
       "question_type": "mcq_single",
       "difficulty_level": "foundation",
-      "question_text": "What is the value of 12 + 4 x 3?",
-      "explanation": "Multiplication is done before addition. First calculate 4 x 3 = 12. Then add 12 + 12 = 24. A common mistake is to add 12 and 4 first, but that ignores the correct order of operations.",
+      "question_text": "What is the value of 6 + 2 * 3?",
+      "explanation": "Multiply first: 2 * 3 = 6. Then add 6, so the value is 12.",
       "default_marks": "1.00",
       "negative_marks": "0.25",
       "options": [
-        {"option_text": "48", "is_correct": false},
-        {"option_text": "24", "is_correct": true},
-        {"option_text": "16", "is_correct": false},
-        {"option_text": "20", "is_correct": false}
+        {
+          "option_text": "12",
+          "is_correct": true
+        },
+        {
+          "option_text": "24",
+          "is_correct": false
+        },
+        {
+          "option_text": "15",
+          "is_correct": false
+        },
+        {
+          "option_text": "11",
+          "is_correct": false
+        }
       ],
-      "metadata": {"archetype": "direct_concept_check", "source_pack": "class7_curated_v2"}
-    },
-    {
-      "question_type": "mcq_single",
-      "difficulty_level": "foundation",
-      "question_text": "Riya says that 18 - 6 x 2 equals 24 because she subtracted first and then multiplied. Which option gives the correct value?",
-      "explanation": "Without brackets, multiplication is done before subtraction. So we first calculate 6 x 2 = 12. Then 18 - 12 = 6. Riya's answer comes from doing the subtraction first, which is not correct here.",
-      "default_marks": "1.00",
-      "negative_marks": "0.25",
-      "options": [
-        {"option_text": "6", "is_correct": true},
-        {"option_text": "12", "is_correct": false},
-        {"option_text": "24", "is_correct": false},
-        {"option_text": "30", "is_correct": false}
-      ],
-      "metadata": {"archetype": "reading_check", "source_pack": "class7_curated_v2"}
-    },
-    {
-      "question_type": "mcq_single",
-      "difficulty_level": "foundation",
-      "question_text": "What is the value of 30 / 5 + 7?",
-      "explanation": "Division comes before addition. First find 30 / 5 = 6. Then add 6 + 7 = 13. The expression is not solved from left to right when different operations are involved; priority rules matter.",
-      "default_marks": "1.00",
-      "negative_marks": "0.25",
-      "options": [
-        {"option_text": "37", "is_correct": false},
-        {"option_text": "13", "is_correct": true},
-        {"option_text": "6", "is_correct": false},
-        {"option_text": "1", "is_correct": false}
-      ],
-      "metadata": {"archetype": "simple_conversion", "source_pack": "class7_curated_v2"}
-    },
-    {
-      "question_type": "mcq_single",
-      "difficulty_level": "foundation",
-      "question_text": "Which expression should be solved first if you are evaluating 9 + (14 - 6) x 2?",
-      "explanation": "Brackets are always solved before multiplication, division, addition, or subtraction outside them. So the first part to solve is 14 - 6 inside the brackets.",
-      "default_marks": "1.00",
-      "negative_marks": "0.25",
-      "options": [
-        {"option_text": "9 + 14", "is_correct": false},
-        {"option_text": "14 - 6", "is_correct": true},
-        {"option_text": "8 x 2", "is_correct": false},
-        {"option_text": "9 + 8", "is_correct": false}
-      ],
-      "metadata": {"archetype": "symbol_or_form_identification", "source_pack": "class7_curated_v2"}
-    },
-    {
-      "question_type": "mcq_single",
-      "difficulty_level": "intermediate",
-      "question_text": "What is the value of 5 x (9 - 4) + 6?",
-      "explanation": "First solve the bracket: 9 - 4 = 5. Then multiply: 5 x 5 = 25. Finally add 6 to get 31. The bracket changes the order and must be handled first.",
-      "default_marks": "2.00",
-      "negative_marks": "0.25",
-      "options": [
-        {"option_text": "31", "is_correct": true},
-        {"option_text": "11", "is_correct": false},
-        {"option_text": "19", "is_correct": false},
-        {"option_text": "55", "is_correct": false}
-      ],
-      "metadata": {"archetype": "expanded_form", "source_pack": "class7_curated_v2"}
-    },
-    {
-      "question_type": "mcq_single",
-      "difficulty_level": "intermediate",
-      "question_text": "A student calculates 42 - 18 / 3 as 8 by subtracting first and then dividing. What should the correct answer be?",
-      "explanation": "Division must be done before subtraction. First compute 18 / 3 = 6. Then 42 - 6 = 36. The incorrect answer 8 comes from doing 42 - 18 first, which is not allowed here.",
-      "default_marks": "2.00",
-      "negative_marks": "0.25",
-      "options": [
-        {"option_text": "36", "is_correct": true},
-        {"option_text": "8", "is_correct": false},
-        {"option_text": "20", "is_correct": false},
-        {"option_text": "14", "is_correct": false}
-      ],
-      "metadata": {"archetype": "error_detection", "source_pack": "class7_curated_v2"}
-    },
-    {
-      "question_type": "mcq_single",
-      "difficulty_level": "intermediate",
-      "question_text": "Which expression has the same value as 7 + 3 x 4?",
-      "explanation": "The expression 7 + 3 x 4 means 7 + 12 = 19 because multiplication happens first. So the matching form is 7 + 12. Expressions like (7 + 3) x 4 change the value because they change the order.",
-      "default_marks": "2.00",
-      "negative_marks": "0.25",
-      "options": [
-        {"option_text": "(7 + 3) x 4", "is_correct": false},
-        {"option_text": "7 + 12", "is_correct": true},
-        {"option_text": "10 x 4", "is_correct": false},
-        {"option_text": "28 + 3", "is_correct": false}
-      ],
-      "metadata": {"archetype": "equivalent_expression", "source_pack": "class7_curated_v2"}
-    },
-    {
-      "question_type": "mcq_single",
-      "difficulty_level": "intermediate",
-      "question_text": "What is the value of 48 / (6 + 2) x 3?",
-      "explanation": "First solve the bracket: 6 + 2 = 8. Then 48 / 8 = 6. Finally 6 x 3 = 18. After the brackets are solved, division and multiplication are done from left to right.",
-      "default_marks": "2.00",
-      "negative_marks": "0.25",
-      "options": [
-        {"option_text": "2", "is_correct": false},
-        {"option_text": "18", "is_correct": true},
-        {"option_text": "144", "is_correct": false},
-        {"option_text": "9", "is_correct": false}
-      ],
-      "metadata": {"archetype": "bracketed_computation", "source_pack": "class7_curated_v2"}
-    },
-    {
-      "question_type": "mcq_single",
-      "difficulty_level": "intermediate",
-      "question_text": "A canteen bill is calculated as 2 sandwiches at Rs 35 each and 3 juices at Rs 20 each, plus Rs 15 for delivery. Which expression should be used?",
-      "explanation": "The cost of sandwiches is 2 x 35 and the cost of juices is 3 x 20. These amounts are then added along with the fixed delivery charge of 15. So the correct expression is (2 x 35) + (3 x 20) + 15.",
-      "default_marks": "2.00",
-      "negative_marks": "0.25",
-      "options": [
-        {"option_text": "2 x (35 + 3) x 20 + 15", "is_correct": false},
-        {"option_text": "(2 x 35) + (3 x 20) + 15", "is_correct": true},
-        {"option_text": "2 + 35 + 3 + 20 + 15", "is_correct": false},
-        {"option_text": "(2 + 35) x (3 + 20) + 15", "is_correct": false}
-      ],
-      "metadata": {"archetype": "case_based_interpretation", "source_pack": "class7_curated_v2"}
-    },
-    {
-      "question_type": "mcq_single",
-      "difficulty_level": "intermediate",
-      "question_text": "Which list shows the correct order for evaluating 60 - 4 x 5 + 3?",
-      "explanation": "Multiplication comes before addition and subtraction, so first find 4 x 5 = 20. Then the expression becomes 60 - 20 + 3. Now work from left to right: 60 - 20 = 40, then 40 + 3 = 43.",
-      "default_marks": "2.00",
-      "negative_marks": "0.25",
-      "options": [
-        {"option_text": "60 - 4 = 56, 56 x 5 = 280, 280 + 3 = 283", "is_correct": false},
-        {"option_text": "4 x 5 = 20, 60 - 20 = 40, 40 + 3 = 43", "is_correct": true},
-        {"option_text": "60 - 4 = 56, 5 + 3 = 8, 56 x 8 = 448", "is_correct": false},
-        {"option_text": "4 x 5 = 20, 20 + 3 = 23, 60 - 23 = 37", "is_correct": false}
-      ],
-      "metadata": {"archetype": "sequencing_steps", "source_pack": "class7_curated_v2"}
-    },
-    {
-      "question_type": "mcq_single",
-      "difficulty_level": "intermediate",
-      "question_text": "Which statement is correct about 16 - 8 / 4?",
-      "explanation": "The expression is evaluated by doing the division first: 8 / 4 = 2. Then 16 - 2 = 14. So the correct statement is that the value is 14 because division is done before subtraction.",
-      "default_marks": "2.00",
-      "negative_marks": "0.25",
-      "options": [
-        {"option_text": "Its value is 2 because subtraction comes first", "is_correct": false},
-        {"option_text": "Its value is 14 because division is done before subtraction", "is_correct": true},
-        {"option_text": "Its value is 8 because 16 and 8 must be combined first", "is_correct": false},
-        {"option_text": "Its value cannot be found without brackets", "is_correct": false}
-      ],
-      "metadata": {"archetype": "best_explanation", "source_pack": "class7_curated_v2"}
-    },
-    {
-      "question_type": "short_answer",
-      "difficulty_level": "intermediate",
-      "question_text": "Evaluate 36 / 6 + 5 x 2.",
-      "explanation": "Division and multiplication are done before addition. First calculate 36 / 6 = 6 and 5 x 2 = 10. Then add 6 + 10 to get 16.",
-      "default_marks": "2.00",
-      "negative_marks": "0.00",
-      "options": [],
       "metadata": {
-        "accepted_answers": ["16", "16.0"],
-        "archetype": "multi_operation_computation",
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "What is the value of (3 + 4) * 2?",
+      "explanation": "Do the bracket first: 3 + 4 = 7. Then multiply by 2 to get 14.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "11",
+          "is_correct": false
+        },
+        {
+          "option_text": "14",
+          "is_correct": true
+        },
+        {
+          "option_text": "9",
+          "is_correct": false
+        },
+        {
+          "option_text": "4",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "reading_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What is the value of 20 * 3 - 4?",
+      "explanation": "First multiply: 20 * 3 = 60. Then subtract 4 to get 56.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "19",
+          "is_correct": false
+        },
+        {
+          "option_text": "-20",
+          "is_correct": false
+        },
+        {
+          "option_text": "56",
+          "is_correct": true
+        },
+        {
+          "option_text": "64",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "simple_conversion",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What is the value of 10 + 2 * 3 - 4?",
+      "explanation": "Multiply first: 2 * 3 = 6. Then compute 10 + 6 - 4 = 12.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "32",
+          "is_correct": false
+        },
+        {
+          "option_text": "11",
+          "is_correct": false
+        },
+        {
+          "option_text": "8",
+          "is_correct": false
+        },
+        {
+          "option_text": "12",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "archetype": "symbol_or_form_identification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What is the value of (5 + 7) * 2 - 3?",
+      "explanation": "First add the bracket: 5 + 7 = 12. Then multiply by 2 and subtract 3 to get 21.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "21",
+          "is_correct": true
+        },
+        {
+          "option_text": "16",
+          "is_correct": false
+        },
+        {
+          "option_text": "-12",
+          "is_correct": false
+        },
+        {
+          "option_text": "11",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "worked_step_analysis",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What is the value of 5 + 12 / 3 * 2?",
+      "explanation": "Do division and multiplication from left to right: 12 / 3 = 4, then 4 * 2 = 8. Finally add 5 to get 13.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "7",
+          "is_correct": false
+        },
+        {
+          "option_text": "13",
+          "is_correct": true
+        },
+        {
+          "option_text": "11.333333333333334",
+          "is_correct": false
+        },
+        {
+          "option_text": "11",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "what_went_wrong",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What is the value of 4 + (3 * 2 - 1)?",
+      "explanation": "Work inside the bracket first: 3 * 2 = 6, then 6 - 1 = 5. Add 4 to get 9.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "11",
+          "is_correct": false
+        },
+        {
+          "option_text": "13",
+          "is_correct": false
+        },
+        {
+          "option_text": "9",
+          "is_correct": true
+        },
+        {
+          "option_text": "7",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "comparison_justification",
         "source_pack": "class7_curated_v2"
       }
     },
     {
       "question_type": "mcq_single",
       "difficulty_level": "advanced",
-      "question_text": "What is the value of 72 / 3 x (5 - 2)?",
-      "explanation": "First solve the bracket: 5 - 2 = 3. Then the expression becomes 72 / 3 x 3. Division and multiplication now have equal priority, so work from left to right: 72 / 3 = 24, then 24 x 3 = 72.",
-      "default_marks": "3.00",
-      "negative_marks": "0.50",
+      "question_text": "What is the value of (10 - 2) * (1 + 3)?",
+      "explanation": "First find each bracket: 10 - 2 = 8 and 1 + 3 = 4. Then multiply to get 32.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
       "options": [
-        {"option_text": "8", "is_correct": false},
-        {"option_text": "24", "is_correct": false},
-        {"option_text": "72", "is_correct": true},
-        {"option_text": "216", "is_correct": false}
+        {
+          "option_text": "2",
+          "is_correct": false
+        },
+        {
+          "option_text": "11",
+          "is_correct": false
+        },
+        {
+          "option_text": "12",
+          "is_correct": false
+        },
+        {
+          "option_text": "32",
+          "is_correct": true
+        }
       ],
-      "metadata": {"archetype": "left_to_right_reasoning", "source_pack": "class7_curated_v2"}
-    },
-    {
-      "question_type": "mcq_single",
-      "difficulty_level": "advanced",
-      "question_text": "A board shows the expression 40 - 12 / 3 x 2. Which option gives the correct value?",
-      "explanation": "Division and multiplication are done before subtraction, and among themselves from left to right. First 12 / 3 = 4, then 4 x 2 = 8. Finally 40 - 8 = 32.",
-      "default_marks": "3.00",
-      "negative_marks": "0.50",
-      "options": [
-        {"option_text": "16", "is_correct": false},
-        {"option_text": "32", "is_correct": true},
-        {"option_text": "56", "is_correct": false},
-        {"option_text": "8", "is_correct": false}
-      ],
-      "metadata": {"archetype": "compound_operation_evaluation", "source_pack": "class7_curated_v2"}
-    },
-    {
-      "question_type": "mcq_single",
-      "difficulty_level": "advanced",
-      "question_text": "Which expression has value 18?",
-      "explanation": "Check each option using the correct order of operations. In (6 + 3) x 2, brackets are solved first to get 9, and 9 x 2 = 18. The other options give different values because multiplication and division change the result in each case.",
-      "default_marks": "3.00",
-      "negative_marks": "0.50",
-      "options": [
-        {"option_text": "6 + 3 x 2", "is_correct": false},
-        {"option_text": "(6 + 3) x 2", "is_correct": true},
-        {"option_text": "24 / 3 + 2", "is_correct": false},
-        {"option_text": "20 - 3 x 2", "is_correct": false}
-      ],
-      "metadata": {"archetype": "value_matching", "source_pack": "class7_curated_v2"}
-    },
-    {
-      "question_type": "mcq_single",
-      "difficulty_level": "advanced",
-      "question_text": "Naman says that in 45 - 15 + 6 x 2, addition should be done before subtraction because it appears later. What is the best correction?",
-      "explanation": "Addition and subtraction have the same priority, so neither automatically comes first because of the sign. But multiplication has higher priority than both. So we first do 6 x 2 = 12, and then complete 45 - 15 + 12 from left to right.",
-      "default_marks": "3.00",
-      "negative_marks": "0.50",
-      "options": [
-        {"option_text": "Naman is correct because addition is always done before subtraction", "is_correct": false},
-        {"option_text": "Naman is incorrect because multiplication must be done first, then addition and subtraction are handled from left to right", "is_correct": true},
-        {"option_text": "Naman is incorrect because subtraction must always be the last step", "is_correct": false},
-        {"option_text": "Naman is correct only when the numbers are multiples of 3", "is_correct": false}
-      ],
-      "metadata": {"archetype": "misconception_correction", "source_pack": "class7_curated_v2"}
-    },
-    {
-      "question_type": "mcq_single",
-      "difficulty_level": "advanced",
-      "question_text": "Which of the following is equal to 54 / (9 - 3) + 7?",
-      "explanation": "First solve the bracket: 9 - 3 = 6. Then 54 / 6 = 9. Finally 9 + 7 = 16. So the expression is equal to 16.",
-      "default_marks": "3.00",
-      "negative_marks": "0.50",
-      "options": [
-        {"option_text": "16", "is_correct": true},
-        {"option_text": "10", "is_correct": false},
-        {"option_text": "34", "is_correct": false},
-        {"option_text": "2", "is_correct": false}
-      ],
-      "metadata": {"archetype": "brackets_priority", "source_pack": "class7_curated_v2"}
-    },
-    {
-      "question_type": "mcq_single",
-      "difficulty_level": "advanced",
-      "question_text": "A school buys 4 packs of notebooks at Rs 28 each and 3 geometry boxes at Rs 45 each, then receives a discount of Rs 20. Which expression correctly represents the total amount to be paid?",
-      "explanation": "The two purchase amounts are 4 x 28 and 3 x 45. Since the discount is taken away after the costs are added, the correct expression is (4 x 28) + (3 x 45) - 20.",
-      "default_marks": "3.00",
-      "negative_marks": "0.50",
-      "options": [
-        {"option_text": "(4 x 28) + (3 x 45) - 20", "is_correct": true},
-        {"option_text": "4 x (28 + 3) x 45 - 20", "is_correct": false},
-        {"option_text": "4 + 28 + 3 + 45 - 20", "is_correct": false},
-        {"option_text": "(4 + 28) x (3 + 45) - 20", "is_correct": false}
-      ],
-      "metadata": {"archetype": "shopping_case_modeling", "source_pack": "class7_curated_v2"}
-    },
-    {
-      "question_type": "short_answer",
-      "difficulty_level": "advanced",
-      "question_text": "Evaluate 50 - 2 x (11 + 4).",
-      "explanation": "Solve the bracket first: 11 + 4 = 15. Then multiply: 2 x 15 = 30. Finally subtract: 50 - 30 = 20.",
-      "default_marks": "3.00",
-      "negative_marks": "0.00",
-      "options": [],
       "metadata": {
-        "accepted_answers": ["20", "20.0"],
-        "archetype": "nested_order_evaluation",
+        "archetype": "rule_application",
         "source_pack": "class7_curated_v2"
       }
     },
     {
       "question_type": "mcq_single",
       "difficulty_level": "advanced",
-      "question_text": "Assertion (A): In 18 + 24 / 6, the addition is not done first.\n\nReason (R): Division has higher priority than addition in the order of operations.\n\nChoose the correct option.",
-      "explanation": "The assertion is true because 24 / 6 must be found before anything is added to 18. The reason is also true because division has higher priority than addition. The reason correctly explains the assertion.",
-      "default_marks": "3.00",
-      "negative_marks": "0.50",
+      "question_text": "What is the value of 12 / (2 * 3) + 1?",
+      "explanation": "First do the bracket: 2 * 3 = 6. Then divide: 12 / 6 = 2. Finally add 1 to get 3.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
       "options": [
-        {"option_text": "Both A and R are true, and R correctly explains A", "is_correct": true},
-        {"option_text": "Both A and R are true, but R does not correctly explain A", "is_correct": false},
-        {"option_text": "A is true, but R is false", "is_correct": false},
-        {"option_text": "A is false, but R is true", "is_correct": false}
+        {
+          "option_text": "3",
+          "is_correct": true
+        },
+        {
+          "option_text": "19",
+          "is_correct": false
+        },
+        {
+          "option_text": "3.4",
+          "is_correct": false
+        },
+        {
+          "option_text": "1",
+          "is_correct": false
+        }
       ],
-      "metadata": {"archetype": "assertion_reason", "source_pack": "class7_curated_v2"}
+      "metadata": {
+        "archetype": "case_based_interpretation",
+        "source_pack": "class7_curated_v2"
+      }
     },
     {
-      "question_type": "mcq_multiple",
+      "question_type": "mcq_single",
       "difficulty_level": "advanced",
-      "question_text": "Select all expressions whose value is 14.",
-      "explanation": "Check each option carefully using brackets first, then multiplication or division, then addition or subtraction. 20 - 3 x 2 equals 14, (8 + 6) x 1 also equals 14, and 36 / 3 + 2 equals 14. But 10 + 8 / 4 equals 12, not 14.",
-      "default_marks": "3.00",
-      "negative_marks": "0.50",
+      "question_text": "What is the value of 7 + 18 / 3 * 2?",
+      "explanation": "Do division first: 18 / 3 = 6. Then multiply by 2, and finally add 7 to get 19.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
       "options": [
-        {"option_text": "20 - 3 x 2", "is_correct": true},
-        {"option_text": "(8 + 6) x 1", "is_correct": true},
-        {"option_text": "36 / 3 + 2", "is_correct": true},
-        {"option_text": "10 + 8 / 4", "is_correct": false}
+        {
+          "option_text": "10",
+          "is_correct": false
+        },
+        {
+          "option_text": "19",
+          "is_correct": true
+        },
+        {
+          "option_text": "16.666666666666668",
+          "is_correct": false
+        },
+        {
+          "option_text": "15",
+          "is_correct": false
+        }
       ],
-      "metadata": {"archetype": "multi_select_truth_evaluation", "source_pack": "class7_curated_v2"}
+      "metadata": {
+        "archetype": "best_explanation",
+        "source_pack": "class7_curated_v2"
+      }
     },
     {
       "question_type": "mcq_single",
       "difficulty_level": "foundation",
-      "question_text": "What is the value of (7 + 5) / 3?",
-      "explanation": "First solve the bracket: 7 + 5 = 12. Then divide 12 by 3 to get 4. The brackets change the order and make addition happen first here.",
+      "question_text": "What is the value of 7 + 3 * 4?",
+      "explanation": "Multiply first: 3 * 4 = 12. Then add 7, so the value is 19.",
       "default_marks": "1.00",
       "negative_marks": "0.25",
       "options": [
-        {"option_text": "4", "is_correct": true},
-        {"option_text": "12", "is_correct": false},
-        {"option_text": "9", "is_correct": false},
-        {"option_text": "16", "is_correct": false}
+        {
+          "option_text": "40",
+          "is_correct": false
+        },
+        {
+          "option_text": "25",
+          "is_correct": false
+        },
+        {
+          "option_text": "19",
+          "is_correct": true
+        },
+        {
+          "option_text": "14",
+          "is_correct": false
+        }
       ],
-      "metadata": {"archetype": "bracket_first_check", "source_pack": "class7_curated_v2"}
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "What is the value of (4 + 5) * 3?",
+      "explanation": "Do the bracket first: 4 + 5 = 9. Then multiply by 3 to get 27.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "19",
+          "is_correct": false
+        },
+        {
+          "option_text": "23",
+          "is_correct": false
+        },
+        {
+          "option_text": "12",
+          "is_correct": false
+        },
+        {
+          "option_text": "27",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "archetype": "reading_check",
+        "source_pack": "class7_curated_v2"
+      }
     },
     {
       "question_type": "mcq_single",
       "difficulty_level": "intermediate",
-      "question_text": "Which value is correct for 6 + 18 / 3 - 2?",
-      "explanation": "Do the division first: 18 / 3 = 6. Then the expression becomes 6 + 6 - 2. Work from left to right: 12 - 2 = 10.",
+      "question_text": "What is the value of 22 * 3 - 5?",
+      "explanation": "First multiply: 22 * 3 = 66. Then subtract 5 to get 61.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "61",
+          "is_correct": true
+        },
+        {
+          "option_text": "20",
+          "is_correct": false
+        },
+        {
+          "option_text": "-44",
+          "is_correct": false
+        },
+        {
+          "option_text": "71",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "simple_conversion",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What is the value of 11 + 3 * 4 - 4?",
+      "explanation": "Multiply first: 3 * 4 = 12. Then compute 11 + 12 - 4 = 19.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "52",
+          "is_correct": false
+        },
+        {
+          "option_text": "19",
+          "is_correct": true
+        },
+        {
+          "option_text": "14",
+          "is_correct": false
+        },
+        {
+          "option_text": "11",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "symbol_or_form_identification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What is the value of (6 + 8) * 3 - 3?",
+      "explanation": "First add the bracket: 6 + 8 = 14. Then multiply by 3 and subtract 3 to get 39.",
       "default_marks": "2.00",
       "negative_marks": "0.25",
       "options": [
-        {"option_text": "8", "is_correct": false},
-        {"option_text": "10", "is_correct": true},
-        {"option_text": "14", "is_correct": false},
-        {"option_text": "4", "is_correct": false}
+        {
+          "option_text": "27",
+          "is_correct": false
+        },
+        {
+          "option_text": "0",
+          "is_correct": false
+        },
+        {
+          "option_text": "39",
+          "is_correct": true
+        },
+        {
+          "option_text": "14",
+          "is_correct": false
+        }
       ],
-      "metadata": {"archetype": "mixed_operation_evaluation", "source_pack": "class7_curated_v2"}
+      "metadata": {
+        "archetype": "worked_step_analysis",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What is the value of 6 + 14 / 3 * 3?",
+      "explanation": "Do division and multiplication from left to right: 14 / 3 = 4, then 4 * 3 = 12. Finally add 6 to get 18.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "7.555555555555555",
+          "is_correct": false
+        },
+        {
+          "option_text": "20",
+          "is_correct": false
+        },
+        {
+          "option_text": "13.666666666666668",
+          "is_correct": false
+        },
+        {
+          "option_text": "18",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "archetype": "what_went_wrong",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What is the value of 5 + (4 * 3 - 2)?",
+      "explanation": "Work inside the bracket first: 4 * 3 = 12, then 12 - 2 = 10. Add 5 to get 15.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "15",
+          "is_correct": true
+        },
+        {
+          "option_text": "19",
+          "is_correct": false
+        },
+        {
+          "option_text": "25",
+          "is_correct": false
+        },
+        {
+          "option_text": "9",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "comparison_justification",
+        "source_pack": "class7_curated_v2"
+      }
     },
     {
       "question_type": "mcq_single",
       "difficulty_level": "advanced",
-      "question_text": "Why is (15 - 3) / 4 different from 15 - 3 / 4 in the order of operations?",
-      "explanation": "Brackets force 15 - 3 to be calculated first in the first expression, giving 12 / 4 = 3. In the second expression, division happens first, so 3 / 4 is handled before subtraction. That is why the two expressions do not mean the same thing.",
-      "default_marks": "3.00",
-      "negative_marks": "0.50",
+      "question_text": "What is the value of (12 - 3) * (2 + 4)?",
+      "explanation": "First find each bracket: 12 - 3 = 9 and 2 + 4 = 6. Then multiply to get 54.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
       "options": [
-        {"option_text": "Because brackets can change which operation is done first", "is_correct": true},
-        {"option_text": "Because division disappears when brackets are present", "is_correct": false},
-        {"option_text": "Because subtraction is always stronger than division inside brackets", "is_correct": false},
-        {"option_text": "Because both expressions always have the same value", "is_correct": false}
+        {
+          "option_text": "-6",
+          "is_correct": false
+        },
+        {
+          "option_text": "54",
+          "is_correct": true
+        },
+        {
+          "option_text": "22",
+          "is_correct": false
+        },
+        {
+          "option_text": "15",
+          "is_correct": false
+        }
       ],
-      "metadata": {"archetype": "conceptual_difference", "source_pack": "class7_curated_v2"}
+      "metadata": {
+        "archetype": "rule_application",
+        "source_pack": "class7_curated_v2"
+      }
     },
     {
       "question_type": "mcq_single",
       "difficulty_level": "advanced",
-      "question_text": "Which student is correct?\n\nAman: 24 / 6 x 2 = 2 because 6 x 2 should be done first.\n\nSara: 24 / 6 x 2 = 8 because division and multiplication are done from left to right.",
-      "explanation": "Division and multiplication have the same priority, so we evaluate them from left to right. First 24 / 6 = 4, then 4 x 2 = 8. So Sara is correct and Aman's reasoning is not.",
-      "default_marks": "3.00",
-      "negative_marks": "0.50",
+      "question_text": "What is the value of 18 / (2 * 3) + 2?",
+      "explanation": "First do the bracket: 2 * 3 = 6. Then divide: 18 / 6 = 3. Finally add 2 to get 5.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
       "options": [
-        {"option_text": "Only Aman is correct", "is_correct": false},
-        {"option_text": "Only Sara is correct", "is_correct": true},
-        {"option_text": "Both are correct", "is_correct": false},
-        {"option_text": "Neither is correct because brackets are needed", "is_correct": false}
+        {
+          "option_text": "29",
+          "is_correct": false
+        },
+        {
+          "option_text": "5.6",
+          "is_correct": false
+        },
+        {
+          "option_text": "5",
+          "is_correct": true
+        },
+        {
+          "option_text": "2",
+          "is_correct": false
+        }
       ],
-      "metadata": {"archetype": "student_reasoning_comparison", "source_pack": "class7_curated_v2"}
+      "metadata": {
+        "archetype": "case_based_interpretation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "What is the value of 8 + 21 / 3 * 3?",
+      "explanation": "Do division first: 21 / 3 = 7. Then multiply by 3, and finally add 8 to get 29.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "10.333333333333334",
+          "is_correct": false
+        },
+        {
+          "option_text": "18",
+          "is_correct": false
+        },
+        {
+          "option_text": "4",
+          "is_correct": false
+        },
+        {
+          "option_text": "29",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "archetype": "best_explanation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "What is the value of 8 + 4 * 5?",
+      "explanation": "Multiply first: 4 * 5 = 20. Then add 8, so the value is 28.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "28",
+          "is_correct": true
+        },
+        {
+          "option_text": "60",
+          "is_correct": false
+        },
+        {
+          "option_text": "37",
+          "is_correct": false
+        },
+        {
+          "option_text": "17",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "What is the value of (5 + 6) * 4?",
+      "explanation": "Do the bracket first: 5 + 6 = 11. Then multiply by 4 to get 44.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "29",
+          "is_correct": false
+        },
+        {
+          "option_text": "44",
+          "is_correct": true
+        },
+        {
+          "option_text": "34",
+          "is_correct": false
+        },
+        {
+          "option_text": "15",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "reading_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What is the value of 24 * 3 - 6?",
+      "explanation": "First multiply: 24 * 3 = 72. Then subtract 6 to get 66.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "21",
+          "is_correct": false
+        },
+        {
+          "option_text": "-72",
+          "is_correct": false
+        },
+        {
+          "option_text": "66",
+          "is_correct": true
+        },
+        {
+          "option_text": "78",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "simple_conversion",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What is the value of 12 + 4 * 5 - 4?",
+      "explanation": "Multiply first: 4 * 5 = 20. Then compute 12 + 20 - 4 = 28.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "76",
+          "is_correct": false
+        },
+        {
+          "option_text": "17",
+          "is_correct": false
+        },
+        {
+          "option_text": "16",
+          "is_correct": false
+        },
+        {
+          "option_text": "28",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "archetype": "symbol_or_form_identification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What is the value of (7 + 9) * 4 - 3?",
+      "explanation": "First add the bracket: 7 + 9 = 16. Then multiply by 4 and subtract 3 to get 61.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "61",
+          "is_correct": true
+        },
+        {
+          "option_text": "40",
+          "is_correct": false
+        },
+        {
+          "option_text": "16",
+          "is_correct": false
+        },
+        {
+          "option_text": "17",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "worked_step_analysis",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What is the value of 7 + 16 / 3 * 4?",
+      "explanation": "Do division and multiplication from left to right: 16 / 3 = 5, then 5 * 4 = 20. Finally add 7 to get 27.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "8.333333333333334",
+          "is_correct": false
+        },
+        {
+          "option_text": "27",
+          "is_correct": true
+        },
+        {
+          "option_text": "30.666666666666668",
+          "is_correct": false
+        },
+        {
+          "option_text": "16.333333333333332",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "what_went_wrong",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What is the value of 6 + (5 * 4 - 3)?",
+      "explanation": "Work inside the bracket first: 5 * 4 = 20, then 20 - 3 = 17. Add 6 to get 23.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "29",
+          "is_correct": false
+        },
+        {
+          "option_text": "41",
+          "is_correct": false
+        },
+        {
+          "option_text": "23",
+          "is_correct": true
+        },
+        {
+          "option_text": "11",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "comparison_justification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "What is the value of (14 - 4) * (3 + 5)?",
+      "explanation": "First find each bracket: 14 - 4 = 10 and 3 + 5 = 8. Then multiply to get 80.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "-18",
+          "is_correct": false
+        },
+        {
+          "option_text": "35",
+          "is_correct": false
+        },
+        {
+          "option_text": "18",
+          "is_correct": false
+        },
+        {
+          "option_text": "80",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "archetype": "rule_application",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "What is the value of 24 / (2 * 3) + 3?",
+      "explanation": "First do the bracket: 2 * 3 = 6. Then divide: 24 / 6 = 4. Finally add 3 to get 7.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "7",
+          "is_correct": true
+        },
+        {
+          "option_text": "39",
+          "is_correct": false
+        },
+        {
+          "option_text": "7.8",
+          "is_correct": false
+        },
+        {
+          "option_text": "2",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "case_based_interpretation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "What is the value of 9 + 24 / 3 * 4?",
+      "explanation": "Do division first: 24 / 3 = 8. Then multiply by 4, and finally add 9 to get 41.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "11",
+          "is_correct": false
+        },
+        {
+          "option_text": "41",
+          "is_correct": true
+        },
+        {
+          "option_text": "44",
+          "is_correct": false
+        },
+        {
+          "option_text": "21",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "best_explanation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "What is the value of 9 + 5 * 6?",
+      "explanation": "Multiply first: 5 * 6 = 30. Then add 9, so the value is 39.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "84",
+          "is_correct": false
+        },
+        {
+          "option_text": "51",
+          "is_correct": false
+        },
+        {
+          "option_text": "39",
+          "is_correct": true
+        },
+        {
+          "option_text": "20",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "What is the value of (6 + 7) * 5?",
+      "explanation": "Do the bracket first: 6 + 7 = 13. Then multiply by 5 to get 65.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "41",
+          "is_correct": false
+        },
+        {
+          "option_text": "47",
+          "is_correct": false
+        },
+        {
+          "option_text": "18",
+          "is_correct": false
+        },
+        {
+          "option_text": "65",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "archetype": "reading_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What is the value of 26 * 3 - 7?",
+      "explanation": "First multiply: 26 * 3 = 78. Then subtract 7 to get 71.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "71",
+          "is_correct": true
+        },
+        {
+          "option_text": "22",
+          "is_correct": false
+        },
+        {
+          "option_text": "-104",
+          "is_correct": false
+        },
+        {
+          "option_text": "85",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "simple_conversion",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What is the value of 13 + 5 * 6 - 4?",
+      "explanation": "Multiply first: 5 * 6 = 30. Then compute 13 + 30 - 4 = 39.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "104",
+          "is_correct": false
+        },
+        {
+          "option_text": "39",
+          "is_correct": true
+        },
+        {
+          "option_text": "20",
+          "is_correct": false
+        },
+        {
+          "option_text": "23",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "symbol_or_form_identification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What is the value of (8 + 10) * 5 - 3?",
+      "explanation": "First add the bracket: 8 + 10 = 18. Then multiply by 5 and subtract 3 to get 87.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "55",
+          "is_correct": false
+        },
+        {
+          "option_text": "36",
+          "is_correct": false
+        },
+        {
+          "option_text": "87",
+          "is_correct": true
+        },
+        {
+          "option_text": "20",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "worked_step_analysis",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What is the value of 8 + 18 / 3 * 5?",
+      "explanation": "Do division and multiplication from left to right: 18 / 3 = 6, then 6 * 5 = 30. Finally add 8 to get 38.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "9.2",
+          "is_correct": false
+        },
+        {
+          "option_text": "43.33333333333333",
+          "is_correct": false
+        },
+        {
+          "option_text": "19",
+          "is_correct": false
+        },
+        {
+          "option_text": "38",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "archetype": "what_went_wrong",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What is the value of 7 + (6 * 5 - 4)?",
+      "explanation": "Work inside the bracket first: 6 * 5 = 30, then 30 - 4 = 26. Add 7 to get 33.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "33",
+          "is_correct": true
+        },
+        {
+          "option_text": "41",
+          "is_correct": false
+        },
+        {
+          "option_text": "61",
+          "is_correct": false
+        },
+        {
+          "option_text": "13",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "comparison_justification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "What is the value of (16 - 5) * (4 + 6)?",
+      "explanation": "First find each bracket: 16 - 5 = 11 and 4 + 6 = 10. Then multiply to get 110.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "-34",
+          "is_correct": false
+        },
+        {
+          "option_text": "110",
+          "is_correct": true
+        },
+        {
+          "option_text": "50",
+          "is_correct": false
+        },
+        {
+          "option_text": "21",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "rule_application",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "What is the value of 30 / (2 * 3) + 4?",
+      "explanation": "First do the bracket: 2 * 3 = 6. Then divide: 30 / 6 = 5. Finally add 4 to get 9.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "49",
+          "is_correct": false
+        },
+        {
+          "option_text": "10",
+          "is_correct": false
+        },
+        {
+          "option_text": "9",
+          "is_correct": true
+        },
+        {
+          "option_text": "3",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "case_based_interpretation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "What is the value of 10 + 27 / 3 * 5?",
+      "explanation": "Do division first: 27 / 3 = 9. Then multiply by 5, and finally add 10 to get 55.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "11.8",
+          "is_correct": false
+        },
+        {
+          "option_text": "61.66666666666667",
+          "is_correct": false
+        },
+        {
+          "option_text": "24",
+          "is_correct": false
+        },
+        {
+          "option_text": "55",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "archetype": "best_explanation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "What is the value of 10 + 6 * 7?",
+      "explanation": "Multiply first: 6 * 7 = 42. Then add 10, so the value is 52.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "52",
+          "is_correct": true
+        },
+        {
+          "option_text": "112",
+          "is_correct": false
+        },
+        {
+          "option_text": "67",
+          "is_correct": false
+        },
+        {
+          "option_text": "23",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "What is the value of (7 + 8) * 6?",
+      "explanation": "Do the bracket first: 7 + 8 = 15. Then multiply by 6 to get 90.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "55",
+          "is_correct": false
+        },
+        {
+          "option_text": "90",
+          "is_correct": true
+        },
+        {
+          "option_text": "62",
+          "is_correct": false
+        },
+        {
+          "option_text": "21",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "reading_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What is the value of 28 * 3 - 8?",
+      "explanation": "First multiply: 28 * 3 = 84. Then subtract 8 to get 76.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "23",
+          "is_correct": false
+        },
+        {
+          "option_text": "-140",
+          "is_correct": false
+        },
+        {
+          "option_text": "76",
+          "is_correct": true
+        },
+        {
+          "option_text": "92",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "simple_conversion",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What is the value of 14 + 6 * 7 - 4?",
+      "explanation": "Multiply first: 6 * 7 = 42. Then compute 14 + 42 - 4 = 52.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "136",
+          "is_correct": false
+        },
+        {
+          "option_text": "23",
+          "is_correct": false
+        },
+        {
+          "option_text": "32",
+          "is_correct": false
+        },
+        {
+          "option_text": "52",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "archetype": "symbol_or_form_identification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What is the value of (9 + 11) * 6 - 3?",
+      "explanation": "First add the bracket: 9 + 11 = 20. Then multiply by 6 and subtract 3 to get 117.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "117",
+          "is_correct": true
+        },
+        {
+          "option_text": "72",
+          "is_correct": false
+        },
+        {
+          "option_text": "60",
+          "is_correct": false
+        },
+        {
+          "option_text": "23",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "worked_step_analysis",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What is the value of 9 + 20 / 3 * 6?",
+      "explanation": "Do division and multiplication from left to right: 20 / 3 = 6, then 6 * 6 = 36. Finally add 9 to get 45.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "10.11111111111111",
+          "is_correct": false
+        },
+        {
+          "option_text": "45",
+          "is_correct": true
+        },
+        {
+          "option_text": "58",
+          "is_correct": false
+        },
+        {
+          "option_text": "21.666666666666668",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "what_went_wrong",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What is the value of 8 + (7 * 6 - 5)?",
+      "explanation": "Work inside the bracket first: 7 * 6 = 42, then 42 - 5 = 37. Add 8 to get 45.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "55",
+          "is_correct": false
+        },
+        {
+          "option_text": "85",
+          "is_correct": false
+        },
+        {
+          "option_text": "45",
+          "is_correct": true
+        },
+        {
+          "option_text": "15",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "comparison_justification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "What is the value of (18 - 6) * (5 + 7)?",
+      "explanation": "First find each bracket: 18 - 6 = 12 and 5 + 7 = 12. Then multiply to get 144.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "-54",
+          "is_correct": false
+        },
+        {
+          "option_text": "67",
+          "is_correct": false
+        },
+        {
+          "option_text": "24",
+          "is_correct": false
+        },
+        {
+          "option_text": "144",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "archetype": "rule_application",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "What is the value of 36 / (2 * 3) + 5?",
+      "explanation": "First do the bracket: 2 * 3 = 6. Then divide: 36 / 6 = 6. Finally add 5 to get 11.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "11",
+          "is_correct": true
+        },
+        {
+          "option_text": "59",
+          "is_correct": false
+        },
+        {
+          "option_text": "12.2",
+          "is_correct": false
+        },
+        {
+          "option_text": "3",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "case_based_interpretation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "What is the value of 11 + 30 / 3 * 6?",
+      "explanation": "Do division first: 30 / 3 = 10. Then multiply by 6, and finally add 11 to get 71.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "12.666666666666666",
+          "is_correct": false
+        },
+        {
+          "option_text": "71",
+          "is_correct": true
+        },
+        {
+          "option_text": "82",
+          "is_correct": false
+        },
+        {
+          "option_text": "27",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "best_explanation",
+        "source_pack": "class7_curated_v2"
+      }
     }
   ]
 }

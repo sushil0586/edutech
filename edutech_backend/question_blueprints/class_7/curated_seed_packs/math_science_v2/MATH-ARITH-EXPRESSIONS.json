@@ -1,855 +1,1505 @@
 {
   "topic_code": "MATH-ARITH-EXPRESSIONS",
   "topic_name": "Arithmetic Expressions",
-  "subject_name": "Math",
-  "subject_alias": "math",
-  "parent_topic_name": "Arithmetic and Decimals",
-  "template_only": true,
-  "template_batch": "curated_template_batch_v1",
   "questions": [
     {
-      "question_number": 1,
       "question_type": "mcq_single",
       "difficulty_level": "foundation",
-      "question_text": "[AUTHORING REQUIRED] Create a foundation mcq single direct concept check question for Class 7 Math on 'Arithmetic Expressions'. Focus: topic='Arithmetic Expressions', subject='Math', difficulty='foundation', archetype='direct_concept_check'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "question_text": "Which expression means the product of 4 and 5, then add 3?",
+      "explanation": "Multiply first, then add: 4 * 5 comes before adding 3.",
       "default_marks": "1.00",
       "negative_marks": "0.25",
       "options": [
         {
-          "option_text": "[AUTHORING REQUIRED] Option A",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option B",
+          "option_text": "4 * 5 + 3",
           "is_correct": true
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option C",
+          "option_text": "4 + 5 * 3",
           "is_correct": false
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option D",
+          "option_text": "(4 + 5) * 3",
+          "is_correct": false
+        },
+        {
+          "option_text": "4 * (5 + 3)",
           "is_correct": false
         }
       ],
       "metadata": {
-        "template_status": "authoring_required",
         "archetype": "direct_concept_check",
-        "authoring_focus": "topic='Arithmetic Expressions', subject='Math', difficulty='foundation', archetype='direct_concept_check'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
+        "source_pack": "class7_curated_v2"
       }
     },
     {
-      "question_number": 2,
       "question_type": "mcq_single",
       "difficulty_level": "foundation",
-      "question_text": "[AUTHORING REQUIRED] Create a foundation mcq single reading check question for Class 7 Math on 'Arithmetic Expressions'. Focus: topic='Arithmetic Expressions', subject='Math', difficulty='foundation', archetype='reading_check'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "question_text": "Which expression means the sum of 3 and 4, then multiply by 2?",
+      "explanation": "The sum is grouped first, so use brackets around 3 + 4 before multiplying by 2.",
       "default_marks": "1.00",
       "negative_marks": "0.25",
       "options": [
         {
-          "option_text": "[AUTHORING REQUIRED] Option A",
+          "option_text": "3 + 4 * 2",
           "is_correct": false
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option B",
+          "option_text": "(3 + 4) * 2",
           "is_correct": true
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option C",
+          "option_text": "3 * 4 + 2",
           "is_correct": false
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option D",
+          "option_text": "3 + (4 * 2)",
           "is_correct": false
         }
       ],
       "metadata": {
-        "template_status": "authoring_required",
         "archetype": "reading_check",
-        "authoring_focus": "topic='Arithmetic Expressions', subject='Math', difficulty='foundation', archetype='reading_check'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
+        "source_pack": "class7_curated_v2"
       }
     },
     {
-      "question_number": 3,
       "question_type": "mcq_single",
-      "difficulty_level": "foundation",
-      "question_text": "[AUTHORING REQUIRED] Create a foundation mcq single simple conversion question for Class 7 Math on 'Arithmetic Expressions'. Focus: topic='Arithmetic Expressions', subject='Math', difficulty='foundation', archetype='simple_conversion'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "difficulty_level": "intermediate",
+      "question_text": "Which expression means 4 less than the product of 20 and 3?",
+      "explanation": "Start with the product 20 * 3, then subtract 4.",
       "default_marks": "1.00",
       "negative_marks": "0.25",
       "options": [
         {
-          "option_text": "[AUTHORING REQUIRED] Option A",
+          "option_text": "20 + 3 - 4",
           "is_correct": false
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option B",
+          "option_text": "20 * (3 - 4)",
+          "is_correct": false
+        },
+        {
+          "option_text": "20 * 3 - 4",
           "is_correct": true
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option C",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option D",
+          "option_text": "20 + 3 * 4",
           "is_correct": false
         }
       ],
       "metadata": {
-        "template_status": "authoring_required",
         "archetype": "simple_conversion",
-        "authoring_focus": "topic='Arithmetic Expressions', subject='Math', difficulty='foundation', archetype='simple_conversion'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
+        "source_pack": "class7_curated_v2"
       }
     },
     {
-      "question_number": 4,
       "question_type": "mcq_single",
-      "difficulty_level": "foundation",
-      "question_text": "[AUTHORING REQUIRED] Create a foundation mcq single symbol or form identification question for Class 7 Math on 'Arithmetic Expressions'. Focus: topic='Arithmetic Expressions', subject='Math', difficulty='foundation', archetype='symbol_or_form_identification'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "difficulty_level": "intermediate",
+      "question_text": "Which expression means the sum of 6 and the product of 2 and 5?",
+      "explanation": "The product 2 * 5 is found first, and then 6 is added.",
       "default_marks": "1.00",
       "negative_marks": "0.25",
       "options": [
         {
-          "option_text": "[AUTHORING REQUIRED] Option A",
+          "option_text": "(6 + 2) * 5",
           "is_correct": false
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option B",
+          "option_text": "6 * (2 + 5)",
+          "is_correct": false
+        },
+        {
+          "option_text": "6 * 2 + 5",
+          "is_correct": false
+        },
+        {
+          "option_text": "6 + 2 * 5",
           "is_correct": true
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option C",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option D",
-          "is_correct": false
         }
       ],
       "metadata": {
-        "template_status": "authoring_required",
         "archetype": "symbol_or_form_identification",
-        "authoring_focus": "topic='Arithmetic Expressions', subject='Math', difficulty='foundation', archetype='symbol_or_form_identification'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
+        "source_pack": "class7_curated_v2"
       }
     },
     {
-      "question_number": 5,
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which expression means the product of 3 and the sum of 4 and 2?",
+      "explanation": "The sum 4 + 2 must stay together inside brackets before multiplying by 3.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "3 * (4 + 2)",
+          "is_correct": true
+        },
+        {
+          "option_text": "3 + 4 + 2",
+          "is_correct": false
+        },
+        {
+          "option_text": "3 * 4 + 2",
+          "is_correct": false
+        },
+        {
+          "option_text": "(3 + 4) * 2",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "worked_step_analysis",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which expression means the quotient of 24 and 3, then add 2?",
+      "explanation": "Divide first, then add 2. That gives the intended arithmetic expression.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "24 / (3 + 2)",
+          "is_correct": false
+        },
+        {
+          "option_text": "24 / 3 + 2",
+          "is_correct": true
+        },
+        {
+          "option_text": "24 + 3 / 2",
+          "is_correct": false
+        },
+        {
+          "option_text": "(24 + 2) / 3",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "what_went_wrong",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which expression means 3 subtracted from the sum of 8 and 5?",
+      "explanation": "First add 8 and 5, then subtract 3.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "8 + 5 - 3",
+          "is_correct": false
+        },
+        {
+          "option_text": "8 - (5 + 3)",
+          "is_correct": false
+        },
+        {
+          "option_text": "(8 + 5) - 3",
+          "is_correct": true
+        },
+        {
+          "option_text": "(8 - 5) - 3",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "comparison_justification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which expression means the product of (10 - 2) and (3 + 4)?",
+      "explanation": "Keep both brackets together, then multiply the two results.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "10 - 2 * (3 + 4)",
+          "is_correct": false
+        },
+        {
+          "option_text": "(10 - 2) * 3 + 4",
+          "is_correct": false
+        },
+        {
+          "option_text": "10 - 2 + 3 + 4",
+          "is_correct": false
+        },
+        {
+          "option_text": "(10 - 2) * (3 + 4)",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "archetype": "rule_application",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which expression means half of the sum of 12 and 4?",
+      "explanation": "Add the two numbers first, then divide the total by 2.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "(12 + 4) / 2",
+          "is_correct": true
+        },
+        {
+          "option_text": "12 + 4 / 2",
+          "is_correct": false
+        },
+        {
+          "option_text": "(12 / 2) + 4",
+          "is_correct": false
+        },
+        {
+          "option_text": "12 / (4 + 2)",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "case_based_interpretation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which expression means the sum of 4 and the product of 3 and 2, all divided by 2?",
+      "explanation": "Find the product first, add 4, and then divide the whole sum by 2.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "4 + (3 * 2 / 2)",
+          "is_correct": false
+        },
+        {
+          "option_text": "(4 + 3 * 2) / 2",
+          "is_correct": true
+        },
+        {
+          "option_text": "(4 + 3) * 2 / 2",
+          "is_correct": false
+        },
+        {
+          "option_text": "4 + 3 + 2 / 2",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "best_explanation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
       "question_type": "mcq_single",
       "difficulty_level": "foundation",
-      "question_text": "[AUTHORING REQUIRED] Create a foundation mcq single basic classification question for Class 7 Math on 'Arithmetic Expressions'. Focus: topic='Arithmetic Expressions', subject='Math', difficulty='foundation', archetype='basic_classification'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "question_text": "Which expression means the product of 5 and 6, then add 4?",
+      "explanation": "Multiply first, then add: 5 * 6 comes before adding 4.",
       "default_marks": "1.00",
       "negative_marks": "0.25",
       "options": [
         {
-          "option_text": "[AUTHORING REQUIRED] Option A",
+          "option_text": "5 + 6 * 4",
           "is_correct": false
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option B",
+          "option_text": "(5 + 6) * 4",
+          "is_correct": false
+        },
+        {
+          "option_text": "5 * 6 + 4",
           "is_correct": true
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option C",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option D",
+          "option_text": "5 * (6 + 4)",
           "is_correct": false
         }
       ],
       "metadata": {
-        "template_status": "authoring_required",
-        "archetype": "basic_classification",
-        "authoring_focus": "topic='Arithmetic Expressions', subject='Math', difficulty='foundation', archetype='basic_classification'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
       }
     },
     {
-      "question_number": 6,
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which expression means the sum of 4 and 5, then multiply by 3?",
+      "explanation": "The sum is grouped first, so use brackets around 4 + 5 before multiplying by 3.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "4 + 5 * 3",
+          "is_correct": false
+        },
+        {
+          "option_text": "4 * 5 + 3",
+          "is_correct": false
+        },
+        {
+          "option_text": "4 + (5 * 3)",
+          "is_correct": false
+        },
+        {
+          "option_text": "(4 + 5) * 3",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "archetype": "reading_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
       "question_type": "mcq_single",
       "difficulty_level": "intermediate",
-      "question_text": "[AUTHORING REQUIRED] Create a intermediate mcq single expanded form question for Class 7 Math on 'Arithmetic Expressions'. Focus: topic='Arithmetic Expressions', subject='Math', difficulty='intermediate', archetype='expanded_form'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "question_text": "Which expression means 5 less than the product of 22 and 4?",
+      "explanation": "Start with the product 22 * 4, then subtract 5.",
       "default_marks": "1.00",
       "negative_marks": "0.25",
       "options": [
         {
-          "option_text": "[AUTHORING REQUIRED] Option A",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option B",
+          "option_text": "22 * 4 - 5",
           "is_correct": true
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option C",
+          "option_text": "22 + 4 - 5",
           "is_correct": false
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option D",
+          "option_text": "22 * (4 - 5)",
+          "is_correct": false
+        },
+        {
+          "option_text": "22 + 4 * 5",
           "is_correct": false
         }
       ],
       "metadata": {
-        "template_status": "authoring_required",
-        "archetype": "expanded_form",
-        "authoring_focus": "topic='Arithmetic Expressions', subject='Math', difficulty='intermediate', archetype='expanded_form'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
+        "archetype": "simple_conversion",
+        "source_pack": "class7_curated_v2"
       }
     },
     {
-      "question_number": 7,
       "question_type": "mcq_single",
       "difficulty_level": "intermediate",
-      "question_text": "[AUTHORING REQUIRED] Create a intermediate mcq single ordering reasoning question for Class 7 Math on 'Arithmetic Expressions'. Focus: topic='Arithmetic Expressions', subject='Math', difficulty='intermediate', archetype='ordering_reasoning'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "question_text": "Which expression means the sum of 7 and the product of 3 and 6?",
+      "explanation": "The product 3 * 6 is found first, and then 7 is added.",
       "default_marks": "1.00",
       "negative_marks": "0.25",
       "options": [
         {
-          "option_text": "[AUTHORING REQUIRED] Option A",
+          "option_text": "(7 + 3) * 6",
           "is_correct": false
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option B",
+          "option_text": "7 + 3 * 6",
           "is_correct": true
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option C",
+          "option_text": "7 * (3 + 6)",
           "is_correct": false
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option D",
+          "option_text": "7 * 3 + 6",
           "is_correct": false
         }
       ],
       "metadata": {
-        "template_status": "authoring_required",
-        "archetype": "ordering_reasoning",
-        "authoring_focus": "topic='Arithmetic Expressions', subject='Math', difficulty='intermediate', archetype='ordering_reasoning'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
+        "archetype": "symbol_or_form_identification",
+        "source_pack": "class7_curated_v2"
       }
     },
     {
-      "question_number": 8,
       "question_type": "mcq_single",
       "difficulty_level": "intermediate",
-      "question_text": "[AUTHORING REQUIRED] Create a intermediate mcq single misconception correction question for Class 7 Math on 'Arithmetic Expressions'. Focus: topic='Arithmetic Expressions', subject='Math', difficulty='intermediate', archetype='misconception_correction'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
-      "default_marks": "1.00",
-      "negative_marks": "0.25",
-      "options": [
-        {
-          "option_text": "[AUTHORING REQUIRED] Option A",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option B",
-          "is_correct": true
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option C",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option D",
-          "is_correct": false
-        }
-      ],
-      "metadata": {
-        "template_status": "authoring_required",
-        "archetype": "misconception_correction",
-        "authoring_focus": "topic='Arithmetic Expressions', subject='Math', difficulty='intermediate', archetype='misconception_correction'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
-      }
-    },
-    {
-      "question_number": 9,
-      "question_type": "mcq_single",
-      "difficulty_level": "intermediate",
-      "question_text": "[AUTHORING REQUIRED] Create a intermediate mcq single error detection question for Class 7 Math on 'Arithmetic Expressions'. Focus: topic='Arithmetic Expressions', subject='Math', difficulty='intermediate', archetype='error_detection'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
-      "default_marks": "1.00",
-      "negative_marks": "0.25",
-      "options": [
-        {
-          "option_text": "[AUTHORING REQUIRED] Option A",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option B",
-          "is_correct": true
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option C",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option D",
-          "is_correct": false
-        }
-      ],
-      "metadata": {
-        "template_status": "authoring_required",
-        "archetype": "error_detection",
-        "authoring_focus": "topic='Arithmetic Expressions', subject='Math', difficulty='intermediate', archetype='error_detection'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
-      }
-    },
-    {
-      "question_number": 10,
-      "question_type": "mcq_single",
-      "difficulty_level": "intermediate",
-      "question_text": "[AUTHORING REQUIRED] Create a intermediate mcq single compare and choose question for Class 7 Math on 'Arithmetic Expressions'. Focus: topic='Arithmetic Expressions', subject='Math', difficulty='intermediate', archetype='compare_and_choose'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
-      "default_marks": "1.00",
-      "negative_marks": "0.25",
-      "options": [
-        {
-          "option_text": "[AUTHORING REQUIRED] Option A",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option B",
-          "is_correct": true
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option C",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option D",
-          "is_correct": false
-        }
-      ],
-      "metadata": {
-        "template_status": "authoring_required",
-        "archetype": "compare_and_choose",
-        "authoring_focus": "topic='Arithmetic Expressions', subject='Math', difficulty='intermediate', archetype='compare_and_choose'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
-      }
-    },
-    {
-      "question_number": 11,
-      "question_type": "mcq_single",
-      "difficulty_level": "intermediate",
-      "question_text": "[AUTHORING REQUIRED] Create a intermediate mcq single words to figures question for Class 7 Math on 'Arithmetic Expressions'. Focus: topic='Arithmetic Expressions', subject='Math', difficulty='intermediate', archetype='words_to_figures'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
-      "default_marks": "1.00",
-      "negative_marks": "0.25",
-      "options": [
-        {
-          "option_text": "[AUTHORING REQUIRED] Option A",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option B",
-          "is_correct": true
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option C",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option D",
-          "is_correct": false
-        }
-      ],
-      "metadata": {
-        "template_status": "authoring_required",
-        "archetype": "words_to_figures",
-        "authoring_focus": "topic='Arithmetic Expressions', subject='Math', difficulty='intermediate', archetype='words_to_figures'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
-      }
-    },
-    {
-      "question_number": 12,
-      "question_type": "mcq_single",
-      "difficulty_level": "intermediate",
-      "question_text": "[AUTHORING REQUIRED] Create a intermediate mcq single representation selection question for Class 7 Math on 'Arithmetic Expressions'. Focus: topic='Arithmetic Expressions', subject='Math', difficulty='intermediate', archetype='representation_selection'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
-      "default_marks": "1.00",
-      "negative_marks": "0.25",
-      "options": [
-        {
-          "option_text": "[AUTHORING REQUIRED] Option A",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option B",
-          "is_correct": true
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option C",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option D",
-          "is_correct": false
-        }
-      ],
-      "metadata": {
-        "template_status": "authoring_required",
-        "archetype": "representation_selection",
-        "authoring_focus": "topic='Arithmetic Expressions', subject='Math', difficulty='intermediate', archetype='representation_selection'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
-      }
-    },
-    {
-      "question_number": 13,
-      "question_type": "mcq_single",
-      "difficulty_level": "intermediate",
-      "question_text": "[AUTHORING REQUIRED] Create a intermediate mcq single place value inference question for Class 7 Math on 'Arithmetic Expressions'. Focus: topic='Arithmetic Expressions', subject='Math', difficulty='intermediate', archetype='place_value_inference'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
-      "default_marks": "1.00",
-      "negative_marks": "0.25",
-      "options": [
-        {
-          "option_text": "[AUTHORING REQUIRED] Option A",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option B",
-          "is_correct": true
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option C",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option D",
-          "is_correct": false
-        }
-      ],
-      "metadata": {
-        "template_status": "authoring_required",
-        "archetype": "place_value_inference",
-        "authoring_focus": "topic='Arithmetic Expressions', subject='Math', difficulty='intermediate', archetype='place_value_inference'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
-      }
-    },
-    {
-      "question_number": 14,
-      "question_type": "mcq_single",
-      "difficulty_level": "advanced",
-      "question_text": "[AUTHORING REQUIRED] Create a advanced mcq single best explanation question for Class 7 Math on 'Arithmetic Expressions'. Focus: topic='Arithmetic Expressions', subject='Math', difficulty='advanced', archetype='best_explanation'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "question_text": "Which expression means the product of 4 and the sum of 5 and 3?",
+      "explanation": "The sum 5 + 3 must stay together inside brackets before multiplying by 4.",
       "default_marks": "2.00",
       "negative_marks": "0.25",
       "options": [
         {
-          "option_text": "[AUTHORING REQUIRED] Option A",
+          "option_text": "4 + 5 + 3",
           "is_correct": false
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option B",
+          "option_text": "4 * 5 + 3",
+          "is_correct": false
+        },
+        {
+          "option_text": "4 * (5 + 3)",
           "is_correct": true
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option C",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option D",
+          "option_text": "(4 + 5) * 3",
           "is_correct": false
         }
       ],
       "metadata": {
-        "template_status": "authoring_required",
-        "archetype": "best_explanation",
-        "authoring_focus": "topic='Arithmetic Expressions', subject='Math', difficulty='advanced', archetype='best_explanation'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
-      }
-    },
-    {
-      "question_number": 15,
-      "question_type": "mcq_single",
-      "difficulty_level": "advanced",
-      "question_text": "[AUTHORING REQUIRED] Create a advanced mcq single assertion reason question for Class 7 Math on 'Arithmetic Expressions'. Focus: topic='Arithmetic Expressions', subject='Math', difficulty='advanced', archetype='assertion_reason'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
-      "default_marks": "2.00",
-      "negative_marks": "0.25",
-      "options": [
-        {
-          "option_text": "[AUTHORING REQUIRED] Option A",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option B",
-          "is_correct": true
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option C",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option D",
-          "is_correct": false
-        }
-      ],
-      "metadata": {
-        "template_status": "authoring_required",
-        "archetype": "assertion_reason",
-        "authoring_focus": "topic='Arithmetic Expressions', subject='Math', difficulty='advanced', archetype='assertion_reason'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
-      }
-    },
-    {
-      "question_number": 16,
-      "question_type": "mcq_multiple",
-      "difficulty_level": "advanced",
-      "question_text": "[AUTHORING REQUIRED] Create a advanced mcq multiple multi select truth evaluation question for Class 7 Math on 'Arithmetic Expressions'. Focus: topic='Arithmetic Expressions', subject='Math', difficulty='advanced', archetype='multi_select_truth_evaluation'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
-      "default_marks": "2.00",
-      "negative_marks": "0.50",
-      "options": [
-        {
-          "option_text": "[AUTHORING REQUIRED] Option A",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option B",
-          "is_correct": true
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option C",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option D",
-          "is_correct": false
-        }
-      ],
-      "metadata": {
-        "template_status": "authoring_required",
-        "archetype": "multi_select_truth_evaluation",
-        "authoring_focus": "topic='Arithmetic Expressions', subject='Math', difficulty='advanced', archetype='multi_select_truth_evaluation'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
-      }
-    },
-    {
-      "question_number": 17,
-      "question_type": "short_answer",
-      "difficulty_level": "advanced",
-      "question_text": "[AUTHORING REQUIRED] Create a advanced short answer short answer reasoning question for Class 7 Math on 'Arithmetic Expressions'. Focus: topic='Arithmetic Expressions', subject='Math', difficulty='advanced', archetype='short_answer_reasoning'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
-      "default_marks": "2.00",
-      "negative_marks": "0.00",
-      "options": [],
-      "metadata": {
-        "template_status": "authoring_required",
-        "archetype": "short_answer_reasoning",
-        "authoring_focus": "topic='Arithmetic Expressions', subject='Math', difficulty='advanced', archetype='short_answer_reasoning'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": [
-          "[AUTHORING REQUIRED] Add one or more accepted answers."
-        ]
-      }
-    },
-    {
-      "question_number": 18,
-      "question_type": "mcq_single",
-      "difficulty_level": "advanced",
-      "question_text": "[AUTHORING REQUIRED] Create a advanced mcq single elimination based reasoning question for Class 7 Math on 'Arithmetic Expressions'. Focus: topic='Arithmetic Expressions', subject='Math', difficulty='advanced', archetype='elimination_based_reasoning'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
-      "default_marks": "2.00",
-      "negative_marks": "0.25",
-      "options": [
-        {
-          "option_text": "[AUTHORING REQUIRED] Option A",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option B",
-          "is_correct": true
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option C",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option D",
-          "is_correct": false
-        }
-      ],
-      "metadata": {
-        "template_status": "authoring_required",
-        "archetype": "elimination_based_reasoning",
-        "authoring_focus": "topic='Arithmetic Expressions', subject='Math', difficulty='advanced', archetype='elimination_based_reasoning'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
-      }
-    },
-    {
-      "question_number": 19,
-      "question_type": "short_answer",
-      "difficulty_level": "advanced",
-      "question_text": "[AUTHORING REQUIRED] Create a advanced short answer cross system conversion question for Class 7 Math on 'Arithmetic Expressions'. Focus: topic='Arithmetic Expressions', subject='Math', difficulty='advanced', archetype='cross_system_conversion'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
-      "default_marks": "2.00",
-      "negative_marks": "0.00",
-      "options": [],
-      "metadata": {
-        "template_status": "authoring_required",
-        "archetype": "cross_system_conversion",
-        "authoring_focus": "topic='Arithmetic Expressions', subject='Math', difficulty='advanced', archetype='cross_system_conversion'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": [
-          "[AUTHORING REQUIRED] Add one or more accepted answers."
-        ]
-      }
-    },
-    {
-      "question_number": 20,
-      "question_type": "mcq_single",
-      "difficulty_level": "advanced",
-      "question_text": "[AUTHORING REQUIRED] Create a advanced mcq single data interpretation question for Class 7 Math on 'Arithmetic Expressions'. Focus: topic='Arithmetic Expressions', subject='Math', difficulty='advanced', archetype='data_interpretation'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
-      "default_marks": "2.00",
-      "negative_marks": "0.25",
-      "options": [
-        {
-          "option_text": "[AUTHORING REQUIRED] Option A",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option B",
-          "is_correct": true
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option C",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option D",
-          "is_correct": false
-        }
-      ],
-      "metadata": {
-        "template_status": "authoring_required",
-        "archetype": "data_interpretation",
-        "authoring_focus": "topic='Arithmetic Expressions', subject='Math', difficulty='advanced', archetype='data_interpretation'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
-      }
-    },
-    {
-      "question_number": 21,
-      "question_type": "mcq_single",
-      "difficulty_level": "advanced",
-      "question_text": "[AUTHORING REQUIRED] Create a advanced mcq single worked step analysis question for Class 7 Math on 'Arithmetic Expressions'. Focus: topic='Arithmetic Expressions', subject='Math', difficulty='advanced', archetype='worked_step_analysis'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
-      "default_marks": "2.00",
-      "negative_marks": "0.25",
-      "options": [
-        {
-          "option_text": "[AUTHORING REQUIRED] Option A",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option B",
-          "is_correct": true
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option C",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option D",
-          "is_correct": false
-        }
-      ],
-      "metadata": {
-        "template_status": "authoring_required",
         "archetype": "worked_step_analysis",
-        "authoring_focus": "topic='Arithmetic Expressions', subject='Math', difficulty='advanced', archetype='worked_step_analysis'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
+        "source_pack": "class7_curated_v2"
       }
     },
     {
-      "question_number": 22,
       "question_type": "mcq_single",
-      "difficulty_level": "advanced",
-      "question_text": "[AUTHORING REQUIRED] Create a advanced mcq single what went wrong question for Class 7 Math on 'Arithmetic Expressions'. Focus: topic='Arithmetic Expressions', subject='Math', difficulty='advanced', archetype='what_went_wrong'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "difficulty_level": "intermediate",
+      "question_text": "Which expression means the quotient of 26 and 3, then add 3?",
+      "explanation": "Divide first, then add 3. That gives the intended arithmetic expression.",
       "default_marks": "2.00",
       "negative_marks": "0.25",
       "options": [
         {
-          "option_text": "[AUTHORING REQUIRED] Option A",
+          "option_text": "26 / (3 + 3)",
           "is_correct": false
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option B",
+          "option_text": "26 + 3 / 3",
+          "is_correct": false
+        },
+        {
+          "option_text": "(26 + 3) / 3",
+          "is_correct": false
+        },
+        {
+          "option_text": "26 / 3 + 3",
           "is_correct": true
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option C",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option D",
-          "is_correct": false
         }
       ],
       "metadata": {
-        "template_status": "authoring_required",
         "archetype": "what_went_wrong",
-        "authoring_focus": "topic='Arithmetic Expressions', subject='Math', difficulty='advanced', archetype='what_went_wrong'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
+        "source_pack": "class7_curated_v2"
       }
     },
     {
-      "question_number": 23,
       "question_type": "mcq_single",
-      "difficulty_level": "advanced",
-      "question_text": "[AUTHORING REQUIRED] Create a advanced mcq single comparison justification question for Class 7 Math on 'Arithmetic Expressions'. Focus: topic='Arithmetic Expressions', subject='Math', difficulty='advanced', archetype='comparison_justification'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "difficulty_level": "intermediate",
+      "question_text": "Which expression means 4 subtracted from the sum of 9 and 6?",
+      "explanation": "First add 9 and 6, then subtract 4.",
       "default_marks": "2.00",
       "negative_marks": "0.25",
       "options": [
         {
-          "option_text": "[AUTHORING REQUIRED] Option A",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option B",
+          "option_text": "(9 + 6) - 4",
           "is_correct": true
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option C",
+          "option_text": "9 + 6 - 4",
           "is_correct": false
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option D",
+          "option_text": "9 - (6 + 4)",
+          "is_correct": false
+        },
+        {
+          "option_text": "(9 - 6) - 4",
           "is_correct": false
         }
       ],
       "metadata": {
-        "template_status": "authoring_required",
         "archetype": "comparison_justification",
-        "authoring_focus": "topic='Arithmetic Expressions', subject='Math', difficulty='advanced', archetype='comparison_justification'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
+        "source_pack": "class7_curated_v2"
       }
     },
     {
-      "question_number": 24,
       "question_type": "mcq_single",
       "difficulty_level": "advanced",
-      "question_text": "[AUTHORING REQUIRED] Create a advanced mcq single rule application question for Class 7 Math on 'Arithmetic Expressions'. Focus: topic='Arithmetic Expressions', subject='Math', difficulty='advanced', archetype='rule_application'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "question_text": "Which expression means the product of (11 - 3) and (4 + 5)?",
+      "explanation": "Keep both brackets together, then multiply the two results.",
       "default_marks": "2.00",
       "negative_marks": "0.25",
       "options": [
         {
-          "option_text": "[AUTHORING REQUIRED] Option A",
+          "option_text": "11 - 3 * (4 + 5)",
           "is_correct": false
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option B",
+          "option_text": "(11 - 3) * (4 + 5)",
           "is_correct": true
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option C",
+          "option_text": "(11 - 3) * 4 + 5",
           "is_correct": false
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option D",
+          "option_text": "11 - 3 + 4 + 5",
           "is_correct": false
         }
       ],
       "metadata": {
-        "template_status": "authoring_required",
         "archetype": "rule_application",
-        "authoring_focus": "topic='Arithmetic Expressions', subject='Math', difficulty='advanced', archetype='rule_application'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
+        "source_pack": "class7_curated_v2"
       }
     },
     {
-      "question_number": 25,
       "question_type": "mcq_single",
       "difficulty_level": "advanced",
-      "question_text": "[AUTHORING REQUIRED] Create a advanced mcq single case based interpretation question for Class 7 Math on 'Arithmetic Expressions'. Focus: topic='Arithmetic Expressions', subject='Math', difficulty='advanced', archetype='case_based_interpretation'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "question_text": "Which expression means half of the sum of 14 and 5?",
+      "explanation": "Add the two numbers first, then divide the total by 2.",
       "default_marks": "2.00",
       "negative_marks": "0.25",
       "options": [
         {
-          "option_text": "[AUTHORING REQUIRED] Option A",
+          "option_text": "14 + 5 / 2",
           "is_correct": false
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option B",
+          "option_text": "(14 / 2) + 5",
+          "is_correct": false
+        },
+        {
+          "option_text": "(14 + 5) / 2",
           "is_correct": true
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option C",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option D",
+          "option_text": "14 / (5 + 2)",
           "is_correct": false
         }
       ],
       "metadata": {
-        "template_status": "authoring_required",
         "archetype": "case_based_interpretation",
-        "authoring_focus": "topic='Arithmetic Expressions', subject='Math', difficulty='advanced', archetype='case_based_interpretation'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which expression means the sum of 5 and the product of 4 and 3, all divided by 2?",
+      "explanation": "Find the product first, add 5, and then divide the whole sum by 2.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "5 + (4 * 3 / 2)",
+          "is_correct": false
+        },
+        {
+          "option_text": "(5 + 4) * 3 / 2",
+          "is_correct": false
+        },
+        {
+          "option_text": "5 + 4 + 3 / 2",
+          "is_correct": false
+        },
+        {
+          "option_text": "(5 + 4 * 3) / 2",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "archetype": "best_explanation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which expression means the product of 6 and 7, then add 5?",
+      "explanation": "Multiply first, then add: 6 * 7 comes before adding 5.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "6 * 7 + 5",
+          "is_correct": true
+        },
+        {
+          "option_text": "6 + 7 * 5",
+          "is_correct": false
+        },
+        {
+          "option_text": "(6 + 7) * 5",
+          "is_correct": false
+        },
+        {
+          "option_text": "6 * (7 + 5)",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which expression means the sum of 5 and 6, then multiply by 4?",
+      "explanation": "The sum is grouped first, so use brackets around 5 + 6 before multiplying by 4.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "5 + 6 * 4",
+          "is_correct": false
+        },
+        {
+          "option_text": "(5 + 6) * 4",
+          "is_correct": true
+        },
+        {
+          "option_text": "5 * 6 + 4",
+          "is_correct": false
+        },
+        {
+          "option_text": "5 + (6 * 4)",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "reading_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which expression means 6 less than the product of 24 and 5?",
+      "explanation": "Start with the product 24 * 5, then subtract 6.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "24 + 5 - 6",
+          "is_correct": false
+        },
+        {
+          "option_text": "24 * (5 - 6)",
+          "is_correct": false
+        },
+        {
+          "option_text": "24 * 5 - 6",
+          "is_correct": true
+        },
+        {
+          "option_text": "24 + 5 * 6",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "simple_conversion",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which expression means the sum of 8 and the product of 4 and 7?",
+      "explanation": "The product 4 * 7 is found first, and then 8 is added.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "(8 + 4) * 7",
+          "is_correct": false
+        },
+        {
+          "option_text": "8 * (4 + 7)",
+          "is_correct": false
+        },
+        {
+          "option_text": "8 * 4 + 7",
+          "is_correct": false
+        },
+        {
+          "option_text": "8 + 4 * 7",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "archetype": "symbol_or_form_identification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which expression means the product of 5 and the sum of 6 and 4?",
+      "explanation": "The sum 6 + 4 must stay together inside brackets before multiplying by 5.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "5 * (6 + 4)",
+          "is_correct": true
+        },
+        {
+          "option_text": "5 + 6 + 4",
+          "is_correct": false
+        },
+        {
+          "option_text": "5 * 6 + 4",
+          "is_correct": false
+        },
+        {
+          "option_text": "(5 + 6) * 4",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "worked_step_analysis",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which expression means the quotient of 28 and 3, then add 4?",
+      "explanation": "Divide first, then add 4. That gives the intended arithmetic expression.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "28 / (3 + 4)",
+          "is_correct": false
+        },
+        {
+          "option_text": "28 / 3 + 4",
+          "is_correct": true
+        },
+        {
+          "option_text": "28 + 3 / 4",
+          "is_correct": false
+        },
+        {
+          "option_text": "(28 + 4) / 3",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "what_went_wrong",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which expression means 5 subtracted from the sum of 10 and 7?",
+      "explanation": "First add 10 and 7, then subtract 5.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "10 + 7 - 5",
+          "is_correct": false
+        },
+        {
+          "option_text": "10 - (7 + 5)",
+          "is_correct": false
+        },
+        {
+          "option_text": "(10 + 7) - 5",
+          "is_correct": true
+        },
+        {
+          "option_text": "(10 - 7) - 5",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "comparison_justification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which expression means the product of (12 - 4) and (5 + 6)?",
+      "explanation": "Keep both brackets together, then multiply the two results.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "12 - 4 * (5 + 6)",
+          "is_correct": false
+        },
+        {
+          "option_text": "(12 - 4) * 5 + 6",
+          "is_correct": false
+        },
+        {
+          "option_text": "12 - 4 + 5 + 6",
+          "is_correct": false
+        },
+        {
+          "option_text": "(12 - 4) * (5 + 6)",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "archetype": "rule_application",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which expression means half of the sum of 16 and 6?",
+      "explanation": "Add the two numbers first, then divide the total by 2.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "(16 + 6) / 2",
+          "is_correct": true
+        },
+        {
+          "option_text": "16 + 6 / 2",
+          "is_correct": false
+        },
+        {
+          "option_text": "(16 / 2) + 6",
+          "is_correct": false
+        },
+        {
+          "option_text": "16 / (6 + 2)",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "case_based_interpretation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which expression means the sum of 6 and the product of 5 and 4, all divided by 2?",
+      "explanation": "Find the product first, add 6, and then divide the whole sum by 2.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "6 + (5 * 4 / 2)",
+          "is_correct": false
+        },
+        {
+          "option_text": "(6 + 5 * 4) / 2",
+          "is_correct": true
+        },
+        {
+          "option_text": "(6 + 5) * 4 / 2",
+          "is_correct": false
+        },
+        {
+          "option_text": "6 + 5 + 4 / 2",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "best_explanation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which expression means the product of 7 and 8, then add 6?",
+      "explanation": "Multiply first, then add: 7 * 8 comes before adding 6.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "7 + 8 * 6",
+          "is_correct": false
+        },
+        {
+          "option_text": "(7 + 8) * 6",
+          "is_correct": false
+        },
+        {
+          "option_text": "7 * 8 + 6",
+          "is_correct": true
+        },
+        {
+          "option_text": "7 * (8 + 6)",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which expression means the sum of 6 and 7, then multiply by 5?",
+      "explanation": "The sum is grouped first, so use brackets around 6 + 7 before multiplying by 5.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "6 + 7 * 5",
+          "is_correct": false
+        },
+        {
+          "option_text": "6 * 7 + 5",
+          "is_correct": false
+        },
+        {
+          "option_text": "6 + (7 * 5)",
+          "is_correct": false
+        },
+        {
+          "option_text": "(6 + 7) * 5",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "archetype": "reading_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which expression means 7 less than the product of 26 and 6?",
+      "explanation": "Start with the product 26 * 6, then subtract 7.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "26 * 6 - 7",
+          "is_correct": true
+        },
+        {
+          "option_text": "26 + 6 - 7",
+          "is_correct": false
+        },
+        {
+          "option_text": "26 * (6 - 7)",
+          "is_correct": false
+        },
+        {
+          "option_text": "26 + 6 * 7",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "simple_conversion",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which expression means the sum of 9 and the product of 5 and 8?",
+      "explanation": "The product 5 * 8 is found first, and then 9 is added.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "(9 + 5) * 8",
+          "is_correct": false
+        },
+        {
+          "option_text": "9 + 5 * 8",
+          "is_correct": true
+        },
+        {
+          "option_text": "9 * (5 + 8)",
+          "is_correct": false
+        },
+        {
+          "option_text": "9 * 5 + 8",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "symbol_or_form_identification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which expression means the product of 6 and the sum of 7 and 5?",
+      "explanation": "The sum 7 + 5 must stay together inside brackets before multiplying by 6.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "6 + 7 + 5",
+          "is_correct": false
+        },
+        {
+          "option_text": "6 * 7 + 5",
+          "is_correct": false
+        },
+        {
+          "option_text": "6 * (7 + 5)",
+          "is_correct": true
+        },
+        {
+          "option_text": "(6 + 7) * 5",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "worked_step_analysis",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which expression means the quotient of 30 and 3, then add 5?",
+      "explanation": "Divide first, then add 5. That gives the intended arithmetic expression.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "30 / (3 + 5)",
+          "is_correct": false
+        },
+        {
+          "option_text": "30 + 3 / 5",
+          "is_correct": false
+        },
+        {
+          "option_text": "(30 + 5) / 3",
+          "is_correct": false
+        },
+        {
+          "option_text": "30 / 3 + 5",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "archetype": "what_went_wrong",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which expression means 6 subtracted from the sum of 11 and 8?",
+      "explanation": "First add 11 and 8, then subtract 6.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "(11 + 8) - 6",
+          "is_correct": true
+        },
+        {
+          "option_text": "11 + 8 - 6",
+          "is_correct": false
+        },
+        {
+          "option_text": "11 - (8 + 6)",
+          "is_correct": false
+        },
+        {
+          "option_text": "(11 - 8) - 6",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "comparison_justification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which expression means the product of (13 - 5) and (6 + 7)?",
+      "explanation": "Keep both brackets together, then multiply the two results.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "13 - 5 * (6 + 7)",
+          "is_correct": false
+        },
+        {
+          "option_text": "(13 - 5) * (6 + 7)",
+          "is_correct": true
+        },
+        {
+          "option_text": "(13 - 5) * 6 + 7",
+          "is_correct": false
+        },
+        {
+          "option_text": "13 - 5 + 6 + 7",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "rule_application",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which expression means half of the sum of 18 and 7?",
+      "explanation": "Add the two numbers first, then divide the total by 2.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "18 + 7 / 2",
+          "is_correct": false
+        },
+        {
+          "option_text": "(18 / 2) + 7",
+          "is_correct": false
+        },
+        {
+          "option_text": "(18 + 7) / 2",
+          "is_correct": true
+        },
+        {
+          "option_text": "18 / (7 + 2)",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "case_based_interpretation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which expression means the sum of 7 and the product of 6 and 5, all divided by 2?",
+      "explanation": "Find the product first, add 7, and then divide the whole sum by 2.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "7 + (6 * 5 / 2)",
+          "is_correct": false
+        },
+        {
+          "option_text": "(7 + 6) * 5 / 2",
+          "is_correct": false
+        },
+        {
+          "option_text": "7 + 6 + 5 / 2",
+          "is_correct": false
+        },
+        {
+          "option_text": "(7 + 6 * 5) / 2",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "archetype": "best_explanation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which expression means the product of 8 and 9, then add 7?",
+      "explanation": "Multiply first, then add: 8 * 9 comes before adding 7.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "8 * 9 + 7",
+          "is_correct": true
+        },
+        {
+          "option_text": "8 + 9 * 7",
+          "is_correct": false
+        },
+        {
+          "option_text": "(8 + 9) * 7",
+          "is_correct": false
+        },
+        {
+          "option_text": "8 * (9 + 7)",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which expression means the sum of 7 and 8, then multiply by 6?",
+      "explanation": "The sum is grouped first, so use brackets around 7 + 8 before multiplying by 6.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "7 + 8 * 6",
+          "is_correct": false
+        },
+        {
+          "option_text": "(7 + 8) * 6",
+          "is_correct": true
+        },
+        {
+          "option_text": "7 * 8 + 6",
+          "is_correct": false
+        },
+        {
+          "option_text": "7 + (8 * 6)",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "reading_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which expression means 8 less than the product of 28 and 7?",
+      "explanation": "Start with the product 28 * 7, then subtract 8.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "28 + 7 - 8",
+          "is_correct": false
+        },
+        {
+          "option_text": "28 * (7 - 8)",
+          "is_correct": false
+        },
+        {
+          "option_text": "28 * 7 - 8",
+          "is_correct": true
+        },
+        {
+          "option_text": "28 + 7 * 8",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "simple_conversion",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which expression means the sum of 10 and the product of 6 and 9?",
+      "explanation": "The product 6 * 9 is found first, and then 10 is added.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "(10 + 6) * 9",
+          "is_correct": false
+        },
+        {
+          "option_text": "10 * (6 + 9)",
+          "is_correct": false
+        },
+        {
+          "option_text": "10 * 6 + 9",
+          "is_correct": false
+        },
+        {
+          "option_text": "10 + 6 * 9",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "archetype": "symbol_or_form_identification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which expression means the product of 7 and the sum of 8 and 6?",
+      "explanation": "The sum 8 + 6 must stay together inside brackets before multiplying by 7.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "7 * (8 + 6)",
+          "is_correct": true
+        },
+        {
+          "option_text": "7 + 8 + 6",
+          "is_correct": false
+        },
+        {
+          "option_text": "7 * 8 + 6",
+          "is_correct": false
+        },
+        {
+          "option_text": "(7 + 8) * 6",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "worked_step_analysis",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which expression means the quotient of 32 and 3, then add 6?",
+      "explanation": "Divide first, then add 6. That gives the intended arithmetic expression.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "32 / (3 + 6)",
+          "is_correct": false
+        },
+        {
+          "option_text": "32 / 3 + 6",
+          "is_correct": true
+        },
+        {
+          "option_text": "32 + 3 / 6",
+          "is_correct": false
+        },
+        {
+          "option_text": "(32 + 6) / 3",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "what_went_wrong",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which expression means 7 subtracted from the sum of 12 and 9?",
+      "explanation": "First add 12 and 9, then subtract 7.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "12 + 9 - 7",
+          "is_correct": false
+        },
+        {
+          "option_text": "12 - (9 + 7)",
+          "is_correct": false
+        },
+        {
+          "option_text": "(12 + 9) - 7",
+          "is_correct": true
+        },
+        {
+          "option_text": "(12 - 9) - 7",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "comparison_justification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which expression means the product of (14 - 6) and (7 + 8)?",
+      "explanation": "Keep both brackets together, then multiply the two results.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "14 - 6 * (7 + 8)",
+          "is_correct": false
+        },
+        {
+          "option_text": "(14 - 6) * 7 + 8",
+          "is_correct": false
+        },
+        {
+          "option_text": "14 - 6 + 7 + 8",
+          "is_correct": false
+        },
+        {
+          "option_text": "(14 - 6) * (7 + 8)",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "archetype": "rule_application",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which expression means half of the sum of 20 and 8?",
+      "explanation": "Add the two numbers first, then divide the total by 2.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "(20 + 8) / 2",
+          "is_correct": true
+        },
+        {
+          "option_text": "20 + 8 / 2",
+          "is_correct": false
+        },
+        {
+          "option_text": "(20 / 2) + 8",
+          "is_correct": false
+        },
+        {
+          "option_text": "20 / (8 + 2)",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "case_based_interpretation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "Which expression means the sum of 8 and the product of 7 and 6, all divided by 2?",
+      "explanation": "Find the product first, add 8, and then divide the whole sum by 2.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "8 + (7 * 6 / 2)",
+          "is_correct": false
+        },
+        {
+          "option_text": "(8 + 7 * 6) / 2",
+          "is_correct": true
+        },
+        {
+          "option_text": "(8 + 7) * 6 / 2",
+          "is_correct": false
+        },
+        {
+          "option_text": "8 + 7 + 6 / 2",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "best_explanation",
+        "source_pack": "class7_curated_v2"
       }
     }
   ]

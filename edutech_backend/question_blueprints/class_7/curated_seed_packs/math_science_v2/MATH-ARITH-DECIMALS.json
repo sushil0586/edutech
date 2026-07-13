@@ -1,855 +1,1505 @@
 {
   "topic_code": "MATH-ARITH-DECIMALS",
   "topic_name": "Decimals",
-  "subject_name": "Math",
-  "subject_alias": "math",
-  "parent_topic_name": "Arithmetic and Decimals",
-  "template_only": true,
-  "template_batch": "curated_template_batch_v1",
   "questions": [
     {
-      "question_number": 1,
       "question_type": "mcq_single",
       "difficulty_level": "foundation",
-      "question_text": "[AUTHORING REQUIRED] Create a foundation mcq single direct concept check question for Class 7 Math on 'Decimals'. Focus: topic='Decimals', subject='Math', difficulty='foundation', archetype='direct_concept_check'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "question_text": "Which decimal is greater: 3.4 or 3.7?",
+      "explanation": "Compare digit by digit. 3.7 is greater because it has a larger tenths digit than 3.4.",
       "default_marks": "1.00",
       "negative_marks": "0.25",
       "options": [
         {
-          "option_text": "[AUTHORING REQUIRED] Option A",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option B",
+          "option_text": "3.7",
           "is_correct": true
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option C",
+          "option_text": "3.4",
           "is_correct": false
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option D",
+          "option_text": "3.5",
+          "is_correct": false
+        },
+        {
+          "option_text": "3.9",
           "is_correct": false
         }
       ],
       "metadata": {
-        "template_status": "authoring_required",
         "archetype": "direct_concept_check",
-        "authoring_focus": "topic='Decimals', subject='Math', difficulty='foundation', archetype='direct_concept_check'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
+        "source_pack": "class7_curated_v2"
       }
     },
     {
-      "question_number": 2,
       "question_type": "mcq_single",
       "difficulty_level": "foundation",
-      "question_text": "[AUTHORING REQUIRED] Create a foundation mcq single reading check question for Class 7 Math on 'Decimals'. Focus: topic='Decimals', subject='Math', difficulty='foundation', archetype='reading_check'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "question_text": "In a school supply price list, which decimal is the smallest?",
+      "explanation": "Compare the decimals from left to right. 5.08 is the smallest value in the set.",
       "default_marks": "1.00",
       "negative_marks": "0.25",
       "options": [
         {
-          "option_text": "[AUTHORING REQUIRED] Option A",
+          "option_text": "5.2",
           "is_correct": false
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option B",
+          "option_text": "5.08",
           "is_correct": true
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option C",
+          "option_text": "5.18",
           "is_correct": false
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option D",
+          "option_text": "5.3",
           "is_correct": false
         }
       ],
       "metadata": {
-        "template_status": "authoring_required",
         "archetype": "reading_check",
-        "authoring_focus": "topic='Decimals', subject='Math', difficulty='foundation', archetype='reading_check'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
+        "source_pack": "class7_curated_v2"
       }
     },
     {
-      "question_number": 3,
       "question_type": "mcq_single",
-      "difficulty_level": "foundation",
-      "question_text": "[AUTHORING REQUIRED] Create a foundation mcq single simple conversion question for Class 7 Math on 'Decimals'. Focus: topic='Decimals', subject='Math', difficulty='foundation', archetype='simple_conversion'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "difficulty_level": "intermediate",
+      "question_text": "What is 12.4 + 7.35?",
+      "explanation": "Line up the decimal points and add. The sum is 19.75.",
       "default_marks": "1.00",
       "negative_marks": "0.25",
       "options": [
         {
-          "option_text": "[AUTHORING REQUIRED] Option A",
+          "option_text": "19.85",
           "is_correct": false
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option B",
+          "option_text": "20.75",
+          "is_correct": false
+        },
+        {
+          "option_text": "19.75",
           "is_correct": true
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option C",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option D",
+          "option_text": "5.05",
           "is_correct": false
         }
       ],
       "metadata": {
-        "template_status": "authoring_required",
         "archetype": "simple_conversion",
-        "authoring_focus": "topic='Decimals', subject='Math', difficulty='foundation', archetype='simple_conversion'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
+        "source_pack": "class7_curated_v2"
       }
     },
     {
-      "question_number": 4,
       "question_type": "mcq_single",
-      "difficulty_level": "foundation",
-      "question_text": "[AUTHORING REQUIRED] Create a foundation mcq single symbol or form identification question for Class 7 Math on 'Decimals'. Focus: topic='Decimals', subject='Math', difficulty='foundation', archetype='symbol_or_form_identification'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "difficulty_level": "intermediate",
+      "question_text": "What is 9.6 - 4.28?",
+      "explanation": "Borrow if needed and subtract place by place. The difference is 5.32.",
       "default_marks": "1.00",
       "negative_marks": "0.25",
       "options": [
         {
-          "option_text": "[AUTHORING REQUIRED] Option A",
+          "option_text": "13.88",
           "is_correct": false
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option B",
+          "option_text": "6.32",
+          "is_correct": false
+        },
+        {
+          "option_text": "8.6",
+          "is_correct": false
+        },
+        {
+          "option_text": "5.32",
           "is_correct": true
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option C",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option D",
-          "is_correct": false
         }
       ],
       "metadata": {
-        "template_status": "authoring_required",
         "archetype": "symbol_or_form_identification",
-        "authoring_focus": "topic='Decimals', subject='Math', difficulty='foundation', archetype='symbol_or_form_identification'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
+        "source_pack": "class7_curated_v2"
       }
     },
     {
-      "question_number": 5,
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What is 0.7 * 10?",
+      "explanation": "Multiplying by 10 shifts the decimal point one place to the right, so the result is 7.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "7",
+          "is_correct": true
+        },
+        {
+          "option_text": "10.7",
+          "is_correct": false
+        },
+        {
+          "option_text": "0.07",
+          "is_correct": false
+        },
+        {
+          "option_text": "70",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "worked_step_analysis",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What is 0.42 * 100?",
+      "explanation": "Multiplying by 100 shifts the decimal point two places to the right, so the result is 42.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "4.2",
+          "is_correct": false
+        },
+        {
+          "option_text": "42",
+          "is_correct": true
+        },
+        {
+          "option_text": "0",
+          "is_correct": false
+        },
+        {
+          "option_text": "100.42",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "what_went_wrong",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which decimal is equal to 7/10?",
+      "explanation": "A fraction with denominator 10 converts directly to tenths. 7/10 = 0.7.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "0.07",
+          "is_correct": false
+        },
+        {
+          "option_text": "0.8",
+          "is_correct": false
+        },
+        {
+          "option_text": "0.7",
+          "is_correct": true
+        },
+        {
+          "option_text": "0.01",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "comparison_justification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "In 3.47, what is the value of the digit 7?",
+      "explanation": "The digit 7 is in the hundredths place, so its value is 0.07.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "0.7",
+          "is_correct": false
+        },
+        {
+          "option_text": "7",
+          "is_correct": false
+        },
+        {
+          "option_text": "0.01",
+          "is_correct": false
+        },
+        {
+          "option_text": "0.07",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "archetype": "rule_application",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "What is 6.37 rounded to the nearest tenth?",
+      "explanation": "Look at the hundredths digit. Since it is 5 or more, round the tenths place up to 6.4.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "6.4",
+          "is_correct": true
+        },
+        {
+          "option_text": "6.37",
+          "is_correct": false
+        },
+        {
+          "option_text": "6.3",
+          "is_correct": false
+        },
+        {
+          "option_text": "6.5",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "case_based_interpretation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "A bottle has 2.5 liters and another has 1.75 liters. How much is there in total?",
+      "explanation": "Add the decimal amounts carefully. The total is 4.25 liters.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "4.75",
+          "is_correct": false
+        },
+        {
+          "option_text": "4.25",
+          "is_correct": true
+        },
+        {
+          "option_text": "0.75",
+          "is_correct": false
+        },
+        {
+          "option_text": "3.5",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "best_explanation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
       "question_type": "mcq_single",
       "difficulty_level": "foundation",
-      "question_text": "[AUTHORING REQUIRED] Create a foundation mcq single basic classification question for Class 7 Math on 'Decimals'. Focus: topic='Decimals', subject='Math', difficulty='foundation', archetype='basic_classification'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "question_text": "Which decimal is greater: 3.5 or 3.8?",
+      "explanation": "Compare digit by digit. 3.8 is greater because it has a larger tenths digit than 3.5.",
       "default_marks": "1.00",
       "negative_marks": "0.25",
       "options": [
         {
-          "option_text": "[AUTHORING REQUIRED] Option A",
+          "option_text": "3.5",
           "is_correct": false
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option B",
+          "option_text": "3.6",
+          "is_correct": false
+        },
+        {
+          "option_text": "3.8",
           "is_correct": true
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option C",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option D",
+          "option_text": "4",
           "is_correct": false
         }
       ],
       "metadata": {
-        "template_status": "authoring_required",
-        "archetype": "basic_classification",
-        "authoring_focus": "topic='Decimals', subject='Math', difficulty='foundation', archetype='basic_classification'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
       }
     },
     {
-      "question_number": 6,
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "In a bakery price list, which decimal is the smallest?",
+      "explanation": "Compare the decimals from left to right. 5.09 is the smallest value in the set.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "5.3",
+          "is_correct": false
+        },
+        {
+          "option_text": "5.19",
+          "is_correct": false
+        },
+        {
+          "option_text": "5.4",
+          "is_correct": false
+        },
+        {
+          "option_text": "5.09",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "archetype": "reading_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
       "question_type": "mcq_single",
       "difficulty_level": "intermediate",
-      "question_text": "[AUTHORING REQUIRED] Create a intermediate mcq single expanded form question for Class 7 Math on 'Decimals'. Focus: topic='Decimals', subject='Math', difficulty='intermediate', archetype='expanded_form'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "question_text": "What is 12.5 + 7.36?",
+      "explanation": "Line up the decimal points and add. The sum is 19.86.",
       "default_marks": "1.00",
       "negative_marks": "0.25",
       "options": [
         {
-          "option_text": "[AUTHORING REQUIRED] Option A",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option B",
+          "option_text": "19.86",
           "is_correct": true
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option C",
+          "option_text": "19.96",
           "is_correct": false
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option D",
+          "option_text": "20.86",
+          "is_correct": false
+        },
+        {
+          "option_text": "5.14",
           "is_correct": false
         }
       ],
       "metadata": {
-        "template_status": "authoring_required",
-        "archetype": "expanded_form",
-        "authoring_focus": "topic='Decimals', subject='Math', difficulty='intermediate', archetype='expanded_form'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
+        "archetype": "simple_conversion",
+        "source_pack": "class7_curated_v2"
       }
     },
     {
-      "question_number": 7,
       "question_type": "mcq_single",
       "difficulty_level": "intermediate",
-      "question_text": "[AUTHORING REQUIRED] Create a intermediate mcq single ordering reasoning question for Class 7 Math on 'Decimals'. Focus: topic='Decimals', subject='Math', difficulty='intermediate', archetype='ordering_reasoning'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "question_text": "What is 9.7 - 4.29?",
+      "explanation": "Borrow if needed and subtract place by place. The difference is 5.41.",
       "default_marks": "1.00",
       "negative_marks": "0.25",
       "options": [
         {
-          "option_text": "[AUTHORING REQUIRED] Option A",
+          "option_text": "13.99",
           "is_correct": false
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option B",
+          "option_text": "5.41",
           "is_correct": true
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option C",
+          "option_text": "6.41",
           "is_correct": false
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option D",
+          "option_text": "8.7",
           "is_correct": false
         }
       ],
       "metadata": {
-        "template_status": "authoring_required",
-        "archetype": "ordering_reasoning",
-        "authoring_focus": "topic='Decimals', subject='Math', difficulty='intermediate', archetype='ordering_reasoning'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
+        "archetype": "symbol_or_form_identification",
+        "source_pack": "class7_curated_v2"
       }
     },
     {
-      "question_number": 8,
       "question_type": "mcq_single",
       "difficulty_level": "intermediate",
-      "question_text": "[AUTHORING REQUIRED] Create a intermediate mcq single misconception correction question for Class 7 Math on 'Decimals'. Focus: topic='Decimals', subject='Math', difficulty='intermediate', archetype='misconception_correction'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
-      "default_marks": "1.00",
-      "negative_marks": "0.25",
-      "options": [
-        {
-          "option_text": "[AUTHORING REQUIRED] Option A",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option B",
-          "is_correct": true
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option C",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option D",
-          "is_correct": false
-        }
-      ],
-      "metadata": {
-        "template_status": "authoring_required",
-        "archetype": "misconception_correction",
-        "authoring_focus": "topic='Decimals', subject='Math', difficulty='intermediate', archetype='misconception_correction'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
-      }
-    },
-    {
-      "question_number": 9,
-      "question_type": "mcq_single",
-      "difficulty_level": "intermediate",
-      "question_text": "[AUTHORING REQUIRED] Create a intermediate mcq single error detection question for Class 7 Math on 'Decimals'. Focus: topic='Decimals', subject='Math', difficulty='intermediate', archetype='error_detection'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
-      "default_marks": "1.00",
-      "negative_marks": "0.25",
-      "options": [
-        {
-          "option_text": "[AUTHORING REQUIRED] Option A",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option B",
-          "is_correct": true
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option C",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option D",
-          "is_correct": false
-        }
-      ],
-      "metadata": {
-        "template_status": "authoring_required",
-        "archetype": "error_detection",
-        "authoring_focus": "topic='Decimals', subject='Math', difficulty='intermediate', archetype='error_detection'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
-      }
-    },
-    {
-      "question_number": 10,
-      "question_type": "mcq_single",
-      "difficulty_level": "intermediate",
-      "question_text": "[AUTHORING REQUIRED] Create a intermediate mcq single compare and choose question for Class 7 Math on 'Decimals'. Focus: topic='Decimals', subject='Math', difficulty='intermediate', archetype='compare_and_choose'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
-      "default_marks": "1.00",
-      "negative_marks": "0.25",
-      "options": [
-        {
-          "option_text": "[AUTHORING REQUIRED] Option A",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option B",
-          "is_correct": true
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option C",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option D",
-          "is_correct": false
-        }
-      ],
-      "metadata": {
-        "template_status": "authoring_required",
-        "archetype": "compare_and_choose",
-        "authoring_focus": "topic='Decimals', subject='Math', difficulty='intermediate', archetype='compare_and_choose'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
-      }
-    },
-    {
-      "question_number": 11,
-      "question_type": "mcq_single",
-      "difficulty_level": "intermediate",
-      "question_text": "[AUTHORING REQUIRED] Create a intermediate mcq single words to figures question for Class 7 Math on 'Decimals'. Focus: topic='Decimals', subject='Math', difficulty='intermediate', archetype='words_to_figures'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
-      "default_marks": "1.00",
-      "negative_marks": "0.25",
-      "options": [
-        {
-          "option_text": "[AUTHORING REQUIRED] Option A",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option B",
-          "is_correct": true
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option C",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option D",
-          "is_correct": false
-        }
-      ],
-      "metadata": {
-        "template_status": "authoring_required",
-        "archetype": "words_to_figures",
-        "authoring_focus": "topic='Decimals', subject='Math', difficulty='intermediate', archetype='words_to_figures'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
-      }
-    },
-    {
-      "question_number": 12,
-      "question_type": "mcq_single",
-      "difficulty_level": "intermediate",
-      "question_text": "[AUTHORING REQUIRED] Create a intermediate mcq single representation selection question for Class 7 Math on 'Decimals'. Focus: topic='Decimals', subject='Math', difficulty='intermediate', archetype='representation_selection'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
-      "default_marks": "1.00",
-      "negative_marks": "0.25",
-      "options": [
-        {
-          "option_text": "[AUTHORING REQUIRED] Option A",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option B",
-          "is_correct": true
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option C",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option D",
-          "is_correct": false
-        }
-      ],
-      "metadata": {
-        "template_status": "authoring_required",
-        "archetype": "representation_selection",
-        "authoring_focus": "topic='Decimals', subject='Math', difficulty='intermediate', archetype='representation_selection'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
-      }
-    },
-    {
-      "question_number": 13,
-      "question_type": "mcq_single",
-      "difficulty_level": "intermediate",
-      "question_text": "[AUTHORING REQUIRED] Create a intermediate mcq single place value inference question for Class 7 Math on 'Decimals'. Focus: topic='Decimals', subject='Math', difficulty='intermediate', archetype='place_value_inference'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
-      "default_marks": "1.00",
-      "negative_marks": "0.25",
-      "options": [
-        {
-          "option_text": "[AUTHORING REQUIRED] Option A",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option B",
-          "is_correct": true
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option C",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option D",
-          "is_correct": false
-        }
-      ],
-      "metadata": {
-        "template_status": "authoring_required",
-        "archetype": "place_value_inference",
-        "authoring_focus": "topic='Decimals', subject='Math', difficulty='intermediate', archetype='place_value_inference'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
-      }
-    },
-    {
-      "question_number": 14,
-      "question_type": "mcq_single",
-      "difficulty_level": "advanced",
-      "question_text": "[AUTHORING REQUIRED] Create a advanced mcq single best explanation question for Class 7 Math on 'Decimals'. Focus: topic='Decimals', subject='Math', difficulty='advanced', archetype='best_explanation'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "question_text": "What is 0.8 * 10?",
+      "explanation": "Multiplying by 10 shifts the decimal point one place to the right, so the result is 8.",
       "default_marks": "2.00",
       "negative_marks": "0.25",
       "options": [
         {
-          "option_text": "[AUTHORING REQUIRED] Option A",
+          "option_text": "10.8",
           "is_correct": false
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option B",
+          "option_text": "0.08",
+          "is_correct": false
+        },
+        {
+          "option_text": "8",
           "is_correct": true
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option C",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option D",
+          "option_text": "80",
           "is_correct": false
         }
       ],
       "metadata": {
-        "template_status": "authoring_required",
-        "archetype": "best_explanation",
-        "authoring_focus": "topic='Decimals', subject='Math', difficulty='advanced', archetype='best_explanation'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
-      }
-    },
-    {
-      "question_number": 15,
-      "question_type": "mcq_single",
-      "difficulty_level": "advanced",
-      "question_text": "[AUTHORING REQUIRED] Create a advanced mcq single assertion reason question for Class 7 Math on 'Decimals'. Focus: topic='Decimals', subject='Math', difficulty='advanced', archetype='assertion_reason'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
-      "default_marks": "2.00",
-      "negative_marks": "0.25",
-      "options": [
-        {
-          "option_text": "[AUTHORING REQUIRED] Option A",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option B",
-          "is_correct": true
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option C",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option D",
-          "is_correct": false
-        }
-      ],
-      "metadata": {
-        "template_status": "authoring_required",
-        "archetype": "assertion_reason",
-        "authoring_focus": "topic='Decimals', subject='Math', difficulty='advanced', archetype='assertion_reason'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
-      }
-    },
-    {
-      "question_number": 16,
-      "question_type": "mcq_multiple",
-      "difficulty_level": "advanced",
-      "question_text": "[AUTHORING REQUIRED] Create a advanced mcq multiple multi select truth evaluation question for Class 7 Math on 'Decimals'. Focus: topic='Decimals', subject='Math', difficulty='advanced', archetype='multi_select_truth_evaluation'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
-      "default_marks": "2.00",
-      "negative_marks": "0.50",
-      "options": [
-        {
-          "option_text": "[AUTHORING REQUIRED] Option A",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option B",
-          "is_correct": true
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option C",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option D",
-          "is_correct": false
-        }
-      ],
-      "metadata": {
-        "template_status": "authoring_required",
-        "archetype": "multi_select_truth_evaluation",
-        "authoring_focus": "topic='Decimals', subject='Math', difficulty='advanced', archetype='multi_select_truth_evaluation'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
-      }
-    },
-    {
-      "question_number": 17,
-      "question_type": "short_answer",
-      "difficulty_level": "advanced",
-      "question_text": "[AUTHORING REQUIRED] Create a advanced short answer short answer reasoning question for Class 7 Math on 'Decimals'. Focus: topic='Decimals', subject='Math', difficulty='advanced', archetype='short_answer_reasoning'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
-      "default_marks": "2.00",
-      "negative_marks": "0.00",
-      "options": [],
-      "metadata": {
-        "template_status": "authoring_required",
-        "archetype": "short_answer_reasoning",
-        "authoring_focus": "topic='Decimals', subject='Math', difficulty='advanced', archetype='short_answer_reasoning'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": [
-          "[AUTHORING REQUIRED] Add one or more accepted answers."
-        ]
-      }
-    },
-    {
-      "question_number": 18,
-      "question_type": "mcq_single",
-      "difficulty_level": "advanced",
-      "question_text": "[AUTHORING REQUIRED] Create a advanced mcq single elimination based reasoning question for Class 7 Math on 'Decimals'. Focus: topic='Decimals', subject='Math', difficulty='advanced', archetype='elimination_based_reasoning'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
-      "default_marks": "2.00",
-      "negative_marks": "0.25",
-      "options": [
-        {
-          "option_text": "[AUTHORING REQUIRED] Option A",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option B",
-          "is_correct": true
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option C",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option D",
-          "is_correct": false
-        }
-      ],
-      "metadata": {
-        "template_status": "authoring_required",
-        "archetype": "elimination_based_reasoning",
-        "authoring_focus": "topic='Decimals', subject='Math', difficulty='advanced', archetype='elimination_based_reasoning'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
-      }
-    },
-    {
-      "question_number": 19,
-      "question_type": "short_answer",
-      "difficulty_level": "advanced",
-      "question_text": "[AUTHORING REQUIRED] Create a advanced short answer cross system conversion question for Class 7 Math on 'Decimals'. Focus: topic='Decimals', subject='Math', difficulty='advanced', archetype='cross_system_conversion'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
-      "default_marks": "2.00",
-      "negative_marks": "0.00",
-      "options": [],
-      "metadata": {
-        "template_status": "authoring_required",
-        "archetype": "cross_system_conversion",
-        "authoring_focus": "topic='Decimals', subject='Math', difficulty='advanced', archetype='cross_system_conversion'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": [
-          "[AUTHORING REQUIRED] Add one or more accepted answers."
-        ]
-      }
-    },
-    {
-      "question_number": 20,
-      "question_type": "mcq_single",
-      "difficulty_level": "advanced",
-      "question_text": "[AUTHORING REQUIRED] Create a advanced mcq single data interpretation question for Class 7 Math on 'Decimals'. Focus: topic='Decimals', subject='Math', difficulty='advanced', archetype='data_interpretation'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
-      "default_marks": "2.00",
-      "negative_marks": "0.25",
-      "options": [
-        {
-          "option_text": "[AUTHORING REQUIRED] Option A",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option B",
-          "is_correct": true
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option C",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option D",
-          "is_correct": false
-        }
-      ],
-      "metadata": {
-        "template_status": "authoring_required",
-        "archetype": "data_interpretation",
-        "authoring_focus": "topic='Decimals', subject='Math', difficulty='advanced', archetype='data_interpretation'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
-      }
-    },
-    {
-      "question_number": 21,
-      "question_type": "mcq_single",
-      "difficulty_level": "advanced",
-      "question_text": "[AUTHORING REQUIRED] Create a advanced mcq single worked step analysis question for Class 7 Math on 'Decimals'. Focus: topic='Decimals', subject='Math', difficulty='advanced', archetype='worked_step_analysis'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
-      "default_marks": "2.00",
-      "negative_marks": "0.25",
-      "options": [
-        {
-          "option_text": "[AUTHORING REQUIRED] Option A",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option B",
-          "is_correct": true
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option C",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option D",
-          "is_correct": false
-        }
-      ],
-      "metadata": {
-        "template_status": "authoring_required",
         "archetype": "worked_step_analysis",
-        "authoring_focus": "topic='Decimals', subject='Math', difficulty='advanced', archetype='worked_step_analysis'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
+        "source_pack": "class7_curated_v2"
       }
     },
     {
-      "question_number": 22,
       "question_type": "mcq_single",
-      "difficulty_level": "advanced",
-      "question_text": "[AUTHORING REQUIRED] Create a advanced mcq single what went wrong question for Class 7 Math on 'Decimals'. Focus: topic='Decimals', subject='Math', difficulty='advanced', archetype='what_went_wrong'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "difficulty_level": "intermediate",
+      "question_text": "What is 0.43 * 100?",
+      "explanation": "Multiplying by 100 shifts the decimal point two places to the right, so the result is 43.",
       "default_marks": "2.00",
       "negative_marks": "0.25",
       "options": [
         {
-          "option_text": "[AUTHORING REQUIRED] Option A",
+          "option_text": "4.3",
           "is_correct": false
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option B",
+          "option_text": "0",
+          "is_correct": false
+        },
+        {
+          "option_text": "100.43",
+          "is_correct": false
+        },
+        {
+          "option_text": "43",
           "is_correct": true
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option C",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option D",
-          "is_correct": false
         }
       ],
       "metadata": {
-        "template_status": "authoring_required",
         "archetype": "what_went_wrong",
-        "authoring_focus": "topic='Decimals', subject='Math', difficulty='advanced', archetype='what_went_wrong'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
+        "source_pack": "class7_curated_v2"
       }
     },
     {
-      "question_number": 23,
       "question_type": "mcq_single",
-      "difficulty_level": "advanced",
-      "question_text": "[AUTHORING REQUIRED] Create a advanced mcq single comparison justification question for Class 7 Math on 'Decimals'. Focus: topic='Decimals', subject='Math', difficulty='advanced', archetype='comparison_justification'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "difficulty_level": "intermediate",
+      "question_text": "Which decimal is equal to 8/10?",
+      "explanation": "A fraction with denominator 10 converts directly to tenths. 8/10 = 0.8.",
       "default_marks": "2.00",
       "negative_marks": "0.25",
       "options": [
         {
-          "option_text": "[AUTHORING REQUIRED] Option A",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option B",
+          "option_text": "0.8",
           "is_correct": true
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option C",
+          "option_text": "0.08",
           "is_correct": false
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option D",
+          "option_text": "0.9",
+          "is_correct": false
+        },
+        {
+          "option_text": "0.01",
           "is_correct": false
         }
       ],
       "metadata": {
-        "template_status": "authoring_required",
         "archetype": "comparison_justification",
-        "authoring_focus": "topic='Decimals', subject='Math', difficulty='advanced', archetype='comparison_justification'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
+        "source_pack": "class7_curated_v2"
       }
     },
     {
-      "question_number": 24,
       "question_type": "mcq_single",
       "difficulty_level": "advanced",
-      "question_text": "[AUTHORING REQUIRED] Create a advanced mcq single rule application question for Class 7 Math on 'Decimals'. Focus: topic='Decimals', subject='Math', difficulty='advanced', archetype='rule_application'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "question_text": "In 4.57, what is the value of the digit 7?",
+      "explanation": "The digit 7 is in the hundredths place, so its value is 0.07.",
       "default_marks": "2.00",
       "negative_marks": "0.25",
       "options": [
         {
-          "option_text": "[AUTHORING REQUIRED] Option A",
+          "option_text": "0.7",
           "is_correct": false
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option B",
+          "option_text": "0.07",
           "is_correct": true
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option C",
+          "option_text": "7",
           "is_correct": false
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option D",
+          "option_text": "0.01",
           "is_correct": false
         }
       ],
       "metadata": {
-        "template_status": "authoring_required",
         "archetype": "rule_application",
-        "authoring_focus": "topic='Decimals', subject='Math', difficulty='advanced', archetype='rule_application'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
+        "source_pack": "class7_curated_v2"
       }
     },
     {
-      "question_number": 25,
       "question_type": "mcq_single",
       "difficulty_level": "advanced",
-      "question_text": "[AUTHORING REQUIRED] Create a advanced mcq single case based interpretation question for Class 7 Math on 'Decimals'. Focus: topic='Decimals', subject='Math', difficulty='advanced', archetype='case_based_interpretation'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.. Keep the question distinct from all other items in this pack.",
-      "explanation": "[AUTHORING REQUIRED] Write a student-friendly explanation that shows the method, not just the final answer. Mention why the correct answer works and why a common mistake may happen.",
+      "question_text": "What is 6.38 rounded to the nearest tenth?",
+      "explanation": "Look at the hundredths digit. Since it is 5 or more, round the tenths place up to 6.4.",
       "default_marks": "2.00",
       "negative_marks": "0.25",
       "options": [
         {
-          "option_text": "[AUTHORING REQUIRED] Option A",
+          "option_text": "6.38",
           "is_correct": false
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option B",
+          "option_text": "6.3",
+          "is_correct": false
+        },
+        {
+          "option_text": "6.4",
           "is_correct": true
         },
         {
-          "option_text": "[AUTHORING REQUIRED] Option C",
-          "is_correct": false
-        },
-        {
-          "option_text": "[AUTHORING REQUIRED] Option D",
+          "option_text": "6.5",
           "is_correct": false
         }
       ],
       "metadata": {
-        "template_status": "authoring_required",
         "archetype": "case_based_interpretation",
-        "authoring_focus": "topic='Decimals', subject='Math', difficulty='advanced', archetype='case_based_interpretation'. Use a fresh stem, realistic distractors, and avoid near-duplicate patterns.",
-        "source_template_batch": "curated_template_batch_v1",
-        "review_required": true,
-        "accepted_answers": []
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "A bottle has 2.6 liters and another has 1.76 liters. How much is there in total?",
+      "explanation": "Add the decimal amounts carefully. The total is 4.36 liters.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "4.86",
+          "is_correct": false
+        },
+        {
+          "option_text": "0.84",
+          "is_correct": false
+        },
+        {
+          "option_text": "3.6",
+          "is_correct": false
+        },
+        {
+          "option_text": "4.36",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "archetype": "best_explanation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which decimal is greater: 3.6 or 3.9?",
+      "explanation": "Compare digit by digit. 3.9 is greater because it has a larger tenths digit than 3.6.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "3.9",
+          "is_correct": true
+        },
+        {
+          "option_text": "3.6",
+          "is_correct": false
+        },
+        {
+          "option_text": "3.7",
+          "is_correct": false
+        },
+        {
+          "option_text": "4.1",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "On a sports timing chart, which decimal is the smallest?",
+      "explanation": "Compare the decimals from left to right. 5.1 is the smallest value in the set.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "5.4",
+          "is_correct": false
+        },
+        {
+          "option_text": "5.1",
+          "is_correct": true
+        },
+        {
+          "option_text": "5.2",
+          "is_correct": false
+        },
+        {
+          "option_text": "5.5",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "reading_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What is 12.6 + 7.37?",
+      "explanation": "Line up the decimal points and add. The sum is 19.97.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "20.07",
+          "is_correct": false
+        },
+        {
+          "option_text": "20.97",
+          "is_correct": false
+        },
+        {
+          "option_text": "19.97",
+          "is_correct": true
+        },
+        {
+          "option_text": "5.23",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "simple_conversion",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What is 9.8 - 4.3?",
+      "explanation": "Borrow if needed and subtract place by place. The difference is 5.5.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "14.1",
+          "is_correct": false
+        },
+        {
+          "option_text": "6.5",
+          "is_correct": false
+        },
+        {
+          "option_text": "8.8",
+          "is_correct": false
+        },
+        {
+          "option_text": "5.5",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "archetype": "symbol_or_form_identification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What is 0.9 * 10?",
+      "explanation": "Multiplying by 10 shifts the decimal point one place to the right, so the result is 9.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "9",
+          "is_correct": true
+        },
+        {
+          "option_text": "10.9",
+          "is_correct": false
+        },
+        {
+          "option_text": "0.09",
+          "is_correct": false
+        },
+        {
+          "option_text": "90",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "worked_step_analysis",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What is 0.44 * 100?",
+      "explanation": "Multiplying by 100 shifts the decimal point two places to the right, so the result is 44.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "4.4",
+          "is_correct": false
+        },
+        {
+          "option_text": "44",
+          "is_correct": true
+        },
+        {
+          "option_text": "0",
+          "is_correct": false
+        },
+        {
+          "option_text": "100.44",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "what_went_wrong",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which decimal is equal to 9/10?",
+      "explanation": "A fraction with denominator 10 converts directly to tenths. 9/10 = 0.9.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "0.09",
+          "is_correct": false
+        },
+        {
+          "option_text": "1",
+          "is_correct": false
+        },
+        {
+          "option_text": "0.9",
+          "is_correct": true
+        },
+        {
+          "option_text": "0.01",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "comparison_justification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "In 5.67, what is the value of the digit 7?",
+      "explanation": "The digit 7 is in the hundredths place, so its value is 0.07.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "0.7",
+          "is_correct": false
+        },
+        {
+          "option_text": "7",
+          "is_correct": false
+        },
+        {
+          "option_text": "0.01",
+          "is_correct": false
+        },
+        {
+          "option_text": "0.07",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "archetype": "rule_application",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "What is 6.39 rounded to the nearest tenth?",
+      "explanation": "Look at the hundredths digit. Since it is 5 or more, round the tenths place up to 6.4.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "6.4",
+          "is_correct": true
+        },
+        {
+          "option_text": "6.39",
+          "is_correct": false
+        },
+        {
+          "option_text": "6.3",
+          "is_correct": false
+        },
+        {
+          "option_text": "6.5",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "case_based_interpretation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "A bottle has 2.7 liters and another has 1.77 liters. How much is there in total?",
+      "explanation": "Add the decimal amounts carefully. The total is 4.47 liters.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "4.97",
+          "is_correct": false
+        },
+        {
+          "option_text": "4.47",
+          "is_correct": true
+        },
+        {
+          "option_text": "0.93",
+          "is_correct": false
+        },
+        {
+          "option_text": "3.7",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "best_explanation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which decimal is greater: 3.7 or 4?",
+      "explanation": "Compare digit by digit. 4 is greater because it has a larger tenths digit than 3.7.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "3.7",
+          "is_correct": false
+        },
+        {
+          "option_text": "3.8",
+          "is_correct": false
+        },
+        {
+          "option_text": "4",
+          "is_correct": true
+        },
+        {
+          "option_text": "4.2",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "In a science lab record, which decimal is the smallest?",
+      "explanation": "Compare the decimals from left to right. 5.11 is the smallest value in the set.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "5.5",
+          "is_correct": false
+        },
+        {
+          "option_text": "5.21",
+          "is_correct": false
+        },
+        {
+          "option_text": "5.6",
+          "is_correct": false
+        },
+        {
+          "option_text": "5.11",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "archetype": "reading_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What is 12.7 + 7.38?",
+      "explanation": "Line up the decimal points and add. The sum is 20.08.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "20.08",
+          "is_correct": true
+        },
+        {
+          "option_text": "20.18",
+          "is_correct": false
+        },
+        {
+          "option_text": "21.08",
+          "is_correct": false
+        },
+        {
+          "option_text": "5.32",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "simple_conversion",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What is 9.9 - 4.31?",
+      "explanation": "Borrow if needed and subtract place by place. The difference is 5.59.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "14.21",
+          "is_correct": false
+        },
+        {
+          "option_text": "5.59",
+          "is_correct": true
+        },
+        {
+          "option_text": "6.59",
+          "is_correct": false
+        },
+        {
+          "option_text": "8.9",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "symbol_or_form_identification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What is 1 * 10?",
+      "explanation": "Multiplying by 10 shifts the decimal point one place to the right, so the result is 10.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "11",
+          "is_correct": false
+        },
+        {
+          "option_text": "0.1",
+          "is_correct": false
+        },
+        {
+          "option_text": "10",
+          "is_correct": true
+        },
+        {
+          "option_text": "100",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "worked_step_analysis",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What is 0.45 * 100?",
+      "explanation": "Multiplying by 100 shifts the decimal point two places to the right, so the result is 45.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "4.5",
+          "is_correct": false
+        },
+        {
+          "option_text": "0",
+          "is_correct": false
+        },
+        {
+          "option_text": "100.45",
+          "is_correct": false
+        },
+        {
+          "option_text": "45",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "archetype": "what_went_wrong",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which decimal is equal to 10/10?",
+      "explanation": "A fraction with denominator 10 converts directly to tenths. 10/10 = 1.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "1",
+          "is_correct": true
+        },
+        {
+          "option_text": "0.1",
+          "is_correct": false
+        },
+        {
+          "option_text": "1.1",
+          "is_correct": false
+        },
+        {
+          "option_text": "0.01",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "comparison_justification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "In 6.77, what is the value of the digit 7?",
+      "explanation": "The digit 7 is in the hundredths place, so its value is 0.07.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "0.7",
+          "is_correct": false
+        },
+        {
+          "option_text": "0.07",
+          "is_correct": true
+        },
+        {
+          "option_text": "7",
+          "is_correct": false
+        },
+        {
+          "option_text": "0.01",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "rule_application",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "What is 6.4 rounded to the nearest tenth?",
+      "explanation": "Look at the hundredths digit. Since it is 5 or more, round the tenths place up to 6.4.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "6.3",
+          "is_correct": false
+        },
+        {
+          "option_text": "6.5",
+          "is_correct": false
+        },
+        {
+          "option_text": "6.4",
+          "is_correct": true
+        },
+        {
+          "option_text": "4",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "case_based_interpretation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "A bottle has 2.8 liters and another has 1.78 liters. How much is there in total?",
+      "explanation": "Add the decimal amounts carefully. The total is 4.58 liters.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "5.08",
+          "is_correct": false
+        },
+        {
+          "option_text": "1.02",
+          "is_correct": false
+        },
+        {
+          "option_text": "3.8",
+          "is_correct": false
+        },
+        {
+          "option_text": "4.58",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "archetype": "best_explanation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "Which decimal is greater: 3.8 or 4.1?",
+      "explanation": "Compare digit by digit. 4.1 is greater because it has a larger tenths digit than 3.8.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "4.1",
+          "is_correct": true
+        },
+        {
+          "option_text": "3.8",
+          "is_correct": false
+        },
+        {
+          "option_text": "3.9",
+          "is_correct": false
+        },
+        {
+          "option_text": "4.3",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "direct_concept_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "foundation",
+      "question_text": "On a travel fare board, which decimal is the smallest?",
+      "explanation": "Compare the decimals from left to right. 5.12 is the smallest value in the set.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "5.6",
+          "is_correct": false
+        },
+        {
+          "option_text": "5.12",
+          "is_correct": true
+        },
+        {
+          "option_text": "5.22",
+          "is_correct": false
+        },
+        {
+          "option_text": "5.7",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "reading_check",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What is 12.8 + 7.39?",
+      "explanation": "Line up the decimal points and add. The sum is 20.19.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "20.29",
+          "is_correct": false
+        },
+        {
+          "option_text": "21.19",
+          "is_correct": false
+        },
+        {
+          "option_text": "20.19",
+          "is_correct": true
+        },
+        {
+          "option_text": "5.41",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "simple_conversion",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What is 10 - 4.32?",
+      "explanation": "Borrow if needed and subtract place by place. The difference is 5.68.",
+      "default_marks": "1.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "14.32",
+          "is_correct": false
+        },
+        {
+          "option_text": "6.68",
+          "is_correct": false
+        },
+        {
+          "option_text": "9",
+          "is_correct": false
+        },
+        {
+          "option_text": "5.68",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "archetype": "symbol_or_form_identification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What is 1.1 * 10?",
+      "explanation": "Multiplying by 10 shifts the decimal point one place to the right, so the result is 11.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "11",
+          "is_correct": true
+        },
+        {
+          "option_text": "11.1",
+          "is_correct": false
+        },
+        {
+          "option_text": "0.11",
+          "is_correct": false
+        },
+        {
+          "option_text": "110",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "worked_step_analysis",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "What is 0.46 * 100?",
+      "explanation": "Multiplying by 100 shifts the decimal point two places to the right, so the result is 46.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "4.6",
+          "is_correct": false
+        },
+        {
+          "option_text": "46",
+          "is_correct": true
+        },
+        {
+          "option_text": "0",
+          "is_correct": false
+        },
+        {
+          "option_text": "100.46",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "what_went_wrong",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "intermediate",
+      "question_text": "Which decimal is equal to 11/10?",
+      "explanation": "A fraction with denominator 10 converts directly to tenths. 11/10 = 1.1.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "0.11",
+          "is_correct": false
+        },
+        {
+          "option_text": "1.2",
+          "is_correct": false
+        },
+        {
+          "option_text": "1.1",
+          "is_correct": true
+        },
+        {
+          "option_text": "0.01",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "comparison_justification",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "In 7.87, what is the value of the digit 7?",
+      "explanation": "The digit 7 is in the hundredths place, so its value is 0.07.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "0.7",
+          "is_correct": false
+        },
+        {
+          "option_text": "7",
+          "is_correct": false
+        },
+        {
+          "option_text": "0.01",
+          "is_correct": false
+        },
+        {
+          "option_text": "0.07",
+          "is_correct": true
+        }
+      ],
+      "metadata": {
+        "archetype": "rule_application",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "What is 6.41 rounded to the nearest tenth?",
+      "explanation": "Look at the hundredths digit. Since it is 5 or more, round the tenths place up to 6.4.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "6.4",
+          "is_correct": true
+        },
+        {
+          "option_text": "6.41",
+          "is_correct": false
+        },
+        {
+          "option_text": "6.3",
+          "is_correct": false
+        },
+        {
+          "option_text": "6.5",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "case_based_interpretation",
+        "source_pack": "class7_curated_v2"
+      }
+    },
+    {
+      "question_type": "mcq_single",
+      "difficulty_level": "advanced",
+      "question_text": "A bottle has 2.9 liters and another has 1.79 liters. How much is there in total?",
+      "explanation": "Add the decimal amounts carefully. The total is 4.69 liters.",
+      "default_marks": "2.00",
+      "negative_marks": "0.25",
+      "options": [
+        {
+          "option_text": "5.19",
+          "is_correct": false
+        },
+        {
+          "option_text": "4.69",
+          "is_correct": true
+        },
+        {
+          "option_text": "1.11",
+          "is_correct": false
+        },
+        {
+          "option_text": "3.9",
+          "is_correct": false
+        }
+      ],
+      "metadata": {
+        "archetype": "best_explanation",
+        "source_pack": "class7_curated_v2"
       }
     }
   ]
