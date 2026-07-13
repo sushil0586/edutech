@@ -5,6 +5,7 @@ from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
+from apps.attempts.models import StudentExamAttempt
 from apps.economy.models import (
     EconomyOperatorPolicyConfig,
     InstituteQuestionEntitlement,
@@ -23,8 +24,10 @@ from apps.economy.models import (
     RewardRule,
     StarPack,
     StudentSubscription,
+    StudentSubscriptionAllowanceUsage,
     StudentUnlockState,
     SubscriptionPlan,
+    SubscriptionPlanExamAllowanceConfig,
     SubscriptionPlanCycle,
     SubscriptionPlanQuestionBankPackage,
     SubscriptionStarCreditRule,
@@ -468,7 +471,43 @@ class EconomyApiTestCase(TestCase):
         self.assertEqual(scope.difficulty_level, "advanced")
         self.assertEqual(scope.max_questions_total, 300)
         self.assertEqual(scope.max_questions_per_topic, 150)
-        self.assertTrue(
+
+    def test_platform_admin_can_fetch_question_bank_package_detail(self):
+        public_hub = self.builder.create_institute(
+            code="PUBPKG02G",
+            name="Economy Public Hub Packages Detail",
+            metadata={"is_public_content_hub": True},
+        )
+        program = self.builder.create_program(public_hub, code="CLS12", name="Class 12")
+        subject = self.builder.create_subject(public_hub, program, code="CHE12", name="Chemistry")
+        topic = self.builder.create_topic(public_hub, subject, code="BOND12", name="Chemical Bonding")
+        package = QuestionBankPackage.objects.create(
+            institute=public_hub,
+            name="Chemistry Starter",
+            code="chemistry_starter",
+            package_type=QuestionBankPackageType.SUBJECT_LIBRARY,
+            ownership_type=QuestionBankOwnershipType.PLATFORM,
+            access_mode="link_on_demand",
+        )
+        scope = QuestionBankPackageScope.objects.create(
+            institute=public_hub,
+            package=package,
+            program=program,
+            subject=subject,
+            topic=topic,
+            question_source_type="platform_only",
+        )
+
+        self.client.force_authenticate(user=self.platform_admin_user)
+        response = self.client.get(f"/api/v1/economy/admin/question-bank-packages/{package.id}/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["message"], "Question bank package detail loaded successfully.")
+        self.assertEqual(str(response.data["data"]["id"]), str(package.id))
+        self.assertEqual(response.data["data"]["code"], "CHEMISTRY_STARTER")
+        self.assertEqual(len(response.data["data"]["scopes"]), 1)
+        self.assertEqual(str(response.data["data"]["scopes"][0]["id"]), str(scope.id))
+        self.assertFalse(
             AuditLog.objects.filter(
                 user=self.platform_admin_user,
                 action="economy_question_bank_package_update",
@@ -1338,6 +1377,79 @@ class EconomyApiTestCase(TestCase):
             ).is_active
         )
 
+    def test_platform_admin_can_create_and_update_subscription_plan_exam_allowance_config(self):
+        self.client.force_authenticate(user=self.platform_admin_user)
+
+        create_response = self.client.post(
+            "/api/v1/economy/admin/subscription-plans/",
+            {
+                "institute": str(self.context["institute"].id),
+                "name": "Allowance Managed Plan",
+                "code": "ALLOWANCE_MANAGED_PLAN",
+                "description": "Plan with exam allowance config.",
+                "metadata": {},
+                "is_active": True,
+                "cycles": [
+                    {
+                        "billing_interval": "monthly",
+                        "interval_count": 1,
+                        "price_amount": "299.00",
+                        "currency": "INR",
+                        "metadata": {},
+                        "is_active": True,
+                        "star_credit_rules": [],
+                        "exam_allowance_config": {
+                            "included_exam_attempts": 4,
+                            "allowance_period_mode": "billing_cycle",
+                            "counting_scope": "all_eligible_exams",
+                            "metadata": {"tier": "99"},
+                            "is_active": True,
+                        },
+                    }
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(create_response.status_code, 201)
+        plan_id = create_response.data["data"]["id"]
+        cycle_payload = create_response.data["data"]["cycles"][0]
+        self.assertEqual(cycle_payload["exam_allowance_config"]["included_exam_attempts"], 4)
+
+        cycle = SubscriptionPlanCycle.objects.get(plan_id=plan_id)
+        allowance_config = SubscriptionPlanExamAllowanceConfig.objects.get(plan_cycle=cycle)
+        update_response = self.client.patch(
+            f"/api/v1/economy/admin/subscription-plans/{plan_id}/",
+            {
+                "cycles": [
+                    {
+                        "id": str(cycle.id),
+                        "billing_interval": "monthly",
+                        "interval_count": 1,
+                        "price_amount": "299.00",
+                        "currency": "INR",
+                        "metadata": {},
+                        "is_active": True,
+                        "star_credit_rules": [],
+                        "exam_allowance_config": {
+                            "id": str(allowance_config.id),
+                            "included_exam_attempts": 10,
+                            "allowance_period_mode": "billing_cycle",
+                            "counting_scope": "all_eligible_exams",
+                            "metadata": {"tier": "299"},
+                            "is_active": True,
+                        },
+                    }
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(update_response.status_code, 200)
+        updated_cycle_payload = update_response.data["data"]["cycles"][0]
+        self.assertEqual(updated_cycle_payload["exam_allowance_config"]["included_exam_attempts"], 10)
+        allowance_config.refresh_from_db()
+        self.assertEqual(allowance_config.included_exam_attempts, 10)
+        self.assertEqual(allowance_config.metadata["tier"], "299")
+
     def test_platform_admin_can_apply_subscription_plan_question_bank_links_to_target_institute(self):
         public_hub = self.builder.create_institute(
             code="PUBECON4",
@@ -1968,6 +2080,40 @@ class EconomyApiTestCase(TestCase):
         self.assertEqual(len(plans_response.data), 1)
         self.assertEqual(plans_response.data[0]["cycles"][0]["star_credit_rules"][0]["stars_credited"], 500)
 
+    def test_student_can_view_subscription_plan_exam_allowance_config(self):
+        plan = SubscriptionPlan.objects.create(
+            institute=self.context["institute"],
+            name="Monthly Exam Access",
+            code="MONTHLY_EXAM_ACCESS",
+            description="Monthly access with exam allowance.",
+        )
+        cycle = SubscriptionPlanCycle.objects.create(
+            institute=self.context["institute"],
+            plan=plan,
+            billing_interval="monthly",
+            interval_count=1,
+            price_amount="199.00",
+            currency="INR",
+        )
+        SubscriptionPlanExamAllowanceConfig.objects.create(
+            institute=self.context["institute"],
+            plan_cycle=cycle,
+            included_exam_attempts=4,
+            allowance_period_mode="billing_cycle",
+            counting_scope="all_eligible_exams",
+            metadata={"plan_family": "pilot"},
+        )
+
+        self.client.force_authenticate(user=self.student_user)
+        plans_response = self.client.get("/api/v1/economy/subscription-plans/")
+
+        self.assertEqual(plans_response.status_code, 200)
+        self.assertEqual(len(plans_response.data), 1)
+        cycle_payload = plans_response.data[0]["cycles"][0]
+        self.assertEqual(cycle_payload["exam_allowance_config"]["included_exam_attempts"], 4)
+        self.assertEqual(cycle_payload["exam_allowance_config"]["allowance_period_mode"], "billing_cycle")
+        self.assertEqual(cycle_payload["exam_allowance_config"]["counting_scope"], "all_eligible_exams")
+
     def test_student_can_spend_stars_to_unlock_content(self):
         credit_stars(
             student=self.student,
@@ -2106,6 +2252,313 @@ class EconomyApiTestCase(TestCase):
         profile = get_or_create_student_economy_profile(self.student)
         self.assertEqual(profile.available_stars, 500)
         self.assertEqual(StudentSubscription.objects.filter(student=self.student).count(), 1)
+
+    def test_student_subscription_list_includes_allowance_usage_entries(self):
+        plan = SubscriptionPlan.objects.create(
+            institute=self.context["institute"],
+            name="Exam Quota Plan",
+            code="EXAM_QUOTA_PLAN",
+            description="Subscription with tracked exam usage.",
+        )
+        cycle = SubscriptionPlanCycle.objects.create(
+            institute=self.context["institute"],
+            plan=plan,
+            billing_interval="monthly",
+            interval_count=1,
+            price_amount="299.00",
+            currency="INR",
+        )
+        SubscriptionPlanExamAllowanceConfig.objects.create(
+            institute=self.context["institute"],
+            plan_cycle=cycle,
+            included_exam_attempts=5,
+            allowance_period_mode="billing_cycle",
+            counting_scope="all_eligible_exams",
+        )
+        SubscriptionStarCreditRule.objects.create(
+            institute=self.context["institute"],
+            plan_cycle=cycle,
+            stars_credited=500,
+            credit_on_activation=True,
+            credit_on_renewal=True,
+        )
+
+        self.client.force_authenticate(user=self.student_user)
+        create_response = self.client.post(
+            "/api/v1/economy/orders/subscription/",
+            {
+                "subscription_plan_cycle": str(cycle.id),
+                "provider_name": "manual",
+                "provider_order_reference": "order-sub-allowance-1",
+            },
+            format="json",
+        )
+        order_id = create_response.data["data"]["id"]
+
+        self.client.force_authenticate(user=self.admin_user)
+        confirm_response = self.client.post(
+            f"/api/v1/economy/admin/orders/{order_id}/confirm/",
+            {
+                "provider_transaction_reference": "txn-sub-allowance-1",
+            },
+            format="json",
+        )
+        self.assertEqual(confirm_response.status_code, 200)
+
+        subscription = StudentSubscription.objects.get(student=self.student, plan_cycle=cycle)
+        attempt = StudentExamAttempt.objects.create(
+            institute=self.context["institute"],
+            exam=self.context["exam"],
+            student=self.student,
+            attempt_no=1,
+            started_at=timezone.now(),
+        )
+        StudentSubscriptionAllowanceUsage.objects.create(
+            institute=self.context["institute"],
+            student_subscription=subscription,
+            student=self.student,
+            exam=self.context["exam"],
+            attempt=attempt,
+            billing_period_start=subscription.current_period_start,
+            billing_period_end=subscription.current_period_end,
+            consumed_count=1,
+            consumed_at=timezone.now(),
+            consumption_reason="attempt_start",
+            metadata={"quota_source": "subscription"},
+        )
+
+        self.client.force_authenticate(user=self.student_user)
+        subscriptions_response = self.client.get("/api/v1/economy/subscriptions/")
+        self.assertEqual(subscriptions_response.status_code, 200)
+        self.assertEqual(len(subscriptions_response.data), 1)
+        self.assertEqual(len(subscriptions_response.data[0]["allowance_usage_entries"]), 1)
+        self.assertEqual(subscriptions_response.data[0]["allowance_summary"]["included_allowance"], 5)
+        self.assertEqual(subscriptions_response.data[0]["allowance_summary"]["used_allowance"], 1)
+        self.assertEqual(subscriptions_response.data[0]["allowance_summary"]["remaining_allowance"], 4)
+        usage_payload = subscriptions_response.data[0]["allowance_usage_entries"][0]
+        self.assertEqual(str(usage_payload["attempt"]), str(attempt.id))
+        self.assertEqual(str(usage_payload["exam"]), str(self.context["exam"].id))
+        self.assertEqual(usage_payload["consumed_count"], 1)
+        self.assertEqual(usage_payload["consumption_reason"], "attempt_start")
+
+    def test_admin_can_view_student_subscriptions_with_allowance_usage(self):
+        plan = SubscriptionPlan.objects.create(
+            institute=self.context["institute"],
+            name="Admin Exam Quota Plan",
+            code="ADMIN_EXAM_QUOTA_PLAN",
+            description="Subscription with admin-visible usage tracking.",
+        )
+        cycle = SubscriptionPlanCycle.objects.create(
+            institute=self.context["institute"],
+            plan=plan,
+            billing_interval="monthly",
+            interval_count=1,
+            price_amount="199.00",
+            currency="INR",
+        )
+        SubscriptionPlanExamAllowanceConfig.objects.create(
+            institute=self.context["institute"],
+            plan_cycle=cycle,
+            included_exam_attempts=4,
+            allowance_period_mode="billing_cycle",
+            counting_scope="all_eligible_exams",
+        )
+        SubscriptionStarCreditRule.objects.create(
+            institute=self.context["institute"],
+            plan_cycle=cycle,
+            stars_credited=250,
+            credit_on_activation=True,
+            credit_on_renewal=True,
+        )
+        subscription = StudentSubscription.objects.create(
+            institute=self.context["institute"],
+            student=self.student,
+            plan_cycle=cycle,
+            status="active",
+            activated_at=timezone.now(),
+            current_period_start=timezone.now(),
+            current_period_end=timezone.now() + timedelta(days=30),
+        )
+        attempt = StudentExamAttempt.objects.create(
+            institute=self.context["institute"],
+            exam=self.context["exam"],
+            student=self.student,
+            attempt_no=1,
+            started_at=timezone.now(),
+        )
+        StudentSubscriptionAllowanceUsage.objects.create(
+            institute=self.context["institute"],
+            student_subscription=subscription,
+            student=self.student,
+            exam=self.context["exam"],
+            attempt=attempt,
+            billing_period_start=subscription.current_period_start,
+            billing_period_end=subscription.current_period_end,
+            consumed_count=1,
+            consumed_at=timezone.now(),
+            consumption_reason="attempt_start",
+            metadata={"quota_source": "subscription"},
+        )
+
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get(f"/api/v1/economy/admin/student/{self.student.id}/subscriptions/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["plan_name"], "Admin Exam Quota Plan")
+        self.assertEqual(response.data[0]["allowance_summary"]["included_allowance"], 4)
+        self.assertEqual(response.data[0]["allowance_summary"]["used_allowance"], 1)
+        self.assertEqual(response.data[0]["allowance_summary"]["remaining_allowance"], 3)
+        self.assertEqual(len(response.data[0]["allowance_usage_entries"]), 1)
+        self.assertEqual(
+            str(response.data[0]["allowance_usage_entries"][0]["attempt"]),
+            str(attempt.id),
+        )
+
+    def test_admin_can_view_subscription_allowance_ops_summary(self):
+        second_student = self.builder.create_student(
+            institute=self.context["institute"],
+            academic_year=self.context["academic_year"],
+            program=self.context["program"],
+            cohort=self.context["cohort"],
+            admission_no="STU002",
+            first_name="Diya",
+            last_name="Verma",
+            email="diya@example.com",
+        )
+        third_student = self.builder.create_student(
+            institute=self.context["institute"],
+            academic_year=self.context["academic_year"],
+            program=self.context["program"],
+            cohort=self.context["cohort"],
+            admission_no="STU003",
+            first_name="Kabir",
+            last_name="Singh",
+            email="kabir@example.com",
+        )
+
+        top_plan = SubscriptionPlan.objects.create(
+            institute=self.context["institute"],
+            name="Top Used Plan",
+            code="TOP_USED_PLAN",
+            description="Operationally busiest plan.",
+        )
+        top_cycle = SubscriptionPlanCycle.objects.create(
+            institute=self.context["institute"],
+            plan=top_plan,
+            billing_interval="monthly",
+            interval_count=1,
+            price_amount="299.00",
+            currency="INR",
+        )
+        SubscriptionPlanExamAllowanceConfig.objects.create(
+            institute=self.context["institute"],
+            plan_cycle=top_cycle,
+            included_exam_attempts=4,
+            allowance_period_mode="billing_cycle",
+            counting_scope="all_eligible_exams",
+        )
+
+        second_plan = SubscriptionPlan.objects.create(
+            institute=self.context["institute"],
+            name="Secondary Plan",
+            code="SECONDARY_PLAN",
+            description="Lower usage plan.",
+        )
+        second_cycle = SubscriptionPlanCycle.objects.create(
+            institute=self.context["institute"],
+            plan=second_plan,
+            billing_interval="monthly",
+            interval_count=1,
+            price_amount="199.00",
+            currency="INR",
+        )
+        SubscriptionPlanExamAllowanceConfig.objects.create(
+            institute=self.context["institute"],
+            plan_cycle=second_cycle,
+            included_exam_attempts=5,
+            allowance_period_mode="billing_cycle",
+            counting_scope="all_eligible_exams",
+        )
+
+        now = timezone.now()
+        subscriptions = [
+            StudentSubscription.objects.create(
+                institute=self.context["institute"],
+                student=self.student,
+                plan_cycle=top_cycle,
+                status="active",
+                activated_at=now,
+                current_period_start=now,
+                current_period_end=now + timedelta(days=30),
+            ),
+            StudentSubscription.objects.create(
+                institute=self.context["institute"],
+                student=second_student,
+                plan_cycle=top_cycle,
+                status="active",
+                activated_at=now,
+                current_period_start=now,
+                current_period_end=now + timedelta(days=30),
+            ),
+            StudentSubscription.objects.create(
+                institute=self.context["institute"],
+                student=third_student,
+                plan_cycle=second_cycle,
+                status="active",
+                activated_at=now,
+                current_period_start=now,
+                current_period_end=now + timedelta(days=30),
+            ),
+        ]
+
+        StudentSubscriptionAllowanceUsage.objects.create(
+            institute=self.context["institute"],
+            student_subscription=subscriptions[0],
+            student=self.student,
+            exam=self.context["exam"],
+            billing_period_start=subscriptions[0].current_period_start,
+            billing_period_end=subscriptions[0].current_period_end,
+            consumed_count=3,
+            consumed_at=now,
+            consumption_reason="attempt_start",
+        )
+        StudentSubscriptionAllowanceUsage.objects.create(
+            institute=self.context["institute"],
+            student_subscription=subscriptions[1],
+            student=second_student,
+            exam=self.context["exam"],
+            billing_period_start=subscriptions[1].current_period_start,
+            billing_period_end=subscriptions[1].current_period_end,
+            consumed_count=4,
+            consumed_at=now,
+            consumption_reason="attempt_start",
+        )
+        StudentSubscriptionAllowanceUsage.objects.create(
+            institute=self.context["institute"],
+            student_subscription=subscriptions[2],
+            student=third_student,
+            exam=self.context["exam"],
+            billing_period_start=subscriptions[2].current_period_start,
+            billing_period_end=subscriptions[2].current_period_end,
+            consumed_count=1,
+            consumed_at=now,
+            consumption_reason="attempt_start",
+        )
+
+        self.client.force_authenticate(user=self.platform_admin_user)
+        response = self.client.get(
+            f"/api/v1/economy/admin/subscription-allowance-summary/?institute={self.context['institute'].id}"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["active_quota_subscriptions"], 3)
+        self.assertEqual(response.data["active_students_with_subscriptions"], 3)
+        self.assertEqual(response.data["students_near_exhaustion"], 1)
+        self.assertEqual(response.data["students_exhausted"], 1)
+        self.assertEqual(response.data["current_cycle_usage_total"], 8)
+        self.assertEqual(response.data["top_used_plans"][0]["plan_code"], "TOP_USED_PLAN")
+        self.assertEqual(response.data["top_used_plans"][0]["used_allowance_total"], 7)
 
     def test_institute_admin_star_grant_can_be_disabled_by_policy(self):
         config_object = get_or_create_economy_operator_policy_config()

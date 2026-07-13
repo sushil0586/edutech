@@ -3,6 +3,11 @@ import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectAdminWorkspace } from "../helpers/navigation";
 import { gotoWithRuntimeRecovery } from "../helpers/runtime";
 
+function extractLeadingNumber(value: string | null) {
+  const match = value?.match(/\d+/);
+  return match ? Number(match[0]) : null;
+}
+
 test.describe("Admin economy workspace", () => {
   test.skip(testRequiresRole("admin"), "Admin Playwright credentials are not configured.");
 
@@ -24,6 +29,19 @@ test.describe("Admin economy workspace", () => {
       "aria-current",
       "page",
     );
+    const overviewStatus = page.getByText(/exams with economy policy/i).first();
+    const overviewKpi = page.locator(".resultsSummaryGrid .metricCard").filter({
+      has: page.getByText(/exams with economy policy/i),
+    }).first();
+    await expect(overviewStatus).toBeVisible();
+    await expect(overviewKpi).toBeVisible();
+    const overviewStatusCount = extractLeadingNumber(await overviewStatus.textContent());
+    const overviewKpiCount = extractLeadingNumber(
+      await overviewKpi.locator("strong").first().textContent(),
+    );
+    expect(overviewStatusCount).not.toBeNull();
+    expect(overviewKpiCount).not.toBeNull();
+    expect(overviewStatusCount).toBe(overviewKpiCount);
     await expect(page.getByText(/current workspace lane/i).first()).toBeVisible();
     await expect(page.getByRole("heading", { name: /^overview$/i })).toBeVisible();
     await expect(page.getByRole("heading", { name: /what this lane is meant to manage/i })).toBeVisible();
@@ -77,8 +95,11 @@ test.describe("Admin economy workspace", () => {
     if (await editButtons.count()) {
       await expect(editButtons.first()).toBeVisible();
     } else {
+      const workspaceView = page.getByLabel(/question bank package workspace view/i);
+      await expect(workspaceView).toHaveValue("catalog");
+      await workspaceView.selectOption("editor");
       await expect(page.getByText(/new package/i).first()).toBeVisible();
-      await expect(page.getByText(/editing institute/i).first()).toBeVisible();
+      await expect(page.getByText(/start with package identity and delivery posture/i).first()).toBeVisible();
     }
 
     await gotoWithRuntimeRecovery(page, "/admin/economy?tab=support-ops");
@@ -89,6 +110,10 @@ test.describe("Admin economy workspace", () => {
     await expect(page.getByRole("heading", { name: /institute subscription request queue/i })).toBeVisible();
     await expect(page.getByText(/student support actions/i).first()).toBeVisible();
     await expect(page.getByRole("heading", { name: /inspect wallet state and perform controlled admin actions/i })).toBeVisible();
+    await expect(page.getByLabel(/institute economy workspace view/i)).toHaveValue("all");
+    await expect(page.getByLabel(/support view/i)).toHaveValue("wallet");
+    await expect(page.getByText(/live wallet state/i).first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: /support ops/i }).first()).toBeVisible();
 
     const studentSelect = page.locator("select").filter({ has: page.locator("option") }).nth(0);
     await expect(studentSelect).toBeVisible();
@@ -109,8 +134,8 @@ test.describe("Admin economy workspace", () => {
     await page.getByRole("button", { name: /refresh unlocks/i }).click();
     await expect(page.getByText(/unlock refresh output/i).first()).toBeVisible();
 
-    await expect(page.getByText(/live wallet state/i).first()).toBeVisible();
-    await expect(page.getByText(/reward timeline/i).first()).toBeVisible();
+    await page.getByLabel(/support view/i).selectOption("all");
+    await expect(page.getByText(/recent reward events/i).first()).toBeVisible();
     await expect(page.getByText(/unlock refresh output/i).first()).toBeVisible();
 
     await gotoWithRuntimeRecovery(page, "/admin/economy?tab=bootstrap");

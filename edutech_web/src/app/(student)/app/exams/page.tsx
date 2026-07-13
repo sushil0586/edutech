@@ -152,10 +152,26 @@ function examAvailabilityGuidance(exam: {
     can_unlock_with_stars: boolean;
     star_cost: number;
     lock_reason_message: string;
+    subscription_resolution?: {
+      is_applicable: boolean;
+      is_covered: boolean;
+      included_allowance: number;
+      remaining_allowance: number;
+      reason_message: string;
+    };
   };
 }) {
   if (exam.can_resume && exam.active_attempt) {
     return "Your latest active attempt is still live. Re-enter and continue where you left off.";
+  }
+
+  if (exam.economy_access.subscription_resolution?.is_applicable) {
+    if (exam.economy_access.subscription_resolution.is_covered) {
+      return `Subscription-covered. ${exam.economy_access.subscription_resolution.remaining_allowance} of ${exam.economy_access.subscription_resolution.included_allowance} allowance attempts remain in this billing cycle.`;
+    }
+    if (exam.economy_access.can_unlock_with_stars) {
+      return `Subscription allowance is exhausted for this billing cycle, but this exam can still be unlocked with ${exam.economy_access.star_cost} stars.`;
+    }
   }
 
   if (exam.economy_access.is_locked && exam.economy_access.can_unlock_with_stars) {
@@ -190,6 +206,17 @@ function examAvailabilityGuidance(exam: {
   }
 
   return "Open the detail page to review rules, visibility policy, and your next valid action.";
+}
+
+function subscriptionAllowanceBadge(exam: StudentAvailableExam) {
+  const summary = exam.economy_access.subscription_resolution;
+  if (!summary?.is_applicable) {
+    return null;
+  }
+  if (summary.is_covered) {
+    return `${summary.remaining_allowance}/${summary.included_allowance} allowance left`;
+  }
+  return "Allowance exhausted";
 }
 
 function resolveExamAvailabilityFilter(value?: string): ExamAvailabilityFilter {
@@ -785,12 +812,25 @@ export default async function ExamsPage({
                     <span>Security</span>
                     <strong>{securityModeLabel(featuredExam)}</strong>
                   </div>
+                  <div className="studentResultStat">
+                    <span>Allowance</span>
+                    <strong>{subscriptionAllowanceBadge(featuredExam) ?? "Not managed here"}</strong>
+                  </div>
                 </div>
 
                 <div className="studentInsightHeroActions">
                   <StatusPill tone="default">{examSourceDescriptor(featuredExam)}</StatusPill>
                   {featuredExamSubjectLabel ? (
                     <StatusPill tone="demo">{featuredExamSubjectLabel}</StatusPill>
+                  ) : null}
+                  {subscriptionAllowanceBadge(featuredExam) ? (
+                    <StatusPill
+                      tone={
+                        featuredExam.economy_access.subscription_resolution?.is_covered ? "live" : "warning"
+                      }
+                    >
+                      {subscriptionAllowanceBadge(featuredExam)}
+                    </StatusPill>
                   ) : null}
                 </div>
 
@@ -964,6 +1004,15 @@ export default async function ExamsPage({
                             : "Access controlled"}
                       </StatusPill>
                     ) : null}
+                    {subscriptionAllowanceBadge(exam) ? (
+                      <StatusPill
+                        tone={
+                          exam.economy_access.subscription_resolution?.is_covered ? "live" : "warning"
+                        }
+                      >
+                        {subscriptionAllowanceBadge(exam)}
+                      </StatusPill>
+                    ) : null}
                     <StatusPill tone={exam.review_available ? "live" : "warning"}>
                       {exam.review_available ? "Review available" : "Review locked"}
                     </StatusPill>
@@ -985,7 +1034,13 @@ export default async function ExamsPage({
                       <span>Next step</span>
                       <strong>{primaryLabel}</strong>
                       <small>
-                        {exam.economy_access.is_locked && exam.economy_access.can_unlock_with_stars
+                        {exam.economy_access.subscription_resolution?.is_applicable
+                          ? exam.economy_access.subscription_resolution.is_covered
+                            ? `Uses subscription allowance on a fresh start · ${securityModeLabel(exam)}`
+                            : exam.economy_access.can_unlock_with_stars
+                              ? `Subscription allowance exhausted · fallback to ${exam.economy_access.star_cost} stars · ${securityModeLabel(exam)}`
+                              : `${exam.economy_access.subscription_resolution.reason_message || "Subscription allowance exhausted"} · ${securityModeLabel(exam)}`
+                          : exam.economy_access.is_locked && exam.economy_access.can_unlock_with_stars
                           ? `Needs ${exam.economy_access.star_cost} stars before start · ${securityModeLabel(exam)}`
                           : exam.start_at
                             ? `Starts ${studentDateTimeLabel(exam.start_at)} · ${securityModeLabel(exam)}`

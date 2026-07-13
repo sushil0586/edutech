@@ -32,6 +32,13 @@ class StudentExamAttempt(BaseModel):
         on_delete=models.CASCADE,
         related_name="attempts",
     )
+    access_slot = models.ForeignKey(
+        "exams.ExamAccessSlot",
+        on_delete=models.SET_NULL,
+        related_name="attempts",
+        blank=True,
+        null=True,
+    )
     student = models.ForeignKey(
         StudentProfile,
         on_delete=models.CASCADE,
@@ -69,6 +76,7 @@ class StudentExamAttempt(BaseModel):
         ]
         indexes = [
             models.Index(fields=["institute", "exam", "student"]),
+            models.Index(fields=["access_slot", "status", "is_active"]),
             models.Index(fields=["status", "is_active"]),
             models.Index(fields=["exam", "status", "is_active"]),
             models.Index(fields=["student", "is_active", "started_at"]),
@@ -88,6 +96,8 @@ class StudentExamAttempt(BaseModel):
             raise ValidationError({"exam": "Exam must belong to the same institute."})
         if self.institute_id and self.student_id and self.student.institute_id != self.institute_id:
             raise ValidationError({"student": "Student must belong to the same institute."})
+        if self.access_slot_id and self.exam_id and self.access_slot.exam_id != self.exam_id:
+            raise ValidationError({"access_slot": "Attempt slot must belong to the same exam."})
         if self.submitted_at and self.submitted_at < self.started_at:
             raise ValidationError({"submitted_at": "Submission time cannot be earlier than start time."})
 

@@ -13,6 +13,11 @@ import {
 import { getQuestionBankFieldLabel } from "@/lib/teacher/question-bank-validation";
 
 type ImportFieldErrors = Partial<Record<"file", string>>;
+type QuestionImportFinalizeFailure = {
+  row_number?: number | null;
+  question_text?: string;
+  errors?: Record<string, string[]>;
+};
 
 function firstError(value: unknown) {
   if (Array.isArray(value)) {
@@ -97,6 +102,18 @@ function hasComprehensionConflictSignal(row: QuestionImportPreviewRow) {
   });
 }
 
+function finalizeFailureMessages(failure: QuestionImportFinalizeFailure) {
+  return Object.values(failure.errors ?? {}).flatMap((value) =>
+    normalizeImportMessages(
+      Array.isArray(value)
+        ? value.map((item) => String(item))
+        : typeof value === "string"
+          ? value
+          : undefined,
+    ),
+  );
+}
+
 export function TeacherQuestionImportWorkspace({
   backHref = "/teacher/question-bank",
   csvContent,
@@ -121,6 +138,11 @@ export function TeacherQuestionImportWorkspace({
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<ImportFieldErrors>({});
+  const [finalizeRecovery, setFinalizeRecovery] = useState<{
+    createdCount: number;
+    failedCount: number;
+    failures: QuestionImportFinalizeFailure[];
+  } | null>(null);
 
   const validPreviewRows = useMemo(
     () => preview?.rows.filter((row) => row.is_valid) ?? [],
@@ -183,6 +205,7 @@ export function TeacherQuestionImportWorkspace({
     setError("");
     setMessage("");
     setFieldErrors({});
+    setFinalizeRecovery(null);
 
     try {
       const formData = new FormData();
@@ -240,6 +263,7 @@ export function TeacherQuestionImportWorkspace({
     setError("");
     setMessage("");
     setFieldErrors({});
+    setFinalizeRecovery(null);
 
     try {
       const response = await fetch(finalizeApiPath, {
@@ -280,10 +304,20 @@ export function TeacherQuestionImportWorkspace({
         "failed_count" in payload && typeof payload.failed_count === "number"
           ? payload.failed_count
           : 0;
+      const failures = Array.isArray(payload.failures) ? payload.failures : [];
       setMessage(
         failedCount > 0
-          ? `${createdCount} questions were imported. ${failedCount} row(s) still failed during final import and should be previewed again.`
+          ? `${createdCount} questions were imported. ${failedCount} row(s) are still blocked after final import. Fix those rows first, then preview the CSV again.`
           : `${createdCount} questions were imported into the question bank.`,
+      );
+      setFinalizeRecovery(
+        failedCount > 0
+          ? {
+              createdCount,
+              failedCount,
+              failures,
+            }
+          : null,
       );
       setPreview(null);
       setSelectedFile(null);
@@ -304,6 +338,57 @@ export function TeacherQuestionImportWorkspace({
     <div className={`questionImportShell ${workspaceClassName}`.trim()}>
       {message ? <p className="feedbackBanner feedbackBannerSuccess">{message}</p> : null}
       {error ? <p className="feedbackBanner feedbackBannerError">{error}</p> : null}
+
+      {finalizeRecovery ? (
+        <section className="contentCard questionImportPanel">
+          <div className="builderSectionHeader">
+            <div>
+              <strong>Finalize recovery</strong>
+              <p>
+                Some questions were created, but a few rows were blocked after the final backend checks.
+              </p>
+            </div>
+          </div>
+
+          <div className="builderMiniBanner">
+            <div>
+              <strong>What imported vs what is blocked</strong>
+              <span>
+                {finalizeRecovery.createdCount} row(s) were created. {finalizeRecovery.failedCount} row(s) stayed blocked.
+                Fix the blocked rows first, then preview the CSV again before retrying final import.
+              </span>
+            </div>
+          </div>
+
+          <div className="questionImportRowGrid">
+            {finalizeRecovery.failures.map((failure, index) => {
+              const failureMessages = finalizeFailureMessages(failure);
+              const failureLabel =
+                typeof failure.row_number === "number" ? `Row ${failure.row_number}` : `Blocked row ${index + 1}`;
+
+              return (
+                <article
+                  className="questionImportRowCard questionImportRowCardInvalid"
+                  key={`${failure.row_number ?? "blocked"}-${failure.question_text ?? index}`}
+                >
+                  <div className="questionImportRowMeta">
+                    <strong>{failureLabel}</strong>
+                    <span>Blocked after finalize</span>
+                  </div>
+                  <p>{failure.question_text?.trim() || "The backend blocked this row after preview validation."}</p>
+                  {failureMessages.length ? (
+                    <ul className="questionImportErrorList">
+                      {failureMessages.map((failureMessage) => (
+                        <li key={`${failureLabel}-${failureMessage}`}>{failureMessage}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
 
       <section className="builderSummaryGrid">
         <article className="builderSummaryCard">
@@ -496,6 +581,18 @@ export function TeacherQuestionImportWorkspace({
             </button>
           </div>
 
+          {validPreviewRows.length && invalidPreviewRows.length ? (
+            <div className="builderMiniBanner">
+              <div>
+                <strong>Some rows can proceed now, some are blocked</strong>
+                <span>
+                  {validPreviewRows.length} valid row(s) can still be finalized from this preview. {invalidPreviewRows.length} row(s)
+                  need fixes first, starting with duplicate content or the field-level issues listed below.
+                </span>
+              </div>
+            </div>
+          ) : null}
+
           {repeatedErrorFields.length ? (
             <div className="builderMiniBanner">
               <div>
@@ -516,7 +613,7 @@ export function TeacherQuestionImportWorkspace({
                 <strong>Duplicate rows need attention first</strong>
                 <span>
                   {duplicateRows.length} row(s) look like repeated or already-existing questions. Review the
-                  question text and academic scope before final import.
+                  question text and academic scope before final import. Any remaining valid rows can still proceed.
                 </span>
               </div>
             </div>

@@ -117,7 +117,7 @@ The seed command prepares:
 - The current web app is the Next.js portal in `edutech_web`.
 - The primary demo path should stay inside the Next.js role workspaces unless you explicitly need Django admin for operator-only checks.
 - Public self-signup is not part of the current MVP.
-- Parent role data may exist in the backend, but a dedicated parent product surface is not yet the main demo path.
+- Parent role now has a dedicated family workspace with browser coverage for dashboard, children, progress, alerts, settings, and mobile compact review.
 
 ## 7. Current MVP Boundaries
 

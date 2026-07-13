@@ -196,6 +196,17 @@ function orderTone(status: string) {
   }
 }
 
+function cycleAllowanceLabel(cycle: {
+  exam_allowance_config?: {
+    included_exam_attempts: number;
+  } | null;
+}) {
+  if (!cycle.exam_allowance_config) {
+    return "No exam allowance configured";
+  }
+  return `${cycle.exam_allowance_config.included_exam_attempts} exam attempts per cycle`;
+}
+
 function unlockTone(status: string) {
   switch (status) {
     case "unlocked":
@@ -683,6 +694,7 @@ export default async function WalletPage({
                           ? `${plan.cycles[0].star_credit_rules[0].stars_credited.toLocaleString("en-IN")} stars on the first configured credit rule`
                           : "Plan values are configured from the backend"}
                       </small>
+                      <small>{plan.cycles[0] ? cycleAllowanceLabel(plan.cycles[0]) : "Allowance details appear when configured."}</small>
                       <Link className="button buttonSecondary" href="/app/subscriptions">
                         Compare Plans
                       </Link>

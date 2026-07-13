@@ -33,6 +33,7 @@ Related documents:
 - [ ] one teacher results dataset exists
 - [ ] one institute question-bank dataset exists
 - [ ] admin economy seed data is present enough for route coverage
+- [ ] one teacher-visible linked shared-library row exists if `test:e2e:operator-mobile-pack` will include teacher mobile question-bank coverage
 - [ ] host monitoring terminal is ready
 - [ ] DB monitoring terminal is ready if available
 - [ ] artifact folder for this run is decided
@@ -97,6 +98,25 @@ Recommended use:
 - use `test:e2e:operator-mobile-pack` on every stage validation wave
 - use `test:e2e:operator-mobile-pack:repeat` when Chromium stage stability matters more than speed
 - use `test:e2e:operator-mobile-pack:cross-browser-repeat` only on a temporarily resized stage machine or a stronger validation host
+
+If the only failing or skipped stage lane is `teacher-mobile-question-bank-workflow.spec.ts`, treat it first as a shared-library seed precondition check, not as a browser regression.
+
+Stage recovery path for that lane:
+
+```bash
+cd /var/www/nexora-learn/edutech/edutech_backend
+./.venv/bin/python manage.py reset_demo_shared_library_workflow --target-institute-code DLI001
+./.venv/bin/python manage.py seed_demo_shared_library_access --target-institute-code DLI001
+```
+
+```bash
+cd /var/www/nexora-learn/edutech/edutech_web
+PLAYWRIGHT_BASE_URL=https://learn.accerio.in \
+PLAYWRIGHT_DEMO_SHARED_LIBRARY_TARGET_INSTITUTE_CODE=DLI001 \
+npm run test:e2e:teacher-mobile-question-bank
+```
+
+Only after that lane is green should the pack be considered fully green on stage.
 
 ---
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type InstituteOption = {
   id: string;
@@ -63,6 +63,7 @@ export function EconomyReferralProgramManagementCard({
   institutes: InstituteOption[];
 }) {
   const [programs, setPrograms] = useState(initialPrograms);
+  const [loadingCatalog, setLoadingCatalog] = useState(false);
   const [editingId, setEditingId] = useState("");
   const [instituteId, setInstituteId] = useState(institutes[0]?.id ?? "");
   const [name, setName] = useState("");
@@ -75,6 +76,54 @@ export function EconomyReferralProgramManagementCard({
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    setPrograms(initialPrograms);
+  }, [initialPrograms]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPrograms() {
+      if (initialPrograms.length > 0 || programs.length > 0) {
+        return;
+      }
+
+      setLoadingCatalog(true);
+      try {
+        const response = await fetch("/api/v1/economy/admin/referral-programs/", {
+          method: "GET",
+          cache: "no-store",
+        });
+        if (!response.ok) {
+          throw new Error("Referral programs could not be loaded.");
+        }
+        const payload = (await response.json()) as AdminReferralProgram[] | { results?: AdminReferralProgram[] };
+        const nextItems = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload.results)
+            ? payload.results
+            : [];
+        if (!cancelled) {
+          setPrograms(nextItems);
+        }
+      } catch (loadError) {
+        if (!cancelled) {
+          setError(loadError instanceof Error ? loadError.message : "Referral programs could not be loaded.");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingCatalog(false);
+        }
+      }
+    }
+
+    void loadPrograms();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initialPrograms.length, programs.length]);
 
   function resetForm() {
     setEditingId("");
@@ -186,6 +235,7 @@ export function EconomyReferralProgramManagementCard({
 
         {message ? <p className="feedbackBanner feedbackBannerSuccess">{message}</p> : null}
         {error ? <p className="feedbackBanner feedbackBannerError">{error}</p> : null}
+        {loadingCatalog ? <p className="setupFieldMeta">Loading referral programs...</p> : null}
 
         <section className="featurePlaceholder economySubscriptionEditorPanel">
           <strong>{editingId ? "Edit referral campaign" : "New referral campaign"}</strong>

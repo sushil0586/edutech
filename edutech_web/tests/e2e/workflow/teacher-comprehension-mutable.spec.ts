@@ -29,6 +29,60 @@ async function selectFirstNonEmptyOption(page: Page, selector: string) {
   return value!;
 }
 
+async function selectFirstMeaningfulOptionIfPresent(page: Page, selector: string) {
+  const locator = page.locator(selector);
+  await expect(locator).toBeVisible();
+  await expect(locator).toBeEnabled();
+
+  const values = await locator.locator("option").evaluateAll((options) =>
+    options.map((option) => (option as HTMLOptionElement).value),
+  );
+  const value = values.find((option) => option.trim().length > 0) ?? null;
+  if (!value) {
+    return null;
+  }
+
+  await locator.selectOption(value);
+  return value;
+}
+
+async function selectOptionOrFirstNonEmpty(
+  page: Page,
+  selector: string,
+  preferredValue: string | null,
+) {
+  const locator = page.locator(selector);
+  await expect(locator).toBeVisible();
+  await expect(locator).toBeEnabled();
+
+  await expect
+    .poll(async () => {
+      const values = await locator.locator("option").evaluateAll((options) =>
+        options.map((option) => (option as HTMLOptionElement).value),
+      );
+
+      if (preferredValue && values.includes(preferredValue)) {
+        return preferredValue;
+      }
+
+      return values.find((option) => option.trim().length > 0) ?? null;
+    })
+    .not.toBeNull();
+
+  const values = await locator.locator("option").evaluateAll((options) =>
+    options.map((option) => (option as HTMLOptionElement).value),
+  );
+
+  const resolvedValue =
+    (preferredValue && values.includes(preferredValue) ? preferredValue : null) ??
+    values.find((option) => option.trim().length > 0) ??
+    null;
+
+  expect(resolvedValue).not.toBeNull();
+  await locator.selectOption(resolvedValue!);
+  return resolvedValue!;
+}
+
 test.describe("Teacher mutable comprehension actions", () => {
   test.skip(
     testRequiresRole("teacher"),
@@ -55,10 +109,13 @@ test.describe("Teacher mutable comprehension actions", () => {
     const comprehensionTitle = `PW Comprehension ${uniqueSeed}`;
     const linkedQuestionText = `PW linked comprehension question ${uniqueSeed}`;
     const updatedComprehensionTitle = `${comprehensionTitle} Updated`;
-      const updatedPassageSentence = "Learners secure identities in the cloud.";
-      const updatedTeacherNote = "Updated teacher note";
-      let passageId: string | null = null;
-      let questionId: string | null = null;
+    const updatedPassageSentence = "Learners secure identities in the cloud.";
+    const updatedTeacherNote = "Updated teacher note";
+    let passageId: string | null = null;
+    let questionId: string | null = null;
+    let selectedProgramId: string | null = null;
+    let selectedSubjectId: string | null = null;
+    let selectedTopicId: string | null = null;
 
     try {
       await page.goto("/teacher/question-bank/comprehension/new");
@@ -80,11 +137,11 @@ test.describe("Teacher mutable comprehension actions", () => {
       await expect(page.getByText(/^set title$/i).first()).toBeVisible();
       await expect(page.getByText(/^passage text$/i).first()).toBeVisible();
 
-      await selectFirstNonEmptyOption(page, 'select[name="program"]');
+      selectedProgramId = await selectFirstNonEmptyOption(page, 'select[name="program"]');
       await expect(page.locator('select[name="subject"]')).toBeEnabled();
-      await selectFirstNonEmptyOption(page, 'select[name="subject"]');
+      selectedSubjectId = await selectFirstNonEmptyOption(page, 'select[name="subject"]');
       await expect(page.locator('select[name="topic"]')).toBeEnabled();
-      await selectFirstNonEmptyOption(page, 'select[name="topic"]');
+      selectedTopicId = await selectFirstMeaningfulOptionIfPresent(page, 'select[name="topic"]');
 
       await page.locator('input[name="title"]').fill(comprehensionTitle);
       await page.getByRole("button", { name: /create comprehension set/i }).click();
@@ -202,11 +259,15 @@ test.describe("Teacher mutable comprehension actions", () => {
       const topicSelect = page.locator('select[name="topic"]');
       const passageSelect = page.locator('select[name="passage"]');
 
-      await selectFirstNonEmptyOption(page, 'select[name="program"]');
+      await selectOptionOrFirstNonEmpty(page, 'select[name="program"]', selectedProgramId);
       await expect(subjectSelect).toBeEnabled();
-      await selectFirstNonEmptyOption(page, 'select[name="subject"]');
+      await selectOptionOrFirstNonEmpty(page, 'select[name="subject"]', selectedSubjectId);
       await expect(topicSelect).toBeEnabled();
-      await selectFirstNonEmptyOption(page, 'select[name="topic"]');
+      if (selectedTopicId) {
+        await selectOptionOrFirstNonEmpty(page, 'select[name="topic"]', selectedTopicId);
+      } else {
+        await selectFirstMeaningfulOptionIfPresent(page, 'select[name="topic"]');
+      }
       await expect(passageSelect).toBeEnabled();
 
       const targetPassageOption = await passageSelect.locator("option").evaluateAll(

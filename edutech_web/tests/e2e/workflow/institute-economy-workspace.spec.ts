@@ -90,8 +90,8 @@ test.describe("Institute economy workspace", () => {
     await page.getByRole("button", { name: /refresh unlocks/i }).click();
     await expect(page.getByText(/unlock refresh output/i).first()).toBeVisible();
 
-    await expect(page.getByText(/live wallet state/i).first()).toBeVisible();
-    await expect(page.getByText(/reward timeline/i).first()).toBeVisible();
+    await expect(page.getByText(/support control center/i).first()).toBeVisible();
+    await expect(page.getByText(/current unlock states after recalculation/i).first()).toBeVisible();
 
     await page.locator('a[href="/institute/exams"]').first().click();
     await expect(page).toHaveURL(/\/institute\/exams(?:\?.*)?$/);

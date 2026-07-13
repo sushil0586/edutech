@@ -1,200 +1,40 @@
 # Institute And Teacher 9 To 10 Confidence Plan
 
-This plan focuses on the biggest current readiness drag:
+Last updated: 2026-07-08
 
-- institute operational consistency
-- teacher operational consistency
-- entitlement-driven authoring clarity
+This document is now an archival redirect.
 
-Current rating:
+The older institute/teacher hardening gap that once sat around `6.5/10` is no longer the truthful current read.
 
-- institute / teacher operational consistency: `6.5/10`
+Use these documents instead:
 
-Target rating:
+- [OPERATOR_8_TO_9_CONFIDENCE_EXECUTION_BOARD.md](/Users/ansh/Documents/Eductech/docs/qa-runbooks/OPERATOR_8_TO_9_CONFIDENCE_EXECUTION_BOARD.md)
+- [OVERALL_PRODUCT_CONFIDENCE_MATRIX.md](/Users/ansh/Documents/Eductech/docs/qa-runbooks/OVERALL_PRODUCT_CONFIDENCE_MATRIX.md)
+- [SELF_SERVE_ROLLOUT_CONFIDENCE_PLAN.md](/Users/ansh/Documents/Eductech/docs/qa-runbooks/SELF_SERVE_ROLLOUT_CONFIDENCE_PLAN.md)
 
-- institute / teacher operational consistency: `9/10`
+## Current truthful read
 
-## What Was Already Strong
+- institute onboarding: `9/10`
+- teacher question bank: `9/10`
+- package access and entitlements: `9/10`
+- teacher / institute role consistency: `9/10`
+- registration / onboarding variations: `9/10`
 
-The current product already has strong structural coverage for:
+Those scores reflect that the focused operator `8 to 9` board is now fully complete.
 
-- exam list and exam detail
-- builder and advanced builder routes
-- question-bank inventory
-- shared-library entitlement enforcement
-- paused entitlement builder blocking
-- paused entitlement publish-readiness blocking
-- results and review workspace access
+The main remaining residual is no longer whether those institute and teacher lanes basically work.
 
-This means the gap is not “missing whole modules.”
-The gap is operational clarity, repeatability, and final role-proof under real pilot usage.
+The remaining residual is:
 
-## Hardening Improvement Applied Now
+- broader unsupported self-serve rollout depth
+- wider repeated-run stability breadth
+- performance and scale realism
+- occasional cross-surface maintenance as dense operator workflows evolve
 
-The shared-library workspace now makes the role contract explicit:
+## Historical note
 
-- teacher lane is `request-only`
-- institute lane is `direct-link when entitled`
+If you need the detailed closure evidence for the old institute/teacher confidence lift, use:
 
-This reduces ambiguity in the exact area that most often creates operator confusion during subscription-gated authoring.
+- [OPERATOR_8_TO_9_CONFIDENCE_EXECUTION_BOARD.md](/Users/ansh/Documents/Eductech/docs/qa-runbooks/OPERATOR_8_TO_9_CONFIDENCE_EXECUTION_BOARD.md)
 
-Changed files:
-
-- [teacher-question-bank-workspace.tsx](/Users/ansh/Documents/Eductech/edutech_web/src/components/ui/teacher-question-bank-workspace.tsx:533)
-- [teacher/question-bank/page.tsx](/Users/ansh/Documents/Eductech/edutech_web/src/app/(teacher)/teacher/question-bank/page.tsx:533)
-- [institute/question-bank/page.tsx](/Users/ansh/Documents/Eductech/edutech_web/src/app/(institute)/institute/question-bank/page.tsx:560)
-
-## Remaining Work To Reach 9/10
-
-## P0. Role Contract Proof
-
-Goal:
-
-- no institute or teacher operator is confused about what is allowed, blocked, or request-only
-
-Tasks:
-
-1. Verify institute shared-library states end to end:
-   - no entitlement
-   - active entitlement
-   - paused entitlement
-   - quota exhausted
-   - near publish limit
-
-2. Verify teacher shared-library states end to end:
-   - no entitlement
-   - request submitted
-   - active package match but request-only lane
-   - paused entitlement on already-linked content
-   - publish blocker state
-
-3. Ensure all blocked states show actionable copy:
-   - what is blocked
-   - why it is blocked
-   - who can unblock it
-
-Acceptance:
-
-- a pilot teacher or institute admin can correctly predict the next valid action from the UI alone
-
-## P0. Authoring Repeatability
-
-Goal:
-
-- institute and teacher can repeat the same authoring flow without operator rescue
-
-Tasks:
-
-1. Run one fresh full institute-admin authoring cycle:
-   - create question or link licensed question
-   - create exam
-   - attach question
-   - configure schedule
-   - publish
-   - verify student visibility
-
-2. Run one fresh full teacher authoring cycle:
-   - create teacher-owned question
-   - create exam
-   - attach question
-   - configure schedule
-   - publish
-   - verify student visibility
-
-3. Run one licensed-question cycle for each:
-   - institute direct link path
-   - teacher request-led path
-
-Acceptance:
-
-- each role can complete at least one private-content flow and one licensed-content flow cleanly
-
-## P0. Pilot Automation Closure
-
-Goal:
-
-- critical institute/teacher behavior is proven by automation, not memory
-
-Tasks:
-
-1. Re-run mutable institute shared-library suites.
-2. Re-run mutable teacher shared-library suites.
-3. Re-run institute and teacher exam mutable authoring suites.
-4. Capture exact green list for pilot signoff.
-
-Acceptance:
-
-- institute and teacher critical mutable suites are green in a clean seeded state
-
-## P1. Operator Runbook Closure
-
-Goal:
-
-- rollout does not depend on unwritten setup knowledge
-
-Tasks:
-
-1. Create one institute/teacher pilot operator checklist:
-   - required entitlements
-   - required feature flags
-   - expected package scope
-   - role behavior rules
-
-2. Add “if blocked, check these 3 things” guidance:
-   - shared-library feature entitlement
-   - matching package entitlement
-   - quota / publish allowance status
-
-Acceptance:
-
-- another operator can prepare one pilot institute from the runbook alone
-
-## P1. Manual UAT Evidence
-
-Goal:
-
-- real pilot roles prove the flows, not just internal automation
-
-Tasks:
-
-1. Have one institute admin perform guided authoring and release.
-2. Have one teacher perform guided authoring and release.
-3. Record:
-   - confusion points
-   - blockers
-   - terminology issues
-   - entitlement misunderstandings
-
-Acceptance:
-
-- no blocker issues remain after one external UAT pass per role
-
-## Fastest Path To 9/10
-
-Do these in order:
-
-1. Re-run institute and teacher mutable authoring + entitlement suites
-2. Run one real manual institute-admin authoring cycle
-3. Run one real manual teacher authoring cycle
-4. Close any wording or blocker-state gaps found
-5. Freeze a pilot-safe runbook
-
-## What Still Does Not Need To Be Done Yet
-
-To avoid over-engineering, do not prioritize these before the above:
-
-- advanced collaboration workflows
-- high-scale grading throughput optimization
-- heavy authoring polish for rich media edge cases
-- deep analytics polish
-- broad reporting expansion
-
-## Success Definition
-
-Institute and teacher are at `9/10` when:
-
-- both roles can author and release without hidden setup knowledge
-- entitlement-driven blocking is truthful and understandable
-- licensed-content rules are explicit in the UI
-- mutable regression evidence is green
-- one real pilot UAT pass per role succeeds without blocker defects
+That board now contains the implementation, browser-proof, and signoff trail that supersedes the older draft plan which originally lived in this file.

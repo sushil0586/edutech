@@ -43,6 +43,20 @@ export function TeacherEditDialog({ row }: { row: TeacherRosterRow }) {
   const [joinedAt, setJoinedAt] = useState(row.joined_at ? row.joined_at.slice(0, 10) : "");
   const [isActive, setIsActive] = useState(row.is_active);
 
+  function resetFormFields() {
+    setEmployeeCode(row.employee_code);
+    setFirstName(row.first_name ?? row.full_name.split(" ")[0] ?? "");
+    setLastName(row.last_name ?? row.full_name.split(" ").slice(1).join(" "));
+    setEmail(row.email);
+    setPhone(row.phone);
+    setQualification(row.qualification ?? "");
+    setSpecialization(row.specialization ?? "");
+    setBio(row.bio ?? "");
+    setJoinedAt(row.joined_at ? row.joined_at.slice(0, 10) : "");
+    setIsActive(row.is_active);
+    setMessage("");
+  }
+
   useEffect(() => {
     if (!open) {
       return;
@@ -63,6 +77,12 @@ export function TeacherEditDialog({ row }: { row: TeacherRosterRow }) {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      resetFormFields();
+    }
+  }, [open, row]);
 
   async function submitTeacherUpdate() {
     if (!employeeCode.trim() || !firstName.trim()) {
@@ -98,7 +118,7 @@ export function TeacherEditDialog({ row }: { row: TeacherRosterRow }) {
         );
       }
 
-      setOpen(false);
+        setOpen(false);
       router.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Teacher update failed.");

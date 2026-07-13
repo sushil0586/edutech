@@ -1,8 +1,8 @@
+import dynamic from "next/dynamic";
 import { Suspense } from "react";
 import { InstitutePageHeader } from "@/components/ui/institute-page-header";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
-import { TeacherQuestionImportWorkspace } from "@/components/ui/teacher-question-import-workspace";
-import { fetchPortalList } from "@/lib/api/portal";
+import { fetchInstituteQuestionBankFeatureEntitlementsCached } from "@/lib/api/portal";
 import { fetchTeacherQuestionImportTemplate } from "@/lib/api/teacher-builder";
 import { requireInstituteAdminSession } from "@/lib/auth/session";
 import { buildFallbackQuestionImportTemplate } from "@/lib/teacher/question-import-template-fallback";
@@ -14,6 +14,27 @@ type InstituteQuestionFeatureEntitlement = {
   feature_code: string;
   status: string;
 };
+
+const TeacherQuestionImportWorkspace = dynamic(
+  () =>
+    import("@/components/ui/teacher-question-import-workspace").then((module) => ({
+      default: module.TeacherQuestionImportWorkspace,
+    })),
+  {
+    loading: () => (
+      <section className="contentCard questionImportPanel">
+        <div className="builderSectionHeader">
+          <div>
+            <strong>Loading import tools</strong>
+            <p>
+              The page shell is ready. Preview, row-inspection, and finalize controls are loading now.
+            </p>
+          </div>
+        </div>
+      </section>
+    ),
+  },
+);
 
 function InstituteQuestionImportLoadingShell() {
   return (
@@ -41,9 +62,9 @@ async function InstituteQuestionImportPageContent() {
   await requireInstituteAdminSession();
 
   const [featureEntitlements, template] = await Promise.all([
-    fetchPortalList<InstituteQuestionFeatureEntitlement>(
-      "/api/v1/economy/admin/institute-question-bank-feature-entitlements/",
-    ).catch(() => []),
+    fetchInstituteQuestionBankFeatureEntitlementsCached<InstituteQuestionFeatureEntitlement>().catch(
+      () => [],
+    ),
     fetchTeacherQuestionImportTemplate().catch(() => null),
   ]);
   const hasBulkImportAccess = featureEntitlements.some(

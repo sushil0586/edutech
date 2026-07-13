@@ -7,7 +7,7 @@ import {
   fetchTeacherSubjects,
   fetchTeacherTopics,
 } from "@/lib/api/teacher-builder";
-import { fetchPortalList } from "@/lib/api/portal";
+import { fetchInstituteQuestionBankFeatureEntitlementsCached } from "@/lib/api/portal";
 import { requireInstituteAdminSession } from "@/lib/auth/session";
 
 const QUESTION_BANK_SHARED_LIBRARY_FEATURE_CODE = "QUESTION_BANK_SHARED_LIBRARY";
@@ -39,7 +39,7 @@ export default async function InstituteQuestionBankLibraryLinkerPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requireInstituteAdminSession();
+  const profile = await requireInstituteAdminSession();
   const resolvedSearchParams = await searchParams;
 
   const program = readSingle(resolvedSearchParams.program);
@@ -52,10 +52,10 @@ export default async function InstituteQuestionBankLibraryLinkerPage({
   const libraryPageSize = clampPageSize(readSingle(resolvedSearchParams.library_page_size), 100);
 
   const [programs, featureEntitlements] = await Promise.all([
-    fetchTeacherPrograms().catch(() => []),
-    fetchPortalList<InstituteQuestionFeatureEntitlement>(
-      "/api/v1/economy/admin/institute-question-bank-feature-entitlements/",
-    ).catch(() => []),
+    fetchTeacherPrograms({ institute: profile.institute || undefined }).catch(() => []),
+    fetchInstituteQuestionBankFeatureEntitlementsCached<InstituteQuestionFeatureEntitlement>().catch(
+      () => [],
+    ),
   ]);
 
   const hasSharedLibraryAccess = featureEntitlements.some(
@@ -65,13 +65,19 @@ export default async function InstituteQuestionBankLibraryLinkerPage({
   );
 
   const validProgram = programs.some((entry) => entry.id === program) ? program : "";
-  const subjects = await fetchTeacherSubjects({
-    program: validProgram || undefined,
-  }).catch(() => []);
+  const subjects = validProgram
+    ? await fetchTeacherSubjects({
+        institute: profile.institute || undefined,
+        program: validProgram,
+      }).catch(() => [])
+    : [];
   const validSubject = subjects.some((entry) => entry.id === subject) ? subject : "";
-  const topics = await fetchTeacherTopics({
-    subject: validSubject || undefined,
-  }).catch(() => []);
+  const topics = validSubject
+    ? await fetchTeacherTopics({
+        institute: profile.institute || undefined,
+        subject: validSubject,
+      }).catch(() => [])
+    : [];
   const validTopic = topics.some((entry) => entry.id === topic) ? topic : "";
 
   const selectedSubject = subjects.find((entry) => entry.id === validSubject) ?? null;

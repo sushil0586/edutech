@@ -31,6 +31,84 @@ Use these as the comparison anchors before and after scale-up:
   - elevated run queue depth
   - no meaningful request failure rate
 
+## Current-Stage Baseline Quick Start
+
+Use this before any resize if you want one fresh baseline captured with the current runbook and current scripts.
+
+Run this exact sequence against the current stage first, then repeat the same sequence again after the instance upgrade.
+
+### 1. Confirm the current stage shape
+
+```bash
+ssh -i ~/Downloads/bansalsushil05.pem ubuntu@3.106.125.117
+nproc
+free -h
+df -h
+sudo systemctl status nexora-learn-backend --no-pager
+sudo systemctl status nexora-learn-web --no-pager
+ps -o pid,ppid,%cpu,%mem,cmd -C gunicorn
+```
+
+### 2. Record direct auth timing
+
+```bash
+python3 - <<'EOF'
+import json, subprocess, time
+base='https://learn.accerio.in'
+for _ in range(3):
+    login_cmd = "curl -k -s -H 'Content-Type: application/json' --data '{\"username\":\"demo-student\",\"password\":\"Demo@12345\"}' " + base + "/api/v1/auth/login/"
+    start=time.perf_counter()
+    login_raw=subprocess.check_output(login_cmd, shell=True, text=True)
+    login_ms=round((time.perf_counter()-start)*1000,2)
+    token=json.loads(login_raw)['access']
+    me_cmd = "curl -k -s -H 'Authorization: Bearer " + token + "' " + base + "/api/v1/auth/me/"
+    start=time.perf_counter()
+    _=subprocess.check_output(me_cmd, shell=True, text=True)
+    me_ms=round((time.perf_counter()-start)*1000,2)
+    print({'login_ms': login_ms, 'me_ms': me_ms})
+EOF
+```
+
+### 3. Run the current baseline smoke pack
+
+```bash
+K6_BASE_URL=https://learn.accerio.in \
+K6_USER_CREDENTIALS_JSON='[{"username":"demo-student","password":"Demo@12345"}]' \
+K6_VUS=10 \
+K6_ITERATIONS=10 \
+k6 run performance/k6/student-login-and-exam-discovery.js
+```
+
+```bash
+K6_BASE_URL=https://learn.accerio.in \
+K6_USER_CREDENTIALS_JSON='[{"username":"psi603031-student01","password":"Demo@12345"},{"username":"psi603031-student02","password":"Demo@12345"},{"username":"psi603031-student03","password":"Demo@12345"},{"username":"psi603031-student04","password":"Demo@12345"},{"username":"psi603031-student05","password":"Demo@12345"},{"username":"psi603031-student06","password":"Demo@12345"},{"username":"psi603031-student07","password":"Demo@12345"},{"username":"psi603031-student08","password":"Demo@12345"},{"username":"psi603031-student09","password":"Demo@12345"},{"username":"psi603031-student10","password":"Demo@12345"},{"username":"psi603032-student01","password":"Demo@12345"},{"username":"psi603032-student02","password":"Demo@12345"},{"username":"psi603032-student03","password":"Demo@12345"},{"username":"psi603032-student04","password":"Demo@12345"},{"username":"psi603032-student05","password":"Demo@12345"},{"username":"psi603032-student06","password":"Demo@12345"},{"username":"psi603032-student07","password":"Demo@12345"},{"username":"psi603032-student08","password":"Demo@12345"},{"username":"psi603032-student09","password":"Demo@12345"},{"username":"psi603032-student10","password":"Demo@12345"},{"username":"psi603033-student01","password":"Demo@12345"},{"username":"psi603033-student02","password":"Demo@12345"},{"username":"psi603033-student03","password":"Demo@12345"},{"username":"psi603033-student04","password":"Demo@12345"},{"username":"psi603033-student05","password":"Demo@12345"},{"username":"psi603033-student06","password":"Demo@12345"},{"username":"psi603033-student07","password":"Demo@12345"},{"username":"psi603033-student08","password":"Demo@12345"},{"username":"psi603033-student09","password":"Demo@12345"},{"username":"psi603033-student10","password":"Demo@12345"}]' \
+K6_STAGES_JSON='[{"duration":"1m","target":10},{"duration":"2m","target":20},{"duration":"2m","target":30},{"duration":"1m","target":0}]' \
+k6 run performance/k6/student-session-and-exam-discovery.js
+```
+
+```bash
+K6_BASE_URL=https://learn.accerio.in \
+K6_USER_CREDENTIALS_JSON='[{"username":"demo-student","password":"Demo@12345"}]' \
+K6_VUS=10 \
+K6_ITERATIONS=10 \
+k6 run performance/k6/student-results-history.js
+```
+
+### 4. Monitor host pressure in parallel
+
+```bash
+ps -o pid,ppid,%cpu,%mem,cmd -C gunicorn
+vmstat 1 12
+```
+
+### 5. Fill only the `Before resize` column first
+
+Use:
+
+- [STAGE_SCALE_UP_RESULTS_TEMPLATE.md](/Users/ansh/Documents/Eductech/docs/qa-runbooks/STAGE_SCALE_UP_RESULTS_TEMPLATE.md)
+
+Do not wait for the resize to record the baseline numbers.
+
 ## Recommended Upgrade Goal
 
 For the next validation wave, prefer one larger instance step instead of many tiny changes.
@@ -221,6 +299,26 @@ Use this second result to study:
 - session reuse under load
 - `/auth/me/` plus exam-discovery behavior without colliding with repeated-login throttling
 
+Optional student result-history follow-up after the discovery pass:
+
+If the goal is to validate the denser post-submit and result-history backend paths we hardened locally, also run:
+
+```bash
+K6_BASE_URL=https://learn.accerio.in \
+K6_USER_CREDENTIALS_JSON='[{"username":"demo-student","password":"Demo@12345"}]' \
+K6_VUS=10 \
+K6_ITERATIONS=10 \
+k6 run performance/k6/student-results-history.js
+```
+
+Use this third result to study:
+
+- `/api/v1/student/results/` under repeated authenticated access
+- linked attempt summary reads after result selection
+- conditional review access checks under load
+- analytics readback after dense result-history access
+- whether the newer `student_result_list` backend hardening still holds under concurrent read pressure
+
 ### 6. Monitor host behavior during the smoke
 
 In a parallel SSH tab:
@@ -240,6 +338,71 @@ Populate the same observations into:
 
 - [STAGE_SCALE_UP_RESULTS_TEMPLATE.md](/Users/ansh/Documents/Eductech/docs/qa-runbooks/STAGE_SCALE_UP_RESULTS_TEMPLATE.md)
 
+## How To Interpret The Run
+
+Use the combined direct timings, `k6` metrics, and host snapshot to decide what the resize actually proved.
+
+### Healthy enough to call the scale-up successful
+
+You can treat the resize as a meaningful win when most of the following are true in the same run:
+
+- direct `login` is materially below the current `~1.2s` baseline
+- direct `me` stays at or below the current `~0.6s` baseline
+- auth-smoke `p95` drops clearly below the current `6.9s to 7.1s` band
+- request failures remain at or near `0%`
+- host CPU is no longer pinned near `100%` for most of the run
+- run queue pressure is visibly calmer than on the `2 vCPU` host
+
+Interpretation:
+
+- the current backend hardening is likely good enough for this wave
+- the old stage bottleneck was primarily capacity, not one still-hidden hot route
+- next confidence work should focus more on broader scenario realism and less on emergency backend rescue
+
+### Needs another backend optimization pass
+
+Treat the result as a code-level follow-up signal when the larger instance is live but one or more of these still holds:
+
+- direct `login` and `me` barely move
+- auth-smoke `p95` stays close to the old `6.9s to 7.1s` band
+- results-history smoke is disproportionately slow compared with discovery smoke
+- request failures appear even without obvious host exhaustion
+- CPU is no longer the only thing under pressure, but latency is still stubbornly high
+
+Interpretation:
+
+- we likely removed the infrastructure ceiling enough to expose another application hotspot
+- the next pass should revisit route-level profiling, especially dense authenticated student reads and any remaining serializer or permission-heavy endpoints
+
+### Backend is probably no longer the main bottleneck
+
+Treat this as the likely conclusion when:
+
+- local route profiling remains strong
+- stage direct timings improve
+- stage smoke latency improves
+- CPU saturation drops
+- but user-facing pain is still mostly about operator ambiguity, long-tail workflows, or scenario-specific recovery rather than raw request time
+
+Interpretation:
+
+- confidence should now be raised mainly by workflow proof, UX clarity, and broader lane coverage
+- remaining work belongs more to functional hardening and self-serve rollout proof than backend performance rescue
+
+### Red flags worth escalating immediately
+
+Pause and capture more evidence before drawing conclusions if any of these happen:
+
+- request failures rise materially after the resize
+- swap activity appears
+- one gunicorn worker becomes much hotter than the rest for sustained periods
+- direct timings improve but `k6` tails barely move
+- discovery smoke improves but results-history smoke regresses
+
+Interpretation:
+
+- this usually means the environment changed in more than one way, or a specific endpoint family still has uneven scaling behavior
+
 ### 7. Record the outcome in one place
 
 Immediately after the run:
@@ -249,6 +412,56 @@ Immediately after the run:
 3. update the master plan and confidence matrix with the measured before/after evidence
 
 Do not treat the wave as successful based only on subjective feel.
+
+## Copy-Paste Student Load Pack
+
+Use this exact sequence for the next student-heavy stage validation wave:
+
+```bash
+# 1. direct auth timing spot-check
+python3 - <<'EOF'
+import json, subprocess, time
+base='https://learn.accerio.in'
+for _ in range(3):
+    login_cmd = "curl -k -s -H 'Content-Type: application/json' --data '{\"username\":\"demo-student\",\"password\":\"Demo@12345\"}' " + base + "/api/v1/auth/login/"
+    start=time.perf_counter()
+    login_raw=subprocess.check_output(login_cmd, shell=True, text=True)
+    login_ms=round((time.perf_counter()-start)*1000,2)
+    token=json.loads(login_raw)['access']
+    me_cmd = "curl -k -s -H 'Authorization: Bearer " + token + "' " + base + "/api/v1/auth/me/"
+    start=time.perf_counter()
+    _=subprocess.check_output(me_cmd, shell=True, text=True)
+    me_ms=round((time.perf_counter()-start)*1000,2)
+    print({'login_ms': login_ms, 'me_ms': me_ms})
+EOF
+
+# 2. login + exam discovery
+K6_BASE_URL=https://learn.accerio.in \
+K6_USER_CREDENTIALS_JSON='[{"username":"demo-student","password":"Demo@12345"}]' \
+K6_VUS=10 \
+K6_ITERATIONS=10 \
+k6 run performance/k6/student-login-and-exam-discovery.js
+
+# 3. session reuse + exam discovery ramp
+K6_BASE_URL=https://learn.accerio.in \
+K6_USER_CREDENTIALS_JSON='[{"username":"psi603031-student01","password":"Demo@12345"},{"username":"psi603031-student02","password":"Demo@12345"},{"username":"psi603031-student03","password":"Demo@12345"},{"username":"psi603031-student04","password":"Demo@12345"},{"username":"psi603031-student05","password":"Demo@12345"},{"username":"psi603031-student06","password":"Demo@12345"},{"username":"psi603031-student07","password":"Demo@12345"},{"username":"psi603031-student08","password":"Demo@12345"},{"username":"psi603031-student09","password":"Demo@12345"},{"username":"psi603031-student10","password":"Demo@12345"},{"username":"psi603032-student01","password":"Demo@12345"},{"username":"psi603032-student02","password":"Demo@12345"},{"username":"psi603032-student03","password":"Demo@12345"},{"username":"psi603032-student04","password":"Demo@12345"},{"username":"psi603032-student05","password":"Demo@12345"},{"username":"psi603032-student06","password":"Demo@12345"},{"username":"psi603032-student07","password":"Demo@12345"},{"username":"psi603032-student08","password":"Demo@12345"},{"username":"psi603032-student09","password":"Demo@12345"},{"username":"psi603032-student10","password":"Demo@12345"},{"username":"psi603033-student01","password":"Demo@12345"},{"username":"psi603033-student02","password":"Demo@12345"},{"username":"psi603033-student03","password":"Demo@12345"},{"username":"psi603033-student04","password":"Demo@12345"},{"username":"psi603033-student05","password":"Demo@12345"},{"username":"psi603033-student06","password":"Demo@12345"},{"username":"psi603033-student07","password":"Demo@12345"},{"username":"psi603033-student08","password":"Demo@12345"},{"username":"psi603033-student09","password":"Demo@12345"},{"username":"psi603033-student10","password":"Demo@12345"}]' \
+K6_STAGES_JSON='[{"duration":"1m","target":10},{"duration":"2m","target":20},{"duration":"2m","target":30},{"duration":"1m","target":0}]' \
+k6 run performance/k6/student-session-and-exam-discovery.js
+
+# 4. dense student results/history chain
+K6_BASE_URL=https://learn.accerio.in \
+K6_USER_CREDENTIALS_JSON='[{"username":"demo-student","password":"Demo@12345"}]' \
+K6_VUS=10 \
+K6_ITERATIONS=10 \
+k6 run performance/k6/student-results-history.js
+```
+
+Recommended host monitoring in a parallel SSH tab during each `k6` run:
+
+```bash
+ps -o pid,ppid,%cpu,%mem,cmd -C gunicorn
+vmstat 1 12
+```
 
 ## Success Criteria
 

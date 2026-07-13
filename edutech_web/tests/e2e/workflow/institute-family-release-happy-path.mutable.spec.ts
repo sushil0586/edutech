@@ -107,7 +107,10 @@ test.describe("Institute family release happy path", () => {
         ).toContainText(/blocked/i);
         await expect(
           instituteResultsWorkspaceReadinessCard(page, /^result publish readiness$/i),
-        ).toContainText(/0 generated/i);
+        ).toContainText(/1 generated/i);
+        await expect(
+          instituteResultsWorkspaceReadinessCard(page, /^result publish readiness$/i),
+        ).toContainText(/0 published/i);
 
         await markExamCompleted(page, examId);
         await publishExamResultsWorkflow(page, examId);

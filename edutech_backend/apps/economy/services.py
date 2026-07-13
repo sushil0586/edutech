@@ -27,6 +27,7 @@ from apps.economy.models import (
     PaymentTransactionStatus,
     QuestionBankPackage,
     QuestionBankAccessMode,
+    QuestionBankOwnershipType,
     ReferralCode,
     ReferralEvent,
     ReferralProgram,
@@ -40,9 +41,11 @@ from apps.economy.models import (
     StudentEntitlement,
     StudentRewardEvent,
     StudentSubscription,
+    StudentSubscriptionAllowanceUsage,
     StudentSubscriptionStatus,
     StudentUnlockState,
     SubscriptionBillingEvent,
+    SubscriptionPlanExamAllowanceConfig,
     SubscriptionPlan,
     SubscriptionPlanQuestionBankPackage,
     SubscriptionPlanCycle,
@@ -58,6 +61,23 @@ from apps.results.models import ExamResult
 
 QUESTION_BANK_FEATURE_CACHE_TTL_SECONDS = 60
 QUESTION_BANK_ENTITLEMENT_SNAPSHOT_CACHE_TTL_SECONDS = 60
+SUBSCRIPTION_COMMERCIAL_PATHS = {
+    "subscription_only",
+    "subscription_or_stars",
+}
+SPONSORED_COMMERCIAL_PATHS = {
+    "institute_sponsored",
+    "platform_managed",
+}
+COMMERCIAL_PATH_ALIASES = {
+    "free_exam": "free",
+    "star_unlock_exam": "stars_only",
+    "subscription_covered_exam": "subscription_only",
+    "subscription_or_stars_exam": "subscription_or_stars",
+    "institute_sponsored_exam": "institute_sponsored",
+    "platform_sponsored_exam": "platform_managed",
+    "platform_managed_exam": "platform_managed",
+}
 
 
 def _content_target_query(*, content_type, content_key, subject=None):
@@ -434,7 +454,7 @@ def list_active_star_packs(*, institute):
 def list_active_subscription_plans(*, institute):
     return (
         SubscriptionPlan.objects.filter(institute=institute, is_active=True)
-        .prefetch_related("cycles__star_credit_rules")
+        .prefetch_related("cycles__star_credit_rules", "cycles__exam_allowance_config")
         .order_by("name")
     )
 
@@ -449,6 +469,7 @@ def list_requestable_subscription_plans_for_institute(*, institute):
         .select_related("institute")
         .prefetch_related(
             "cycles__star_credit_rules",
+            "cycles__exam_allowance_config",
             "question_bank_package_links__question_bank_package__institute",
             "question_bank_package_links__question_bank_package__scopes",
         )
@@ -468,10 +489,267 @@ def list_student_payment_orders(*, student):
 def list_student_subscriptions(*, student):
     return (
         StudentSubscription.objects.filter(student=student, is_active=True)
-        .select_related("plan_cycle", "plan_cycle__plan")
-        .prefetch_related("billing_events")
+        .select_related("plan_cycle", "plan_cycle__plan", "plan_cycle__exam_allowance_config")
+        .prefetch_related("billing_events", "allowance_usage_entries")
         .order_by("-created_at")
     )
+
+
+def resolve_access_policy_commercial_path(access_policy):
+    if access_policy is None:
+        return "free"
+
+    metadata = access_policy.metadata if isinstance(access_policy.metadata, dict) else {}
+    explicit_path = (
+        metadata.get("commercial_path")
+        or metadata.get("exam_commercial_path")
+        or metadata.get("access_path")
+    )
+    if isinstance(explicit_path, str) and explicit_path.strip():
+        normalized_path = explicit_path.strip()
+        return COMMERCIAL_PATH_ALIASES.get(normalized_path, normalized_path)
+
+    entitlement_code = (access_policy.entitlement_code or "").strip().lower()
+    if access_policy.policy_type == AccessPolicyType.ENTITLEMENT_ONLY:
+        if entitlement_code.startswith("subscription:"):
+            return "subscription_only"
+        return "entitlement_only"
+    if access_policy.policy_type == AccessPolicyType.STARS_OR_ENTITLEMENT:
+        if entitlement_code.startswith("subscription:"):
+            return "subscription_or_stars"
+        return "stars_or_entitlement"
+    if access_policy.policy_type == AccessPolicyType.STARS_ONLY:
+        return "stars_only"
+    return "free"
+
+
+def _active_subscription_allowance_queryset(*, student, at_time=None, for_update=False):
+    now = at_time or timezone.now()
+    queryset = (
+        StudentSubscription.objects.filter(
+            student=student,
+            is_active=True,
+            status=StudentSubscriptionStatus.ACTIVE,
+            current_period_start__isnull=False,
+            current_period_end__isnull=False,
+            current_period_start__lte=now,
+            current_period_end__gte=now,
+            plan_cycle__exam_allowance_config__is_active=True,
+        )
+        .select_related(
+            "plan_cycle",
+            "plan_cycle__plan",
+        )
+        .order_by("current_period_end", "created_at")
+    )
+    if for_update:
+        queryset = queryset.select_for_update()
+    return queryset
+
+
+def _build_subscription_allowance_resolution(
+    *,
+    student_subscription,
+    exam,
+):
+    allowance_config = getattr(student_subscription.plan_cycle, "exam_allowance_config", None)
+    if allowance_config is None or not allowance_config.is_active:
+        return None
+
+    if allowance_config.counting_scope != "all_eligible_exams":
+        raise ValidationError(
+            {"subscription": "Unsupported subscription allowance counting scope configuration."}
+        )
+
+    used_count = (
+        StudentSubscriptionAllowanceUsage.objects.filter(
+            student_subscription=student_subscription,
+            billing_period_start=student_subscription.current_period_start,
+            billing_period_end=student_subscription.current_period_end,
+            is_active=True,
+        )
+        .values_list("consumed_count", flat=True)
+    )
+    used_allowance = sum(used_count)
+    included_allowance = int(allowance_config.included_exam_attempts or 0)
+    remaining_allowance = max(included_allowance - used_allowance, 0)
+
+    return {
+        "is_applicable": True,
+        "student_subscription": student_subscription,
+        "allowance_config": allowance_config,
+        "billing_period_start": student_subscription.current_period_start,
+        "billing_period_end": student_subscription.current_period_end,
+        "included_allowance": included_allowance,
+        "used_allowance": used_allowance,
+        "remaining_allowance": remaining_allowance,
+        "is_covered": remaining_allowance > 0,
+        "reason_code": "" if remaining_allowance > 0 else "blocked_no_subscription_allowance",
+        "reason_message": (
+            ""
+            if remaining_allowance > 0
+            else "No subscription allowance is left for the current billing cycle."
+        ),
+        "exam_id": str(getattr(exam, "id", "")),
+    }
+
+
+def resolve_student_exam_subscription_allowance(
+    *,
+    student,
+    exam,
+    access_policy=None,
+    at_time=None,
+    for_update=False,
+):
+    commercial_path = resolve_access_policy_commercial_path(access_policy)
+    if commercial_path not in SUBSCRIPTION_COMMERCIAL_PATHS:
+        return {
+            "is_applicable": False,
+            "commercial_path": commercial_path,
+            "is_covered": False,
+            "reason_code": "",
+            "reason_message": "",
+        }
+
+    subscriptions = list(
+        _active_subscription_allowance_queryset(
+            student=student,
+            at_time=at_time,
+            for_update=for_update,
+        )
+    )
+    if not subscriptions:
+        return {
+            "is_applicable": True,
+            "commercial_path": commercial_path,
+            "student_subscription": None,
+            "allowance_config": None,
+            "billing_period_start": None,
+            "billing_period_end": None,
+            "included_allowance": 0,
+            "used_allowance": 0,
+            "remaining_allowance": 0,
+            "is_covered": False,
+            "reason_code": "blocked_no_active_subscription",
+            "reason_message": "No active subscription with exam allowance covers this exam.",
+        }
+
+    for subscription in subscriptions:
+        resolution = _build_subscription_allowance_resolution(
+            student_subscription=subscription,
+            exam=exam,
+        )
+        if resolution and resolution["remaining_allowance"] > 0:
+            resolution["commercial_path"] = commercial_path
+            return resolution
+
+    fallback_resolution = _build_subscription_allowance_resolution(
+        student_subscription=subscriptions[0],
+        exam=exam,
+    )
+    fallback_resolution["commercial_path"] = commercial_path
+    return fallback_resolution
+
+
+def serialize_subscription_allowance_resolution(resolution):
+    if not isinstance(resolution, dict):
+        return {
+            "is_applicable": False,
+            "commercial_path": None,
+            "is_covered": False,
+            "reason_code": "",
+            "reason_message": "",
+        }
+
+    student_subscription = resolution.get("student_subscription")
+    allowance_config = resolution.get("allowance_config")
+    return {
+        "is_applicable": bool(resolution.get("is_applicable")),
+        "commercial_path": resolution.get("commercial_path"),
+        "is_covered": bool(resolution.get("is_covered")),
+        "reason_code": resolution.get("reason_code", ""),
+        "reason_message": resolution.get("reason_message", ""),
+        "billing_period_start": resolution.get("billing_period_start"),
+        "billing_period_end": resolution.get("billing_period_end"),
+        "included_allowance": int(resolution.get("included_allowance") or 0),
+        "used_allowance": int(resolution.get("used_allowance") or 0),
+        "remaining_allowance": int(resolution.get("remaining_allowance") or 0),
+        "student_subscription_id": str(student_subscription.id) if student_subscription is not None else None,
+        "subscription_plan_cycle_id": (
+            str(student_subscription.plan_cycle_id)
+            if student_subscription is not None and getattr(student_subscription, "plan_cycle_id", None)
+            else None
+        ),
+        "allowance_config_id": str(allowance_config.id) if allowance_config is not None else None,
+    }
+
+
+@transaction.atomic
+def consume_student_exam_subscription_allowance(
+    *,
+    student,
+    exam,
+    attempt,
+    access_policy=None,
+    resolved_allowance=None,
+    consumed_at=None,
+):
+    if resolved_allowance is None:
+        resolved_allowance = resolve_student_exam_subscription_allowance(
+            student=student,
+            exam=exam,
+            access_policy=access_policy,
+            at_time=consumed_at,
+            for_update=True,
+        )
+
+    if not resolved_allowance.get("is_applicable"):
+        raise ValidationError({"subscription": "Subscription allowance does not apply to this exam."})
+    if not resolved_allowance.get("is_covered"):
+        raise ValidationError(
+            {
+                "subscription": (
+                    resolved_allowance.get("reason_message")
+                    or "No subscription allowance is available for this exam."
+                )
+            }
+        )
+
+    student_subscription = resolved_allowance["student_subscription"]
+    locked_subscription = (
+        StudentSubscription.objects.select_related("plan_cycle", "plan_cycle__plan")
+        .select_for_update()
+        .get(pk=student_subscription.pk)
+    )
+    refreshed_resolution = _build_subscription_allowance_resolution(
+        student_subscription=locked_subscription,
+        exam=exam,
+    )
+    if refreshed_resolution is None or refreshed_resolution["remaining_allowance"] <= 0:
+        raise ValidationError({"subscription": "No subscription allowance is left for the current billing cycle."})
+
+    usage_entry, created = StudentSubscriptionAllowanceUsage.objects.get_or_create(
+        attempt=attempt,
+        defaults={
+            "institute": student.institute,
+            "student_subscription": locked_subscription,
+            "student": student,
+            "exam": exam,
+            "billing_period_start": locked_subscription.current_period_start,
+            "billing_period_end": locked_subscription.current_period_end,
+            "consumed_count": 1,
+            "consumed_at": consumed_at or timezone.now(),
+            "consumption_reason": "attempt_start",
+            "metadata": {
+                "plan_cycle_id": str(locked_subscription.plan_cycle_id),
+                "commercial_path": resolved_allowance.get("commercial_path"),
+            },
+        },
+    )
+    refreshed_resolution["usage_entry"] = usage_entry
+    refreshed_resolution["was_created"] = created
+    return refreshed_resolution
 
 
 def _add_months(value, months):
@@ -1001,6 +1279,20 @@ def _invalidate_question_bank_entitlement_snapshot_cache(*, institute):
     cache.delete(_question_bank_entitlement_snapshot_cache_key(institute_id=institute_id))
 
 
+def invalidate_question_bank_package_entitlement_snapshots(*, question_bank_package):
+    package_id = getattr(question_bank_package, "id", question_bank_package)
+    if not package_id:
+        return
+
+    institute_ids = (
+        InstituteQuestionEntitlement.objects.filter(question_bank_package_id=package_id)
+        .values_list("institute_id", flat=True)
+        .distinct()
+    )
+    for institute_id in institute_ids:
+        _invalidate_question_bank_entitlement_snapshot_cache(institute=institute_id)
+
+
 def _active_question_bank_entitlement_snapshot(institute, *, at_time=None):
     if at_time is not None:
         return list(
@@ -1129,6 +1421,41 @@ def package_scope_matches_master_question(*, scope, master_question):
                 return False
 
     return True
+
+
+def _active_platform_question_bank_packages():
+    return (
+        QuestionBankPackage.objects.filter(
+            is_active=True,
+            ownership_type=QuestionBankOwnershipType.PLATFORM,
+        )
+        .select_related("institute")
+        .prefetch_related("scopes")
+        .order_by("sort_order", "name", "created_at")
+    )
+
+
+def _active_platform_question_bank_package_snapshot():
+    cache_key = "economy:platform-question-bank-packages:snapshot"
+    cached_snapshot = cache.get(cache_key)
+    if cached_snapshot is not None:
+        return cached_snapshot
+    snapshot = list(_active_platform_question_bank_packages())
+    cache.set(cache_key, snapshot, QUESTION_BANK_ENTITLEMENT_SNAPSHOT_CACHE_TTL_SECONDS)
+    return snapshot
+
+
+def find_matching_catalog_question_bank_packages_for_master_question(*, master_question, packages=None):
+    package_candidates = packages if packages is not None else _active_platform_question_bank_package_snapshot()
+    matches = []
+    for package in package_candidates:
+        package_scopes = _active_package_scopes(package)
+        if any(
+            package_scope_matches_master_question(scope=scope, master_question=master_question)
+            for scope in package_scopes
+        ):
+            matches.append(package)
+    return matches
 
 
 def find_matching_question_bank_packages_for_master_question(institute, *, master_question, at_time=None):
@@ -1484,6 +1811,15 @@ def bulk_get_master_question_access_summaries(institute, *, master_questions, at
     if not questions:
         return {}
 
+    platform_packages = _active_platform_question_bank_package_snapshot()
+    catalog_matches_by_question_id = {
+        str(question.id): find_matching_catalog_question_bank_packages_for_master_question(
+            master_question=question,
+            packages=platform_packages,
+        )
+        for question in questions
+    }
+
     entitlements = _active_question_bank_entitlement_snapshot(institute, at_time=at_time)
     default_summary = {
         "has_entitlement": False,
@@ -1495,7 +1831,13 @@ def bulk_get_master_question_access_summaries(institute, *, master_questions, at
         "matching_packages": [],
     }
     if not entitlements:
-        return {str(question.id): dict(default_summary) for question in questions}
+        return {
+            str(question.id): {
+                **default_summary,
+                "matching_packages": catalog_matches_by_question_id.get(str(question.id), []),
+            }
+            for question in questions
+        }
 
     scopes_by_entitlement_id = {
         entitlement.id: [
@@ -1544,7 +1886,10 @@ def bulk_get_master_question_access_summaries(institute, *, master_questions, at
             matching_scopes_by_entitlement_id[entitlement.id] = matching_scopes
 
         if not matching_entitlements:
-            summaries[str(question.id)] = dict(default_summary)
+            summaries[str(question.id)] = {
+                **default_summary,
+                "matching_packages": catalog_matches_by_question_id.get(str(question.id), []),
+            }
             continue
 
         available_entitlement = None
@@ -1667,6 +2012,9 @@ def get_master_question_access_summary(institute, *, master_question, at_time=No
             "quota_limited": False,
             "quota_exhausted": False,
             "quota_note": "No matching subscribed package was found for this local scope.",
+            "matching_packages": find_matching_catalog_question_bank_packages_for_master_question(
+                master_question=master_question,
+            ),
         }
 
     available_entitlement = None
@@ -1689,6 +2037,10 @@ def get_master_question_access_summary(institute, *, master_question, at_time=No
             ),
             "quota_exhausted": True,
             "quota_note": "Matching subscribed packages were found, but their question quota is exhausted.",
+            "matching_packages": [
+                entitlement.question_bank_package
+                for entitlement in matching_entitlements
+            ],
         }
 
     if available_entitlement.question_bank_package.access_mode != QuestionBankAccessMode.QUOTA_LIMITED:
@@ -1699,6 +2051,10 @@ def get_master_question_access_summary(institute, *, master_question, at_time=No
             "quota_limited": False,
             "quota_exhausted": False,
             "quota_note": "",
+            "matching_packages": [
+                entitlement.question_bank_package
+                for entitlement in matching_entitlements
+            ],
         }
 
     matching_scopes = _matching_scopes_for_master_question(
@@ -1737,6 +2093,10 @@ def get_master_question_access_summary(institute, *, master_question, at_time=No
         "quota_limited": True,
         "quota_exhausted": False,
         "quota_note": quota_note,
+        "matching_packages": [
+            entitlement.question_bank_package
+            for entitlement in matching_entitlements
+        ],
     }
 
 

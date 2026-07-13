@@ -15,6 +15,10 @@ function firstNonEmptyOptionValue(values: string[]) {
   return values.find((value) => value.trim().length > 0) ?? null;
 }
 
+function normalizeRenderedOptionLabel(label: string) {
+  return label.replace(/\s+\(inactive\)$/i, "").trim();
+}
+
 async function selectFirstNonEmptyOption(locator: Locator) {
   const options = await locator.locator("option").evaluateAll((nodes) =>
     nodes.map((node) => ({
@@ -119,7 +123,7 @@ test.describe("Institute mutable teacher-assignment actions", () => {
         has: page.getByText(new RegExp(`${teacherFirstName}\\s+${teacherLastName}`, "i")),
       }).first();
       await expect(createdRow).toBeVisible();
-      await expect(createdRow).toContainText(subjectOption.label);
+      await expect(createdRow).toContainText(normalizeRenderedOptionLabel(subjectOption.label));
       await expect(page.locator("table tbody tr")).toHaveCount(rowsBefore + 1);
 
       await createdRow.getByRole("button", { name: /edit/i }).click();

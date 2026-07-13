@@ -50,13 +50,19 @@ from apps.accounts.serializers import (
     ResetPasswordSerializer,
     StudentExamAccessKeySerializer,
 )
-from apps.attempts.models import AttemptIntegrityEvent, StudentAnswer, StudentExamAttempt
+from apps.attempts.models import (
+    AttemptIntegrityEvent,
+    StudentAnswer,
+    StudentAnswerReviewTask,
+    StudentExamAttempt,
+)
 from apps.academics.models import AcademicYear, Cohort, Program, Subject, Topic
 from apps.exams.models import Exam, ExamQuestion, ExamSection
 from apps.exams.serializers import (
     ExamListSerializer,
     ExamReadSerializer,
     StudentExamAvailabilitySerializer,
+    StudentExamFollowUpSerializer,
     StudentExamReadinessSerializer,
 )
 from apps.exams.services import STUDENT_EXAM_SOURCE_FILTERS
@@ -67,7 +73,12 @@ from apps.question_bank.serializers import QuestionSerializer
 from apps.reports.services import create_audit_log
 from apps.reports.services import ensure_exam_window_notifications
 from apps.results.models import ExamPerformanceSummary, ExamResult
-from apps.results.serializers import ExamPerformanceSummarySerializer, ExamResultSerializer
+from apps.results.serializers import (
+    ExamPerformanceSummarySerializer,
+    ExamResultListSerializer,
+    ExamResultSerializer,
+)
+from apps.attempts.services import REVIEW_TASK_UNRESOLVED_STATUSES
 from apps.results.services import (
     INSTITUTE_DASHBOARD_SUMMARY_CACHE_TTL_SECONDS,
     build_student_insight_summary,
@@ -463,6 +474,8 @@ class StudentAvailableExamView(APIView):
     def get(self, request):
         student = request.user.account_profile.student_profile
         source_filter = str(request.query_params.get("source", "all") or "all").strip().lower()
+        compact = str(request.query_params.get("compact", "") or "").strip().lower() == "true"
+        exam_type_filter = str(request.query_params.get("exam_type", "") or "").strip().lower()
         teacher_filter = str(
             request.query_params.get("teacher")
             or request.query_params.get("teacher_id")
@@ -470,33 +483,58 @@ class StudentAvailableExamView(APIView):
         ).strip()
         if source_filter not in STUDENT_EXAM_SOURCE_FILTERS:
             raise ValidationError({"source": "Invalid source filter."})
-        queryset = scope_exam_queryset(
-            Exam.objects.select_related(
-                "institute",
-                "academic_year",
-                "program",
-                "cohort",
-                "subject",
-                "source_teacher",
-            ),
-            request.user,
-        ).filter(is_active=True).prefetch_related(
-            Prefetch(
-                "sections",
-                queryset=ExamSection.objects.filter(is_active=True)
-                .select_related("subject")
-                .order_by("section_order", "created_at"),
-            ),
-            Prefetch(
-                "student_assignments",
-                to_attr="_prefetched_student_assignments",
-            ),
-            Prefetch(
-                "attempts",
-                queryset=StudentExamAttempt.objects.filter(student=student, is_active=True).select_related("result"),
-                to_attr="_prefetched_attempts_for_student",
+        if compact:
+            queryset = scope_exam_queryset(
+                Exam.objects.select_related(
+                    "institute",
+                    "subject",
+                    "source_teacher",
+                ),
+                request.user,
+            ).filter(is_active=True).prefetch_related(
+                Prefetch(
+                    "student_assignments",
+                    to_attr="_prefetched_student_assignments",
+                ),
+                Prefetch(
+                    "attempts",
+                    queryset=StudentExamAttempt.objects.filter(
+                        student=student,
+                        is_active=True,
+                    ).select_related("result"),
+                    to_attr="_prefetched_attempts_for_student",
+                ),
             )
-        )
+        else:
+            queryset = scope_exam_queryset(
+                Exam.objects.select_related(
+                    "institute",
+                    "academic_year",
+                    "program",
+                    "cohort",
+                    "subject",
+                    "source_teacher",
+                ),
+                request.user,
+            ).filter(is_active=True).prefetch_related(
+                Prefetch(
+                    "sections",
+                    queryset=ExamSection.objects.filter(is_active=True)
+                    .select_related("subject")
+                    .order_by("section_order", "created_at"),
+                ),
+                Prefetch(
+                    "student_assignments",
+                    to_attr="_prefetched_student_assignments",
+                ),
+                Prefetch(
+                    "attempts",
+                    queryset=StudentExamAttempt.objects.filter(student=student, is_active=True).select_related("result"),
+                    to_attr="_prefetched_attempts_for_student",
+                )
+            )
+        if exam_type_filter:
+            queryset = queryset.filter(exam_type=exam_type_filter)
         exams = [exam for exam in queryset if is_exam_assigned_to_student(exam, student)]
         exams = filter_student_visible_exams_by_source(
             exams,
@@ -504,9 +542,11 @@ class StudentAvailableExamView(APIView):
             teacher_id=teacher_filter or None,
         )
         _hydrate_exam_access_policies(exams)
-        ensure_exam_window_notifications(student, exams)
+        if not compact:
+            ensure_exam_window_notifications(student, exams)
+        serializer_class = StudentExamFollowUpSerializer if compact else StudentExamAvailabilitySerializer
         return Response(
-            StudentExamAvailabilitySerializer(
+            serializer_class(
                 exams,
                 many=True,
                 context={"request": request},
@@ -713,10 +753,26 @@ class StudentResultListView(APIView):
 
     def get(self, request):
         queryset = scope_student_queryset(
-            ExamResult.objects.select_related("exam", "student", "attempt", "institute"),
+            ExamResult.objects.select_related(
+                "exam",
+                "exam__institute",
+                "exam__source_teacher",
+                "student",
+                "attempt",
+                "institute",
+            ).prefetch_related(
+                Prefetch(
+                    "attempt__review_tasks",
+                    queryset=StudentAnswerReviewTask.objects.filter(
+                        is_active=True,
+                        status__in=REVIEW_TASK_UNRESOLVED_STATUSES,
+                    ).only("id", "attempt_id"),
+                    to_attr="_prefetched_unresolved_review_tasks",
+                ),
+            ),
             request.user,
         ).filter(is_active=True)
-        return Response(ExamResultSerializer(queryset, many=True).data)
+        return Response(ExamResultListSerializer(queryset, many=True).data)
 
 
 class StudentInsightSummaryView(APIView):

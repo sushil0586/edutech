@@ -40,28 +40,34 @@ test.describe("Admin exams workspace", () => {
 
     if (instituteOptions.length > 0) {
       const scopedInstitute = instituteOptions[0];
-      const scopedInstituteCodeMatch = scopedInstitute.label.match(/\(([^)]+)\)\s*$/);
-      const scopedInstituteCode = scopedInstituteCodeMatch?.[1] ?? scopedInstitute.label;
+      const scopedInstituteName = scopedInstitute.label.replace(/\s*\([^)]+\)\s*$/, "");
       await instituteSelect.selectOption(scopedInstitute.value);
       await page.getByRole("button", { name: /apply filters/i }).click();
 
       await expect(page).toHaveURL(new RegExp(`institute=${scopedInstitute.value}`));
       await expect(
-        page.getByText(new RegExp(`^institute: ${scopedInstituteCode}$`, "i")).first(),
+        page.getByText(new RegExp(`^institute: ${escapeRegExp(scopedInstituteName)}$`, "i")).first(),
       ).toBeVisible();
 
       const scopedCards = page.locator(".examCard");
       const scopedEmptyState = page.getByRole("heading", { name: /no exams match these platform controls/i });
+      const scopedNoDataState = page.getByRole("heading", {
+        name: /no exams are visible to platform governance yet/i,
+      });
       if (await scopedCards.first().isVisible().catch(() => false)) {
         await expect(scopedCards.first()).toBeVisible();
       } else {
-        await expect(scopedEmptyState).toBeVisible();
+        if (await scopedNoDataState.isVisible().catch(() => false)) {
+          await expect(scopedNoDataState).toBeVisible();
+        } else {
+          await expect(scopedEmptyState).toBeVisible();
+        }
       }
 
       await page.goto("/admin/exams");
       await expect(page).toHaveURL(/\/admin\/exams(?:\?.*)?$/);
       await expect(page.getByRole("heading", { name: /exam management/i }).first()).toBeVisible();
-      await expect(page.getByText(/^institute: all$/i).first()).toBeVisible();
+      await expect(page.getByText(/^institute: all institutes$/i).first()).toBeVisible();
     }
 
     await statusSelect.selectOption("live");
@@ -83,7 +89,18 @@ test.describe("Admin exams workspace", () => {
 
     await page.getByRole("link", { name: /group by source/i }).click();
     await expect(page).toHaveURL(/exam_group=source/);
-    await expect(page.getByRole("heading", { name: /no exams match these platform controls/i })).toBeVisible();
+    if (
+      await page
+        .getByRole("heading", { name: /no exams are visible to platform governance yet/i })
+        .isVisible()
+        .catch(() => false)
+    ) {
+      await expect(
+        page.getByRole("heading", { name: /no exams are visible to platform governance yet/i }),
+      ).toBeVisible();
+    } else {
+      await expect(page.getByRole("heading", { name: /no exams match these platform controls/i })).toBeVisible();
+    }
 
     await page.getByRole("link", { name: /reset exam filters/i }).click();
     await expect(page).toHaveURL(/\/admin\/exams(?:\?.*)?$/);
@@ -92,6 +109,36 @@ test.describe("Admin exams workspace", () => {
     await expect(page.getByText(/^source: all$/i).first()).toBeVisible();
 
     const examCards = page.locator(".examCard");
+    if (
+      await page
+        .getByRole("heading", { name: /no exams are visible to platform governance yet/i })
+        .isVisible()
+        .catch(() => false)
+    ) {
+      await expect(
+        page.getByRole("heading", { name: /no exams are visible to platform governance yet/i }),
+      ).toBeVisible();
+
+      await page.getByRole("link", { name: /preset library/i }).first().click();
+      await expect(page).toHaveURL(/\/admin\/exams\/preset-packs(?:\?.*)?$/);
+      await expect(page.getByRole("heading", { name: /preset pack library/i }).first()).toBeVisible();
+
+      await page.goto("/admin/exams");
+      await expect(page.getByRole("heading", { name: /exam management/i }).first()).toBeVisible();
+
+      await page.locator('a[href="/admin/academic-setup"]').first().click();
+      await expect(page).toHaveURL(/\/admin\/academic-setup(?:\?.*)?$/);
+      await expect(page.getByRole("heading", { name: /academic setup/i }).first()).toBeVisible();
+
+      await page.goto("/admin/exams");
+      await expect(page.getByRole("heading", { name: /exam management/i }).first()).toBeVisible();
+
+      await page.getByRole("link", { name: /quick create/i }).first().click();
+      await expect(page).toHaveURL(/\/admin\/exams\/new(?:\?.*)?$/);
+      await expect(page.getByRole("heading", { name: /create exam/i }).first()).toBeVisible();
+      return;
+    }
+
     await expect(examCards.first()).toBeVisible();
 
     const firstCard = examCards.first();

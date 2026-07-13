@@ -1,6 +1,21 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectAdminWorkspace } from "../helpers/navigation";
+
+async function selectFirstNonEmptyOption(locator: Locator) {
+  const options = await locator.locator("option").evaluateAll((nodes) =>
+    nodes
+      .map((node) => ({
+        value: (node as HTMLOptionElement).value,
+        label: node.textContent?.trim() ?? "",
+      }))
+      .filter((option) => option.value.trim().length > 0),
+  );
+
+  if (options.length > 0) {
+    await locator.selectOption(options[0].value);
+  }
+}
 
 test.describe("Admin exam create workspace", () => {
   test.skip(testRequiresRole("admin"), "Admin Playwright credentials are not configured.");
@@ -44,6 +59,16 @@ test.describe("Admin exam create workspace", () => {
     await expect(accessPolicy).toBeVisible();
     await expect(starCost).toBeVisible();
 
+    if ((await academicYear.inputValue()) === "") {
+      await selectFirstNonEmptyOption(academicYear);
+    }
+    if ((await program.inputValue()) === "") {
+      await selectFirstNonEmptyOption(program);
+    }
+
+    const academicScopeUnavailable =
+      (await academicYear.inputValue()) === "" || (await program.inputValue()) === "";
+
     await title.fill("");
     await code.fill("");
     await page.getByRole("button", { name: /^continue$/i }).click();
@@ -59,6 +84,17 @@ test.describe("Admin exam create workspace", () => {
     await source.selectOption("institute");
     await accessPolicy.selectOption({ index: 0 });
     await starCost.fill("0");
+
+    if (academicScopeUnavailable) {
+      await page.getByRole("button", { name: /^continue$/i }).click();
+      await expect(page.locator('input[name="duration_minutes"]').first()).toBeHidden();
+      await expect
+        .poll(async () =>
+          academicYear.evaluate((element) => (element as HTMLSelectElement).validationMessage),
+        )
+        .not.toBe("");
+      return;
+    }
 
     await page.getByRole("button", { name: /^continue$/i }).click();
     await expect(page.getByText(/schedule and delivery/i).first()).toBeVisible();

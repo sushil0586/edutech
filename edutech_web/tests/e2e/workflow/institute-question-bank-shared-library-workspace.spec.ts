@@ -3,16 +3,14 @@ import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectInstituteWorkspace } from "../helpers/navigation";
 
 async function expectSharedLibrarySection(page: Page) {
-  await expect(page.getByText(/shared library intake/i).first()).toBeVisible();
+  await expect(page.getByText(/licensed intake shortcut/i).first()).toBeVisible();
 
   const section = page.locator("section.contentCard").filter({
-    has: page.getByText(/shared library intake/i).first(),
+    has: page.getByText(/licensed intake shortcut/i).first(),
   }).first();
   await expect(section).toBeVisible();
   await expect(
-    section.getByText(
-      /topic-wise intake page|review source coverage, choose the right slices, and add licensed platform questions/i,
-    ).first(),
+    section.getByText(/institute admins complete the final intake step from shared library linker/i).first(),
   ).toBeVisible();
   await expect(
     section.getByRole("link", { name: /open shared library linker/i }).first(),
@@ -35,16 +33,8 @@ test.describe("Institute question bank shared library workspace", () => {
 
     await page.goto("/institute/question-bank");
     await expect(page.getByRole("heading", { name: /question bank/i }).first()).toBeVisible();
-    await expect(page.getByText(/find questions faster/i)).toBeVisible();
-    await expect(page.getByText(/why questions are or are not visible/i).first()).toBeVisible();
-    await expect(
-      page.getByText(
-        /question access depends on three checks staying aligned: shared-library switch, package access, and the current class and subject filter/i,
-      ).first(),
-    ).toBeVisible();
-    await expect(page.getByText(/shared-library switch/i).first()).toBeVisible();
-    await expect(page.getByText(/question package access/i).first()).toBeVisible();
-    await expect(page.getByText(/current class and subject filter/i).first()).toBeVisible();
+    await expect(page.getByText(/find questions faster/i).first()).toBeVisible();
+    await expect(page.getByText(/licensed intake shortcut/i).first()).toBeVisible();
 
     const sharedLibrarySection = await expectSharedLibrarySection(page);
 
@@ -61,8 +51,11 @@ test.describe("Institute question bank shared library workspace", () => {
     await expect(page).toHaveURL(/\/institute\/question-bank\/library-linker(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /shared library linker/i }).first()).toBeVisible();
     await expect(page.getByText(/current lane: shared library linker/i).first()).toBeVisible();
-    await expect(page.getByText(/this page is not for changing question wording/i).first()).toBeVisible();
-    await expect(page.getByText(/keep intake separate from review and editing so users do not bring in the wrong rows by mistake/i).first()).toBeVisible();
-    await expect(page.getByText(/start small\. pick one class and one subject first/i).first()).toBeVisible();
+    await expect(page.getByText(/this page is not for editing wording/i).first()).toBeVisible();
+    await expect(page.getByText(/role boundary for this lane/i).first()).toBeVisible();
+    await expect(
+      page.getByText(/teachers can inspect licensed source rows and request help from their workspace, but they do not complete the final link on this page/i).first(),
+    ).toBeVisible();
+    await expect(page.getByText(/pick one class and one subject first/i).first()).toBeVisible();
   });
 });

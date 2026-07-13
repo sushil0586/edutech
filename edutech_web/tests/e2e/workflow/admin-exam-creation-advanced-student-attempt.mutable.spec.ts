@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
-import { getRoleCredentials } from "../fixtures/env";
 import { answerCurrentAttemptQuestion } from "../helpers/attempt";
-import { loginAsRole, testRequiresRole } from "../helpers/auth";
+import { loginAsRole, loginWithCredentials, testRequiresRole } from "../helpers/auth";
+import { awsStudentCredentials, familyRuntimeScenarios } from "../helpers/family-runtime";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
 import { expectAdminWorkspace, expectStudentWorkspace } from "../helpers/navigation";
 
@@ -14,6 +14,10 @@ const adminApiBaseUrl = (
   "http://127.0.0.1:9001"
 ).replace(/\/$/, "");
 
+const deterministicAdvancedBuilderScenario =
+  familyRuntimeScenarios.find((scenario) => scenario.presetId === "aws_practitioner") ??
+  familyRuntimeScenarios[0]!;
+
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -25,6 +29,16 @@ function toDateTimeLocalValue(date: Date) {
   const hours = `${date.getHours()}`.padStart(2, "0");
   const minutes = `${date.getMinutes()}`.padStart(2, "0");
   return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+async function waitForPrimarySubjectTopics(page: Page) {
+  const firstTopicSelect = page.locator(".advancedBuilderTopicRow").first().locator("select");
+  await expect
+    .poll(async () => firstTopicSelect.locator("option").count(), {
+      timeout: 30000,
+      message: "Expected the advanced builder topic selector to load real topic options.",
+    })
+    .toBeGreaterThan(1);
 }
 
 function adminExamReadinessPanel(page: Page) {
@@ -60,11 +74,10 @@ async function deleteAdminExamDirectly(page: Page, examId: string) {
 
 type StudentAttemptTarget = {
   displayName: string;
-  instituteName: string;
 };
 
 async function resolveStudentAttemptTarget(page: Page): Promise<StudentAttemptTarget> {
-  await loginAsRole(page, "student");
+  await loginWithCredentials(page, awsStudentCredentials, "student");
   await expectStudentWorkspace(page);
 
   const accessToken = await backendAccessToken(page);
@@ -79,17 +92,13 @@ async function resolveStudentAttemptTarget(page: Page): Promise<StudentAttemptTa
 
   const payload = (await response.json()) as {
     display_name?: string;
-    institute_name?: string;
   };
 
   const displayName = payload.display_name?.trim() ?? "";
-  const instituteName = payload.institute_name?.trim() ?? "";
   expect(displayName).not.toBe("");
-  expect(instituteName).not.toBe("");
 
   return {
     displayName,
-    instituteName,
   };
 }
 
@@ -100,7 +109,6 @@ async function openStage(page: Page, name: RegExp) {
 async function createAdminAdvancedMockExam(
   page: Page,
   uniqueSeed: number,
-  studentTarget: StudentAttemptTarget,
 ) {
   const examTitle = `PW Admin Advanced Attempt ${uniqueSeed}`;
   const examCode = `PW-AA-AT-${uniqueSeed}`;
@@ -109,104 +117,40 @@ async function createAdminAdvancedMockExam(
   await expect(page.getByRole("heading", { name: /advanced exam builder/i }).first()).toBeVisible();
 
   const instituteSelect = page.getByLabel(/select template institute/i);
-  const instituteOptions = await instituteSelect.locator("option").evaluateAll((options) =>
-    options.map((option) => ({
-      label: (option as HTMLOptionElement).label.trim(),
-      value: (option as HTMLOptionElement).value.trim(),
-    })),
-  );
-  const matchedInstituteOption =
-    instituteOptions.find((option) =>
-      option.label.toLowerCase().startsWith(studentTarget.instituteName.toLowerCase()),
-    ) ??
-    instituteOptions.find((option) =>
-      option.label.toLowerCase().includes(studentTarget.instituteName.toLowerCase()),
-    ) ??
-    null;
-  expect(matchedInstituteOption).not.toBeNull();
-
-  await instituteSelect.selectOption(matchedInstituteOption!.value);
+  await instituteSelect.selectOption("Demo Learning Institute (DLI001)");
   await page.getByRole("button", { name: /^apply$/i }).click();
-  await expect(page).toHaveURL(new RegExp(`institute=${matchedInstituteOption!.value}`));
+  await expect(page.getByText(/Demo Learning Institute template scope/i)).toBeVisible();
 
   const instituteId = await instituteSelect.inputValue();
   expect(instituteId).not.toBe("");
   await expect(page.getByText(/not found in the selected institute/i)).toHaveCount(0);
 
-  const accessToken = await backendAccessToken(page);
-  const comboboxes = page.getByRole("combobox");
-  const academicYearSelect = comboboxes.nth(2);
-  const programSelect = comboboxes.nth(3);
-  const cohortSelect = comboboxes.nth(4);
-  const academicYearOptions = await academicYearSelect.locator("option").evaluateAll((options) =>
-    options
-      .map((option) => (option as HTMLOptionElement).value.trim())
-      .filter((value) => value.length > 0),
-  );
-  const programOptions = await programSelect.locator("option").evaluateAll((options) =>
-    options
-      .map((option) => (option as HTMLOptionElement).value.trim())
-      .filter((value) => value.length > 0),
-  );
+  const academicYearSelect = page
+    .locator(".advancedBuilderField")
+    .filter({ has: page.getByText(/^Academic year$/i) })
+    .locator("select");
+  const programSelect = page
+    .locator(".advancedBuilderField")
+    .filter({ has: page.getByText(/^Program$/i) })
+    .locator("select");
+  const subjectSelect = page
+    .locator(".advancedBuilderField")
+    .filter({ has: page.getByText(/^Primary subject$/i) })
+    .locator("select");
 
-  let matchedAcademicYearValue: string | null = null;
-  let matchedProgramValue: string | null = null;
-  let matchedCohortValue: string | null = null;
-
-  for (const academicYearValue of academicYearOptions) {
-    for (const programValue of programOptions) {
-      const rosterResponse = await page.request.get(`${adminApiBaseUrl}/api/v1/students/`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        params: {
-          academic_year: academicYearValue,
-          is_active: "true",
-          page_size: "200",
-          program: programValue,
-        },
-        timeout: 15000,
-      });
-      expect(rosterResponse.ok()).toBe(true);
-
-      const rosterPayload = (await rosterResponse.json()) as {
-        results?: Array<{
-          cohort?: string | null;
-          full_name?: string | null;
-        }>;
-      };
-      const matchedStudent = rosterPayload.results?.find((student) =>
-        new RegExp(`^${escapeRegExp(studentTarget.displayName)}$`, "i").test(
-          student.full_name?.trim() ?? "",
-        ),
-      );
-
-      if (matchedStudent) {
-        matchedAcademicYearValue = academicYearValue;
-        matchedProgramValue = programValue;
-        matchedCohortValue = matchedStudent.cohort?.trim() || null;
-        break;
-      }
-    }
-
-    if (matchedProgramValue) {
-      break;
-    }
+  const hasCanonicalFamilyAcademicYear = await academicYearSelect.evaluate((element) => {
+    const select = element as HTMLSelectElement;
+    return Array.from(select.options).some((option) => option.label.trim() === "2026-2027");
+  });
+  if (hasCanonicalFamilyAcademicYear) {
+    await academicYearSelect.selectOption({ label: "2026-2027" });
+    await expect(academicYearSelect).toHaveValue(/\S+/);
   }
-
-  expect(matchedAcademicYearValue).not.toBeNull();
-  expect(matchedProgramValue).not.toBeNull();
-
-  await academicYearSelect.selectOption(matchedAcademicYearValue!);
-  await programSelect.selectOption(matchedProgramValue!);
-
-  if (matchedCohortValue) {
-    await expect
-      .poll(async () => await cohortSelect.locator(`option[value="${matchedCohortValue}"]`).count())
-      .toBeGreaterThan(0);
-    await cohortSelect.selectOption(matchedCohortValue);
-  }
+  await programSelect.selectOption({ label: deterministicAdvancedBuilderScenario.programLabel });
+  await expect(programSelect).toHaveValue(/\S+/);
+  await subjectSelect.selectOption({ label: deterministicAdvancedBuilderScenario.subjectLabel });
+  await expect(subjectSelect).toHaveValue(/\S+/);
+  await waitForPrimarySubjectTopics(page);
 
   await page.getByRole("button", { name: /quick practice/i }).click();
   await expect(page.getByText(/quick practice template applied/i)).toBeVisible();
@@ -354,7 +298,7 @@ async function expectAdminReadinessAfterSubmission(page: Page, examId: string, e
 }
 
 async function attemptExamAsStudent(page: Page, examId: string, examTitle: string, uniqueSeed: number) {
-  await loginAsRole(page, "student");
+  await loginWithCredentials(page, awsStudentCredentials, "student");
   await expectStudentWorkspace(page);
 
   await page.goto(`/app/exams/${examId}`);
@@ -372,7 +316,10 @@ async function attemptExamAsStudent(page: Page, examId: string, examTitle: strin
   await answerCurrentAttemptQuestion(page, uniqueSeed, "Playwright admin advanced answer");
 
   await page.getByRole("checkbox", { name: /mark for review/i }).check();
-  await page.getByRole("button", { name: /save (&|and) review|save (&|and) next/i }).click();
+  await Promise.all([
+    page.waitForURL(/notice=.*confirmedAt=/),
+    page.getByRole("button", { name: /^save (&|and) review$/i }).click(),
+  ]);
   await expect(
     page
       .locator(".feedbackBannerSuccess")
@@ -383,6 +330,8 @@ async function attemptExamAsStudent(page: Page, examId: string, examTitle: strin
       .first(),
   ).toBeVisible();
   await expect(page.getByText(/1 saved/i).first()).toBeVisible();
+  await expect(page.getByText(/last confirmed save/i).first()).toBeVisible();
+  await expect(page.getByText(/nothing confirmed yet/i)).toHaveCount(0);
 
   page.once("dialog", async (dialog) => {
     await dialog.accept();
@@ -422,7 +371,7 @@ test.describe("Admin advanced-builder student attempt", () => {
       await loginAsRole(page, "admin");
       await expectAdminWorkspace(page);
 
-      const created = await createAdminAdvancedMockExam(page, uniqueSeed, studentTarget);
+      const created = await createAdminAdvancedMockExam(page, uniqueSeed);
       examId = created.examId;
 
       await expectAdminReadinessBeforePublish(page, examId, created.examTitle);

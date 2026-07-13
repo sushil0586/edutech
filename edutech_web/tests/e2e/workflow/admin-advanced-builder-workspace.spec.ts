@@ -1,6 +1,47 @@
 import { expect, test } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
+import { fetchPrograms, fetchSubjects, fetchTopics } from "../helpers/assessment-family";
 import { expectAdminWorkspace } from "../helpers/navigation";
+
+async function waitForPrimarySubjectTopics(page: import("@playwright/test").Page) {
+  const firstTopicSelect = page.locator(".advancedBuilderTopicRow").first().locator("select");
+  await expect
+    .poll(async () => firstTopicSelect.locator("option").count(), {
+      timeout: 30000,
+      message: "Expected the advanced builder topic selector to load real topic options.",
+    })
+    .toBeGreaterThan(1);
+}
+
+async function selectFirstRealOption(locator: import("@playwright/test").Locator) {
+  const options = await locator.locator("option").evaluateAll((nodes) =>
+    nodes
+      .map((node) => ({
+        value: (node as HTMLOptionElement).value,
+        disabled: (node as HTMLOptionElement).disabled,
+      }))
+      .filter((option) => option.value && !option.disabled),
+  );
+  expect(options.length).toBeGreaterThan(0);
+  await locator.selectOption(options[0]!.value);
+}
+
+async function resolveScopeWithTopics(page: import("@playwright/test").Page, instituteId: string) {
+  const programs = await fetchPrograms(page, instituteId);
+  for (const program of programs) {
+    const subjects = await fetchSubjects(page, program.id, instituteId);
+    for (const subject of subjects) {
+      const topics = await fetchTopics(page, subject.id, instituteId);
+      if (topics.length > 0) {
+        return {
+          programId: program.id,
+          subjectId: subject.id,
+        };
+      }
+    }
+  }
+  return null;
+}
 
 test.describe("Admin advanced exam builder workspace", () => {
   test.skip(testRequiresRole("admin"), "Admin Playwright credentials are not configured.");
@@ -65,5 +106,89 @@ test.describe("Admin advanced exam builder workspace", () => {
     await page.getByRole("link", { name: /preset library/i }).first().click();
     await expect(page).toHaveURL(/\/admin\/exams\/preset-packs(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /preset pack library/i }).first()).toBeVisible();
+  });
+
+  test("@workflow admin advanced builder blocks create after preview resolution fails", async ({
+    page,
+  }) => {
+    await loginAsRole(page, "admin");
+    await expectAdminWorkspace(page);
+
+    await page.goto("/admin/exams/advanced");
+
+    await expect(page.getByRole("heading", { name: /advanced exam builder/i }).first()).toBeVisible();
+    const instituteSelect = page.getByLabel(/select template institute/i);
+    await instituteSelect.selectOption("Demo Learning Institute (DLI001)");
+    await page.getByRole("button", { name: /^apply$/i }).click();
+    await expect(page.getByText(/Demo Learning Institute template scope/i)).toBeVisible();
+    const instituteId = await instituteSelect.inputValue();
+    expect(instituteId).not.toBe("");
+
+    const academicYearSelect = page
+      .locator(".advancedBuilderField")
+      .filter({ has: page.getByText(/^Academic year$/i) })
+      .locator("select");
+    const programSelect = page
+      .locator(".advancedBuilderField")
+      .filter({ has: page.getByText(/^Program$/i) })
+      .locator("select");
+    const subjectSelect = page
+      .locator(".advancedBuilderField")
+      .filter({ has: page.getByText(/^Primary subject$/i) })
+      .locator("select");
+
+    const hasCanonicalFamilyAcademicYear = await academicYearSelect.evaluate((element) => {
+      const select = element as HTMLSelectElement;
+      return Array.from(select.options).some((option) => option.label.trim() === "2026-2027");
+    });
+    if (hasCanonicalFamilyAcademicYear) {
+      await academicYearSelect.selectOption({ label: "2026-2027" });
+      await expect(academicYearSelect).toHaveValue(/\S+/);
+    }
+    const resolvedScope = await resolveScopeWithTopics(page, instituteId);
+    expect(resolvedScope).not.toBeNull();
+    await programSelect.selectOption(resolvedScope!.programId);
+    await expect(programSelect).toHaveValue(/\S+/);
+    await expect
+      .poll(async () => subjectSelect.locator("option").count(), {
+        timeout: 30000,
+        message: "Expected the advanced builder subject selector to load real subject options.",
+      })
+      .toBeGreaterThan(1);
+    await subjectSelect.selectOption(resolvedScope!.subjectId);
+    await expect(subjectSelect).toHaveValue(/\S+/);
+
+    await expect(async () => {
+      await page.getByRole("button", { name: /quick practice/i }).click();
+      await expect(page.getByText(/quick practice template applied/i)).toBeVisible();
+    }).toPass({ timeout: 30000 });
+
+    await page.getByRole("tab", { name: /composition/i }).click();
+    await page.getByLabel(/selection mode/i).selectOption("subject_fallback");
+
+    const firstSectionCard = page.locator(".advancedBuilderSectionCard").first();
+    await firstSectionCard.getByLabel(/question count/i).fill("1");
+
+    const topicRows = firstSectionCard.locator(".advancedBuilderTopicRow");
+    for (let index = await topicRows.count() - 1; index >= 1; index -= 1) {
+      await topicRows.nth(index).getByRole("button", { name: /^remove$/i }).click();
+    }
+
+    const firstTopicRow = firstSectionCard.locator(".advancedBuilderTopicRow").first();
+    await firstTopicRow.locator('input[type="number"]').fill("1");
+
+    await page.route("**/api/exams/advanced-builder/preview", async (route) => {
+      await route.fulfill({
+        status: 400,
+        contentType: "application/json",
+        body: JSON.stringify({
+          composition: ["Practice Set requested 1 question(s) but only 0 could be resolved."],
+        }),
+      });
+    });
+
+    await page.getByRole("button", { name: /preview exam/i }).click();
+    await expect(page.getByText(/requested 1 question\(s\) but only 0 could be resolved\./i)).toBeVisible();
+    await expect(page.getByRole("button", { name: /create advanced exam/i })).toBeDisabled();
   });
 });

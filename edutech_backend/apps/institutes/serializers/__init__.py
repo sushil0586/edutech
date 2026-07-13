@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from apps.accounts.models import AccountRole
+from apps.accounts.scopes import get_account_profile
 from apps.exams.models import (
     AttemptPolicy,
     NavigationMode,
@@ -11,7 +12,7 @@ from apps.exams.models import (
 )
 from apps.exams.services import INSTITUTE_EXAM_DEFAULT_FIELDS
 from apps.geography.services import resolve_location_selection
-from apps.institutes.models import Institute, InstituteOnboardingProfile
+from apps.institutes.models import Institute, InstituteManagementMode, InstituteOnboardingProfile
 from apps.institutes.models import InstituteOnboardingRunStatus
 from apps.institutes.services import start_institute_onboarding_run
 
@@ -96,6 +97,7 @@ class InstituteSerializer(InstituteAdminCredentialMixin, serializers.ModelSerial
             "logo",
             "website",
             "description",
+            "management_mode",
             "metadata",
             "exam_defaults",
             "onboarding_profile_code",
@@ -150,6 +152,20 @@ class InstituteSerializer(InstituteAdminCredentialMixin, serializers.ModelSerial
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
+        request = self.context.get("request")
+        profile = get_account_profile(getattr(request, "user", None)) if request is not None else None
+
+        if "management_mode" in attrs:
+            current_mode = getattr(getattr(self, "instance", None), "resolved_management_mode", None)
+            next_mode = attrs.get("management_mode") or InstituteManagementMode.PRIVATE_INSTITUTE_MANAGED
+            if (
+                profile is not None
+                and profile.role != AccountRole.PLATFORM_ADMIN
+                and next_mode != current_mode
+            ):
+                raise serializers.ValidationError(
+                    {"management_mode": "Only platform admin can change institute management mode."}
+                )
 
         location_fields = {"country", "state", "city", "pincode"}
         if location_fields.intersection(attrs.keys()):

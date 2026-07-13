@@ -1,0 +1,16 @@
+[run]
+source =
+    apps
+    common
+    config
+omit =
+    */migrations/*
+    */__init__.py
+    manage.py
+    */tests/*
+    */test_*.py
+
+[report]
+show_missing = True
+skip_covered = False
+precision = 1

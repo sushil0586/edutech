@@ -13,7 +13,7 @@ import {
   type TopicRecord,
 } from "@/components/admin/academic-setup-workspace";
 import { type TeacherAssignmentRecord, type TeacherRecord } from "@/components/admin/teacher-assignment-workspace";
-import { fetchPortalCount, fetchPortalList, fetchPortalRecord } from "@/lib/api/portal";
+import { fetchPortalCount, fetchPortalList, fetchPortalListAll, fetchPortalRecord } from "@/lib/api/portal";
 import { requirePlatformAdminSession } from "@/lib/auth/session";
 import { groupTeacherOptionCatalog } from "@/lib/teacher/option-catalog";
 
@@ -128,7 +128,7 @@ export default async function AdminAcademicSetupPage({
 }) {
   await requirePlatformAdminSession();
   const params = (await searchParams) ?? {};
-  const institutes = await fetchPortalList<InstituteRecord>("/api/v1/institutes/?page_size=50").catch(() => []);
+  const institutes = await fetchPortalListAll<InstituteRecord>("/api/v1/institutes/?page_size=50").catch(() => []);
   const requestedInstitute =
     params.institute && !institutes.some((item) => item.id === params.institute)
       ? await fetchPortalRecord<InstituteRecord>(`/api/v1/institutes/${params.institute}/`).catch(() => null)
@@ -154,6 +154,28 @@ export default async function AdminAcademicSetupPage({
   const instituteQuery = selectedInstituteId
     ? `?institute=${selectedInstituteId}&page_size=100`
     : "?page_size=100";
+  const teacherQuery = selectedInstituteId
+    ? `?institute=${selectedInstituteId}&page_size=100`
+    : "?page_size=100";
+  const academicYearsPath = `/api/v1/academics/academic-years/${instituteQuery}`;
+  const programsPath = `/api/v1/academics/programs/${instituteQuery}`;
+  const cohortsPath = `/api/v1/academics/cohorts/${instituteQuery}`;
+  const subjectsPath = `/api/v1/academics/subjects/${instituteQuery}`;
+  const topicsPath = `/api/v1/academics/topics/${instituteQuery}`;
+  const teachersPath = `/api/v1/teachers/${teacherQuery}`;
+  const assignmentsPath = `/api/v1/teachers/assignments/${teacherQuery}`;
+  const studentCountPath = selectedInstituteId ? `/api/v1/students/?institute=${selectedInstituteId}` : "/api/v1/students/";
+  const teacherCountPath = selectedInstituteId ? `/api/v1/teachers/?institute=${selectedInstituteId}` : "/api/v1/teachers/";
+  const needsAcademicYears = activeSection === "academic-years" || activeSection === "teacher-assignments";
+  const needsPrograms =
+    activeSection === "programs" || activeSection === "cohorts" || activeSection === "subjects" || activeSection === "teacher-assignments";
+  const needsCohorts = activeSection === "cohorts" || activeSection === "teacher-assignments";
+  const needsSubjects = activeSection === "subjects" || activeSection === "topics" || activeSection === "teacher-assignments";
+  const needsTopics = activeSection === "topics";
+  const needsTeacherAssignments = activeSection === "teacher-assignments";
+  const needsOptionCatalog = activeSection === "exam-defaults";
+  const needsAssessmentFamilies = activeSection === "exam-defaults" || activeSection === "programs";
+  const needsMasterDefaults = activeSection === "master-defaults";
 
   const [
     academicYears,
@@ -167,22 +189,40 @@ export default async function AdminAcademicSetupPage({
     assessmentFamilies,
     academicPresets,
     onboardingProfiles,
+    academicYearCount,
+    programCount,
+    cohortCount,
+    subjectCount,
+    topicCount,
+    assignmentCount,
     studentCount,
     teacherCount,
   ] = await Promise.all([
-    fetchPortalList<AcademicYearRecord>(`/api/v1/academics/academic-years/${instituteQuery}`),
-    fetchPortalList<ProgramRecord>(`/api/v1/academics/programs/${instituteQuery}`),
-    fetchPortalList<CohortRecord>(`/api/v1/academics/cohorts/${instituteQuery}`),
-    fetchPortalList<SubjectRecord>(`/api/v1/academics/subjects/${instituteQuery}`),
-    fetchPortalList<TopicRecord>(`/api/v1/academics/topics/${instituteQuery}`),
-    fetchPortalList<TeacherRecord>(`/api/v1/teachers/${selectedInstituteId ? `?institute=${selectedInstituteId}&page_size=100` : "?page_size=100"}`),
-    fetchPortalList<TeacherAssignmentRecord>(`/api/v1/teachers/assignments/${selectedInstituteId ? `?institute=${selectedInstituteId}&page_size=100` : "?page_size=100"}`),
-    fetchPortalList<OptionCatalogRecord>("/api/v1/academics/option-catalog/?page_size=200&is_active=true"),
-    fetchPortalList<AssessmentFamilyRecord>("/api/v1/academics/assessment-families/?page_size=50&is_active=true").catch(() => []),
-    fetchPortalList<AcademicPresetRecord>("/api/v1/academics/presets/").catch(() => []),
-    fetchPortalList<InstituteOnboardingProfileRecord>("/api/v1/institutes/onboarding-profiles/").catch(() => []),
-    loadCount(selectedInstituteId ? `/api/v1/students/?institute=${selectedInstituteId}` : "/api/v1/students/"),
-    loadCount(selectedInstituteId ? `/api/v1/teachers/?institute=${selectedInstituteId}` : "/api/v1/teachers/"),
+    needsAcademicYears ? fetchPortalListAll<AcademicYearRecord>(academicYearsPath) : Promise.resolve([]),
+    needsPrograms ? fetchPortalListAll<ProgramRecord>(programsPath) : Promise.resolve([]),
+    needsCohorts ? fetchPortalListAll<CohortRecord>(cohortsPath) : Promise.resolve([]),
+    needsSubjects ? fetchPortalListAll<SubjectRecord>(subjectsPath) : Promise.resolve([]),
+    needsTopics ? fetchPortalListAll<TopicRecord>(topicsPath) : Promise.resolve([]),
+    needsTeacherAssignments ? fetchPortalListAll<TeacherRecord>(teachersPath) : Promise.resolve([]),
+    needsTeacherAssignments ? fetchPortalListAll<TeacherAssignmentRecord>(assignmentsPath) : Promise.resolve([]),
+    needsOptionCatalog
+      ? fetchPortalListAll<OptionCatalogRecord>("/api/v1/academics/option-catalog/?page_size=200&is_active=true")
+      : Promise.resolve([]),
+    needsAssessmentFamilies
+      ? fetchPortalListAll<AssessmentFamilyRecord>("/api/v1/academics/assessment-families/?page_size=50&is_active=true").catch(() => [])
+      : Promise.resolve([]),
+    needsMasterDefaults ? fetchPortalListAll<AcademicPresetRecord>("/api/v1/academics/presets/").catch(() => []) : Promise.resolve([]),
+    needsMasterDefaults
+      ? fetchPortalListAll<InstituteOnboardingProfileRecord>("/api/v1/institutes/onboarding-profiles/").catch(() => [])
+      : Promise.resolve([]),
+    loadCount(academicYearsPath),
+    loadCount(programsPath),
+    loadCount(cohortsPath),
+    loadCount(subjectsPath),
+    loadCount(topicsPath),
+    loadCount(assignmentsPath),
+    loadCount(studentCountPath),
+    loadCount(teacherCountPath),
   ]);
 
   const selectedInstituteDefaults = selectedInstitute?.exam_defaults ?? {};
@@ -197,12 +237,12 @@ export default async function AdminAcademicSetupPage({
   };
 
   const sectionCounts: Record<AcademicPageSection, number | string> = {
-    "academic-years": academicYears.length,
-    programs: programs.length,
-    cohorts: cohorts.length,
-    subjects: subjects.length,
-    topics: topics.length,
-    "teacher-assignments": assignments.length,
+    "academic-years": academicYearCount,
+    programs: programCount,
+    cohorts: cohortCount,
+    subjects: subjectCount,
+    topics: topicCount,
+    "teacher-assignments": assignmentCount,
     "exam-defaults": "Policy",
     "master-defaults": academicPresets.length,
   };

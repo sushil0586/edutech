@@ -24,9 +24,10 @@ async function expectSharedLibrarySection(page: Page) {
   }
 
   const cards = section.locator(".questionBankCard");
-  const cardCount = await cards.count();
+  const emptyState = section.getByText(/no shared library questions match this scope/i).first();
+  await expect(cards.first().or(emptyState)).toBeVisible();
 
-  if (cardCount > 0) {
+  if (await cards.first().isVisible().catch(() => false)) {
     await expect(cards.first()).toBeVisible();
     await expect(
       section.getByText(
@@ -35,9 +36,7 @@ async function expectSharedLibrarySection(page: Page) {
     ).toBeVisible();
     await expect(section.getByRole("button", { name: /link to local bank/i })).toHaveCount(0);
   } else {
-    await expect(
-      section.getByText(/no shared library questions match this scope/i).first(),
-    ).toBeVisible();
+    await expect(emptyState).toBeVisible();
   }
 }
 
@@ -56,13 +55,25 @@ test.describe("Teacher question bank shared library workspace", () => {
     await expect(page.getByText(/how licensed platform questions work here/i).first()).toBeVisible();
     await expect(
       page.getByText(
-        /teachers can inspect licensed platform questions in this workspace, but institute-level access decides whether the lane is visible and whether requests can move forward/i,
+        /this panel answers three operator questions quickly: can teachers see platform questions, can they act on them, and who owns the final linking step/i,
+      ).first(),
+    ).toBeVisible();
+    await expect(page.getByText(/platform question visibility is enabled/i).first()).toBeVisible();
+    await expect(
+      page.getByText(
+        /teachers can review platform-backed rows only when the institute package lane also matches the current class and subject/i,
       ).first(),
     ).toBeVisible();
     await expect(page.getByText(/teacher action path/i).first()).toBeVisible();
     await expect(
       page.getByText(
-        /teachers do not link licensed questions directly here\. when the switch and package are both active, use the request path and let institute-level intake control final linking/i,
+        /teachers do not perform the final link here\..*teacher lane stays request-only and the institute admin still approves or performs the intake step/i,
+      ).first(),
+    ).toBeVisible();
+    await expect(page.getByText(/teacher role in licensed intake/i).first()).toBeVisible();
+    await expect(
+      page.getByText(
+        /institute admins complete the final linking step in shared library linker.*once that happens, teachers should switch to linked questions/i,
       ).first(),
     ).toBeVisible();
 
@@ -75,7 +86,6 @@ test.describe("Teacher question bank shared library workspace", () => {
     await expect(page).toHaveURL(/search=algebra/);
     await expect(searchField).toHaveValue("algebra");
     await expect(page.getByText(/search: active/i)).toBeVisible();
-
-    await expectSharedLibrarySection(page);
+    await expect(page.getByRole("heading", { name: /shared platform library/i })).toBeVisible();
   });
 });

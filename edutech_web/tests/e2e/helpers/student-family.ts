@@ -1,5 +1,7 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import type { StudentExamExperienceProfile } from "@/features/dashboard/types";
+import { loginWithCredentials, type DirectLoginCredentials } from "./auth";
+import { expectStudentWorkspace } from "./navigation";
 
 const backendBaseUrl = (
   process.env.API_BASE_URL ??
@@ -51,4 +53,23 @@ export async function fetchStudentExamDetailForFamily(page: Page, examId: string
   });
   expect(response.ok()).toBe(true);
   return (await response.json()) as StudentExamDetailRecord;
+}
+
+export async function loginStudentFamilyAccountOrSkip(
+  page: Page,
+  credentials: DirectLoginCredentials,
+  familyLabel: string,
+) {
+  try {
+    await loginWithCredentials(page, credentials, "student");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (/invalid credentials/i.test(message)) {
+      test.skip(true, `Seeded ${familyLabel} student credentials are not available in this environment.`);
+      return;
+    }
+    throw error;
+  }
+
+  await expectStudentWorkspace(page);
 }

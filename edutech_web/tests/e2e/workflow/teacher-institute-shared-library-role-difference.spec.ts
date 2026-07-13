@@ -184,6 +184,70 @@ async function resolveAcademicScopeIds(
   };
 }
 
+async function findResolvableInstituteLinkableRow(
+  page: Page,
+  accessToken: string,
+  rows: MasterLibraryRow[],
+) {
+  for (const row of rows) {
+    if (
+      !row.has_access ||
+      row.access_status === "linked" ||
+      row.access_availability === "quota_exhausted" ||
+      !row.source_program_code ||
+      !row.source_subject_code
+    ) {
+      continue;
+    }
+
+    try {
+      const scopeIds = await resolveAcademicScopeIds(page, accessToken, {
+        programCode: row.source_program_code,
+        subjectCode: row.source_subject_code,
+        topicCode: row.source_topic_code,
+      });
+      return { row, scopeIds };
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
+}
+
+async function findResolvableTeacherRequestableRow(
+  page: Page,
+  accessToken: string,
+  rows: MasterLibraryRow[],
+) {
+  for (const row of rows) {
+    if (
+      !row.has_access ||
+      row.matching_packages.length === 0 ||
+      row.access_availability === "quota_exhausted" ||
+      row.access_status === "requested" ||
+      row.access_status === "linked" ||
+      !row.source_program_code ||
+      !row.source_subject_code
+    ) {
+      continue;
+    }
+
+    try {
+      await resolveAcademicScopeIds(page, accessToken, {
+        programCode: row.source_program_code,
+        subjectCode: row.source_subject_code,
+        topicCode: row.source_topic_code,
+      });
+      return row;
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
+}
+
 test.describe("Teacher and institute shared-library role difference", () => {
   test.beforeEach(() => {
     resetAndSeedDemoSharedLibraryWorkflow();
@@ -217,21 +281,18 @@ test.describe("Teacher and institute shared-library role difference", () => {
     );
     expect(teacherLibraryResponse.ok()).toBe(true);
     const teacherLibraryBody = (await teacherLibraryResponse.json()) as PaginatedResponse<MasterLibraryRow>;
-    const teacherRequestableRow =
-      teacherLibraryBody.results?.find(
-        (row) =>
-          row.matching_packages.length > 0 &&
-          row.access_availability !== "quota_exhausted" &&
-          row.access_status !== "requested" &&
-          row.access_status !== "linked",
-      ) ?? null;
+    const teacherRequestableRow = await findResolvableTeacherRequestableRow(
+      page,
+      teacherAccessToken,
+      teacherLibraryBody.results ?? [],
+    );
 
     if (!teacherRequestableRow) {
       test.skip(true, "No teacher-visible shared-library row is currently requestable.");
     }
 
-    const teacherProbe = teacherRequestableRow!.question_text.replace(/\s+/g, " ").trim().slice(0, 60);
-    await page.goto(`/teacher/question-bank?search=${encodeURIComponent(teacherProbe)}`);
+    const teacherProbe = teacherRequestableRow!.question_text.replace(/\s+/g, " ").trim();
+    await page.goto("/teacher/question-bank");
     await expect(page.getByRole("heading", { name: /question bank/i }).first()).toBeVisible();
 
     const teacherLibrarySection = page.locator("section.contentCard").filter({
@@ -239,6 +300,19 @@ test.describe("Teacher and institute shared-library role difference", () => {
     }).first();
     await expect(teacherLibrarySection).toBeVisible();
     await expect(teacherLibrarySection.getByRole("button", { name: /bulk link current lane/i })).toHaveCount(0);
+
+    const teacherSearchField = page.getByRole("textbox", { name: /search question text/i });
+    await teacherSearchField.fill(teacherProbe);
+    const teacherLibraryLoad = page.waitForResponse(
+      (response) =>
+        response.url().includes("/api/teacher/question-bank/master-library") &&
+        response.request().method() === "GET" &&
+        response.url().includes("search="),
+    );
+    await page.getByRole("button", { name: /apply filters/i }).click();
+    expect((await teacherLibraryLoad).ok()).toBe(true);
+    await expect(page).toHaveURL(/search=/);
+    await expect(teacherLibrarySection.locator(".questionBankCard").filter({ hasText: teacherProbe }).first()).toBeVisible();
 
     const teacherCard = await findTeacherRequestableCard(page, teacherProbe);
     if (!teacherCard) {
@@ -265,26 +339,19 @@ test.describe("Teacher and institute shared-library role difference", () => {
     );
     expect(instituteLibraryResponse.ok()).toBe(true);
     const instituteLibraryBody = (await instituteLibraryResponse.json()) as PaginatedResponse<MasterLibraryRow>;
-    const instituteLinkableRow =
-      instituteLibraryBody.results?.find(
-        (row) =>
-          row.has_access &&
-          row.access_status !== "linked" &&
-          row.access_availability !== "quota_exhausted" &&
-          Boolean(row.source_program_code) &&
-          Boolean(row.source_subject_code),
-      ) ?? null;
+    const resolvableInstituteRow = await findResolvableInstituteLinkableRow(
+      page,
+      instituteAccessToken,
+      instituteLibraryBody.results ?? [],
+    );
+    const instituteLinkableRow = resolvableInstituteRow?.row ?? null;
 
     if (!instituteLinkableRow) {
       test.skip(true, "No institute-visible shared-library row is currently linkable.");
     }
 
-    const scopeIds = await resolveAcademicScopeIds(page, instituteAccessToken, {
-      programCode: instituteLinkableRow!.source_program_code ?? "",
-      subjectCode: instituteLinkableRow!.source_subject_code ?? "",
-      topicCode: instituteLinkableRow!.source_topic_code,
-    });
-    const instituteProbe = instituteLinkableRow!.question_text.replace(/\s+/g, " ").trim().slice(0, 60);
+    const scopeIds = resolvableInstituteRow!.scopeIds;
+    const instituteProbe = instituteLinkableRow!.question_text.replace(/\s+/g, " ").trim();
 
     await page.goto(
       `/institute/question-bank/library-linker?program=${encodeURIComponent(scopeIds.programId)}&subject=${encodeURIComponent(scopeIds.subjectId)}&topic=${encodeURIComponent(scopeIds.topicId)}&search=${encodeURIComponent(instituteProbe)}`,

@@ -251,7 +251,7 @@ class AcademicPresetApiTestCase(TestCase):
         self.assertEqual(response.data["onboarding_run"]["status"], "completed")
         run = InstituteOnboardingRun.objects.get(id=onboarding_run_id)
         self.assertEqual(run.status, "completed")
-        self.assertEqual(InstituteOnboardingTaskRun.objects.filter(run=run).count(), 5)
+        self.assertEqual(InstituteOnboardingTaskRun.objects.filter(run=run).count(), 6)
 
     def test_platform_admin_can_apply_preset_and_auto_link_matching_platform_questions(self):
         public_hub = self.builder.create_institute(

@@ -526,7 +526,7 @@ export default async function InstituteReviewsPage({
 
   if (!summary || !taskPage) {
     return (
-      <section className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteSupportPageVivid">
+      <section className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteSupportPageVivid instituteReviewsPageVivid">
         <InstitutePageHeader
           title="Review Queue"
           description="Reviewer management needs the live review-task endpoints and a valid institute session."
@@ -591,7 +591,7 @@ export default async function InstituteReviewsPage({
   const isFilteredReviewQueueEmpty = taskPage.results.length === 0 && hasActiveQueueControls;
 
   return (
-    <section className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteSupportPageVivid">
+    <section className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteSupportPageVivid instituteReviewsPageVivid">
       <InstitutePageHeader
         title="Review Queue"
         description="Assign descriptive and essay responses to the right teachers before results are delayed."

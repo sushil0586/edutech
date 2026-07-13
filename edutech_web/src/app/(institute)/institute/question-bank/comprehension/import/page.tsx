@@ -1,7 +1,7 @@
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { InstitutePageHeader } from "@/components/ui/institute-page-header";
 import { TeacherQuestionPassageImportWorkspace } from "@/components/ui/teacher-question-passage-import-workspace";
-import { fetchPortalList } from "@/lib/api/portal";
+import { fetchInstituteQuestionBankFeatureEntitlementsCached } from "@/lib/api/portal";
 import { fetchTeacherQuestionPassageImportTemplate } from "@/lib/api/teacher-builder";
 import { requireInstituteAdminSession } from "@/lib/auth/session";
 
@@ -16,9 +16,10 @@ type InstituteQuestionFeatureEntitlement = {
 export default async function InstituteQuestionPassageImportPage() {
   await requireInstituteAdminSession();
 
-  const featureEntitlements = await fetchPortalList<InstituteQuestionFeatureEntitlement>(
-    "/api/v1/economy/admin/institute-question-bank-feature-entitlements/",
-  ).catch(() => []);
+  const featureEntitlements =
+    await fetchInstituteQuestionBankFeatureEntitlementsCached<InstituteQuestionFeatureEntitlement>().catch(
+      () => [],
+    );
   const hasBulkImportAccess = featureEntitlements.some(
     (entitlement) =>
       entitlement.feature_code === QUESTION_BANK_BULK_IMPORT_FEATURE_CODE &&

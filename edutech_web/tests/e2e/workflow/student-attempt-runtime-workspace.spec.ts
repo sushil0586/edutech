@@ -1,24 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
+import { gotoWithRuntimeRecovery } from "../helpers/runtime";
 import { expectStudentWorkspace } from "../helpers/navigation";
-
-async function gotoWithRetry(page: Page, url: string, attempts = 3) {
-  let lastError: unknown = null;
-  for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    try {
-      await page.goto(url);
-      return;
-    } catch (error) {
-      lastError = error;
-      const message = error instanceof Error ? error.message : String(error);
-      if (!message.includes("ERR_CONNECTION_REFUSED") || attempt === attempts) {
-        throw error;
-      }
-      await page.waitForTimeout(1500 * attempt);
-    }
-  }
-  throw lastError;
-}
 
 async function firstVisible(locators: Locator[]) {
   for (const locator of locators) {
@@ -31,9 +14,9 @@ async function firstVisible(locators: Locator[]) {
 }
 
 async function resolveAttemptEntry(page: Page) {
-  await gotoWithRetry(page, "/app/attempts");
+  await gotoWithRuntimeRecovery(page, "/app/attempts");
   await expect(page).toHaveURL(/\/app\/attempts(?:\?.*)?$/);
-  await expect(page.getByRole("heading", { name: /attempt/i }).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: /attempts/i }).first()).toBeVisible();
 
   const resumeFromAttempts = page.getByRole("link", { name: /resume attempt/i }).first();
   if (await resumeFromAttempts.isVisible().catch(() => false)) {
@@ -44,7 +27,7 @@ async function resolveAttemptEntry(page: Page) {
     };
   }
 
-  await gotoWithRetry(page, "/app/dashboard");
+  await gotoWithRuntimeRecovery(page, "/app/dashboard");
   await expect(page).toHaveURL(/\/app\/dashboard(?:\?.*)?$/);
   await expect(page.getByText(/action queue/i).first()).toBeVisible();
 

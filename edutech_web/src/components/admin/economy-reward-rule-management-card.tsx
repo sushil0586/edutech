@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type InstituteOption = {
   id: string;
@@ -77,6 +77,7 @@ export function EconomyRewardRuleManagementCard({
   subjects: SubjectOption[];
 }) {
   const [rules, setRules] = useState(initialRules);
+  const [loadingCatalog, setLoadingCatalog] = useState(false);
   const [editingId, setEditingId] = useState("");
   const [instituteId, setInstituteId] = useState(institutes[0]?.id ?? "");
   const [subjectId, setSubjectId] = useState("");
@@ -93,6 +94,54 @@ export function EconomyRewardRuleManagementCard({
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    setRules(initialRules);
+  }, [initialRules]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadRules() {
+      if (initialRules.length > 0 || rules.length > 0) {
+        return;
+      }
+
+      setLoadingCatalog(true);
+      try {
+        const response = await fetch("/api/v1/economy/admin/reward-rules/", {
+          method: "GET",
+          cache: "no-store",
+        });
+        if (!response.ok) {
+          throw new Error("Reward rules could not be loaded.");
+        }
+        const payload = (await response.json()) as AdminRewardRule[] | { results?: AdminRewardRule[] };
+        const nextItems = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload.results)
+            ? payload.results
+            : [];
+        if (!cancelled) {
+          setRules(nextItems);
+        }
+      } catch (loadError) {
+        if (!cancelled) {
+          setError(loadError instanceof Error ? loadError.message : "Reward rules could not be loaded.");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingCatalog(false);
+        }
+      }
+    }
+
+    void loadRules();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initialRules.length, rules.length]);
 
   const filteredSubjects = subjects.filter((subject) => subject.institute === instituteId);
 
@@ -222,6 +271,7 @@ export function EconomyRewardRuleManagementCard({
 
         {message ? <p className="feedbackBanner feedbackBannerSuccess">{message}</p> : null}
         {error ? <p className="feedbackBanner feedbackBannerError">{error}</p> : null}
+        {loadingCatalog ? <p className="setupFieldMeta">Loading reward rules...</p> : null}
 
         <section className="featurePlaceholder economySubscriptionEditorPanel">
           <strong>{editingId ? "Edit reward rule" : "New reward rule"}</strong>

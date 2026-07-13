@@ -57,7 +57,11 @@ from apps.attempts.serializers import (
     UploadStudentResponseArtifactSerializer,
 )
 from apps.exams.models import ExamSection
-from apps.exams.services import is_review_available_for_attempt
+from apps.exams.services import (
+    is_review_available_for_attempt,
+    resolve_exam_economy_access,
+    resolve_exam_start_access,
+)
 from apps.attempts.services import (
     assign_review_task,
     bulk_request_review_recheck_tasks,
@@ -93,6 +97,26 @@ def _validation_error_data(exc):
     if getattr(exc, "messages", None):
         return {"detail": exc.messages}
     return {"detail": ["Validation error."]}
+
+
+def _blocked_start_payload(*, decision):
+    runtime_decision = decision.get("runtime_decision")
+    payload = {
+        "is_allowed": bool(decision.get("is_allowed", False)),
+        "reason_source": decision.get("reason_source", ""),
+        "reason_code": decision.get("reason_code", ""),
+        "reason_message": decision.get("reason_message", ""),
+    }
+    if isinstance(runtime_decision, dict):
+        payload["runtime_decision"] = {
+            "management_mode": runtime_decision.get("management_mode"),
+            "access_mode": runtime_decision.get("access_mode"),
+            "block_reason_code": runtime_decision.get("block_reason_code", ""),
+            "capacity_state": runtime_decision.get("capacity_state"),
+            "threshold_state": runtime_decision.get("threshold_state"),
+            "effective_slot": runtime_decision.get("effective_slot"),
+        }
+    return payload
 
 
 class StudentExamAttemptViewSet(ReadOnlyModelViewSet):
@@ -214,13 +238,50 @@ class StudentExamAttemptViewSet(ReadOnlyModelViewSet):
         except PermissionDenied as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
 
+        economy_access = resolve_exam_economy_access(student, exam)
+        has_active_attempt = exam.attempts.filter(
+            student=student,
+            status="in_progress",
+            is_active=True,
+        ).exists()
+        attempts_used = exam.attempts.filter(student=student, is_active=True).count()
+        start_access = resolve_exam_start_access(
+            student,
+            exam,
+            economy_access=economy_access,
+            attempts_used=attempts_used,
+            has_active_attempt=has_active_attempt,
+        )
+        if not start_access["is_allowed"]:
+            return Response(
+                {
+                    "exam": [start_access["reason_message"]],
+                    "blocked_start": _blocked_start_payload(decision=start_access),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         try:
             attempt = start_attempt(
                 student=student,
                 exam=exam,
             )
         except DjangoValidationError as exc:
-            return Response(_validation_error_data(exc), status=status.HTTP_400_BAD_REQUEST)
+            error_data = _validation_error_data(exc)
+            refreshed_start_access = resolve_exam_start_access(
+                student,
+                exam,
+                economy_access=resolve_exam_economy_access(student, exam),
+                attempts_used=exam.attempts.filter(student=student, is_active=True).count(),
+                has_active_attempt=exam.attempts.filter(
+                    student=student,
+                    status="in_progress",
+                    is_active=True,
+                ).exists(),
+            )
+            if not refreshed_start_access["is_allowed"]:
+                error_data["blocked_start"] = _blocked_start_payload(decision=refreshed_start_access)
+            return Response(error_data, status=status.HTTP_400_BAD_REQUEST)
         create_audit_log(
             user=request.user,
             institute=attempt.institute,

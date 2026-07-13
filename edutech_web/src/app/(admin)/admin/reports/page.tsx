@@ -2,8 +2,9 @@ import Link from "next/link";
 import { FilterSummaryPills } from "@/components/ui/filter-summary-pills";
 import { PlatformAdminPageHeader } from "@/components/ui/platform-admin-page-header";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
-import type { TeacherInsightSummary, TeacherResultSummary } from "@/features/dashboard/types";
+import type { AdminExamRuntimeSummary, TeacherInsightSummary, TeacherResultSummary } from "@/features/dashboard/types";
 import {
+  fetchAdminExamRuntimeSummary,
   fetchTeacherExamPage,
   fetchTeacherInsightSummary,
   fetchTeacherResultSummary,
@@ -18,6 +19,7 @@ type AdminReportSortOption =
   | "score_low"
   | "score_high"
   | "attempts_high";
+type AdminRuntimeStatusFilter = "active" | "all" | "live" | "scheduled";
 
 function percentage(value: string | number) {
   const numeric = Number(value);
@@ -32,19 +34,25 @@ function resolveReportSortOption(value?: string): AdminReportSortOption {
   return resolveFilterValue(value, ["backlog_high", "score_low", "score_high", "attempts_high"], "recommended");
 }
 
+function resolveRuntimeStatusFilter(value?: string): AdminRuntimeStatusFilter {
+  return resolveFilterValue(value, ["all", "live", "scheduled"], "active");
+}
+
 function buildAdminReportHref(args: {
   lane?: AdminReportLane;
   sort?: AdminReportSortOption;
   subject?: string;
+  runtimeStatus?: AdminRuntimeStatusFilter;
 }) {
   return buildFilterHref("/admin/reports", [
     ["lane", args.lane, "all"],
     ["sort", args.sort, "recommended"],
     ["subject", args.subject, "all"],
+    ["runtime_status", args.runtimeStatus, "active"],
   ]);
 }
 
-async function loadPlatformReports() {
+async function loadPlatformReports(runtimeStatus: AdminRuntimeStatusFilter) {
   const state = getTeacherApiState();
 
   if (!state.apiConfigured) {
@@ -52,15 +60,17 @@ async function loadPlatformReports() {
       source: "unconfigured" as const,
       insightSummary: null as TeacherInsightSummary | null,
       resultSummary: [] as TeacherResultSummary[],
+      runtimeSummary: null as AdminExamRuntimeSummary | null,
       liveExamCount: 0,
       completedExamCount: 0,
     };
   }
 
   try {
-    const [insightSummary, resultSummary, liveExamsPage, completedExamsPage] = await Promise.all([
+    const [insightSummary, resultSummary, runtimeSummary, liveExamsPage, completedExamsPage] = await Promise.all([
       fetchTeacherInsightSummary(),
       fetchTeacherResultSummary(),
+      fetchAdminExamRuntimeSummary({ status: runtimeStatus }).catch(() => null),
       fetchTeacherExamPage({ page: 1, pageSize: 1, filter: "live", sort: "recommended" }),
       fetchTeacherExamPage({ page: 1, pageSize: 1, filter: "completed", sort: "recommended" }),
     ]);
@@ -69,6 +79,7 @@ async function loadPlatformReports() {
       source: "live" as const,
       insightSummary,
       resultSummary,
+      runtimeSummary,
       liveExamCount: liveExamsPage.count,
       completedExamCount: completedExamsPage.count,
     };
@@ -77,6 +88,7 @@ async function loadPlatformReports() {
       source: "error" as const,
       insightSummary: null as TeacherInsightSummary | null,
       resultSummary: [] as TeacherResultSummary[],
+      runtimeSummary: null as AdminExamRuntimeSummary | null,
       liveExamCount: 0,
       completedExamCount: 0,
     };
@@ -90,11 +102,12 @@ function pendingCount(summary: TeacherResultSummary) {
 export default async function AdminReportsPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ lane?: string; sort?: string; subject?: string }>;
+  searchParams?: Promise<{ lane?: string; sort?: string; subject?: string; runtime_status?: string }>;
 }) {
   const params = (await searchParams) ?? {};
-  const { source, insightSummary, resultSummary, liveExamCount, completedExamCount } =
-    await loadPlatformReports();
+  const runtimeStatus = resolveRuntimeStatusFilter(params.runtime_status);
+  const { source, insightSummary, resultSummary, runtimeSummary, liveExamCount, completedExamCount } =
+    await loadPlatformReports(runtimeStatus);
   const overview = insightSummary?.overview ?? null;
   const lane = resolveReportLane(params.lane);
   const sortOption = resolveReportSortOption(params.sort);
@@ -158,7 +171,7 @@ export default async function AdminReportsPage({
   );
 
   return (
-    <section className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteSupportPageVivid">
+    <section className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteSupportPageVivid adminReportsPage">
       <PlatformAdminPageHeader
         title="Reports"
         description="Review platform-wide reporting health across tracked exams, attempt volume, publication backlog, and academic weak spots."
@@ -246,6 +259,16 @@ export default async function AdminReportsPage({
               <strong>{unpublishedSummaries.length}</strong>
               <small>Exam summaries not yet fully published.</small>
             </article>
+            <article className="metricCard dashboardHeroCard">
+              <span>Runtime pressure exams</span>
+              <strong>{runtimeSummary?.summary.exams_with_pressure ?? 0}</strong>
+              <small>{runtimeSummary?.summary.full_slots ?? 0} full slots · {runtimeSummary?.summary.near_full_slots ?? 0} near full slots</small>
+            </article>
+            <article className="metricCard dashboardHeroCard">
+              <span>Live attempt pressure</span>
+              <strong>{runtimeSummary?.summary.live_attempts ?? 0}</strong>
+              <small>{runtimeSummary?.summary.active_slots ?? 0} active slots in {runtimeSummary?.summary.status_filter ?? runtimeStatus} view</small>
+            </article>
           </section>
 
           <section className="contentCard workspaceFiltersCard">
@@ -255,7 +278,11 @@ export default async function AdminReportsPage({
                 {visibleBacklog.length} backlog items · {visibleWeakTopics.length} weak-topic signals
               </span>
             </div>
-            <form className="workspaceFiltersForm" method="GET">
+            <form
+              key={`${lane}:${sortOption}:${subjectFilter}`}
+              className="workspaceFiltersForm"
+              method="GET"
+            >
               <label className="workspaceFilterField">
                 <span>Focus lane</span>
                 <select defaultValue={lane} name="lane">
@@ -287,7 +314,16 @@ export default async function AdminReportsPage({
                   <option value="attempts_high">Most attempts</option>
                 </select>
               </label>
-              <div className="workspaceFilterActions">
+              <label className="workspaceFilterField">
+                <span>Runtime scope</span>
+                <select defaultValue={runtimeStatus} name="runtime_status">
+                  <option value="active">Scheduled + live</option>
+                  <option value="live">Live only</option>
+                  <option value="scheduled">Scheduled only</option>
+                  <option value="all">All statuses</option>
+                </select>
+              </label>
+              <div className="workspaceFilterActions workspaceFilterActionsFullRow">
                 <button className="button buttonPrimary" type="submit">
                   Apply filters
                 </button>
@@ -300,11 +336,11 @@ export default async function AdminReportsPage({
               <span className="workspaceFilterQuickLabel">Quick filters</span>
               <div className="workspaceFilterQuickChips">
                 {[
-                  { label: "All", href: buildAdminReportHref({}), active: lane === "all" && sortOption === "recommended" && subjectFilter === "all" },
-                  { label: "Pending Publication", href: buildAdminReportHref({ lane: "publication", sort: "backlog_high", subject: subjectFilter }), active: lane === "publication" },
-                  { label: "Lowest Mastery", href: buildAdminReportHref({ lane: "weak_topics", sort: "score_low", subject: subjectFilter }), active: lane === "weak_topics" && sortOption === "score_low" },
-                  { label: "Most Attempts", href: buildAdminReportHref({ lane: "performance", sort: "attempts_high", subject: subjectFilter }), active: lane === "performance" && sortOption === "attempts_high" },
-                  { label: "Top Performers", href: buildAdminReportHref({ lane: "students", sort: "score_high", subject: subjectFilter }), active: lane === "students" && sortOption === "score_high" },
+                  { label: "All", href: buildAdminReportHref({ runtimeStatus }), active: lane === "all" && sortOption === "recommended" && subjectFilter === "all" },
+                  { label: "Pending Publication", href: buildAdminReportHref({ lane: "publication", sort: "backlog_high", subject: subjectFilter, runtimeStatus }), active: lane === "publication" },
+                  { label: "Lowest Mastery", href: buildAdminReportHref({ lane: "weak_topics", sort: "score_low", subject: subjectFilter, runtimeStatus }), active: lane === "weak_topics" && sortOption === "score_low" },
+                  { label: "Most Attempts", href: buildAdminReportHref({ lane: "performance", sort: "attempts_high", subject: subjectFilter, runtimeStatus }), active: lane === "performance" && sortOption === "attempts_high" },
+                  { label: "Top Performers", href: buildAdminReportHref({ lane: "students", sort: "score_high", subject: subjectFilter, runtimeStatus }), active: lane === "students" && sortOption === "score_high" },
                 ].map((chip) => (
                   <Link
                     key={chip.label}
@@ -321,8 +357,90 @@ export default async function AdminReportsPage({
                 { label: "Lane", value: formatFilterValue(lane) },
                 { label: "Subject", value: subjectFilter },
                 { label: "Sort", value: formatFilterValue(sortOption) },
+                { label: "Runtime", value: formatFilterValue(runtimeStatus) },
               ]}
             />
+          </section>
+
+          <section className="studentInsightsTwoColumn">
+            <article className="contentCard">
+              <div className="sectionHeading">
+                <strong>Runtime Ops</strong>
+                <span>{runtimeSummary?.summary.status_filter ?? runtimeStatus}</span>
+              </div>
+              <div className="studentResultStatGrid">
+                <div className="studentResultStat">
+                  <span>Tracked exams</span>
+                  <strong>{runtimeSummary?.summary.tracked_exams ?? 0}</strong>
+                </div>
+                <div className="studentResultStat">
+                  <span>Slot managed</span>
+                  <strong>{runtimeSummary?.summary.slot_managed_exams ?? 0}</strong>
+                </div>
+                <div className="studentResultStat">
+                  <span>Threshold managed</span>
+                  <strong>{runtimeSummary?.summary.threshold_managed_exams ?? 0}</strong>
+                </div>
+                <div className="studentResultStat">
+                  <span>Assigned through slots</span>
+                  <strong>{runtimeSummary?.summary.assigned_learners ?? 0}</strong>
+                </div>
+              </div>
+              <div className="studentInsightMessageStack">
+                <div className="studentInsightMessage">
+                  <span className="placeholderDot" aria-hidden="true" />
+                  <p>
+                    {runtimeSummary
+                      ? `${runtimeSummary.summary.live_attempts} live attempts are currently visible across ${runtimeSummary.summary.active_slots} active slots.`
+                      : "Runtime ops summary is temporarily unavailable."}
+                  </p>
+                </div>
+                <div className="studentInsightMessage">
+                  <span className="placeholderDot" aria-hidden="true" />
+                  <p>
+                    {runtimeSummary
+                      ? `${runtimeSummary.summary.full_slots} slots are already full and ${runtimeSummary.summary.near_full_slots} more are approaching saturation.`
+                      : "Use individual exam detail pages until the aggregate runtime summary is available again."}
+                  </p>
+                </div>
+              </div>
+            </article>
+
+            <article className="contentCard">
+              <div className="sectionHeading">
+                <strong>Top Pressure Exams</strong>
+                <span>{runtimeSummary?.top_pressure_exams.length ?? 0} visible</span>
+              </div>
+              <div className="weakTopicStack">
+                {runtimeSummary?.top_pressure_exams.length ? (
+                  runtimeSummary.top_pressure_exams.map((exam) => (
+                    <div className="weakTopicRow" key={exam.exam_id}>
+                      <div>
+                        <strong>{exam.title}</strong>
+                        <span>
+                          {exam.code} · {exam.institute_name || "Platform scope"} · {exam.slot_labels.join(", ") || "No active slot labels"}
+                        </span>
+                      </div>
+                      <div className="weakTopicMeta">
+                        <strong>{exam.live_attempts} live</strong>
+                        <span>{exam.full_slots} full · {exam.near_full_slots} near full</span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="weakTopicRow">
+                    <div>
+                      <strong>No pressured exams in this runtime scope</strong>
+                      <span>The current filter does not show any slot or live-attempt crowding.</span>
+                    </div>
+                    <div className="weakTopicMeta">
+                      <strong>Healthy</strong>
+                      <span>Operationally clear</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </article>
           </section>
 
           {lane === "all" || lane === "publication" || lane === "performance" ? (

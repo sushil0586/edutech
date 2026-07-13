@@ -45,6 +45,8 @@ class ProfileOperationalRoutesCommandTestCase(SimpleTestCase):
         self.assertIn("admin_question_bank_packages", labels)
         self.assertIn("admin_question_bank_entitlements", labels)
         self.assertIn("institute_scoped_question_bank_entitlements", labels)
+        self.assertIn("institute_scoped_question_bank_feature_entitlements", labels)
+        self.assertIn("question_bank_import_template", labels)
         self.assertIn("parent_dashboard_summary", labels)
         self.assertIn("parent_alerts", labels)
 
@@ -110,3 +112,5 @@ class ProfileOperationalRoutesCommandTestCase(SimpleTestCase):
         self.assertIn('"label": "student_attempt_summary"', output)
         self.assertIn('"label": "student_attempt_review"', output)
         self.assertIn('"label": "admin_economy_catalog_overview"', output)
+        self.assertIn('"label": "institute_scoped_question_bank_feature_entitlements"', output)
+        self.assertIn('"label": "question_bank_import_template"', output)

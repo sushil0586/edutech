@@ -27,14 +27,16 @@ test.describe("Institute linked question and linker journey", () => {
     await expect(page.getByText(/total linked rows in this filtered scope/i).first()).toBeVisible();
     await expect(page.getByText(/filters narrow what you see\. they do not remove access or delete rows/i).first()).toBeVisible();
     await expect(page.getByText(/read-only linked row · duplicate before editing/i).first()).toBeVisible();
-    await expect(page.getByText(/linked rows are not the same as package coverage/i).first()).toBeVisible();
-    await expect(page.getByText(/coverage tells your team what can be linked, not how many rows are already inside this bank/i).first()).toBeVisible();
+    await expect(page.getByText(/linked questions are not the same as package coverage/i).first()).toBeVisible();
+    await expect(
+      page.getByText(/coverage tells your team what can be linked, not how many linked questions are already inside this bank/i).first(),
+    ).toBeVisible();
     await expect(page.getByText(/why questions are or are not visible/i).first()).toBeVisible();
-    await expect(page.getByText(/shared library switch/i).first()).toBeVisible();
+    await expect(page.getByText(/shared-library switch/i).first()).toBeVisible();
     await expect(page.getByText(/question package access/i).first()).toBeVisible();
     await expect(page.getByText(/current class and subject filter/i).first()).toBeVisible();
     await expect(
-      page.getByText(/platform question access is active\. stay here to review questions already added into the institute bank/i).first(),
+      page.getByText(/step 3 is active: package access is valid\. stay here to review questions already linked into the institute bank/i).first(),
     ).toBeVisible();
     await expect(page.getByText(/use one lane at a time/i).first()).toBeVisible();
     await expect(

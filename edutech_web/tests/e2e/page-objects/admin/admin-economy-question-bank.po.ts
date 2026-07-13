@@ -1,9 +1,26 @@
 import { expect, type Locator, type Page } from "@playwright/test";
+import { gotoWithRuntimeRecovery } from "../../helpers/runtime";
 
 export class AdminEconomyQuestionBankPage {
   constructor(private readonly page: Page) {}
 
   private async selectOptionByLabelPattern(locator: Locator, pattern: RegExp) {
+    await expect
+      .poll(
+        async () =>
+          locator.locator("option").evaluateAll(
+            (options, source) => {
+              const expression = new RegExp(source.pattern, source.flags);
+              const match = options.find((option) => expression.test((option as HTMLOptionElement).label));
+              return match ? (match as HTMLOptionElement).value : "";
+            },
+            { pattern: pattern.source, flags: pattern.flags },
+          ),
+        {
+          message: `Expected option matching ${pattern} to become available`,
+        },
+      )
+      .not.toBe("");
     const optionValue = await locator.locator("option").evaluateAll(
       (options, source) => {
         const expression = new RegExp(source.pattern, source.flags);
@@ -12,7 +29,46 @@ export class AdminEconomyQuestionBankPage {
       },
       { pattern: pattern.source, flags: pattern.flags },
     );
-    expect(optionValue).toBeTruthy();
+    await locator.selectOption(optionValue);
+  }
+
+  private async hasOptionWithExactLabel(locator: Locator, label: string) {
+    return locator.locator("option").evaluateAll(
+      (options, expectedLabel) =>
+        options.some((option) => (option as HTMLOptionElement).label === expectedLabel),
+      label,
+    );
+  }
+
+  private async selectOptionByPartialLabel(locator: Locator, labelFragment: string) {
+    const normalizedFragment = labelFragment.trim().toLowerCase();
+    await expect
+      .poll(
+        async () =>
+          locator.locator("option").evaluateAll(
+            (options, expectedFragment) => {
+              const match = options.find((option) =>
+                (option as HTMLOptionElement).label.toLowerCase().includes(expectedFragment),
+              );
+              return match ? (match as HTMLOptionElement).value : "";
+            },
+            normalizedFragment,
+          ),
+        {
+          message: `Expected option containing ${labelFragment} to become available`,
+        },
+      )
+      .not.toBe("");
+
+    const optionValue = await locator.locator("option").evaluateAll(
+      (options, expectedFragment) => {
+        const match = options.find((option) =>
+          (option as HTMLOptionElement).label.toLowerCase().includes(expectedFragment),
+        );
+        return match ? (match as HTMLOptionElement).value : "";
+      },
+      normalizedFragment,
+    );
     await locator.selectOption(optionValue);
   }
 
@@ -21,8 +77,14 @@ export class AdminEconomyQuestionBankPage {
     if (instituteId) {
       params.set("institute", instituteId);
     }
-    await this.page.goto(`/admin/economy?${params.toString()}`);
+    await gotoWithRuntimeRecovery(this.page, `/admin/economy?${params.toString()}`);
     await expect(this.page.getByRole("heading", { name: /^economy$/i }).first()).toBeVisible();
+    if (instituteId) {
+      const instituteScope = this.page.getByRole("combobox", { name: /institute scope/i });
+      await instituteScope.selectOption(instituteId);
+      await this.page.getByRole("button", { name: /apply filters/i }).click();
+      await expect(instituteScope).toHaveValue(instituteId);
+    }
   }
 
   async openEditorView() {
@@ -43,7 +105,7 @@ export class AdminEconomyQuestionBankPage {
   visibilityCard() {
     return this.page.locator("article.dashboardPanel").filter({
       has: this.page.getByRole("heading", {
-        name: /check package coverage and institute access before changing live access|inspect package scope and institute access before changing subscription controls/i,
+        name: /check package coverage and institute access before changing live access|inspect package scope and institute access before changing subscription controls|how to diagnose missing institute access/i,
       }),
     }).first();
   }
@@ -63,6 +125,10 @@ export class AdminEconomyQuestionBankPage {
     await this.packageCard().getByLabel(/question bank package rows to show/i).selectOption(value);
   }
 
+  async fillCatalogPackageLookup(value: string) {
+    await this.packageCard().getByLabel(/question bank package lookup/i).fill(value);
+  }
+
   packageCatalogRow(packageName: string) {
     return this.packageCard().locator(".economyPackageCatalogRow").filter({
       hasText: new RegExp(packageName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"),
@@ -70,6 +136,7 @@ export class AdminEconomyQuestionBankPage {
   }
 
   async editPackage(packageName: string) {
+    await this.fillCatalogPackageLookup(packageName);
     const row = this.packageCatalogRow(packageName);
     await expect(row).toBeVisible();
     await row.getByRole("button", { name: /^edit$/i }).click();
@@ -107,6 +174,10 @@ export class AdminEconomyQuestionBankPage {
       this.packageCard().locator(".economyPackageFormGridSecondary select").nth(1),
       label,
     );
+  }
+
+  async fillSortOrder(value: string) {
+    await this.packageCard().getByRole("spinbutton", { name: /sort order/i }).fill(value);
   }
 
   async addScopeRow() {
@@ -170,16 +241,41 @@ export class AdminEconomyQuestionBankPage {
     await expect(this.packageCard().getByText(/question bank package updated successfully\./i)).toBeVisible();
   }
 
-  async showEntitlementsForPackage(packageLabel: string) {
+  async showEntitlementsForPackage(packageLabel: string, instituteScopeLabel?: string) {
+    if (instituteScopeLabel) {
+      const instituteScope = this.page.getByRole("combobox", { name: /institute scope/i });
+      if (await this.hasOptionWithExactLabel(instituteScope, instituteScopeLabel)) {
+        await instituteScope.selectOption({ label: instituteScopeLabel });
+      } else {
+        await this.selectOptionByPartialLabel(instituteScope, instituteScopeLabel);
+      }
+      const instituteId = await instituteScope.inputValue();
+      const params = new URLSearchParams({ tab: "question-bank", focus: "visibility" });
+      if (instituteId) {
+        params.set("institute", instituteId);
+      }
+      await gotoWithRuntimeRecovery(this.page, `/admin/economy?${params.toString()}`);
+    } else {
+      await gotoWithRuntimeRecovery(this.page, "/admin/economy?tab=question-bank&focus=visibility");
+    }
     const visibilityCard = this.visibilityCard();
     await expect(visibilityCard).toBeVisible();
     await visibilityCard.getByRole("combobox", { name: /show dataset/i }).selectOption("entitlements");
     await visibilityCard.getByRole("combobox", { name: /rows to show/i }).selectOption("50");
-    await visibilityCard.getByRole("combobox", { name: /^package$/i }).selectOption({ label: packageLabel });
+    const packageFilter = visibilityCard.getByRole("combobox", { name: /^package$/i });
+    if (await this.hasOptionWithExactLabel(packageFilter, packageLabel)) {
+      await packageFilter.selectOption({ label: packageLabel });
+    }
     await visibilityCard.getByRole("combobox", { name: /institute access status|entitlement status/i }).selectOption("all");
   }
 
   entitlementRow(entitlementId: string) {
     return this.visibilityCard().getByTestId(`entitlement-row-${entitlementId}`);
+  }
+
+  entitlementRowForInstitutePackage(instituteCode: string, packageCode: string) {
+    return this.visibilityCard().locator("[data-testid^='entitlement-row-']").filter({
+      hasText: new RegExp(`${instituteCode.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[\\s\\S]*${packageCode.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "i"),
+    }).first();
   }
 }

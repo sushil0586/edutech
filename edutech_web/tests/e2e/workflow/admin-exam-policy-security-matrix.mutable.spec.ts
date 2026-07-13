@@ -14,7 +14,7 @@ const adminApiBaseUrl = (
 ).replace(/\/$/, "");
 
 type PolicySecurityScenario = {
-  policyType: "stars_only" | "stars_or_entitlement";
+  policyType: "stars_only" | "subscription_or_stars" | "platform_managed";
   securityMode: "focus" | "fullscreen";
   starCost: string;
   priority: string;
@@ -30,11 +30,18 @@ const scenarios: PolicySecurityScenario[] = [
     entitlementRequired: false,
   },
   {
-    policyType: "stars_or_entitlement",
+    policyType: "subscription_or_stars",
     securityMode: "fullscreen",
     starCost: "9",
     priority: "72",
     entitlementRequired: true,
+  },
+  {
+    policyType: "platform_managed",
+    securityMode: "focus",
+    starCost: "0",
+    priority: "73",
+    entitlementRequired: false,
   },
 ];
 
@@ -73,6 +80,9 @@ async function fetchAdminExamDetail(page: Page, examId: string) {
   expect(response.ok()).toBe(true);
   return (await response.json()) as {
     security_mode: string;
+    economy_policy?: {
+      commercial_path?: string;
+    } | null;
   };
 }
 
@@ -118,7 +128,8 @@ async function saveAccessPolicyScenario(
 
   const accessPolicySelect = page.getByRole("combobox", { name: /access policy/i });
   await expect(accessPolicySelect.locator('option[value="stars_only"]')).toHaveCount(1);
-  await expect(accessPolicySelect.locator('option[value="stars_or_entitlement"]')).toHaveCount(1);
+  await expect(accessPolicySelect.locator('option[value="subscription_or_stars"]')).toHaveCount(1);
+  await expect(accessPolicySelect.locator('option[value="platform_managed"]')).toHaveCount(1);
 
   await accessPolicySelect.selectOption(scenario.policyType);
   await page.getByRole("spinbutton", { name: /star cost/i }).fill(scenario.starCost);
@@ -155,10 +166,13 @@ async function saveSecurityScenario(page: Page, examId: string, securityMode: Po
 
 async function expectSecurityWorkspaceVisibility(
   page: Page,
+  examId: string,
   examTitle: string,
   securityMode: PolicySecurityScenario["securityMode"],
 ) {
-  await page.goto("/admin/security");
+  await page.goto(
+    `/admin/security?examId=${encodeURIComponent(examId)}&exam_filter=elevated&exam_sort=latest`,
+  );
   await expect(page.getByRole("heading", { name: /security/i }).first()).toBeVisible();
   await expect(page.getByText(new RegExp(escapeRegExp(examTitle), "i")).first()).toBeVisible();
   await expect(
@@ -212,8 +226,9 @@ test.describe("Admin exam policy and security matrix", () => {
 
         const detail = await fetchAdminExamDetail(page, examId);
         expect(detail.security_mode).toBe(scenario.securityMode);
+        expect(detail.economy_policy?.commercial_path ?? "").toBe(scenario.policyType);
 
-        await expectSecurityWorkspaceVisibility(page, created.examTitle, scenario.securityMode);
+        await expectSecurityWorkspaceVisibility(page, examId, created.examTitle, scenario.securityMode);
       }
     } finally {
       if (examId) {

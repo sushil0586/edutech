@@ -10,7 +10,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 
-from apps.academics.models import AcademicYear, Cohort, Program
+from apps.academics.models import AcademicYear, Cohort, Program, normalize_academic_code
 from apps.accounts.models import (
     AccountAcquisition,
     AccountLocation,
@@ -313,10 +313,10 @@ def get_or_create_public_registration_academic_year(institute):
 def get_or_create_public_registration_program(institute, *, class_level, board):
     normalized_board = _normalize_username_seed(board, "board").replace("-", "")
     normalized_class = _normalize_username_seed(class_level, "class").replace("-", "")
-    code = f"public-{normalized_class}-{normalized_board}"
+    code = normalize_academic_code(f"public-{normalized_class}-{normalized_board}")[:50]
     program, _ = Program.objects.get_or_create(
         institute=institute,
-        code=code[:50],
+        code=code,
         defaults={
             "name": f"Class {class_level} {board}",
             "category": "public-registration",

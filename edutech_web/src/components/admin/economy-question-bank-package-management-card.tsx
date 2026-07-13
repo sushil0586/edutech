@@ -389,9 +389,11 @@ export function EconomyQuestionBankPackageManagementCard({
   onPackagesChange?: (packages: AdminQuestionBankPackage[]) => void;
 }) {
   const [workspaceView, setWorkspaceView] = useState<"editor" | "catalog" | "all">(initialWorkspaceView);
+  const [packageRows, setPackageRows] = useState(packages);
   const [catalogInstituteFilter, setCatalogInstituteFilter] = useState("all");
   const [catalogTypeFilter, setCatalogTypeFilter] = useState("all");
   const [catalogStatusFilter, setCatalogStatusFilter] = useState<"all" | "active" | "inactive">("active");
+  const [catalogSearchQuery, setCatalogSearchQuery] = useState("");
   const [catalogRowsToShow, setCatalogRowsToShow] = useState<"4" | "8" | "12">("8");
   const [editingId, setEditingId] = useState("");
   const [saving, setSaving] = useState(false);
@@ -417,9 +419,72 @@ export function EconomyQuestionBankPackageManagementCard({
   const [editorTopics, setEditorTopics] = useState(topics);
   const [editorLookupsLoading, setEditorLookupsLoading] = useState(false);
   const [editorLookupsError, setEditorLookupsError] = useState("");
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogLoadError, setCatalogLoadError] = useState("");
+
+  useEffect(() => {
+    setPackageRows(packages);
+  }, [packages]);
 
   const editorLookupsReady =
     editorPrograms.length > 0 || editorSubjects.length > 0 || editorTopics.length > 0;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPackageCatalog() {
+      if (packageRows.length > 0 || (workspaceView !== "catalog" && workspaceView !== "all")) {
+        return;
+      }
+
+      setCatalogLoading(true);
+      setCatalogLoadError("");
+
+      try {
+        const response = await fetch("/api/v1/economy/admin/question-bank-packages/?compact=1", {
+          method: "GET",
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          throw new Error("Question bank package catalog could not be loaded.");
+        }
+
+        const payload = (await response.json()) as AdminQuestionBankPackage[] | { results?: AdminQuestionBankPackage[] };
+        const nextPackages = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload.results)
+            ? payload.results
+            : [];
+
+        if (cancelled) {
+          return;
+        }
+
+        setPackageRows(nextPackages);
+        onPackagesChange?.(nextPackages);
+      } catch (catalogError) {
+        if (cancelled) {
+          return;
+        }
+        setCatalogLoadError(
+          catalogError instanceof Error
+            ? catalogError.message
+            : "Question bank package catalog could not be loaded.",
+        );
+      } finally {
+        if (!cancelled) {
+          setCatalogLoading(false);
+        }
+      }
+    }
+
+    void loadPackageCatalog();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [onPackagesChange, packageRows.length, workspaceView]);
 
   useEffect(() => {
     let cancelled = false;
@@ -513,7 +578,8 @@ export function EconomyQuestionBankPackageManagementCard({
       .slice(0, 6);
   }, [availableSubjects]);
   const filteredPackages = useMemo(() => {
-    return packages.filter((pkg) => {
+    const normalizedCatalogSearch = normalizeLookupValue(catalogSearchQuery);
+    return packageRows.filter((pkg) => {
       if (catalogInstituteFilter !== "all" && pkg.institute !== catalogInstituteFilter) {
         return false;
       }
@@ -526,12 +592,28 @@ export function EconomyQuestionBankPackageManagementCard({
       if (catalogStatusFilter === "inactive" && pkg.is_active) {
         return false;
       }
+      if (normalizedCatalogSearch) {
+        const searchableFields = [
+          pkg.name,
+          pkg.code,
+          pkg.institute_name,
+          pkg.institute_code,
+          pkg.coverage_summary,
+          pkg.description ?? "",
+        ];
+        const matchesSearch = searchableFields.some((value) =>
+          normalizeLookupValue(value).includes(normalizedCatalogSearch),
+        );
+        if (!matchesSearch) {
+          return false;
+        }
+      }
       return true;
     });
-  }, [catalogInstituteFilter, catalogStatusFilter, catalogTypeFilter, packages]);
+  }, [catalogInstituteFilter, catalogSearchQuery, catalogStatusFilter, catalogTypeFilter, packageRows]);
   const visiblePackages = filteredPackages.slice(0, Number(catalogRowsToShow));
-  const activePackageCount = packages.filter((pkg) => pkg.is_active).length;
-  const subjectLibraryCount = packages.filter((pkg) => pkg.package_type === "subject_library").length;
+  const activePackageCount = packageRows.filter((pkg) => pkg.is_active).length;
+  const subjectLibraryCount = packageRows.filter((pkg) => pkg.package_type === "subject_library").length;
   const selectedInstitute = institutes.find((institute) => institute.id === instituteId) ?? null;
   const activeScopeCount = scopes.filter((scope) => scope.is_active).length;
   const scopedProgramCount = scopes.filter((scope) => Boolean(scope.program)).length;
@@ -686,7 +768,7 @@ export function EconomyQuestionBankPackageManagementCard({
     .filter((scope) => scope.is_active)
     .slice(0, 4)
     .map((scope) => describeInstituteFacingScopeOutcome(scope, lookupMaps));
-  const editingPackageRecord = editingId ? packages.find((pkg) => pkg.id === editingId) ?? null : null;
+  const editingPackageRecord = editingId ? packageRows.find((pkg) => pkg.id === editingId) ?? null : null;
   const originalSubjectLabels = uniqueNormalizedLabels(editingPackageRecord?.coverage_subject_labels ?? []);
   const originalTopicLabels = uniqueNormalizedLabels(editingPackageRecord?.coverage_topic_labels ?? []);
   const currentSubjectLabels = uniqueNormalizedLabels(
@@ -775,19 +857,22 @@ export function EconomyQuestionBankPackageManagementCard({
         method: "GET",
         cache: "no-store",
       });
-      const body = (await response.json().catch(() => ({}))) as AdminQuestionBankPackage & {
+      const body = (await response.json().catch(() => ({}))) as {
+        data?: AdminQuestionBankPackage;
         detail?: string;
+        message?: string;
       };
 
       if (!response.ok) {
-        throw new Error(
-          typeof body.detail === "string" && body.detail.trim()
-            ? body.detail
-            : "Package detail could not be loaded.",
-        );
+        // Older backend deployments may not expose package-detail GET yet.
+        // In that case, fall back to the already-loaded catalog payload so
+        // operators can still open the editor and apply additive scope fixes.
+        populateFormForEdit(pkg);
+        setMessage("Loaded package editor from the catalog snapshot because detail fetch is not available on this environment yet.");
+        return;
       }
 
-      populateFormForEdit(body);
+      populateFormForEdit(body.data ?? pkg);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Package detail could not be loaded.");
     } finally {
@@ -1024,8 +1109,8 @@ export function EconomyQuestionBankPackageManagementCard({
 
       if (body.data) {
         const next = (editingId
-          ? packages.map((item) => (item.id === body.data!.id ? body.data! : item))
-          : [body.data!, ...packages]
+          ? packageRows.map((item) => (item.id === body.data!.id ? body.data! : item))
+          : [body.data!, ...packageRows]
         ).sort((a, b) => {
           if (a.institute_name !== b.institute_name) {
             return a.institute_name.localeCompare(b.institute_name);
@@ -1035,6 +1120,7 @@ export function EconomyQuestionBankPackageManagementCard({
           }
           return a.name.localeCompare(b.name);
         });
+        setPackageRows(next);
         onPackagesChange?.(next);
       }
 
@@ -1190,6 +1276,16 @@ export function EconomyQuestionBankPackageManagementCard({
               <option value="8">8 rows</option>
               <option value="12">12 rows</option>
             </select>
+          </label>
+          <label className="setupField">
+            <span>Catalog package lookup</span>
+            <input
+              aria-label="Question bank package lookup"
+              onChange={(event) => setCatalogSearchQuery(event.target.value)}
+              placeholder="Search by package, code, institute, or coverage"
+              type="search"
+              value={catalogSearchQuery}
+            />
           </label>
         </div>
 
@@ -1995,6 +2091,10 @@ export function EconomyQuestionBankPackageManagementCard({
         <section className="featurePlaceholder">
           <strong>Current package catalog</strong>
           <p>{filteredPackages.length} packages match the current filter set.</p>
+          {catalogLoading ? <p className="setupFieldMeta">Loading package catalog...</p> : null}
+          {!catalogLoading && catalogLoadError ? (
+            <p className="feedbackBanner feedbackBannerError">{catalogLoadError}</p>
+          ) : null}
           <div className="weakTopicStack">
             {visiblePackages.map((pkg) => (
               <div className="economyPackageCatalogRow" key={pkg.id}>

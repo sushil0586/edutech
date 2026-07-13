@@ -274,9 +274,12 @@ async function createInstituteLoginViaUi(page: Page, instituteId: string) {
 }
 
 async function readSummaryCount(page: Page, label: RegExp) {
+  const resolvedLabel = /total linked questions/i.test(label.source)
+    ? /total linked rows in this filtered scope/i
+    : label;
   const value = await page
     .locator(".builderSummaryCard")
-    .filter({ hasText: label })
+    .filter({ hasText: resolvedLabel })
     .first()
     .locator("strong")
     .innerText();
@@ -368,6 +371,19 @@ async function addOneSectionAndQuestion(page: Page, examId: string, sectionName:
   await expect(page.getByText(/add a new section/i).first()).toBeVisible();
   await page.getByRole("textbox", { name: /section name/i }).fill(sectionName);
   await page.getByRole("spinbutton", { name: /total questions/i }).fill("1");
+  const sectionSubjectSelect = page.getByRole("combobox", { name: /section subject/i });
+  if (await sectionSubjectSelect.count()) {
+    const subjectOptions = await sectionSubjectSelect.locator("option").evaluateAll((options) =>
+      options
+        .map((option) => ({
+          value: (option as HTMLOptionElement).value,
+        }))
+        .filter((option) => option.value.trim().length > 0),
+    );
+    if (subjectOptions.length > 0) {
+      await sectionSubjectSelect.selectOption(subjectOptions[0]!.value);
+    }
+  }
   await page.getByRole("button", { name: /^add section$/i }).click();
   await expect(page).toHaveURL(/tab=sections&message=/);
   await expect(page.getByText(/section added/i)).toBeVisible();

@@ -1,7 +1,7 @@
 import hashlib
 import random
 import uuid
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 from decimal import Decimal, InvalidOperation
 
 from django.core.exceptions import ValidationError
@@ -21,8 +21,10 @@ from apps.attempts.models import (
 )
 from apps.exams.services import (
     allows_unlimited_attempts,
-    is_exam_assigned_to_student,
+    resolve_exam_access_runtime,
     resolve_exam_economy_access,
+    resolve_exam_runtime_thresholds,
+    summarize_exam_slot_occupancy,
     resolve_security_policy,
 )
 from apps.exams.models import ExamQuestion
@@ -200,23 +202,91 @@ def validate_student_exam_scope(student, exam):
         raise ValidationError({"student": "Student and exam must belong to the same institute."})
     if student.academic_year_id != exam.academic_year_id:
         raise ValidationError({"student": "Student academic year must match the exam."})
-    if student.program_id != exam.program_id:
+    selected_student_override = (
+        getattr(exam, "assignment_mode", None) == "selected_students"
+    )
+    if not selected_student_override and student.program_id != exam.program_id:
         raise ValidationError({"student": "Student program must match the exam."})
-    if exam.cohort_id and student.cohort_id != exam.cohort_id:
+    if not selected_student_override and exam.cohort_id and student.cohort_id != exam.cohort_id:
         raise ValidationError({"student": "Student cohort must match the exam cohort."})
 
 
-def validate_attempt_window(exam, at_time=None):
-    current_time = at_time or timezone.now()
+def validate_attempt_window(exam, student=None, at_time=None):
+    runtime_decision = resolve_exam_access_runtime(student, exam, now=at_time or timezone.now())
+    if not runtime_decision["is_allowed"]:
+        raise ValidationError({"exam": runtime_decision["block_reason_message"]})
+    return runtime_decision["access_window"]
 
-    if not exam.is_active:
-        raise ValidationError({"exam": "Exam is inactive."})
-    if exam.status not in {"scheduled", "live"}:
-        raise ValidationError({"exam": "Attempt can only start for scheduled or live exams."})
-    if exam.start_at and current_time < exam.start_at:
-        raise ValidationError({"exam": "Exam has not started yet."})
-    if exam.end_at and current_time > exam.end_at:
-        raise ValidationError({"exam": "Exam is no longer available for attempts."})
+
+def _enforce_slot_start_capacity(*, exam, access_window):
+    slot_id = access_window.get("slot_id")
+    if not slot_id:
+        return None
+
+    slot = (
+        exam.access_slots.select_for_update()
+        .filter(pk=slot_id, is_active=True)
+        .first()
+    )
+    if slot is None:
+        raise ValidationError({"exam": "Assigned slot is no longer available."})
+
+    occupancy = summarize_exam_slot_occupancy(slot)
+    start_capacity = occupancy["start_capacity"]
+    if start_capacity is not None and occupancy["active_attempt_count"] >= start_capacity:
+        raise ValidationError(
+            {
+                "exam": (
+                    f"The access slot '{slot.slot_label}' has reached its active attempt limit. "
+                    "Please try again shortly or contact support."
+                )
+            }
+        )
+    return slot, occupancy
+
+
+def _enforce_runtime_threshold_capacity(*, exam, current_time):
+    policy = resolve_exam_runtime_thresholds(exam)
+    if not policy["enabled"]:
+        return None
+
+    attempts = exam.attempts.select_for_update().filter(is_active=True)
+    day_start = timezone.make_aware(
+        datetime.combine(timezone.localdate(current_time), time.min),
+        timezone.get_current_timezone(),
+    )
+    next_day_start = day_start + timedelta(days=1)
+    hour_start = current_time.replace(minute=0, second=0, microsecond=0)
+    next_hour_start = hour_start + timedelta(hours=1)
+
+    if policy["daily_start_cap"] is not None:
+        daily_start_count = attempts.filter(
+            started_at__gte=day_start,
+            started_at__lt=next_day_start,
+        ).count()
+        if daily_start_count >= policy["daily_start_cap"]:
+            raise ValidationError(
+                {"exam": "This exam has reached its daily start limit. Please try again later."}
+            )
+
+    if policy["hourly_start_cap"] is not None:
+        hourly_start_count = attempts.filter(
+            started_at__gte=hour_start,
+            started_at__lt=next_hour_start,
+        ).count()
+        if hourly_start_count >= policy["hourly_start_cap"]:
+            raise ValidationError(
+                {"exam": "This exam has reached its hourly start limit. Please try again shortly."}
+            )
+
+    if policy["concurrent_active_attempt_cap"] is not None:
+        concurrent_active_attempt_count = attempts.filter(status="in_progress").count()
+        if concurrent_active_attempt_count >= policy["concurrent_active_attempt_cap"]:
+            raise ValidationError(
+                {"exam": "This exam has reached its active attempt limit. Please try again shortly."}
+            )
+
+    return policy
 
 
 def _integrity_event_config(event_type):
@@ -312,7 +382,14 @@ def _parse_datetime(value):
         return None
 
 
-def _calculate_attempt_expires_at(exam, started_at, *, extra_time_minutes=0):
+def _calculate_attempt_expires_at(
+    exam,
+    started_at,
+    *,
+    extra_time_minutes=0,
+    hard_end=None,
+    clip_to_exam_end=True,
+):
     duration_minutes = exam.duration_minutes
     if exam.timer_mode == "section":
         section_durations = [
@@ -325,8 +402,11 @@ def _calculate_attempt_expires_at(exam, started_at, *, extra_time_minutes=0):
 
     duration_minutes = (duration_minutes or 0) + max(int(extra_time_minutes or 0), 0)
     expires_at = started_at + timedelta(minutes=duration_minutes)
-    if exam.end_at and expires_at > exam.end_at:
-        expires_at = exam.end_at
+    effective_hard_end = hard_end
+    if effective_hard_end is None and clip_to_exam_end:
+        effective_hard_end = exam.end_at
+    if effective_hard_end and expires_at > effective_hard_end:
+        expires_at = effective_hard_end
     return expires_at
 
 
@@ -705,12 +785,10 @@ def ordered_options_for_attempt(attempt, question, options):
 @transaction.atomic
 def start_attempt(student, exam):
     from apps.attempts.models import StudentExamAttempt
+    from apps.economy.services import consume_student_exam_subscription_allowance
 
     validate_student_exam_scope(student, exam)
-    if not is_exam_assigned_to_student(exam, student):
-        raise ValidationError(
-            {"exam": "This exam is not assigned to the selected student."}
-        )
+    exam.__class__.objects.select_for_update().filter(pk=exam.pk).exists()
     economy_access = resolve_exam_economy_access(student, exam)
     if economy_access["is_locked"]:
         raise ValidationError(
@@ -721,7 +799,19 @@ def start_attempt(student, exam):
                 )
             }
         )
-    validate_attempt_window(exam)
+    access_window = validate_attempt_window(exam, student=student)
+    slot_context = _enforce_slot_start_capacity(exam=exam, access_window=access_window)
+    resolved_slot = slot_context[0] if slot_context is not None else None
+    started_at = timezone.now()
+    _enforce_runtime_threshold_capacity(exam=exam, current_time=started_at)
+
+    for cache_attr in (
+        "_active_exam_sections_cache",
+        "_active_exam_questions_cache",
+        "_active_exam_access_slots_cache",
+    ):
+        if hasattr(exam, cache_attr):
+            delattr(exam, cache_attr)
 
     if exam.attempts.filter(student=student, status="in_progress", is_active=True).exists():
         raise ValidationError(
@@ -729,12 +819,13 @@ def start_attempt(student, exam):
         )
 
     next_attempt_no = _get_next_attempt_number(student, exam)
-    started_at = timezone.now()
     accommodation_snapshot = build_attempt_accommodation_snapshot(student, exam)
     expires_at = _calculate_attempt_expires_at(
         exam,
         started_at,
         extra_time_minutes=accommodation_snapshot["applied_extra_time_minutes"],
+        hard_end=access_window.get("hard_end"),
+        clip_to_exam_end=access_window.get("hard_end") is not None,
     )
 
     total_questions = len(_active_exam_questions(exam))
@@ -760,6 +851,7 @@ def start_attempt(student, exam):
         id=attempt_id,
         institute=exam.institute,
         exam=exam,
+        access_slot=resolved_slot,
         student=student,
         attempt_no=next_attempt_no,
         status="in_progress",
@@ -768,11 +860,49 @@ def start_attempt(student, exam):
         total_questions=total_questions,
         metadata={
             "accommodation_snapshot": accommodation_snapshot,
+            "access_window": {
+                "mode": access_window.get("mode"),
+                "slot_id": access_window.get("slot_id"),
+                "slot_label": access_window.get("slot_label"),
+                "window_start": _serialize_datetime(access_window.get("window_start")),
+                "window_end": _serialize_datetime(access_window.get("window_end")),
+                "grace_until": _serialize_datetime(access_window.get("grace_until")),
+                "hard_end": _serialize_datetime(access_window.get("hard_end")),
+            },
             "runtime_config": runtime_config_snapshot,
             "section_runtime": section_runtime_snapshot,
             "delivery_snapshot": delivery_snapshot,
+            "economy_access": {
+                "decision_type": economy_access.get("decision_type"),
+                "commercial_path": economy_access.get("commercial_path"),
+                "policy_type": economy_access.get("policy_type"),
+                "should_consume_subscription_allowance": bool(
+                    economy_access.get("should_consume_subscription_allowance")
+                ),
+            },
         },
     )
+    if economy_access.get("should_consume_subscription_allowance"):
+        allowance_consumption = consume_student_exam_subscription_allowance(
+            student=student,
+            exam=exam,
+            attempt=attempt,
+            resolved_allowance=economy_access.get("subscription_resolution"),
+        )
+        metadata = attempt.metadata if isinstance(attempt.metadata, dict) else {}
+        economy_snapshot = metadata.get("economy_access", {})
+        if not isinstance(economy_snapshot, dict):
+            economy_snapshot = {}
+        economy_snapshot["subscription_allowance_usage_id"] = str(
+            allowance_consumption["usage_entry"].id
+        )
+        economy_snapshot["subscription_allowance_remaining_after_start"] = max(
+            allowance_consumption["remaining_allowance"] - (1 if allowance_consumption.get("was_created") else 0),
+            0,
+        )
+        metadata["economy_access"] = economy_snapshot
+        attempt.metadata = metadata
+        attempt.save(update_fields=["metadata", "updated_at"])
     return attempt
 
 
@@ -2740,9 +2870,9 @@ def calculate_attempt_score(attempt, *, answers=None, exam_questions=None):
             attempted_questions += 1
             if answer.evaluation_status == StudentAnswer.EvaluationStatus.MANUAL_PENDING:
                 continue
+            score += answer.marks_awarded or Decimal("0.00")
             if answer.is_correct:
                 correct_answers += 1
-                score += answer.marks_awarded or Decimal("0.00")
             else:
                 incorrect_answers += 1
                 negative_score += answer.negative_marks_applied or Decimal("0.00")
@@ -2768,6 +2898,9 @@ def calculate_attempt_score(attempt, *, answers=None, exam_questions=None):
 
 
 def attempt_has_pending_manual_review(attempt):
+    prefetched_unresolved_tasks = getattr(attempt, "_prefetched_unresolved_review_tasks", None)
+    if prefetched_unresolved_tasks is not None:
+        return bool(prefetched_unresolved_tasks)
     return StudentAnswerReviewTask.objects.filter(
         attempt=attempt,
         is_active=True,
@@ -2803,6 +2936,7 @@ def submit_attempt(attempt, *, auto_submitted=False):
     )
 
     should_publish_immediate = False
+    should_generate_result = False
     with transaction.atomic():
         _validate_attempt_is_editable(attempt)
 
@@ -2838,13 +2972,14 @@ def submit_attempt(attempt, *, auto_submitted=False):
         attempt.updated_at = updated_at
         runtime_config = _runtime_config(attempt)
         should_publish_immediate = runtime_config.get("result_publish_mode") == "immediate"
-        if should_publish_immediate:
+        should_generate_result = not attempt_has_pending_manual_review(attempt)
+        if should_generate_result:
             generate_result_from_attempt(attempt)
 
-    if should_publish_immediate:
+    if should_generate_result:
         refresh_attempt_result_analytics(
             attempt=attempt,
-            include_ranks=True,
+            include_ranks=should_publish_immediate,
             include_summary=True,
         )
     bump_student_question_analytics_cache_version(attempt.student)

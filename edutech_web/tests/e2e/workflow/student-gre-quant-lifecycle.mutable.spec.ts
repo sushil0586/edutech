@@ -1,8 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import { answerCurrentAttemptQuestion } from "../helpers/attempt";
-import { loginWithCredentials } from "../helpers/auth";
+import { loginAsRole, loginWithCredentials } from "../helpers/auth";
+import { reopenExamWindow } from "../helpers/family-runtime";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
-import { expectStudentWorkspace } from "../helpers/navigation";
+import { expectStudentWorkspace, expectTeacherWorkspace } from "../helpers/navigation";
 
 const backendBaseUrl = (
   process.env.API_BASE_URL ??
@@ -52,6 +53,31 @@ async function fetchStudentAvailableExams(page: Page) {
   }>;
 }
 
+async function fetchTeacherExamByCode(page: Page, examCode: string) {
+  const accessToken = await backendAccessToken(page);
+  const response = await page.request.get(
+    `${backendBaseUrl}/api/v1/teacher/exams/?search=${encodeURIComponent(examCode)}&page_size=20`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      timeout: 15000,
+    },
+  );
+  expect(response.ok()).toBe(true);
+  const payload = (await response.json()) as {
+    results?: Array<{
+      id: string;
+      code: string;
+      title: string;
+    }>;
+  };
+  const exam = payload.results?.find((item) => item.code === examCode) ?? null;
+  expect(exam).not.toBeNull();
+  return exam!;
+}
+
 test.describe("Student GRE quant lifecycle", () => {
   test.skip(
     !mutableStudentGreLifecycleEnabled,
@@ -65,6 +91,11 @@ test.describe("Student GRE quant lifecycle", () => {
     page,
   }) => {
     test.setTimeout(180000);
+
+    await loginAsRole(page, "teacher");
+    await expectTeacherWorkspace(page);
+    const teacherExam = await fetchTeacherExamByCode(page, greExamCode);
+    await reopenExamWindow(page, teacherExam.id, { maxAttempts: 5 });
 
     await loginWithCredentials(page, greStudentCredentials, "student");
     await expectStudentWorkspace(page);
@@ -128,10 +159,22 @@ test.describe("Student GRE quant lifecycle", () => {
     await expect(page).toHaveURL(new RegExp(`/app/attempts/${attemptId}/summary\\?`));
     await expect(page.getByRole("heading", { name: /summary/i }).first()).toBeVisible();
     await expect(page.getByText(/attempt submitted successfully/i).first()).toBeVisible();
+    await expect(page.getByText(/wait for publication/i).first()).toBeVisible();
     await expect(page.getByText(/review locked|review availability|review depends on/i).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /check result status/i }).first()).toBeVisible();
 
-    await page.goto("/app/results");
+    await page.goto("/app/results?result_status=pending");
     await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
-    await expect(page.getByText(new RegExp(greExamTitle, "i")).first()).not.toBeVisible({ timeout: 1500 }).catch(() => null);
+    const pendingResultCard = page.locator("article.studentResultSurface").filter({
+      has: page.locator(".studentResultSurfaceHead strong", {
+        hasText: new RegExp(greExamTitle, "i"),
+      }),
+    }).first();
+    await expect(pendingResultCard).toBeVisible();
+    await expect(pendingResultCard.getByText(/awaiting publication/i).first()).toBeVisible();
+    await expect(pendingResultCard.getByText(/evaluation pending/i).first()).toBeVisible();
+    await expect(
+      pendingResultCard.getByRole("link", { name: /check attempt status/i }).first(),
+    ).toBeVisible();
   });
 });

@@ -1,6 +1,6 @@
 # Backend Operational Route Profiling Runbook
 
-Last updated: 2026-07-06
+Last updated: 2026-07-07
 
 ## Purpose
 
@@ -21,6 +21,7 @@ This runbook complements:
 
 - [BACKEND_ANALYTICS_PERFORMANCE_RUNBOOK.md](/Users/ansh/Documents/Eductech/docs/qa-runbooks/BACKEND_ANALYTICS_PERFORMANCE_RUNBOOK.md)
 - [OVERALL_PRODUCT_CONFIDENCE_MATRIX.md](/Users/ansh/Documents/Eductech/docs/qa-runbooks/OVERALL_PRODUCT_CONFIDENCE_MATRIX.md)
+- [STAGE_IMPORT_VALIDATION_WINDOW_CHECKLIST.md](/Users/ansh/Documents/Eductech/docs/qa-runbooks/STAGE_IMPORT_VALIDATION_WINDOW_CHECKLIST.md)
 
 ## Profiler Command
 
@@ -302,6 +303,31 @@ Follow-up measurements on `2026-07-06` showed that the next three candidate rout
 
 That leaves `student_attempt_list` as the biggest remaining measured student-side read route in this wave, but the remaining work there now looks more like payload trimming or route-shape simplification than classic N+1 cleanup.
 
+Follow-up profiling on `2026-07-08` exposed a newer student-side hotspot on the denser seeded account:
+
+- `student_result_list`
+  - sampled before the latest fix at warm `24.55ms` with `65` queries on a `41`-row payload
+  - SQL samples showed two avoidable fan-out patterns:
+    - repeated exam source metadata hydration because the route selected only `exam` but not the nested source owner graph used by the serializer
+    - repeated unresolved review-task `.exists()` checks via `attempt_has_pending_manual_review()`
+
+After switching the route to the list serializer, selecting the exam source graph up front, prefetching unresolved review tasks on each attempt, and reusing that prefetched data inside `attempt_has_pending_manual_review()`, the route improved materially:
+
+- `student_result_list`
+  - query count dropped from `65` to `2`
+  - cold average moved from about `31.74ms` to `20.80ms`
+  - warm average moved from about `24.55ms` to `14.11ms`
+  - targeted SQL sampling now shows one result-list query plus one unresolved-review-task prefetch query instead of per-row review and source-owner fan-out
+  - focused regression checks passed:
+    - `./.venv/bin/python manage.py test apps.accounts.tests.test_auth_access.AuthenticationAccessControlTestCase.test_student_cannot_see_another_students_attempts_or_results --keepdb`
+    - `./.venv/bin/python manage.py test apps.attempts.tests.test_attempt_workspace_api.AttemptWorkspaceApiTestCase.test_submitted_attempt_creates_unpublished_result_for_pending_release_modes --keepdb`
+
+This changes the current student-read optimization order again:
+
+1. `student_attempt_list` if we want another local payload-shape pass
+2. stage or load-test validation for student discovery plus result-history routes under denser concurrent access
+3. only then another local micro-optimization pass if fresh profiling still justifies it
+
 The first local baselines for the local question-bank read routes also came back healthy on current demo data:
 
 - `question_bank_questions_compact`
@@ -344,6 +370,507 @@ Revised immediate local optimization order from the currently measured routes:
 2. frontend tracing on the student exam detail page to confirm that render cost now matches the backend gains
 3. local question-bank detail routes only if stage or UI traces show heavier payloads than the compact lists suggest
 4. Phase 3 frontend route profiling for student exam and attempt pages
+
+## Stage Teacher Question-Bank Timing Signal
+
+On `2026-07-07`, the focused stage browser timing pass for teacher and institute operational routes showed that the teacher question-bank surface is now the clearest remaining read-latency hotspot on the shared authoring side.
+
+Stage timing highlights from `PLAYWRIGHT_BASE_URL=https://learn.accerio.in npm run test:e2e:stage-performance`:
+
+- `teacher-question-bank-initial`: about `2250ms`
+- `teacher-question-bank-search-apply`: about `1787ms`
+- `teacher-question-bank-empty-search`: about `1067ms`
+- `teacher-question-bank-import-open`: about `4378ms`
+- `teacher-question-bank-create-open`: about `3060ms`
+- `teacher-results-overview-initial`: about `1572ms`
+- `institute-question-bank-create-open`: about `1643ms`
+- `institute-results-overview-return`: about `1564ms`
+
+Interpretation:
+
+- the current local question-bank API baselines are healthy, so this stage slowdown does not look like a compact list-query problem
+- the heaviest teacher transitions are the routes that still depend on multi-call server bootstrap or feature-entitlement hydration
+- `teacher/question-bank/import` is especially important because its route shape is small on paper, so a `4.3s` stage open strongly suggests real backend or auth-scope cost rather than just client rendering noise
+- `teacher/question-bank/new` remains a secondary hotspot even after the earlier local lookup-deferral pass, which means the remaining cost is probably stage data volume, entitlement reads, or repeated scoped lookup fetches
+
+Current teacher question-bank architectural observations:
+
+- `/teacher/question-bank` still performs a large server fan-out before first render:
+  - option catalog
+  - programs
+  - tags
+  - passage page
+  - institute-scoped package entitlements
+  - institute-scoped feature entitlements
+  - subjects
+  - topics
+  - question page
+  - shared master-library page when feature access is enabled
+  - four extra `fetchTeacherQuestionPage(...page_size=1)` calls for quality counters
+- `/teacher/question-bank/import` now fetches entitlements and template in parallel, but still blocks first render on both
+- `/teacher/question-bank/new` already moved subjects, topics, and passages behind `/api/teacher/question-bank/create-lookups`, but the route still depends on option catalog, type registry, programs, and optional duplicate question detail before paint
+
+That means the next frontend/backend hardening value is not another generic list optimization. It is targeted reduction of teacher question-bank route composition and proof of which supporting endpoints dominate on stage.
+
+## Local Import Write-Path Baseline
+
+On `2026-07-07`, the disposable backend import profiler was re-run with a slightly denser payload:
+
+```bash
+cd /Users/ansh/Documents/Eductech/edutech_backend
+./.venv/bin/python manage.py profile_question_import_write_path --repeat 1 --rows 25
+```
+
+Local baseline:
+
+- `preview_passage_import`
+  - about `35.92ms`
+  - `53` queries
+- `finalize_passage_import`
+  - about `65.28ms`
+  - `202` queries
+- `preview_question_import`
+  - about `39.97ms`
+  - `78` queries
+- `finalize_question_import`
+  - about `322.57ms`
+  - `533` queries
+
+Follow-up scaling checks on the same day:
+
+- with `--rows 100`
+  - `preview_passage_import`: about `83.66ms`, `203` queries
+  - `finalize_passage_import`: about `160.38ms`, `802` queries
+  - `preview_question_import`: about `73.50ms`, `303` queries
+  - `finalize_question_import`: about `549.56ms`, `2108` queries
+- with `--rows 250`
+  - `preview_passage_import`: about `196.46ms`, `503` queries
+  - `finalize_passage_import`: about `346.41ms`, `2002` queries
+  - `preview_question_import`: about `189.11ms`, `753` queries
+  - `finalize_question_import`: about `1089.76ms`, `5258` queries
+
+Interpretation:
+
+- the question import write path is still acceptable for small local demo batches, but query growth is already obvious even at `25` rows
+- preview is not the dominant problem locally; finalize is the real scaling concern
+- finalize question import is doing enough per-row work that `100` and `250` row checks are required before we call the bulk path safe for broader teacher and institute usage
+- the follow-up `100` and `250` row runs confirm that this is not a one-off blip: query growth is close to row-bound, especially on question finalize
+- local elapsed time is still under control through `250` rows, but `5258` queries for `250` questions is exactly the kind of shape that will get much more expensive on stage data, under colder caches, or under concurrent use
+- the stage teacher import page slowdown is therefore likely a combination of route bootstrap and backend import support cost, not just one isolated frontend problem
+
+## Next Hardening Order
+
+Use this order for the next performance pass:
+
+1. Stage-measure teacher and institute import support endpoints directly.
+2. Run local import write-path profiling at `--rows 100` and `--rows 250`.
+3. Trim teacher question-bank base-route fan-out before first paint.
+4. Re-check stage teacher question-bank timings after that route-shape reduction.
+5. Only then move to concurrency or k6-style waves for the import path.
+
+Concrete execution plan:
+
+1. Stage timing and route attribution
+   - capture teacher and institute timings for:
+     - `/teacher/question-bank`
+     - `/teacher/question-bank/import`
+     - `/teacher/question-bank/new`
+     - `/institute/question-bank/import`
+     - `/institute/question-bank/new`
+   - if possible, pair this with backend logs or timing headers so each page open can be mapped to the slowest API dependency
+
+2. Local bulk-path scaling proof
+   - run:
+     - `./.venv/bin/python manage.py profile_question_import_write_path --repeat 1 --rows 100`
+     - `./.venv/bin/python manage.py profile_question_import_write_path --repeat 1 --rows 250`
+   - watch specifically for:
+     - finalize-question elapsed time
+     - total query count
+     - repeated tag, duplicate-check, and lookup queries
+
+3. Teacher question-bank route-shape reduction
+   - strongest current candidates:
+     - defer quality-summary mini-count calls until after first render
+     - defer recent passage card data until after first render
+     - avoid loading shared master-library preview on initial inventory load unless the user explicitly opens that lane
+     - reduce entitlement hydration to a smaller feature snapshot if the page only needs boolean gating
+
+4. Backend support-endpoint tightening
+   - strongest current candidates:
+     - profile institute-scoped feature-entitlement and package-entitlement endpoints on stage-sized data
+     - inspect `finalize_question_import` for per-row duplicate checks and tag creation lookups that can be batched further
+     - confirm whether teacher question create/import routes are paying for avoidable auth or institute-scope resolution overhead
+
+5. Scale validation
+   - after route-shape and finalize-path improvements, repeat:
+     - stage timing pass
+     - local `100` and `250` row import profiling
+   - only escalate to larger-machine or concurrency waves after the single-user route shape is clean enough to trust
+
+## Phase 1 Progress Update
+
+Status: `completed on local codebase, pending stage re-measure`
+
+What was changed in this phase:
+
+- teacher question-bank SSR bootstrap was reduced so the page no longer blocks first render on:
+  - shared master-library preview fetch
+  - four extra quality mini-count fetches
+  - passage preview card fetch
+- shared master-library preview now hydrates after first paint from the existing teacher API proxy route
+- question-bank summary cards for revision and quality now reflect visible-page counts instead of paying for extra server count calls before render
+- the comprehension summary card was simplified so the route no longer waits on a passage preview payload before the main inventory is usable
+
+Files changed in this phase:
+
+- [page.tsx](/Users/ansh/Documents/Eductech/edutech_web/src/app/(teacher)/teacher/question-bank/page.tsx)
+- [teacher-question-bank-workspace.tsx](/Users/ansh/Documents/Eductech/edutech_web/src/components/ui/teacher-question-bank-workspace.tsx)
+
+Local validation completed:
+
+- file-level ESLint passed on the two touched frontend files
+- focused local Playwright timing probe passed:
+  - `./node_modules/.bin/playwright test tests/e2e/workflow/teacher-question-bank-timing.spec.ts --project=chromium`
+  - measured snapshot after the route-shape trim:
+    - `question-bank-initial`: `610ms`
+    - `question-bank-search-apply`: `486ms`
+    - `question-bank-empty-search`: `333ms`
+    - `question-bank-reset`: `77ms`
+    - `question-bank-import-open`: `515ms`
+    - `question-bank-create-open`: `360ms`
+    - `question-create-program-select`: `34ms`
+
+Known validation gap:
+
+- full `tsc --noEmit` for `edutech_web` still fails because of pre-existing unrelated test-file type errors outside this hardening change
+
+Next measurement step:
+
+1. deploy this pass to stage
+2. rerun `PLAYWRIGHT_BASE_URL=https://learn.accerio.in npm run test:e2e:stage-performance`
+3. compare:
+   - `teacher-question-bank-initial`
+   - `teacher-question-bank-import-open`
+   - `teacher-question-bank-create-open`
+4. if stage improves materially, move to Phase 2: backend import finalize-path batching and institute-scoped entitlement profiling
+
+## Phase 1 Stage Re-Measurement
+
+Status: `completed`
+
+Validation command:
+
+```bash
+PLAYWRIGHT_BASE_URL=https://learn.accerio.in npm run test:e2e:stage-performance
+```
+
+Stage teacher question-bank comparison:
+
+- earlier stage baseline
+  - `question-bank-initial`: `2250ms`
+  - `question-bank-search-apply`: `1787ms`
+  - `question-bank-empty-search`: `1067ms`
+  - `question-bank-import-open`: `4378ms`
+  - `question-bank-create-open`: `3060ms`
+- after Phase 1 route-shape trim
+  - `question-bank-initial`: `2247ms`
+  - `question-bank-search-apply`: `1770ms`
+  - `question-bank-empty-search`: `2179ms`
+  - `question-bank-import-open`: `4479ms`
+  - `question-bank-create-open`: `3095ms`
+
+Supporting stage timings from the same run:
+
+- `teacher-results overview-initial`: `1380ms`
+- `teacher-results leaderboard-open`: `844ms`
+- `institute-question-bank-initial`: `1121ms`
+- `institute-question-bank-import-open`: `837ms`
+- `institute-question-bank-create-open`: `1578ms`
+
+Interpretation:
+
+- the Phase 1 frontend route-shape trim was behavior-safe, but it did not materially improve the stage teacher question-bank hotspot
+- `question-bank-initial` and `question-bank-search-apply` stayed essentially flat
+- `question-bank-import-open` remained the clearest outlier and even drifted slightly worse on this run
+- `question-bank-create-open` also stayed effectively flat
+- because the same pass was locally healthy and stage-only gains did not appear, the remaining bottleneck is now much more likely to be backend dependency cost, stage data density, or institute-scoped entitlement/support endpoint overhead rather than just server-render fan-out in the Next.js page
+
+Decision:
+
+- treat Phase 1 as a useful cleanup, but not the real stage fix
+- move to Phase 2 immediately
+
+## Phase 2 Direction
+
+Priority order:
+
+1. profile backend support endpoints that feed teacher question-bank import and create
+2. inspect and reduce institute-scoped entitlement and feature-entitlement read cost
+3. batch or trim question import finalize-path work
+4. only then re-run stage teacher question-bank timing
+
+Immediate Phase 2 targets:
+
+- `/api/v1/economy/admin/institute-question-bank-entitlements/`
+- `/api/v1/economy/admin/institute-question-bank-feature-entitlements/`
+- `/api/v1/question-bank/questions/import-template/`
+- teacher question create lookup support path
+- `finalize_question_import` duplicate-check and tag-creation flow
+
+## Phase 2 Progress Update
+
+Status: `in progress`
+
+### Support Endpoint Profiling
+
+The first backend support-endpoint pass showed that the institute-scoped entitlement reads are not the main local bottleneck:
+
+- `institute_scoped_question_bank_entitlements`
+  - warm average about `9.35ms`
+  - warm query count `5`
+  - sampled payload size `4`
+- `institute_scoped_question_bank_feature_entitlements`
+  - warm average about `2.42ms`
+  - warm query count `1`
+  - sampled payload size `2`
+
+Interpretation:
+
+- these two backend reads are locally healthy and do not justify a dedicated optimization pass right now
+- stage teacher import/create slowness is therefore more likely tied to route composition under stage data, auth/environment cost, or the import/finalize backend path rather than these specific entitlement serializers
+
+Note on `question_bank_import_template` profiling:
+
+- the new focused profiler label was added, but the local demo teacher currently returns `403` because bulk-import feature access is not enabled in the sampled local user setup
+- the endpoint implementation itself is lightweight in code: it returns static template columns plus generated CSV content after feature gating
+- this means the bigger backend scaling risk remains the import preview/finalize service path, not template generation
+
+### Import Finalize Hardening
+
+What changed:
+
+- replaced per-question master synchronization in `import_bulk_questions` with a batch master-question and master-option materialization path for newly imported questions
+- kept the existing notification behavior intact after the batched master creation
+
+Files changed:
+
+- [services.py](/Users/ansh/Documents/Eductech/edutech_backend/apps/question_bank/services.py)
+- [profile_operational_routes.py](/Users/ansh/Documents/Eductech/edutech_backend/apps/reports/management/commands/profile_operational_routes.py)
+- [test_profile_operational_routes_command.py](/Users/ansh/Documents/Eductech/edutech_backend/apps/reports/tests/test_profile_operational_routes_command.py)
+
+Validation completed:
+
+- `./.venv/bin/python manage.py test apps.question_bank.tests.test_bulk_workflows --keepdb`
+- `./.venv/bin/python manage.py test apps.reports.tests.test_profile_operational_routes_command --keepdb`
+
+### Import Write-Path Improvement
+
+Before the batch master-materialization pass:
+
+- `25` rows
+  - `finalize_question_import`: `322.57ms`, `533` queries
+- `100` rows
+  - `finalize_question_import`: `549.56ms`, `2108` queries
+- `250` rows
+  - `finalize_question_import`: `1089.76ms`, `5258` queries
+
+After the batch master-materialization pass:
+
+- `25` rows
+  - `finalize_question_import`: `61.81ms`, `86` queries
+- `100` rows
+  - `finalize_question_import`: `188.83ms`, `311` queries
+- `250` rows
+  - `finalize_question_import`: `363.18ms`, `761` queries
+
+Interpretation:
+
+- this is a major backend improvement on the finalize path
+- query growth is still row-sensitive, but the curve is materially flatter than before
+- the local finalize path is now much less likely to become the first blocker when we move to denser stage import validation
+- preview paths are still row-bound and may become the next import-specific backend optimization candidate if larger stage runs still feel heavy
+
+### Next Phase 2 Move
+
+1. stage-validate teacher and institute import preview/finalize timings with larger-row samples
+2. if import UI is still slow on stage, trace the remaining cost between:
+   - teacher question-bank landing route
+   - import page navigation
+   - preview/finalize API calls
+3. only return to entitlement-read optimization if stage data shows denser payload behavior than local profiling did
+
+### Current Stage Constraint Read
+
+On `2026-07-07`, the latest stage import-validation pass showed:
+
+- institute import route is available on stage after granting `QUESTION_BANK_BULK_IMPORT` to `DLI001`
+  - instrumented browser output reported:
+    - `{"lane":"question","result":"available"}`
+    - `{"lane":"comprehension","result":"available"}`
+- teacher import route is also available on stage under the same institute entitlement
+  - instrumented browser output reported:
+    - `{"lane":"question","result":"available"}`
+    - `{"lane":"comprehension","result":"available"}`
+- a dedicated larger-row stage preview spec now exists:
+  - [institute-question-import-preview-timing.spec.ts](/Users/ansh/Documents/Eductech/edutech_web/tests/e2e/workflow/institute-question-import-preview-timing.spec.ts)
+- a dedicated larger-row stage finalize spec now exists:
+  - [institute-question-import-finalize-timing.spec.ts](/Users/ansh/Documents/Eductech/edutech_web/tests/e2e/workflow/institute-question-import-finalize-timing.spec.ts)
+- the controlled validation window now produced real stage import measurements:
+  - institute larger-row preview timing passed on `2026-07-07`
+    - `25` rows: `874ms`
+    - `100` rows: `1883ms`
+    - `250` rows: `2379ms`
+    - follow-up expanded preview sweep on the same day also passed:
+      - `25` rows: `942ms`
+      - `100` rows: `1366ms`
+      - `250` rows: `2384ms`
+      - `500` rows: `3405ms`
+    - repeatability sweep `A` after cooldown spacing also passed:
+      - `25` rows: `937ms`
+      - `100` rows: `2355ms`
+      - `250` rows: `2425ms`
+      - `500` rows: `3511ms`
+    - repeatability sweep `B` after cooldown spacing also passed:
+      - `25` rows: `938ms`
+      - `100` rows: `1346ms`
+      - `250` rows: `2363ms`
+      - `500` rows: `3430ms`
+  - institute mutable import finalize passed on `2026-07-07`
+  - teacher mutable import finalize passed on `2026-07-07`
+  - dedicated institute `500`-row finalize timing also passed on `2026-07-07`
+    - preview `500`: `3946ms`
+    - finalize `500`: `8750ms`
+    - full run including cleanup completed in about `3.0m`
+  - first small two-user concurrency wave also passed on `2026-07-07`
+    - lane A: institute preview sweep in parallel
+      - `25` rows: `878ms`
+      - `100` rows: `1855ms`
+      - `250` rows: `2902ms`
+      - `500` rows: `3900ms`
+    - lane B: teacher disposable finalize in parallel
+      - passed in about `9.6s`
+
+Meaning:
+
+- stage browser availability is now confirmed for both teacher and institute import lanes
+- stage preview timing is measurable and scales reasonably through `500` rows on the current seeded window
+- repeat preview timing stays stable enough across short cooldown-spaced waves to treat the lane as operationally trustworthy
+- stage finalize behavior is healthy for both institute and teacher disposable import lanes
+- dedicated `500`-row finalize timing is now measured end to end, including cleanup
+- first small cross-user concurrency wave passed without obvious shared-route collapse
+- the import-performance lane can now move from entitlement-unblock work to broader scale and repeatability validation
+
+## Controlled Stage Import Window
+
+Use this section when you are ready to run the next real stage import-performance pass.
+
+### Why this is needed
+
+- question import preview/finalize uses `BulkImportRateThrottle`
+- that throttle is user-scoped and remains active when `DEBUG` is false
+- local debug runs bypass the throttle, but stage does not
+- repeated stage browser waves can therefore skip even when the product is healthy
+
+### Pre-window checklist
+
+1. Confirm which stage role should be used:
+   - institute lane is currently available
+   - teacher lane is currently available under the same enabled institute entitlement
+2. Confirm cleanup strategy:
+   - preview-only runs need no content cleanup
+   - finalize runs should stay disposable and delete imported rows afterward where supported
+3. Keep worker count at `1`
+   - import cooldown is user-scoped, so parallel workers reduce signal quality
+4. Avoid mixing roster-import and question-import waves in the same short window
+   - they share the same bulk-import throttle family
+
+### Recommended stage execution order
+
+Run these in order, with cooldown spacing between them:
+
+1. Availability check
+
+```bash
+PLAYWRIGHT_BASE_URL=https://learn.accerio.in \
+./node_modules/.bin/playwright test tests/e2e/workflow/institute-question-import-export.spec.ts --project=chromium
+```
+
+Goal:
+
+- verify that institute import is still enabled
+- verify the route is not blocked by feature gating before doing heavier timing work
+
+2. Institute larger-row preview timing
+
+```bash
+PLAYWRIGHT_BASE_URL=https://learn.accerio.in \
+./node_modules/.bin/playwright test tests/e2e/workflow/institute-question-import-preview-timing.spec.ts --project=chromium
+```
+
+Goal:
+
+- capture browser-visible preview timings for `25`, `100`, `250`, and `500` row payloads on the currently entitled lane
+
+3. Institute disposable finalize flow
+
+```bash
+PLAYWRIGHT_BASE_URL=https://learn.accerio.in \
+PLAYWRIGHT_ENABLE_MUTABLE_IMPORT_ACTIONS=1 \
+./node_modules/.bin/playwright test tests/e2e/workflow/question-import-mutable.spec.ts --project=chromium --grep "institute can preview and finalize a disposable question import"
+```
+
+Goal:
+
+- confirm that preview plus finalize still works end to end on stage after backend import-path hardening
+
+4. Teacher disposable finalize flow only after entitlement enablement
+
+```bash
+PLAYWRIGHT_BASE_URL=https://learn.accerio.in \
+PLAYWRIGHT_ENABLE_MUTABLE_IMPORT_ACTIONS=1 \
+./node_modules/.bin/playwright test tests/e2e/workflow/question-import-mutable.spec.ts --project=chromium --grep "teacher can preview and finalize a disposable question import"
+```
+
+Goal:
+
+- validate the teacher-specific lane only when stage feature configuration allows it
+
+### Cooldown spacing rule
+
+If any run shows:
+
+- `request was throttled`
+- `expected available in N seconds`
+- a skip caused by import cooldown
+
+then:
+
+1. stop the next import run
+2. wait for the reported cooldown plus a small safety buffer
+3. rerun only the blocked import spec, not the whole pack
+
+Practical rule:
+
+- if no exact `N seconds` value is surfaced, wait at least `2` minutes before the next import-preview/finalize run on the same role
+
+### Recording template
+
+For each successful stage import run, record:
+
+- date and time
+- role used
+- route used
+- row count
+- preview elapsed time
+- finalize elapsed time if applicable
+- whether throttle appeared
+- whether cleanup succeeded
+
+### Decision rules after the window
+
+- if institute preview at `25`, `100`, `250`, and `500` rows is smooth and finalize remains stable, the backend import path is likely no longer the primary stage bottleneck
+- if preview still degrades sharply while local profiling is healthy, shift focus to stage environment factors or frontend route handling
+- if finalize regresses on stage despite the local backend gains, instrument the live preview/finalize responses next before making another code change
 
 ## Good Review Questions
 

@@ -1,5 +1,6 @@
 from datetime import timedelta
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -10,7 +11,9 @@ from rest_framework.test import APIClient
 from apps.academics.models import AssessmentFamily
 from apps.attempts.models import StudentAnswerReviewTask, StudentExamAttempt
 from apps.attempts.services import review_manual_answer, save_answer, start_attempt, submit_attempt
-from apps.exams.models import ExamSection
+from apps.economy.models import ContentAccessPolicy, StudentSubscription, StudentSubscriptionAllowanceUsage, SubscriptionPlan, SubscriptionPlanCycle, SubscriptionPlanExamAllowanceConfig
+from apps.economy.services import credit_stars, spend_stars_for_content
+from apps.exams.models import ExamAccessMode, ExamAccessSlot, ExamSection, ExamStudentAssignment
 from apps.exams.services import mark_exam_completed, publish_exam, sync_total_marks_from_questions
 from apps.results.models import ExamPerformanceSummary, ExamResult, StudentTopicPerformance
 from apps.results.services import generate_result_from_attempt, publish_exam_results
@@ -118,6 +121,40 @@ class AttemptWorkspaceApiTestCase(TestCase):
         self.context["program"].save(update_fields=["assessment_family", "updated_at"])
         return family
 
+    def _create_active_subscription_with_allowance(self, *, included_exam_attempts):
+        plan = SubscriptionPlan.objects.create(
+            institute=self.context["institute"],
+            name=f"Allowance Plan {included_exam_attempts}",
+            code=f"ALLOW_{included_exam_attempts}",
+            description="Attempt allowance plan.",
+        )
+        cycle = SubscriptionPlanCycle.objects.create(
+            institute=self.context["institute"],
+            plan=plan,
+            billing_interval="monthly",
+            interval_count=1,
+            price_amount="199.00",
+            currency="INR",
+        )
+        SubscriptionPlanExamAllowanceConfig.objects.create(
+            institute=self.context["institute"],
+            plan_cycle=cycle,
+            included_exam_attempts=included_exam_attempts,
+            allowance_period_mode="billing_cycle",
+            counting_scope="all_eligible_exams",
+        )
+        now = timezone.now()
+        return StudentSubscription.objects.create(
+            institute=self.context["institute"],
+            student=self.context["student"],
+            plan_cycle=cycle,
+            status="active",
+            activated_at=now - timedelta(days=2),
+            current_period_start=now - timedelta(days=2),
+            current_period_end=now + timedelta(days=28),
+            metadata={},
+        )
+
     def test_attempt_detail_hides_correctness_and_returns_server_time(self):
         attempt = self._start_attempt()
         save_answer(
@@ -159,6 +196,482 @@ class AttemptWorkspaceApiTestCase(TestCase):
         )
         self.assertIn("options", question_payload)
         self.assertNotIn("is_correct", question_payload["options"][0])
+
+    def test_start_attempt_uses_direct_student_slot_window_snapshot(self):
+        self.exam.assignment_mode = "selected_students"
+        self.exam.start_at = timezone.now() - timedelta(days=1)
+        self.exam.end_at = timezone.now() - timedelta(hours=1)
+        self.exam.save(update_fields=["assignment_mode", "start_at", "end_at", "updated_at"])
+
+        slot = ExamAccessSlot.objects.create(
+            exam=self.exam,
+            slot_label="Batch A",
+            slot_start_at=timezone.now() - timedelta(minutes=5),
+            slot_end_at=timezone.now() + timedelta(minutes=25),
+            grace_period_minutes=20,
+        )
+        ExamStudentAssignment.objects.create(
+            exam=self.exam,
+            student=self.context["student"],
+            assigned_by=self.context["teacher"],
+            access_slot=slot,
+        )
+
+        attempt = self._start_attempt()
+
+        access_window = attempt.metadata.get("access_window", {})
+        self.assertEqual(access_window.get("mode"), "slot_managed")
+        self.assertEqual(access_window.get("slot_id"), str(slot.id))
+        self.assertEqual(access_window.get("slot_label"), "Batch A")
+
+    def test_start_attempt_blocks_before_slot_window_even_if_exam_schedule_is_broad(self):
+        self.exam.assignment_mode = "selected_students"
+        self.exam.start_at = timezone.now() - timedelta(days=1)
+        self.exam.end_at = timezone.now() + timedelta(days=1)
+        self.exam.save(update_fields=["assignment_mode", "start_at", "end_at", "updated_at"])
+
+        slot = ExamAccessSlot.objects.create(
+            exam=self.exam,
+            slot_label="Morning Batch",
+            slot_start_at=timezone.now() + timedelta(minutes=30),
+            slot_end_at=timezone.now() + timedelta(hours=1, minutes=30),
+            grace_period_minutes=15,
+        )
+        ExamStudentAssignment.objects.create(
+            exam=self.exam,
+            student=self.context["student"],
+            assigned_by=self.context["teacher"],
+            access_slot=slot,
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            self._start_attempt()
+
+        self.assertEqual(error.exception.message_dict["exam"][0], "Exam has not started yet.")
+
+    def test_start_attempt_allows_grace_period_for_direct_student_slot(self):
+        self.exam.assignment_mode = "selected_students"
+        self.exam.start_at = timezone.now() - timedelta(days=1)
+        self.exam.end_at = timezone.now() - timedelta(hours=2)
+        self.exam.save(update_fields=["assignment_mode", "start_at", "end_at", "updated_at"])
+
+        slot = ExamAccessSlot.objects.create(
+            exam=self.exam,
+            slot_label="Late Grace Batch",
+            slot_start_at=timezone.now() - timedelta(hours=1),
+            slot_end_at=timezone.now() - timedelta(minutes=5),
+            grace_period_minutes=15,
+        )
+        ExamStudentAssignment.objects.create(
+            exam=self.exam,
+            student=self.context["student"],
+            assigned_by=self.context["teacher"],
+            access_slot=slot,
+        )
+
+        attempt = self._start_attempt()
+        access_window = attempt.metadata.get("access_window", {})
+        self.assertEqual(access_window.get("slot_id"), str(slot.id))
+        self.assertEqual(str(attempt.access_slot_id), str(slot.id))
+
+    def test_assignment_slot_capacity_blocks_extra_assignment(self):
+        self.exam.assignment_mode = "selected_students"
+        self.exam.save(update_fields=["assignment_mode", "updated_at"])
+
+        slot = ExamAccessSlot.objects.create(
+            exam=self.exam,
+            slot_label="Capacity One",
+            slot_start_at=timezone.now() - timedelta(minutes=5),
+            slot_end_at=timezone.now() + timedelta(minutes=30),
+            assignment_capacity=1,
+        )
+        ExamStudentAssignment.objects.create(
+            exam=self.exam,
+            student=self.context["student"],
+            assigned_by=self.context["teacher"],
+            access_slot=slot,
+        )
+        second_student = self.builder.create_student(
+            institute=self.context["institute"],
+            academic_year=self.context["academic_year"],
+            program=self.context["program"],
+            cohort=self.context["cohort"],
+            admission_no="ATTEMPT-CAP-2",
+            first_name="Second",
+            last_name="Student",
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            ExamStudentAssignment.objects.create(
+                exam=self.exam,
+                student=second_student,
+                assigned_by=self.context["teacher"],
+                access_slot=slot,
+            )
+
+        self.assertEqual(
+            error.exception.message_dict["access_slot"][0],
+            "This slot has reached its assignment capacity.",
+        )
+
+    def test_start_attempt_blocks_when_slot_runtime_capacity_is_reached(self):
+        self.exam.assignment_mode = "selected_students"
+        self.exam.start_at = timezone.now() - timedelta(days=1)
+        self.exam.end_at = timezone.now() + timedelta(days=1)
+        self.exam.save(update_fields=["assignment_mode", "start_at", "end_at", "updated_at"])
+
+        slot = ExamAccessSlot.objects.create(
+            exam=self.exam,
+            slot_label="Runtime Cap",
+            slot_start_at=timezone.now() - timedelta(minutes=15),
+            slot_end_at=timezone.now() + timedelta(minutes=45),
+            start_capacity=1,
+        )
+        ExamStudentAssignment.objects.create(
+            exam=self.exam,
+            student=self.context["student"],
+            assigned_by=self.context["teacher"],
+            access_slot=slot,
+        )
+        first_attempt = self._start_attempt()
+        self.assertEqual(str(first_attempt.access_slot_id), str(slot.id))
+
+        second_student = self.builder.create_student(
+            institute=self.context["institute"],
+            academic_year=self.context["academic_year"],
+            program=self.context["program"],
+            cohort=self.context["cohort"],
+            admission_no="ATTEMPT-RUNTIME-2",
+            first_name="Runtime",
+            last_name="Blocked",
+        )
+        ExamStudentAssignment.objects.create(
+            exam=self.exam,
+            student=second_student,
+            assigned_by=self.context["teacher"],
+            access_slot=slot,
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            start_attempt(second_student, self.exam)
+
+        self.assertIn(
+            "has reached its active attempt limit",
+            error.exception.message_dict["exam"][0],
+        )
+
+    def test_start_attempt_rechecks_daily_threshold_inside_transaction(self):
+        self.context["institute"].management_mode = "public_institute_managed"
+        self.context["institute"].save(update_fields=["management_mode", "updated_at"])
+        self.exam.access_mode = ExamAccessMode.LONG_WINDOW_ATTEMPT_MANAGED
+        self.exam.metadata = {
+            **(self.exam.metadata if isinstance(self.exam.metadata, dict) else {}),
+            "runtime_thresholds": {"daily_start_cap": 1},
+        }
+        self.exam.save(update_fields=["access_mode", "metadata", "updated_at"])
+        second_student = self.builder.create_student(
+            institute=self.context["institute"],
+            academic_year=self.context["academic_year"],
+            program=self.context["program"],
+            cohort=self.context["cohort"],
+            admission_no="ATTEMPT-DAILY-2",
+            first_name="Daily",
+            last_name="Student",
+        )
+        StudentExamAttempt.objects.create(
+            institute=self.context["institute"],
+            exam=self.exam,
+            student=second_student,
+            attempt_no=1,
+            status="submitted",
+            started_at=timezone.now() - timedelta(minutes=20),
+            submitted_at=timezone.now() - timedelta(minutes=5),
+            expires_at=timezone.now() - timedelta(minutes=1),
+            total_questions=1,
+            metadata={},
+        )
+
+        with patch(
+            "apps.attempts.services.validate_attempt_window",
+            return_value={
+                "mode": ExamAccessMode.LONG_WINDOW_ATTEMPT_MANAGED,
+                "window_start": self.exam.start_at,
+                "window_end": self.exam.end_at,
+                "grace_until": None,
+                "hard_end": None,
+            },
+        ):
+            with self.assertRaises(ValidationError) as error:
+                start_attempt(self.context["student"], self.exam)
+
+        self.assertEqual(
+            error.exception.message_dict["exam"][0],
+            "This exam has reached its daily start limit. Please try again later.",
+        )
+
+    def test_start_attempt_rechecks_hourly_threshold_inside_transaction(self):
+        self.context["institute"].management_mode = "public_institute_managed"
+        self.context["institute"].save(update_fields=["management_mode", "updated_at"])
+        self.exam.access_mode = ExamAccessMode.LONG_WINDOW_ATTEMPT_MANAGED
+        self.exam.metadata = {
+            **(self.exam.metadata if isinstance(self.exam.metadata, dict) else {}),
+            "runtime_thresholds": {"hourly_start_cap": 1},
+        }
+        self.exam.save(update_fields=["access_mode", "metadata", "updated_at"])
+        fixed_now = timezone.now().replace(minute=30, second=0, microsecond=0)
+        second_student = self.builder.create_student(
+            institute=self.context["institute"],
+            academic_year=self.context["academic_year"],
+            program=self.context["program"],
+            cohort=self.context["cohort"],
+            admission_no="ATTEMPT-HOURLY-2",
+            first_name="Hourly",
+            last_name="Student",
+        )
+        StudentExamAttempt.objects.create(
+            institute=self.context["institute"],
+            exam=self.exam,
+            student=second_student,
+            attempt_no=1,
+            status="submitted",
+            started_at=fixed_now - timedelta(minutes=20),
+            submitted_at=fixed_now - timedelta(minutes=5),
+            expires_at=fixed_now - timedelta(minutes=1),
+            total_questions=1,
+            metadata={},
+        )
+
+        with (
+            patch("apps.attempts.services.timezone.now", return_value=fixed_now),
+            patch(
+                "apps.attempts.services.validate_attempt_window",
+                return_value={
+                    "mode": ExamAccessMode.LONG_WINDOW_ATTEMPT_MANAGED,
+                    "window_start": self.exam.start_at,
+                    "window_end": self.exam.end_at,
+                    "grace_until": None,
+                    "hard_end": None,
+                },
+            ),
+        ):
+            with self.assertRaises(ValidationError) as error:
+                start_attempt(self.context["student"], self.exam)
+
+        self.assertEqual(
+            error.exception.message_dict["exam"][0],
+            "This exam has reached its hourly start limit. Please try again shortly.",
+        )
+
+    def test_start_attempt_rechecks_concurrent_threshold_inside_transaction(self):
+        self.context["institute"].management_mode = "platform_managed"
+        self.context["institute"].save(update_fields=["management_mode", "updated_at"])
+        self.exam.access_mode = ExamAccessMode.PLATFORM_EVENT_MANAGED
+        self.exam.metadata = {
+            **(self.exam.metadata if isinstance(self.exam.metadata, dict) else {}),
+            "runtime_thresholds": {"concurrent_active_attempt_cap": 1},
+        }
+        self.exam.save(update_fields=["access_mode", "metadata", "updated_at"])
+        second_student = self.builder.create_student(
+            institute=self.context["institute"],
+            academic_year=self.context["academic_year"],
+            program=self.context["program"],
+            cohort=self.context["cohort"],
+            admission_no="ATTEMPT-CONCURRENCY-2",
+            first_name="Concurrent",
+            last_name="Student",
+        )
+        StudentExamAttempt.objects.create(
+            institute=self.context["institute"],
+            exam=self.exam,
+            student=second_student,
+            attempt_no=1,
+            status="in_progress",
+            started_at=timezone.now() - timedelta(minutes=10),
+            expires_at=timezone.now() + timedelta(minutes=20),
+            total_questions=1,
+            metadata={},
+        )
+
+        with patch(
+            "apps.attempts.services.validate_attempt_window",
+            return_value={
+                "mode": ExamAccessMode.PLATFORM_EVENT_MANAGED,
+                "window_start": self.exam.start_at,
+                "window_end": self.exam.end_at,
+                "grace_until": None,
+                "hard_end": None,
+            },
+        ):
+            with self.assertRaises(ValidationError) as error:
+                start_attempt(self.context["student"], self.exam)
+
+        self.assertEqual(
+            error.exception.message_dict["exam"][0],
+            "This exam has reached its active attempt limit. Please try again shortly.",
+        )
+
+    def test_start_attempt_blocks_for_slot_managed_exam_without_resolved_slot(self):
+        self.exam.access_mode = ExamAccessMode.SLOT_MANAGED
+        self.exam.assignment_mode = "selected_students"
+        self.exam.start_at = timezone.now() - timedelta(days=1)
+        self.exam.end_at = timezone.now() + timedelta(days=1)
+        self.exam.save(update_fields=["access_mode", "assignment_mode", "start_at", "end_at", "updated_at"])
+
+        ExamStudentAssignment.objects.create(
+            exam=self.exam,
+            student=self.context["student"],
+            assigned_by=self.context["teacher"],
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            self._start_attempt()
+
+        self.assertEqual(
+            error.exception.message_dict["exam"][0],
+            "This slot-managed exam is not available because no active access slot is assigned.",
+        )
+
+    def test_long_window_attempt_mode_does_not_clip_attempt_expiry_to_exam_end(self):
+        self.exam.access_mode = ExamAccessMode.LONG_WINDOW_ATTEMPT_MANAGED
+        self.exam.start_at = timezone.now() - timedelta(hours=1)
+        self.exam.end_at = timezone.now() + timedelta(minutes=5)
+        self.exam.duration_minutes = 30
+        self.exam.save(update_fields=["access_mode", "start_at", "end_at", "duration_minutes", "updated_at"])
+
+        attempt = self._start_attempt()
+
+        self.assertEqual(
+            attempt.metadata["access_window"]["mode"],
+            ExamAccessMode.LONG_WINDOW_ATTEMPT_MANAGED,
+        )
+        actual_minutes = int((attempt.expires_at - attempt.started_at).total_seconds() / 60)
+        self.assertGreater(actual_minutes, 5)
+        self.assertEqual(actual_minutes, 30)
+
+    def test_platform_event_mode_uses_attempt_based_expiry_after_start(self):
+        self.exam.access_mode = ExamAccessMode.PLATFORM_EVENT_MANAGED
+        self.exam.start_at = timezone.now() - timedelta(hours=1)
+        self.exam.end_at = timezone.now() + timedelta(minutes=10)
+        self.exam.duration_minutes = 25
+        self.exam.save(update_fields=["access_mode", "start_at", "end_at", "duration_minutes", "updated_at"])
+
+        attempt = self._start_attempt()
+
+        self.assertEqual(
+            attempt.metadata["access_window"]["mode"],
+            ExamAccessMode.PLATFORM_EVENT_MANAGED,
+        )
+        actual_minutes = int((attempt.expires_at - attempt.started_at).total_seconds() / 60)
+        self.assertEqual(actual_minutes, 25)
+
+    def test_start_attempt_consumes_subscription_allowance_for_subscription_only_exam(self):
+        subscription = self._create_active_subscription_with_allowance(included_exam_attempts=2)
+        ContentAccessPolicy.objects.create(
+            institute=self.context["institute"],
+            subject=self.context["subject"],
+            content_type="exam",
+            content_key=str(self.exam.id),
+            content_label=self.exam.title,
+            policy_type="entitlement_only",
+            entitlement_code="subscription:starter",
+            priority=10,
+            metadata={"commercial_path": "subscription_only"},
+        )
+
+        attempt = self._start_attempt()
+
+        usage_entries = StudentSubscriptionAllowanceUsage.objects.filter(attempt=attempt, is_active=True)
+        self.assertEqual(usage_entries.count(), 1)
+        usage_entry = usage_entries.get()
+        self.assertEqual(usage_entry.student_subscription_id, subscription.id)
+        self.assertEqual(usage_entry.exam_id, self.exam.id)
+        self.assertEqual(usage_entry.consumed_count, 1)
+        attempt.refresh_from_db()
+        self.assertEqual(
+            attempt.metadata["economy_access"]["subscription_allowance_remaining_after_start"],
+            1,
+        )
+
+    def test_start_attempt_blocks_when_subscription_only_exam_allowance_is_exhausted(self):
+        subscription = self._create_active_subscription_with_allowance(included_exam_attempts=1)
+        ContentAccessPolicy.objects.create(
+            institute=self.context["institute"],
+            subject=self.context["subject"],
+            content_type="exam",
+            content_key=str(self.exam.id),
+            content_label=self.exam.title,
+            policy_type="entitlement_only",
+            entitlement_code="subscription:starter",
+            priority=10,
+            metadata={"commercial_path": "subscription_only"},
+        )
+        StudentSubscriptionAllowanceUsage.objects.create(
+            institute=self.context["institute"],
+            student_subscription=subscription,
+            student=self.context["student"],
+            exam=self.exam,
+            billing_period_start=subscription.current_period_start,
+            billing_period_end=subscription.current_period_end,
+            consumed_count=1,
+            consumed_at=timezone.now() - timedelta(hours=1),
+            consumption_reason="attempt_start",
+            metadata={},
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            self._start_attempt()
+
+        self.assertIn(
+            "No subscription allowance is left",
+            error.exception.message_dict["exam"][0],
+        )
+        self.assertEqual(StudentExamAttempt.objects.filter(exam=self.exam, student=self.context["student"]).count(), 0)
+
+    def test_start_attempt_uses_star_unlock_when_subscription_or_stars_allowance_is_exhausted(self):
+        subscription = self._create_active_subscription_with_allowance(included_exam_attempts=1)
+        ContentAccessPolicy.objects.create(
+            institute=self.context["institute"],
+            subject=self.context["subject"],
+            content_type="exam",
+            content_key=str(self.exam.id),
+            content_label=self.exam.title,
+            policy_type="stars_or_entitlement",
+            star_cost=20,
+            entitlement_code="subscription:starter",
+            priority=10,
+            metadata={"commercial_path": "subscription_or_stars"},
+        )
+        StudentSubscriptionAllowanceUsage.objects.create(
+            institute=self.context["institute"],
+            student_subscription=subscription,
+            student=self.context["student"],
+            exam=self.exam,
+            billing_period_start=subscription.current_period_start,
+            billing_period_end=subscription.current_period_end,
+            consumed_count=1,
+            consumed_at=timezone.now() - timedelta(hours=1),
+            consumption_reason="attempt_start",
+            metadata={},
+        )
+        credit_stars(
+            student=self.context["student"],
+            source_type="signup_bonus",
+            reason="Bootstrap stars",
+            stars=50,
+        )
+        spend_stars_for_content(
+            student=self.context["student"],
+            content_type="exam",
+            content_key=str(self.exam.id),
+            subject=self.context["subject"],
+        )
+
+        attempt = self._start_attempt()
+
+        self.assertTrue(StudentExamAttempt.objects.filter(pk=attempt.id).exists())
+        self.assertFalse(
+            StudentSubscriptionAllowanceUsage.objects.filter(attempt=attempt, is_active=True).exists()
+        )
 
     def test_attempt_detail_includes_linked_comprehension_passage(self):
         passage = QuestionPassage.objects.create(
@@ -1355,6 +1868,11 @@ class AttemptWorkspaceApiTestCase(TestCase):
         self.assertEqual(review_task.status, "reviewed")
         self.assertEqual(review_task.latest_marks_awarded, Decimal("4.00"))
         self.assertEqual(review_task.events.count(), 2)
+        self.assertEqual(attempt.final_score, Decimal("4.00"))
+        expected_percentage = (
+            (Decimal("4.00") / attempt.exam.total_marks) * Decimal("100.00")
+        ).quantize(Decimal("0.01"))
+        self.assertEqual(attempt.percentage, expected_percentage)
         result = generate_result_from_attempt(attempt)
         self.assertEqual(result.final_score, attempt.final_score)
 
@@ -2466,6 +2984,28 @@ class AttemptWorkspaceApiTestCase(TestCase):
         self.assertIsNone(response.data["percentage"])
         self.assertFalse(response.data["review_available"])
 
+    def test_submitted_attempt_creates_unpublished_result_for_pending_release_modes(self):
+        attempt = self._start_attempt()
+        save_answer(
+            attempt=attempt,
+            question=self.context["question"],
+            selected_option=self.correct_option,
+        )
+        submit_attempt(attempt)
+        attempt.refresh_from_db()
+
+        result = ExamResult.objects.get(attempt=attempt)
+        self.assertFalse(result.is_published)
+        self.assertIsNone(result.published_at)
+        self.assertEqual(result.final_score, attempt.final_score)
+
+        results_response = self.client.get("/api/v1/student/results/")
+        self.assertEqual(results_response.status_code, 200)
+        self.assertEqual(len(results_response.data), 1)
+        self.assertEqual(str(results_response.data[0]["attempt"]), str(attempt.id))
+        self.assertFalse(results_response.data[0]["is_published"])
+        self.assertFalse(results_response.data[0]["review_available"])
+
     def test_review_is_blocked_before_allowed(self):
         attempt = self._start_attempt()
         save_answer(
@@ -2729,6 +3269,44 @@ class AttemptWorkspaceApiTestCase(TestCase):
 
         review_response = self.client.get(f"/api/v1/attempts/{attempt.id}/review/")
         self.assertEqual(review_response.status_code, 200)
+
+    def test_published_summary_only_result_keeps_review_locked(self):
+        self.exam.result_publish_mode = "scheduled"
+        self.exam.review_mode = "none"
+        self.exam.allow_review_after_submit = False
+        self.exam.show_result_immediately = False
+        self.exam.save(
+            update_fields=[
+                "result_publish_mode",
+                "review_mode",
+                "allow_review_after_submit",
+                "show_result_immediately",
+                "updated_at",
+            ]
+        )
+
+        attempt = self._start_attempt()
+        save_answer(
+            attempt=attempt,
+            question=self.context["question"],
+            selected_option=self.correct_option,
+        )
+        submit_attempt(attempt)
+        mark_exam_completed(self.exam)
+        publish_exam_results(self.exam)
+
+        summary_response = self.client.get(f"/api/v1/attempts/{attempt.id}/summary/")
+        self.assertEqual(summary_response.status_code, 200)
+        self.assertTrue(summary_response.data["result_visible"])
+        self.assertFalse(summary_response.data["review_available"])
+
+        results_response = self.client.get("/api/v1/student/results/")
+        self.assertEqual(results_response.status_code, 200)
+        self.assertTrue(results_response.data[0]["is_published"])
+        self.assertFalse(results_response.data[0]["review_available"])
+
+        review_response = self.client.get(f"/api/v1/attempts/{attempt.id}/review/")
+        self.assertEqual(review_response.status_code, 403)
 
     def test_immediate_result_mode_publishes_each_retry_and_recalculates_ranks(self):
         self.exam.result_publish_mode = "immediate"

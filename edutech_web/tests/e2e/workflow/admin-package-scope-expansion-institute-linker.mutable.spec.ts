@@ -240,6 +240,7 @@ test.describe("Admin package scope expansion institute proof", () => {
         "Disposable browser-only package created to prove package-scope widening from math to science.",
       );
       await economyPage.selectAccessMode(/link on demand/i);
+      await economyPage.fillSortOrder("1");
       const firstScopeRow = economyPage.scopeRows().first();
       await economyPage.selectScopeProgram(firstScopeRow, /class 7/i);
       await economyPage.selectScopeSubject(firstScopeRow, /math/i);

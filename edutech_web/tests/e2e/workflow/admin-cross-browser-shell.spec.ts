@@ -31,27 +31,41 @@ test.describe("Admin cross-browser shell sanity", () => {
 
     await gotoWithRetry(page, "/admin");
     await expect(page.getByRole("heading", { name: /platform control for/i }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /dashboard/i }).first()).toHaveAttribute(
+    const sidebarNav = page.getByRole("navigation", { name: /platform admin navigation/i });
+
+    await expect(sidebarNav.getByRole("link", { name: /dashboard/i }).first()).toHaveAttribute(
       "aria-current",
       "page",
     );
 
-    await page.getByRole("link", { name: /^exams$/i }).first().click();
+    await Promise.all([
+      page.waitForURL(/\/admin\/exams(?:\?.*)?$/),
+      sidebarNav.getByRole("link", { name: /^exams$/i }).first().click(),
+    ]);
     await expect(page).toHaveURL(/\/admin\/exams(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /exam management/i }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /quick create/i }).first()).toBeVisible();
 
-    await page.getByRole("link", { name: /^institutes$/i }).first().click();
+    await Promise.all([
+      page.waitForURL(/\/admin\/institutes(?:\?.*)?$/),
+      sidebarNav.getByRole("link", { name: /^institutes$/i }).first().click(),
+    ]);
     await expect(page).toHaveURL(/\/admin\/institutes(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /institutes/i }).first()).toBeVisible();
     await expect(page.getByText(/selected profile/i).first()).toBeVisible();
 
-    await page.getByRole("link", { name: /^reports$/i }).first().click();
+    await Promise.all([
+      page.waitForURL(/\/admin\/reports(?:\?.*)?$/),
+      sidebarNav.getByRole("link", { name: /^reports$/i }).first().click(),
+    ]);
     await expect(page).toHaveURL(/\/admin\/reports(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /^reports$/i }).first()).toBeVisible();
     await expect(page.getByText(/report controls/i).first()).toBeVisible();
 
-    await page.getByRole("link", { name: /^people$/i }).first().click();
+    await Promise.all([
+      page.waitForURL(/\/admin\/people(?:\?.*)?$/),
+      sidebarNav.getByRole("link", { name: /^people$/i }).first().click(),
+    ]);
     await expect(page).toHaveURL(/\/admin\/people(?:\?.*)?$/);
     await expect(
       page.getByRole("heading", {

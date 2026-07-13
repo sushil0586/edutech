@@ -80,6 +80,10 @@ const requestPortalJsonCached = cache(async <T>(path: string, accessToken: strin
   return performPortalRequest<T>(path, accessToken);
 });
 
+const requestPortalJsonForceCached = cache(async <T>(path: string, accessToken: string) => {
+  return performPortalRequest<T>(path, accessToken, { cache: "force-cache" });
+});
+
 function shouldBypassPortalReadCache(path: string) {
   return path.startsWith("/api/v1/economy/admin/institute-question-bank-");
 }
@@ -105,6 +109,15 @@ async function requestPortalJson<T>(
   }
 
   return performPortalRequest<T>(path, accessToken, init);
+}
+
+async function requestPortalStaticJson<T>(path: string): Promise<T> {
+  const accessToken = await getSessionAccessToken();
+  if (!accessToken) {
+    throw new Error("Portal session is not available.");
+  }
+
+  return requestPortalJsonForceCached<T>(path, accessToken);
 }
 
 export async function fetchPortalCount(path: string) {
@@ -217,6 +230,7 @@ export async function fetchPortalList<T>(path: string) {
   const payload = await requestPortalJson<{
     results?: T[];
     count?: number;
+    next?: string | null;
   }>(path);
 
   if (Array.isArray(payload.results)) {
@@ -228,6 +242,94 @@ export async function fetchPortalList<T>(path: string) {
   }
 
   return [];
+}
+
+export async function fetchPortalCachedList<T>(path: string) {
+  const payload = await requestPortalStaticJson<{
+    results?: T[];
+    count?: number;
+    next?: string | null;
+  }>(path);
+
+  if (Array.isArray(payload.results)) {
+    return payload.results;
+  }
+
+  if (Array.isArray(payload as unknown[])) {
+    return payload as unknown as T[];
+  }
+
+  return [];
+}
+
+export async function fetchInstituteQuestionBankEntitlementsCached<T>() {
+  return fetchPortalCachedList<T>("/api/v1/economy/admin/institute-question-bank-entitlements/");
+}
+
+export async function fetchInstituteQuestionBankFeatureEntitlementsCached<T>() {
+  return fetchPortalCachedList<T>("/api/v1/economy/admin/institute-question-bank-feature-entitlements/");
+}
+
+function resolvePortalNextPath(next: string) {
+  if (!next.trim()) {
+    return null;
+  }
+
+  if (next.startsWith("/")) {
+    return next;
+  }
+
+  const state = getPortalApiState();
+
+  try {
+    const nextUrl = new URL(next);
+    if (!state.apiConfigured) {
+      return `${nextUrl.pathname}${nextUrl.search}`;
+    }
+
+    const apiBaseUrl = new URL(state.apiBaseUrl);
+    if (nextUrl.origin === apiBaseUrl.origin) {
+      return `${nextUrl.pathname}${nextUrl.search}`;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+export async function fetchPortalListAll<T>(
+  path: string,
+  options?: {
+    maxPages?: number;
+  },
+) {
+  type PortalListPage<TItem> = {
+    results?: TItem[];
+    next?: string | null;
+  };
+  const maxPages = Math.max(1, options?.maxPages ?? 25);
+  const items: T[] = [];
+  let currentPath: string | null = path;
+  let page = 0;
+
+  while (currentPath && page < maxPages) {
+    const payload: PortalListPage<T> | T[] = await requestPortalJson<PortalListPage<T> | T[]>(currentPath);
+
+    if (!Array.isArray(payload) && Array.isArray(payload.results)) {
+      items.push(...payload.results);
+      currentPath = payload.next ? resolvePortalNextPath(payload.next) : null;
+      page += 1;
+      continue;
+    }
+
+    if (Array.isArray(payload as unknown[])) {
+      items.push(...(payload as unknown as T[]));
+    }
+    break;
+  }
+
+  return items;
 }
 
 import type { AssessmentQuestionTypeDefinition } from "@/features/dashboard/types";

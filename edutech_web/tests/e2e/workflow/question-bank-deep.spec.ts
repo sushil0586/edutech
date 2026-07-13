@@ -1,6 +1,16 @@
 import { expect, test } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 
+async function selectFirstNonEmptyOption(locator: import("@playwright/test").Locator) {
+  const value = await locator.locator("option").evaluateAll((options) =>
+    options
+      .map((option) => (option as HTMLOptionElement).value)
+      .find((optionValue) => optionValue.trim().length > 0) ?? null,
+  );
+  expect(value).not.toBeNull();
+  await locator.selectOption(value!);
+}
+
 test.describe("Teacher workflow deep regression", () => {
   test.skip(testRequiresRole("teacher"), "Teacher Playwright credentials are not configured.");
 
@@ -84,9 +94,9 @@ test.describe("Teacher workflow deep regression", () => {
     await expect(subjectSelect).toBeDisabled();
     await expect(topicSelect).toBeDisabled();
 
-    await programSelect.selectOption({ label: "Class 7" });
+    await selectFirstNonEmptyOption(programSelect);
     await expect(subjectSelect).toBeEnabled();
-    await subjectSelect.selectOption({ label: "Math" });
+    await selectFirstNonEmptyOption(subjectSelect);
     await expect(topicSelect).toBeEnabled();
 
     await expect(page.getByText(/no linked questions yet/i)).toBeVisible();

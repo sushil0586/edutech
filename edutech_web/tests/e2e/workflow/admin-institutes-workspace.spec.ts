@@ -2,6 +2,11 @@ import { expect, test } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectAdminWorkspace } from "../helpers/navigation";
 
+function extractLeadingNumber(value: string | null) {
+  const match = value?.match(/\d+/);
+  return match ? Number(match[0]) : null;
+}
+
 test.describe("Admin institutes workspace", () => {
   test.skip(testRequiresRole("admin"), "Admin Playwright credentials are not configured.");
 
@@ -33,6 +38,25 @@ test.describe("Admin institutes workspace", () => {
     const firstViewButton = filteredRow.getByRole("button", { name: /^view$/i }).first();
     await firstViewButton.click();
     await expect(page).toHaveURL(/\/admin\/institutes\?institute=/);
+
+    const peopleMiniStat = page.locator(".adminInstituteHeroMiniStat").filter({
+      has: page.getByText(/^people$/i),
+    }).first();
+    const studentKpi = page.locator(".adminInstituteKpiCard").filter({
+      has: page.getByText(/^students$/i),
+    }).first();
+    const teacherKpi = page.locator(".adminInstituteKpiCard").filter({
+      has: page.getByText(/^teachers$/i),
+    }).first();
+
+    const peopleCount = extractLeadingNumber(await peopleMiniStat.locator("strong").textContent());
+    const studentCount = extractLeadingNumber(await studentKpi.locator("strong").textContent());
+    const teacherCount = extractLeadingNumber(await teacherKpi.locator("strong").textContent());
+
+    expect(peopleCount).not.toBeNull();
+    expect(studentCount).not.toBeNull();
+    expect(teacherCount).not.toBeNull();
+    expect(peopleCount).toBe((studentCount ?? 0) + (teacherCount ?? 0));
 
     const accountActionArea = page.locator(".adminInstituteAccountPanel").first();
     await expect(accountActionArea).toContainText(/credential controls/i);

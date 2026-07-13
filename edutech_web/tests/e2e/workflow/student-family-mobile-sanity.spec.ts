@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import type { StudentAvailableExam } from "@/features/dashboard/types";
-import { loginWithCredentials } from "../helpers/auth";
 import { expectStudentWorkspace } from "../helpers/navigation";
+import { loginStudentFamilyAccountOrSkip } from "../helpers/student-family";
 
 const backendBaseUrl = (
   process.env.API_BASE_URL ??
@@ -21,12 +21,12 @@ const jeeStudentCredentials = {
 };
 
 const families = [
-  {
-    label: "NEET",
+    {
+      label: "NEET",
     credentials: neetStudentCredentials,
-    examCode: "DMO-NEET-FULL-01",
-    expectedSections: ["Physics Section", "Chemistry Section", "Biology Section"],
-    expectedTags: [/competitive/i, /180 minutes/i],
+      examCode: "DMO-NEET-FULL-01",
+      expectedSections: ["Physics Section", "Chemistry Section", "Biology Section"],
+      expectedTags: [/competitive/i, /180 minutes/i],
   },
   {
     label: "JEE",
@@ -66,7 +66,7 @@ test.describe("Student family mobile sanity", () => {
     test(`@workflow ${family.label} seeded exam detail stays reachable on a mobile-sized viewport`, async ({
       page,
     }) => {
-      await loginWithCredentials(page, family.credentials, "student");
+      await loginStudentFamilyAccountOrSkip(page, family.credentials, family.label);
       await expectStudentWorkspace(page);
 
       const exams = await fetchStudentAvailableExams(page);

@@ -8,7 +8,7 @@ import { StudentKpiGrid } from "@/components/ui/student-kpi-grid";
 import { StudentPageHeader } from "@/components/ui/student-page-header";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { StatusPill } from "@/components/ui/status-pill";
-import { StudentSecurityPolicy } from "@/features/dashboard/types";
+import { StudentExamDetail, StudentSecurityPolicy } from "@/features/dashboard/types";
 import {
   fetchStudentExamDetail,
   fetchStudentInsightSummary,
@@ -252,6 +252,194 @@ function detailStartFlowGuidance(args: {
     : "When this exam becomes available, the attempt will keep you in a more guided section sequence.";
 }
 
+type StartBlockContext = {
+  active: boolean;
+  source: string;
+  reasonCode: string;
+  message: string;
+};
+
+function resolveStartBlockContext(
+  detail: StudentExamDetail,
+  params: { blockedStart?: string; blockedSource?: string; blockedReason?: string; error?: string },
+): StartBlockContext {
+  if (params.blockedStart === "1") {
+    return {
+      active: true,
+      source: params.blockedSource ?? detail.start_access.reason_source ?? "",
+      reasonCode: params.blockedReason ?? detail.start_access.reason_code ?? "",
+      message: params.error ? feedbackMessage(params.error) : detail.start_access.reason_message,
+    };
+  }
+
+  if (!detail.start_access.is_allowed) {
+    return {
+      active: true,
+      source: detail.start_access.reason_source,
+      reasonCode: detail.start_access.reason_code,
+      message: detail.start_access.reason_message,
+    };
+  }
+
+  return {
+    active: false,
+    source: "",
+    reasonCode: "",
+    message: "",
+  };
+}
+
+function startBlockTone(reasonCode: string) {
+  if (
+    [
+      "slot_capacity_reached",
+      "daily_start_cap_reached",
+      "hourly_start_cap_reached",
+      "concurrent_active_attempt_cap_reached",
+      "before_window",
+    ].includes(reasonCode)
+  ) {
+    return "warning" as const;
+  }
+  if (
+    [
+      "attempt_in_progress",
+      "attempt_limit_reached",
+      "after_window",
+      "missing_slot",
+      "not_assigned",
+    ].includes(reasonCode)
+  ) {
+    return "demo" as const;
+  }
+  return "danger" as const;
+}
+
+function startBlockHeadline(detail: StudentExamDetail, context: StartBlockContext) {
+  if (!context.active) return "Start access is currently available";
+  const slotLabel = detail.start_access.runtime_decision?.effective_slot?.label;
+
+  switch (context.reasonCode) {
+    case "slot_capacity_reached":
+      return slotLabel
+        ? `${slotLabel} is currently full`
+        : "Your assigned start slot is currently full";
+    case "daily_start_cap_reached":
+      return "Daily start capacity has been reached";
+    case "hourly_start_cap_reached":
+      return "Hourly start capacity has been reached";
+    case "concurrent_active_attempt_cap_reached":
+      return "Too many learners are currently active";
+    case "missing_slot":
+      return "A valid access slot is still missing";
+    case "before_window":
+      return "This exam window has not opened yet";
+    case "after_window":
+      return "This exam window has already closed";
+    case "attempt_in_progress":
+      return "A live attempt is already in progress";
+    case "attempt_limit_reached":
+      return "No more attempts remain for this exam";
+    default:
+      return "Start is blocked by current exam policy";
+  }
+}
+
+function startBlockGuidance(detail: StudentExamDetail, context: StartBlockContext) {
+  const runtimeDecision = detail.start_access.runtime_decision;
+  const thresholdState = runtimeDecision?.threshold_state;
+  const capacityState = runtimeDecision?.capacity_state;
+  const subscriptionResolution = detail.economy_access.subscription_resolution;
+
+  switch (context.reasonCode) {
+    case "slot_capacity_reached":
+      return capacityState?.start_capacity !== null && capacityState?.start_capacity !== undefined
+        ? `This slot is using ${capacityState.active_attempt_count} of ${capacityState.start_capacity} live attempt positions right now. Try again after some learners submit, or contact your institute for another slot.`
+        : context.message;
+    case "daily_start_cap_reached":
+      return thresholdState?.daily_start_cap
+        ? `The exam has already used its daily intake limit of ${thresholdState.daily_start_cap} starts. New starts can resume on the next allowed window or after the cap resets.`
+        : context.message;
+    case "hourly_start_cap_reached":
+      return thresholdState?.hourly_start_cap
+        ? `The exam has already used its hourly intake limit of ${thresholdState.hourly_start_cap} starts. Wait for the next hour or use a different assigned slot if your institute provides one.`
+        : context.message;
+    case "concurrent_active_attempt_cap_reached":
+      return thresholdState?.concurrent_active_attempt_cap
+        ? `The live attempt ceiling is ${thresholdState.concurrent_active_attempt_cap}. New starts will reopen once currently active learners finish or submit.`
+        : context.message;
+    case "missing_slot":
+      return "Your student profile does not currently resolve to exactly one active slot for this exam. This usually means the institute still needs to assign a direct slot or make the cohort slot mapping unambiguous.";
+    case "before_window":
+    case "after_window":
+      return context.message;
+    case "attempt_in_progress":
+      return "Resume your current attempt instead of trying to create a second active run.";
+    case "attempt_limit_reached":
+      return `You have already used all ${detail.attempts_used + detail.remaining_attempts} allowed attempts under this exam’s attempt policy.`;
+    default:
+      if (context.source === "economy" && subscriptionResolution?.is_applicable && !subscriptionResolution.is_covered) {
+        return detail.economy_access.can_unlock_with_stars
+          ? `Your subscription allowance is exhausted for this billing cycle, but you can still unlock this exam with ${detail.economy_access.star_cost} stars.`
+          : subscriptionResolution.reason_message || context.message;
+      }
+      return context.message;
+  }
+}
+
+function startBlockBullets(detail: StudentExamDetail, context: StartBlockContext) {
+  const runtimeDecision = detail.start_access.runtime_decision;
+  const thresholdState = runtimeDecision?.threshold_state;
+  const capacityState = runtimeDecision?.capacity_state;
+  const subscriptionResolution = detail.economy_access.subscription_resolution;
+
+  if (!context.active) return [];
+
+  if (context.reasonCode === "slot_capacity_reached") {
+    return [
+      runtimeDecision?.effective_slot?.label
+        ? `Assigned slot: ${runtimeDecision.effective_slot.label}`
+        : "You are currently routed through a slot-managed access path.",
+      capacityState?.start_remaining !== null && capacityState?.start_remaining !== undefined
+        ? `${capacityState.start_remaining} live positions remain right now.`
+        : "This block clears only when active attempt pressure drops.",
+      "If the issue persists, ask the institute to move you to another active slot.",
+    ];
+  }
+
+  if (
+    ["daily_start_cap_reached", "hourly_start_cap_reached", "concurrent_active_attempt_cap_reached"].includes(
+      context.reasonCode,
+    )
+  ) {
+    return [
+      thresholdState?.daily_start_cap ? `Daily cap: ${thresholdState.daily_start_cap}` : "Daily cap is not exposed here.",
+      thresholdState?.hourly_start_cap ? `Hourly cap: ${thresholdState.hourly_start_cap}` : "Hourly cap is not exposed here.",
+      thresholdState?.concurrent_active_attempt_cap
+        ? `Concurrent cap: ${thresholdState.concurrent_active_attempt_cap}`
+        : "Concurrent cap is not exposed here.",
+    ];
+  }
+
+  if (context.source === "economy" && subscriptionResolution?.is_applicable) {
+    return [
+      `Allowance left: ${subscriptionResolution.remaining_allowance}/${subscriptionResolution.included_allowance}`,
+      subscriptionResolution.billing_period_end
+        ? `Current billing cycle ends by ${studentDateTimeLabel(subscriptionResolution.billing_period_end)}`
+        : "This allowance resets on your next subscription cycle boundary.",
+      detail.economy_access.can_unlock_with_stars
+        ? `You can still use ${detail.economy_access.star_cost} stars as a fallback path.`
+        : "No fallback unlock path is configured for this exam.",
+    ];
+  }
+
+  return [
+    `Reason source: ${titleCaseState(context.source || "policy")}`,
+    `Policy code: ${titleCaseState(context.reasonCode || "unknown")}`,
+    "Refresh the page after any schedule, assignment, or subscription change.",
+  ];
+}
+
 async function startAttemptAction(formData: FormData) {
   "use server";
 
@@ -264,6 +452,30 @@ async function startAttemptAction(formData: FormData) {
     redirect(`/app/attempts/${response.data.id}`);
   } catch (error) {
     unstable_rethrow(error);
+    if (error instanceof StudentApiError) {
+      const blockedStart =
+        error.payload &&
+        typeof error.payload === "object" &&
+        "blocked_start" in error.payload &&
+        typeof error.payload.blocked_start === "object" &&
+        error.payload.blocked_start !== null
+          ? (error.payload.blocked_start as Record<string, unknown>)
+          : null;
+
+      if (blockedStart) {
+        const blockedSource =
+          typeof blockedStart.reason_source === "string" ? blockedStart.reason_source : "";
+        const blockedReason =
+          typeof blockedStart.reason_code === "string" ? blockedStart.reason_code : "";
+        const query = new URLSearchParams({
+          error: error.message || "Unable to start this attempt right now.",
+          start_blocked: "1",
+          blocked_source: blockedSource,
+          blocked_reason: blockedReason,
+        });
+        redirect(`/app/exams/${examId}?${query.toString()}`);
+      }
+    }
     const message =
       error instanceof Error && error.message
         ? encodeURIComponent(error.message)
@@ -353,10 +565,16 @@ export default async function ExamDetailPage({
   searchParams,
 }: {
   params: Promise<{ examId: string }>;
-  searchParams: Promise<{ error?: string; message?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    message?: string;
+    start_blocked?: string;
+    blocked_source?: string;
+    blocked_reason?: string;
+  }>;
 }) {
   const { examId } = await params;
-  const { error, message } = await searchParams;
+  const { error, message, start_blocked, blocked_source, blocked_reason } = await searchParams;
   const { source, detail } = await loadExamDetail(examId);
 
   if (!detail) {
@@ -417,11 +635,7 @@ export default async function ExamDetailPage({
     );
   }
 
-  const canStart =
-    detail.availability_state === "available_now" &&
-    !detail.economy_access.is_locked &&
-    !detail.active_attempt &&
-    detail.remaining_attempts > 0;
+  const canStart = detail.can_start && detail.start_access.is_allowed;
   const canResume = Boolean(detail.active_attempt);
   const attempts = await fetchStudentAttempts().catch(() => []);
   const latestAttempt = attempts.find((attempt) => attempt.exam === detail.id) ?? null;
@@ -497,6 +711,26 @@ export default async function ExamDetailPage({
     allowSectionSwitching: detail.allow_section_switching,
     remainingAttempts: detail.remaining_attempts,
   });
+  const subscriptionResolution = detail.economy_access.subscription_resolution;
+  const startBlockContext = resolveStartBlockContext(detail, {
+    blockedStart: start_blocked,
+    blockedSource: blocked_source,
+    blockedReason: blocked_reason,
+    error,
+  });
+  const shouldUseBlockedPrimary =
+    startBlockContext.active &&
+    !canResume &&
+    !canOpenSummary &&
+    !canOpenReview &&
+    !(detail.economy_access.is_locked && detail.economy_access.can_unlock_with_stars);
+  const startBlockHeadlineText = startBlockHeadline(detail, startBlockContext);
+  const startBlockGuidanceText = startBlockGuidance(detail, startBlockContext);
+  const startBlockNextSteps = startBlockBullets(detail, startBlockContext);
+  const subscriptionAllowanceLabel =
+    subscriptionResolution?.is_applicable
+      ? `${subscriptionResolution.remaining_allowance}/${subscriptionResolution.included_allowance} left`
+      : "Not subscription-managed";
 
   return (
     <div className="studentPage studentDashboardModern studentLearnerPage studentLearnerExamDetailPage">
@@ -582,15 +816,24 @@ export default async function ExamDetailPage({
               : "Standard learner guidance",
           },
           {
-            label: "Star Access",
-            value: detail.economy_access.requires_unlock
-              ? detail.economy_access.is_unlocked
-                ? "Unlocked"
-                : detail.economy_access.can_unlock_with_stars
-                  ? `${detail.economy_access.star_cost} stars`
-                  : "Policy locked"
-              : "Free",
-            note: detail.economy_access.lock_reason_message || "Economy policy synced from backend",
+            label: "Access Path",
+            value: detail.economy_access.commercial_path
+              ? titleCaseState(detail.economy_access.commercial_path)
+              : detail.economy_access.requires_unlock
+                ? "Controlled"
+                : "Free",
+            note:
+              detail.economy_access.lock_reason_message ||
+              (subscriptionResolution?.is_applicable
+                ? `Allowance ${subscriptionAllowanceLabel}`
+                : "Economy policy synced from backend"),
+          },
+          {
+            label: "Allowance",
+            value: subscriptionAllowanceLabel,
+            note: subscriptionResolution?.billing_period_end
+              ? `Resets by ${studentDateTimeLabel(subscriptionResolution.billing_period_end)}`
+              : "Shown when this exam uses subscription allowance",
           },
         ]}
       />
@@ -671,6 +914,24 @@ export default async function ExamDetailPage({
                 </p>
               </div>
             ) : null}
+            {subscriptionResolution?.is_applicable ? (
+              <div className="studentInsightMessage">
+                <span className="placeholderDot" aria-hidden="true" />
+                <p>
+                  {subscriptionResolution.is_covered
+                    ? `This exam is covered by your subscription. ${subscriptionResolution.remaining_allowance} of ${subscriptionResolution.included_allowance} allowance attempts remain in the current billing cycle.`
+                    : detail.economy_access.can_unlock_with_stars
+                      ? `Your subscription allowance is exhausted for this billing cycle, but you can still unlock this exam with ${detail.economy_access.star_cost} stars.`
+                      : subscriptionResolution.reason_message || "No subscription allowance is left for this billing cycle."}
+                </p>
+              </div>
+            ) : null}
+            {startBlockContext.active ? (
+              <div className="studentInsightMessage">
+                <span className="placeholderDot" aria-hidden="true" />
+                <p>{startBlockGuidanceText}</p>
+              </div>
+            ) : null}
           </div>
         </article>
 
@@ -678,7 +939,7 @@ export default async function ExamDetailPage({
           <div className="sectionHeading">
             <strong>Primary Action</strong>
             <StatusPill
-              tone={detailAvailabilityTone({
+              tone={shouldUseBlockedPrimary ? startBlockTone(startBlockContext.reasonCode) : detailAvailabilityTone({
                 canResume,
                 canStart,
                 canOpenSummary,
@@ -689,13 +950,13 @@ export default async function ExamDetailPage({
                 remainingAttempts: detail.remaining_attempts,
               })}
             >
-              {primaryActionLabel}
+              {shouldUseBlockedPrimary ? startBlockHeadlineText : primaryActionLabel}
             </StatusPill>
           </div>
           <div className="studentInsightMessageStack">
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
-              <p>{actionGuidance}</p>
+              <p>{shouldUseBlockedPrimary ? startBlockGuidanceText : actionGuidance}</p>
             </div>
           </div>
           <div className="studentInsightMessageStack">
@@ -705,7 +966,7 @@ export default async function ExamDetailPage({
             </div>
           </div>
           <div className="studentInsightMessageStack">
-            {nextStepBullets.map((bullet) => (
+            {(shouldUseBlockedPrimary ? startBlockNextSteps : nextStepBullets).map((bullet) => (
               <div className="studentInsightMessage" key={bullet}>
                 <span className="placeholderDot" aria-hidden="true" />
                 <p>{bullet}</p>

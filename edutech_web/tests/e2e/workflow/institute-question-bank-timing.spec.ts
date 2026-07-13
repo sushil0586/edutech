@@ -20,7 +20,7 @@ async function selectFirstNonEmptyOption(locator: Locator) {
 
 async function expectQuestionBankLanding(page: Parameters<typeof test>[0]["page"]) {
   await expect(page.getByRole("heading", { name: /question bank/i }).first()).toBeVisible();
-  await expect(page.getByText(/find questions faster/i)).toBeVisible();
+  await expect(page.getByText(/find questions faster/i).first()).toBeVisible();
 }
 
 async function measureTiming(args: {

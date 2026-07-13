@@ -67,12 +67,41 @@ export default async function TeacherQuestionPassageDetailPage({
     : resolvedSearchParams.message ?? "";
   const validationErrors = parseQuestionBankValidationErrors(resolvedSearchParams.validation);
 
+  const passage = await fetchTeacherQuestionPassageDetail(passageId).catch(() => null);
+
+  if (!passage) {
+    return (
+      <div className="studentPage">
+        <TeacherPageHeader
+          title="Comprehension Detail"
+          description="This route depends on live comprehension detail and academic lookup endpoints."
+        />
+        <StudentStatePanel
+          eyebrow="Load issue"
+          title="Comprehension detail could not be loaded"
+          description="The selected comprehension set was not available from the teacher-scoped question bank, or the academic lookup endpoints did not complete successfully."
+          bullets={[
+            "Teacher comprehension detail endpoint",
+            "Programs, subjects, and topics lookups",
+            "Teacher comprehension update endpoint",
+          ]}
+          ctaHref="/teacher/question-bank"
+          ctaLabel="Back to Question Bank"
+          statusLabel="Retry after backend check"
+        />
+      </div>
+    );
+  }
+
   const data = await Promise.all([
     fetchTeacherOptionCatalog(),
     fetchTeacherPrograms(),
-    fetchTeacherSubjects(),
-    fetchTeacherTopics(),
-    fetchTeacherQuestionPassageDetail(passageId),
+    passage.program
+      ? fetchTeacherSubjects({ institute: passage.institute, program: passage.program }).catch(() => [])
+      : Promise.resolve([]),
+    passage.subject
+      ? fetchTeacherTopics({ institute: passage.institute, subject: passage.subject }).catch(() => [])
+      : Promise.resolve([]),
   ]).catch(() => null);
 
   if (!data) {
@@ -99,7 +128,7 @@ export default async function TeacherQuestionPassageDetailPage({
     );
   }
 
-  const [optionCatalogEntries, programs, subjects, topics, passage] = data;
+  const [optionCatalogEntries, programs, subjects, topics] = data;
   const optionCatalog = groupTeacherOptionCatalog(optionCatalogEntries);
 
   return (

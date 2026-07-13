@@ -1,4 +1,4 @@
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from decimal import Decimal
 import secrets
 import string
@@ -11,6 +11,7 @@ from django.utils import timezone
 
 from apps.accounts.models import AccountRole
 from apps.academics.assessment_family_contracts import merge_assessment_family_contract
+from apps.institutes.models import InstituteManagementMode
 
 
 EXAM_PUBLISH_BLOCKER_INVALID_STATUS = "invalid_status"
@@ -22,15 +23,37 @@ EXAM_PUBLISH_BLOCKER_TOTAL_MARKS_MISMATCH = "total_marks_mismatch"
 EXAM_PUBLISH_BLOCKER_INVALID_QUESTION_CONFIGURATION = "invalid_question_configuration"
 EXAM_PUBLISH_BLOCKER_INACTIVE_SHARED_LIBRARY_ENTITLEMENT = "inactive_shared_library_entitlement"
 EXAM_PUBLISH_BLOCKER_SHARED_LIBRARY_PUBLISH_LIMIT_REACHED = "shared_library_publish_limit_reached"
+EXAM_PUBLISH_BLOCKER_AMBIGUOUS_SLOT_CONFIGURATION = "ambiguous_slot_configuration"
+EXAM_PUBLISH_BLOCKER_UNRESOLVABLE_SLOT_ASSIGNMENT = "unresolvable_slot_assignment"
+EXAM_PUBLISH_BLOCKER_MISSING_SELECTED_STUDENT_ASSIGNMENTS = "missing_selected_student_assignments"
 EXAM_PUBLISH_WARNING_MISSING_EXPLANATION = "missing_explanation"
 EXAM_PUBLISH_WARNING_UNVERIFIED_QUESTION = "unverified_question"
 EXAM_PUBLISH_WARNING_SHARED_LIBRARY_PUBLISH_LIMIT_NEAR = "shared_library_publish_limit_near"
+EXAM_PUBLISH_WARNING_IMPLICIT_SLOT_ROUTING = "implicit_slot_routing_in_use"
+EXAM_PUBLISH_WARNING_SLOT_START_CAP_TIGHT = "slot_start_cap_tight"
 
 
 ATTEMPT_POLICY_UNLIMITED_PRACTICE = "unlimited_practice"
 ATTEMPT_POLICY_BEST = "best"
 ASSIGNMENT_MODE_SCOPE = "scope"
 ASSIGNMENT_MODE_SELECTED_STUDENTS = "selected_students"
+EXAM_ACCESS_MODE_LEGACY = "global_window_legacy"
+EXAM_ACCESS_MODE_SLOT = "slot_managed"
+EXAM_ACCESS_MODE_LONG_WINDOW_ATTEMPT = "long_window_attempt_managed"
+EXAM_ACCESS_MODE_PLATFORM_EVENT = "platform_event_managed"
+RUNTIME_BLOCK_REASON_INACTIVE = "exam_inactive"
+RUNTIME_BLOCK_REASON_INVALID_STATUS = "exam_not_startable"
+RUNTIME_BLOCK_REASON_NOT_ASSIGNED = "not_assigned"
+RUNTIME_BLOCK_REASON_MISSING_SLOT = "missing_assigned_slot"
+RUNTIME_BLOCK_REASON_BEFORE_WINDOW = "before_window"
+RUNTIME_BLOCK_REASON_AFTER_WINDOW = "after_window"
+RUNTIME_BLOCK_REASON_SLOT_CAPACITY_REACHED = "slot_capacity_reached"
+RUNTIME_BLOCK_REASON_DAILY_START_CAP_REACHED = "daily_start_cap_reached"
+RUNTIME_BLOCK_REASON_HOURLY_START_CAP_REACHED = "hourly_start_cap_reached"
+RUNTIME_BLOCK_REASON_CONCURRENT_ACTIVE_CAP_REACHED = "concurrent_active_cap_reached"
+START_BLOCK_REASON_ECONOMY_LOCKED = "economy_locked"
+START_BLOCK_REASON_ATTEMPT_IN_PROGRESS = "attempt_in_progress"
+START_BLOCK_REASON_ATTEMPT_LIMIT_REACHED = "attempt_limit_reached"
 RESULT_PUBLISH_MODE_IMMEDIATE = "immediate"
 RESULT_PUBLISH_MODE_SCHEDULED = "scheduled"
 REVIEW_MODE_NONE = "none"
@@ -62,6 +85,16 @@ SECURITY_MODE_VIOLATION_LIMITED = "violation_limited"
 SECURITY_MODE_PROCTORED = "proctored"
 EXAM_CONTENT_TYPE = "exam"
 EXAM_ACCESS_POLICY_CACHE_TTL_SECONDS = 60
+DEFAULT_PUBLIC_RUNTIME_THRESHOLDS = {
+    "daily_start_cap": 1000,
+    "hourly_start_cap": 150,
+    "concurrent_active_attempt_cap": 250,
+}
+DEFAULT_PLATFORM_RUNTIME_THRESHOLDS = {
+    "daily_start_cap": 2000,
+    "hourly_start_cap": 250,
+    "concurrent_active_attempt_cap": 300,
+}
 
 INSTITUTE_EXAM_DEFAULT_FIELDS = {
     "duration_minutes",
@@ -452,6 +485,560 @@ def is_exam_assigned_to_student(exam, student):
     return exam.student_assignments.filter(student=student, is_active=True).exists()
 
 
+def _active_exam_access_slots(exam):
+    cached_slots = getattr(exam, "_active_exam_access_slots_cache", None)
+    if cached_slots is not None:
+        return cached_slots
+    slots = list(
+        exam.access_slots.filter(
+            is_active=True,
+            status="active",
+        ).order_by("slot_start_at", "created_at")
+    )
+    setattr(exam, "_active_exam_access_slots_cache", slots)
+    return slots
+
+
+def resolve_student_exam_slot(exam, student):
+    if student is None:
+        return None
+
+    prefetched_assignments = getattr(exam, "_prefetched_student_assignments", None)
+    if prefetched_assignments is not None:
+        direct_assignment = next(
+            (
+                assignment
+                for assignment in prefetched_assignments
+                if assignment.is_active and assignment.student_id == student.id
+            ),
+            None,
+        )
+    else:
+        direct_assignment = (
+            exam.student_assignments.select_related("access_slot")
+            .filter(student=student, is_active=True)
+            .first()
+        )
+
+    if (
+        direct_assignment is not None
+        and direct_assignment.access_slot_id
+        and direct_assignment.access_slot is not None
+        and direct_assignment.access_slot.is_active
+        and direct_assignment.access_slot.status == "active"
+    ):
+        return direct_assignment.access_slot
+
+    matching_cohort_slot = next(
+        (
+            slot
+            for slot in _active_exam_access_slots(exam)
+            if slot.cohort_id and slot.cohort_id == student.cohort_id
+        ),
+        None,
+    )
+    if matching_cohort_slot is not None:
+        return matching_cohort_slot
+
+    cohortless_slots = [
+        slot for slot in _active_exam_access_slots(exam) if slot.cohort_id is None
+    ]
+    if len(cohortless_slots) == 1:
+        return cohortless_slots[0]
+    return None
+
+
+def resolve_student_exam_access_window(exam, student, *, at_time=None):
+    current_time = at_time or timezone.now()
+    access_mode = getattr(exam, "resolved_access_mode", None) or EXAM_ACCESS_MODE_LEGACY
+    resolved_slot = resolve_student_exam_slot(exam, student)
+    inferred_slot_mode = (
+        access_mode == EXAM_ACCESS_MODE_LEGACY
+        and getattr(exam, "assignment_mode", None) == ASSIGNMENT_MODE_SELECTED_STUDENTS
+        and resolved_slot is not None
+    )
+    if access_mode == EXAM_ACCESS_MODE_SLOT or inferred_slot_mode:
+        if resolved_slot is None:
+            return {
+                "mode": EXAM_ACCESS_MODE_SLOT,
+                "slot_id": None,
+                "slot_label": "",
+                "window_start": None,
+                "window_end": None,
+                "grace_until": None,
+                "hard_end": None,
+                "active_at": current_time,
+            }
+        grace_until = resolved_slot.slot_end_at + timedelta(
+            minutes=int(resolved_slot.grace_period_minutes or 0)
+        )
+        return {
+            "mode": EXAM_ACCESS_MODE_SLOT,
+            "slot_id": str(resolved_slot.id),
+            "slot_label": resolved_slot.slot_label,
+            "window_start": resolved_slot.slot_start_at,
+            "window_end": resolved_slot.slot_end_at,
+            "grace_until": grace_until,
+            "hard_end": None,
+            "active_at": current_time,
+        }
+
+    if access_mode in {
+        EXAM_ACCESS_MODE_LONG_WINDOW_ATTEMPT,
+        EXAM_ACCESS_MODE_PLATFORM_EVENT,
+    }:
+        return {
+            "mode": access_mode,
+            "slot_id": None,
+            "slot_label": "",
+            "window_start": exam.start_at,
+            "window_end": exam.end_at,
+            "grace_until": exam.end_at,
+            "hard_end": None,
+            "active_at": current_time,
+        }
+
+    return {
+        "mode": EXAM_ACCESS_MODE_LEGACY,
+        "slot_id": None,
+        "slot_label": "",
+        "window_start": exam.start_at,
+        "window_end": exam.end_at,
+        "grace_until": exam.end_at,
+        "hard_end": exam.end_at,
+        "active_at": current_time,
+    }
+
+
+def _normalize_runtime_threshold_value(raw_value):
+    try:
+        numeric = int(raw_value)
+    except (TypeError, ValueError):
+        return None
+    return numeric if numeric > 0 else None
+
+
+def resolve_exam_runtime_thresholds(exam):
+    institute = getattr(exam, "institute", None)
+    management_mode = (
+        getattr(institute, "resolved_management_mode", None)
+        or InstituteManagementMode.PRIVATE_INSTITUTE_MANAGED
+    )
+    access_mode = getattr(exam, "resolved_access_mode", None) or EXAM_ACCESS_MODE_LEGACY
+    metadata = getattr(exam, "metadata", {}) if isinstance(getattr(exam, "metadata", {}), dict) else {}
+    overrides = metadata.get("runtime_thresholds", {})
+    if not isinstance(overrides, dict):
+        overrides = {}
+
+    overridden_daily_start_cap = _normalize_runtime_threshold_value(
+        overrides.get("daily_start_cap")
+    )
+    overridden_hourly_start_cap = _normalize_runtime_threshold_value(
+        overrides.get("hourly_start_cap")
+    )
+    overridden_concurrent_active_attempt_cap = _normalize_runtime_threshold_value(
+        overrides.get("concurrent_active_attempt_cap")
+    )
+
+    if access_mode not in {
+        EXAM_ACCESS_MODE_LONG_WINDOW_ATTEMPT,
+        EXAM_ACCESS_MODE_PLATFORM_EVENT,
+    }:
+        return {
+            "enabled": False,
+            "management_mode": management_mode,
+            "access_mode": access_mode,
+            "daily_start_cap": overridden_daily_start_cap,
+            "hourly_start_cap": overridden_hourly_start_cap,
+            "concurrent_active_attempt_cap": overridden_concurrent_active_attempt_cap,
+            "source": "exam_metadata" if overrides else "not_applicable",
+        }
+
+    base_thresholds = {}
+    source = "none"
+    if management_mode == InstituteManagementMode.PUBLIC_INSTITUTE_MANAGED:
+        base_thresholds = dict(DEFAULT_PUBLIC_RUNTIME_THRESHOLDS)
+        source = "public_defaults"
+    elif management_mode == InstituteManagementMode.PLATFORM_MANAGED:
+        base_thresholds = dict(DEFAULT_PLATFORM_RUNTIME_THRESHOLDS)
+        source = "platform_defaults"
+    if overrides:
+        source = "exam_metadata"
+
+    daily_start_cap = _normalize_runtime_threshold_value(
+        overrides.get("daily_start_cap", base_thresholds.get("daily_start_cap"))
+    )
+    hourly_start_cap = _normalize_runtime_threshold_value(
+        overrides.get("hourly_start_cap", base_thresholds.get("hourly_start_cap"))
+    )
+    concurrent_active_attempt_cap = _normalize_runtime_threshold_value(
+        overrides.get(
+            "concurrent_active_attempt_cap",
+            base_thresholds.get("concurrent_active_attempt_cap"),
+        )
+    )
+
+    enabled = any(
+        value is not None
+        for value in (
+            daily_start_cap,
+            hourly_start_cap,
+            concurrent_active_attempt_cap,
+        )
+    )
+    return {
+        "enabled": enabled,
+        "management_mode": management_mode,
+        "access_mode": access_mode,
+        "daily_start_cap": daily_start_cap,
+        "hourly_start_cap": hourly_start_cap,
+        "concurrent_active_attempt_cap": concurrent_active_attempt_cap,
+        "source": source,
+    }
+
+
+def _resolve_runtime_threshold_state(exam, *, now=None):
+    current_time = now or timezone.now()
+    policy = resolve_exam_runtime_thresholds(exam)
+    state = {
+        **policy,
+        "daily_start_count": 0,
+        "hourly_start_count": 0,
+        "concurrent_active_attempt_count": 0,
+        "daily_start_remaining": None,
+        "hourly_start_remaining": None,
+        "concurrent_active_attempt_remaining": None,
+        "blocked": False,
+        "block_reason_code": "",
+        "block_reason_message": "",
+    }
+    if not policy["enabled"]:
+        return state
+
+    attempts = exam.attempts.filter(is_active=True)
+    day_start = timezone.make_aware(
+        datetime.combine(timezone.localdate(current_time), time.min),
+        timezone.get_current_timezone(),
+    )
+    next_day_start = day_start + timedelta(days=1)
+    hour_start = current_time.replace(minute=0, second=0, microsecond=0)
+    next_hour_start = hour_start + timedelta(hours=1)
+
+    if policy["daily_start_cap"] is not None:
+        daily_start_count = attempts.filter(
+            started_at__gte=day_start,
+            started_at__lt=next_day_start,
+        ).count()
+        state["daily_start_count"] = daily_start_count
+        state["daily_start_remaining"] = max(policy["daily_start_cap"] - daily_start_count, 0)
+        if daily_start_count >= policy["daily_start_cap"]:
+            state["blocked"] = True
+            state["block_reason_code"] = RUNTIME_BLOCK_REASON_DAILY_START_CAP_REACHED
+            state["block_reason_message"] = (
+                "This exam has reached its daily start limit. Please try again later."
+            )
+            return state
+
+    if policy["hourly_start_cap"] is not None:
+        hourly_start_count = attempts.filter(
+            started_at__gte=hour_start,
+            started_at__lt=next_hour_start,
+        ).count()
+        state["hourly_start_count"] = hourly_start_count
+        state["hourly_start_remaining"] = max(policy["hourly_start_cap"] - hourly_start_count, 0)
+        if hourly_start_count >= policy["hourly_start_cap"]:
+            state["blocked"] = True
+            state["block_reason_code"] = RUNTIME_BLOCK_REASON_HOURLY_START_CAP_REACHED
+            state["block_reason_message"] = (
+                "This exam has reached its hourly start limit. Please try again shortly."
+            )
+            return state
+
+    if policy["concurrent_active_attempt_cap"] is not None:
+        concurrent_active_attempt_count = attempts.filter(status="in_progress").count()
+        state["concurrent_active_attempt_count"] = concurrent_active_attempt_count
+        state["concurrent_active_attempt_remaining"] = max(
+            policy["concurrent_active_attempt_cap"] - concurrent_active_attempt_count,
+            0,
+        )
+        if concurrent_active_attempt_count >= policy["concurrent_active_attempt_cap"]:
+            state["blocked"] = True
+            state["block_reason_code"] = RUNTIME_BLOCK_REASON_CONCURRENT_ACTIVE_CAP_REACHED
+            state["block_reason_message"] = (
+                "This exam has reached its active attempt limit. Please try again shortly."
+            )
+            return state
+
+    return state
+
+
+def resolve_exam_access_runtime(student, exam, now=None):
+    current_time = now or timezone.now()
+    institute = getattr(exam, "institute", None)
+    management_mode = (
+        getattr(institute, "resolved_management_mode", None)
+        or InstituteManagementMode.PRIVATE_INSTITUTE_MANAGED
+    )
+    access_window = resolve_student_exam_access_window(exam, student, at_time=current_time)
+    resolved_slot = None
+    occupancy = None
+    if access_window.get("slot_id"):
+        resolved_slot = resolve_student_exam_slot(exam, student)
+        if resolved_slot is not None:
+            occupancy = summarize_exam_slot_occupancy(resolved_slot)
+
+    decision = {
+        "management_mode": management_mode,
+        "access_mode": getattr(exam, "resolved_access_mode", None) or EXAM_ACCESS_MODE_LEGACY,
+        "is_allowed": True,
+        "block_reason_code": "",
+        "block_reason_message": "",
+        "effective_slot": {
+            "id": str(resolved_slot.id) if resolved_slot is not None else access_window.get("slot_id"),
+            "label": resolved_slot.slot_label if resolved_slot is not None else access_window.get("slot_label", ""),
+            "status": getattr(resolved_slot, "status", ""),
+        },
+        "access_window": access_window,
+        "capacity_state": {
+            "occupancy_state": occupancy.get("occupancy_state") if occupancy is not None else "healthy",
+            "start_capacity": occupancy.get("start_capacity") if occupancy is not None else None,
+            "active_attempt_count": occupancy.get("active_attempt_count") if occupancy is not None else 0,
+            "start_remaining": occupancy.get("start_remaining") if occupancy is not None else None,
+            "capacity_blocked": False,
+        },
+        "threshold_state": _resolve_runtime_threshold_state(exam, now=current_time),
+    }
+
+    if not exam.is_active:
+        decision["is_allowed"] = False
+        decision["block_reason_code"] = RUNTIME_BLOCK_REASON_INACTIVE
+        decision["block_reason_message"] = "Exam is inactive."
+        return decision
+
+    if exam.status not in {"scheduled", "live"}:
+        decision["is_allowed"] = False
+        decision["block_reason_code"] = RUNTIME_BLOCK_REASON_INVALID_STATUS
+        decision["block_reason_message"] = "Attempt can only start for scheduled or live exams."
+        return decision
+
+    if not is_exam_assigned_to_student(exam, student):
+        decision["is_allowed"] = False
+        decision["block_reason_code"] = RUNTIME_BLOCK_REASON_NOT_ASSIGNED
+        decision["block_reason_message"] = "This exam is not assigned to the selected student."
+        return decision
+
+    if access_window["mode"] == EXAM_ACCESS_MODE_SLOT and not access_window.get("slot_id"):
+        decision["is_allowed"] = False
+        decision["block_reason_code"] = RUNTIME_BLOCK_REASON_MISSING_SLOT
+        decision["block_reason_message"] = (
+            "This slot-managed exam is not available because no active access slot is assigned."
+        )
+        return decision
+
+    if access_window["window_start"] and current_time < access_window["window_start"]:
+        decision["is_allowed"] = False
+        decision["block_reason_code"] = RUNTIME_BLOCK_REASON_BEFORE_WINDOW
+        decision["block_reason_message"] = "Exam has not started yet."
+        return decision
+
+    access_end = access_window["grace_until"] or access_window["window_end"]
+    if access_end and current_time > access_end:
+        decision["is_allowed"] = False
+        decision["block_reason_code"] = RUNTIME_BLOCK_REASON_AFTER_WINDOW
+        decision["block_reason_message"] = "Exam is no longer available for attempts."
+        return decision
+
+    if occupancy is not None:
+        start_capacity = occupancy.get("start_capacity")
+        active_attempt_count = occupancy.get("active_attempt_count", 0)
+        if start_capacity is not None and active_attempt_count >= start_capacity:
+            decision["is_allowed"] = False
+            decision["block_reason_code"] = RUNTIME_BLOCK_REASON_SLOT_CAPACITY_REACHED
+            decision["block_reason_message"] = (
+                f"The access slot '{resolved_slot.slot_label}' has reached its active attempt limit. "
+                "Please try again shortly or contact support."
+            )
+            decision["capacity_state"]["capacity_blocked"] = True
+            return decision
+
+    threshold_state = decision["threshold_state"]
+    if threshold_state.get("blocked"):
+        decision["is_allowed"] = False
+        decision["block_reason_code"] = threshold_state["block_reason_code"]
+        decision["block_reason_message"] = threshold_state["block_reason_message"]
+        return decision
+
+    return decision
+
+
+def resolve_exam_start_access(
+    student,
+    exam,
+    *,
+    now=None,
+    economy_access=None,
+    attempts_used=None,
+    has_active_attempt=False,
+):
+    runtime_decision = resolve_exam_access_runtime(student, exam, now=now)
+    if not runtime_decision["is_allowed"]:
+        return {
+            "is_allowed": False,
+            "reason_source": "runtime",
+            "reason_code": runtime_decision["block_reason_code"],
+            "reason_message": runtime_decision["block_reason_message"],
+            "runtime_decision": runtime_decision,
+        }
+
+    if economy_access is not None and economy_access.get("is_locked"):
+        return {
+            "is_allowed": False,
+            "reason_source": "economy",
+            "reason_code": economy_access.get("lock_reason_code") or START_BLOCK_REASON_ECONOMY_LOCKED,
+            "reason_message": economy_access.get("lock_reason_message")
+            or "This exam must be unlocked before you can start it.",
+            "runtime_decision": runtime_decision,
+        }
+
+    if has_active_attempt:
+        return {
+            "is_allowed": False,
+            "reason_source": "attempt_state",
+            "reason_code": START_BLOCK_REASON_ATTEMPT_IN_PROGRESS,
+            "reason_message": "Student already has an in-progress attempt for this exam.",
+            "runtime_decision": runtime_decision,
+        }
+
+    if attempts_used is not None and remaining_attempts_for_student(exam, attempts_used) <= 0:
+        return {
+            "is_allowed": False,
+            "reason_source": "attempt_policy",
+            "reason_code": START_BLOCK_REASON_ATTEMPT_LIMIT_REACHED,
+            "reason_message": "Maximum attempts reached for this exam.",
+            "runtime_decision": runtime_decision,
+        }
+
+    return {
+        "is_allowed": True,
+        "reason_source": "",
+        "reason_code": "",
+        "reason_message": "",
+        "runtime_decision": runtime_decision,
+    }
+
+
+def summarize_exam_slot_occupancy(slot):
+    assignment_count = slot.student_assignments.filter(is_active=True).count()
+    active_attempt_count = slot.attempts.filter(
+        is_active=True,
+        status="in_progress",
+    ).count()
+
+    assignment_capacity = slot.assignment_capacity
+    start_capacity = slot.start_capacity
+    assignment_remaining = (
+        None
+        if assignment_capacity is None
+        else max(int(assignment_capacity) - assignment_count, 0)
+    )
+    start_remaining = (
+        None
+        if start_capacity is None
+        else max(int(start_capacity) - active_attempt_count, 0)
+    )
+
+    occupancy_state = "healthy"
+    if start_capacity is not None and active_attempt_count >= start_capacity:
+        occupancy_state = "full"
+    elif assignment_capacity is not None and assignment_count >= assignment_capacity:
+        occupancy_state = "full"
+    elif (
+        start_capacity is not None
+        and start_remaining is not None
+        and start_remaining <= max(1, int(start_capacity * 0.1))
+    ):
+        occupancy_state = "near_full"
+    elif (
+        assignment_capacity is not None
+        and assignment_remaining is not None
+        and assignment_remaining <= max(1, int(assignment_capacity * 0.1))
+    ):
+        occupancy_state = "near_full"
+
+    return {
+        "slot_id": str(slot.id),
+        "slot_label": slot.slot_label,
+        "assignment_capacity": assignment_capacity,
+        "assignment_count": assignment_count,
+        "assignment_remaining": assignment_remaining,
+        "start_capacity": start_capacity,
+        "active_attempt_count": active_attempt_count,
+        "start_remaining": start_remaining,
+        "occupancy_state": occupancy_state,
+    }
+
+
+def create_exam_slot_audit_log(
+    *,
+    slot,
+    action,
+    user=None,
+    message="",
+    metadata=None,
+    request=None,
+):
+    from apps.reports.services import create_audit_log
+
+    merged_metadata = {
+        "exam_id": str(slot.exam_id),
+        "slot_label": slot.slot_label,
+        "slot_start_at": slot.slot_start_at.isoformat() if slot.slot_start_at else None,
+        "slot_end_at": slot.slot_end_at.isoformat() if slot.slot_end_at else None,
+        **(metadata or {}),
+    }
+    return create_audit_log(
+        user=user,
+        institute=slot.exam.institute,
+        action=action,
+        entity_type="exam_access_slot",
+        entity_id=slot.id,
+        message=message,
+        metadata=merged_metadata,
+        request=request,
+    )
+
+
+def create_exam_slot_override_audit_log(
+    *,
+    exam,
+    student,
+    action,
+    user=None,
+    slot=None,
+    message="",
+    metadata=None,
+    request=None,
+):
+    from apps.reports.services import create_audit_log
+
+    merged_metadata = {
+        "exam_id": str(exam.id),
+        "student_id": str(student.id),
+        "slot_id": str(slot.id) if slot is not None else None,
+        **(metadata or {}),
+    }
+    return create_audit_log(
+        user=user,
+        institute=exam.institute,
+        action=action,
+        entity_type="exam_student_access_override",
+        entity_id=str(student.id),
+        message=message,
+        metadata=merged_metadata,
+        request=request,
+    )
+
+
 def resolve_exam_source_metadata(exam):
     cached_metadata = getattr(exam, "_exam_source_metadata_cache", None)
     if cached_metadata is not None:
@@ -638,8 +1225,11 @@ def build_exam_content_target(exam):
 def resolve_exam_economy_access(student, exam, *, granted_by=None):
     from apps.economy.models import AccessPolicyType, UnlockStateStatus
     from apps.economy.services import (
+        SPONSORED_COMMERCIAL_PATHS,
         evaluate_and_sync_unlock_state,
+        resolve_access_policy_commercial_path,
         resolve_content_access_policy,
+        resolve_student_exam_subscription_allowance,
     )
 
     target = build_exam_content_target(exam)
@@ -653,7 +1243,67 @@ def resolve_exam_economy_access(student, exam, *, granted_by=None):
             subject=target["subject"],
         )
 
+    commercial_path = resolve_access_policy_commercial_path(access_policy)
+    if commercial_path in SPONSORED_COMMERCIAL_PATHS:
+        return {
+            "content_type": target["content_type"],
+            "content_key": target["content_key"],
+            "subject_id": str(target["subject"].id) if target["subject"] is not None else None,
+            "content_label": (
+                access_policy.content_label
+                if access_policy is not None and access_policy.content_label
+                else exam.title
+            ),
+            "policy_type": access_policy.policy_type if access_policy is not None else None,
+            "commercial_path": commercial_path,
+            "star_cost": int(access_policy.star_cost or 0) if access_policy is not None else 0,
+            "requires_unlock": False,
+            "can_unlock_with_stars": False,
+            "is_unlocked": True,
+            "is_locked": False,
+            "lock_reason_code": "",
+            "lock_reason_message": "",
+            "unlock_state_status": "",
+            "decision_type": "allowed_sponsored",
+            "should_consume_subscription_allowance": False,
+            "subscription_resolution": {
+                "is_applicable": False,
+                "commercial_path": commercial_path,
+            },
+        }
+
+    subscription_resolution = resolve_student_exam_subscription_allowance(
+        student=student,
+        exam=exam,
+        access_policy=access_policy,
+    )
     unlock_state = None
+    if subscription_resolution.get("commercial_path") == "subscription_only":
+        is_unlocked = subscription_resolution.get("is_covered", False)
+        return {
+            "content_type": target["content_type"],
+            "content_key": target["content_key"],
+            "subject_id": str(target["subject"].id) if target["subject"] is not None else None,
+            "content_label": (
+                access_policy.content_label
+                if access_policy is not None and access_policy.content_label
+                else exam.title
+            ),
+            "policy_type": access_policy.policy_type if access_policy is not None else None,
+            "commercial_path": commercial_path,
+            "star_cost": int(access_policy.star_cost or 0) if access_policy is not None else 0,
+            "requires_unlock": True,
+            "can_unlock_with_stars": False,
+            "is_unlocked": is_unlocked,
+            "is_locked": not is_unlocked,
+            "lock_reason_code": subscription_resolution.get("reason_code", ""),
+            "lock_reason_message": subscription_resolution.get("reason_message", ""),
+            "unlock_state_status": "unlocked" if is_unlocked else "locked",
+            "decision_type": "allowed_subscription" if is_unlocked else "blocked_no_subscription_allowance",
+            "should_consume_subscription_allowance": is_unlocked,
+            "subscription_resolution": subscription_resolution,
+        }
+
     if access_policy is not None:
         unlock_state = evaluate_and_sync_unlock_state(
             student=student,
@@ -677,6 +1327,37 @@ def resolve_exam_economy_access(student, exam, *, granted_by=None):
         and int(access_policy.star_cost or 0) > 0
         and not is_unlocked
     )
+    if subscription_resolution.get("commercial_path") == "subscription_or_stars":
+        if subscription_resolution.get("is_covered"):
+            is_unlocked = True
+            can_unlock_with_stars = False
+            unlock_state = None
+        else:
+            lock_reason_code = getattr(unlock_state, "lock_reason_code", "")
+            lock_reason_message = getattr(unlock_state, "lock_reason_message", "")
+            return {
+                "content_type": target["content_type"],
+                "content_key": target["content_key"],
+                "subject_id": str(target["subject"].id) if target["subject"] is not None else None,
+                "content_label": (
+                    access_policy.content_label
+                    if access_policy is not None and access_policy.content_label
+                    else exam.title
+                ),
+                "policy_type": access_policy.policy_type if access_policy is not None else None,
+                "commercial_path": commercial_path,
+                "star_cost": int(access_policy.star_cost or 0) if access_policy is not None else 0,
+                "requires_unlock": True,
+                "can_unlock_with_stars": can_unlock_with_stars,
+                "is_unlocked": is_unlocked,
+                "is_locked": not is_unlocked,
+                "lock_reason_code": lock_reason_code or subscription_resolution.get("reason_code", ""),
+                "lock_reason_message": lock_reason_message or subscription_resolution.get("reason_message", ""),
+                "unlock_state_status": getattr(unlock_state, "status", ""),
+                "decision_type": "allowed_subscription" if is_unlocked else "blocked_no_subscription_allowance",
+                "should_consume_subscription_allowance": False,
+                "subscription_resolution": subscription_resolution,
+            }
 
     return {
         "content_type": target["content_type"],
@@ -688,6 +1369,7 @@ def resolve_exam_economy_access(student, exam, *, granted_by=None):
             else exam.title
         ),
         "policy_type": access_policy.policy_type if access_policy is not None else None,
+        "commercial_path": commercial_path,
         "star_cost": int(access_policy.star_cost or 0) if access_policy is not None else 0,
         "requires_unlock": requires_unlock,
         "can_unlock_with_stars": can_unlock_with_stars,
@@ -696,6 +1378,13 @@ def resolve_exam_economy_access(student, exam, *, granted_by=None):
         "lock_reason_code": getattr(unlock_state, "lock_reason_code", ""),
         "lock_reason_message": getattr(unlock_state, "lock_reason_message", ""),
         "unlock_state_status": getattr(unlock_state, "status", ""),
+        "decision_type": "allowed_unlock" if is_unlocked else "blocked_no_unlock_path",
+        "should_consume_subscription_allowance": bool(
+            subscription_resolution.get("commercial_path") == "subscription_or_stars"
+            and subscription_resolution.get("is_covered")
+            and not getattr(unlock_state, "status", "") == UnlockStateStatus.UNLOCKED
+        ),
+        "subscription_resolution": subscription_resolution,
     }
 
 
@@ -709,6 +1398,7 @@ def sync_exam_access_policy(
     exam,
     *,
     policy_type="",
+    commercial_path="",
     star_cost=0,
     entitlement_code="",
     priority=100,
@@ -746,6 +1436,8 @@ def sync_exam_access_policy(
         priority=priority,
         is_active=True,
     )
+    if commercial_path:
+        policy.metadata = {"commercial_path": str(commercial_path).strip()}
     policy.save()
     invalidate_exam_access_policy_cache(institute=exam.institute)
     return policy
@@ -1706,6 +2398,7 @@ def preview_advanced_exam_blueprint(*, actor, blueprint):
             "title": blueprint["exam"]["title"],
             "code": blueprint["exam"]["code"],
             "source_type": blueprint["exam"]["source_type"],
+            "access_mode": blueprint["exam"].get("access_mode") or "global_window_legacy",
             "source_teacher_id": str(scope["source_teacher"].id) if scope["source_teacher"] is not None else None,
             "primary_subject": str(primary_subject.id) if primary_subject is not None else None,
             "primary_subject_name": primary_subject.name if primary_subject is not None else None,
@@ -1741,7 +2434,7 @@ def create_advanced_exam_from_blueprint(*, actor, blueprint):
     from apps.academics.models import Subject
     from apps.economy.models import InstituteQuestionUsageActionType
     from apps.economy.services import record_exam_question_bank_usage
-    from apps.exams.models import Exam, ExamQuestion, ExamSection
+    from apps.exams.models import Exam, ExamAccessMode, ExamQuestion, ExamSection
 
     preview = preview_advanced_exam_blueprint(actor=actor, blueprint=blueprint)
     if preview["blockers"]:
@@ -1817,6 +2510,11 @@ def create_advanced_exam_from_blueprint(*, actor, blueprint):
             Exam._meta.get_field("security_mode").default,
         ),
         "source_type": exam_payload["source_type"],
+        "access_mode": (
+            exam_payload.get("access_mode")
+            or resolved_exam.get("access_mode")
+            or ExamAccessMode.GLOBAL_WINDOW_LEGACY
+        ),
         "source_teacher": scope["source_teacher"],
         "assignment_mode": delivery_payload.get(
             "assignment_mode",
@@ -1900,6 +2598,7 @@ def create_advanced_exam_from_blueprint(*, actor, blueprint):
     policy = sync_exam_access_policy(
         exam,
         policy_type=economy_payload.get("policy_type", ""),
+        commercial_path=economy_payload.get("commercial_path", ""),
         star_cost=int(economy_payload.get("star_cost", 0) or 0),
         entitlement_code=economy_payload.get("entitlement_code", ""),
         priority=int(economy_payload.get("priority", 100) or 100),
@@ -2284,6 +2983,101 @@ def _build_exam_publish_issue(*, code, field, message, level):
     }
 
 
+def _build_exam_slot_publish_readiness(exam):
+    blockers = []
+    warnings = []
+    active_slots = _active_exam_access_slots(exam)
+    if not active_slots:
+        return {"blockers": blockers, "warnings": warnings}
+
+    cohortless_slots = [slot for slot in active_slots if slot.cohort_id is None]
+    if len(cohortless_slots) > 1:
+        blockers.append(
+            _build_exam_publish_issue(
+                code=EXAM_PUBLISH_BLOCKER_AMBIGUOUS_SLOT_CONFIGURATION,
+                field="access_slots",
+                message=(
+                    "Multiple active exam slots are not tied to cohorts. "
+                    "This creates ambiguous access resolution for students without explicit slot mapping."
+                ),
+                level="blocker",
+            )
+        )
+
+    active_assignments = list(
+        exam.student_assignments.filter(is_active=True)
+        .select_related("student", "access_slot")
+    )
+
+    if exam.assignment_mode == ASSIGNMENT_MODE_SELECTED_STUDENTS and not active_assignments:
+        blockers.append(
+            _build_exam_publish_issue(
+                code=EXAM_PUBLISH_BLOCKER_MISSING_SELECTED_STUDENT_ASSIGNMENTS,
+                field="student_assignments",
+                message="Selected-student exams must have at least one active student assignment before publishing.",
+                level="blocker",
+            )
+        )
+
+    if active_assignments:
+        active_cohort_slot_ids = {slot.cohort_id for slot in active_slots if slot.cohort_id}
+        single_cohortless_slot_available = len(cohortless_slots) == 1
+        implicit_routing_count = 0
+        for assignment in active_assignments:
+            if assignment.access_slot_id:
+                continue
+            student_cohort_id = assignment.student.cohort_id
+            if student_cohort_id and student_cohort_id in active_cohort_slot_ids:
+                implicit_routing_count += 1
+                continue
+            if single_cohortless_slot_available:
+                implicit_routing_count += 1
+                continue
+            blockers.append(
+                _build_exam_publish_issue(
+                    code=EXAM_PUBLISH_BLOCKER_UNRESOLVABLE_SLOT_ASSIGNMENT,
+                    field="student_assignments",
+                    message=(
+                        f"Student assignment '{assignment.student.full_name}' does not resolve to exactly one active exam slot."
+                    ),
+                    level="blocker",
+                )
+            )
+            break
+        if implicit_routing_count > 0:
+            warnings.append(
+                _build_exam_publish_issue(
+                    code=EXAM_PUBLISH_WARNING_IMPLICIT_SLOT_ROUTING,
+                    field="student_assignments",
+                    message=(
+                        f"{implicit_routing_count} selected student assignment"
+                        f"{'' if implicit_routing_count == 1 else 's'} still rely on default slot routing "
+                        "instead of a direct slot override."
+                    ),
+                    level="warning",
+                )
+            )
+
+    for slot in active_slots:
+        occupancy = summarize_exam_slot_occupancy(slot)
+        start_capacity = occupancy.get("start_capacity")
+        assignment_count = occupancy.get("assignment_count", 0)
+        if start_capacity is not None and assignment_count > start_capacity:
+            warnings.append(
+                _build_exam_publish_issue(
+                    code=EXAM_PUBLISH_WARNING_SLOT_START_CAP_TIGHT,
+                    field="access_slots",
+                    message=(
+                        f"Slot '{slot.slot_label}' has {assignment_count} assigned learner"
+                        f"{'' if assignment_count == 1 else 's'} but only {start_capacity} runtime start capacity."
+                    ),
+                    level="warning",
+                )
+            )
+
+    return {"blockers": blockers, "warnings": warnings}
+
+
 def build_exam_publish_readiness(exam, exam_questions=None):
     from apps.question_bank.services import (
         institute_has_question_authoring_access,
@@ -2301,6 +3095,9 @@ def build_exam_publish_readiness(exam, exam_questions=None):
     question_list = list(queryset)
     blockers = []
     warnings = []
+    slot_readiness = _build_exam_slot_publish_readiness(exam)
+    blockers.extend(slot_readiness["blockers"])
+    warnings.extend(slot_readiness["warnings"])
 
     if exam.status not in {"draft", "cancelled"}:
         blockers.append(

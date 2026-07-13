@@ -80,6 +80,26 @@ export default async function InstituteAcademicSetupPage({
     : null;
 
   const instituteQuery = profile.institute ? `?institute=${profile.institute}&page_size=100` : "?page_size=100";
+  const teacherQuery = profile.institute ? `?institute=${profile.institute}&page_size=100` : "?page_size=100";
+  const studentCountPath = profile.institute ? `/api/v1/students/?institute=${profile.institute}` : "/api/v1/students/";
+  const teacherCountPath = profile.institute ? `/api/v1/teachers/?institute=${profile.institute}` : "/api/v1/teachers/";
+  const academicYearsPath = `/api/v1/academics/academic-years/${instituteQuery}`;
+  const programsPath = `/api/v1/academics/programs/${instituteQuery}`;
+  const cohortsPath = `/api/v1/academics/cohorts/${instituteQuery}`;
+  const subjectsPath = `/api/v1/academics/subjects/${instituteQuery}`;
+  const topicsPath = `/api/v1/academics/topics/${instituteQuery}`;
+  const teachersPath = `/api/v1/teachers/${teacherQuery}`;
+  const assignmentsPath = `/api/v1/teachers/assignments/${teacherQuery}`;
+  const needsAcademicYears =
+    activeSection === "academic-years" || activeSection === "cohorts" || activeSection === "teacher-assignments";
+  const needsPrograms =
+    activeSection === "programs" || activeSection === "cohorts" || activeSection === "subjects" || activeSection === "teacher-assignments";
+  const needsCohorts = activeSection === "cohorts" || activeSection === "teacher-assignments";
+  const needsSubjects = activeSection === "subjects" || activeSection === "topics" || activeSection === "teacher-assignments";
+  const needsTopics = activeSection === "topics";
+  const needsTeacherAssignments = activeSection === "teacher-assignments";
+  const needsOptionCatalog = activeSection === "exam-defaults";
+  const needsAssessmentFamilies = activeSection === "exam-defaults" || activeSection === "programs";
 
   const [
     academicYears,
@@ -91,20 +111,36 @@ export default async function InstituteAcademicSetupPage({
     assignments,
     optionCatalogEntries,
     assessmentFamilies,
+    academicYearCount,
+    programCount,
+    cohortCount,
+    subjectCount,
+    topicCount,
+    assignmentCount,
     studentCount,
     teacherCount,
   ] = await Promise.all([
-    fetchPortalList<AcademicYearRecord>(`/api/v1/academics/academic-years/${instituteQuery}`),
-    fetchPortalList<ProgramRecord>(`/api/v1/academics/programs/${instituteQuery}`),
-    fetchPortalList<CohortRecord>(`/api/v1/academics/cohorts/${instituteQuery}`),
-    fetchPortalList<SubjectRecord>(`/api/v1/academics/subjects/${instituteQuery}`),
-    fetchPortalList<TopicRecord>(`/api/v1/academics/topics/${instituteQuery}`),
-    fetchPortalList<TeacherRecord>(`/api/v1/teachers/${profile.institute ? `?institute=${profile.institute}&page_size=100` : "?page_size=100"}`),
-    fetchPortalList<TeacherAssignmentRecord>(`/api/v1/teachers/assignments/${profile.institute ? `?institute=${profile.institute}&page_size=100` : "?page_size=100"}`),
-    fetchPortalList<OptionCatalogRecord>("/api/v1/academics/option-catalog/?page_size=200&is_active=true"),
-    fetchPortalList<AssessmentFamilyRecord>("/api/v1/academics/assessment-families/?page_size=50&is_active=true").catch(() => []),
-    loadCount(profile.institute ? `/api/v1/students/?institute=${profile.institute}` : "/api/v1/students/"),
-    loadCount(profile.institute ? `/api/v1/teachers/?institute=${profile.institute}` : "/api/v1/teachers/"),
+    needsAcademicYears ? fetchPortalList<AcademicYearRecord>(academicYearsPath) : Promise.resolve([]),
+    needsPrograms ? fetchPortalList<ProgramRecord>(programsPath) : Promise.resolve([]),
+    needsCohorts ? fetchPortalList<CohortRecord>(cohortsPath) : Promise.resolve([]),
+    needsSubjects ? fetchPortalList<SubjectRecord>(subjectsPath) : Promise.resolve([]),
+    needsTopics ? fetchPortalList<TopicRecord>(topicsPath) : Promise.resolve([]),
+    needsTeacherAssignments ? fetchPortalList<TeacherRecord>(teachersPath) : Promise.resolve([]),
+    needsTeacherAssignments ? fetchPortalList<TeacherAssignmentRecord>(assignmentsPath) : Promise.resolve([]),
+    needsOptionCatalog
+      ? fetchPortalList<OptionCatalogRecord>("/api/v1/academics/option-catalog/?page_size=200&is_active=true")
+      : Promise.resolve([]),
+    needsAssessmentFamilies
+      ? fetchPortalList<AssessmentFamilyRecord>("/api/v1/academics/assessment-families/?page_size=50&is_active=true").catch(() => [])
+      : Promise.resolve([]),
+    loadCount(academicYearsPath),
+    loadCount(programsPath),
+    loadCount(cohortsPath),
+    loadCount(subjectsPath),
+    loadCount(topicsPath),
+    loadCount(assignmentsPath),
+    loadCount(studentCountPath),
+    loadCount(teacherCountPath),
   ]);
 
   const selectedInstituteDefaults = institute?.exam_defaults ?? {};
@@ -119,12 +155,12 @@ export default async function InstituteAcademicSetupPage({
   };
 
   const sectionCounts: Record<AcademicPageSection, number | string> = {
-    "academic-years": academicYears.length,
-    programs: programs.length,
-    cohorts: cohorts.length,
-    subjects: subjects.length,
-    topics: topics.length,
-    "teacher-assignments": assignments.length,
+    "academic-years": academicYearCount,
+    programs: programCount,
+    cohorts: cohortCount,
+    subjects: subjectCount,
+    topics: topicCount,
+    "teacher-assignments": assignmentCount,
     "exam-defaults": "Policy",
   };
 
@@ -136,7 +172,7 @@ export default async function InstituteAcademicSetupPage({
       <PageHeader
         eyebrow="Institute workspace"
         title="Academic setup"
-        description=""
+        description="Manage the academic structure that powers roster scope, assignments, and exam defaults."
         contextLabel={institute ? `${institute.name} · ${institute.code}` : "Institute scope only"}
         className="pageHeaderCompact"
       />
@@ -149,10 +185,10 @@ export default async function InstituteAcademicSetupPage({
             Keep academic years, programs, cohorts, subjects, topics, assignments, and exam defaults aligned from one workspace.
           </p>
           <div className="adminInstituteHeroMeta">
-            <span>{academicYears.length} academic years</span>
-            <span>{programs.length} programs</span>
-            <span>{subjects.length} subjects</span>
-            <span>{topics.length} topics</span>
+            <span>{academicYearCount} academic years</span>
+            <span>{programCount} programs</span>
+            <span>{subjectCount} subjects</span>
+            <span>{topicCount} topics</span>
           </div>
           <div className="instituteConsoleActions adminInstituteHeroActions">
             <Link className="button buttonPrimary" href="/institute/academic-setup?section=academic-years">
@@ -224,11 +260,10 @@ export default async function InstituteAcademicSetupPage({
 
         <div className="adminPeopleActionBar">
           <div className="adminPeopleActionBarCopy">
-            <span>Institute-scoped academic control only</span>
             <strong>{activeSectionLabel}</strong>
             <span>
               {institute
-                ? `${institute.name} · ${sectionCounts[activeSection]}`
+                ? `${institute.name} · ${sectionCounts[activeSection]} in current section`
                 : sectionCounts[activeSection]}
             </span>
           </div>
@@ -247,6 +282,7 @@ export default async function InstituteAcademicSetupPage({
                 <InstituteExamDefaultsEditor
                   compact
                   instituteId={institute.id}
+                  savePath={`/api/institute/institutes/${institute.id}`}
                   assessmentFamilies={assessmentFamilies}
                   initialDefaults={{
                     duration_minutes:

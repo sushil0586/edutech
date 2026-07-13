@@ -383,13 +383,34 @@ test.describe("Admin mutable roster import actions", () => {
       await dialog.getByRole("button", { name: /preview import/i }).click();
       const previewResponse = await previewResponsePromise;
       expect(previewResponse.ok()).toBe(true);
+      const previewPayload = (await previewResponse.json()) as {
+        preview?: {
+          total_rows: number;
+          valid_rows: number;
+          invalid_rows: number;
+        };
+        total_rows?: number;
+        valid_rows?: number;
+        invalid_rows?: number;
+      };
+      const previewSummary =
+        previewPayload.preview ??
+        (typeof previewPayload.total_rows === "number"
+          ? {
+              total_rows: previewPayload.total_rows,
+              valid_rows: previewPayload.valid_rows ?? 0,
+              invalid_rows: previewPayload.invalid_rows ?? 0,
+            }
+          : null);
+      expect(previewSummary).toBeTruthy();
+      expect(previewSummary?.total_rows).toBe(2);
+      expect(previewSummary?.valid_rows).toBe(1);
+      expect(previewSummary?.invalid_rows).toBe(1);
 
       await expect(dialog.getByText(/preview generated\./i)).toBeVisible();
       const previewPanel = dialog.locator(".rosterPreviewPanel");
       await expect(previewPanel).toContainText(/rows/i);
-      await expect(previewPanel).toContainText(/^2$/);
       await expect(previewPanel).toContainText(/valid/i);
-      await expect(previewPanel).toContainText(/^1$/);
       await expect(previewPanel).toContainText(/invalid/i);
 
       const validPreviewRow = previewPanel.locator(".rosterPreviewRow").filter({

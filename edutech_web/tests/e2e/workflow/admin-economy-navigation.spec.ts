@@ -12,11 +12,11 @@ const lanes = [
 ] as const;
 
 const focusedRoutes = [
-  { url: "/admin/economy?tab=overview&focus=policy", activeTabHref: '/admin/economy?tab=overview', focusValue: "policy" },
-  { url: "/admin/economy?tab=catalog&focus=star-packs", activeTabHref: '/admin/economy?tab=catalog', focusValue: "star-packs" },
-  { url: "/admin/economy?tab=access-control&focus=unlocks", activeTabHref: '/admin/economy?tab=access-control', focusValue: "unlocks" },
-  { url: "/admin/economy?tab=question-bank&focus=visibility", activeTabHref: '/admin/economy?tab=question-bank', focusValue: "visibility" },
-  { url: "/admin/economy?tab=support-ops&focus=student-support", activeTabHref: '/admin/economy?tab=support-ops', focusValue: "student-support" },
+  { url: "/admin/economy?tab=overview&focus=policy", tab: "overview", focusValue: "policy" },
+  { url: "/admin/economy?tab=catalog&focus=star-packs", tab: "catalog", focusValue: "star-packs" },
+  { url: "/admin/economy?tab=access-control&focus=unlocks", tab: "access-control", focusValue: "unlocks" },
+  { url: "/admin/economy?tab=question-bank&focus=visibility", tab: "question-bank", focusValue: "visibility" },
+  { url: "/admin/economy?tab=support-ops&focus=student-support", tab: "support-ops", focusValue: "student-support" },
 ] as const;
 
 test.describe("Admin economy lane navigation", () => {
@@ -26,16 +26,15 @@ test.describe("Admin economy lane navigation", () => {
     page.getByRole("navigation", { name: /economy workspace sections/i });
 
   test("@workflow admin can move between economy lanes and preserve tab selection", async ({ page }) => {
-    await loginAsRole(page, "admin");
+      await loginAsRole(page, "admin");
     await expectAdminWorkspace(page);
 
     for (const lane of lanes) {
       await page.goto(`/admin/economy?tab=${lane.tab}`);
       await expect(page).toHaveURL(new RegExp(`/admin/economy\\?tab=${lane.tab.replace("-", "\\-")}`));
-      await expect(workspaceNav(page).locator(`a[href="/admin/economy?tab=${lane.tab}"]`)).toHaveAttribute(
-        "aria-current",
-        "page",
-      );
+      await expect(
+        workspaceNav(page).locator(`a[href*="tab=${lane.tab}"][aria-current="page"]`).first(),
+      ).toBeVisible();
       await expect(page.getByRole("heading", { name: lane.heading })).toBeVisible();
     }
   });
@@ -46,10 +45,9 @@ test.describe("Admin economy lane navigation", () => {
 
     await page.goto("/admin/economy?tab=not-a-real-lane");
 
-    await expect(workspaceNav(page).locator('a[href="/admin/economy?tab=overview"]')).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
+    await expect(
+      workspaceNav(page).locator('a[href*="tab=overview"][aria-current="page"]').first(),
+    ).toBeVisible();
     await expect(page.getByRole("heading", { name: /^overview$/i })).toBeVisible();
   });
 
@@ -60,10 +58,9 @@ test.describe("Admin economy lane navigation", () => {
     for (const route of focusedRoutes) {
       await page.goto(route.url);
       await expect(page).toHaveURL(route.url);
-      await expect(workspaceNav(page).locator(`a[href="${route.activeTabHref}"]`)).toHaveAttribute(
-        "aria-current",
-        "page",
-      );
+      await expect(
+        workspaceNav(page).locator(`a[href*="tab=${route.tab}"][aria-current="page"]`).first(),
+      ).toBeVisible();
       await expect(page.getByRole("combobox", { name: /economy subsection/i })).toHaveValue(route.focusValue);
     }
   });

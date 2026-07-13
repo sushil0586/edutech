@@ -31,15 +31,19 @@ function firstError(value: unknown) {
   return typeof value === "string" ? value : "";
 }
 
-export function TeacherCreateDialog({
+function TeacherCreateDialogPanel({
+  dialogSessionKey,
   instituteId,
+  onClose,
+  onMessage,
 }: {
+  dialogSessionKey: number;
   instituteId: string | null;
+  onClose: (options?: { preserveMessage?: boolean }) => void;
+  onMessage: (message: string) => void;
 }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
   const [employeeCode, setEmployeeCode] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -52,19 +56,14 @@ export function TeacherCreateDialog({
   const [isActive, setIsActive] = useState(true);
   const [createLogin, setCreateLogin] = useState(true);
   const [fieldErrors, setFieldErrors] = useState<TeacherFieldErrors>({});
-  const portalTarget = typeof document === "undefined" ? null : document.body;
 
   useEffect(() => {
-    if (!open) {
-      return;
-    }
-
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        closeDialog();
+        onClose();
       }
     }
 
@@ -73,38 +72,15 @@ export function TeacherCreateDialog({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [open]);
-
-  function resetFormFields() {
-    setEmployeeCode("");
-    setFirstName("");
-    setLastName("");
-    setEmail("");
-    setPhone("");
-    setQualification("");
-    setSpecialization("");
-    setBio("");
-    setJoinedAt("");
-    setIsActive(true);
-    setCreateLogin(true);
-    setFieldErrors({});
-  }
-
-  function closeDialog(options?: { preserveMessage?: boolean }) {
-    setOpen(false);
-    if (!options?.preserveMessage) {
-      setMessage("");
-    }
-    setFieldErrors({});
-  }
+  }, [onClose]);
 
   function handleOverlayClick() {
-    closeDialog();
+    onClose();
   }
 
   async function submitTeacher() {
     if (!instituteId) {
-      setMessage("Select an institute before creating a teacher.");
+      onMessage("Select an institute before creating a teacher.");
       return;
     }
     const nextFieldErrors: TeacherFieldErrors = {};
@@ -112,12 +88,12 @@ export function TeacherCreateDialog({
     if (!firstName.trim()) nextFieldErrors.first_name = "First name is required.";
     if (Object.keys(nextFieldErrors).length > 0) {
       setFieldErrors(nextFieldErrors);
-      setMessage("Fill the required fields to continue.");
+      onMessage("Fill the required fields to continue.");
       return;
     }
 
     setLoading(true);
-    setMessage("");
+    onMessage("");
     setFieldErrors({});
 
     try {
@@ -179,20 +155,198 @@ export function TeacherCreateDialog({
         if (!loginResponse.ok) {
           throw new Error(loginPayload.detail ?? "Teacher saved, but login creation failed.");
         }
-        setMessage(
+        onMessage(
           `Teacher created and login generated${loginPayload.username ? ` for ${loginPayload.username}` : ""}.`,
         );
       } else {
-        setMessage("Teacher created successfully.");
+        onMessage("Teacher created successfully.");
       }
 
-      resetFormFields();
-      closeDialog({ preserveMessage: true });
+      onClose({ preserveMessage: true });
       router.refresh();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Teacher creation failed.");
+      onMessage(error instanceof Error ? error.message : "Teacher creation failed.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  return (
+    <div
+      key={dialogSessionKey}
+      className="rosterImportOverlay"
+      role="presentation"
+      onClick={handleOverlayClick}
+    >
+      <div
+        aria-modal="true"
+        className="rosterImportDialog dashboardPanel"
+        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+      >
+        <div className="studentPageTight" data-dialog-session={dialogSessionKey}>
+          <div className="academicSectionHeader">
+            <div>
+              <span className="eyebrow">Create teacher</span>
+              <h3>New teacher profile</h3>
+            </div>
+            <button className="appTopbarAction setupSecondaryAction" onClick={handleOverlayClick} type="button">
+              Close
+            </button>
+          </div>
+          <p className="academicSectionDescription">
+            Add a teacher profile and optionally generate a login in one step.
+          </p>
+
+          <div className="setupFormGrid setupFormGridDense">
+            <label className="setupField">
+              <span>Employee code</span>
+              <input
+                aria-invalid={Boolean(fieldErrors.employee_code)}
+                autoComplete="new-password"
+                className={fieldErrors.employee_code ? "setupFieldInvalid" : undefined}
+                name={`teacher-employee-code-${dialogSessionKey}`}
+                value={employeeCode}
+                onChange={(event) => setEmployeeCode(event.target.value)}
+              />
+              {fieldErrors.employee_code ? <small className="setupFieldError">{fieldErrors.employee_code}</small> : null}
+            </label>
+            <label className="setupField">
+              <span>First name</span>
+              <input
+                aria-invalid={Boolean(fieldErrors.first_name)}
+                autoComplete="new-password"
+                className={fieldErrors.first_name ? "setupFieldInvalid" : undefined}
+                name={`teacher-first-name-${dialogSessionKey}`}
+                value={firstName}
+                onChange={(event) => setFirstName(event.target.value)}
+              />
+              {fieldErrors.first_name ? <small className="setupFieldError">{fieldErrors.first_name}</small> : null}
+            </label>
+            <label className="setupField">
+              <span>Last name</span>
+              <input
+                autoComplete="new-password"
+                name={`teacher-last-name-${dialogSessionKey}`}
+                value={lastName}
+                onChange={(event) => setLastName(event.target.value)}
+              />
+            </label>
+            <label className="setupField">
+              <span>Email</span>
+              <input
+                aria-invalid={Boolean(fieldErrors.email)}
+                autoComplete="new-password"
+                className={fieldErrors.email ? "setupFieldInvalid" : undefined}
+                name={`teacher-email-${dialogSessionKey}`}
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+              />
+              {fieldErrors.email ? <small className="setupFieldError">{fieldErrors.email}</small> : null}
+            </label>
+            <label className="setupField">
+              <span>Phone</span>
+              <input
+                aria-invalid={Boolean(fieldErrors.phone)}
+                autoComplete="new-password"
+                className={fieldErrors.phone ? "setupFieldInvalid" : undefined}
+                name={`teacher-phone-${dialogSessionKey}`}
+                value={phone}
+                onChange={(event) => setPhone(event.target.value)}
+              />
+              {fieldErrors.phone ? <small className="setupFieldError">{fieldErrors.phone}</small> : null}
+            </label>
+            <label className="setupField">
+              <span>Qualification</span>
+              <input
+                aria-invalid={Boolean(fieldErrors.qualification)}
+                autoComplete="new-password"
+                className={fieldErrors.qualification ? "setupFieldInvalid" : undefined}
+                name={`teacher-qualification-${dialogSessionKey}`}
+                value={qualification}
+                onChange={(event) => setQualification(event.target.value)}
+              />
+              {fieldErrors.qualification ? <small className="setupFieldError">{fieldErrors.qualification}</small> : null}
+            </label>
+            <label className="setupField">
+              <span>Specialization</span>
+              <input
+                aria-invalid={Boolean(fieldErrors.specialization)}
+                autoComplete="new-password"
+                className={fieldErrors.specialization ? "setupFieldInvalid" : undefined}
+                name={`teacher-specialization-${dialogSessionKey}`}
+                value={specialization}
+                onChange={(event) => setSpecialization(event.target.value)}
+              />
+              {fieldErrors.specialization ? <small className="setupFieldError">{fieldErrors.specialization}</small> : null}
+            </label>
+            <label className="setupField">
+              <span>Joined at</span>
+              <input
+                aria-invalid={Boolean(fieldErrors.joined_at)}
+                className={fieldErrors.joined_at ? "setupFieldInvalid" : undefined}
+                type="date"
+                value={joinedAt}
+                onChange={(event) => setJoinedAt(event.target.value)}
+              />
+              {fieldErrors.joined_at ? <small className="setupFieldError">{fieldErrors.joined_at}</small> : null}
+            </label>
+            <label className="setupField">
+              <span>Bio</span>
+              <textarea
+                aria-invalid={Boolean(fieldErrors.bio)}
+                autoComplete="new-password"
+                className={fieldErrors.bio ? "setupFieldInvalid" : undefined}
+                name={`teacher-bio-${dialogSessionKey}`}
+                rows={4}
+                value={bio}
+                onChange={(event) => setBio(event.target.value)}
+              />
+              {fieldErrors.bio ? <small className="setupFieldError">{fieldErrors.bio}</small> : null}
+            </label>
+          </div>
+
+          <div className="setupToggleGrid">
+            <label className="setupToggle setupToggleWide">
+              <input checked={isActive} onChange={(event) => setIsActive(event.target.checked)} type="checkbox" />
+              <span>Active</span>
+            </label>
+            <label className="setupToggle setupToggleWide">
+              <input checked={createLogin} onChange={(event) => setCreateLogin(event.target.checked)} type="checkbox" />
+              <span>Create login after save</span>
+            </label>
+          </div>
+
+          <div className="setupFieldActions">
+            <button className="appTopbarAction" disabled={loading} onClick={() => void submitTeacher()} type="button">
+              <span className="appTopbarActionIcon" aria-hidden="true">⌘</span>
+              {loading ? "Saving..." : "Create teacher"}
+            </button>
+            <button className="appTopbarAction setupSecondaryAction" disabled={loading} onClick={handleOverlayClick} type="button">
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function TeacherCreateDialog({
+  instituteId,
+}: {
+  instituteId: string | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const [dialogSessionKey, setDialogSessionKey] = useState(0);
+  const [message, setMessage] = useState("");
+  const portalTarget = typeof document === "undefined" ? null : document.body;
+
+  function closeDialog(options?: { preserveMessage?: boolean }) {
+    setOpen(false);
+    if (!options?.preserveMessage) {
+      setMessage("");
     }
   }
 
@@ -202,7 +356,10 @@ export function TeacherCreateDialog({
         <button
           className="appTopbarAction"
           disabled={!instituteId}
-          onClick={() => setOpen(true)}
+          onClick={() => {
+            setDialogSessionKey((currentValue) => currentValue + 1);
+            setOpen(true);
+          }}
           type="button"
         >
           <span className="appTopbarActionIcon" aria-hidden="true">
@@ -214,142 +371,18 @@ export function TeacherCreateDialog({
 
       {message ? <div className="featurePlaceholder statePanel"><p>{message}</p></div> : null}
 
-      {open && portalTarget ? createPortal((
-        <div className="rosterImportOverlay" role="presentation" onClick={handleOverlayClick}>
-          <div
-            aria-modal="true"
-            className="rosterImportDialog dashboardPanel"
-            onClick={(event) => event.stopPropagation()}
-            role="dialog"
-          >
-            <div className="studentPageTight">
-              <div className="academicSectionHeader">
-                <div>
-                  <span className="eyebrow">Create teacher</span>
-                  <h3>New teacher profile</h3>
-                </div>
-                <button className="appTopbarAction setupSecondaryAction" onClick={handleOverlayClick} type="button">
-                  Close
-                </button>
-              </div>
-              <p className="academicSectionDescription">
-                Add a teacher profile and optionally generate a login in one step.
-              </p>
-
-              <div className="setupFormGrid setupFormGridDense">
-                <label className="setupField">
-                  <span>Employee code</span>
-                  <input
-                    aria-invalid={Boolean(fieldErrors.employee_code)}
-                    className={fieldErrors.employee_code ? "setupFieldInvalid" : undefined}
-                    value={employeeCode}
-                    onChange={(event) => setEmployeeCode(event.target.value)}
-                  />
-                  {fieldErrors.employee_code ? <small className="setupFieldError">{fieldErrors.employee_code}</small> : null}
-                </label>
-                <label className="setupField">
-                  <span>First name</span>
-                  <input
-                    aria-invalid={Boolean(fieldErrors.first_name)}
-                    className={fieldErrors.first_name ? "setupFieldInvalid" : undefined}
-                    value={firstName}
-                    onChange={(event) => setFirstName(event.target.value)}
-                  />
-                  {fieldErrors.first_name ? <small className="setupFieldError">{fieldErrors.first_name}</small> : null}
-                </label>
-                <label className="setupField">
-                  <span>Last name</span>
-                  <input value={lastName} onChange={(event) => setLastName(event.target.value)} />
-                </label>
-                <label className="setupField">
-                  <span>Email</span>
-                  <input
-                    aria-invalid={Boolean(fieldErrors.email)}
-                    className={fieldErrors.email ? "setupFieldInvalid" : undefined}
-                    type="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                  />
-                  {fieldErrors.email ? <small className="setupFieldError">{fieldErrors.email}</small> : null}
-                </label>
-                <label className="setupField">
-                  <span>Phone</span>
-                  <input
-                    aria-invalid={Boolean(fieldErrors.phone)}
-                    className={fieldErrors.phone ? "setupFieldInvalid" : undefined}
-                    value={phone}
-                    onChange={(event) => setPhone(event.target.value)}
-                  />
-                  {fieldErrors.phone ? <small className="setupFieldError">{fieldErrors.phone}</small> : null}
-                </label>
-                <label className="setupField">
-                  <span>Qualification</span>
-                  <input
-                    aria-invalid={Boolean(fieldErrors.qualification)}
-                    className={fieldErrors.qualification ? "setupFieldInvalid" : undefined}
-                    value={qualification}
-                    onChange={(event) => setQualification(event.target.value)}
-                  />
-                  {fieldErrors.qualification ? <small className="setupFieldError">{fieldErrors.qualification}</small> : null}
-                </label>
-                <label className="setupField">
-                  <span>Specialization</span>
-                  <input
-                    aria-invalid={Boolean(fieldErrors.specialization)}
-                    className={fieldErrors.specialization ? "setupFieldInvalid" : undefined}
-                    value={specialization}
-                    onChange={(event) => setSpecialization(event.target.value)}
-                  />
-                  {fieldErrors.specialization ? <small className="setupFieldError">{fieldErrors.specialization}</small> : null}
-                </label>
-                <label className="setupField">
-                  <span>Joined at</span>
-                  <input
-                    aria-invalid={Boolean(fieldErrors.joined_at)}
-                    className={fieldErrors.joined_at ? "setupFieldInvalid" : undefined}
-                    type="date"
-                    value={joinedAt}
-                    onChange={(event) => setJoinedAt(event.target.value)}
-                  />
-                  {fieldErrors.joined_at ? <small className="setupFieldError">{fieldErrors.joined_at}</small> : null}
-                </label>
-                <label className="setupField">
-                  <span>Bio</span>
-                  <textarea
-                    aria-invalid={Boolean(fieldErrors.bio)}
-                    className={fieldErrors.bio ? "setupFieldInvalid" : undefined}
-                    rows={4}
-                    value={bio}
-                    onChange={(event) => setBio(event.target.value)}
-                  />
-                  {fieldErrors.bio ? <small className="setupFieldError">{fieldErrors.bio}</small> : null}
-                </label>
-              </div>
-
-              <div className="setupToggleGrid">
-                <label className="setupToggle setupToggleWide">
-                  <input checked={isActive} onChange={(event) => setIsActive(event.target.checked)} type="checkbox" />
-                  <span>Active</span>
-                </label>
-                <label className="setupToggle setupToggleWide">
-                  <input checked={createLogin} onChange={(event) => setCreateLogin(event.target.checked)} type="checkbox" />
-                  <span>Create login after save</span>
-                </label>
-              </div>
-
-              <div className="setupFieldActions">
-                <button className="appTopbarAction" disabled={loading} onClick={() => void submitTeacher()} type="button">
-                  <span className="appTopbarActionIcon" aria-hidden="true">⌘</span>
-                  {loading ? "Saving..." : "Create teacher"}
-                </button>
-                <button className="appTopbarAction setupSecondaryAction" disabled={loading} onClick={handleOverlayClick} type="button">
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      ), portalTarget) : null}
+      {open && portalTarget
+        ? createPortal(
+            <TeacherCreateDialogPanel
+              key={dialogSessionKey}
+              dialogSessionKey={dialogSessionKey}
+              instituteId={instituteId}
+              onClose={closeDialog}
+              onMessage={setMessage}
+            />,
+            portalTarget,
+          )
+        : null}
     </div>
   );
 }

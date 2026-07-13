@@ -1,4 +1,4 @@
-export type PlaywrightRole = "admin" | "institute" | "teacher" | "student";
+export type PlaywrightRole = "admin" | "institute" | "teacher" | "student" | "parent";
 
 export type RoleCredentials = {
   username: string;
@@ -22,6 +22,10 @@ const roleEnvMap: Record<PlaywrightRole, { username: string; password: string }>
     username: "PLAYWRIGHT_STUDENT_USERNAME",
     password: "PLAYWRIGHT_STUDENT_PASSWORD",
   },
+  parent: {
+    username: "PLAYWRIGHT_PARENT_USERNAME",
+    password: "PLAYWRIGHT_PARENT_PASSWORD",
+  },
 };
 
 const roleDefaults: Record<PlaywrightRole, RoleCredentials> = {
@@ -41,6 +45,10 @@ const roleDefaults: Record<PlaywrightRole, RoleCredentials> = {
   },
   student: {
     username: "demo-student",
+    password: "Demo@12345",
+  },
+  parent: {
+    username: "demo-parent",
     password: "Demo@12345",
   },
 };

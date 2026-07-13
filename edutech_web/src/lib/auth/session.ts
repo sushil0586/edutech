@@ -10,6 +10,7 @@ const API_BASE_URL = (
 
 const ACCESS_COOKIE = "nexora_access_token";
 const REFRESH_COOKIE = "nexora_refresh_token";
+const SESSION_PROFILE_COOKIE = "nexora_session_profile";
 
 export type AccountProfile = {
   id: string;
@@ -130,15 +131,93 @@ type LoginResponse = {
 
 type RegisterResponse = LoginResponse;
 
+type SessionProfileSnapshot = {
+  id: string;
+  username: string;
+  display_name: string;
+  role: string;
+  institute: string | null;
+  institute_name?: string | null;
+  student_profile: string | null;
+  teacher_profile: string | null;
+  onboarding_status?: string;
+  profile_completion_required?: boolean;
+  onboarding_role?: string;
+  is_active: boolean;
+};
+
 export class AuthenticationError extends Error {
   code: string;
   fieldErrors: Record<string, string>;
+  statusCode?: number;
 
-  constructor(message: string, code = "auth_failed", fieldErrors: Record<string, string> = {}) {
+  constructor(
+    message: string,
+    code = "auth_failed",
+    fieldErrors: Record<string, string> = {},
+    statusCode?: number,
+  ) {
     super(message);
     this.name = "AuthenticationError";
     this.code = code;
     this.fieldErrors = fieldErrors;
+    this.statusCode = statusCode;
+  }
+}
+
+function buildSessionProfileSnapshot(profile: AccountProfile): SessionProfileSnapshot {
+  return {
+    id: profile.id,
+    username: profile.username,
+    display_name: profile.display_name,
+    role: profile.role,
+    institute: profile.institute,
+    institute_name: profile.institute_name ?? null,
+    student_profile: profile.student_profile,
+    teacher_profile: profile.teacher_profile,
+    onboarding_status: profile.onboarding_status,
+    profile_completion_required: profile.profile_completion_required,
+    onboarding_role: profile.onboarding_role,
+    is_active: profile.is_active,
+  };
+}
+
+function encodeSessionProfileSnapshot(profile: AccountProfile) {
+  return encodeURIComponent(JSON.stringify(buildSessionProfileSnapshot(profile)));
+}
+
+function decodeSessionProfileSnapshot(rawValue: string | undefined): AccountProfile | null {
+  if (!rawValue) {
+    return null;
+  }
+
+  try {
+    const snapshot = JSON.parse(decodeURIComponent(rawValue)) as SessionProfileSnapshot;
+    if (!snapshot || !snapshot.id || !snapshot.username || !snapshot.role) {
+      return null;
+    }
+
+    return {
+      id: snapshot.id,
+      username: snapshot.username,
+      email: "",
+      display_name: snapshot.display_name || snapshot.username,
+      role: snapshot.role,
+      institute: snapshot.institute ?? null,
+      institute_name: snapshot.institute_name ?? null,
+      student_profile: snapshot.student_profile ?? null,
+      teacher_profile: snapshot.teacher_profile ?? null,
+      onboarding_status: snapshot.onboarding_status,
+      profile_completion_required: snapshot.profile_completion_required,
+      onboarding_role: snapshot.onboarding_role,
+      student_context: null,
+      parent_context: null,
+      location_context: null,
+      acquisition_context: null,
+      is_active: Boolean(snapshot.is_active),
+    };
+  } catch {
+    return null;
   }
 }
 
@@ -233,7 +312,7 @@ async function requestAuthJson<T>(
           : "Too many registration attempts. Please wait a bit and try again, or use login if you already registered.";
     }
 
-    throw new AuthenticationError(message, "request_failed", fieldErrors);
+    throw new AuthenticationError(message, "request_failed", fieldErrors, response.status);
   }
 
   return (await response.json()) as T;
@@ -242,9 +321,11 @@ async function requestAuthJson<T>(
 async function writeSessionCookies({
   access,
   refresh,
+  profile,
 }: {
   access: string;
   refresh: string;
+  profile?: AccountProfile;
 }) {
   const cookieStore = await cookies();
 
@@ -264,6 +345,16 @@ async function writeSessionCookies({
       path: "/",
       maxAge: 60 * 60 * 24 * 7,
     });
+
+    if (profile) {
+      cookieStore.set(SESSION_PROFILE_COOKIE, encodeSessionProfileSnapshot(profile), {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        path: "/",
+        maxAge: 60 * 60 * 24 * 7,
+      });
+    }
   } catch {
     // Server component renders can read cookies but cannot mutate them.
   }
@@ -274,6 +365,7 @@ export async function clearSessionCookies() {
   try {
     cookieStore.delete(ACCESS_COOKIE);
     cookieStore.delete(REFRESH_COOKIE);
+    cookieStore.delete(SESSION_PROFILE_COOKIE);
   } catch {
     // Ignore cookie mutation errors during read-only render paths.
   }
@@ -302,6 +394,7 @@ export async function loginWithPassword(username: string, password: string) {
   await writeSessionCookies({
     access: payload.access,
     refresh: payload.refresh,
+    profile: payload.user,
   });
 
   return payload.user;
@@ -354,6 +447,7 @@ export async function registerWithPassword(payload: {
   await writeSessionCookies({
     access: response.access,
     refresh: response.refresh,
+    profile: response.user,
   });
 
   return response.user;
@@ -466,7 +560,7 @@ async function refreshAccessToken(refresh: string) {
 
 const refreshRequests = new Map<string, Promise<string>>();
 
-const readSessionAccessToken = cache(async () => {
+async function readSessionAccessToken() {
   const cookieStore = await cookies();
   const access = cookieStore.get(ACCESS_COOKIE)?.value ?? "";
   const refresh = cookieStore.get(REFRESH_COOKIE)?.value ?? "";
@@ -492,17 +586,20 @@ const readSessionAccessToken = cache(async () => {
     await clearSessionCookies();
     return "";
   }
-});
+}
 
 export async function getSessionAccessToken() {
   return readSessionAccessToken();
 }
 
-const readAuthenticatedSession = cache(async (): Promise<AuthenticatedSession | null> => {
+async function readAuthenticatedSession(): Promise<AuthenticatedSession | null> {
   const accessToken = await getSessionAccessToken();
   if (!accessToken) {
     return null;
   }
+
+  const cookieStore = await cookies();
+  const sessionSnapshot = decodeSessionProfileSnapshot(cookieStore.get(SESSION_PROFILE_COOKIE)?.value);
 
   try {
     const profile = await requestAuthJson<AccountProfile>("/api/v1/auth/me/", {
@@ -515,11 +612,22 @@ const readAuthenticatedSession = cache(async (): Promise<AuthenticatedSession | 
       accessToken,
       profile,
     };
-  } catch {
+  } catch (error) {
+    const shouldUseSnapshot =
+      sessionSnapshot &&
+      sessionSnapshot.is_active;
+
+    if (shouldUseSnapshot) {
+      return {
+        accessToken,
+        profile: sessionSnapshot,
+      };
+    }
+
     await clearSessionCookies();
     return null;
   }
-});
+}
 
 export async function getAuthenticatedSession(): Promise<AuthenticatedSession | null> {
   return readAuthenticatedSession();

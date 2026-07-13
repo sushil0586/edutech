@@ -1,7 +1,8 @@
+import dynamic from "next/dynamic";
+import { Suspense } from "react";
 import { TeacherPageHeader } from "@/components/ui/teacher-page-header";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
-import { TeacherQuestionImportWorkspace } from "@/components/ui/teacher-question-import-workspace";
-import { fetchPortalList } from "@/lib/api/portal";
+import { fetchInstituteQuestionBankFeatureEntitlementsCached } from "@/lib/api/portal";
 import { fetchTeacherQuestionImportTemplate } from "@/lib/api/teacher-builder";
 import { requireTeacherSession } from "@/lib/auth/session";
 import { buildFallbackQuestionImportTemplate } from "@/lib/teacher/question-import-template-fallback";
@@ -14,13 +15,52 @@ type InstituteQuestionFeatureEntitlement = {
   status: string;
 };
 
-export default async function TeacherQuestionImportPage() {
+const TeacherQuestionImportWorkspace = dynamic(
+  () =>
+    import("@/components/ui/teacher-question-import-workspace").then((module) => ({
+      default: module.TeacherQuestionImportWorkspace,
+    })),
+  {
+    loading: () => (
+      <section className="contentCard questionImportPanel">
+        <div className="builderSectionHeader">
+          <div>
+            <strong>Loading import tools</strong>
+            <p>
+              The page shell is ready. Preview, row-inspection, and finalize controls are loading now.
+            </p>
+          </div>
+        </div>
+      </section>
+    ),
+  },
+);
+
+function TeacherQuestionImportLoadingShell() {
+  return (
+    <div className="studentPage studentPageTight studentDashboardModern teacherConsolePage teacherQuestionImportPageVivid">
+      <TeacherPageHeader
+        title="Import Questions"
+        description="Bring structured CSV question sets into the teacher bank with a preview-first workflow backed by the live backend validators."
+      />
+
+      <section className="studentInsightHeroCard studentInsightHeroCardCompact">
+        <div className="studentInsightHeroCopy">
+          <span className="studentDashboardTag">Preview-First Import</span>
+          <strong>Loading the import workspace</strong>
+          <p>The import shell is ready while entitlement and template details finish loading.</p>
+          <small>Preparing the current CSV template and access lane</small>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+async function TeacherQuestionImportPageContent() {
   await requireTeacherSession();
 
   const [featureEntitlements, template] = await Promise.all([
-    fetchPortalList<InstituteQuestionFeatureEntitlement>(
-      "/api/v1/economy/admin/institute-question-bank-feature-entitlements/",
-    ).catch(() => []),
+    fetchInstituteQuestionBankFeatureEntitlementsCached<InstituteQuestionFeatureEntitlement>().catch(() => []),
     fetchTeacherQuestionImportTemplate().catch(() => null),
   ]);
   const hasBulkImportAccess = featureEntitlements.some(
@@ -77,5 +117,13 @@ export default async function TeacherQuestionImportPage() {
         workspaceClassName="teacherQuestionImportWorkspaceVivid"
       />
     </div>
+  );
+}
+
+export default function TeacherQuestionImportPage() {
+  return (
+    <Suspense fallback={<TeacherQuestionImportLoadingShell />}>
+      <TeacherQuestionImportPageContent />
+    </Suspense>
   );
 }

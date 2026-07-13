@@ -16,6 +16,10 @@ export async function expectStudentWorkspace(page: Page) {
   await expect(page).toHaveURL(/\/app\//);
 }
 
+export async function expectParentWorkspace(page: Page) {
+  await expect(page).toHaveURL(/\/parent\//);
+}
+
 export async function openPathAndConfirm(page: Page, path: string, headingPattern: RegExp) {
   await page.goto(path);
   await expect(page.getByRole("heading", { name: headingPattern }).first()).toBeVisible();

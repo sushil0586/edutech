@@ -28,7 +28,7 @@ test.describe("Institute question bank workspace", () => {
 
     await gotoWithRuntimeRecovery(page, "/institute/question-bank");
     await expect(page.getByRole("heading", { name: /question bank/i }).first()).toBeVisible();
-    await expect(page.getByText(/find questions faster/i)).toBeVisible();
+    await expect(page.getByText(/find questions faster/i).first()).toBeVisible();
 
     const searchField = page.getByRole("textbox", { name: /search question text/i });
     await searchField.fill("square root");

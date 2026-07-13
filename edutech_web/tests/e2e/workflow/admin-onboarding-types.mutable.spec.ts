@@ -1,24 +1,29 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
+import {
+  countPrograms,
+  countSubjects,
+  countTopics,
+  createDisposableInstitute,
+  deleteDisposableInstitute,
+  expectAcademicCounts,
+  fetchFeatureEntitlements,
+  fetchPrograms,
+  fetchQuestionBankPackages,
+  fetchQuestionEntitlements,
+  fetchSubjects,
+  fetchTopics,
+  getAdminAccessToken,
+  selectFirstNonEmptyOption,
+  uniqueOnboardingSeed,
+} from "../helpers/onboarding";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
 import { expectAdminWorkspace } from "../helpers/navigation";
+import { AdminInstituteOnboardingPage } from "../page-objects/admin/admin-institute-onboarding.po";
 
 const mutableAdminOnboardingTypesEnabled = isMutableLaneEnabled(
   "PLAYWRIGHT_ENABLE_MUTABLE_ADMIN_ONBOARDING_TYPES",
 );
-const backendBaseUrl = (
-  process.env.API_BASE_URL ??
-  process.env.NEXT_PUBLIC_API_BASE_URL ??
-  process.env.PLAYWRIGHT_API_BASE_URL ??
-  "http://127.0.0.1:9001"
-).replace(/\/$/, "");
-
-type CreatedInstitute = {
-  id: string;
-  name: string;
-  code: string;
-};
-
 type PresetApplyResult = {
   summary: {
     academic_years: { created: number; updated: number };
@@ -51,219 +56,8 @@ type PresetApplyResult = {
   };
 };
 
-type TopicRecord = {
-  id: string;
-  name: string;
-  code: string;
-  parent_topic: string | null;
-};
-
-type AdminQuestionEntitlement = {
-  id: string;
-  institute_code?: string;
-  question_bank_package_code?: string;
-  status?: string;
-};
-
-type AdminFeatureEntitlement = {
-  id: string;
-  institute_code?: string;
-  feature_code?: string;
-  status?: string;
-  source_package_code?: string | null;
-};
-
-function uniqueSeed() {
-  return `${Date.now()}${Math.floor(Math.random() * 1000)}`;
-}
-
-async function createInstituteViaApi(page: Page, name: string, code: string): Promise<CreatedInstitute> {
-  const response = await page.request.post("/api/admin/institutes", {
-    data: {
-      name,
-      code,
-      email: `${code.toLowerCase()}@example.test`,
-      phone: `91${String(Date.now()).slice(-8)}`,
-      website: `https://${code.toLowerCase()}.example.test`,
-      description: "Disposable onboarding test institute.",
-    },
-  });
-  expect(response.ok()).toBe(true);
-  const body = (await response.json()) as { id: string; name: string; code: string };
-  return {
-    id: body.id,
-    name: body.name,
-    code: body.code,
-  };
-}
-
-async function deleteInstituteViaApi(page: Page, instituteId: string | null) {
-  if (!instituteId) {
-    return;
-  }
-  try {
-    await page.request.delete(`/api/admin/institutes/${instituteId}`, { timeout: 5000 });
-  } catch {
-    // Mutable onboarding cleanup is best-effort because seeded institute rows can be expensive to tear down.
-  }
-}
-
-async function openMasterDefaults(page: Page, institute: CreatedInstitute) {
-  await page.goto(`/admin/academic-setup?institute=${institute.id}&section=master-defaults`);
-  await expect(page.getByRole("heading", { name: /academic setup/i }).first()).toBeVisible();
-  await expect(page).toHaveURL(new RegExp(`institute=${institute.id}(&|$)`));
-  await expect(page.getByRole("combobox", { name: /select institute/i })).toHaveValue(institute.id);
-  await expect(page.getByText(/master defaults/i).first()).toBeVisible();
-  await expect(page.getByText(/onboarding profile defaults/i).first()).toBeVisible();
-  await expect(page.getByRole("button", { name: /apply preset/i })).toBeVisible();
-}
-
-async function setAcademicYear(page: Page, label: string) {
-  await page.getByLabel(/academic year name/i).fill(label);
-  await page.getByLabel(/academic year start/i).fill("2033-04-01");
-  await page.getByLabel(/academic year end/i).fill("2034-03-31");
-}
-
-async function setAcademicYearWindow(page: Page, label: string, start: string, end: string) {
-  await page.getByLabel(/academic year name/i).fill(label);
-  await page.getByLabel(/academic year start/i).fill(start);
-  await page.getByLabel(/academic year end/i).fill(end);
-}
-
-async function previewThenApply(page: Page) {
-  await page.getByRole("button", { name: /preview changes/i }).click();
-  await expect(page.getByText(/preview summary/i).first()).toBeVisible();
-  const applyResponsePromise = page.waitForResponse(
-    (response) =>
-      /\/api\/admin\/academics\/presets\/apply$/.test(response.url()) &&
-      response.request().method() === "POST",
-  );
-  await page.getByRole("button", { name: /apply preset/i }).click();
-  const applyResponse = await applyResponsePromise;
-  expect(applyResponse.ok()).toBe(true);
-  await expect(page.getByText(/last apply result/i).first()).toBeVisible();
-  await expect(page.getByText(/onboarding applied to/i).first()).toBeVisible();
-}
-
-async function expectOnboardingOutcomeSummary(page: Page, instituteName: string) {
-  const resultSection = page.locator("section.contentCard").filter({
-    has: page.getByText(/last apply result/i).first(),
-  }).first();
-  const completionSummary = resultSection.getByTestId("onboarding-completion-summary");
-  await expect(completionSummary).toBeVisible();
-  await expect(
-    completionSummary.getByText(/ready for guided use|needs operator follow-up/i).first(),
-  ).toBeVisible();
-  await expect(completionSummary.getByText(/what is ready now/i).first()).toBeVisible();
-  await expect(completionSummary.getByText(/still needs attention/i).first()).toBeVisible();
-  await expect(resultSection.getByText(/question usability after onboarding/i).first()).toBeVisible();
-  await expect(resultSection.getByText(/operational health/i).first()).toBeVisible();
-  await expect(resultSection.getByText(new RegExp(instituteName, "i")).first()).toBeVisible();
-  await expect(resultSection.getByRole("link", { name: /open people/i }).first()).toBeVisible();
-  await expect(resultSection.getByRole("link", { name: /open academic setup/i }).first()).toBeVisible();
-  await expect(resultSection.getByRole("link", { name: /open question access/i }).first()).toBeVisible();
-  await expect(resultSection.getByRole("link", { name: /open exams/i }).first()).toBeVisible();
-}
-
 function createdOrUpdatedCount(bucket: { created: number; updated: number }) {
   return bucket.created + bucket.updated;
-}
-
-async function fetchRecords(page: Page, path: string) {
-  const response = await page.request.get(path);
-  expect(response.ok()).toBe(true);
-  const body = (await response.json()) as { results?: unknown[] } | unknown[];
-  return Array.isArray(body) ? body : (body.results ?? []);
-}
-
-async function getAccessToken(page: Page) {
-  return (
-    (await page.context().cookies()).find((cookie) => cookie.name === "nexora_access_token")?.value?.trim() ?? ""
-  );
-}
-
-async function fetchBackendRecords(page: Page, accessToken: string, path: string) {
-  const response = await page.request.get(`${backendBaseUrl}${path}`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-  expect(response.ok(), await response.text()).toBe(true);
-  const body = (await response.json()) as { results?: unknown[] } | unknown[];
-  return Array.isArray(body) ? body : (body.results ?? []);
-}
-
-async function countSubjects(page: Page, instituteId: string) {
-  const results = await fetchRecords(page, `/api/admin/academics/subjects?institute=${encodeURIComponent(instituteId)}&page_size=200`);
-  return results.length;
-}
-
-async function countTopics(page: Page, instituteId: string) {
-  const results = await fetchRecords(page, `/api/admin/academics/topics?institute=${encodeURIComponent(instituteId)}&page_size=400`);
-  return results.length;
-}
-
-async function countPrograms(page: Page, instituteId: string) {
-  const results = await fetchRecords(page, `/api/admin/academics/programs?institute=${encodeURIComponent(instituteId)}&page_size=50`);
-  return results.length;
-}
-
-async function selectFirstNonEmptyOption(locator: Locator) {
-  const optionValue = await locator.locator("option").evaluateAll((options) => {
-    const match = options.find((option) => (option as HTMLOptionElement).value.trim().length > 0);
-    return match ? (match as HTMLOptionElement).value : "";
-  });
-  expect(optionValue).toBeTruthy();
-  await locator.selectOption(optionValue);
-  return optionValue;
-}
-
-async function fetchQuestionBankPackages(page: Page) {
-  const response = await page.request.get("/api/admin/economy/question-bank-packages");
-  expect(response.ok()).toBe(true);
-  return (await response.json()) as Array<{
-    id: string;
-    code: string;
-    ownership_type?: string;
-    is_active?: boolean;
-  }>;
-}
-
-async function fetchPrograms(page: Page, instituteId: string) {
-  return (await fetchRecords(
-    page,
-    `/api/admin/academics/programs?institute=${encodeURIComponent(instituteId)}&page_size=50`,
-  )) as Array<{ id: string; name: string; code: string }>;
-}
-
-async function fetchSubjects(page: Page, instituteId: string) {
-  return (await fetchRecords(
-    page,
-    `/api/admin/academics/subjects?institute=${encodeURIComponent(instituteId)}&page_size=200`,
-  )) as Array<{ id: string; name: string; code: string; program?: string | null }>;
-}
-
-async function fetchTopics(page: Page, instituteId: string, subjectId: string) {
-  return (await fetchRecords(
-    page,
-    `/api/admin/academics/topics?institute=${encodeURIComponent(instituteId)}&subject=${encodeURIComponent(subjectId)}&page_size=200`,
-  )) as TopicRecord[];
-}
-
-async function expectAcademicCounts(
-  page: Page,
-  instituteId: string,
-  expected: { programs?: number; subjects?: number; topics?: number },
-) {
-  if (typeof expected.programs === "number") {
-    await expect.poll(async () => countPrograms(page, instituteId)).toBe(expected.programs);
-  }
-  if (typeof expected.subjects === "number") {
-    await expect.poll(async () => countSubjects(page, instituteId)).toBe(expected.subjects);
-  }
-  if (typeof expected.topics === "number") {
-    await expect.poll(async () => countTopics(page, instituteId)).toBe(expected.topics);
-  }
 }
 
 test.describe("Admin onboarding types", () => {
@@ -281,31 +75,42 @@ test.describe("Admin onboarding types", () => {
     test.setTimeout(180000);
     await loginAsRole(page, "admin");
     await expectAdminWorkspace(page);
+    const onboardingPage = new AdminInstituteOnboardingPage(page);
 
-    const seed = uniqueSeed();
+    const seed = uniqueOnboardingSeed();
     let instituteId: string | null = null;
 
     try {
-      const institute = await createInstituteViaApi(page, `PW Onboarding Full ${seed}`, `PWF${seed.slice(-5)}`);
+      const institute = await createDisposableInstitute(page, {
+        name: `PW Onboarding Full ${seed}`,
+        code: `PWF${seed.slice(-5)}`,
+      });
       instituteId = institute.id;
 
-      await openMasterDefaults(page, institute);
-      await expect(page.getByText(/no profile selected/i).first()).toBeVisible();
-      await setAcademicYear(page, `2033-2034 Full ${seed}`);
-      await page.getByLabel(/apply mode/i).selectOption("full");
-      await previewThenApply(page);
+      await onboardingPage.gotoMasterDefaults(institute.id);
+      await onboardingPage.assertLoaded(institute.id);
+      await expect(page.getByLabel(/onboarding profile/i)).toHaveValue("BLANK_INSTITUTE");
+      await onboardingPage.setAcademicYear(`2033-2034 Full ${seed}`);
+      await onboardingPage.selectApplyMode("full");
+      const applyResponsePromise = page.waitForResponse(
+        (response) =>
+          /\/api\/admin\/academics\/presets\/apply$/.test(response.url()) &&
+          response.request().method() === "POST",
+      );
+      await onboardingPage.previewThenApply();
+      const applyResponse = await applyResponsePromise;
+      expect(applyResponse.ok(), await applyResponse.text()).toBe(true);
 
-      await expect(page.getByText(/profile manual/i).first()).toBeVisible();
+      await expect(page.getByText(/onboarding run/i).first()).toBeVisible();
+      await expect(page.getByText(/manual/i).first()).toBeVisible();
       await expect(page.getByText(/audit returned no immediate structural findings|audit returned/i).first()).toBeVisible();
-      await expect(page.getByText(/onboarding applied to/i).first()).toBeVisible();
-      await expectOnboardingOutcomeSummary(page, institute.name);
-      await expect(page.getByTestId("onboarding-completion-summary").getByText(/ready for guided use/i)).toBeVisible();
+      await onboardingPage.expectReadySummary(institute.name);
 
       expect(await countPrograms(page, institute.id)).toBeGreaterThanOrEqual(1);
       expect(await countSubjects(page, institute.id)).toBeGreaterThanOrEqual(5);
       expect(await countTopics(page, institute.id)).toBeGreaterThan(20);
     } finally {
-      await deleteInstituteViaApi(page, instituteId);
+      await deleteDisposableInstitute(page, instituteId);
     }
   });
 
@@ -313,17 +118,22 @@ test.describe("Admin onboarding types", () => {
     test.setTimeout(180000);
     await loginAsRole(page, "admin");
     await expectAdminWorkspace(page);
+    const onboardingPage = new AdminInstituteOnboardingPage(page);
 
-    const seed = uniqueSeed();
+    const seed = uniqueOnboardingSeed();
     let instituteId: string | null = null;
 
     try {
-      const institute = await createInstituteViaApi(page, `PW Onboarding Subjects ${seed}`, `PWS${seed.slice(-5)}`);
+      const institute = await createDisposableInstitute(page, {
+        name: `PW Onboarding Subjects ${seed}`,
+        code: `PWS${seed.slice(-5)}`,
+      });
       instituteId = institute.id;
 
-      await openMasterDefaults(page, institute);
-      await setAcademicYear(page, `2033-2034 Subjects ${seed}`);
-      await page.getByLabel(/apply mode/i).selectOption("selected_subjects");
+      await onboardingPage.gotoMasterDefaults(institute.id);
+      await onboardingPage.assertLoaded(institute.id);
+      await onboardingPage.setAcademicYear(`2033-2034 Subjects ${seed}`);
+      await onboardingPage.selectApplyMode("selected_subjects");
       await page.waitForTimeout(500);
       const subjectsSection = page.locator("section.contentCard").filter({
         has: page.getByText(/select subjects to apply/i).first(),
@@ -369,16 +179,16 @@ test.describe("Admin onboarding types", () => {
       expect(applyResponse.ok()).toBe(true);
       const applyResult = (await applyResponse.json()) as PresetApplyResult;
       await expect(page.getByText(/last apply result/i).first()).toBeVisible();
-      await expect(page.getByText(/profile manual/i).first()).toBeVisible();
+      await expect(page.getByText(/onboarding run/i).first()).toBeVisible();
+      await expect(page.getByText(/manual/i).first()).toBeVisible();
       await expect(page.getByText(/onboarding applied to/i).first()).toBeVisible();
-      await expectOnboardingOutcomeSummary(page, institute.name);
-      await expect(page.getByTestId("onboarding-completion-summary").getByText(/ready for guided use/i)).toBeVisible();
+      await onboardingPage.expectReadySummary(institute.name);
 
       expect(createdOrUpdatedCount(applyResult.summary.programs)).toBeGreaterThanOrEqual(1);
       expect(createdOrUpdatedCount(applyResult.summary.subjects)).toBe(2);
       expect(createdOrUpdatedCount(applyResult.summary.topics)).toBe(50);
     } finally {
-      await deleteInstituteViaApi(page, instituteId);
+      await deleteDisposableInstitute(page, instituteId);
     }
   });
 
@@ -386,17 +196,22 @@ test.describe("Admin onboarding types", () => {
     test.setTimeout(180000);
     await loginAsRole(page, "admin");
     await expectAdminWorkspace(page);
+    const onboardingPage = new AdminInstituteOnboardingPage(page);
 
-    const seed = uniqueSeed();
+    const seed = uniqueOnboardingSeed();
     let instituteId: string | null = null;
 
     try {
-      const institute = await createInstituteViaApi(page, `PW Onboarding Topics ${seed}`, `PWT${seed.slice(-5)}`);
+      const institute = await createDisposableInstitute(page, {
+        name: `PW Onboarding Topics ${seed}`,
+        code: `PWT${seed.slice(-5)}`,
+      });
       instituteId = institute.id;
 
-      await openMasterDefaults(page, institute);
-      await setAcademicYearWindow(page, `2041-2042 Topics ${seed}`, "2041-04-01", "2042-03-31");
-      await page.getByLabel(/apply mode/i).selectOption("selected_topic_groups");
+      await onboardingPage.gotoMasterDefaults(institute.id);
+      await onboardingPage.assertLoaded(institute.id);
+      await onboardingPage.setAcademicYear(`2041-2042 Topics ${seed}`, "2041-04-01", "2042-03-31");
+      await onboardingPage.selectApplyMode("selected_topic_groups");
       await page.waitForTimeout(500);
       const topicGroupsSection = page.locator("section.contentCard").filter({
         has: page.getByText(/select topic groups to apply/i).first(),
@@ -434,7 +249,7 @@ test.describe("Admin onboarding types", () => {
       expect(createdOrUpdatedCount(applyResult.summary.subjects)).toBe(5);
       expect(createdOrUpdatedCount(applyResult.summary.topics)).toBe(82);
     } finally {
-      await deleteInstituteViaApi(page, instituteId);
+      await deleteDisposableInstitute(page, instituteId);
     }
   });
 
@@ -444,21 +259,26 @@ test.describe("Admin onboarding types", () => {
     test.setTimeout(180000);
     await loginAsRole(page, "admin");
     await expectAdminWorkspace(page);
+    const onboardingPage = new AdminInstituteOnboardingPage(page);
 
-    const seed = uniqueSeed();
+    const seed = uniqueOnboardingSeed();
     let instituteId: string | null = null;
 
     try {
-      const institute = await createInstituteViaApi(page, `PW Onboarding Class8 ${seed}`, `PW8${seed.slice(-5)}`);
+      const institute = await createDisposableInstitute(page, {
+        name: `PW Onboarding Class8 ${seed}`,
+        code: `PW8${seed.slice(-5)}`,
+      });
       instituteId = institute.id;
 
-      await openMasterDefaults(page, institute);
-      await setAcademicYear(page, `2035-2036 Class8 ${seed}`);
-      await page.getByLabel(/academic preset/i).selectOption("class_8_cbse_core");
-      await page.getByLabel(/apply mode/i).selectOption("full");
+      await onboardingPage.gotoMasterDefaults(institute.id);
+      await onboardingPage.assertLoaded(institute.id);
+      await onboardingPage.setAcademicYear(`2035-2036 Class8 ${seed}`);
+      await onboardingPage.selectAcademicPreset("class_8_cbse_core");
+      await onboardingPage.selectApplyMode("full");
 
-      await page.getByRole("button", { name: /preview changes/i }).click();
-      await expect(page.getByText(/preview summary/i).first()).toBeVisible();
+      await onboardingPage.previewChanges();
+      await onboardingPage.expectPreviewSummary();
       await expect(page.getByText(/1 subject/i).first()).toBeVisible();
       await expect(page.getByText(/8 topics to create/i).first()).toBeVisible();
 
@@ -503,7 +323,7 @@ test.describe("Admin onboarding types", () => {
       ]);
       expect(childTopics).toHaveLength(4);
     } finally {
-      await deleteInstituteViaApi(page, instituteId);
+      await deleteDisposableInstitute(page, instituteId);
     }
   });
 
@@ -513,14 +333,18 @@ test.describe("Admin onboarding types", () => {
     test.setTimeout(180000);
     await loginAsRole(page, "admin");
     await expectAdminWorkspace(page);
+    const onboardingPage = new AdminInstituteOnboardingPage(page);
 
-    const seed = uniqueSeed();
+    const seed = uniqueOnboardingSeed();
     let instituteId: string | null = null;
 
     try {
-      const institute = await createInstituteViaApi(page, `PW Onboarding Access ${seed}`, `PWA${seed.slice(-5)}`);
+      const institute = await createDisposableInstitute(page, {
+        name: `PW Onboarding Access ${seed}`,
+        code: `PWA${seed.slice(-5)}`,
+      });
       instituteId = institute.id;
-      const adminAccessToken = await getAccessToken(page);
+      const adminAccessToken = await getAdminAccessToken(page);
       expect(adminAccessToken).toBeTruthy();
 
       const packageCatalog = await fetchQuestionBankPackages(page);
@@ -531,16 +355,17 @@ test.describe("Admin onboarding types", () => {
         test.skip(true, "No active platform-managed question-bank package is available for master-default onboarding.");
       }
 
-      await openMasterDefaults(page, institute);
-      await setAcademicYear(page, `2036-2037 Access ${seed}`);
-      await page.getByLabel(/academic preset/i).selectOption("class_8_cbse_core");
-      await page.getByLabel(/apply mode/i).selectOption("full");
-      await page.getByLabel(/question-bank package access/i).selectOption("enabled");
+      await onboardingPage.gotoMasterDefaults(institute.id);
+      await onboardingPage.assertLoaded(institute.id);
+      await onboardingPage.setAcademicYear(`2036-2037 Access ${seed}`);
+      await onboardingPage.selectAcademicPreset("class_8_cbse_core");
+      await onboardingPage.selectApplyMode("full");
+      await onboardingPage.setQuestionBankAccess("enabled");
       await expect
         .poll(async () => page.getByLabel(/default question-bank package/i).inputValue())
         .toBe(eligiblePackage.code);
-      await page.getByLabel(/question linking mode/i).selectOption("access_only");
-      await page.getByLabel(/advanced builder access/i).selectOption("enabled");
+      await onboardingPage.setQuestionLinkingMode("access_only");
+      await onboardingPage.setAdvancedBuilderAccess("enabled");
 
       const applyResponsePromise = page.waitForResponse(
         (response) =>
@@ -559,10 +384,15 @@ test.describe("Admin onboarding types", () => {
       await expect(page.getByText(/linking mode grant access only/i).first()).toBeVisible();
       await expect(page.getByText(/manual linking still required/i).first()).toBeVisible();
       await expect(page.getByText(/onboarding applied to/i).first()).toBeVisible();
-      await expectOnboardingOutcomeSummary(page, institute.name);
-      await expect(page.getByTestId("onboarding-completion-summary").getByText(/ready for guided use/i)).toBeVisible();
+      await onboardingPage.expectFollowUpSummary(institute.name);
       await expect(
         page.getByTestId("onboarding-completion-summary").getByText(/staff still need to link questions manually/i),
+      ).toBeVisible();
+      await expect(
+        page.getByTestId("onboarding-recovery-actions").getByText(/manual linking is still the next step/i),
+      ).toBeVisible();
+      await expect(
+        page.getByTestId("onboarding-recovery-actions").getByText(/shared-library path and link the right questions into the local bank/i),
       ).toBeVisible();
 
       expect(applyResult.access_results?.question_bank_package.enabled).toBe(true);
@@ -584,11 +414,7 @@ test.describe("Admin onboarding types", () => {
       expect(applyResult.question_assignment_results?.mode).toBe("access_only");
       expect(applyResult.question_assignment_results?.status).toBe("completed");
 
-      const questionEntitlements = (await fetchBackendRecords(
-        page,
-        adminAccessToken,
-        `/api/v1/economy/admin/question-bank-entitlements/`,
-      )) as AdminQuestionEntitlement[];
+      const questionEntitlements = await fetchQuestionEntitlements(page, adminAccessToken);
       const packageEntitlement = questionEntitlements.find(
         (row) =>
           row.institute_code === institute.code &&
@@ -597,11 +423,7 @@ test.describe("Admin onboarding types", () => {
       expect(packageEntitlement).toBeTruthy();
       expect(packageEntitlement?.status?.toLowerCase()).toBe("active");
 
-      const featureEntitlements = (await fetchBackendRecords(
-        page,
-        adminAccessToken,
-        `/api/v1/economy/admin/question-bank-feature-entitlements/`,
-      )) as AdminFeatureEntitlement[];
+      const featureEntitlements = await fetchFeatureEntitlements(page, adminAccessToken);
       const builderEntitlement = featureEntitlements.find(
         (row) =>
           row.institute_code === institute.code &&
@@ -623,7 +445,7 @@ test.describe("Admin onboarding types", () => {
         applyResult.access_results?.question_bank_package.package_code ?? null,
       );
     } finally {
-      await deleteInstituteViaApi(page, instituteId);
+      await deleteDisposableInstitute(page, instituteId);
     }
   });
 
@@ -633,19 +455,31 @@ test.describe("Admin onboarding types", () => {
     test.setTimeout(180000);
     await loginAsRole(page, "admin");
     await expectAdminWorkspace(page);
+    const onboardingPage = new AdminInstituteOnboardingPage(page);
 
-    const seed = uniqueSeed();
+    const seed = uniqueOnboardingSeed();
     let instituteId: string | null = null;
 
     try {
-      const institute = await createInstituteViaApi(page, `PW Onboarding Reapply ${seed}`, `PWR${seed.slice(-5)}`);
+      const institute = await createDisposableInstitute(page, {
+        name: `PW Onboarding Reapply ${seed}`,
+        code: `PWR${seed.slice(-5)}`,
+      });
       instituteId = institute.id;
 
-      await openMasterDefaults(page, institute);
-      await setAcademicYear(page, `2037-2038 Reapply ${seed}`);
-      await page.getByLabel(/apply mode/i).selectOption("full");
-      await previewThenApply(page);
-      await expectOnboardingOutcomeSummary(page, institute.name);
+      await onboardingPage.gotoMasterDefaults(institute.id);
+      await onboardingPage.assertLoaded(institute.id);
+      await onboardingPage.setAcademicYear(`2037-2038 Reapply ${seed}`);
+      await onboardingPage.selectApplyMode("full");
+      const firstApplyResponsePromise = page.waitForResponse(
+        (response) =>
+          /\/api\/admin\/academics\/presets\/apply$/.test(response.url()) &&
+          response.request().method() === "POST",
+      );
+      await onboardingPage.previewThenApply();
+      const firstApplyResponse = await firstApplyResponsePromise;
+      expect(firstApplyResponse.ok(), await firstApplyResponse.text()).toBe(true);
+      await onboardingPage.expectOnboardingOutcomeSummary(institute.name);
 
       const initialProgramCount = await countPrograms(page, institute.id);
       const initialSubjectCount = await countSubjects(page, institute.id);
@@ -655,12 +489,13 @@ test.describe("Admin onboarding types", () => {
       expect(initialSubjectCount).toBeGreaterThanOrEqual(5);
       expect(initialTopicCount).toBeGreaterThan(20);
 
-      await openMasterDefaults(page, institute);
-      await setAcademicYear(page, `2037-2038 Reapply ${seed}`);
-      await page.getByLabel(/apply mode/i).selectOption("full");
-      await page.getByLabel(/question-bank package access/i).selectOption("enabled");
-      await page.getByLabel(/question linking mode/i).selectOption("access_only");
-      await page.getByLabel(/advanced builder access/i).selectOption("enabled");
+      await onboardingPage.gotoMasterDefaults(institute.id);
+      await onboardingPage.assertLoaded(institute.id);
+      await onboardingPage.setAcademicYear(`2037-2038 Reapply ${seed}`);
+      await onboardingPage.selectApplyMode("full");
+      await onboardingPage.setQuestionBankAccess("enabled");
+      await onboardingPage.setQuestionLinkingMode("access_only");
+      await onboardingPage.setAdvancedBuilderAccess("enabled");
 
       const reapplyResponsePromise = page.waitForResponse(
         (response) =>
@@ -673,8 +508,10 @@ test.describe("Admin onboarding types", () => {
       const reapplyResult = (await reapplyResponse.json()) as PresetApplyResult;
 
       await expect(page.getByText(/onboarding applied to/i).first()).toBeVisible();
-      await expectOnboardingOutcomeSummary(page, institute.name);
-      await expect(page.getByTestId("onboarding-completion-summary").getByText(/ready for guided use/i)).toBeVisible();
+      await onboardingPage.expectFollowUpSummary(institute.name);
+      await expect(
+        page.getByTestId("onboarding-recovery-actions").getByText(/manual linking is still the next step/i),
+      ).toBeVisible();
 
       expect(createdOrUpdatedCount(reapplyResult.summary.programs)).toBeGreaterThanOrEqual(1);
       expect(createdOrUpdatedCount(reapplyResult.summary.subjects)).toBeGreaterThanOrEqual(initialSubjectCount);
@@ -689,7 +526,7 @@ test.describe("Admin onboarding types", () => {
       await expect.poll(async () => countSubjects(page, institute.id)).toBe(initialSubjectCount);
       await expect.poll(async () => countTopics(page, institute.id)).toBe(initialTopicCount);
     } finally {
-      await deleteInstituteViaApi(page, instituteId);
+      await deleteDisposableInstitute(page, instituteId);
     }
   });
 
@@ -699,29 +536,30 @@ test.describe("Admin onboarding types", () => {
     test.setTimeout(120000);
     await loginAsRole(page, "admin");
     await expectAdminWorkspace(page);
+    const onboardingPage = new AdminInstituteOnboardingPage(page);
 
-    const seed = uniqueSeed();
+    const seed = uniqueOnboardingSeed();
     let instituteId: string | null = null;
 
     try {
-      const institute = await createInstituteViaApi(page, `PW Onboarding Warning ${seed}`, `PWW${seed.slice(-5)}`);
+      const institute = await createDisposableInstitute(page, {
+        name: `PW Onboarding Warning ${seed}`,
+        code: `PWW${seed.slice(-5)}`,
+      });
       instituteId = institute.id;
 
-      await openMasterDefaults(page, institute);
-      await setAcademicYear(page, `2038-2039 Warning ${seed}`);
-      await page.getByLabel(/apply mode/i).selectOption("full");
-      await page.getByLabel(/question-bank package access/i).selectOption("enabled");
+      await onboardingPage.gotoMasterDefaults(institute.id);
+      await onboardingPage.assertLoaded(institute.id);
+      await onboardingPage.setAcademicYear(`2038-2039 Warning ${seed}`);
+      await onboardingPage.selectApplyMode("full");
+      await onboardingPage.setQuestionBankAccess("enabled");
       await page.getByLabel(/default question-bank package/i).selectOption("");
-      await page.getByLabel(/question linking mode/i).selectOption("access_only");
-      await page.getByLabel(/advanced builder access/i).selectOption("disabled");
+      await onboardingPage.setQuestionLinkingMode("access_only");
+      await onboardingPage.setAdvancedBuilderAccess("disabled");
 
-      const warningStack = page.locator('[role="status"][aria-live="polite"]').first();
-      await expect(warningStack).toBeVisible();
-      await expect(warningStack.getByText(/question-bank access is enabled, but no package is selected yet/i)).toBeVisible();
-      await expect(warningStack.getByText(/you selected grant access only/i)).toBeVisible();
-      await expect(
-        warningStack.getByText(/question-bank access is enabled while advanced builder is disabled/i),
-      ).toBeVisible();
+      await onboardingPage.expectWarning(/question-bank access is enabled, but no package is selected yet/i);
+      await onboardingPage.expectWarning(/you selected grant access only/i);
+      await onboardingPage.expectWarning(/question-bank access is enabled while advanced builder is disabled/i);
 
       const previewResponsePromise = page.waitForResponse(
         (response) =>
@@ -734,7 +572,7 @@ test.describe("Admin onboarding types", () => {
       await expect(page.getByText(/select a question-bank package when package access is enabled/i)).toBeVisible();
       await expect(page.getByText(/preview summary/i)).toHaveCount(0);
     } finally {
-      await deleteInstituteViaApi(page, instituteId);
+      await deleteDisposableInstitute(page, instituteId);
     }
   });
 });

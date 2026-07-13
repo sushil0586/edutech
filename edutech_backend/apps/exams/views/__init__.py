@@ -1,6 +1,7 @@
 from django.core.exceptions import PermissionDenied
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import models
+from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers, status
 from rest_framework.decorators import action
@@ -21,6 +22,7 @@ from apps.institutes.models import Institute
 from apps.exams.models import (
     AdvancedExamTemplate,
     Exam,
+    ExamAccessSlot,
     ExamPresetPack,
     ExamPresetPackScope,
     ExamPublishLog,
@@ -33,12 +35,18 @@ from apps.exams.serializers import (
     ExamPresetPackSerializer,
     AdvancedExamTemplateSerializer,
     ExamActionSerializer,
+    ExamAccessSlotSerializer,
+    ExamAccessSlotWriteSerializer,
+    ExamAssignedStudentSerializer,
     ExamEconomyPolicyUpdateSerializer,
     ExamListSerializer,
     ExamPublishLogSerializer,
     ExamQuestionSerializer,
     ExamReadSerializer,
     ExamSectionSerializer,
+    ExamStudentAutoSlotAssignmentSerializer,
+    ExamStudentBulkSlotAssignmentSerializer,
+    ExamStudentSlotOverrideSerializer,
     ExamStudentAssignmentUpdateSerializer,
     ExamSyncMarksResponseSerializer,
     TeacherExamPreviewSerializer,
@@ -49,6 +57,8 @@ from apps.exams.services import (
     create_advanced_exam_from_blueprint,
     cancel_exam,
     build_exam_publish_readiness,
+    create_exam_slot_audit_log,
+    create_exam_slot_override_audit_log,
     default_exam_source_for_profile,
     hydrate_exam_access_policies,
     regenerate_exam_access_key,
@@ -64,6 +74,7 @@ from apps.exams.services import (
 from apps.economy.services import institute_has_question_bank_feature
 from apps.teachers.models import TeacherProfile
 from apps.students.models import StudentProfile
+from apps.reports.models import AuditLog
 from apps.reports.services import create_audit_log
 from common.responses import action_response
 from common.viewsets import SoftDeleteModelViewSetMixin
@@ -118,6 +129,8 @@ class ExamViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
             queryset = queryset.prefetch_related(
                 "sections",
                 "student_assignments__student__cohort",
+                "student_assignments__access_slot",
+                "access_slots__cohort",
                 "exam_questions__question",
                 "exam_questions__question__passage",
                 "exam_questions__section",
@@ -160,6 +173,27 @@ class ExamViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
             value=changed_by.pk,
             not_found_message="Teacher not found in your scope.",
         )
+
+    def _resolve_student_in_scope(self, student_id):
+        return get_scoped_object_or_403(
+            scope_student_profile_queryset(
+                StudentProfile.objects.select_related(
+                    "cohort",
+                    "program",
+                    "academic_year",
+                ),
+                self.request.user,
+            ),
+            user=self.request.user,
+            value=student_id,
+            not_found_message="Student not found in your scope.",
+        )
+
+    def _resolve_exam_slot_or_403(self, exam, slot_id):
+        slot = exam.access_slots.select_related("cohort").filter(pk=slot_id).first()
+        if slot is None:
+            raise PermissionDenied("Exam access slot not found in your scope.")
+        return slot
 
     def create(self, request, *args, **kwargs):
         try:
@@ -221,6 +255,7 @@ class ExamViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
                 "primary_subject": preview["resolved_exam"]["primary_subject"],
                 "primary_subject_name": preview["resolved_exam"]["primary_subject_name"],
                 "assessment_family_profile": preview["resolved_exam"]["assessment_family_profile"],
+                "access_mode": preview["resolved_exam"]["access_mode"],
                 "start_at": preview["resolved_exam"]["start_at"],
                 "end_at": preview["resolved_exam"]["end_at"],
                 "academic_year_end_at": preview["resolved_exam"]["academic_year_end_at"],
@@ -298,6 +333,568 @@ class ExamViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
         return action_response(
             data=serializer.data,
             message="Exam marks synchronized successfully.",
+            status_code=status.HTTP_200_OK,
+        )
+
+    @action(detail=True, methods=["get", "post"], url_path="slots")
+    def slots(self, request, pk=None):
+        exam = self.get_object()
+        if request.method.lower() == "get":
+            slots = exam.access_slots.select_related("cohort").order_by("slot_start_at", "created_at")
+            serializer = ExamAccessSlotSerializer(slots, many=True)
+            return action_response(
+                data=serializer.data,
+                message="Exam slots fetched successfully.",
+                status_code=status.HTTP_200_OK,
+            )
+
+        serializer = ExamAccessSlotWriteSerializer(data=request.data, context={"exam": exam})
+        serializer.is_valid(raise_exception=True)
+        try:
+            slot = serializer.save(exam=exam)
+        except DjangoValidationError as exc:
+            return Response(exc.message_dict, status=status.HTTP_400_BAD_REQUEST)
+
+        create_exam_slot_audit_log(
+            slot=slot,
+            action="exam_slot_create",
+            user=request.user,
+            message="Exam access slot created.",
+            metadata={
+                "cohort_id": str(slot.cohort_id) if slot.cohort_id else None,
+                "assignment_capacity": slot.assignment_capacity,
+                "start_capacity": slot.start_capacity,
+                "status": slot.status,
+            },
+            request=request,
+        )
+        return action_response(
+            data=ExamAccessSlotSerializer(slot).data,
+            message="Exam slot created successfully.",
+            status_code=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=True, methods=["patch"], url_path=r"slots/(?P<slot_id>[^/.]+)")
+    def update_slot(self, request, pk=None, slot_id=None):
+        exam = self.get_object()
+        slot = self._resolve_exam_slot_or_403(exam, slot_id)
+        before = {
+            "cohort_id": str(slot.cohort_id) if slot.cohort_id else None,
+            "slot_label": slot.slot_label,
+            "slot_start_at": slot.slot_start_at.isoformat() if slot.slot_start_at else None,
+            "slot_end_at": slot.slot_end_at.isoformat() if slot.slot_end_at else None,
+            "grace_period_minutes": slot.grace_period_minutes,
+            "assignment_capacity": slot.assignment_capacity,
+            "start_capacity": slot.start_capacity,
+            "status": slot.status,
+            "is_active": slot.is_active,
+        }
+        serializer = ExamAccessSlotWriteSerializer(
+            slot,
+            data=request.data,
+            partial=True,
+            context={"exam": exam},
+        )
+        serializer.is_valid(raise_exception=True)
+        try:
+            slot = serializer.save()
+        except DjangoValidationError as exc:
+            return Response(exc.message_dict, status=status.HTTP_400_BAD_REQUEST)
+
+        create_exam_slot_audit_log(
+            slot=slot,
+            action="exam_slot_update",
+            user=request.user,
+            message="Exam access slot updated.",
+            metadata={
+                "before": before,
+                "after": {
+                    "cohort_id": str(slot.cohort_id) if slot.cohort_id else None,
+                    "slot_label": slot.slot_label,
+                    "slot_start_at": slot.slot_start_at.isoformat() if slot.slot_start_at else None,
+                    "slot_end_at": slot.slot_end_at.isoformat() if slot.slot_end_at else None,
+                    "grace_period_minutes": slot.grace_period_minutes,
+                    "assignment_capacity": slot.assignment_capacity,
+                    "start_capacity": slot.start_capacity,
+                    "status": slot.status,
+                    "is_active": slot.is_active,
+                },
+            },
+            request=request,
+        )
+        return action_response(
+            data=ExamAccessSlotSerializer(slot).data,
+            message="Exam slot updated successfully.",
+            status_code=status.HTTP_200_OK,
+        )
+
+    @action(detail=True, methods=["post"], url_path="student-slot-override")
+    def student_slot_override(self, request, pk=None):
+        exam = self.get_object()
+        if exam.assignment_mode != "selected_students":
+            return Response(
+                {"detail": "Student slot overrides are supported only for selected-student exams."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = ExamStudentSlotOverrideSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        student = self._resolve_student_in_scope(serializer.validated_data["student"])
+        slot = None
+        if "access_slot" in serializer.validated_data and serializer.validated_data["access_slot"] is not None:
+            slot = self._resolve_exam_slot_or_403(exam, serializer.validated_data["access_slot"])
+
+        profile = get_account_profile(request.user)
+        teacher_profile = getattr(profile, "teacher_profile", None)
+        try:
+            assignment, created = ExamStudentAssignment.objects.get_or_create(
+                exam=exam,
+                student=student,
+                defaults={
+                    "assigned_by": teacher_profile,
+                    "access_slot": slot,
+                    "notes": serializer.validated_data.get("notes", ""),
+                },
+            )
+        except DjangoValidationError as exc:
+            return Response(exc.message_dict, status=status.HTTP_400_BAD_REQUEST)
+
+        before = {
+            "access_slot": str(assignment.access_slot_id) if assignment.access_slot_id else None,
+            "notes": assignment.notes,
+            "created": created,
+        }
+
+        if not created:
+            if "access_slot" in serializer.validated_data:
+                assignment.access_slot = slot
+            if "notes" in serializer.validated_data:
+                assignment.notes = serializer.validated_data.get("notes", "")
+            if assignment.assigned_by_id is None and teacher_profile is not None:
+                assignment.assigned_by = teacher_profile
+            try:
+                assignment.save()
+            except DjangoValidationError as exc:
+                return Response(exc.message_dict, status=status.HTTP_400_BAD_REQUEST)
+
+        create_exam_slot_override_audit_log(
+            exam=exam,
+            student=student,
+            slot=assignment.access_slot,
+            action="exam_slot_override",
+            user=request.user,
+            message="Student slot override updated.",
+            metadata={
+                "before": before,
+                "after": {
+                    "access_slot": str(assignment.access_slot_id) if assignment.access_slot_id else None,
+                    "notes": assignment.notes,
+                    "created": created,
+                },
+            },
+            request=request,
+        )
+        return action_response(
+            data=ExamAssignedStudentSerializer(assignment).data,
+            message="Student slot override updated successfully.",
+            status_code=status.HTTP_200_OK,
+        )
+
+    @action(detail=True, methods=["post"], url_path="bulk-student-slot-assign")
+    def bulk_student_slot_assign(self, request, pk=None):
+        exam = self.get_object()
+        if exam.assignment_mode != "selected_students":
+            return Response(
+                {"detail": "Bulk slot assignment is supported only for selected-student exams."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = ExamStudentBulkSlotAssignmentSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        slot = None
+        if "access_slot" in serializer.validated_data and serializer.validated_data["access_slot"] is not None:
+            slot = self._resolve_exam_slot_or_403(exam, serializer.validated_data["access_slot"])
+
+        assignments = exam.student_assignments.select_related("student", "access_slot").filter(is_active=True)
+        apply_to = serializer.validated_data["apply_to"]
+        if apply_to == ExamStudentBulkSlotAssignmentSerializer.APPLY_TO_UNASSIGNED_SELECTED:
+            assignments = assignments.filter(access_slot__isnull=True)
+        elif apply_to == ExamStudentBulkSlotAssignmentSerializer.APPLY_TO_STUDENT_IDS:
+            assignments = assignments.filter(student_id__in=serializer.validated_data.get("student_ids", []))
+
+        assignments = list(assignments)
+        if not assignments:
+            return action_response(
+                data={
+                    "updated_count": 0,
+                    "access_slot": str(slot.id) if slot else None,
+                    "slot_label": slot.slot_label if slot else "",
+                    "affected_student_ids": [],
+                },
+                message="No matching student assignments were found for this bulk slot update.",
+                status_code=status.HTTP_200_OK,
+            )
+
+        notes = serializer.validated_data.get("notes", "")
+        changed_assignments = [
+            assignment for assignment in assignments if assignment.access_slot_id != getattr(slot, "id", None)
+        ]
+        if slot is not None and slot.assignment_capacity is not None:
+            existing_count = exam.student_assignments.filter(access_slot=slot, is_active=True).exclude(
+                pk__in=[assignment.pk for assignment in changed_assignments]
+            ).count()
+            if existing_count + len(changed_assignments) > slot.assignment_capacity:
+                return Response(
+                    {
+                        "access_slot": [
+                            "This slot does not have enough assignment capacity for the selected learners."
+                        ]
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        before = [
+            {
+                "student_id": str(assignment.student_id),
+                "access_slot": str(assignment.access_slot_id) if assignment.access_slot_id else None,
+                "notes": assignment.notes,
+            }
+            for assignment in assignments
+        ]
+
+        updated_assignments = []
+        try:
+            with transaction.atomic():
+                for assignment in assignments:
+                    assignment.access_slot = slot
+                    if notes:
+                        assignment.notes = notes
+                    assignment.save()
+                    updated_assignments.append(assignment)
+        except DjangoValidationError as exc:
+            return Response(exc.message_dict, status=status.HTTP_400_BAD_REQUEST)
+
+        create_audit_log(
+            user=request.user,
+            institute=exam.institute,
+            action="exam_slot_bulk_assign",
+            entity_type="exam_student_access_bulk_override",
+            entity_id=exam.id,
+            message="Bulk student slot assignment saved.",
+            metadata={
+                "exam_id": str(exam.id),
+                "slot_id": str(slot.id) if slot else None,
+                "slot_label": slot.slot_label if slot else "",
+                "apply_to": apply_to,
+                "updated_count": len(updated_assignments),
+                "student_ids": [str(assignment.student_id) for assignment in updated_assignments],
+                "before": before,
+                "notes_applied": notes,
+            },
+            request=request,
+        )
+        return action_response(
+            data={
+                "updated_count": len(updated_assignments),
+                "access_slot": str(slot.id) if slot else None,
+                "slot_label": slot.slot_label if slot else "",
+                "affected_student_ids": [str(assignment.student_id) for assignment in updated_assignments],
+            },
+            message="Bulk student slot assignment saved successfully.",
+            status_code=status.HTTP_200_OK,
+        )
+
+    def _resolve_auto_slot_assignment_plan(self, *, exam, apply_to):
+        active_slots = list(
+            exam.access_slots.select_related("cohort")
+            .filter(is_active=True, status="active")
+            .order_by("slot_start_at", "created_at")
+        )
+        if not active_slots:
+            return {
+                "error": {"access_slots": ["Create at least one active slot before running automatic slot assignment."]}
+            }
+
+        assignments = exam.student_assignments.select_related("student", "access_slot").filter(is_active=True)
+        if apply_to == ExamStudentAutoSlotAssignmentSerializer.APPLY_TO_UNASSIGNED_SELECTED:
+            assignments = assignments.filter(access_slot__isnull=True)
+
+        target_assignments = list(assignments)
+        if not target_assignments:
+            return {
+                "active_slots": active_slots,
+                "target_assignments": [],
+                "planned_slot_ids_by_assignment": {},
+                "slot_remaining": {},
+                "unresolved_students": [],
+            }
+
+        target_assignment_ids = {assignment.id for assignment in target_assignments}
+        slot_remaining = {}
+        slot_existing_actual_count = {}
+        slot_existing_excluding_target_count = {}
+        for slot in active_slots:
+            actual_count = exam.student_assignments.filter(access_slot=slot, is_active=True).count()
+            existing_count = exam.student_assignments.filter(access_slot=slot, is_active=True).exclude(
+                pk__in=target_assignment_ids
+            ).count()
+            slot_existing_actual_count[slot.id] = actual_count
+            slot_existing_excluding_target_count[slot.id] = existing_count
+            if slot.assignment_capacity is None:
+                slot_remaining[slot.id] = None
+            else:
+                slot_remaining[slot.id] = max(slot.assignment_capacity - existing_count, 0)
+
+        planned_slot_ids_by_assignment = {}
+        unresolved_students = []
+        for assignment in sorted(
+            target_assignments,
+            key=lambda item: (
+                getattr(item.student, "cohort_id", None) is None,
+                item.student.first_name.lower(),
+                item.student.last_name.lower(),
+                item.student.admission_no,
+            ),
+        ):
+            cohort_matched_slots = [
+                slot for slot in active_slots if slot.cohort_id and slot.cohort_id == assignment.student.cohort_id
+            ]
+            candidate_slots = cohort_matched_slots or [slot for slot in active_slots if slot.cohort_id is None]
+            chosen_slot = None
+            for slot in candidate_slots:
+                remaining = slot_remaining[slot.id]
+                if remaining is None or remaining > 0:
+                    chosen_slot = slot
+                    break
+            if chosen_slot is None:
+                unresolved_students.append(
+                    f"{assignment.student.full_name} ({assignment.student.admission_no})"
+                )
+                continue
+            planned_slot_ids_by_assignment[assignment.id] = chosen_slot.id
+            if slot_remaining[chosen_slot.id] is not None:
+                slot_remaining[chosen_slot.id] = max(slot_remaining[chosen_slot.id] - 1, 0)
+
+        return {
+            "active_slots": active_slots,
+            "target_assignments": target_assignments,
+            "planned_slot_ids_by_assignment": planned_slot_ids_by_assignment,
+            "slot_remaining": slot_remaining,
+            "slot_existing_actual_count": slot_existing_actual_count,
+            "slot_existing_excluding_target_count": slot_existing_excluding_target_count,
+            "unresolved_students": unresolved_students,
+        }
+
+    def _serialize_auto_slot_assignment_plan(self, *, plan, apply_to):
+        active_slots = {slot.id: slot for slot in plan["active_slots"]}
+        assignments_payload = []
+        for assignment in plan["target_assignments"]:
+            planned_slot_id = plan["planned_slot_ids_by_assignment"].get(assignment.id)
+            planned_slot = active_slots.get(planned_slot_id)
+            assignments_payload.append(
+                {
+                    "student_id": str(assignment.student_id),
+                    "student_name": assignment.student.full_name,
+                    "admission_no": assignment.student.admission_no,
+                    "current_slot_id": str(assignment.access_slot_id) if assignment.access_slot_id else None,
+                    "current_slot_label": assignment.access_slot.slot_label if assignment.access_slot_id else "",
+                    "planned_slot_id": str(planned_slot.id) if planned_slot else None,
+                    "planned_slot_label": planned_slot.slot_label if planned_slot else "",
+                    "cohort_name": getattr(assignment.student.cohort, "name", "") or "",
+                }
+            )
+
+        slot_summary = []
+        for slot in plan["active_slots"]:
+            remaining = plan["slot_remaining"].get(slot.id)
+            actual_count = plan["slot_existing_actual_count"].get(slot.id, 0)
+            excluding_target_count = plan["slot_existing_excluding_target_count"].get(slot.id, 0)
+            planned_incoming_count = sum(
+                1 for planned_slot_id in plan["planned_slot_ids_by_assignment"].values() if planned_slot_id == slot.id
+            )
+            slot_summary.append(
+                {
+                    "slot_id": str(slot.id),
+                    "slot_label": slot.slot_label,
+                    "cohort_name": getattr(slot.cohort, "name", "") or "",
+                    "assignment_capacity": slot.assignment_capacity,
+                    "current_assigned_count": actual_count,
+                    "projected_assigned_count": excluding_target_count + planned_incoming_count,
+                    "remaining_after_plan": remaining,
+                }
+            )
+
+        return {
+            "apply_to": apply_to,
+            "updated_count": len(assignments_payload) - len(plan["unresolved_students"]),
+            "targeted_count": len(plan["target_assignments"]),
+            "assignments": assignments_payload,
+            "slot_summary": slot_summary,
+            "unresolved_students": plan["unresolved_students"],
+        }
+
+    @action(detail=True, methods=["post"], url_path="preview-auto-assign-students-to-slots")
+    def preview_auto_assign_students_to_slots(self, request, pk=None):
+        exam = self.get_object()
+        if exam.assignment_mode != "selected_students":
+            return Response(
+                {"detail": "Automatic slot assignment preview is supported only for selected-student exams."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = ExamStudentAutoSlotAssignmentSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        apply_to = serializer.validated_data["apply_to"]
+        plan = self._resolve_auto_slot_assignment_plan(exam=exam, apply_to=apply_to)
+        if "error" in plan:
+            return Response(plan["error"], status=status.HTTP_400_BAD_REQUEST)
+
+        return action_response(
+            data=self._serialize_auto_slot_assignment_plan(plan=plan, apply_to=apply_to),
+            message="Automatic slot assignment preview generated successfully.",
+            status_code=status.HTTP_200_OK,
+        )
+
+    @action(detail=True, methods=["post"], url_path="auto-assign-students-to-slots")
+    def auto_assign_students_to_slots(self, request, pk=None):
+        exam = self.get_object()
+        if exam.assignment_mode != "selected_students":
+            return Response(
+                {"detail": "Automatic slot assignment is supported only for selected-student exams."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = ExamStudentAutoSlotAssignmentSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        apply_to = serializer.validated_data["apply_to"]
+        plan = self._resolve_auto_slot_assignment_plan(exam=exam, apply_to=apply_to)
+        if "error" in plan:
+            return Response(plan["error"], status=status.HTTP_400_BAD_REQUEST)
+        target_assignments = plan["target_assignments"]
+        if not target_assignments:
+            return action_response(
+                data={"updated_count": 0, "affected_student_ids": [], "slot_ids": []},
+                message="No matching student assignments were found for automatic slot allocation.",
+                status_code=status.HTTP_200_OK,
+            )
+        planned_slot_ids_by_assignment = plan["planned_slot_ids_by_assignment"]
+        unresolved_students = plan["unresolved_students"]
+        if unresolved_students:
+            return Response(
+                {
+                    "access_slots": [
+                        "Automatic slot assignment could not place every learner within the current slot capacity and cohort routing."
+                    ],
+                    "unresolved_students": unresolved_students,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        notes = serializer.validated_data.get("notes", "")
+        before = [
+            {
+                "student_id": str(assignment.student_id),
+                "access_slot": str(assignment.access_slot_id) if assignment.access_slot_id else None,
+                "notes": assignment.notes,
+            }
+            for assignment in target_assignments
+        ]
+
+        updated_assignments = []
+        with transaction.atomic():
+            for assignment in target_assignments:
+                slot_id = planned_slot_ids_by_assignment.get(assignment.id)
+                assignment.access_slot_id = slot_id
+                if notes:
+                    assignment.notes = notes
+                assignment.save()
+                updated_assignments.append(assignment)
+
+        create_audit_log(
+            user=request.user,
+            institute=exam.institute,
+            action="exam_slot_auto_assign",
+            entity_type="exam_student_access_bulk_override",
+            entity_id=exam.id,
+            message="Automatic student slot assignment completed.",
+            metadata={
+                "exam_id": str(exam.id),
+                "apply_to": apply_to,
+                "updated_count": len(updated_assignments),
+                "student_ids": [str(assignment.student_id) for assignment in updated_assignments],
+                "slot_ids": [str(planned_slot_ids_by_assignment[assignment.id]) for assignment in updated_assignments],
+                "before": before,
+                "notes_applied": notes,
+            },
+            request=request,
+        )
+        return action_response(
+            data={
+                "updated_count": len(updated_assignments),
+                "affected_student_ids": [str(assignment.student_id) for assignment in updated_assignments],
+                "slot_ids": [str(planned_slot_ids_by_assignment[assignment.id]) for assignment in updated_assignments],
+            },
+            message="Automatic slot assignment completed successfully.",
+            status_code=status.HTTP_200_OK,
+        )
+
+    @action(detail=True, methods=["get"], url_path="slot-audit-logs")
+    def slot_audit_logs(self, request, pk=None):
+        exam = self.get_object()
+        queryset = AuditLog.objects.select_related("user").filter(
+            institute=exam.institute,
+            action__in=[
+                "exam_slot_create",
+                "exam_slot_update",
+                "exam_slot_override",
+                "exam_slot_bulk_assign",
+                "exam_slot_auto_assign",
+            ],
+        )
+
+        exam_id = str(exam.id)
+        rows = []
+        for audit in queryset[:100]:
+            metadata = audit.metadata if isinstance(audit.metadata, dict) else {}
+            metadata_exam_id = str(metadata.get("exam_id") or "")
+            include = metadata_exam_id == exam_id
+
+            if not include and audit.entity_type == "exam_access_slot":
+                slot_exam_id = str(metadata.get("exam_id") or "")
+                include = slot_exam_id == exam_id
+            if not include and audit.entity_type == "exam_student_access_override":
+                include = metadata_exam_id == exam_id
+            if not include and audit.entity_type == "exam_student_access_bulk_override":
+                include = str(audit.entity_id) == exam_id or metadata_exam_id == exam_id
+
+            if not include:
+                continue
+
+            rows.append(
+                {
+                    "id": str(audit.id),
+                    "action": audit.action,
+                    "entity_type": audit.entity_type,
+                    "entity_id": audit.entity_id,
+                    "message": audit.message,
+                    "metadata": metadata,
+                    "created_at": audit.created_at,
+                    "user_id": str(audit.user_id) if audit.user_id else None,
+                    "user_label": (
+                        audit.user.get_full_name().strip()
+                        or getattr(audit.user, "username", "")
+                        or getattr(audit.user, "email", "")
+                    )
+                    if audit.user_id
+                    else "System",
+                }
+            )
+
+        return action_response(
+            data=rows,
+            message="Exam slot audit logs fetched successfully.",
             status_code=status.HTTP_200_OK,
         )
 
@@ -529,6 +1126,7 @@ class ExamViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
         policy = sync_exam_access_policy(
             exam,
             policy_type=serializer.validated_data.get("policy_type", ""),
+            commercial_path=serializer.validated_data.get("commercial_path", ""),
             star_cost=serializer.validated_data.get("star_cost", 0),
             entitlement_code=serializer.validated_data.get("entitlement_code", ""),
             priority=serializer.validated_data.get("priority", 100),
@@ -542,6 +1140,7 @@ class ExamViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
             entity_id=exam.id,
             message="Exam economy access policy updated.",
             metadata={
+                "commercial_path": serializer.validated_data.get("commercial_path", ""),
                 "policy_type": getattr(policy, "policy_type", ""),
                 "star_cost": int(getattr(policy, "star_cost", 0) or 0),
                 "priority": getattr(policy, "priority", None),

@@ -22,12 +22,6 @@ async function measureTiming(args: {
   });
 }
 
-function economyNavLink(page: Parameters<typeof test>[0]["page"], tab: string) {
-  return page
-    .getByRole("navigation", { name: /economy workspace sections/i })
-    .locator(`a[href^="/admin/economy?tab=${tab}"]`);
-}
-
 test.describe("Admin economy timing", () => {
   test.skip(testRequiresRole("admin"), "Admin Playwright credentials are not configured.");
 
@@ -55,7 +49,7 @@ test.describe("Admin economy timing", () => {
       label: "admin-economy-catalog-open",
       metrics,
       action: async () => {
-        await economyNavLink(page, "catalog").click();
+        await page.goto("/admin/economy?tab=catalog", { waitUntil: "domcontentloaded" });
       },
       assertVisible: async () => {
         await expect(page).toHaveURL(/\/admin\/economy\?tab=catalog/);
@@ -71,7 +65,7 @@ test.describe("Admin economy timing", () => {
       label: "admin-economy-question-bank-open",
       metrics,
       action: async () => {
-        await economyNavLink(page, "question-bank").click();
+        await page.goto("/admin/economy?tab=question-bank", { waitUntil: "domcontentloaded" });
       },
       assertVisible: async () => {
         await expect(page).toHaveURL(/\/admin\/economy\?tab=question-bank/);
@@ -86,7 +80,7 @@ test.describe("Admin economy timing", () => {
       label: "admin-economy-support-ops-open",
       metrics,
       action: async () => {
-        await economyNavLink(page, "support-ops").click();
+        await page.goto("/admin/economy?tab=support-ops", { waitUntil: "domcontentloaded" });
       },
       assertVisible: async () => {
         await expect(page).toHaveURL(/\/admin\/economy\?tab=support-ops/);

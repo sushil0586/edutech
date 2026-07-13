@@ -205,6 +205,27 @@ class SeedMasterEconomyCommandTestCase(TestCase):
         call_command("seed_master_economy", self.institute.code, stdout=stdout)
 
         self.assertGreater(OptionCatalogEntry.objects.count(), 0)
+        self.assertTrue(
+            OptionCatalogEntry.objects.filter(
+                namespace="exam_economy_access_policy",
+                code="subscription_only",
+                is_active=True,
+            ).exists()
+        )
+        self.assertTrue(
+            OptionCatalogEntry.objects.filter(
+                namespace="exam_economy_access_policy",
+                code="platform_managed",
+                is_active=True,
+            ).exists()
+        )
+        self.assertFalse(
+            OptionCatalogEntry.objects.filter(
+                namespace="exam_economy_access_policy",
+                code="entitlement_only",
+                is_active=True,
+            ).exists()
+        )
         self.assertEqual(RewardRule.objects.filter(institute=self.institute).count(), 4)
         self.assertEqual(ReferralProgram.objects.filter(institute=self.institute).count(), 1)
         self.assertEqual(StarPack.objects.filter(institute=self.institute).count(), 3)

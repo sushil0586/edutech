@@ -1,6 +1,7 @@
+import dynamic from "next/dynamic";
+import { Suspense } from "react";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
-import { TeacherQuestionEditor } from "@/components/ui/teacher-question-editor";
 import { TeacherPageHeader } from "@/components/ui/teacher-page-header";
 import {
   createTeacherQuestion,
@@ -19,6 +20,27 @@ import {
   buildQuestionBankErrorSearch,
   parseQuestionBankValidationErrors,
 } from "@/lib/teacher/question-bank-validation";
+
+const TeacherQuestionEditor = dynamic(
+  () =>
+    import("@/components/ui/teacher-question-editor").then((module) => ({
+      default: module.TeacherQuestionEditor,
+    })),
+  {
+    loading: () => (
+      <section className="contentCard questionImportPanel">
+        <div className="builderSectionHeader">
+          <div>
+            <strong>Loading editor tools</strong>
+            <p>
+              The page shell is ready. Academic mapping, scoring, and answer-structure controls are loading now.
+            </p>
+          </div>
+        </div>
+      </section>
+    ),
+  },
+);
 
 async function createQuestionAction(formData: FormData) {
   "use server";
@@ -47,7 +69,42 @@ async function createQuestionAction(formData: FormData) {
   }
 }
 
-export default async function TeacherQuestionCreatePage({
+function TeacherQuestionCreatePageShell() {
+  return (
+    <>
+      <TeacherPageHeader
+        title="Create Question"
+        description="Author a reusable assessment question with clear scoring, explanation, and answer structure."
+      />
+
+      <section className="studentInsightHeroCard">
+        <div className="studentInsightHeroCopy">
+          <span className="studentDashboardTag">Question Authoring</span>
+          <strong>Loading the teacher question editor</strong>
+          <p>The editor shell is ready while question types, lookups, and duplicate context finish loading.</p>
+          <small>Preparing the authoring lane for the current teacher scope</small>
+        </div>
+      </section>
+    </>
+  );
+}
+
+function TeacherQuestionCreateEditorLoading() {
+  return (
+    <section className="contentCard questionImportPanel">
+      <div className="builderSectionHeader">
+        <div>
+          <strong>Loading editor tools</strong>
+          <p>
+            Academic mapping, scoring defaults, and answer-structure controls are loading now.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+async function TeacherQuestionCreateEditorData({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -71,25 +128,19 @@ export default async function TeacherQuestionCreatePage({
 
   if (!baseData) {
     return (
-      <div className="studentPage">
-        <TeacherPageHeader
-          title="Create Question"
-          description="This route depends on live academic lookups and question-bank write access."
-        />
-        <StudentStatePanel
-          eyebrow="Load issue"
-          title="Question editor could not be loaded"
-          description="The editor needs live program, subject, topic, and question-bank write endpoints before a question can be authored from the web workspace."
-          bullets={[
-            "Programs, subjects, and topics lookups",
-            "Teacher question create endpoint",
-            "Teacher question detail endpoint for duplication",
-          ]}
-          ctaHref="/teacher/question-bank"
-          ctaLabel="Back to Question Bank"
-          statusLabel="Retry after backend check"
-        />
-      </div>
+      <StudentStatePanel
+        eyebrow="Load issue"
+        title="Question editor could not be loaded"
+        description="The editor needs live program, subject, topic, and question-bank write endpoints before a question can be authored from the web workspace."
+        bullets={[
+          "Programs, subjects, and topics lookups",
+          "Teacher question create endpoint",
+          "Teacher question detail endpoint for duplication",
+        ]}
+        ctaHref="/teacher/question-bank"
+        ctaLabel="Back to Question Bank"
+        statusLabel="Retry after backend check"
+      />
     );
   }
 
@@ -120,30 +171,41 @@ export default async function TeacherQuestionCreatePage({
   const optionCatalog = groupTeacherOptionCatalog(optionCatalogEntries);
 
   return (
-    <>
-      <TeacherQuestionEditor
-        action={createQuestionAction}
-        duplicateMode={Boolean(duplicateQuestion)}
-        contentFormatOptions={optionCatalog.selectOptions("question_content_format")}
-        difficultyOptions={optionCatalog.selectOptions("question_difficulty")}
-        initialQuestion={duplicateQuestion}
-        pageDescription={
-          duplicateQuestion
-            ? "Clone an existing question, refine the content, and save a cleaner reusable version into the bank."
-            : "Author a reusable assessment question with clear scoring, explanation, and answer structure."
-        }
-        pageTitle={duplicateQuestion ? "Duplicate Question" : "Create Question"}
-        pageClassName="teacherConsolePage teacherQuestionEditorPageVivid"
-        lookupEndpoint="/api/teacher/question-bank/create-lookups"
-        passages={passages}
-        programs={programs}
-        questionTypeDefinitions={questionTypeDefinitions}
-        questionTypeOptions={optionCatalog.selectOptions("question_type")}
-        subjects={subjects}
-        topics={topics}
-        validationErrors={validationErrors}
-        validationMessage={error ? decodeURIComponent(error) : ""}
-      />
-    </>
+    <TeacherQuestionEditor
+      action={createQuestionAction}
+      duplicateMode={Boolean(duplicateQuestion)}
+      contentFormatOptions={optionCatalog.selectOptions("question_content_format")}
+      difficultyOptions={optionCatalog.selectOptions("question_difficulty")}
+      initialQuestion={duplicateQuestion}
+      pageDescription={
+        duplicateQuestion
+          ? "Clone an existing question, refine the content, and save a cleaner reusable version into the bank."
+          : "Author a reusable assessment question with clear scoring, explanation, and answer structure."
+      }
+      pageTitle={duplicateQuestion ? "Duplicate Question" : "Create Question"}
+      pageClassName="teacherConsolePage teacherQuestionEditorPageVivid"
+      lookupEndpoint="/api/teacher/question-bank/create-lookups"
+      passages={passages}
+      programs={programs}
+      questionTypeDefinitions={questionTypeDefinitions}
+      questionTypeOptions={optionCatalog.selectOptions("question_type")}
+      subjects={subjects}
+      topics={topics}
+      validationErrors={validationErrors}
+      validationMessage={error ? decodeURIComponent(error) : ""}
+    />
+  );
+}
+
+export default function TeacherQuestionCreatePage(props: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  return (
+    <div className="studentPage studentPageTight studentDashboardModern teacherConsolePage teacherQuestionEditorPageVivid">
+      <TeacherQuestionCreatePageShell />
+      <Suspense fallback={<TeacherQuestionCreateEditorLoading />}>
+        <TeacherQuestionCreateEditorData {...props} />
+      </Suspense>
+    </div>
   );
 }

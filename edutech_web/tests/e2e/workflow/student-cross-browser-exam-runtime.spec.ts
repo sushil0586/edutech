@@ -1,24 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectStudentWorkspace } from "../helpers/navigation";
-
-async function gotoWithRetry(page: Page, url: string, attempts = 3) {
-  let lastError: unknown = null;
-  for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    try {
-      await page.goto(url, { waitUntil: "domcontentloaded" });
-      return;
-    } catch (error) {
-      lastError = error;
-      const message = error instanceof Error ? error.message : String(error);
-      if (!message.includes("ERR_CONNECTION_REFUSED") || attempt === attempts) {
-        throw error;
-      }
-      await page.waitForTimeout(1500 * attempt);
-    }
-  }
-  throw lastError;
-}
+import { gotoWithRuntimeRecovery } from "../helpers/runtime";
 
 async function expectOneOfVisible(locators: Locator[]) {
   for (const locator of locators) {
@@ -32,7 +15,7 @@ async function expectOneOfVisible(locators: Locator[]) {
 }
 
 async function resolveExamDetailHref(page: Page) {
-  await gotoWithRetry(page, "/app/exams");
+  await gotoWithRuntimeRecovery(page, "/app/exams");
   await expect(page).toHaveURL(/\/app\/exams(?:\?.*)?$/);
   await expect(page.getByRole("heading", { name: /mock tests/i }).first()).toBeVisible();
 
@@ -45,7 +28,7 @@ async function resolveExamDetailHref(page: Page) {
     return await detailLink.getAttribute("href");
   }
 
-  await gotoWithRetry(page, "/app/dashboard");
+  await gotoWithRuntimeRecovery(page, "/app/dashboard");
   await expect(page).toHaveURL(/\/app\/dashboard(?:\?.*)?$/);
   await expect(page.getByText(/recommended for you/i).first()).toBeVisible();
 
@@ -55,7 +38,7 @@ async function resolveExamDetailHref(page: Page) {
 }
 
 async function resolveAttemptRuntimeHref(page: Page) {
-  await gotoWithRetry(page, "/app/attempts");
+  await gotoWithRuntimeRecovery(page, "/app/attempts");
   await expect(page).toHaveURL(/\/app\/attempts(?:\?.*)?$/);
   await expect(page.getByRole("heading", { name: /attempt/i }).first()).toBeVisible();
 
@@ -64,7 +47,7 @@ async function resolveAttemptRuntimeHref(page: Page) {
     return await resumeFromAttempts.getAttribute("href");
   }
 
-  await gotoWithRetry(page, "/app/dashboard");
+  await gotoWithRuntimeRecovery(page, "/app/dashboard");
   await expect(page).toHaveURL(/\/app\/dashboard(?:\?.*)?$/);
   await expect(page.getByText(/action queue/i).first()).toBeVisible();
 
@@ -88,7 +71,7 @@ test.describe("Student cross-browser exam detail and runtime sanity", () => {
     const detailHref = await resolveExamDetailHref(page);
     expect(detailHref).toMatch(/^\/app\/exams\/[^/]+$/);
 
-    await gotoWithRetry(page, detailHref!);
+    await gotoWithRuntimeRecovery(page, detailHref!);
     await expect(page).toHaveURL(/\/app\/exams\/[^/?#]+(?:\?.*)?$/);
     await expect(page.getByText(/exam readiness/i).first()).toBeVisible();
     await expect(page.getByText(/availability and runtime/i).first()).toBeVisible();
@@ -108,8 +91,31 @@ test.describe("Student cross-browser exam detail and runtime sanity", () => {
     }
 
     expect(attemptHref).toMatch(/^\/app\/attempts\/[^/]+$/);
-    await gotoWithRetry(page, attemptHref);
+    await gotoWithRuntimeRecovery(page, attemptHref);
     await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+(?:\?.*)?$/);
+
+    await expect
+      .poll(
+        async () => {
+          const activeVisible = await page
+            .getByRole("button", { name: /^save answer$/i })
+            .first()
+            .isVisible()
+            .catch(() => false);
+          const lockedVisible = await page
+            .getByRole("link", {
+              name: /refresh attempt state|refresh mock state|view attempt summary|view mock summary/i,
+            })
+            .first()
+            .isVisible()
+            .catch(() => false);
+          return activeVisible || lockedVisible;
+        },
+        {
+          timeout: 10000,
+        },
+      )
+      .toBe(true);
 
     const activeVisible = await page
       .getByRole("button", { name: /^save answer$/i })
@@ -117,7 +123,9 @@ test.describe("Student cross-browser exam detail and runtime sanity", () => {
       .isVisible()
       .catch(() => false);
     const lockedVisible = await page
-      .getByRole("link", { name: /refresh attempt state|refresh mock state|view attempt summary|view mock summary/i })
+      .getByRole("link", {
+        name: /refresh attempt state|refresh mock state|view attempt summary|view mock summary/i,
+      })
       .first()
       .isVisible()
       .catch(() => false);

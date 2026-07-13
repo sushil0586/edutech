@@ -89,7 +89,7 @@ async function createExamAction(formData: FormData) {
 
     const exam = await createTeacherExam(payload);
     await configureTeacherExamEconomyAccess(exam.id, {
-      policy_type: String(formData.get("economy_policy_type") ?? "").trim(),
+      commercial_path: String(formData.get("economy_policy_type") ?? "").trim(),
       star_cost: Number(formData.get("economy_star_cost") ?? 0),
       entitlement_code: String(formData.get("economy_entitlement_code") ?? "").trim(),
       priority: Number(formData.get("economy_policy_priority") ?? 100),
@@ -113,24 +113,15 @@ export default async function NewTeacherExamPage({
   await requireTeacherSession();
   const { error } = await searchParams;
 
-  const [academicYears, programs] = await Promise.all([
+  const [academicYears, programs, optionCatalogEntries] = await Promise.all([
     fetchTeacherAcademicYears(),
     fetchTeacherPrograms(),
-  ]);
-
-  const selectedAcademicYear = academicYears[0]?.id ?? "";
-  const selectedProgram = programs[0]?.id ?? "";
-
-  const [cohorts, subjects, optionCatalogEntries] = await Promise.all([
-    fetchTeacherCohorts({
-      academic_year: selectedAcademicYear,
-      program: selectedProgram,
-    }),
-    fetchTeacherSubjects({
-      program: selectedProgram,
-    }),
     fetchTeacherOptionCatalog(),
   ]);
+  const selectedAcademicYear = academicYears[0]?.id ?? "";
+  const selectedProgram = programs[0]?.id ?? "";
+  const cohorts: Awaited<ReturnType<typeof fetchTeacherCohorts>> = [];
+  const subjects: Awaited<ReturnType<typeof fetchTeacherSubjects>> = [];
   const optionCatalog = groupTeacherOptionCatalog(optionCatalogEntries);
 
   return (

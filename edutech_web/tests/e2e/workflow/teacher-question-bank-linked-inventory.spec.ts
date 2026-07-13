@@ -46,6 +46,7 @@ async function expectLinkedTeacherInventoryCard(card: Locator) {
   await expect(card.getByText(/this is a read-only linked row/i).first()).toBeVisible();
   await expect(card.getByText(/read-only linked row · duplicate before editing/i).first()).toBeVisible();
   await expect(card.getByText(/source state:\s*linked source\s*·\s*read-only linked row/i).first()).toBeVisible();
+  await expect(card.getByText(/licensed platform source/i).first()).toBeVisible();
   await expect(card.getByRole("button", { name: /preview/i })).toBeVisible();
   await expect(card.getByRole("link", { name: /duplicate to edit/i })).toBeVisible();
   await expect(card.getByRole("link", { name: /^edit$/i })).toHaveCount(0);

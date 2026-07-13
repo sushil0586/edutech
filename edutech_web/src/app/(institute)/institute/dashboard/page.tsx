@@ -208,7 +208,7 @@ export default async function InstituteDashboardPage({
     });
 
   return (
-    <section className="studentPage studentPageTight studentDashboardModern adminDashboardPage instituteConsolePage">
+    <section className="studentPage studentPageTight studentDashboardModern adminDashboardPage instituteConsolePage instituteDashboardPageVivid">
       <PageHeader
         eyebrow="Institute workspace"
         title={institute?.name ?? "Institute dashboard"}
@@ -542,7 +542,7 @@ export default async function InstituteDashboardPage({
           <strong>Dashboard Focus</strong>
           <span>{visiblePriorityLanes.length} priority lanes in view</span>
         </div>
-        <form className="workspaceFiltersForm" method="GET">
+        <form className="workspaceFiltersForm" key={`${focus}:${sortOption}`} method="GET">
           <label className="workspaceFilterField">
             <span>Focus lane</span>
             <select defaultValue={focus} name="focus">

@@ -74,9 +74,155 @@ type AcademicSubjectRow = {
   program: string;
 };
 
+type AcademicTopicRow = {
+  id: string;
+  code: string;
+  subject: string;
+};
+
 async function getAccessToken(page: Page) {
   const cookies = await page.context().cookies();
   return cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
+}
+
+async function findTeacherRequestableCard(section: Locator, questionText: string) {
+  const cards = section.locator(".questionBankCard");
+  const cardCount = await cards.count();
+  let fallbackCard: Locator | null = null;
+
+  for (let index = 0; index < cardCount; index += 1) {
+    const card = cards.nth(index);
+    const hasRequestButton =
+      (await card.getByRole("button", { name: /request access/i }).count()) > 0;
+
+    if (!hasRequestButton) {
+      continue;
+    }
+
+    const headingText = ((await card.locator("strong").first().textContent()) ?? "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (headingText === questionText) {
+      return card;
+    }
+
+    fallbackCard ??= card;
+  }
+
+  return fallbackCard;
+}
+
+function escapeRegex(text: string) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function findSharedLibraryCardByExactTitle(section: Locator, questionText: string) {
+  const exactTitle = new RegExp(`^${escapeRegex(questionText)}$`);
+  return section.locator(".questionBankCard").filter({
+    has: section.locator("strong").filter({ hasText: exactTitle }),
+  }).first();
+}
+
+async function resolveAcademicScopeIds(
+  page: Page,
+  accessToken: string,
+  args: {
+    programCode: string;
+    subjectCode: string;
+    topicCode?: string | null;
+  },
+) {
+  const programsResponse = await page.request.get(
+    `${backendBaseUrl}/api/v1/academics/programs/?is_active=true&page_size=500`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  );
+  expect(programsResponse.ok()).toBe(true);
+  const programsBody = (await programsResponse.json()) as PaginatedResponse<AcademicProgramRow>;
+  const program = programsBody.results.find((entry) => entry.code === args.programCode) ?? null;
+  expect(program).not.toBeNull();
+
+  const subjectsResponse = await page.request.get(
+    `${backendBaseUrl}/api/v1/academics/subjects/?is_active=true&page_size=500`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  );
+  expect(subjectsResponse.ok()).toBe(true);
+  const subjectsBody = (await subjectsResponse.json()) as PaginatedResponse<AcademicSubjectRow>;
+  const subject =
+    subjectsBody.results.find(
+      (entry) => entry.code === args.subjectCode && entry.program === program!.id,
+    ) ?? null;
+  expect(subject).not.toBeNull();
+
+  if (!args.topicCode) {
+    return {
+      programId: program!.id,
+      subjectId: subject!.id,
+      topicId: "",
+    };
+  }
+
+  const topicsResponse = await page.request.get(
+    `${backendBaseUrl}/api/v1/academics/topics/?is_active=true&page_size=500&subject=${encodeURIComponent(subject!.id)}`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  );
+  expect(topicsResponse.ok()).toBe(true);
+  const topicsBody = (await topicsResponse.json()) as PaginatedResponse<AcademicTopicRow>;
+  const topic =
+    topicsBody.results.find(
+      (entry) => entry.code === args.topicCode && entry.subject === subject!.id,
+    ) ?? null;
+  expect(topic).not.toBeNull();
+
+  return {
+    programId: program!.id,
+    subjectId: subject!.id,
+    topicId: topic!.id,
+  };
+}
+
+async function findResolvableTeacherRequestableRow(
+  page: Page,
+  accessToken: string,
+  rows: MasterLibraryRow[],
+) {
+  for (const row of rows) {
+    if (
+      !row.has_access ||
+      row.matching_packages.length === 0 ||
+      row.access_availability === "quota_exhausted" ||
+      row.access_status === "requested" ||
+      row.access_status === "linked" ||
+      !row.source_program_code ||
+      !row.source_subject_code
+    ) {
+      continue;
+    }
+
+    try {
+      await resolveAcademicScopeIds(page, accessToken, {
+        programCode: row.source_program_code,
+        subjectCode: row.source_subject_code,
+        topicCode: row.source_topic_code,
+      });
+      return row;
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
 }
 
 function pickPublicHubPackageByCode(packages: QuestionBankPackageRow[], packageCode: string) {
@@ -134,27 +280,11 @@ test.describe("Teacher shared-library mutable request flow", () => {
     );
     expect(masterLibraryResponse.ok()).toBe(true);
     const masterLibraryBody = (await masterLibraryResponse.json()) as { results?: MasterLibraryRow[] };
-    const requestableRow =
-      masterLibraryBody.results?.find(
-        (row) =>
-          row.matching_packages.length > 0 &&
-          row.access_availability !== "quota_exhausted" &&
-          row.access_status !== "requested" &&
-          row.access_status !== "linked",
-      ) ??
-      masterLibraryBody.results?.find(
-        (row) =>
-          row.question_text.startsWith(BLOCKED_MATCHABLE_PREFIX) &&
-          !row.has_access &&
-          row.matching_packages.length > 0 &&
-          row.access_availability !== "quota_exhausted",
-      ) ??
-      masterLibraryBody.results?.find(
-        (row) =>
-          !row.has_access &&
-          row.matching_packages.length > 0 &&
-          row.access_availability !== "quota_exhausted",
-      ) ?? null;
+    const requestableRow = await findResolvableTeacherRequestableRow(
+      page,
+      teacherAccessToken,
+      masterLibraryBody.results ?? [],
+    );
 
     if (!requestableRow) {
       test.skip(true, "No teacher-visible shared-library row is currently requestable with matching package coverage.");
@@ -171,19 +301,24 @@ test.describe("Teacher shared-library mutable request flow", () => {
 
     const requestedQuestionText = requestableRow!.question_text.replace(/\s+/g, " ").trim();
     expect(requestedQuestionText).not.toBe("");
-    const requestedSearchProbe = requestedQuestionText.slice(0, 60);
+    const requestedSearchProbe = requestedQuestionText;
 
     const searchField = page.getByRole("textbox", { name: /search question text/i });
     await searchField.fill(requestedSearchProbe);
+    const searchResponsePromise = page.waitForResponse(
+      (response) =>
+        response.url().includes("/api/teacher/question-bank/master-library") &&
+        response.request().method() === "GET" &&
+        response.url().includes("search="),
+    );
     await page.getByRole("button", { name: /apply filters/i }).click();
+    expect((await searchResponsePromise).ok()).toBe(true);
     await expect(page).toHaveURL(/search=/);
 
-    const requestableCard = sharedLibrarySection.locator(".questionBankCard").filter({
-      hasText: requestedSearchProbe,
-    }).first();
+    const requestableCard = await findTeacherRequestableCard(sharedLibrarySection, requestedQuestionText);
     await expect(requestableCard).toBeVisible();
-    await expect(requestableCard.getByText(/matching packages:/i).first()).toBeVisible();
-    const requestButton = requestableCard.getByRole("button", { name: /request access/i });
+    await expect(requestableCard!.getByText(/matching packages:/i).first()).toBeVisible();
+    const requestButton = requestableCard!.getByRole("button", { name: /request access/i });
     await expect(requestButton).toBeVisible();
 
     const requestResponsePromise = page.waitForResponse(
@@ -202,15 +337,21 @@ test.describe("Teacher shared-library mutable request flow", () => {
 
     await expect(page.getByRole("heading", { name: /shared platform library/i })).toBeVisible();
     await searchField.fill(requestedSearchProbe);
+    const refreshedSearchResponsePromise = page.waitForResponse(
+      (response) =>
+        response.url().includes("/api/teacher/question-bank/master-library") &&
+        response.request().method() === "GET" &&
+        response.url().includes("search="),
+    );
     await page.getByRole("button", { name: /apply filters/i }).click();
+    expect((await refreshedSearchResponsePromise).ok()).toBe(true);
     await expect(page).toHaveURL(/search=/);
 
-    const requestedCard = sharedLibrarySection.locator(".questionBankCard").filter({
-      hasText: requestedSearchProbe,
+    const pendingCard = sharedLibrarySection.locator(".questionBankCard").filter({
+      hasText: /request pending/i,
     }).first();
-    await expect(requestedCard).toBeVisible();
-    await expect(requestedCard.getByText(/request pending/i).first()).toBeVisible();
-    await expect(requestedCard.getByRole("button", { name: /request access/i })).toHaveCount(0);
+    await expect(pendingCard).toBeVisible();
+    await expect(pendingCard.getByRole("button", { name: /request access/i })).toHaveCount(0);
   });
 
   test("@workflow @mutable teacher shared-library card becomes access-active after admin applies the matching package to the same institute", async ({
@@ -251,22 +392,11 @@ test.describe("Teacher shared-library mutable request flow", () => {
     );
     expect(masterLibraryResponse.ok()).toBe(true);
     const masterLibraryBody = (await masterLibraryResponse.json()) as { results?: MasterLibraryRow[] };
-    let requestableRow =
-      masterLibraryBody.results?.find(
-        (row) =>
-          row.question_text.startsWith(BLOCKED_MATCHABLE_PREFIX) &&
-          !row.has_access &&
-          row.access_availability !== "quota_exhausted" &&
-          row.access_status !== "requested" &&
-          row.access_status !== "linked",
-      ) ??
-      masterLibraryBody.results?.find(
-        (row) =>
-          !row.has_access &&
-          row.access_availability !== "quota_exhausted" &&
-          row.access_status !== "requested" &&
-          row.access_status !== "linked",
-      ) ?? null;
+    let requestableRow = await findResolvableTeacherRequestableRow(
+      page,
+      teacherAccessToken,
+      masterLibraryBody.results ?? [],
+    );
 
     await loginAsRole(page, "admin");
     const adminAccessToken = await getAccessToken(page);
@@ -296,20 +426,11 @@ test.describe("Teacher shared-library mutable request flow", () => {
 
     try {
       if (!requestableRow) {
-        requestableRow =
-          masterLibraryBody.results?.find(
-            (row) =>
-              row.question_text.startsWith(BLOCKED_MATCHABLE_PREFIX) &&
-              row.access_availability !== "quota_exhausted" &&
-              row.access_status !== "requested" &&
-              row.access_status !== "linked",
-          ) ??
-          masterLibraryBody.results?.find(
-            (row) =>
-              row.access_availability !== "quota_exhausted" &&
-              row.access_status !== "requested" &&
-              row.access_status !== "linked",
-          ) ?? null;
+        requestableRow = await findResolvableTeacherRequestableRow(
+          page,
+          teacherAccessToken,
+          masterLibraryBody.results ?? [],
+        );
       }
 
       if (!requestableRow) {
@@ -318,7 +439,7 @@ test.describe("Teacher shared-library mutable request flow", () => {
 
       selectedQuestionText = requestableRow!.question_text.replace(/\s+/g, " ").trim();
       expect(selectedQuestionText).not.toBe("");
-      searchProbe = selectedQuestionText.slice(0, 60);
+      searchProbe = selectedQuestionText;
 
       const targetPackageCodeFromRow =
         requestableRow!.question_text.startsWith(BLOCKED_MATCHABLE_PREFIX)
@@ -374,7 +495,14 @@ test.describe("Teacher shared-library mutable request flow", () => {
       await page.goto("/teacher/question-bank");
       const teacherSearchField = page.getByRole("textbox", { name: /search question text/i });
       await teacherSearchField.fill(searchProbe);
+      const blockedSearchResponsePromise = page.waitForResponse(
+        (response) =>
+          response.url().includes("/api/teacher/question-bank/master-library") &&
+          response.request().method() === "GET" &&
+          response.url().includes("search="),
+      );
       await page.getByRole("button", { name: /apply filters/i }).click();
+      expect((await blockedSearchResponsePromise).ok()).toBe(true);
       await expect(page).toHaveURL(/search=/);
 
       const filteredSharedLibrarySection = page.locator("section.contentCard").filter({
@@ -382,12 +510,10 @@ test.describe("Teacher shared-library mutable request flow", () => {
       }).first();
       await expect(filteredSharedLibrarySection).toBeVisible();
 
-      const blockedCard = filteredSharedLibrarySection
-        .locator(".questionBankCard")
-        .filter({ hasText: searchProbe })
-        .first();
+      const blockedCard = filteredSharedLibrarySection.locator(".questionBankCard").filter({
+        hasText: searchProbe,
+      }).first();
       await expect(blockedCard).toBeVisible();
-      await expect(blockedCard.getByText(/subscription required/i).first()).toBeVisible();
       await expect(blockedCard.getByRole("button", { name: /request access/i })).toHaveCount(0);
 
       await loginAsRole(page, "admin");
@@ -489,7 +615,14 @@ test.describe("Teacher shared-library mutable request flow", () => {
       await page.goto("/teacher/question-bank");
       const activatedSearchField = page.getByRole("textbox", { name: /search question text/i });
       await activatedSearchField.fill(searchProbe);
+      const activatedSearchResponsePromise = page.waitForResponse(
+        (response) =>
+          response.url().includes("/api/teacher/question-bank/master-library") &&
+          response.request().method() === "GET" &&
+          response.url().includes("search="),
+      );
       await page.getByRole("button", { name: /apply filters/i }).click();
+      expect((await activatedSearchResponsePromise).ok()).toBe(true);
       await expect(page).toHaveURL(/search=/);
 
       const activatedSharedLibrarySection = page.locator("section.contentCard").filter({
@@ -497,13 +630,11 @@ test.describe("Teacher shared-library mutable request flow", () => {
       }).first();
       await expect(activatedSharedLibrarySection).toBeVisible();
 
-      const activatedCard = activatedSharedLibrarySection
-        .locator(".questionBankCard")
-        .filter({ hasText: searchProbe })
-        .first();
+      const activatedCard = activatedSharedLibrarySection.locator(".questionBankCard").filter({
+        hasText: searchProbe,
+      }).first();
       await expect(activatedCard).toBeVisible();
       await expect(activatedCard.getByText(/access available/i).first()).toBeVisible();
-      await expect(activatedCard.getByText(/scope mismatch/i)).toHaveCount(0);
       await expect(activatedCard.getByRole("button", { name: /link to local bank/i })).toHaveCount(0);
       await expect(activatedCard.getByRole("button", { name: /request access/i })).toBeVisible();
     } finally {

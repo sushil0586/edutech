@@ -1,6 +1,6 @@
 # Overall Product Confidence Matrix
 
-Last updated: 2026-07-07
+Last updated: 2026-07-09
 
 ## Purpose
 
@@ -30,6 +30,12 @@ Related documents:
 - [PLAYWRIGHT_PERFORMANCE_PENETRATION_MASTER_PLAN.md](/Users/ansh/Documents/Eductech/docs/qa-runbooks/PLAYWRIGHT_PERFORMANCE_PENETRATION_MASTER_PLAN.md)
 - [PLAYWRIGHT_PERFORMANCE_PENETRATION_EXECUTION_PACK.md](/Users/ansh/Documents/Eductech/docs/qa-runbooks/PLAYWRIGHT_PERFORMANCE_PENETRATION_EXECUTION_PACK.md)
 - [PLAYWRIGHT_BROWSER_9_BENCHMARK_PLAN.md](/Users/ansh/Documents/Eductech/docs/qa-runbooks/PLAYWRIGHT_BROWSER_9_BENCHMARK_PLAN.md)
+- [FUNCTIONAL_END_TO_END_HARDENING_PLAN.md](/Users/ansh/Documents/Eductech/docs/qa-runbooks/FUNCTIONAL_END_TO_END_HARDENING_PLAN.md)
+- [FUNCTIONAL_P0_EXECUTION_BOARD.md](/Users/ansh/Documents/Eductech/docs/qa-runbooks/FUNCTIONAL_P0_EXECUTION_BOARD.md)
+- [STUDENT_9_5_CONFIDENCE_EXECUTION_BOARD.md](/Users/ansh/Documents/Eductech/docs/qa-runbooks/STUDENT_9_5_CONFIDENCE_EXECUTION_BOARD.md)
+- [ADMIN_9_5_CONFIDENCE_EXECUTION_BOARD.md](/Users/ansh/Documents/Eductech/docs/qa-runbooks/ADMIN_9_5_CONFIDENCE_EXECUTION_BOARD.md)
+- [OPERATOR_8_TO_9_CONFIDENCE_EXECUTION_BOARD.md](/Users/ansh/Documents/Eductech/docs/qa-runbooks/OPERATOR_8_TO_9_CONFIDENCE_EXECUTION_BOARD.md)
+- [SELF_SERVE_ROLLOUT_CONFIDENCE_PLAN.md](/Users/ansh/Documents/Eductech/docs/qa-runbooks/SELF_SERVE_ROLLOUT_CONFIDENCE_PLAN.md)
 - [PERFORMANCE_MODULE_COVERAGE_MATRIX.md](/Users/ansh/Documents/Eductech/docs/qa-runbooks/PERFORMANCE_MODULE_COVERAGE_MATRIX.md)
 - [FILE_IMPORT_UPLOAD_PERFORMANCE_RUNBOOK.md](/Users/ansh/Documents/Eductech/docs/qa-runbooks/FILE_IMPORT_UPLOAD_PERFORMANCE_RUNBOOK.md)
 - [LOCAL_DEV_PENETRATION_BASELINE_2026-07-06.md](/Users/ansh/Documents/Eductech/docs/qa-runbooks/LOCAL_DEV_PENETRATION_BASELINE_2026-07-06.md)
@@ -78,6 +84,133 @@ It is now:
 
 It is not yet at the point where every dense operational lane is simple enough for low-support, wide-open rollout.
 
+The current execution path for closing that gap is tracked in:
+
+- [SELF_SERVE_ROLLOUT_CONFIDENCE_PLAN.md](/Users/ansh/Documents/Eductech/docs/qa-runbooks/SELF_SERVE_ROLLOUT_CONFIDENCE_PLAN.md)
+
+As of `2026-07-08`, the shared-library self-serve confidence lane tightened further again:
+
+- full institute shared-library grouped rerun now holds at `7 passed`, `9 skipped`, `0 failed`
+- grouped pack included:
+  - `institute-linked-library-linker.spec.ts`
+  - `institute-question-bank-linked-mental-model.spec.ts`
+  - `institute-question-bank-opbms-linked-science.spec.ts`
+  - `institute-question-bank-shared-library-workspace.spec.ts`
+  - `institute-question-bank-shared-library-no-entitlement.spec.ts`
+  - `institute-question-bank-shared-library-quota-exhausted.spec.ts`
+  - plus mutable entitlement / link / builder / publish-readiness lanes behind their normal flags
+- institute shared-library browser coverage now aligns to the truthful split contract:
+  - the local question-bank page is the diagnosis-and-routing surface
+  - the linked lane is the read/reuse surface
+  - the shared-library linker is the final intake surface
+- older false negatives that still assumed the pre-split inline shared-library card were removed
+- this shifts the main residual away from institute shared-library browser truth and toward broader low-support operator simplicity outside this now-green lane
+
+As of `2026-07-08`, the focused operator `8 to 9` confidence board is also fully closed:
+
+- institute onboarding summary and recovery hardening is complete
+- mixed and multi-institute onboarding realism is browser-proven
+- teacher versus institute role-boundary explanation is now explicit on dense question-bank surfaces
+- teacher question-bank parity and deterministic mutable coverage are materially stronger
+- package and entitlement governance now has clearer diagnosis and recovery proof on the densest admin economy surfaces
+- this means the main residual is no longer “are these operator lanes actually working?”
+- it is now mostly about broader unsupported rollout depth, wider performance realism, and keeping the strongest suites repeatably green
+
+As of `2026-07-09`, the first grouped unsupported self-serve operator pack is also green at full repeat depth:
+
+- grouped result: `16 passed`
+- the grouped proof set covered:
+  - `admin-mixed-institute-onboarding.mutable.spec.ts`
+  - `teacher-institute-shared-library-role-difference.spec.ts`
+  - `teacher-question-bank-shared-library-workspace.spec.ts`
+  - `institute-question-bank-shared-library-workspace.spec.ts`
+  - `institute-question-bank-shared-library-no-entitlement.spec.ts`
+  - `institute-question-bank-shared-library-quota-exhausted.spec.ts`
+  - `admin-package-scope-recovery-institute-linked.mutable.spec.ts`
+  - `admin-package-scope-expansion-institute-linker.mutable.spec.ts`
+- each lane now also survives the grouped `--repeat-each=2` run instead of only a single grouped pass
+- this grouped pack now proves, in one repeatable first-time-operator slice:
+  - mixed onboarding readiness versus follow-up-needed truth
+  - package mismatch and partial-entitlement diagnosis
+  - teacher request-only versus institute link-capable recovery
+  - empty-state versus blocked-state differentiation in the densest shared-library lanes
+- the final proof also includes:
+  - debug-only local bypass for admin provisioning throttle so QA proof measures product behavior rather than test-environment rate limiting
+  - direct scoped linker navigation and package-catalog lookup hardening so the grouped pass is no longer relying on fragile UI shortcuts
+- this does not finish broad unsupported self-serve rollout proof by itself, but it removes one of the clearest remaining “can a first-time operator understand what is happening?” gaps
+
+As of `2026-07-09`, the admin seeded advanced-builder confidence lane also tightened materially:
+
+- grouped mutable result:
+  - `admin-exam-creation-advanced-matrix.mutable.spec.ts`
+  - `admin-exam-creation-advanced-student-attempt.mutable.spec.ts`
+  - result: `4 passed`
+- this grouped proof now covers:
+  - seeded platform-admin advanced exam creation across `practice`, `quiz`, and `mock_exam`
+  - deterministic institute/program/subject scope under `Demo Learning Institute (DLI001)`
+  - seeded student assignment, attempt start, save, submit, and post-submit admin verification
+- older stale browser assumptions were also removed from this lane:
+  - outdated `Subject` field targeting
+  - template application before topic options were actually ready
+  - stale student save-banner timing assumptions that no longer matched the redirect-based runtime contract
+- this does not finish all admin `9.5/10` work, but it closes one of the highest-value mutable admin proof gaps and shifts the remaining admin residual toward page-by-page completeness, visual consistency, and broader long-tail coverage
+
+As of `2026-07-09`, the admin desktop visual pass also moved from broad intention into route-closed evidence:
+
+- desktop review is now closed for:
+  - `/admin`
+  - `/admin/economy`
+  - `/admin/institutes`
+  - `/admin/people`
+  - `/admin/academic-setup`
+  - `/admin/exams`
+  - `/admin/reports`
+  - `/admin/search`
+  - `/admin/security`
+  - `/admin/settings`
+- those reviews already burned down real operator-friction bugs rather than only documenting them:
+  - admin dashboard command-deck suppression from a broad shell-level hide rule
+  - admin topbar identity-chip compression on dense routes
+  - institute onboarding-history rail imbalance
+  - admin people action-band and roster-toolbar imbalance
+  - admin academic-setup tab-rail wrapping drift
+  - admin exams duplicate filter-summary and misaligned filter-action layout
+  - admin settings lower-band imbalance
+  - admin reports orphaned fifth KPI and right-stacked filter actions
+  - admin security orphaned watchlist KPI row and half-empty selector lane on desktop
+- this raises admin page-to-page confidence honestly, but does not yet finish the full visual/UX signoff:
+- still pending major desktop pages:
+    - dense exam subroutes such as `new`, `detail`, `builder`, `advanced`, and `preset-packs`
+- practical implication:
+  - admin confidence is now less blocked by obvious desktop alignment bugs
+  - the remaining admin gap is more about grouped operable-controls proof, low-support wording truth, and long-tail mutation/recovery breadth
+
+As of `2026-07-08`, the follow-up self-serve strengthening wave is also effectively closed:
+
+- grouped strengthening result: `3 passed`, `1 expected skip`
+- quota-lane rerun with `PLAYWRIGHT_ENABLE_MUTABLE_INSTITUTE_SHARED_LIBRARY_QUOTA=1`: `1 passed`
+- combined strengthening read: `4/4 proven`
+- this adds proof for:
+  - bulk-import feature pause and restore recovery
+  - teacher shared-library request persistence and package-activation recovery
+  - mutable institute quota-exhausted guidance on the current question-bank intake contract
+- this moves the remaining self-serve residual further away from dense access-state truth and more toward broader unsupported rollout breadth, repeatability, and performance realism
+
+As of `2026-07-07`, the shared-library self-serve confidence lane also tightened further:
+
+- focused shared-library grouped rerun with mutable flags now holds at `5 passed`
+- `teacher-institute-shared-library-role-difference.spec.ts` passed
+- `teacher-question-bank-shared-library-request.mutable.spec.ts` passed
+- `institute-question-bank-shared-library-link.mutable.spec.ts` passes both mutable institute lanes, including the blocked-matchable bridge activation path
+- this was the step before the later `2026-07-08` institute grouped rerun removed the stale paused-entitlement browser false negatives
+
+As of `2026-07-07`, results-distribution depth also moved forward:
+
+- `edutech_web/tests/e2e/workflow/institute-results-multi-learner.mutable.spec.ts`
+  - `1 passed`
+  - institute-side browser proof now covers targeted two-learner assignment, divergent attempt outcomes, rank calculation, result publication, and leaderboard verification across both API payload and UI rendering
+  - this removes the earlier gap where multi-learner leaderboard publication depth was browser-proven mainly on the teacher side
+
 ### Latest hardening movement
 
 As of `2026-07-06`, Playwright browser Phase 1 hardening also moved forward on the benchmark gap areas:
@@ -114,6 +247,8 @@ As of `2026-07-06`, Playwright browser Phase 1 hardening also moved forward on t
     - entitlement lifecycle note/window mutation plus restore
     - revoked-history restore to governing access
     - feature entitlement pause/reactivate
+    - subscription-plan cycle, pricing, grant-mode, and star-credit-rule mutation through the live admin governance editor
+    - safe recovery after a wrong subscription-plan `Apply to institute` choice, including remediation warning before apply and cleared reconciliation after the correct target is applied
 
 This narrows the main remaining Playwright browser benchmark gap mostly to:
 
@@ -295,8 +430,8 @@ As of `2026-07-05`, the highest-value exam family lifecycle suites are now brows
   - `1 discovered`
   - teacher live monitor now has populated in-progress attempt coverage with attempt drill-in and intervention-note realism
 - `edutech_web/tests/e2e/workflow/student-results-storytelling.mutable.spec.ts`
-  - `1 discovered`
-  - one disposable published result is now traced across student results, analytics landing, compare, and timeline storytelling views
+  - `1 passed`
+  - one seeded review-ready published result is now traced across student results, summary, review, analytics compare, and timeline storytelling views
 - `edutech_web/tests/e2e/workflow/institute-results-analysis-populated.mutable.spec.ts`
   - `1 discovered`
   - institute analysis now has populated disposable-result coverage across hero cards, risk board, student explorer, and question-wise evidence
@@ -304,8 +439,137 @@ As of `2026-07-05`, the highest-value exam family lifecycle suites are now brows
   - `1 discovered`
   - teacher analysis now has populated disposable-result coverage across hero cards, risk board, student explorer, and question-wise evidence
 - `edutech_web/tests/e2e/workflow/student-analytics-drilldown.mutable.spec.ts`
-  - `1 discovered`
-  - student analytics now has scoped drill-down continuity coverage across compare, timeline, action center, and subject deep dive routes
+  - `1 passed`
+  - student analytics now has scoped drill-down continuity coverage across compare, timeline, action center, subject deep dive, and scoped results handoff routes
+
+As of `2026-07-08`, the scoped analytics consistency lane is also no longer just a discovered target; it now has grouped browser proof:
+
+- grouped rerun:
+  - `student-analytics-drilldown.mutable.spec.ts`
+  - `student-analytics-scope-persistence-workspace.spec.ts`
+  - `student-summary-review-source-persistence.spec.ts`
+  - grouped result: `3 passed`
+- this proves source / teacher / subject scope continuity across analytics compare, timeline, actions, subject deep dive, and review-adjacent student result handoff routes
+- the analytics landing page also now avoids sending multi-subject published results into a broken composite-subject compare filter
+
+As of `2026-07-08`, the broader student results storytelling lane is also no longer dependent on fragile disposable teacher setup:
+
+- grouped rerun:
+  - `student-post-submit-workspace.spec.ts`
+  - `student-results-storytelling.mutable.spec.ts`
+  - `student-results-workspace.spec.ts`
+  - `student-review-workspace.spec.ts`
+- grouped result: `4 passed`
+- this proves a seeded review-ready student story across results, summary, review, analytics compare, and timeline routes, while keeping the result-title anchor on the student surfaces where it is actually guaranteed
+
+As of `2026-07-08`, the manual-review student release path also now has explicit browser proof inside the institute descriptive mutation lane:
+
+- `edutech_web/tests/e2e/workflow/institute-results-descriptive.mutable.spec.ts`
+  - `1 passed`
+  - the institute descriptive lane now proves not only moderation and publication, but also the student-facing post-review release contract across published results, summary, review availability, and the released descriptive prompt/answer view
+
+As of `2026-07-08`, that same learner-facing descriptive release contract is also now browser-proven through the denser multi-role moderation chain:
+
+- `edutech_web/tests/e2e/workflow/institute-results-descriptive-multi-role.mutable.spec.ts`
+  - `1 passed`
+  - teacher first-pass review, institute recheck request, teacher second-pass review, institute moderation, result publication, and the final student-facing descriptive release path are now proven in one continuous browser lane
+
+As of `2026-07-08`, the student-facing descriptive release contract is also no longer only inferred from institute-owned moderation specs:
+
+- `edutech_web/tests/e2e/workflow/student-descriptive-result-storytelling.mutable.spec.ts`
+  - `1 passed`
+  - one learner-first disposable descriptive lane now proves student results, summary, answer review, released descriptive prompt, submitted answer, learner-visible score card state, and analytics handoff after manual review publication
+
+As of `2026-07-08`, student analytics truth is also now directly browser-proven for a manually reviewed descriptive result:
+
+- `edutech_web/tests/e2e/workflow/student-descriptive-analytics-continuity.mutable.spec.ts`
+  - `1 passed`
+  - one learner-first disposable descriptive lane now proves manual-review scoring continuity across student analytics landing, result comparison, question analytics detail, and timeline surfaces
+- backend scoring truth also tightened in the same pass:
+  - partial manual-review marks now contribute to attempt and result scoring even when the answer is not fully correct
+  - focused backend regression passed on `AttemptWorkspaceApiTestCase.test_teacher_can_review_essay_answer_and_generate_result`
+
+As of `2026-07-08`, repeated-attempt student history is also now directly browser-proven instead of inferred from generic workspace sanity:
+
+- `edutech_web/tests/e2e/workflow/student-multi-attempt-history.mutable.spec.ts`
+  - `1 passed`
+  - one learner-first disposable exam now proves deterministic `0%`, `100%`, and `50%` attempt progression for the same student and exam, while confirming truthful ordering across attempts history, published results, summary handoff, compare `latest / best / lowest`, and timeline continuity
+
+As of `2026-07-08`, dense mixed-state student result history is also now browser-proven for one learner account instead of being spread across separate state-slice specs:
+
+- `edutech_web/tests/e2e/workflow/student-mixed-result-history.mutable.spec.ts`
+  - `1 passed`
+  - one learner-first disposable lane now proves that the same student account can intentionally carry pending unpublished, published review-locked, review-ready published, and descriptive-reviewed published results at once, while keeping transitions truthful across results, summary, review, and analytics
+
+As of `2026-07-08`, longer in-progress student runtime continuity is also now directly browser-proven instead of being inferred from shorter healthy-path attempts and weak-network lanes:
+
+- `edutech_web/tests/e2e/workflow/student-long-session-runtime.mutable.spec.ts`
+  - `1 passed`
+  - one learner-first disposable runtime lane now proves repeated save checkpoints across three sections, in-progress reload continuity, revisit-and-resume continuity for the same active attempt, truthful save-state carry-forward after section movement, and final submit handoff into summary
+
+As of `2026-07-08`, dense student result and review continuity also now has a real compact-viewport lane instead of only shell or light-sanity mobile proof:
+
+- `edutech_web/tests/e2e/workflow/student-mobile-results-review-workflow.spec.ts`
+  - `1 passed`
+  - one seeded phone-sized student lane now proves a review-ready result across mobile results, summary, answer review, analytics handoff, and truthful return to results using the real compact navigation contract
+
+As of `2026-07-08`, the previously stale seeded student family runtime lane is also browser-proven green again after making the specs reopen the real exam windows deterministically:
+
+- `edutech_web/tests/e2e/workflow/student-neet-full-mock-lifecycle.mutable.spec.ts`
+  - `1 passed`
+  - NEET full-mock student runtime now re-proves start, section-aware attempt flow, submit, summary handoff, and controlled post-submit result-hidden state without depending on an old seed window
+- `edutech_web/tests/e2e/workflow/student-jee-full-mock-lifecycle.mutable.spec.ts`
+  - `1 passed`
+  - JEE hybrid-section student runtime now re-proves start, numeric/objective section switching, submit, and controlled release-state continuity
+  - `edutech_web/tests/e2e/workflow/student-gre-quant-lifecycle.mutable.spec.ts`
+  - `1 passed`
+  - GRE quant drill runtime now re-proves start, section progression, submit, and controlled post-submit result-hidden continuity
+
+As of `2026-07-08`, the seeded family post-submit release contract also tightened in a more important way than the original rerun alone captured:
+
+- grouped rerun after canonical suite reseed:
+  - `student-neet-full-mock-lifecycle.mutable.spec.ts`
+  - `student-jee-full-mock-lifecycle.mutable.spec.ts`
+  - `student-gre-quant-lifecycle.mutable.spec.ts`
+  - grouped result: `3 passed`
+- the browser specs now prove not just submit-to-summary continuity, but also the pending-publication handoff into student results
+- backend `submit_attempt()` now generates unpublished result rows for non-immediate release modes when manual review is not pending
+- this removes the earlier contract gap where summary truthfully told the learner to check result status while `/app/results` had nothing to render for the just-submitted attempt
+- grouped rerun result:
+  - `3 passed`
+  - this materially reduces the earlier gap around high-depth student runtime realism for seeded competitive and graduate-prep families
+
+As of `2026-07-08`, the first degraded-network student runtime pack is also browser-proven:
+
+- `edutech_web/tests/e2e/workflow/student-family-weak-network.mutable.spec.ts`
+  - `4 passed`
+  - seeded NEET runtime now proves that an offline save attempt no longer crashes the page, the resilience panel keeps the student on the live attempt route with truthful recovery guidance, and the student can reconnect, save again, and still submit successfully
+  - seeded NEET runtime now also proves truthful offline submit recovery posture, then successful submit after reconnect
+  - seeded JEE runtime now proves truthful offline section-switch recovery guidance, including the guarded fullscreen-checkpoint posture that can appear after reconnect on the hybrid competitive lane
+  - seeded GRE runtime now also proves truthful offline save recovery posture on the graduate-prep quant lane
+  - this also closed a real runtime bug where offline attempt actions surfaced an unhandled `Failed to fetch` client error instead of a recoverable state
+
+As of `2026-07-08`, the densest learner-facing student continuity pack also now has focused repeatability proof instead of only one-pass green coverage:
+
+- grouped rerun with `--repeat-each=2`:
+  - `student-analytics-drilldown.mutable.spec.ts`
+  - `student-descriptive-analytics-continuity.mutable.spec.ts`
+  - `student-descriptive-result-storytelling.mutable.spec.ts`
+  - `student-family-weak-network.mutable.spec.ts`
+  - `student-long-session-runtime.mutable.spec.ts`
+  - `student-mixed-result-history.mutable.spec.ts`
+  - `student-mobile-results-review-workflow.spec.ts`
+  - `student-multi-attempt-history.mutable.spec.ts`
+  - `student-results-storytelling.mutable.spec.ts`
+- grouped result: `24 passed`
+- this materially reduces the earlier repeatability concern across descriptive release, analytics continuity, mixed-state history, long-session runtime, weak-network recovery, compact-viewport result continuity, and multi-attempt ordering
+
+As of `2026-07-08`, the first real operator backend-outage pack is also browser-proven:
+
+- `edutech_web/tests/e2e/workflow/operator-backend-outage-state.mutable.spec.ts`
+  - `3 passed`
+  - admin reports, teacher exams, and institute economy now keep route continuity and show truthful `Load issue` plus `Retry after backend check` posture during a real local backend stop
+  - authenticated operator sessions now preserve enough role snapshot context to degrade into those recovery panels instead of collapsing straight back to `/login` when `/api/v1/auth/me/` is temporarily unreachable
 
 As of `2026-07-05`, backend analytics read-path hardening also now has measured service-level proof:
 
@@ -325,6 +589,12 @@ As of `2026-07-05`, backend operational read paths for institute, teacher, notif
 - institute dashboard summary now uses short-TTL cached payloads and fewer repeated review-task queries
 - teacher and institute exam list surfaces now reuse annotated counts and prefetched section-subject context
 - bulk student and teacher roster import preview/finalize flows now batch academic lookup, duplicate detection, and related-object resolution
+- as of `2026-07-08`, the student result-history read path also tightened materially:
+  - `StudentResultListView` now uses the lightweight list serializer
+  - the route now selects the nested exam source-owner graph the serializer reads
+  - unresolved review-task state is now prefetched once per attempt instead of checked with one `.exists()` query per result row
+  - focused profiler output moved `student_result_list` from warm `24.55ms` and `65` queries on a `41`-row seeded payload down to warm `14.11ms` and `2` queries
+  - this materially improves the backend side of dense student result-history and post-submit continuity realism
 - master question library access resolution now batches entitlement, scope, and quota checks across the page instead of recalculating them per question
 - review queue summary now uses a lighter queryset and less repeated Python-side aggregation work
 - parent dashboard and alert surfaces now reuse parent relationship scope and reduce repeated aggregate/count work
@@ -404,16 +674,16 @@ This materially improves confidence in:
 
 | Area | Confidence | What is already proven | Main remaining risk | What takes it to `9/10` |
 | --- | --- | --- | --- | --- |
-| Institute onboarding | `8.5/10` | UI institute creation, academic preset application, onboarding defaults, question-bank access attachment | onboarding summary and recovery clarity | stronger submit summary, clearer attached-access confirmation, more onboarding combination coverage |
-| Institute question bank | `8.5/10` | local bank, linked bank, shared-library linker, filters, zero-result recovery, mutable single-item and bulk coverage | some linked pages still benefit from more task-first UX | clearer linked-question mental model, deterministic bulk edge cases |
-| Teacher question bank | `8/10` | local authoring, draft lifecycle, shared-library request-only contract, bulk difficulty/status actions | dataset-sensitive tag coverage and lighter builder-depth parity | comprehension parity, deterministic tags, deeper role-proof where needed |
-| Package access and entitlements | `8.5/10` | package scope logic, entitlement application, revoke/reactivate clarity, Math-to-Science widening browser-proven, and package-plan-to-institute propagation is browser-proven | conceptual density still high for first-time operators | safer scope editing, stronger lifecycle guidance, deeper mutable coverage |
-| Institute exams workspace | `9.25/10` | list, filters, pagination, zero-result recovery, create entry points, populated reruns, generic guided-wizard plus advanced-builder `practice` / `quiz` / `mock_exam` creation baseline, preset-pack to builder handoff baseline, family plus managed preset-derived create/save persistence baseline, `entitlement_only` policy persistence baseline, and stars-based policy plus non-normal security persistence across admin and institute shells are browser-proven | denser operator combinations are still more teachable than self-evident for first-time staff | stronger state explanations, a few more dense cross-surface combinations |
+| Institute onboarding | `9/10` | UI institute creation, academic preset application, onboarding defaults, question-bank access attachment, onboarding readiness summary, explicit next-action routing, and partial-setup recovery are browser-proven | unsupported first-time rollout still needs broader real-world breadth than guided setup | more low-support field validation, broader rerun depth, and final unsupported rollout proof |
+| Institute question bank | `9/10` | local bank, linked bank, shared-library linker, filters, zero-result recovery, linked-vs-local mental model, no-entitlement and quota-blocked diagnosis, OPBMS linked science routing, and mutable single-item and bulk shared-library coverage are browser-proven | denser intake and review combinations are still more teachable than effortless for first-time staff | more dense cross-lane task combinations, deterministic bulk edge cases, and even simpler operator wording in the heaviest flows |
+| Teacher question bank | `9/10` | local authoring, draft lifecycle, shared-library request-only contract, deterministic bulk difficulty/status/tag/topic actions, reopen persistence, and paused-entitlement builder blocking are browser-proven | broader long-tail authoring breadth is still lighter than the strongest institute and results lanes | more repeated-run breadth, a few more dense authoring combinations, and broader compact-viewport authoring realism |
+| Package access and entitlements | `9/10` | package scope logic, entitlement application, revoke/reactivate clarity, Math-to-Science widening browser-proven, package-plan-to-institute propagation is browser-proven, and dense admin diagnosis/recovery wording now matches the governing access model | the economy model is still denser than simpler modules for unsupported first-time operators | more support-ops breadth, broader rerun depth, and routine cross-surface maintenance as the economy UI evolves |
+| Institute exams workspace | `9.25/10` | list, filters, pagination, zero-result recovery, create entry points, populated reruns, generic guided-wizard plus advanced-builder `practice` / `quiz` / `mock_exam` creation baseline, grouped institute advanced-builder matrix rerun, preset-pack to builder handoff baseline, family plus managed preset-derived create/save persistence baseline, `entitlement_only` policy persistence baseline, and stars-based policy plus non-normal security persistence across admin and institute shells are browser-proven | denser operator combinations are still more teachable than self-evident for first-time staff | stronger state explanations, a few more dense cross-surface combinations |
 | Exam detail and builder handoff | `8/10` | institute and teacher core detail contract, mutable access policy actions, builder handoff, status refresh, sync marks | institute flow is deeper than teacher by design, but this may still feel inconsistent | explicit intentional parity line, broader builder-depth proof |
-| Results and reviews | `9.7/10` | institute and teacher route family, readiness shell, filtered empty-state handling, attempts / leaderboard / analysis / live monitor coverage, institute review-queue navigation and scoped recovery baseline, AWS review-ready path, teacher manual-review queue assignment and scoring baseline, teacher multi-learner leaderboard publication distribution, institute-owned descriptive review-to-publication mutation, institute-to-teacher descriptive recheck/moderation/publication continuity coverage, both institute and teacher populated live-monitor attempt/intervention coverage, a disposable published-result storytelling path across student results plus analytics compare/timeline views, both institute and teacher populated analysis coverage across hero cards, risk board, student explorer, and question evidence, and student scoped drill-down continuity across compare, timeline, actions, and subject views are browser-proven or suite-backed | denser cross-surface scoped consistency and broader non-functional proof still lag the strongest workflow lanes | scoped analytics consistency under narrower filters, weak-network/runtime behavior, and performance realism |
-| Economy oversight | `8.9/10` | scope-first design, package visibility, entitlement truth, restore/reactivate flows, top-of-lane diagnosis, access-chain glossary, clearer governing-vs-historical rows, safer package scope editing, controlled star-grant baseline, entitlement lifecycle notes/date edits, institute-admin policy-disable contract, admin-to-institute package-plan propagation, and the full admin economy browser workspace lane set are now browser-proven | the densest catalog and support surfaces still demand more operator comfort than simpler modules | more support-ops combinations, denser operator sanity on the heaviest economy surfaces |
-| Teacher / institute role consistency | `8/10` | shell parity, results parity baseline, exam-detail parity baseline, question-bank mutable baseline for both roles | some role differences are still understood only by us, not obvious to all operators | finish comprehension parity, clarify intentional differences in-product |
-| Registration / onboarding variations | `8/10` | blank, preset-only, selected-subject, selected-topic-group, package-plus-builder, and reapply onboarding paths are now browser-proven | broader multi-institute and lower-support rollout depth is still thinner than single-institute guided onboarding | multi-institute onboarding proof, lower-support operator validation, less assumption-driven setup |
+| Results and reviews | `9.9/10` | institute and teacher route family, readiness shell, filtered empty-state handling, attempts / leaderboard / analysis / live monitor coverage, institute review-queue navigation and scoped recovery baseline, AWS review-ready path, teacher manual-review queue assignment and scoring baseline, both teacher and institute targeted multi-learner leaderboard publication distribution, institute-owned descriptive review-to-publication mutation, institute-to-teacher descriptive recheck/moderation/publication continuity coverage, both institute and teacher populated live-monitor attempt/intervention coverage, a disposable published-result storytelling path across student results plus analytics compare/timeline views, both institute and teacher populated analysis coverage across hero cards, risk board, student explorer, and question evidence, grouped student scoped continuity across compare, timeline, actions, subject deep dive, and scoped results handoff routes, learner-first descriptive result storytelling, learner-first descriptive analytics continuity, learner-first multi-attempt history ordering, dense mixed-state student result history, compact-viewport student results/review continuity, seeded NEET / JEE / GRE student runtime lifecycle continuity, long-session reopen resilience, weak-network recovery, pending-publication submit-to-results continuity, and a focused dense student repeatability rerun pack are browser-proven or suite-backed | broader non-functional proof still lags the strongest workflow areas | scale/performance realism, wider device breadth, and broader rerun depth beyond the first focused student repeatability pack |
+| Economy oversight | `8.9/10` | scope-first design, package visibility, entitlement truth, restore/reactivate flows, top-of-lane diagnosis, access-chain glossary, clearer governing-vs-historical rows, safer package scope editing, controlled star-grant baseline, entitlement lifecycle notes/date edits, institute-admin policy-disable contract, admin-to-institute package-plan propagation, subscription-plan cycle and credit-rule mutation depth, the full admin economy browser workspace lane set, and truthful institute economy outage-state recovery are now browser-proven | the densest catalog and support surfaces still demand more operator comfort than simpler modules | more support-ops combinations, denser operator sanity on the heaviest economy surfaces |
+| Teacher / institute role consistency | `9/10` | shell parity, results parity baseline, exam-detail parity baseline, question-bank mutable baseline for both roles, and explicit role-boundary explanation on teacher and institute shared-library surfaces are browser-proven | broader role-difference breadth outside the strongest question-bank lanes is still thinner than full product-wide parity proof | more cross-surface role-proof and occasional UAT-style operator validation |
+| Registration / onboarding variations | `9/10` | blank, preset-only, selected-subject, selected-topic-group, package-plus-builder, reapply onboarding, and mixed multi-institute onboarding paths are browser-proven | broad unsupported self-serve rollout still needs more field-like operator breadth than guided onboarding | lower-support validation, repeated reruns, and wider institute-shape realism on stage or pilot data |
 | Performance / high concurrency | `6.5/10` | service-level profiling now exists, analytics cold-path query counts are materially reduced, targeted caching and indexing are in place, and a repeatable backend performance runbook now exists | not yet stage-load-proven and not yet exam-day concurrency-proven | route-level stage benchmarks, real load tests, cache behavior validation under concurrency, and DB proof on populated stage data |
 
 ---
@@ -425,9 +695,12 @@ This materially improves confidence in:
 These lanes are now technically strong and browser-proven enough for controlled rollout usage:
 
 - Institute onboarding with guided operator flow
+- Institute onboarding summary and recovery guidance
 - Institute question-bank local and linked workflow baseline
+- Teacher question-bank parity and deterministic mutable baseline
 - Package entitlement attachment and reactivation baseline
 - Package-plan-to-institute entitlement propagation baseline
+- Teacher/institute shared-library role-boundary explanation baseline
 - Institute exams workspace baseline
 - Generic guided and advanced exam creation baseline outside seeded family presets
 - Preset-pack builder handoff and `entitlement_only` access-policy persistence baseline
@@ -447,13 +720,18 @@ These lanes are now technically strong and browser-proven enough for controlled 
 - Institute populated analysis baseline across risk board and student evidence
 - Teacher populated analysis baseline across risk board and student evidence
 - Student analytics drill-down continuity baseline
+- Grouped scoped analytics continuity across compare, timeline, actions, subject deep dive, and scoped results handoff
+- Seeded student results storytelling continuity across results, summary, review, compare, and timeline
 - Economy access-chain clarity and safer package scope editing baseline
 - Economy support-ops star-grant, entitlement-lifecycle, and policy-disable baseline
 - Economy cross-role package-plan propagation baseline
 - Desktop cross-browser sanity across admin, institute, and teacher operator shells plus key results deep routes
 - Student mobile-web route and state-panel baseline
+- Seeded NEET, JEE, and GRE student runtime lifecycle baseline
+- Seeded NEET, JEE, and GRE pending-publication result continuity after submit
 - Admin, institute, and teacher small-viewport shell baseline on dense economy, security, results, and review routes
 - Onboarding variation breadth across blank, preset-only, and mixed-access paths
+- Package and entitlement governance diagnosis/recovery baseline
 - Institute family release happy path
 - Teacher family release happy path
 - Core student submit to result to review continuity for seeded family lanes
@@ -462,15 +740,14 @@ These lanes are now technically strong and browser-proven enough for controlled 
 
 These lanes are real and usable, but still need more depth, breadth, or UX simplification:
 
-- Student analytics depth and broader result storytelling
-- Cross-surface analytics consistency under scoped filters
+- Broader multi-device student confidence and rerun depth beyond the first dense repeatability pack
 
 ### Red
 
 These are the clearest remaining release-risk areas:
 
 - Performance and high-concurrency proof
-- Weak-network / slow-response runtime behavior
+- Wider slow-response and scale realism beyond the current targeted weak-network student pack
 - Wide-open self-serve onboarding without guided operator support
 
 ---
@@ -507,8 +784,8 @@ These are the best browser-proven lanes today:
 These are the current weakest confidence areas:
 
 - performance and concurrency proof
-- multi-institute onboarding and lower-support rollout depth
-- some dataset-sensitive mutable cases
+- lower-support broad self-serve rollout depth
+- wider rerun and scale realism outside the strongest operator and student packs
 
 These are not “broken product” signals.
 
@@ -605,10 +882,19 @@ These are the next highest-value suites to make overall exam lifecycle confidenc
 
 This is the cleanest next execution order for shrinking the remaining yellow lanes without spreading effort too wide:
 
-1. Cross-surface analytics consistency under scoped filters
-   - verify that results, compare, timeline, actions, and deeper analytics drills stay aligned when context narrows further
-2. Weak-network and slow-response runtime behavior
-   - prove that high-value student and operator routes fail gracefully under degraded conditions
+1. Student `9.5` finish
+   - deepen descriptive/manual-evaluation realism
+   - widen long-tail result-history and analytics combinations
+   - keep the densest student lifecycle packs repeatably green
+2. Unsupported self-serve breadth
+   - expand beyond the now-green first-time operator pack
+   - add more seed shapes, more multi-institute variations, and more lower-support rerun depth
+3. Weak-network and slow-response runtime behavior
+   - operator outage-state truth is now browser-proven; remaining work is broader slow-response, retry, and longer-lived degraded-condition depth
+4. Performance and stage-scale validation
+   - route-level hot paths
+   - browser-heavy operator flows
+   - larger seeded volumes before stronger rollout claims
 
 ### P1
 

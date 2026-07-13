@@ -263,6 +263,13 @@ function describeOperatorOutcome(mode: string) {
   return "Institute staff will see package access, but they must still use the Shared Library Linker to pull questions into the local institute bank before exam builders can use them.";
 }
 
+type OnboardingNextAction = {
+  detail: string;
+  href: string;
+  label: string;
+  title: string;
+};
+
 function formatAccessStatusLabel(status: string | null | undefined, enabled: boolean) {
   if (!enabled) {
     return "Not requested";
@@ -433,14 +440,17 @@ export function AcademicPresetApplyWorkspace({
   const applyQuestionResults = lastApplyResult?.question_assignment_results;
   const onboardingReadyNow =
     Boolean(lastApplyResult) &&
-    (!questionBankPackageEnabled ||
-      (applyAccessResults?.question_bank_package.enabled &&
-        applyAccessResults.question_bank_package.status !== "revoked")) &&
-    (!applyQuestionResults ||
-      applyQuestionResults.mode === "access_only" ||
-      (applyQuestionResults.blocked === 0 &&
+    (!questionBankPackageEnabled
+      ? true
+      : Boolean(
+          applyAccessResults?.question_bank_package.enabled &&
+            applyAccessResults.question_bank_package.status !== "revoked" &&
+            applyQuestionResults &&
+            applyQuestionResults.mode !== "access_only" &&
+        applyQuestionResults.blocked === 0 &&
         applyQuestionResults.missing_local_subject === 0 &&
-        applyQuestionResults.missing_local_topic === 0));
+            applyQuestionResults.missing_local_topic === 0,
+        ));
   const onboardingAttentionItems = lastApplyResult
     ? [
         applyAccessResults?.question_bank_package.enabled &&
@@ -484,6 +494,83 @@ export function AcademicPresetApplyWorkspace({
           ? `Advanced builder is ${toTitleCaseLabel(applyAccessResults.advanced_builder.status)} for this institute.`
           : "Advanced builder was not requested in this onboarding run.",
       ]
+    : [];
+  const onboardingNextActions: OnboardingNextAction[] = lastApplyResult
+    ? [
+        applyAccessResults?.question_bank_package.enabled &&
+        applyAccessResults.question_bank_package.status === "revoked"
+          ? {
+              title: "Restore package access first",
+              detail:
+                "Question-bank package access was requested, but the current entitlement is not active. Re-open the institute access controls before asking staff to use question-bank or builder lanes.",
+              label: "Open Question Access",
+              href: questionAccessHref,
+            }
+          : null,
+        applyAccessResults?.shared_library.enabled &&
+        applyAccessResults.shared_library.status === "revoked"
+          ? {
+              title: "Re-enable shared-library access",
+              detail:
+                "The institute has package scope, but shared-library intake is still blocked. Restore the feature entitlement before staff try to browse licensed source rows.",
+              label: "Open Question Access",
+              href: questionAccessHref,
+            }
+          : null,
+        applyAccessResults?.advanced_builder.enabled &&
+        applyAccessResults.advanced_builder.status === "revoked"
+          ? {
+              title: "Restore advanced builder before exam setup",
+              detail:
+                "The institute has some access in place, but advanced builder is still blocked. Review this before treating exam creation as fully ready.",
+              label: "Open Exams",
+              href: examsSectionHref,
+            }
+          : null,
+        applyQuestionResults?.missing_local_subject || applyQuestionResults?.missing_local_topic
+          ? {
+              title: "Repair academic mapping before rollout",
+              detail:
+                "Some linking work could not align because local subjects or topics were missing. Confirm academic setup first, then repeat linking or rerun onboarding.",
+              label: "Open Academic Setup",
+              href: subjectSectionHref,
+            }
+          : null,
+        applyQuestionResults?.blocked
+          ? {
+              title: "Review blocked linking rows",
+              detail:
+                "One or more licensed rows did not become usable during onboarding. Check package scope and linked-inventory expectations before wider rollout.",
+              label: "Open Question Access",
+              href: questionAccessHref,
+            }
+          : null,
+        lastApplyResult.audit_findings.length > 0
+          ? {
+              title: "Inspect audit findings before unsupported rollout",
+              detail:
+                "The apply audit returned structural warnings. Review the institute structure and access state before calling this setup broadly self-serve ready.",
+              label: "Open Academic Setup",
+              href: subjectSectionHref,
+            }
+          : null,
+        applyQuestionResults?.mode === "access_only"
+          ? {
+              title: "Manual linking is still the next step",
+              detail:
+                "This run granted package access only. Staff still need to open the shared-library path and link the right questions into the local bank before builder workflows feel complete.",
+              label: "Open Question Access",
+              href: questionAccessHref,
+            }
+          : {
+              title: "Confirm live institute readiness",
+              detail: onboardingReadyNow
+                ? "The core onboarding work completed cleanly. Use the linked routes below to confirm the institute can move from setup into normal guided usage."
+                : "The institute is partly ready, but one or more setup signals still need follow-up. Use the linked routes below in order of risk.",
+              label: onboardingReadyNow ? "Open Exams" : "Open People",
+              href: onboardingReadyNow ? examsSectionHref : peopleSectionHref,
+            },
+      ].filter((item): item is OnboardingNextAction => Boolean(item))
     : [];
 
   useEffect(() => {
@@ -1367,6 +1454,18 @@ export function AcademicPresetApplyWorkspace({
                     : "No tracked onboarding run metadata was returned for this apply."}
                 </p>
               </article>
+            </div>
+            <div className="adminAcademicPostApplyChecklist" data-testid="onboarding-recovery-actions">
+              <strong>Best next operator actions</strong>
+              <ul>
+                {onboardingNextActions.map((action) => (
+                  <li key={`${action.title}-${action.href}`}>
+                    <strong>{action.title}</strong>{" "}
+                    <span>{action.detail} </span>
+                    <Link href={action.href}>{action.label}</Link>
+                  </li>
+                ))}
+              </ul>
             </div>
             <div className="adminAcademicScopeStats" style={{ marginTop: 12 }}>
               <span className="setupFieldMeta">

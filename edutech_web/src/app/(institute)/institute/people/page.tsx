@@ -76,6 +76,7 @@ export default async function InstitutePeoplePage({
   const activeCountPath = profile.institute
     ? `${activeResourcePath}?institute=${profile.institute}`
     : activeResourcePath;
+  const needsStudentAcademics = activeView === "students";
 
   const [visibleRows, visibleCount, academicYears, programs, cohorts, institute] =
     await Promise.all([
@@ -83,9 +84,15 @@ export default async function InstitutePeoplePage({
         ? fetchPortalList<StudentRosterRow>(`${activeResourcePath}${rosterQuery}`)
         : fetchPortalList<TeacherRosterRow>(`${activeResourcePath}${rosterQuery}`),
       loadCount(activeCountPath),
-      fetchPortalList<AcademicYearRecord>(`/api/v1/academics/academic-years/${instituteQuery}`),
-      fetchPortalList<ProgramRecord>(`/api/v1/academics/programs/${instituteQuery}`),
-      fetchPortalList<CohortRecord>(`/api/v1/academics/cohorts/${instituteQuery}`),
+      needsStudentAcademics
+        ? fetchPortalList<AcademicYearRecord>(`/api/v1/academics/academic-years/${instituteQuery}`)
+        : Promise.resolve([]),
+      needsStudentAcademics
+        ? fetchPortalList<ProgramRecord>(`/api/v1/academics/programs/${instituteQuery}`)
+        : Promise.resolve([]),
+      needsStudentAcademics
+        ? fetchPortalList<CohortRecord>(`/api/v1/academics/cohorts/${instituteQuery}`)
+        : Promise.resolve([]),
       profile.institute
         ? fetchPortalRecord<InstituteRecord>(`/api/v1/institutes/${profile.institute}/`).catch(() => null)
         : Promise.resolve(null),
@@ -96,7 +103,7 @@ export default async function InstitutePeoplePage({
       <PageHeader
         eyebrow="Institute workspace"
         title="People"
-        description=""
+        description="Manage student and teacher records inside the current institute scope."
         contextLabel={institute ? `${institute.name} · ${institute.code}` : "Institute scope only"}
         className="pageHeaderCompact"
       />
@@ -112,9 +119,9 @@ export default async function InstitutePeoplePage({
           </p>
           <div className="adminInstituteHeroMeta">
             <span>{visibleCount} visible {activeView}</span>
-            <span>{academicYears.length} academic years</span>
-            <span>{programs.length} programs</span>
-            <span>{cohorts.length} cohorts</span>
+            <span>{needsStudentAcademics ? academicYears.length : "Teacher"} academic years</span>
+            <span>{needsStudentAcademics ? programs.length : "Teacher"} programs</span>
+            <span>{needsStudentAcademics ? cohorts.length : "Teacher"} cohorts</span>
           </div>
           <div className="instituteConsoleActions adminInstituteHeroActions">
             <Link className="button buttonPrimary" href="/institute/people?view=students">
@@ -159,13 +166,13 @@ export default async function InstitutePeoplePage({
             </article>
             <article className="adminInstituteHeroMiniStat">
               <span>Academic years</span>
-              <strong>{academicYears.length}</strong>
-              <small>Enrollment windows available.</small>
+              <strong>{needsStudentAcademics ? academicYears.length : "N/A"}</strong>
+              <small>{needsStudentAcademics ? "Enrollment windows available." : "Not needed for teacher roster view."}</small>
             </article>
             <article className="adminInstituteHeroMiniStat">
               <span>Cohorts</span>
-              <strong>{cohorts.length}</strong>
-              <small>Grouping lanes for student allocation.</small>
+              <strong>{needsStudentAcademics ? cohorts.length : "N/A"}</strong>
+              <small>{needsStudentAcademics ? "Grouping lanes for student allocation." : "Not needed for teacher roster view."}</small>
             </article>
           </div>
         </div>
@@ -189,12 +196,11 @@ export default async function InstitutePeoplePage({
 
         <div className="adminPeopleActionBar">
           <div className="adminPeopleActionBarCopy">
-            <span>Institute-scoped roster access only</span>
             <strong>{activeView === "students" ? "Students" : "Teachers"}</strong>
             <span>
               {institute
-                ? `${institute.name} · ${visibleCount} records`
-                : `${visibleCount} records`}
+                ? `${institute.name} · ${visibleCount} records in current scope`
+                : `${visibleCount} records in current scope`}
             </span>
           </div>
           <div className="adminPeopleActionBarButtons">

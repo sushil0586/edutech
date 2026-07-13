@@ -53,21 +53,25 @@ function firstError(value: unknown) {
   return typeof value === "string" ? value : "";
 }
 
-export function StudentCreateDialog({
-  instituteId,
+function StudentCreateDialogPanel({
   academicYears,
-  programs,
   cohorts,
+  dialogSessionKey,
+  instituteId,
+  onClose,
+  onMessage,
+  programs,
 }: {
-  instituteId: string | null;
   academicYears: AcademicYearRecord[];
-  programs: ProgramRecord[];
   cohorts: CohortRecord[];
+  dialogSessionKey: number;
+  instituteId: string | null;
+  onClose: (options?: { preserveMessage?: boolean }) => void;
+  onMessage: (message: string) => void;
+  programs: ProgramRecord[];
 }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
   const [admissionNo, setAdmissionNo] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -84,7 +88,6 @@ export function StudentCreateDialog({
   const [isActive, setIsActive] = useState(true);
   const [createLogin, setCreateLogin] = useState(true);
   const [fieldErrors, setFieldErrors] = useState<StudentFieldErrors>({});
-  const portalTarget = typeof document === "undefined" ? null : document.body;
 
   const filteredCohorts = useMemo(
     () =>
@@ -97,16 +100,12 @@ export function StudentCreateDialog({
   );
 
   useEffect(() => {
-    if (!open) {
-      return;
-    }
-
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        closeDialog();
+        onClose();
       }
     }
 
@@ -115,42 +114,15 @@ export function StudentCreateDialog({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [open]);
-
-  function resetFormFields() {
-    setAdmissionNo("");
-    setFirstName("");
-    setLastName("");
-    setGender("prefer_not_to_say");
-    setAcademicYear("");
-    setProgram("");
-    setCohort("");
-    setEmail("");
-    setPhone("");
-    setGuardianName("");
-    setGuardianPhone("");
-    setAddress("");
-    setJoinedAt("");
-    setIsActive(true);
-    setCreateLogin(true);
-    setFieldErrors({});
-  }
-
-  function closeDialog(options?: { preserveMessage?: boolean }) {
-    setOpen(false);
-    if (!options?.preserveMessage) {
-      setMessage("");
-    }
-    setFieldErrors({});
-  }
+  }, [onClose]);
 
   function handleOverlayClick() {
-    closeDialog();
+    onClose();
   }
 
   async function submitStudent() {
     if (!instituteId) {
-      setMessage("Select an institute before creating a student.");
+      onMessage("Select an institute before creating a student.");
       return;
     }
     const nextFieldErrors: StudentFieldErrors = {};
@@ -160,12 +132,12 @@ export function StudentCreateDialog({
     if (!program) nextFieldErrors.program = "Program is required.";
     if (Object.keys(nextFieldErrors).length > 0) {
       setFieldErrors(nextFieldErrors);
-      setMessage("Fill the required fields to continue.");
+      onMessage("Fill the required fields to continue.");
       return;
     }
 
     setLoading(true);
-    setMessage("");
+    onMessage("");
     setFieldErrors({});
 
     try {
@@ -237,20 +209,267 @@ export function StudentCreateDialog({
         if (!loginResponse.ok) {
           throw new Error(loginPayload.detail ?? "Student saved, but login creation failed.");
         }
-        setMessage(
+        onMessage(
           `Student created and login generated${loginPayload.username ? ` for ${loginPayload.username}` : ""}.`,
         );
       } else {
-        setMessage("Student created successfully.");
+        onMessage("Student created successfully.");
       }
 
-      resetFormFields();
-      closeDialog({ preserveMessage: true });
+      onClose({ preserveMessage: true });
       router.refresh();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Student creation failed.");
+      onMessage(error instanceof Error ? error.message : "Student creation failed.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  return (
+    <div
+      key={dialogSessionKey}
+      className="rosterImportOverlay"
+      role="presentation"
+      onClick={handleOverlayClick}
+    >
+      <div
+        aria-modal="true"
+        className="rosterImportDialog dashboardPanel"
+        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+      >
+        <div className="studentPageTight" data-dialog-session={dialogSessionKey}>
+          <div className="academicSectionHeader">
+            <div>
+              <span className="eyebrow">Create student</span>
+              <h3>New student profile</h3>
+            </div>
+            <button className="appTopbarAction setupSecondaryAction" onClick={handleOverlayClick} type="button">
+              Close
+            </button>
+          </div>
+          <p className="academicSectionDescription">
+            Add a student profile and optionally generate a login in one step.
+          </p>
+
+          <div className="setupFormGrid setupFormGridDense">
+            <label className="setupField">
+              <span>Admission no</span>
+              <input
+                aria-invalid={Boolean(fieldErrors.admission_no)}
+                autoComplete="new-password"
+                className={fieldErrors.admission_no ? "setupFieldInvalid" : undefined}
+                name={`student-admission-no-${dialogSessionKey}`}
+                value={admissionNo}
+                onChange={(event) => setAdmissionNo(event.target.value)}
+              />
+              {fieldErrors.admission_no ? <small className="setupFieldError">{fieldErrors.admission_no}</small> : null}
+            </label>
+            <label className="setupField">
+              <span>First name</span>
+              <input
+                aria-invalid={Boolean(fieldErrors.first_name)}
+                autoComplete="new-password"
+                className={fieldErrors.first_name ? "setupFieldInvalid" : undefined}
+                name={`student-first-name-${dialogSessionKey}`}
+                value={firstName}
+                onChange={(event) => setFirstName(event.target.value)}
+              />
+              {fieldErrors.first_name ? <small className="setupFieldError">{fieldErrors.first_name}</small> : null}
+            </label>
+            <label className="setupField">
+              <span>Last name</span>
+              <input
+                autoComplete="new-password"
+                name={`student-last-name-${dialogSessionKey}`}
+                value={lastName}
+                onChange={(event) => setLastName(event.target.value)}
+              />
+            </label>
+            <label className="setupField">
+              <span>Gender</span>
+              <select value={gender} onChange={(event) => setGender(event.target.value)}>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+                <option value="prefer_not_to_say">Prefer not to say</option>
+              </select>
+            </label>
+            <label className="setupField">
+              <span>Academic year</span>
+              <select
+                aria-invalid={Boolean(fieldErrors.academic_year)}
+                className={fieldErrors.academic_year ? "setupFieldInvalid" : undefined}
+                value={academicYear}
+                onChange={(event) => setAcademicYear(event.target.value)}
+              >
+                <option value="">Select academic year</option>
+                {academicYears.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+              {fieldErrors.academic_year ? <small className="setupFieldError">{fieldErrors.academic_year}</small> : null}
+            </label>
+            <label className="setupField">
+              <span>Program</span>
+              <select
+                aria-invalid={Boolean(fieldErrors.program)}
+                className={fieldErrors.program ? "setupFieldInvalid" : undefined}
+                value={program}
+                onChange={(event) => {
+                  setProgram(event.target.value);
+                  setCohort("");
+                }}
+              >
+                <option value="">Select program</option>
+                {programs.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name} ({item.code})
+                  </option>
+                ))}
+              </select>
+              {fieldErrors.program ? <small className="setupFieldError">{fieldErrors.program}</small> : null}
+            </label>
+            <label className="setupField">
+              <span>Cohort</span>
+              <select
+                aria-invalid={Boolean(fieldErrors.cohort)}
+                className={fieldErrors.cohort ? "setupFieldInvalid" : undefined}
+                value={cohort}
+                onChange={(event) => setCohort(event.target.value)}
+              >
+                <option value="">No cohort</option>
+                {filteredCohorts.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+              {fieldErrors.cohort ? <small className="setupFieldError">{fieldErrors.cohort}</small> : null}
+            </label>
+            <label className="setupField">
+              <span>Email</span>
+              <input
+                aria-invalid={Boolean(fieldErrors.email)}
+                autoComplete="new-password"
+                className={fieldErrors.email ? "setupFieldInvalid" : undefined}
+                name={`student-email-${dialogSessionKey}`}
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+              />
+              {fieldErrors.email ? <small className="setupFieldError">{fieldErrors.email}</small> : null}
+            </label>
+            <label className="setupField">
+              <span>Phone</span>
+              <input
+                aria-invalid={Boolean(fieldErrors.phone)}
+                autoComplete="new-password"
+                className={fieldErrors.phone ? "setupFieldInvalid" : undefined}
+                name={`student-phone-${dialogSessionKey}`}
+                value={phone}
+                onChange={(event) => setPhone(event.target.value)}
+              />
+              {fieldErrors.phone ? <small className="setupFieldError">{fieldErrors.phone}</small> : null}
+            </label>
+            <label className="setupField">
+              <span>Guardian name</span>
+              <input
+                aria-invalid={Boolean(fieldErrors.guardian_name)}
+                autoComplete="new-password"
+                className={fieldErrors.guardian_name ? "setupFieldInvalid" : undefined}
+                name={`student-guardian-name-${dialogSessionKey}`}
+                value={guardianName}
+                onChange={(event) => setGuardianName(event.target.value)}
+              />
+              {fieldErrors.guardian_name ? <small className="setupFieldError">{fieldErrors.guardian_name}</small> : null}
+            </label>
+            <label className="setupField">
+              <span>Guardian phone</span>
+              <input
+                aria-invalid={Boolean(fieldErrors.guardian_phone)}
+                autoComplete="new-password"
+                className={fieldErrors.guardian_phone ? "setupFieldInvalid" : undefined}
+                name={`student-guardian-phone-${dialogSessionKey}`}
+                value={guardianPhone}
+                onChange={(event) => setGuardianPhone(event.target.value)}
+              />
+              {fieldErrors.guardian_phone ? <small className="setupFieldError">{fieldErrors.guardian_phone}</small> : null}
+            </label>
+            <label className="setupField">
+              <span>Joined at</span>
+              <input
+                aria-invalid={Boolean(fieldErrors.joined_at)}
+                className={fieldErrors.joined_at ? "setupFieldInvalid" : undefined}
+                type="date"
+                value={joinedAt}
+                onChange={(event) => setJoinedAt(event.target.value)}
+              />
+              {fieldErrors.joined_at ? <small className="setupFieldError">{fieldErrors.joined_at}</small> : null}
+            </label>
+            <label className="setupField">
+              <span>Address</span>
+              <textarea
+                aria-invalid={Boolean(fieldErrors.address)}
+                autoComplete="new-password"
+                className={fieldErrors.address ? "setupFieldInvalid" : undefined}
+                name={`student-address-${dialogSessionKey}`}
+                rows={4}
+                value={address}
+                onChange={(event) => setAddress(event.target.value)}
+              />
+              {fieldErrors.address ? <small className="setupFieldError">{fieldErrors.address}</small> : null}
+            </label>
+          </div>
+
+          <div className="setupToggleGrid">
+            <label className="setupToggle setupToggleWide">
+              <input checked={isActive} onChange={(event) => setIsActive(event.target.checked)} type="checkbox" />
+              <span>Active</span>
+            </label>
+            <label className="setupToggle setupToggleWide">
+              <input checked={createLogin} onChange={(event) => setCreateLogin(event.target.checked)} type="checkbox" />
+              <span>Create login after save</span>
+            </label>
+          </div>
+
+          <div className="setupFieldActions">
+            <button className="appTopbarAction" disabled={loading} onClick={() => void submitStudent()} type="button">
+              <span className="appTopbarActionIcon" aria-hidden="true">⌘</span>
+              {loading ? "Saving..." : "Create student"}
+            </button>
+            <button className="appTopbarAction setupSecondaryAction" disabled={loading} onClick={handleOverlayClick} type="button">
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function StudentCreateDialog({
+  instituteId,
+  academicYears,
+  programs,
+  cohorts,
+}: {
+  instituteId: string | null;
+  academicYears: AcademicYearRecord[];
+  programs: ProgramRecord[];
+  cohorts: CohortRecord[];
+}) {
+  const [open, setOpen] = useState(false);
+  const [dialogSessionKey, setDialogSessionKey] = useState(0);
+  const [message, setMessage] = useState("");
+  const portalTarget = typeof document === "undefined" ? null : document.body;
+
+  function closeDialog(options?: { preserveMessage?: boolean }) {
+    setOpen(false);
+    if (!options?.preserveMessage) {
+      setMessage("");
     }
   }
 
@@ -260,7 +479,10 @@ export function StudentCreateDialog({
         <button
           className="appTopbarAction"
           disabled={!instituteId}
-          onClick={() => setOpen(true)}
+          onClick={() => {
+            setDialogSessionKey((currentValue) => currentValue + 1);
+            setOpen(true);
+          }}
           type="button"
         >
           <span className="appTopbarActionIcon" aria-hidden="true">
@@ -272,205 +494,21 @@ export function StudentCreateDialog({
 
       {message ? <div className="featurePlaceholder statePanel"><p>{message}</p></div> : null}
 
-      {open && portalTarget ? createPortal((
-        <div className="rosterImportOverlay" role="presentation" onClick={handleOverlayClick}>
-          <div
-            aria-modal="true"
-            className="rosterImportDialog dashboardPanel"
-            onClick={(event) => event.stopPropagation()}
-            role="dialog"
-          >
-            <div className="studentPageTight">
-              <div className="academicSectionHeader">
-                <div>
-                  <span className="eyebrow">Create student</span>
-                  <h3>New student profile</h3>
-                </div>
-                <button className="appTopbarAction setupSecondaryAction" onClick={handleOverlayClick} type="button">
-                  Close
-                </button>
-              </div>
-              <p className="academicSectionDescription">
-                Add a student profile and optionally generate a login in one step.
-              </p>
-
-              <div className="setupFormGrid setupFormGridDense">
-                <label className="setupField">
-                  <span>Admission no</span>
-                  <input
-                    aria-invalid={Boolean(fieldErrors.admission_no)}
-                    className={fieldErrors.admission_no ? "setupFieldInvalid" : undefined}
-                    value={admissionNo}
-                    onChange={(event) => setAdmissionNo(event.target.value)}
-                  />
-                  {fieldErrors.admission_no ? <small className="setupFieldError">{fieldErrors.admission_no}</small> : null}
-                </label>
-                <label className="setupField">
-                  <span>First name</span>
-                  <input
-                    aria-invalid={Boolean(fieldErrors.first_name)}
-                    className={fieldErrors.first_name ? "setupFieldInvalid" : undefined}
-                    value={firstName}
-                    onChange={(event) => setFirstName(event.target.value)}
-                  />
-                  {fieldErrors.first_name ? <small className="setupFieldError">{fieldErrors.first_name}</small> : null}
-                </label>
-                <label className="setupField">
-                  <span>Last name</span>
-                  <input value={lastName} onChange={(event) => setLastName(event.target.value)} />
-                </label>
-                <label className="setupField">
-                  <span>Gender</span>
-                  <select value={gender} onChange={(event) => setGender(event.target.value)}>
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="other">Other</option>
-                    <option value="prefer_not_to_say">Prefer not to say</option>
-                  </select>
-                </label>
-                <label className="setupField">
-                  <span>Academic year</span>
-                  <select
-                    aria-invalid={Boolean(fieldErrors.academic_year)}
-                    className={fieldErrors.academic_year ? "setupFieldInvalid" : undefined}
-                    value={academicYear}
-                    onChange={(event) => setAcademicYear(event.target.value)}
-                  >
-                    <option value="">Select academic year</option>
-                    {academicYears.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name}
-                      </option>
-                    ))}
-                  </select>
-                  {fieldErrors.academic_year ? <small className="setupFieldError">{fieldErrors.academic_year}</small> : null}
-                </label>
-                <label className="setupField">
-                  <span>Program</span>
-                  <select
-                    aria-invalid={Boolean(fieldErrors.program)}
-                    className={fieldErrors.program ? "setupFieldInvalid" : undefined}
-                    value={program}
-                    onChange={(event) => {
-                      setProgram(event.target.value);
-                      setCohort("");
-                    }}
-                  >
-                    <option value="">Select program</option>
-                    {programs.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name} ({item.code})
-                      </option>
-                    ))}
-                  </select>
-                  {fieldErrors.program ? <small className="setupFieldError">{fieldErrors.program}</small> : null}
-                </label>
-                <label className="setupField">
-                  <span>Cohort</span>
-                  <select
-                    aria-invalid={Boolean(fieldErrors.cohort)}
-                    className={fieldErrors.cohort ? "setupFieldInvalid" : undefined}
-                    value={cohort}
-                    onChange={(event) => setCohort(event.target.value)}
-                  >
-                    <option value="">No cohort</option>
-                    {filteredCohorts.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name}
-                      </option>
-                    ))}
-                  </select>
-                  {fieldErrors.cohort ? <small className="setupFieldError">{fieldErrors.cohort}</small> : null}
-                </label>
-                <label className="setupField">
-                  <span>Email</span>
-                  <input
-                    aria-invalid={Boolean(fieldErrors.email)}
-                    className={fieldErrors.email ? "setupFieldInvalid" : undefined}
-                    type="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                  />
-                  {fieldErrors.email ? <small className="setupFieldError">{fieldErrors.email}</small> : null}
-                </label>
-                <label className="setupField">
-                  <span>Phone</span>
-                  <input
-                    aria-invalid={Boolean(fieldErrors.phone)}
-                    className={fieldErrors.phone ? "setupFieldInvalid" : undefined}
-                    value={phone}
-                    onChange={(event) => setPhone(event.target.value)}
-                  />
-                  {fieldErrors.phone ? <small className="setupFieldError">{fieldErrors.phone}</small> : null}
-                </label>
-                <label className="setupField">
-                  <span>Guardian name</span>
-                  <input
-                    aria-invalid={Boolean(fieldErrors.guardian_name)}
-                    className={fieldErrors.guardian_name ? "setupFieldInvalid" : undefined}
-                    value={guardianName}
-                    onChange={(event) => setGuardianName(event.target.value)}
-                  />
-                  {fieldErrors.guardian_name ? <small className="setupFieldError">{fieldErrors.guardian_name}</small> : null}
-                </label>
-                <label className="setupField">
-                  <span>Guardian phone</span>
-                  <input
-                    aria-invalid={Boolean(fieldErrors.guardian_phone)}
-                    className={fieldErrors.guardian_phone ? "setupFieldInvalid" : undefined}
-                    value={guardianPhone}
-                    onChange={(event) => setGuardianPhone(event.target.value)}
-                  />
-                  {fieldErrors.guardian_phone ? <small className="setupFieldError">{fieldErrors.guardian_phone}</small> : null}
-                </label>
-                <label className="setupField">
-                  <span>Joined at</span>
-                  <input
-                    aria-invalid={Boolean(fieldErrors.joined_at)}
-                    className={fieldErrors.joined_at ? "setupFieldInvalid" : undefined}
-                    type="date"
-                    value={joinedAt}
-                    onChange={(event) => setJoinedAt(event.target.value)}
-                  />
-                  {fieldErrors.joined_at ? <small className="setupFieldError">{fieldErrors.joined_at}</small> : null}
-                </label>
-                <label className="setupField">
-                  <span>Address</span>
-                  <textarea
-                    aria-invalid={Boolean(fieldErrors.address)}
-                    className={fieldErrors.address ? "setupFieldInvalid" : undefined}
-                    rows={4}
-                    value={address}
-                    onChange={(event) => setAddress(event.target.value)}
-                  />
-                  {fieldErrors.address ? <small className="setupFieldError">{fieldErrors.address}</small> : null}
-                </label>
-              </div>
-
-              <div className="setupToggleGrid">
-                <label className="setupToggle setupToggleWide">
-                  <input checked={isActive} onChange={(event) => setIsActive(event.target.checked)} type="checkbox" />
-                  <span>Active</span>
-                </label>
-                <label className="setupToggle setupToggleWide">
-                  <input checked={createLogin} onChange={(event) => setCreateLogin(event.target.checked)} type="checkbox" />
-                  <span>Create login after save</span>
-                </label>
-              </div>
-
-              <div className="setupFieldActions">
-                <button className="appTopbarAction" disabled={loading} onClick={() => void submitStudent()} type="button">
-                  <span className="appTopbarActionIcon" aria-hidden="true">⌘</span>
-                  {loading ? "Saving..." : "Create student"}
-                </button>
-                <button className="appTopbarAction setupSecondaryAction" disabled={loading} onClick={handleOverlayClick} type="button">
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      ), portalTarget) : null}
+      {open && portalTarget
+        ? createPortal(
+            <StudentCreateDialogPanel
+              key={dialogSessionKey}
+              academicYears={academicYears}
+              cohorts={cohorts}
+              dialogSessionKey={dialogSessionKey}
+              instituteId={instituteId}
+              onClose={closeDialog}
+              onMessage={setMessage}
+              programs={programs}
+            />,
+            portalTarget,
+          )
+        : null}
     </div>
   );
 }

@@ -81,6 +81,20 @@ class AssignmentMode(models.TextChoices):
     SELECTED_STUDENTS = "selected_students", "Selected Students"
 
 
+class ExamAccessMode(models.TextChoices):
+    GLOBAL_WINDOW_LEGACY = "global_window_legacy", "Global Window (Legacy)"
+    SLOT_MANAGED = "slot_managed", "Slot Managed"
+    LONG_WINDOW_ATTEMPT_MANAGED = "long_window_attempt_managed", "Long Window Attempt Managed"
+    PLATFORM_EVENT_MANAGED = "platform_event_managed", "Platform Event Managed"
+
+
+class ExamAccessSlotStatus(models.TextChoices):
+    DRAFT = "draft", "Draft"
+    ACTIVE = "active", "Active"
+    CLOSED = "closed", "Closed"
+    CANCELLED = "cancelled", "Cancelled"
+
+
 class ExamSourceType(models.TextChoices):
     PLATFORM = "platform", "Platform"
     INSTITUTE = "institute", "Institute"
@@ -189,6 +203,12 @@ class Exam(BaseModel):
         blank=True,
         null=True,
     )
+    access_mode = models.CharField(
+        max_length=40,
+        choices=ExamAccessMode.choices,
+        blank=True,
+        null=True,
+    )
     assignment_mode = models.CharField(
         max_length=30,
         choices=AssignmentMode.choices,
@@ -290,6 +310,10 @@ class Exam(BaseModel):
     @property
     def source_label(self):
         return ExamSourceType(self.source_type).label
+
+    @property
+    def resolved_access_mode(self):
+        return self.access_mode or ExamAccessMode.GLOBAL_WINDOW_LEGACY
 
 
 class AdvancedExamTemplate(BaseModel):
@@ -593,6 +617,73 @@ class ExamPublishLog(models.Model):
         return f"{self.exam.code}: {self.old_status} -> {self.new_status}"
 
 
+class ExamAccessSlot(BaseModel):
+    exam = models.ForeignKey(
+        Exam,
+        on_delete=models.CASCADE,
+        related_name="access_slots",
+    )
+    cohort = models.ForeignKey(
+        Cohort,
+        on_delete=models.SET_NULL,
+        related_name="exam_access_slots",
+        blank=True,
+        null=True,
+    )
+    slot_label = models.CharField(max_length=100)
+    slot_start_at = models.DateTimeField()
+    slot_end_at = models.DateTimeField()
+    grace_period_minutes = models.PositiveIntegerField(default=0)
+    assignment_capacity = models.PositiveIntegerField(blank=True, null=True)
+    start_capacity = models.PositiveIntegerField(blank=True, null=True)
+    status = models.CharField(
+        max_length=20,
+        choices=ExamAccessSlotStatus.choices,
+        default=ExamAccessSlotStatus.ACTIVE,
+    )
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["slot_start_at", "created_at"]
+        indexes = [
+            models.Index(fields=["exam", "status", "slot_start_at"]),
+            models.Index(fields=["exam", "cohort", "status"]),
+            models.Index(fields=["slot_start_at", "slot_end_at"]),
+            models.Index(fields=["status", "is_active"]),
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.slot_end_at <= self.slot_start_at:
+            raise ValidationError({"slot_end_at": "Slot end time must be after slot start time."})
+        if self.cohort_id:
+            if self.exam_id and self.cohort.institute_id != self.exam.institute_id:
+                raise ValidationError({"cohort": "Cohort must belong to the same institute as the exam."})
+            if self.exam_id and self.exam.cohort_id and self.cohort_id != self.exam.cohort_id:
+                raise ValidationError({"cohort": "Slot cohort must match the exam cohort when one is configured."})
+            if self.exam_id and self.cohort.program_id != self.exam.program_id:
+                raise ValidationError({"cohort": "Slot cohort must belong to the exam program."})
+        if self.assignment_capacity is not None and self.assignment_capacity <= 0:
+            raise ValidationError({"assignment_capacity": "Assignment capacity must be greater than zero."})
+        if self.start_capacity is not None and self.start_capacity <= 0:
+            raise ValidationError({"start_capacity": "Start capacity must be greater than zero."})
+        if (
+            self.assignment_capacity is not None
+            and self.start_capacity is not None
+            and self.start_capacity > self.assignment_capacity
+        ):
+            raise ValidationError(
+                {"start_capacity": "Start capacity cannot exceed assignment capacity."}
+            )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.exam.code} [{self.slot_label}]"
+
+
 class ExamStudentAssignment(BaseModel):
     exam = models.ForeignKey(
         Exam,
@@ -603,6 +694,13 @@ class ExamStudentAssignment(BaseModel):
         StudentProfile,
         on_delete=models.CASCADE,
         related_name="exam_assignments",
+    )
+    access_slot = models.ForeignKey(
+        ExamAccessSlot,
+        on_delete=models.SET_NULL,
+        related_name="student_assignments",
+        blank=True,
+        null=True,
     )
     assigned_by = models.ForeignKey(
         TeacherProfile,
@@ -634,7 +732,10 @@ class ExamStudentAssignment(BaseModel):
                 raise ValidationError(
                     {"student": "Assigned student must belong to the same institute."}
                 )
-            if self.student.program_id != self.exam.program_id:
+            selected_student_override = (
+                self.exam.assignment_mode == AssignmentMode.SELECTED_STUDENTS
+            )
+            if not selected_student_override and self.student.program_id != self.exam.program_id:
                 raise ValidationError(
                     {"student": "Assigned student must belong to the same program."}
                 )
@@ -642,10 +743,38 @@ class ExamStudentAssignment(BaseModel):
                 raise ValidationError(
                     {"student": "Assigned student must belong to the same academic year."}
                 )
-            if self.exam.cohort_id and self.student.cohort_id != self.exam.cohort_id:
+            if (
+                not selected_student_override
+                and self.exam.cohort_id
+                and self.student.cohort_id != self.exam.cohort_id
+            ):
                 raise ValidationError(
                     {"student": "Assigned student must belong to the exam cohort."}
                 )
+        if self.access_slot_id and self.exam_id and self.access_slot.exam_id != self.exam_id:
+            raise ValidationError({"access_slot": "Assigned slot must belong to the same exam."})
+        if (
+            self.access_slot_id
+            and self.student_id
+            and self.access_slot.cohort_id
+            and self.student.cohort_id != self.access_slot.cohort_id
+        ):
+            raise ValidationError(
+                {"access_slot": "Assigned student must belong to the slot cohort."}
+            )
+        if self.access_slot_id and self.is_active:
+            assignment_capacity = self.access_slot.assignment_capacity
+            if assignment_capacity is not None:
+                slot_assignments = ExamStudentAssignment.objects.filter(
+                    access_slot=self.access_slot,
+                    is_active=True,
+                )
+                if self.pk:
+                    slot_assignments = slot_assignments.exclude(pk=self.pk)
+                if slot_assignments.count() >= assignment_capacity:
+                    raise ValidationError(
+                        {"access_slot": "This slot has reached its assignment capacity."}
+                    )
 
     def save(self, *args, **kwargs):
         self.full_clean()

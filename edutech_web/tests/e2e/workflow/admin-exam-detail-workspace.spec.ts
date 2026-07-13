@@ -34,7 +34,7 @@ test.describe("Admin exam detail workspace", () => {
     await expect(page.getByRole("button", { name: /disable key entry|enable key entry/i }).first()).toBeVisible();
     await expect(page.getByRole("button", { name: /regenerate key/i }).first()).toBeVisible();
 
-    await expect(page.locator('select[name="policy_type"]').first()).toBeVisible();
+    await expect(page.locator('select[name="commercial_path"]').first()).toBeVisible();
     await expect(page.locator('input[name="star_cost"]').first()).toBeVisible();
     await expect(page.locator('input[name="entitlement_code"]').first()).toBeVisible();
     await expect(page.locator('input[name="priority"]').first()).toBeVisible();

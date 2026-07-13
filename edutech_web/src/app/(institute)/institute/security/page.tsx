@@ -228,7 +228,7 @@ export default async function InstituteSecurityPage({
     <section className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteSecurityPageVivid">
       <InstitutePageHeader
         title="Security Oversight"
-        description="Review exam security posture, access-key usage, and live integrity pressure from one institute-wide operational screen."
+        description="Review exam security posture, access-key usage, and live integrity pressure for this institute."
         statusLabel={
           source === "live"
             ? `${nonNormalExams.length} exams using elevated security`
@@ -248,7 +248,7 @@ export default async function InstituteSecurityPage({
       <section className="studentInsightHeroCard studentInsightHeroCardCompact">
         <div className="studentInsightHeroCopy">
           <span className="studentDashboardTag">Assessment integrity</span>
-          <strong>Keep configuration posture and live exam risk signals visible from the same institute control layer</strong>
+          <strong>Keep configuration posture and live exam risk signals visible from one institute control layer</strong>
           <p>
             This screen does not invent a separate security admin system. It reflects the security modes and integrity
             monitoring signals already attached to institute-scoped exams and attempts.
@@ -324,7 +324,21 @@ export default async function InstituteSecurityPage({
               <strong>Security Controls</strong>
               <span>{visibleExams.length} exams visible · {attemptCount} attempts in watchlist scope</span>
             </div>
-            <form className="workspaceFiltersForm" method="GET">
+            <form
+              key={[
+                selectedExam?.id ?? "none",
+                examFilter,
+                examSort,
+                attemptFilter,
+                attemptSort,
+                attemptGroup,
+                examPageSize,
+                attemptPageSize,
+                search,
+              ].join(":")}
+              className="workspaceFiltersForm"
+              method="GET"
+            >
               {selectedExam?.id ? <input name="examId" type="hidden" value={selectedExam.id} /> : null}
               <input name="exam_page" type="hidden" value="1" />
               <input name="attempt_page" type="hidden" value="1" />

@@ -3,8 +3,8 @@ import { expect, Page } from "@playwright/test";
 export class InstituteQuestionBankPage {
   constructor(private readonly page: Page) {}
 
-  private async selectOptionByLabelPattern(locator: ReturnType<Page["locator"]>, pattern: RegExp) {
-    const optionValue = await locator.locator("option").evaluateAll(
+  private async findOptionValueByLabelPattern(locator: ReturnType<Page["locator"]>, pattern: RegExp) {
+    return locator.locator("option").evaluateAll(
       (options, source) => {
         const expression = new RegExp(source.pattern, source.flags);
         const match = options.find((option) => expression.test((option as HTMLOptionElement).label));
@@ -12,6 +12,10 @@ export class InstituteQuestionBankPage {
       },
       { pattern: pattern.source, flags: pattern.flags },
     );
+  }
+
+  private async selectOptionByLabelPattern(locator: ReturnType<Page["locator"]>, pattern: RegExp) {
+    const optionValue = await this.findOptionValueByLabelPattern(locator, pattern);
     expect(optionValue).toBeTruthy();
     await locator.selectOption(optionValue);
   }
@@ -55,10 +59,27 @@ export class InstituteQuestionBankPage {
   async selectAcademicFilters(programLabel: RegExp, subjectLabel: RegExp) {
     const programSelect = this.page.getByRole("combobox", { name: /^program$/i });
     const subjectSelect = this.page.getByRole("combobox", { name: /^subject$/i });
+    const applyFiltersButton = this.page.getByRole("button", { name: /apply filters/i });
 
-    await this.selectOptionByLabelPattern(programSelect, programLabel);
-    await expect(subjectSelect).toBeEnabled();
-    await this.selectOptionByLabelPattern(subjectSelect, subjectLabel);
+    const programOptionValue = await this.findOptionValueByLabelPattern(programSelect, programLabel);
+    expect(programOptionValue).toBeTruthy();
+    await programSelect.selectOption(programOptionValue);
+
+    // Program changes are resolved on the server for this route, so reload once
+    // before expecting the dependent subject list to contain the new scope.
+    let subjectOptionValue = await this.findOptionValueByLabelPattern(subjectSelect, subjectLabel);
+    if (!subjectOptionValue) {
+      await Promise.all([
+        this.page.waitForURL((url) => url.searchParams.get("program") === programOptionValue),
+        applyFiltersButton.click(),
+      ]);
+      await expect(programSelect).toBeVisible();
+      await expect(subjectSelect).toBeEnabled();
+      subjectOptionValue = await this.findOptionValueByLabelPattern(subjectSelect, subjectLabel);
+    }
+
+    expect(subjectOptionValue).toBeTruthy();
+    await subjectSelect.selectOption(subjectOptionValue);
   }
 
   async openLinkedLane() {
@@ -66,6 +87,18 @@ export class InstituteQuestionBankPage {
   }
 
   async openSharedLibraryLinker() {
-    await this.page.getByRole("link", { name: /open shared library linker|link shared library|open shared library/i }).first().click();
+    const scopedLinkerLink = this.page.getByRole("link", { name: /^open shared library linker for this scope$/i }).first();
+    if (await scopedLinkerLink.isVisible().catch(() => false)) {
+      await scopedLinkerLink.click();
+      return;
+    }
+
+    const hrefScopedLink = this.page.locator('a[href*="/institute/question-bank/library-linker"]').first();
+    if (await hrefScopedLink.isVisible().catch(() => false)) {
+      await hrefScopedLink.click();
+      return;
+    }
+
+    await this.page.getByRole("link", { name: /shared library linker/i }).first().click();
   }
 }

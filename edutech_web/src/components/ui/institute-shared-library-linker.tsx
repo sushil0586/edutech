@@ -42,7 +42,7 @@ function availabilityTone(question: MasterQuestionLibraryQuestion) {
 function availabilityLabel(question: MasterQuestionLibraryQuestion) {
   const accessState = question.access_status || (question.has_access ? "entitled" : "not_requested");
   if (accessState === "linked") return "Already linked";
-  if (!question.has_access) return "Subscription required";
+  if (!question.has_access) return "Package access required";
   if (question.access_availability === "quota_exhausted") return "Quota reached";
   return "Ready to link";
 }
@@ -242,42 +242,50 @@ export function InstituteSharedLibraryLinker({
   }
 
   return (
-    <div className="questionBankShell">
+    <div className="questionBankShell sharedLibraryLinkerPage">
       {message ? <p className="feedbackBanner feedbackBannerSuccess">{message}</p> : null}
       {error ? <p className="feedbackBanner feedbackBannerError">{error}</p> : null}
       {sharedLibraryDisabledMessage ? <p className="feedbackBanner">{sharedLibraryDisabledMessage}</p> : null}
 
-      <section className="contentCard">
+      <section className="contentCard sharedLibraryLinkerIntroCard">
         <div className="sectionHeading">
           <strong>Use one lane at a time</strong>
-          <span>Keep intake separate from review and editing so users do not bring in the wrong rows by mistake.</span>
+          <span>Use this page only for intake. Review linked rows and local editing in their own lanes so operators do not solve the wrong problem.</span>
         </div>
+        <div className="sharedLibraryLinkerIntroGrid">
         <div className="builderHintPanel">
           <strong>Current lane: Shared Library Linker</strong>
           <p>
-            Use this page only when the institute needs more platform questions. After linking, go back to Linked Questions for review and exam use, or return to the local bank for editable institute-owned work.
+            Use this page when package access is already valid but the institute still needs more platform-backed questions in a class, subject, or topic lane.
           </p>
           <small>
-            This page is not for changing question wording. It is only for choosing and adding source rows into the institute bank.
+            This page is not for editing wording. It is only for choosing source rows and adding them into the institute bank.
           </small>
+        </div>
+        <div className="builderHintPanel">
+          <strong>Role boundary for this lane</strong>
+          <p>
+            Institute admins complete the final intake step here after checking package access, class and subject fit, and topic relevance.
+          </p>
+          <small>
+            Teachers can inspect licensed source rows and request help from their workspace, but they do not complete the final link on this page. After linking, both roles should move to Linked Questions for review and reuse.
+          </small>
+        </div>
         </div>
       </section>
 
-      <section className="contentCard questionBankFilterSurface">
+      <section className="contentCard questionBankFilterSurface sharedLibraryLinkerStepCard">
         <div className="sectionHeading">
           <strong>Step 1. Choose class and subject</strong>
-          <span>Start small. Pick one class and one subject first, then open only one topic at a time.</span>
+          <span>Start with one academic lane. Pick one class and one subject first, then open only one topic at a time.</span>
         </div>
-        <div className="builderHintPanel">
+        <div className="builderHintPanel sharedLibraryLinkerGuidePanel">
           <strong>What this page is for</strong>
           <p>
-            This page shows platform questions that your institute is allowed to add into its own question
-            bank. The safest workflow is: choose class, choose subject, choose one topic, review the list,
-            then add only the questions teachers will really use later.
+            This page shows platform questions the institute is allowed to bring into its own bank. The safest workflow is: choose class, choose subject, choose one topic, review the list, then add only the rows teachers will actually use.
           </p>
           <small>
-            This is the intake page only. After linking, return to Linked Questions or the main Question Bank
-            for normal day-to-day work.
+            If this page looks empty, first ask whether package access is missing, the topic is unseeded, or the current filters are too narrow.
           </small>
         </div>
         <div className="questionBankChipRow questionBankChipRowCompact">
@@ -366,12 +374,10 @@ export function InstituteSharedLibraryLinker({
           <div className="builderHintPanel">
             <strong>How to choose the right topic</strong>
             <p>
-              Open one topic where the remaining count is high. That means the platform still has more
-              questions which are not yet in your institute bank.
+              Open one topic where the remaining count is high. That usually means the platform still has useful source rows that the institute has not linked yet.
             </p>
             <small>
-              Available in platform bank = questions currently offered by the platform, Already linked = questions
-              already added into your institute bank, Not yet added = questions still available to bring in.
+              `Available in platform bank` means what the platform can currently offer. `Already linked locally` means what your institute already has. `Not yet added` is the gap operators can recover from here.
             </small>
           </div>
           <div className="questionBankCardMetaNote questionBankCardMetaNoteCompact">
@@ -381,7 +387,7 @@ export function InstituteSharedLibraryLinker({
           </div>
           <div className="questionBankCardMetaNote questionBankCardMetaNoteCompact">
             <span>Choose one topic only, especially for careful manual review.</span>
-            <span>When a topic shows zero source rows, it usually means the platform has not seeded content for that topic yet.</span>
+            <span>When a topic shows zero source rows, it usually means the platform has not seeded content for that topic yet, not that the institute lost access.</span>
           </div>
           <div className="questionBankCardActions">
             <button
@@ -474,7 +480,7 @@ export function InstituteSharedLibraryLinker({
           <div className="builderHintPanel">
             <strong>Best next step</strong>
             <p>Choose one topic from the list above, preferably one with a high remaining count, then review that topic carefully before linking rows.</p>
-            <small>This extra step helps users avoid bulk-linking the wrong subject slice without topic-level review.</small>
+            <small>This step helps operators separate “nothing available in this topic” from “nothing linked yet in this topic.”</small>
           </div>
           <div className="questionBankCardActions">
             {suggestedTopicForReview ? (
@@ -518,21 +524,19 @@ export function InstituteSharedLibraryLinker({
           <div className="builderHintPanel">
             <strong>Review rule before linking</strong>
             <p>
-              First read the question text, then check the explanation and topic details, and only then link
-              the row into the institute bank.
+              First read the question text, then check the explanation and topic details, and only then add the row into the institute bank.
             </p>
             <small>
-              This list shows platform rows, not only already-linked rows. Use single-link for careful review. Use
-              bulk link only after checking multiple rows on the same page.
+              This list shows platform source rows, not the already-linked local inventory. Use single-link for careful review. Use bulk link only after checking multiple rows on the same page.
             </small>
           </div>
           <div className="questionBankCardMetaNote questionBankCardMetaNoteCompact">
             <span>This topic is showing platform question rows, not only questions already in the institute bank.</span>
-            <span>Open Linked Rows For This Topic when you want to review what the institute already has.</span>
+            <span>Open Linked Rows For This Topic when you want to review what the institute already has instead of what the platform could still offer.</span>
             <span>
               {linkableQuestions.length > 0
-                ? "Best next step: review carefully, then add the rows you really want teachers to use."
-                : "Best next step: check linked rows or switch to another topic with remaining platform rows."}
+                ? "Best next step: review carefully, then add only the rows teachers are likely to reuse."
+                : "Best next step: check linked rows first, or switch to another topic that still has platform stock left."}
             </span>
           </div>
           <div className="questionBankCardActions">
@@ -592,12 +596,12 @@ export function InstituteSharedLibraryLinker({
               <p>
                 {search.trim()
                   ? "Try clearing the search box or reviewing the same topic without text filtering first."
-                  : "The platform currently has no rows to offer for this topic. This is a source-availability gap, not an institute-side failure."}
+                  : "The platform currently has no rows to offer for this topic. Treat this as a source-availability gap, not an institute-side failure."}
               </p>
               <small>
                 {search.trim()
-                  ? "If the institute already linked rows for this topic earlier, use the linked-rows view to review them."
-                  : "You can open linked rows for this topic to confirm what the institute already has, or switch to another topic that still shows remaining source rows."}
+                  ? "If the institute linked rows for this topic earlier, use the linked-rows view to review what is already in the bank."
+                  : "Open linked rows for this topic to confirm what the institute already has, or switch to another topic that still shows remaining source rows."}
               </small>
               <div className="questionBankCardActions" style={{ marginTop: 16 }}>
                 <Link
@@ -681,7 +685,7 @@ export function InstituteSharedLibraryLinker({
                           </button>
                         ) : (
                           <span className="button buttonGhost questionBankButtonDisabled">
-                            {accessState === "linked" ? "Already In Institute Bank" : "Cannot Be Added"}
+                            {accessState === "linked" ? "Already In Institute Bank" : "Not Addable In This Lane"}
                           </span>
                         )}
                       </div>

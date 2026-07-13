@@ -16,6 +16,11 @@ class _UserOrIpThrottle(SimpleRateThrottle):
 class LoginRateThrottle(_UserOrIpThrottle):
     scope = "login"
 
+    def get_cache_key(self, request, view):
+        if settings.DEBUG:
+            return None
+        return super().get_cache_key(request, view)
+
 
 class RegistrationRateThrottle(_UserOrIpThrottle):
     scope = "registration"
@@ -49,3 +54,8 @@ class TokenRefreshRateThrottle(_UserOrIpThrottle):
 
 class AdminProvisionRateThrottle(_UserOrIpThrottle):
     scope = "admin_provision"
+
+    def get_cache_key(self, request, view):
+        if settings.DEBUG:
+            return None
+        return super().get_cache_key(request, view)

@@ -1,4 +1,5 @@
 import { FilterSummaryPills } from "@/components/ui/filter-summary-pills";
+import { InstituteExamsTeacherFilter } from "@/components/ui/institute-exams-teacher-filter";
 import { OperatorWorkspaceLink as Link } from "@/components/ui/operator-workspace-link";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { InstitutePageHeader } from "@/components/ui/institute-page-header";
@@ -24,6 +25,8 @@ type TeacherOption = {
   employee_code: string;
   is_active: boolean;
 };
+
+const INSTITUTE_EXAMS_TEACHERS_API_PATH = "/api/institute/exams/teachers";
 
 type ExamLifecycleGuidance = {
   statusLabel: string;
@@ -225,9 +228,12 @@ export default async function InstituteExamsPage({
 }) {
   const profile = await requireInstituteAdminSession();
   const params = (await searchParams) ?? {};
-  const teachers = await fetchPortalList<TeacherOption>(
-    `/api/v1/teachers/${profile.institute ? `?institute=${profile.institute}&page_size=100` : "?page_size=100"}`,
-  ).catch(() => []);
+  const shouldBootstrapTeachers = Boolean(params.teacher?.trim());
+  const teachers = shouldBootstrapTeachers
+    ? await fetchPortalList<TeacherOption>(
+        `/api/v1/teachers/${profile.institute ? `?institute=${profile.institute}&page_size=100` : "?page_size=100"}`,
+      ).catch(() => [])
+    : [];
   const teacherFilter = normalizeTeacherFilter(params.teacher, teachers);
   const selectedTeacher = teachers.find((teacher) => teacher.id === teacherFilter) ?? null;
   const statusFilter = resolveInstituteExamStatusFilter(params.exam_status);
@@ -550,14 +556,11 @@ export default async function InstituteExamsPage({
               <input name="exam_page" type="hidden" value="1" />
               <label className="workspaceFilterField">
                 <span>Teacher</span>
-                <select defaultValue={teacherFilter} name="teacher">
-                  <option value="">All teachers</option>
-                  {teachers.map((teacher) => (
-                    <option key={teacher.id} value={teacher.id}>
-                      {teacher.full_name} ({teacher.employee_code})
-                    </option>
-                  ))}
-                </select>
+                <InstituteExamsTeacherFilter
+                  apiPath={INSTITUTE_EXAMS_TEACHERS_API_PATH}
+                  initialTeachers={teachers}
+                  selectedTeacherId={teacherFilter}
+                />
               </label>
               <label className="workspaceFilterField">
                 <span>Status</span>

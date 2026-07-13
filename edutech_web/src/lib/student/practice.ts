@@ -1,4 +1,6 @@
-import type { StudentAvailableExam } from "@/features/dashboard/types";
+import type { StudentAvailableExam, StudentPracticeFollowUpExam } from "@/features/dashboard/types";
+
+type PracticeFollowUpExam = StudentAvailableExam | StudentPracticeFollowUpExam;
 
 export function buildPracticeHref(args?: {
   subjectName?: string | null;
@@ -76,7 +78,7 @@ export function derivePracticeFocusFromReviewQuestions(
 }
 
 export function resolvePracticeFollowUpAction(args: {
-  exams: StudentAvailableExam[];
+  exams: PracticeFollowUpExam[];
   subjectName?: string | null;
 }) {
   const scopedExams = args.subjectName?.trim()
@@ -145,7 +147,7 @@ export function resolvePracticeFollowUpAction(args: {
 }
 
 export function resolvePracticeFocusRecommendation(args: {
-  exams: StudentAvailableExam[];
+  exams: PracticeFollowUpExam[];
   subjectName?: string | null;
   topicName?: string | null;
 }) {

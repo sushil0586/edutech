@@ -1,8 +1,17 @@
 import { expect, test, type Page } from "@playwright/test";
 import { loginAsRole, loginWithCredentials, testRequiresRole } from "../helpers/auth";
+import {
+  createDisposableInstitute as createOnboardingInstitute,
+  deleteDisposableInstitute as deleteOnboardingInstitute,
+  fetchPrograms as fetchOnboardingPrograms,
+  fetchSubjects as fetchOnboardingSubjects,
+  getAdminAccessToken as getOnboardingAdminAccessToken,
+  uniqueOnboardingSeed,
+} from "../helpers/onboarding";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
 import { expectAdminWorkspace, expectInstituteWorkspace } from "../helpers/navigation";
 import { AdminEconomyQuestionBankPage } from "../page-objects/admin/admin-economy-question-bank.po";
+import { AdminInstituteOnboardingPage } from "../page-objects/admin/admin-institute-onboarding.po";
 import { InstituteQuestionBankPage } from "../page-objects/institute/institute-question-bank.po";
 import { InstituteSharedLibraryLinkerPage } from "../page-objects/institute/institute-shared-library-linker.po";
 
@@ -19,9 +28,13 @@ const backendBaseUrl = (
   "http://127.0.0.1:9001"
 ).replace(/\/$/, "");
 
-const opbmsCredentials = {
-  username: process.env.PLAYWRIGHT_OPBMS_USERNAME?.trim() || "opbms",
+const seededInstituteCredentials = {
+  username: process.env.PLAYWRIGHT_OPBMS_USERNAME?.trim() || "demo-institute-admin",
   password: process.env.PLAYWRIGHT_OPBMS_PASSWORD?.trim() || "Demo@12345",
+};
+const fallbackInstituteCredentials = {
+  username: "demo-institute-admin",
+  password: "Demo@12345",
 };
 const SHARED_LIBRARY_FEATURE_CODE = "QUESTION_BANK_SHARED_LIBRARY";
 
@@ -68,8 +81,20 @@ type AcademicSubject = {
   program?: string | null;
 };
 
+type LoginInstituteContext = {
+  credentials: {
+    username: string;
+    password: string;
+  };
+  institute: CreatedInstitute;
+};
+
 function uniqueSeed() {
   return `${Date.now()}${Math.floor(Math.random() * 1000)}`;
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 async function createInstituteViaApi(page: Page, name: string, code: string): Promise<CreatedInstitute> {
@@ -154,6 +179,55 @@ async function fetchInstituteByCode(page: Page, adminAccessToken: string, instit
   const institute = rows.find((row) => row.code === instituteCode);
   expect(institute).toBeTruthy();
   return institute!;
+}
+
+async function fetchInstituteById(page: Page, adminAccessToken: string, instituteId: string) {
+  const response = await page.request.get(`${backendBaseUrl}/api/v1/institutes/${instituteId}/`, {
+    headers: {
+      Authorization: `Bearer ${adminAccessToken}`,
+    },
+  });
+  expect(response.ok(), await response.text()).toBe(true);
+  return (await response.json()) as CreatedInstitute;
+}
+
+async function resolveSeededInstituteContext(page: Page, adminAccessToken: string): Promise<LoginInstituteContext> {
+  const credentialCandidates = [seededInstituteCredentials];
+  if (
+    seededInstituteCredentials.username !== fallbackInstituteCredentials.username ||
+    seededInstituteCredentials.password !== fallbackInstituteCredentials.password
+  ) {
+    credentialCandidates.push(fallbackInstituteCredentials);
+  }
+
+  for (const credentials of credentialCandidates) {
+    const loginResponse = await page.request.post(`${backendBaseUrl}/api/v1/auth/login/`, {
+      data: credentials,
+      headers: {
+        "Content-Type": "application/json",
+      },
+      timeout: 15000,
+    });
+
+    if (!loginResponse.ok()) {
+      continue;
+    }
+
+    const payload = (await loginResponse.json()) as {
+      user?: {
+        institute?: string | null;
+      };
+    };
+    const instituteId = String(payload.user?.institute ?? "").trim();
+    expect(instituteId).toBeTruthy();
+
+    return {
+      credentials,
+      institute: await fetchInstituteById(page, adminAccessToken, instituteId),
+    };
+  }
+
+  throw new Error("Unable to resolve a seeded institute context from the configured institute credentials.");
 }
 
 async function fetchRecords<T>(page: Page, path: string) {
@@ -276,6 +350,27 @@ async function ensureSharedLibraryFeatureActive(
   expect(response.ok(), await response.text()).toBe(true);
 }
 
+async function ensureQuestionBankPackageAccessViaOnboarding(
+  page: Page,
+  onboardingPage: AdminInstituteOnboardingPage,
+  institute: CreatedInstitute,
+  packageCode: string,
+) {
+  const academicYearLabel = `2048-2049 Seeded ${institute.code} ${uniqueSeed()}`;
+  await onboardingPage.gotoMasterDefaults(institute.id);
+  await onboardingPage.assertLoaded(institute.id);
+  await onboardingPage.setAcademicYear(academicYearLabel, "2048-04-01", "2049-03-31");
+  await page.getByLabel(/academic preset/i).selectOption("class_8_cbse_core");
+  await page.getByLabel(/apply mode/i).selectOption("full");
+  await page.getByLabel(/question-bank package access/i).selectOption("enabled");
+  await page.getByLabel(/default question-bank package/i).selectOption(packageCode);
+  await page.getByLabel(/question linking mode/i).selectOption("access_only");
+  await page.getByLabel(/advanced builder access/i).selectOption("disabled");
+  await page.getByRole("button", { name: /apply preset/i }).click();
+  await onboardingPage.expectLastApplyResult();
+  await expect(page.getByText(/package access granted|package access reactivated/i).first()).toBeVisible();
+}
+
 async function openMasterDefaults(page: Page, institute: CreatedInstitute) {
   await page.goto(`/admin/academic-setup?institute=${institute.id}&section=master-defaults`);
   await expect(page.getByRole("heading", { name: /academic setup/i }).first()).toBeVisible();
@@ -310,13 +405,66 @@ async function applyPreset(page: Page) {
   await expect(page.getByText(/last apply result/i).first()).toBeVisible();
 }
 
+async function expectOnboardingSummaryStatus(page: Page, status: "ready" | "follow_up", instituteName: string) {
+  const summary = page.getByTestId("onboarding-completion-summary");
+  const recovery = page.getByTestId("onboarding-recovery-actions");
+  const instituteTargetCard = page.locator(".adminAcademicOutcomeCard").filter({
+    has: page.getByText(/institute target/i),
+  }).first();
+  await expect(summary).toBeVisible();
+  await expect(recovery).toBeVisible();
+  await expect(instituteTargetCard).toContainText(new RegExp(escapeRegExp(instituteName), "i"));
+
+  if (status === "ready") {
+    await expect(summary.getByText(/ready for guided use/i).first()).toBeVisible();
+  } else {
+    await expect(summary.getByText(/needs operator follow-up/i).first()).toBeVisible();
+  }
+}
+
 async function createInstituteLoginViaUi(page: Page, instituteId: string) {
+  const apiResponse = await page.request.post(`/api/admin/account-management/institutes/${instituteId}/create-login`, {
+    data: {
+      auto_generate: true,
+    },
+  });
+  if (apiResponse.ok()) {
+    const payload = (await apiResponse.json()) as {
+      username?: string;
+      generated_password?: string;
+    };
+    if (payload.username && payload.generated_password) {
+      return {
+        username: payload.username.trim(),
+        password: payload.generated_password.trim(),
+      };
+    }
+  }
+
   await page.goto(`/admin/institutes?institute=${instituteId}`);
   const detailCard = page.locator(".adminInstituteDetailCard").first();
   await expect(detailCard).toBeVisible();
 
   const accountPanel = detailCard.locator(".adminInstituteAccountPanel").first();
   await expect(accountPanel).toContainText(/credential controls/i);
+
+  const extractVisibleCredentials = async () => {
+    const panelText = await accountPanel.innerText();
+    const usernameMatch = panelText.match(/username:\s*([^\s]+)/i);
+    const passwordMatch = panelText.match(/generated password:\s*([^\s]+)/i);
+    if (!usernameMatch || !passwordMatch) {
+      return null;
+    }
+    return {
+      username: usernameMatch[1]!.trim(),
+      password: passwordMatch[1]!.trim(),
+    };
+  };
+
+  const existingCredentials = await extractVisibleCredentials();
+  if (existingCredentials) {
+    return existingCredentials;
+  }
 
   const createLoginResponsePromise = page.waitForResponse(
     (response) =>
@@ -325,7 +473,10 @@ async function createInstituteLoginViaUi(page: Page, instituteId: string) {
   );
   await accountPanel.getByRole("button", { name: /create login/i }).click();
   const createLoginResponse = await createLoginResponsePromise;
-  expect(createLoginResponse.ok(), await createLoginResponse.text()).toBe(true);
+  expect(
+    createLoginResponse.ok(),
+    `Institute login creation failed after API and UI fallback. Response: ${await createLoginResponse.text()}`,
+  ).toBe(true);
 
   const payload = (await createLoginResponse.json()) as {
     username?: string;
@@ -346,7 +497,17 @@ async function openLinkedQuestionBankForScope(page: Page, programLabel: RegExp, 
   await questionBank.gotoLinked();
   await questionBank.expectLinkedLoaded();
   await questionBank.selectAcademicFilters(programLabel, subjectLabel);
-  await page.getByRole("button", { name: /apply filters/i }).click();
+  const programSelect = page.getByRole("combobox", { name: /^program$/i });
+  const subjectSelect = page.getByRole("combobox", { name: /^subject$/i });
+  const expectedProgram = await programSelect.inputValue();
+  const expectedSubject = await subjectSelect.inputValue();
+  await Promise.all([
+    page.waitForURL((url) =>
+      url.searchParams.get("program") === expectedProgram &&
+      url.searchParams.get("subject") === expectedSubject,
+    ),
+    page.getByRole("button", { name: /apply filters/i }).click(),
+  ]);
   await questionBank.expectLinkedScopeSummary();
 }
 
@@ -377,8 +538,10 @@ test.describe("Admin mixed institute onboarding", () => {
     test.setTimeout(240000);
     await loginAsRole(page, "admin");
     await expectAdminWorkspace(page);
+    const onboardingPage = new AdminInstituteOnboardingPage(page);
 
-    const adminAccessToken = await getAdminAccessToken(page);
+    const adminAccessToken = await getOnboardingAdminAccessToken(page);
+    const seededInstituteContext = await resolveSeededInstituteContext(page, adminAccessToken);
     const economyPage = new AdminEconomyQuestionBankPage(page);
 
     await ensureScholarScope(page, economyPage, adminAccessToken, [
@@ -389,23 +552,40 @@ test.describe("Admin mixed institute onboarding", () => {
     const scholarPackage = packages.find((pkg) => pkg.code === "SCHOLAR-QUESTION-BANK-ACCESS");
     expect(scholarPackage).toBeTruthy();
 
-    await economyPage.goto();
-    await economyPage.showEntitlementsForPackage("Scholar Question Bank Access (SCHOLAR-QUESTION-BANK-ACCESS)");
     const entitlements = await fetchAdminQuestionBankEntitlements(page, adminAccessToken);
-    const opbmsScholarEntitlement = entitlements.find(
+    let seededScholarEntitlement = entitlements.find(
       (entitlement) =>
-        entitlement.institute_code === "OPBMS" &&
+        entitlement.institute_code === seededInstituteContext.institute.code &&
         entitlement.question_bank_package_code === "SCHOLAR-QUESTION-BANK-ACCESS",
     );
-    expect(opbmsScholarEntitlement).toBeTruthy();
+    if (!seededScholarEntitlement) {
+      await ensureQuestionBankPackageAccessViaOnboarding(
+        page,
+        onboardingPage,
+        seededInstituteContext.institute,
+        "SCHOLAR-QUESTION-BANK-ACCESS",
+      );
+      const refreshedEntitlements = await fetchAdminQuestionBankEntitlements(page, adminAccessToken);
+      seededScholarEntitlement = refreshedEntitlements.find(
+        (entitlement) =>
+          entitlement.institute_code === seededInstituteContext.institute.code &&
+          entitlement.question_bank_package_code === "SCHOLAR-QUESTION-BANK-ACCESS",
+      );
+    }
+    expect(seededScholarEntitlement).toBeTruthy();
+    await economyPage.goto();
+    await economyPage.showEntitlementsForPackage(
+      "Scholar Question Bank Access (SCHOLAR-QUESTION-BANK-ACCESS)",
+      seededInstituteContext.institute.name,
+    );
     await restoreEntitlementIfNeeded(
       page,
       economyPage,
-      opbmsScholarEntitlement!.id,
-      opbmsScholarEntitlement!.status.toLowerCase(),
+      seededScholarEntitlement!.id,
+      seededScholarEntitlement!.status.toLowerCase(),
     );
 
-    const opbmsInstitute = await fetchInstituteByCode(page, adminAccessToken, "OPBMS");
+    const opbmsInstitute = seededInstituteContext.institute;
     await ensureSharedLibraryFeatureActive(
       page,
       adminAccessToken,
@@ -414,24 +594,27 @@ test.describe("Admin mixed institute onboarding", () => {
       scholarPackage!.id,
       scholarPackage!.code,
     );
-    await openMasterDefaults(page, opbmsInstitute);
-    await setAcademicYear(page, "2038-2039 OPBMS Class8", "2038-04-01", "2039-03-31");
+    await onboardingPage.gotoMasterDefaults(opbmsInstitute.id);
+    await onboardingPage.assertLoaded(opbmsInstitute.id);
+    await onboardingPage.setAcademicYear(`2049-2050 ${opbmsInstitute.code} Class8`, "2049-04-01", "2050-03-31");
     await page.getByLabel(/academic preset/i).selectOption("class_8_cbse_core");
     await page.getByLabel(/apply mode/i).selectOption("full");
     await page.getByLabel(/question-bank package access/i).selectOption("disabled");
     await page.getByLabel(/advanced builder access/i).selectOption("disabled");
-    await applyPreset(page);
+    await page.getByRole("button", { name: /apply preset/i }).click();
+    await onboardingPage.expectLastApplyResult();
+    await onboardingPage.expectReadySummary(opbmsInstitute.name);
 
-    const opbmsPrograms = await fetchPrograms(page, opbmsInstitute.id);
+    const opbmsPrograms = await fetchOnboardingPrograms(page, opbmsInstitute.id);
     const opbmsClass8Program = opbmsPrograms.find((entry) => entry.code === "CLS8");
     expect(opbmsClass8Program).toBeTruthy();
-    const opbmsSubjects = await fetchSubjects(page, opbmsInstitute.id);
+    const opbmsSubjects = await fetchOnboardingSubjects(page, opbmsInstitute.id);
     const opbmsClass8Math = opbmsSubjects.find(
       (entry) => entry.code === "CLS8-MATH" && entry.program === opbmsClass8Program!.id,
     );
     expect(opbmsClass8Math).toBeTruthy();
 
-    await loginWithCredentials(page, opbmsCredentials, "institute");
+    await loginWithCredentials(page, seededInstituteContext.credentials, "institute");
     await expectInstituteWorkspace(page);
 
     const sharedLibraryLinker = new InstituteSharedLibraryLinkerPage(page);
@@ -443,16 +626,21 @@ test.describe("Admin mixed institute onboarding", () => {
     await loginAsRole(page, "admin");
     await expectAdminWorkspace(page);
 
-    const seed = uniqueSeed();
+    const seed = uniqueOnboardingSeed();
     let instituteId: string | null = null;
 
     try {
-      const institute = await createInstituteViaApi(page, `PW Mixed Onboarding ${seed}`, `PWM${seed.slice(-5)}`);
+      const institute = await createOnboardingInstitute(page, {
+        name: `PW Mixed Onboarding ${seed}`,
+        code: `PWM${seed.slice(-5)}`,
+        description: "Disposable mixed onboarding institute created by Playwright.",
+      });
       instituteId = institute.id;
       const mixedAcademicYearLabel = `2038-2039 Mixed ${seed}`;
 
-      await openMasterDefaults(page, institute);
-      await setAcademicYear(page, mixedAcademicYearLabel, "2038-04-01", "2039-03-31");
+      await onboardingPage.gotoMasterDefaults(institute.id);
+      await onboardingPage.assertLoaded(institute.id);
+      await onboardingPage.setAcademicYear(mixedAcademicYearLabel, "2038-04-01", "2039-03-31");
       await page.getByLabel(/apply mode/i).selectOption("selected_subjects");
       await page.waitForTimeout(500);
       for (const label of [
@@ -466,19 +654,24 @@ test.describe("Admin mixed institute onboarding", () => {
       await page.getByLabel(/default question-bank package/i).selectOption("SCHOLAR-QUESTION-BANK-ACCESS");
       await page.getByLabel(/question linking mode/i).selectOption("auto_link_selected_scope");
       await page.getByLabel(/advanced builder access/i).selectOption("enabled");
-      await applyPreset(page);
+      await page.getByRole("button", { name: /apply preset/i }).click();
+      await onboardingPage.expectLastApplyResult();
       await expect(page.getByText(/package access granted|package access reactivated/i).first()).toBeVisible();
       await expect(page.getByText(/advanced builder granted|advanced builder reactivated/i).first()).toBeVisible();
+      await onboardingPage.expectReadySummary(institute.name);
 
-      await openMasterDefaults(page, institute);
-      await setAcademicYear(page, mixedAcademicYearLabel, "2038-04-01", "2039-03-31");
+      await onboardingPage.gotoMasterDefaults(institute.id);
+      await onboardingPage.assertLoaded(institute.id);
+      await onboardingPage.setAcademicYear(mixedAcademicYearLabel, "2038-04-01", "2039-03-31");
       await page.getByLabel(/academic preset/i).selectOption("class_8_cbse_core");
       await page.getByLabel(/apply mode/i).selectOption("full");
       await page.getByLabel(/question-bank package access/i).selectOption("enabled");
       await page.getByLabel(/default question-bank package/i).selectOption("SCHOLAR-QUESTION-BANK-ACCESS");
       await page.getByLabel(/question linking mode/i).selectOption("auto_link_selected_scope");
       await page.getByLabel(/advanced builder access/i).selectOption("enabled");
-      await applyPreset(page);
+      await page.getByRole("button", { name: /apply preset/i }).click();
+      await onboardingPage.expectLastApplyResult();
+      await onboardingPage.expectReadySummary(institute.name);
 
       const createdInstituteCredentials = await createInstituteLoginViaUi(page, institute.id);
       await loginWithCredentials(page, createdInstituteCredentials, "institute");
@@ -499,8 +692,30 @@ test.describe("Admin mixed institute onboarding", () => {
       await page.goto("/institute/exams/advanced");
       await expect(page.getByRole("heading", { name: /advanced exam builder/i }).first()).toBeVisible();
       await expect(page.getByText(/not enabled for this institute yet/i)).toHaveCount(0);
+
+      await loginAsRole(page, "admin");
+      await expectAdminWorkspace(page);
+
+      await onboardingPage.gotoMasterDefaults(institute.id);
+      await onboardingPage.assertLoaded(institute.id);
+      await onboardingPage.setAcademicYear(mixedAcademicYearLabel, "2038-04-01", "2039-03-31");
+      await page.getByLabel(/academic preset/i).selectOption("class_8_cbse_core");
+      await page.getByLabel(/apply mode/i).selectOption("full");
+      await page.getByLabel(/question-bank package access/i).selectOption("enabled");
+      await page.getByLabel(/default question-bank package/i).selectOption("SCHOLAR-QUESTION-BANK-ACCESS");
+      await page.getByLabel(/question linking mode/i).selectOption("access_only");
+      await page.getByLabel(/advanced builder access/i).selectOption("enabled");
+      await page.getByRole("button", { name: /apply preset/i }).click();
+      await onboardingPage.expectLastApplyResult();
+      await onboardingPage.expectFollowUpSummary(institute.name);
+      await expect(
+        page.getByTestId("onboarding-recovery-actions").getByText(/manual linking is still the next step/i),
+      ).toBeVisible();
+      await expect(
+        page.getByTestId("onboarding-recovery-actions").getByRole("link", { name: /open question access/i }).first(),
+      ).toBeVisible();
     } finally {
-      await deleteInstituteViaApi(page, instituteId);
+      await deleteOnboardingInstitute(page, instituteId);
     }
   });
 });

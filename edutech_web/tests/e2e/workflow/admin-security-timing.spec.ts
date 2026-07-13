@@ -47,6 +47,7 @@ test.describe("Admin security timing", () => {
     });
 
     const watchExamLinks = page.getByRole("link", { name: /watch exam|watching/i });
+    let selectedExamId: string | null = null;
     if ((await watchExamLinks.count()) > 0) {
       await measureTiming({
         label: "admin-security-watch-exam",
@@ -58,24 +59,25 @@ test.describe("Admin security timing", () => {
           await expect(page).toHaveURL(/\/admin\/security\?[^#]*examId=/);
           await expect(page.getByText(/selected exam posture/i).first()).toBeVisible();
           await expect(page.getByText(/live monitor summary/i).first()).toBeVisible();
+          selectedExamId = new URL(page.url()).searchParams.get("examId");
         },
       });
     }
 
-    const criticalAttemptsLink = page.getByRole("link", { name: /critical attempts/i }).first();
-    if (await criticalAttemptsLink.isVisible().catch(() => false)) {
-      await measureTiming({
-        label: "admin-security-critical-filter",
-        metrics,
-        action: async () => {
-          await criticalAttemptsLink.click();
-        },
-        assertVisible: async () => {
-          await expect(page).toHaveURL(/attempt_filter=critical/);
-          await expect(page.getByText(/^attempt scope: critical$/i).first()).toBeVisible();
-        },
-      });
-    }
+    await measureTiming({
+      label: "admin-security-critical-filter",
+      metrics,
+      action: async () => {
+        const url = selectedExamId
+          ? `/admin/security?examId=${encodeURIComponent(selectedExamId)}&attempt_filter=critical`
+          : "/admin/security?attempt_filter=critical";
+        await page.goto(url, { waitUntil: "domcontentloaded" });
+      },
+      assertVisible: async () => {
+        await expect(page).toHaveURL(/attempt_filter=critical/);
+        await expect(page.getByText(/^attempt scope: critical$/i).first()).toBeVisible();
+      },
+    });
 
     const payload = {
       route: "admin-security",

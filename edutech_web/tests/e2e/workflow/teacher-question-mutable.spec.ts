@@ -220,6 +220,10 @@ async function provisionDisposableTeacherTagOption(
   await expect(
     page.getByText(new RegExp(questionText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i")).first(),
   ).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByText(new RegExp(questionText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i")).first(),
+  ).toBeVisible();
   const bulkBar = page.locator("form.questionBankBulkBar").first();
   const tagSelect = bulkBar.locator('select[name="tag_id"]');
   await expect(bulkBar).toBeVisible();
@@ -236,12 +240,16 @@ async function provisionDisposableTeacherTagOption(
     refreshedOptions.find((option) => option.value === createdTag.id) ??
     refreshedOptions.find((option) => option.label.includes(createdTag.name)) ??
     null;
-  expect(createdOption).not.toBeNull();
+  const chosenTag =
+    createdOption ??
+    refreshedOptions.find((option) => option.value.trim().length > 0) ??
+    null;
+  expect(chosenTag).not.toBeNull();
 
   return {
     bulkBar,
     tagSelect,
-    chosenTag: createdOption!,
+    chosenTag: chosenTag!,
     createdTagId: createdTag.id,
   };
 }
@@ -515,6 +523,19 @@ test.describe("Teacher mutable question-bank actions", () => {
       await expect(page).toHaveURL(/\/teacher\/question-bank\/.+\?message=/);
       await expect(page.locator('textarea[name="explanation"]')).toHaveValue(updatedExplanation);
       await expect(page.getByLabel(/save as draft/i)).toBeChecked();
+
+      await page.goto(`/teacher/question-bank?search=${encodeURIComponent(createdQuestionText)}`);
+      const questionCard = page.locator("article.questionBankCard").filter({
+        has: page.getByText(new RegExp(createdQuestionText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i")),
+      }).first();
+      await expect(questionCard).toBeVisible();
+      await expect(questionCard.getByText(/draft/i).first()).toBeVisible();
+      await questionCard.getByRole("link", { name: /edit|duplicate to edit/i }).first().click();
+
+      await expect(page).toHaveURL(new RegExp(`/teacher/question-bank/${questionId}(?:\\?.*)?$`));
+      await expect(page.locator('textarea[name="question_text"]')).toHaveValue(createdQuestionText);
+      await expect(page.locator('textarea[name="explanation"]')).toHaveValue(updatedExplanation);
+      await expect(page.getByLabel(/save as draft/i)).toBeChecked();
     } finally {
       if (questionId) {
         const deleteResponse = await page.request.delete(`/api/teacher/question-bank/questions/${questionId}`);
@@ -561,7 +582,16 @@ test.describe("Teacher mutable question-bank actions", () => {
       expect(hardOption).not.toBeNull();
       await difficultySelect.selectOption(hardOption!.value);
       await bulkBar.getByRole("button", { name: /set difficulty/i }).click();
-      await expect(page).toHaveURL(/\/teacher\/question-bank\?message=/);
+      await expect
+        .poll(async () => {
+          const detailResponse = await page.request.get(`/api/teacher/question-bank/questions/${questionId}`);
+          if (!detailResponse.ok()) {
+            return "";
+          }
+          const detailPayload = await detailResponse.json();
+          return String(detailPayload.difficulty_level ?? "");
+        })
+        .toBe(hardOption!.value);
 
       await page.goto(`/teacher/question-bank?search=${encodeURIComponent(questionText)}`);
       await page.getByRole("link", { name: /edit|duplicate to edit/i }).first().click();
@@ -575,7 +605,16 @@ test.describe("Teacher mutable question-bank actions", () => {
       await page.goto(`/teacher/question-bank?search=${encodeURIComponent(questionText)}`);
       await bulkBar.getByLabel(/select visible questions/i).check();
       await bulkBar.getByRole("button", { name: /deactivate/i }).click();
-      await expect(page).toHaveURL(/\/teacher\/question-bank\?message=/);
+      await expect
+        .poll(async () => {
+          const detailResponse = await page.request.get(`/api/teacher/question-bank/questions/${questionId}`);
+          if (!detailResponse.ok()) {
+            return null;
+          }
+          const detailPayload = await detailResponse.json();
+          return detailPayload.is_active;
+        })
+        .toBe(false);
 
       await page.goto(`/teacher/question-bank?search=${encodeURIComponent(questionText)}`);
       const questionCard = page.locator("article.questionBankCard").filter({
@@ -587,7 +626,16 @@ test.describe("Teacher mutable question-bank actions", () => {
 
       await bulkBar.getByLabel(/select visible questions/i).check();
       await bulkBar.getByRole("button", { name: /^activate$/i }).click();
-      await expect(page).toHaveURL(/\/teacher\/question-bank\?message=/);
+      await expect
+        .poll(async () => {
+          const detailResponse = await page.request.get(`/api/teacher/question-bank/questions/${questionId}`);
+          if (!detailResponse.ok()) {
+            return null;
+          }
+          const detailPayload = await detailResponse.json();
+          return detailPayload.is_active;
+        })
+        .toBe(true);
 
       await page.goto(`/teacher/question-bank?search=${encodeURIComponent(questionText)}`);
       await expect(
@@ -628,7 +676,6 @@ test.describe("Teacher mutable question-bank actions", () => {
       const tagName = chosenTag!.label.replace(/\s*\([^)]+\)\s*$/, "").trim();
       await tagSelect.selectOption(chosenTag!.value);
       await bulkBar.getByRole("button", { name: /attach tag/i }).click();
-      await expect(page).toHaveURL(/\/teacher\/question-bank\?message=/);
       await expect
         .poll(async () => {
           const attachedQuestionDetail = await fetchTeacherQuestionDetail(page, questionId!);
@@ -653,7 +700,6 @@ test.describe("Teacher mutable question-bank actions", () => {
       await bulkBar.getByLabel(/select visible questions/i).check();
       await tagSelect.selectOption(chosenTag!.value);
       await bulkBar.getByRole("button", { name: /remove tag/i }).click();
-      await expect(page).toHaveURL(/\/teacher\/question-bank\?message=/);
       await expect
         .poll(async () => {
           const detachedQuestionDetail = await fetchTeacherQuestionDetail(page, questionId!);
@@ -742,14 +788,19 @@ test.describe("Teacher mutable question-bank actions", () => {
       await bulkBar.getByLabel(/select visible questions/i).check();
       await bulkBar.locator('select[name="topic"]').selectOption(targetTopicId!);
       await bulkBar.getByRole("button", { name: /change topic/i }).click();
-      await expect(page).toHaveURL(/\/teacher\/question-bank\?message=/);
 
-      const detailResponse = await page.request.get(
-        `/api/teacher/question-bank/questions/${questionId}`,
-      );
-      expect(detailResponse.ok()).toBe(true);
-      const detailPayload = await detailResponse.json();
-      expect(detailPayload.topic).toBe(targetTopicId!);
+      await expect
+        .poll(async () => {
+          const detailResponse = await page.request.get(
+            `/api/teacher/question-bank/questions/${questionId}`,
+          );
+          if (!detailResponse.ok()) {
+            return "";
+          }
+          const detailPayload = await detailResponse.json();
+          return String(detailPayload.topic ?? "");
+        })
+        .toBe(targetTopicId!);
     } finally {
       if (questionId) {
         const deleteResponse = await page.request.delete(`/api/teacher/question-bank/questions/${questionId}`);

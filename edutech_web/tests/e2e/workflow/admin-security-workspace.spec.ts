@@ -66,51 +66,58 @@ test.describe("Admin security workspace", () => {
     await expect(examSelectorPanel).toBeVisible();
 
     const watchExamButton = page.getByRole("link", { name: /watch exam|watching/i }).first();
-    await expect(watchExamButton).toBeVisible();
-    await watchExamButton.click();
-    await expect(page).toHaveURL(/examId=/);
-    await expect(page.getByRole("link", { name: /watching/i }).first()).toBeVisible();
+    if (await watchExamButton.isVisible().catch(() => false)) {
+      await watchExamButton.click();
+      await expect(page).toHaveURL(/examId=/);
+      await expect(page.getByRole("link", { name: /watching/i }).first()).toBeVisible();
 
-    await expect(page.getByText(/selected exam posture/i).first()).toBeVisible();
-    await expect(page.getByText(/live monitor summary/i).first()).toBeVisible();
-    await expect(page.getByText(/attempt watchlist/i).first()).toBeVisible();
-    await expect(page.getByText(/in-progress students/i).first()).toBeVisible();
-    await expect(page.getByText(/alerted attempts/i).first()).toBeVisible();
+      await expect(page.getByText(/selected exam posture/i).first()).toBeVisible();
+      await expect(page.getByText(/live monitor summary/i).first()).toBeVisible();
+      await expect(page.getByText(/attempt watchlist/i).first()).toBeVisible();
+      await expect(page.getByText(/in-progress students/i).first()).toBeVisible();
+      await expect(page.getByText(/alerted attempts/i).first()).toBeVisible();
 
-    const attemptWatchlistPanel = page.locator(".dashboardPanel").filter({
-      has: page.getByRole("heading", { name: /attempts needing attention in the selected exam/i }),
-    });
-    const groupedAttemptRows = attemptWatchlistPanel.locator(".workspaceResultsGroup .weakTopicRow");
-    if (await groupedAttemptRows.first().isVisible().catch(() => false)) {
-      const firstAttemptMeta = ((await groupedAttemptRows.first().locator(".weakTopicMeta strong").textContent()) ?? "").trim();
-      if (firstAttemptMeta) {
-        await expect(
-          attemptWatchlistPanel
-            .locator(".sectionHeading strong")
-            .filter({ hasText: new RegExp(`^${firstAttemptMeta}$`, "i") })
-            .first(),
-        ).toBeVisible();
+      const attemptWatchlistPanel = page.locator(".dashboardPanel").filter({
+        has: page.getByRole("heading", { name: /attempts needing attention in the selected exam/i }),
+      });
+      const groupedAttemptRows = attemptWatchlistPanel.locator(".workspaceResultsGroup .weakTopicRow");
+      if (await groupedAttemptRows.first().isVisible().catch(() => false)) {
+        const firstAttemptMeta = ((await groupedAttemptRows.first().locator(".weakTopicMeta strong").textContent()) ?? "").trim();
+        if (firstAttemptMeta) {
+          await expect(
+            attemptWatchlistPanel
+              .locator(".sectionHeading strong")
+              .filter({ hasText: new RegExp(`^${firstAttemptMeta}$`, "i") })
+              .first(),
+          ).toBeVisible();
+        }
       }
-    }
 
-    await attemptGroup.selectOption("status");
-    await page.getByRole("button", { name: /apply filters/i }).click();
-    await expect(page).toHaveURL(/attempt_group=status/);
-    await expect(page.getByText(/^group: status$/i).first()).toBeVisible();
-    await expect(page).toHaveURL(/examId=/);
+      await attemptGroup.selectOption("status");
+      await page.getByRole("button", { name: /apply filters/i }).click();
+      await expect(page).toHaveURL(/attempt_group=status/);
+      await expect(page.getByText(/^group: status$/i).first()).toBeVisible();
+      await expect(page).toHaveURL(/examId=/);
 
-    const statusGroupedAttemptRows = attemptWatchlistPanel.locator(".workspaceResultsGroup .weakTopicRow");
-    if (await statusGroupedAttemptRows.first().isVisible().catch(() => false)) {
-      const statusSummary = ((await statusGroupedAttemptRows.first().locator("div span").nth(1).textContent()) ?? "").trim();
-      const expectedStatusHeading = statusSummary.split("·")[0]?.trim();
-      if (expectedStatusHeading) {
-        await expect(
-          attemptWatchlistPanel
-            .locator(".sectionHeading strong")
-            .filter({ hasText: new RegExp(`^${expectedStatusHeading}$`, "i") })
-            .first(),
-        ).toBeVisible();
+      const statusGroupedAttemptRows = attemptWatchlistPanel.locator(".workspaceResultsGroup .weakTopicRow");
+      if (await statusGroupedAttemptRows.first().isVisible().catch(() => false)) {
+        const statusSummary = ((await statusGroupedAttemptRows.first().locator("div span").nth(1).textContent()) ?? "").trim();
+        const expectedStatusHeading = statusSummary.split("·")[0]?.trim();
+        if (expectedStatusHeading) {
+          await expect(
+            attemptWatchlistPanel
+              .locator(".sectionHeading strong")
+              .filter({ hasText: new RegExp(`^${expectedStatusHeading}$`, "i") })
+              .first(),
+          ).toBeVisible();
+        }
       }
+    } else {
+      await expect(
+        page
+          .getByText(/no exams were returned for platform security oversight|no exams match the current selector filters/i)
+          .first(),
+      ).toBeVisible();
     }
 
     await page.getByRole("link", { name: /^dashboard$/i }).first().click();

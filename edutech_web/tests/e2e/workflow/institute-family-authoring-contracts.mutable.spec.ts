@@ -136,15 +136,24 @@ async function selectProgramScope(page: Page, program: ProgramRegistryRecord) {
 
   await programSelect.selectOption(program.id);
   await expect(subjectSelect).toBeEnabled();
-
-  const subjectValue = await subjectSelect.evaluate((select) => {
+  await expect
+    .poll(async () =>
+      subjectSelect.evaluate((select) => {
+        const values = Array.from((select as HTMLSelectElement).options)
+          .map((item) => item.value)
+          .filter(Boolean);
+        return values[0] ?? "";
+      }),
+    )
+    .not.toBe("");
+  const resolvedSubjectValue = await subjectSelect.evaluate((select) => {
     const values = Array.from((select as HTMLSelectElement).options)
       .map((item) => item.value)
       .filter(Boolean);
     return values[0] ?? "";
   });
-  expect(subjectValue).not.toBe("");
-  await subjectSelect.selectOption(subjectValue);
+  expect(resolvedSubjectValue).not.toBe("");
+  await subjectSelect.selectOption(resolvedSubjectValue);
   await expect(topicSelect).toBeEnabled();
 }
 

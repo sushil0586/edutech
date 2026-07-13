@@ -188,6 +188,52 @@ async function createQuestionBankPackageDirectly(
   };
 }
 
+async function deactivateQuestionBankPackageDirectly(page: Page, accessToken: string, packageId: string) {
+  const response = await page.request.patch(
+    `${backendBaseUrl}/api/v1/economy/admin/question-bank-packages/${packageId}/`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      data: {
+        is_active: false,
+      },
+    },
+  );
+  expect(response.ok(), await response.text()).toBe(true);
+}
+
+async function deactivateSubscriptionPlanDirectly(page: Page, accessToken: string, planId: string) {
+  const response = await page.request.patch(
+    `${backendBaseUrl}/api/v1/economy/admin/subscription-plans/${planId}/`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      data: {
+        is_active: false,
+      },
+    },
+  );
+  expect(response.ok(), await response.text()).toBe(true);
+}
+
+async function revokeQuestionBankEntitlementDirectly(
+  page: Page,
+  entitlementId: string,
+  note: string,
+) {
+  const response = await page.request.patch(`/api/admin/economy/question-bank-entitlements/${entitlementId}`, {
+    data: {
+      status: "revoked",
+      notes: note,
+    },
+  });
+  expect(response.ok(), await response.text()).toBe(true);
+}
+
 type CreatedStarPackResponse = {
   data?: {
     id: string;
@@ -868,6 +914,500 @@ test.describe("Admin mutable economy actions", () => {
     };
     expect(updateBody.data?.name).toBe(updatedPlanName);
     expect(updateBody.data?.question_bank_package_links ?? []).toHaveLength(0);
+  });
+
+  test("@workflow @mutable admin can create and update subscription plan cycles and credit rules from economy governance", async ({
+    page,
+  }) => {
+    test.setTimeout(120000);
+
+    let createdPlanId = "";
+    let createdPackageId = "";
+
+    await loginAsRole(page, "admin");
+    await expectAdminWorkspace(page);
+
+    const adminAccessToken = await getAccessToken(page);
+    expect(adminAccessToken).not.toBe("");
+
+    await gotoAdminEconomyLane(page, "question-bank", "plans");
+
+    const subscriptionCard = economyCard(page, /create and edit recurring plans, cycles, and credit rules/i);
+    await expect(subscriptionCard).toBeVisible();
+    await subscriptionCard
+      .getByRole("combobox", { name: /subscription plan workspace view/i })
+      .selectOption("all");
+    await subscriptionCard
+      .getByRole("combobox", { name: /subscription plan status filter/i })
+      .selectOption("all");
+
+    const subscriptionEditor = subscriptionCard.locator(".economySubscriptionEditorPanel").first();
+    const instituteSelect = subscriptionEditor.locator(".economySubscriptionPlanGridPrimary select").first();
+    const instituteOptions = await listSelectOptions(instituteSelect);
+    const bootstrapInstitute =
+      instituteOptions.find((option) => option.value && !/inactive/i.test(option.label)) ??
+      instituteOptions.find((option) => option.value) ??
+      null;
+    if (!bootstrapInstitute) {
+      test.skip(true, "No institute is available for subscription-plan governance coverage.");
+    }
+
+    const uniqueSeed = Date.now();
+    const packageName = `Playwright Subscription Package ${uniqueSeed}`;
+    const packageCode = `PW_SUB_PKG_${uniqueSeed}`;
+    const createdName = `Playwright Subscription Plan ${uniqueSeed}`;
+    const createdCode = `PW_SUB_PLAN_${uniqueSeed}`;
+    const updatedName = `${createdName} Updated`;
+
+    const createdPackage = await createQuestionBankPackageDirectly(page, adminAccessToken, {
+      instituteId: bootstrapInstitute.value,
+      packageName,
+      packageCode,
+    });
+    createdPackageId = createdPackage.data?.id ?? "";
+    expect(createdPackageId).toBeTruthy();
+
+    try {
+      await page.reload();
+      await expectAdminWorkspace(page);
+      await gotoAdminEconomyLane(page, "question-bank", "plans");
+      await expect(subscriptionCard).toBeVisible();
+      await subscriptionCard
+        .getByRole("combobox", { name: /subscription plan workspace view/i })
+        .selectOption("all");
+      await subscriptionCard
+        .getByRole("combobox", { name: /subscription plan status filter/i })
+        .selectOption("all");
+
+      await instituteSelect.selectOption(bootstrapInstitute.value);
+      await subscriptionEditor.getByLabel(/plan name/i).fill(createdName);
+      await subscriptionEditor.getByLabel(/plan code/i).fill(createdCode);
+      await subscriptionEditor.getByLabel(/^description$/i).fill("Playwright cycle-and-rule mutation coverage");
+
+      const linkedPackageRow = subscriptionEditor
+        .locator(".economySubscriptionPackageRow")
+        .filter({ hasText: packageCode.toUpperCase() })
+        .first();
+      await expect(linkedPackageRow).toBeVisible();
+      await linkedPackageRow.locator('input[type="checkbox"]').check();
+      await linkedPackageRow.getByLabel(/grant mode/i).selectOption("trial");
+      await linkedPackageRow.getByLabel(/default link/i).selectOption("yes");
+
+      const cycleCards = subscriptionEditor.locator(".economySubscriptionCycleCard");
+      await expect(cycleCards).toHaveCount(1);
+      const firstCycle = cycleCards.first();
+      await firstCycle.getByLabel(/billing interval/i).selectOption("monthly");
+      await firstCycle.getByLabel(/interval count/i).fill("1");
+      await firstCycle.getByLabel(/price amount/i).fill("249.00");
+      await firstCycle.getByLabel(/currency/i).fill("INR");
+      await firstCycle.getByLabel(/cycle status/i).selectOption("yes");
+
+      const firstRuleRow = firstCycle.locator(".economySubscriptionRuleRow").first();
+      await firstRuleRow.getByLabel(/stars credited/i).fill("140");
+      await firstRuleRow.getByLabel(/credit on activation/i).selectOption("yes");
+      await firstRuleRow.getByLabel(/credit on renewal/i).selectOption("no");
+      await firstRuleRow.getByLabel(/rule status/i).selectOption("yes");
+
+      await firstCycle.getByRole("button", { name: /add credit rule/i }).click();
+      const secondRuleRow = firstCycle.locator(".economySubscriptionRuleRow").nth(1);
+      await expect(secondRuleRow).toBeVisible();
+      await secondRuleRow.getByLabel(/stars credited/i).fill("35");
+      await secondRuleRow.getByLabel(/credit on activation/i).selectOption("no");
+      await secondRuleRow.getByLabel(/credit on renewal/i).selectOption("yes");
+      await secondRuleRow.getByLabel(/rule status/i).selectOption("no");
+
+      await subscriptionEditor.getByRole("button", { name: /add cycle/i }).click();
+      await expect(cycleCards).toHaveCount(2);
+      const secondCycle = cycleCards.nth(1);
+      await secondCycle.getByLabel(/billing interval/i).selectOption("quarterly");
+      await secondCycle.getByLabel(/interval count/i).fill("2");
+      await secondCycle.getByLabel(/price amount/i).fill("799.00");
+      await secondCycle.getByLabel(/currency/i).fill("USD");
+      await secondCycle.getByLabel(/cycle status/i).selectOption("no");
+      const secondCycleRuleRow = secondCycle.locator(".economySubscriptionRuleRow").first();
+      await secondCycleRuleRow.getByLabel(/stars credited/i).fill("220");
+      await secondCycleRuleRow.getByLabel(/credit on activation/i).selectOption("no");
+      await secondCycleRuleRow.getByLabel(/credit on renewal/i).selectOption("yes");
+      await secondCycleRuleRow.getByLabel(/rule status/i).selectOption("yes");
+
+      const createResponsePromise = page.waitForResponse(
+        (response) =>
+          response.url().includes("/api/admin/economy/subscription-plans") &&
+          response.request().method() === "POST",
+      );
+      await subscriptionCard.getByRole("button", { name: /create subscription plan/i }).click();
+      const createResponse = await createResponsePromise;
+      expect(createResponse.ok(), await createResponse.text()).toBe(true);
+      const createBody = (await createResponse.json()) as {
+        data?: {
+          id?: string;
+          cycles?: Array<{
+            billing_interval: string;
+            interval_count: number;
+            price_amount: string;
+            currency: string;
+            is_active: boolean;
+            star_credit_rules: Array<{
+              stars_credited: number;
+              credit_on_activation: boolean;
+              credit_on_renewal: boolean;
+              is_active: boolean;
+            }>;
+          }>;
+          question_bank_package_links?: Array<{
+            question_bank_package_code?: string;
+            grant_mode?: string;
+            is_default?: boolean;
+          }>;
+        };
+      };
+      createdPlanId = createBody.data?.id ?? "";
+      expect(createdPlanId).toBeTruthy();
+      expect(createBody.data?.cycles ?? []).toHaveLength(2);
+      expect(createBody.data?.cycles?.[0]?.star_credit_rules ?? []).toHaveLength(2);
+      expect(createBody.data?.question_bank_package_links?.[0]?.question_bank_package_code).toBe(
+        packageCode.toUpperCase(),
+      );
+      expect(createBody.data?.question_bank_package_links?.[0]?.grant_mode).toBe("trial");
+
+      await expect(subscriptionCard.getByText(/subscription plan created successfully\./i)).toBeVisible();
+      await subscriptionCard
+        .getByRole("combobox", { name: /subscription plan workspace view/i })
+        .selectOption("all");
+      await subscriptionCard
+        .getByRole("combobox", { name: /subscription plan institute filter/i })
+        .selectOption(bootstrapInstitute.value);
+      await subscriptionCard
+        .getByRole("combobox", { name: /subscription plan rows to show/i })
+        .selectOption("12");
+
+      const createdCatalogRow = subscriptionCard
+        .locator(".economySubscriptionCatalogRow")
+        .filter({ hasText: createdName })
+        .filter({ hasText: createdCode })
+        .first();
+      await expect(createdCatalogRow).toBeVisible();
+      await expect(createdCatalogRow.getByText(/Billing posture:\s*Monthly x 1 · INR 249.00/i)).toBeVisible();
+      await expect(createdCatalogRow.getByText(/Renewal posture:\s*1 active renewal credit rule configured\./i)).toBeVisible();
+      await expect(createdCatalogRow.getByText(/Commercial lanes:\s*Trial 1/i)).toBeVisible();
+
+      await createdCatalogRow.getByRole("button", { name: /edit/i }).click();
+      await expect(subscriptionCard.getByRole("button", { name: /update subscription plan/i })).toBeVisible();
+
+      await subscriptionEditor.getByLabel(/plan name/i).fill(updatedName);
+      await linkedPackageRow.getByLabel(/grant mode/i).selectOption("optional_addon");
+
+      const editableCycleCards = subscriptionEditor.locator(".economySubscriptionCycleCard");
+      const editableFirstCycle = editableCycleCards.first();
+      await editableFirstCycle.getByLabel(/billing interval/i).selectOption("yearly");
+      await editableFirstCycle.getByLabel(/interval count/i).fill("3");
+      await editableFirstCycle.getByLabel(/price amount/i).fill("999.00");
+      await editableFirstCycle.getByLabel(/cycle status/i).selectOption("yes");
+
+      const editableFirstRuleRow = editableFirstCycle.locator(".economySubscriptionRuleRow").first();
+      await editableFirstRuleRow.getByLabel(/stars credited/i).fill("180");
+      await editableFirstRuleRow.getByLabel(/credit on activation/i).selectOption("yes");
+      await editableFirstRuleRow.getByLabel(/credit on renewal/i).selectOption("yes");
+      await editableFirstRuleRow.getByLabel(/rule status/i).selectOption("yes");
+
+      const editableSecondCycle = editableCycleCards.nth(1);
+      await editableSecondCycle.getByLabel(/cycle status/i).selectOption("yes");
+      const editableSecondCycleRuleRow = editableSecondCycle.locator(".economySubscriptionRuleRow").first();
+      await editableSecondCycleRuleRow.getByLabel(/stars credited/i).fill("260");
+      await editableSecondCycleRuleRow.getByLabel(/credit on activation/i).selectOption("no");
+      await editableSecondCycleRuleRow.getByLabel(/credit on renewal/i).selectOption("yes");
+      await editableSecondCycleRuleRow.getByLabel(/rule status/i).selectOption("yes");
+
+      const updateResponsePromise = page.waitForResponse(
+        (response) =>
+          /\/api\/admin\/economy\/subscription-plans\/[^/]+$/.test(new URL(response.url()).pathname) &&
+          response.request().method() === "PATCH",
+      );
+      await subscriptionCard.getByRole("button", { name: /update subscription plan/i }).click();
+      const updateResponse = await updateResponsePromise;
+      expect(updateResponse.ok(), await updateResponse.text()).toBe(true);
+      const updateBody = (await updateResponse.json()) as {
+        data?: {
+          name?: string;
+          cycles?: Array<{
+            billing_interval: string;
+            interval_count: number;
+            price_amount: string;
+            currency: string;
+            is_active: boolean;
+            star_credit_rules: Array<{
+              stars_credited: number;
+              credit_on_activation: boolean;
+              credit_on_renewal: boolean;
+              is_active: boolean;
+            }>;
+          }>;
+          question_bank_package_links?: Array<{
+            grant_mode?: string;
+          }>;
+        };
+      };
+      const updatedYearlyCycle =
+        updateBody.data?.cycles?.find(
+          (cycle) => cycle.billing_interval === "yearly" && cycle.interval_count === 3,
+        ) ?? null;
+      const updatedQuarterlyCycle =
+        updateBody.data?.cycles?.find(
+          (cycle) => cycle.billing_interval === "quarterly" && cycle.interval_count === 2,
+        ) ?? null;
+      expect(updateBody.data?.name).toBe(updatedName);
+      expect(updatedYearlyCycle).not.toBeNull();
+      expect(updatedYearlyCycle?.price_amount).toBe("999.00");
+      expect(updatedYearlyCycle?.star_credit_rules?.some((rule) => rule.stars_credited === 180)).toBe(true);
+      expect(updatedQuarterlyCycle).not.toBeNull();
+      expect(updatedQuarterlyCycle?.is_active).toBe(true);
+      expect(updatedQuarterlyCycle?.star_credit_rules?.some((rule) => rule.stars_credited === 260)).toBe(true);
+      expect(updateBody.data?.question_bank_package_links?.[0]?.grant_mode).toBe("optional_addon");
+
+      await expect(subscriptionCard.getByText(/subscription plan updated successfully\./i)).toBeVisible();
+      await subscriptionCard
+        .getByRole("combobox", { name: /subscription plan workspace view/i })
+        .selectOption("all");
+      await subscriptionCard
+        .getByRole("combobox", { name: /subscription plan institute filter/i })
+        .selectOption(bootstrapInstitute.value);
+      await subscriptionCard
+        .getByRole("combobox", { name: /subscription plan rows to show/i })
+        .selectOption("12");
+
+      const updatedCatalogRow = subscriptionCard
+        .locator(".economySubscriptionCatalogRow")
+        .filter({ hasText: updatedName })
+        .filter({ hasText: createdCode })
+        .first();
+      await expect(updatedCatalogRow).toBeVisible();
+      await expect(updatedCatalogRow).toContainText(/Yearly x 3/i);
+      await expect(updatedCatalogRow).toContainText(/INR 999.00/i);
+      await expect(updatedCatalogRow).toContainText(/Quarterly x 2/i);
+      await expect(updatedCatalogRow).toContainText(/USD 799.00/i);
+      await expect(updatedCatalogRow.getByText(/Renewal posture:\s*2 active renewal credit rules configured\./i)).toBeVisible();
+      await expect(updatedCatalogRow.getByText(/Commercial lanes:\s*Optional Addon 1/i)).toBeVisible();
+    } finally {
+      if (createdPlanId) {
+        await deactivateSubscriptionPlanDirectly(page, adminAccessToken, createdPlanId);
+      }
+      if (createdPackageId) {
+        await deactivateQuestionBankPackageDirectly(page, adminAccessToken, createdPackageId);
+      }
+    }
+  });
+
+  test("@workflow @mutable admin can recover subscription-plan institute targeting after choosing the wrong catalog apply target", async ({
+    page,
+  }) => {
+    test.setTimeout(120000);
+
+    let createdPlanId = "";
+    let createdPackageId = "";
+    let appliedEntitlementIds: string[] = [];
+
+    await loginAsRole(page, "admin");
+    await expectAdminWorkspace(page);
+
+    const adminAccessToken = await getAccessToken(page);
+    expect(adminAccessToken).not.toBe("");
+
+    await gotoAdminEconomyLane(page, "question-bank", "plans");
+
+    const subscriptionCard = economyCard(page, /create and edit recurring plans, cycles, and credit rules/i);
+    await expect(subscriptionCard).toBeVisible();
+    await subscriptionCard
+      .getByRole("combobox", { name: /subscription plan workspace view/i })
+      .selectOption("all");
+    await subscriptionCard
+      .getByRole("combobox", { name: /subscription plan status filter/i })
+      .selectOption("all");
+
+    const subscriptionEditor = subscriptionCard.locator(".economySubscriptionEditorPanel").first();
+    const instituteSelect = subscriptionEditor.locator(".economySubscriptionPlanGridPrimary select").first();
+    const instituteOptions = await listSelectOptions(instituteSelect);
+    const bootstrapInstitute =
+      instituteOptions.find((option) => option.value && !/inactive/i.test(option.label)) ??
+      instituteOptions.find((option) => option.value) ??
+      null;
+    if (!bootstrapInstitute) {
+      test.skip(true, "No institute is available for subscription-plan recovery coverage.");
+    }
+    const wrongTargetInstitute =
+      instituteOptions.find(
+        (option) =>
+          option.value &&
+          option.value !== bootstrapInstitute.value &&
+          !/inactive/i.test(option.label),
+      ) ??
+      instituteOptions.find((option) => option.value && option.value !== bootstrapInstitute.value) ??
+      null;
+    if (!wrongTargetInstitute) {
+      test.skip(true, "No alternate institute is available to prove safe recovery after a wrong apply target choice.");
+    }
+
+    const uniqueSeed = Date.now();
+    const packageName = `Playwright Recovery Package ${uniqueSeed}`;
+    const packageCode = `PW_REC_PKG_${uniqueSeed}`;
+    const planName = `Playwright Recovery Plan ${uniqueSeed}`;
+    const planCode = `PW_REC_PLAN_${uniqueSeed}`;
+
+    const createdPackage = await createQuestionBankPackageDirectly(page, adminAccessToken, {
+      instituteId: bootstrapInstitute.value,
+      packageName,
+      packageCode,
+    });
+    createdPackageId = createdPackage.data?.id ?? "";
+    expect(createdPackageId).toBeTruthy();
+
+    try {
+      await page.reload();
+      await expectAdminWorkspace(page);
+      await gotoAdminEconomyLane(page, "question-bank", "plans");
+      await expect(subscriptionCard).toBeVisible();
+      await subscriptionCard
+        .getByRole("combobox", { name: /subscription plan workspace view/i })
+        .selectOption("all");
+      await subscriptionCard
+        .getByRole("combobox", { name: /subscription plan status filter/i })
+        .selectOption("all");
+
+      await instituteSelect.selectOption(bootstrapInstitute.value);
+      await subscriptionEditor.getByLabel(/plan name/i).fill(planName);
+      await subscriptionEditor.getByLabel(/plan code/i).fill(planCode);
+      await subscriptionEditor.getByLabel(/^description$/i).fill("Playwright safe recovery coverage.");
+
+      const linkedPackageRow = subscriptionEditor
+        .locator(".economySubscriptionPackageRow")
+        .filter({ hasText: packageCode.toUpperCase() })
+        .first();
+      await expect(linkedPackageRow).toBeVisible();
+      await linkedPackageRow.locator('input[type="checkbox"]').check();
+
+      const createResponsePromise = page.waitForResponse(
+        (response) =>
+          response.url().includes("/api/admin/economy/subscription-plans") &&
+          response.request().method() === "POST",
+      );
+      await subscriptionCard.getByRole("button", { name: /create subscription plan/i }).click();
+      const createResponse = await createResponsePromise;
+      expect(createResponse.ok(), await createResponse.text()).toBe(true);
+      const createBody = (await createResponse.json()) as {
+        data?: {
+          id?: string;
+        };
+      };
+      createdPlanId = createBody.data?.id ?? "";
+      expect(createdPlanId).toBeTruthy();
+
+      await expect(subscriptionCard.getByText(/subscription plan created successfully\./i)).toBeVisible();
+      await subscriptionCard
+        .getByRole("combobox", { name: /subscription plan workspace view/i })
+        .selectOption("all");
+      await subscriptionCard
+        .getByRole("combobox", { name: /subscription plan institute filter/i })
+        .selectOption(bootstrapInstitute.value);
+      await subscriptionCard
+        .getByRole("combobox", { name: /subscription plan rows to show/i })
+        .selectOption("12");
+
+      const createdRow = subscriptionCard
+        .locator(".economySubscriptionCatalogRow")
+        .filter({ hasText: planName })
+        .filter({ hasText: planCode })
+        .first();
+      await expect(createdRow).toBeVisible();
+
+      const applyTargetSelect = createdRow.getByLabel(new RegExp(`apply ${planName} to institute`, "i"));
+      await applyTargetSelect.selectOption(wrongTargetInstitute.value);
+
+      const reconciliationDisclosure = createdRow
+        .locator("details.economyCatalogDetailDisclosure")
+        .filter({ hasText: /view access reconciliation/i })
+        .first();
+      await reconciliationDisclosure.locator("summary").click();
+      await expect(reconciliationDisclosure).toContainText(
+        new RegExp(`Institute:\\s*${wrongTargetInstitute.label.split("(")[1]?.replace(")", "").trim() ?? ""}`, "i"),
+      );
+      await expect(reconciliationDisclosure).toContainText(
+        new RegExp(`Missing active entitlements:\\s*${packageCode.toUpperCase()}`, "i"),
+      );
+      await expect(reconciliationDisclosure).toContainText(
+        new RegExp(`Re-apply access for ${wrongTargetInstitute.label.split("(")[1]?.replace(")", "").trim() ?? ""}`, "i"),
+      );
+
+      await applyTargetSelect.selectOption(bootstrapInstitute.value);
+      await expect(reconciliationDisclosure).toContainText(
+        new RegExp(`Institute:\\s*${bootstrapInstitute.label.split("(")[1]?.replace(")", "").trim() ?? ""}`, "i"),
+      );
+
+      const applyResponsePromise = page.waitForResponse(
+        (response) =>
+          response.url().includes("/api/admin/economy/subscription-plans/") &&
+          response.url().includes("/apply-to-institute") &&
+          response.request().method() === "POST",
+      );
+      await createdRow.getByRole("button", { name: /apply access/i }).click();
+      const applyResponse = await applyResponsePromise;
+      expect(applyResponse.ok(), await applyResponse.text()).toBe(true);
+      const applyBody = (await applyResponse.json()) as {
+        data?: {
+          entitlement_count?: number;
+          target_institute_code?: string;
+          question_bank_package_codes?: string[];
+          entitlement_ids?: string[];
+        };
+      };
+      appliedEntitlementIds = applyBody.data?.entitlement_ids ?? [];
+      expect(applyBody.data?.entitlement_count ?? 0).toBeGreaterThan(0);
+      await expect(subscriptionCard.getByText(/subscription plan question-bank links applied successfully\./i)).toBeVisible();
+
+      await page.reload();
+      await expectAdminWorkspace(page);
+      await gotoAdminEconomyLane(page, "question-bank", "plans");
+      await expect(subscriptionCard).toBeVisible();
+      await subscriptionCard
+        .getByRole("combobox", { name: /subscription plan workspace view/i })
+        .selectOption("all");
+      await subscriptionCard
+        .getByRole("combobox", { name: /subscription plan institute filter/i })
+        .selectOption(bootstrapInstitute.value);
+      await subscriptionCard
+        .getByRole("combobox", { name: /subscription plan rows to show/i })
+        .selectOption("12");
+
+      const refreshedRow = subscriptionCard
+        .locator(".economySubscriptionCatalogRow")
+        .filter({ hasText: planName })
+        .filter({ hasText: planCode })
+        .first();
+      await expect(refreshedRow).toBeVisible();
+      const refreshedReconciliationDisclosure = refreshedRow
+        .locator("details.economyCatalogDetailDisclosure")
+        .filter({ hasText: /view access reconciliation/i })
+        .first();
+      await refreshedReconciliationDisclosure.locator("summary").click();
+      await expect(refreshedReconciliationDisclosure).toContainText(/No package entitlement gaps are currently visible\./i);
+      if (applyBody.data?.target_institute_code) {
+        await expect(refreshedReconciliationDisclosure).toContainText(
+          new RegExp(`No remediation needed for ${applyBody.data.target_institute_code}`, "i"),
+        );
+      }
+    } finally {
+      for (const entitlementId of appliedEntitlementIds) {
+        await revokeQuestionBankEntitlementDirectly(
+          page,
+          entitlementId,
+          `Playwright recovery cleanup ${uniqueSeed}`,
+        );
+      }
+      if (createdPlanId) {
+        await deactivateSubscriptionPlanDirectly(page, adminAccessToken, createdPlanId);
+      }
+      if (createdPackageId) {
+        await deactivateQuestionBankPackageDirectly(page, adminAccessToken, createdPackageId);
+      }
+    }
   });
 
   test("@workflow @mutable admin can create and update a question-bank package from economy governance", async ({

@@ -42,6 +42,7 @@ Run this checklist page by page as manual QA guidance and as automation acceptan
 - row actions open correct panels
 - pagination behaves correctly
 - no clipped controls in roster tables
+- browser proof is green for roster switching, search/login filter/sort controls, create/import handoffs, and academic-setup navigation
 
 ## `/institute/academic-setup`
 
@@ -52,6 +53,7 @@ Run this checklist page by page as manual QA guidance and as automation acceptan
 - default tab, master defaults, and onboarding blocks are readable
 - date fields and dropdowns are aligned
 - no compressed labels on dense forms
+- mutable browser proof is green for create/edit/archive/restore across the core academic structure sections
 
 ## `/institute/teacher-assignments`
 
@@ -60,6 +62,7 @@ Run this checklist page by page as manual QA guidance and as automation acceptan
 - required field validation works
 - archive/restore if available works
 - row state updates correctly
+- mutable browser proof is green for create, edit, archive, and restore on a disposable teacher assignment
 
 ## `/institute/exams`
 
@@ -73,6 +76,7 @@ Run this checklist page by page as manual QA guidance and as automation acceptan
 - card actions open exam detail and builder
 - quick create, advanced builder, preset library handoffs work
 - no broken card spacing or overflow
+- browser proof is green for exam list, detail, and builder workspaces on the live institute build
 
 ## `/institute/exams/new`
 
@@ -91,6 +95,7 @@ Run this checklist page by page as manual QA guidance and as automation acceptan
 - stage transitions work
 - presets and templates behave correctly
 - buttons are placed clearly
+- grouped mutable `practice`, `quiz`, and `mock_exam` creation is browser-proven
 - no dense or confusing control clusters
 
 ## `/institute/exams/preset-packs`
@@ -193,6 +198,7 @@ Run this checklist page by page as manual QA guidance and as automation acceptan
 - publish-readiness messaging is understandable
 - drilldowns to attempts/leaderboard/analysis work
 - no broken summary cards
+- browser proof is green for results workspace, attempts, leaderboard, and analysis routes on the live institute build
 
 ## `/institute/results/attempts`
 
@@ -233,6 +239,7 @@ Run this checklist page by page as manual QA guidance and as automation acceptan
 - open task works
 - review action updates state correctly
 - validation is clear for marks/comments if applicable
+- browser proof is green for the reviews workspace on the live institute build
 
 ## `/institute/reports`
 
@@ -241,6 +248,7 @@ Run this checklist page by page as manual QA guidance and as automation acceptan
 - report cards and sections are understandable
 - drilldowns and handoffs work
 - formatting of metrics is consistent
+- browser proof is green for the reports workspace on the live institute build
 
 ## `/institute/economy`
 
@@ -249,6 +257,7 @@ Run this checklist page by page as manual QA guidance and as automation acceptan
 - order/support/wallet sections are readable
 - policy state is truthful
 - action buttons are enabled only when allowed
+- browser proof is green for the economy workspace on the live institute build
 
 ## `/institute/security`
 
@@ -257,6 +266,7 @@ Run this checklist page by page as manual QA guidance and as automation acceptan
 - grouped sections are understandable
 - watch or live state is truthful
 - layout remains readable under dense data
+- browser proof is green for the security workspace on the live institute build
 
 ## `/institute/settings`
 
@@ -265,3 +275,4 @@ Run this checklist page by page as manual QA guidance and as automation acceptan
 - forms validate properly
 - saved state persists correctly
 - layout is readable and not squeezed
+- browser proof is green for the settings workspace on the live institute build

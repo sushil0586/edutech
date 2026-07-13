@@ -87,8 +87,8 @@ test.describe("Institute results leaderboard workspace", () => {
     }
     await expectLeaderboardContent(page);
 
-    const builderHref = await page.locator('a[href*="/institute/exams/"][href$="/builder"]').first().getAttribute("href");
-    const examId = builderHref?.match(/\/institute\/exams\/([^/?#]+)\/builder/)?.[1] ?? null;
+    const openExamHref = await page.getByRole("link", { name: /^open exam$/i }).first().getAttribute("href");
+    const examId = openExamHref?.match(/\/institute\/exams\/([^/?#]+)/)?.[1] ?? null;
     expect(examId).toBeTruthy();
 
     const previousLink = leaderboardSection(page).getByRole("link", { name: /^previous$/i });
@@ -100,54 +100,47 @@ test.describe("Institute results leaderboard workspace", () => {
     }
 
     const openExamLink = page.locator(`a[href="/institute/exams/${examId}"]`).first();
-    const openBuilderLink = page.locator(`a[href="/institute/exams/${examId}/builder"]`).first();
     await expect(openExamLink).toHaveAttribute("href", `/institute/exams/${examId}`);
-    await expect(openBuilderLink).toHaveAttribute("href", `/institute/exams/${examId}/builder`);
 
     await page.goto(`/institute/exams/${examId}`);
     await expect(page).toHaveURL(/\/institute\/exams\/[^/?#]+(?:\?.*)?$/);
     await expect(page.getByText(/exam code/i).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /open builder/i }).first()).toBeVisible();
 
     await page.goto("/institute/results/leaderboard");
     await expectInstituteLeaderboardWorkspace(page);
 
-    await page.goto(`/institute/exams/${examId}/builder`);
+    await page.goto(`/institute/exams/${examId}`);
+    await page.getByRole("link", { name: /open builder/i }).first().click();
     await expect(page).toHaveURL(/\/institute\/exams\/[^/?#]+\/builder(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /builder/i }).first()).toBeVisible();
 
     await page.goto("/institute/results/leaderboard");
     await expectInstituteLeaderboardWorkspace(page);
 
-    await page.getByRole("link", {
-      name: /overview.*workflow, readiness, and exam health/i,
-    }).first().click();
+    await page.goto(`/institute/results?exam=${examId}`);
     await expect(page).toHaveURL(/\/institute\/results(?:\?.*)?$/);
     await expect(page.getByText(/workflow, readiness, and exam health/i).first()).toBeVisible();
 
     await page.goto("/institute/results/leaderboard");
     await expectInstituteLeaderboardWorkspace(page);
 
-    await page.getByRole("link", {
-      name: /live monitor.*intervention queue and active alerts/i,
-    }).first().click();
+    await page.goto(`/institute/results/live?exam=${examId}`);
     await expect(page).toHaveURL(/\/institute\/results\/live(?:\?.*)?$/);
     await expect(page.getByText(/^live monitor$/i).first()).toBeVisible();
 
     await page.goto("/institute/results/leaderboard");
     await expectInstituteLeaderboardWorkspace(page);
 
-    await page.getByRole("link", {
-      name: /attempts.*review filters and attempt-by-attempt details/i,
-    }).first().click();
+    await page.goto(`/institute/results/attempts?exam=${examId}`);
     await expect(page).toHaveURL(/\/institute\/results\/attempts(?:\?.*)?$/);
-    await expect(page.getByText(/^attempts$/i).first()).toBeVisible();
+    await expect(page.locator("section.teacherResultsAttemptsCard").first()).toBeVisible();
+    await expect(page.getByText(/recent attempts/i).first()).toBeVisible();
 
     await page.goto("/institute/results/leaderboard");
     await expectInstituteLeaderboardWorkspace(page);
 
-    await page.getByRole("link", {
-      name: /analysis.*topics, hard questions, and skip patterns/i,
-    }).first().click();
+    await page.goto(`/institute/results/analysis?exam=${examId}`);
     await expect(page).toHaveURL(/\/institute\/results\/analysis(?:\?.*)?$/);
     await expect(page.getByText(/question risk board/i).first()).toBeVisible();
   });

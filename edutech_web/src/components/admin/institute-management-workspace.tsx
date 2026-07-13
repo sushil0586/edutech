@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
-import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { AccountActionButtons } from "@/components/admin/account-action-buttons";
+import { PlatformAdminPageHeader } from "@/components/ui/platform-admin-page-header";
 
 type LocationCatalogOption = {
   country: string;
@@ -29,6 +31,7 @@ export type AdminInstituteRecord = {
   pincode: string;
   website: string;
   description: string;
+  management_mode: string;
   is_active: boolean;
   exam_defaults: Record<string, unknown>;
   has_login: boolean;
@@ -55,6 +58,7 @@ type InstituteDraft = {
   pincode: string;
   website: string;
   description: string;
+  management_mode: string;
   is_active: boolean;
 };
 
@@ -75,13 +79,13 @@ type InstituteFieldErrors = Partial<
   >
 >;
 
-type InstituteCounts = {
+export type InstituteCounts = {
   studentCount: number;
   teacherCount: number;
   examCount: number;
 };
 
-type OnboardingProfileRecord = {
+export type OnboardingProfileRecord = {
   id: string;
   name: string;
   code: string;
@@ -93,7 +97,7 @@ type OnboardingProfileRecord = {
   is_active: boolean;
 };
 
-type InstituteOnboardingRunRecord = {
+export type InstituteOnboardingRunRecord = {
   id: string;
   profile_code: string;
   profile_name: string | null;
@@ -212,6 +216,16 @@ function summarizeResultJson(result: Record<string, unknown>) {
   return keys.slice(0, 4).join(", ");
 }
 
+function formatManagementModeLabel(value: string | null | undefined) {
+  if (!value) {
+    return "Private Institute Managed";
+  }
+  return value
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 function buildMasterDefaultsUrl({
   instituteId,
   profileCode,
@@ -249,16 +263,20 @@ function ensureValueInList(options: string[], selectedValue: string) {
   return options.includes(selectedValue) ? options : [selectedValue, ...options];
 }
 
+function normalizeCatalogText(value: unknown) {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
 function findCountryOption(locationCatalog: LocationCatalogOption[], country: string) {
   return locationCatalog.find(
-    (option) => option.country.trim().toLowerCase() === country.trim().toLowerCase(),
+    (option) => normalizeCatalogText(option.country) === normalizeCatalogText(country),
   );
 }
 
 function findStateOption(locationCatalog: LocationCatalogOption[], country: string, state: string) {
   const countryOption = findCountryOption(locationCatalog, country);
   return countryOption?.states.find(
-    (option) => option.name.trim().toLowerCase() === state.trim().toLowerCase(),
+    (option) => normalizeCatalogText(option.name) === normalizeCatalogText(state),
   );
 }
 
@@ -270,7 +288,7 @@ function findCityOption(
 ) {
   const stateOption = findStateOption(locationCatalog, country, state);
   return stateOption?.cities.find(
-    (option) => option.name.trim().toLowerCase() === city.trim().toLowerCase(),
+    (option) => normalizeCatalogText(option.name) === normalizeCatalogText(city),
   );
 }
 
@@ -287,44 +305,51 @@ function createBlankDraft(): InstituteDraft {
     pincode: "",
     website: "",
     description: "",
+    management_mode: "private_institute_managed",
     is_active: true,
   };
 }
 
+function normalizeDraftText(value: unknown) {
+  return typeof value === "string" ? value : "";
+}
+
 function createDraft(institute: AdminInstituteRecord): InstituteDraft {
   return {
-    name: institute.name,
-    code: institute.code,
-    email: institute.email,
-    phone: institute.phone,
-    address: institute.address,
-    city: institute.city,
-    state: institute.state,
-    country: institute.country,
-    pincode: institute.pincode,
-    website: institute.website,
-    description: institute.description,
+    name: normalizeDraftText(institute.name),
+    code: normalizeDraftText(institute.code),
+    email: normalizeDraftText(institute.email),
+    phone: normalizeDraftText(institute.phone),
+    address: normalizeDraftText(institute.address),
+    city: normalizeDraftText(institute.city),
+    state: normalizeDraftText(institute.state),
+    country: normalizeDraftText(institute.country),
+    pincode: normalizeDraftText(institute.pincode),
+    website: normalizeDraftText(institute.website),
+    description: normalizeDraftText(institute.description),
+    management_mode: normalizeDraftText(institute.management_mode) || "private_institute_managed",
     is_active: institute.is_active,
   };
 }
 
 function sanitizePayload(draft: InstituteDraft) {
   const payload: Record<string, string | boolean> = {
-    name: draft.name.trim(),
-    code: draft.code.trim(),
+    name: normalizeDraftText(draft.name).trim(),
+    code: normalizeDraftText(draft.code).trim(),
     is_active: draft.is_active,
   };
 
   const optionalFields = {
-    email: draft.email.trim(),
-    phone: draft.phone.trim(),
-    address: draft.address.trim(),
-    city: draft.city.trim(),
-    state: draft.state.trim(),
-    country: draft.country.trim(),
-    pincode: draft.pincode.trim(),
-    website: draft.website.trim(),
-    description: draft.description.trim(),
+    email: normalizeDraftText(draft.email).trim(),
+    phone: normalizeDraftText(draft.phone).trim(),
+    address: normalizeDraftText(draft.address).trim(),
+    city: normalizeDraftText(draft.city).trim(),
+    state: normalizeDraftText(draft.state).trim(),
+    country: normalizeDraftText(draft.country).trim(),
+    pincode: normalizeDraftText(draft.pincode).trim(),
+    website: normalizeDraftText(draft.website).trim(),
+    description: normalizeDraftText(draft.description).trim(),
+    management_mode: normalizeDraftText(draft.management_mode).trim(),
   };
 
   for (const [key, value] of Object.entries(optionalFields)) {
@@ -334,6 +359,96 @@ function sanitizePayload(draft: InstituteDraft) {
   }
 
   return payload;
+}
+
+function buildPatchPayload(draft: InstituteDraft, baseline: InstituteDraft) {
+  const nextDraft = {
+    name: normalizeDraftText(draft.name).trim(),
+    code: normalizeDraftText(draft.code).trim(),
+    email: normalizeDraftText(draft.email).trim(),
+    phone: normalizeDraftText(draft.phone).trim(),
+    address: normalizeDraftText(draft.address).trim(),
+    city: normalizeDraftText(draft.city).trim(),
+    state: normalizeDraftText(draft.state).trim(),
+    country: normalizeDraftText(draft.country).trim(),
+    pincode: normalizeDraftText(draft.pincode).trim(),
+    website: normalizeDraftText(draft.website).trim(),
+    description: normalizeDraftText(draft.description).trim(),
+    management_mode: normalizeDraftText(draft.management_mode).trim(),
+    is_active: draft.is_active,
+  };
+  const previousDraft = {
+    name: normalizeDraftText(baseline.name).trim(),
+    code: normalizeDraftText(baseline.code).trim(),
+    email: normalizeDraftText(baseline.email).trim(),
+    phone: normalizeDraftText(baseline.phone).trim(),
+    address: normalizeDraftText(baseline.address).trim(),
+    city: normalizeDraftText(baseline.city).trim(),
+    state: normalizeDraftText(baseline.state).trim(),
+    country: normalizeDraftText(baseline.country).trim(),
+    pincode: normalizeDraftText(baseline.pincode).trim(),
+    website: normalizeDraftText(baseline.website).trim(),
+    description: normalizeDraftText(baseline.description).trim(),
+    management_mode: normalizeDraftText(baseline.management_mode).trim(),
+    is_active: baseline.is_active,
+  };
+
+  const payload: Record<string, string | boolean> = {};
+  const directFields: Array<keyof typeof nextDraft> = [
+    "name",
+    "code",
+    "email",
+    "phone",
+    "address",
+    "website",
+    "description",
+    "management_mode",
+    "is_active",
+  ];
+
+  for (const key of directFields) {
+    if (nextDraft[key] !== previousDraft[key]) {
+      payload[key] = nextDraft[key];
+    }
+  }
+
+  const locationKeys: Array<keyof Pick<InstituteDraft, "country" | "state" | "city" | "pincode">> = [
+    "country",
+    "state",
+    "city",
+    "pincode",
+  ];
+  const locationChanged = locationKeys.some((key) => nextDraft[key] !== previousDraft[key]);
+  if (locationChanged) {
+    const hasAnyLocationValue = locationKeys.some((key) => nextDraft[key]);
+    const hasIncompleteLocation = locationKeys.some((key) => !nextDraft[key]);
+    if (hasAnyLocationValue && hasIncompleteLocation) {
+      return {
+        fieldErrors: {
+          country: !nextDraft.country
+            ? "Country is required when institute geography is being edited."
+            : "",
+          state: !nextDraft.state
+            ? "State is required when institute geography is being edited."
+            : "",
+          city: !nextDraft.city ? "City is required when institute geography is being edited." : "",
+          pincode: !nextDraft.pincode
+            ? "Pincode is required when institute geography is being edited."
+            : "",
+        } satisfies InstituteFieldErrors,
+        payload: null,
+      };
+    }
+
+    for (const key of locationKeys) {
+      payload[key] = nextDraft[key];
+    }
+  }
+
+  return {
+    fieldErrors: {} as InstituteFieldErrors,
+    payload,
+  };
 }
 
 function buildFieldErrors(body: Record<string, unknown>) {
@@ -368,8 +483,8 @@ function getApiErrorMessage(body: Record<string, unknown>, fallback: string) {
 
 function validateDraft(nextDraft: InstituteDraft) {
   const nextFieldErrors: InstituteFieldErrors = {};
-  if (!nextDraft.name.trim()) nextFieldErrors.name = "Institute name is required.";
-  if (!nextDraft.code.trim()) nextFieldErrors.code = "Institute code is required.";
+  if (!normalizeDraftText(nextDraft.name).trim()) nextFieldErrors.name = "Institute name is required.";
+  if (!normalizeDraftText(nextDraft.code).trim()) nextFieldErrors.code = "Institute code is required.";
   return nextFieldErrors;
 }
 
@@ -591,6 +706,18 @@ function InstituteFormFields({
           onChange={(event) => updateField("website", event.target.value)}
         />
         {fieldErrors.website ? <small className="setupFieldError">{fieldErrors.website}</small> : null}
+      </label>
+      <label className="setupField">
+        <span>Management mode</span>
+        <select
+          value={draft.management_mode}
+          onChange={(event) => updateField("management_mode", event.target.value)}
+        >
+          <option value="private_institute_managed">Private Institute Managed</option>
+          <option value="public_institute_managed">Public Institute Managed</option>
+          <option value="platform_managed">Platform Managed</option>
+        </select>
+        <small>Controls how this institute should be governed for scheduling, access, and scale policy.</small>
       </label>
       <label className="setupField setupFieldFull">
         <span>Address</span>
@@ -823,9 +950,26 @@ export function InstituteManagementWorkspace({
   counts: InstituteCounts;
 }) {
   const router = useRouter();
+  const workspaceCacheRef = useRef<
+    Record<
+      string,
+      {
+        counts: InstituteCounts;
+        institute: AdminInstituteRecord | null;
+        onboardingRuns: InstituteOnboardingRunRecord[];
+      }
+    >
+  >({});
+  const activeSelectionRequestRef = useRef(0);
+  const activeSelectionAbortRef = useRef<AbortController | null>(null);
   const [query, setQuery] = useState("");
   const [showActiveOnly, setShowActiveOnly] = useState(false);
   const [modalMode, setModalMode] = useState<"create" | "edit" | null>(null);
+  const [currentSelectedInstituteId, setCurrentSelectedInstituteId] = useState<string | null>(selectedInstituteId);
+  const [currentInstitute, setCurrentInstitute] = useState<AdminInstituteRecord | null>(institute);
+  const [currentOnboardingRuns, setCurrentOnboardingRuns] = useState<InstituteOnboardingRunRecord[]>(onboardingRuns);
+  const [currentCounts, setCurrentCounts] = useState<InstituteCounts>(counts);
+  const [isSelectionLoading, setIsSelectionLoading] = useState(false);
 
   const [createDraftState, setCreateDraftState] = useState<InstituteDraft>(createBlankDraft);
   const [createMessage, setCreateMessage] = useState("");
@@ -850,6 +994,28 @@ export function InstituteManagementWorkspace({
   const [onboardingTaskError, setOnboardingTaskError] = useState("");
   const [copiedTaskRunId, setCopiedTaskRunId] = useState<string | null>(null);
 
+  useEffect(() => {
+    setCurrentSelectedInstituteId(selectedInstituteId);
+    setCurrentInstitute(institute);
+    setCurrentOnboardingRuns(onboardingRuns);
+    setCurrentCounts(counts);
+    if (selectedInstituteId && institute) {
+      workspaceCacheRef.current[selectedInstituteId] = {
+        counts,
+        institute,
+        onboardingRuns,
+      };
+    }
+  }, [counts, institute, onboardingRuns, selectedInstituteId]);
+
+  useEffect(() => {
+    return () => {
+      activeSelectionRequestRef.current += 1;
+      activeSelectionAbortRef.current?.abort();
+      activeSelectionAbortRef.current = null;
+    };
+  }, []);
+
   const mergedInstitutes = useMemo(
     () =>
       institutes.map((item) => ({
@@ -859,14 +1025,14 @@ export function InstituteManagementWorkspace({
     [institutes, loginOverrides],
   );
   const mergedInstitute = useMemo(() => {
-    if (!institute) {
+    if (!currentInstitute) {
       return null;
     }
     return {
-      ...institute,
-      ...(loginOverrides[institute.id] ?? {}),
+      ...currentInstitute,
+      ...(loginOverrides[currentInstitute.id] ?? {}),
     };
-  }, [institute, loginOverrides]);
+  }, [currentInstitute, loginOverrides]);
 
   const filteredInstitutes = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -915,6 +1081,24 @@ export function InstituteManagementWorkspace({
         : [],
     [selectedOnboardingProfile],
   );
+  const selectedReadinessScore = useMemo(
+    () =>
+      Math.min(
+        100,
+        (mergedInstitute ? 40 : 0) +
+          (currentCounts.studentCount > 0 ? 20 : 0) +
+          (currentCounts.teacherCount > 0 ? 20 : 0) +
+          (currentCounts.examCount > 0 ? 20 : 0),
+      ),
+    [currentCounts.examCount, currentCounts.studentCount, currentCounts.teacherCount, mergedInstitute],
+  );
+
+  function syncInstituteUrl(nextInstituteId: string) {
+    if (!nextInstituteId || typeof window === "undefined") {
+      return;
+    }
+    window.history.replaceState({}, "", `/admin/institutes?institute=${nextInstituteId}`);
+  }
 
   function handleInstituteAccountAction(
     targetInstituteId: string,
@@ -955,6 +1139,83 @@ export function InstituteManagementWorkspace({
 
       return { ...current, [targetInstituteId]: next };
     });
+  }
+
+  async function selectInstitute(nextInstituteId: string, options?: { forceUrlSync?: boolean }) {
+    if (!nextInstituteId) {
+      return;
+    }
+    if (options?.forceUrlSync) {
+      syncInstituteUrl(nextInstituteId);
+    }
+    if (nextInstituteId === currentSelectedInstituteId) {
+      return;
+    }
+
+    const nextInstituteSummary =
+      mergedInstitutes.find((item) => item.id === nextInstituteId) ?? null;
+    setCurrentSelectedInstituteId(nextInstituteId);
+    if (nextInstituteSummary) {
+    setCurrentInstitute(nextInstituteSummary);
+    }
+    setExpandedOnboardingRunId(null);
+    setOnboardingTaskError("");
+    syncInstituteUrl(nextInstituteId);
+
+    const cachedWorkspace = workspaceCacheRef.current[nextInstituteId];
+    if (cachedWorkspace) {
+      setCurrentInstitute(cachedWorkspace.institute);
+      setCurrentOnboardingRuns(cachedWorkspace.onboardingRuns);
+      setCurrentCounts(cachedWorkspace.counts);
+      return;
+    }
+
+    activeSelectionRequestRef.current += 1;
+    const requestId = activeSelectionRequestRef.current;
+    activeSelectionAbortRef.current?.abort();
+    const controller = new AbortController();
+    activeSelectionAbortRef.current = controller;
+
+    setIsSelectionLoading(true);
+    try {
+      const response = await fetch(`/api/admin/institutes/${nextInstituteId}/workspace`, {
+        cache: "no-store",
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        throw new Error("Unable to load the selected institute right now.");
+      }
+
+      const payload = (await response.json()) as {
+        counts: InstituteCounts;
+        institute: AdminInstituteRecord | null;
+        onboardingRuns: InstituteOnboardingRunRecord[];
+      };
+
+      if (requestId !== activeSelectionRequestRef.current) {
+        return;
+      }
+
+      workspaceCacheRef.current[nextInstituteId] = {
+        counts: payload.counts ?? { examCount: 0, studentCount: 0, teacherCount: 0 },
+        institute: payload.institute,
+        onboardingRuns: Array.isArray(payload.onboardingRuns) ? payload.onboardingRuns : [],
+      };
+      setCurrentInstitute(payload.institute);
+      setCurrentOnboardingRuns(Array.isArray(payload.onboardingRuns) ? payload.onboardingRuns : []);
+      setCurrentCounts(payload.counts ?? { examCount: 0, studentCount: 0, teacherCount: 0 });
+    } catch (error) {
+      if (!(error instanceof Error && error.name === "AbortError")) {
+        router.push(`/admin/institutes?institute=${nextInstituteId}`);
+      }
+    } finally {
+      if (requestId === activeSelectionRequestRef.current) {
+        setIsSelectionLoading(false);
+      }
+      if (activeSelectionAbortRef.current === controller) {
+        activeSelectionAbortRef.current = null;
+      }
+    }
   }
 
   function updateField<Key extends keyof InstituteDraft>(key: Key, value: InstituteDraft[Key]) {
@@ -1046,7 +1307,7 @@ export function InstituteManagementWorkspace({
 
   function closeEditModal() {
     setModalMode(null);
-    setDraft(institute ? createDraft(institute) : createBlankDraft());
+    setDraft(currentInstitute ? createDraft(currentInstitute) : createBlankDraft());
     setFieldErrors({});
     setError("");
     setMessage("");
@@ -1108,7 +1369,7 @@ export function InstituteManagementWorkspace({
   }
 
   async function saveInstitute() {
-    if (!institute) {
+    if (!currentInstitute) {
       return;
     }
 
@@ -1126,10 +1387,28 @@ export function InstituteManagementWorkspace({
     setFieldErrors({});
 
     try {
-      const response = await fetch(`/api/admin/institutes/${institute.id}`, {
+      const { payload, fieldErrors: patchFieldErrors } = buildPatchPayload(
+        draft,
+        createDraft(currentInstitute),
+      );
+      const meaningfulPatchErrors = Object.fromEntries(
+        Object.entries(patchFieldErrors).filter(([, value]) => Boolean(value)),
+      ) as InstituteFieldErrors;
+      if (Object.keys(meaningfulPatchErrors).length > 0 || !payload) {
+        setFieldErrors(meaningfulPatchErrors);
+        setError("Complete all required geography fields before saving the institute.");
+        return;
+      }
+
+      if (Object.keys(payload).length === 0) {
+        closeEditModal();
+        return;
+      }
+
+      const response = await fetch(`/api/admin/institutes/${currentInstitute.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(sanitizePayload(draft)),
+        body: JSON.stringify(payload),
       });
 
       const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
@@ -1154,7 +1433,7 @@ export function InstituteManagementWorkspace({
   }
 
   function openEditModal(nextInstitute?: AdminInstituteRecord | null) {
-    const targetInstitute = nextInstitute ?? institute;
+    const targetInstitute = nextInstitute ?? currentInstitute;
     if (!targetInstitute) {
       return;
     }
@@ -1217,7 +1496,81 @@ export function InstituteManagementWorkspace({
   }
 
   return (
-    <section className="adminInstituteWorkspace">
+    <section className="studentPage studentPageTight studentDashboardModern adminInstitutePage instituteConsolePage">
+      <PlatformAdminPageHeader
+        title="Institutes"
+        description=""
+        statusLabel={mergedInstitute ? mergedInstitute.code : `${mergedInstitutes.length} institutes`}
+        statusTone={mergedInstitute?.is_active ? "live" : "warning"}
+      />
+
+      <section className="adminInstituteHero">
+        <div className="adminInstituteHeroCopy">
+          <div className="adminInstituteHeroMeta">
+            <span>{mergedInstitutes.length} institute records</span>
+            <span>{activeInstituteCount} active</span>
+            <span>{mergedInstitutes.length - activeInstituteCount} inactive</span>
+          </div>
+        </div>
+        <div className="adminInstituteHeroAside">
+          <div className="adminInstituteHeroAsideStack">
+            <div className="adminInstituteHeroAsideCard adminInstituteHeroAsideCardPrimary">
+              <span>Selected institute</span>
+              <strong>{mergedInstitute?.name ?? "Choose from directory"}</strong>
+              <small>
+                {mergedInstitute
+                  ? `${mergedInstitute.city || "No city"}, ${mergedInstitute.state || "No state"}`
+                  : "The detail panel updates when a record is selected."}
+              </small>
+            </div>
+            <div className="adminInstituteHeroMiniStats">
+              <article className="adminInstituteHeroMiniStat">
+                <span>Readiness</span>
+                <strong>{selectedReadinessScore}%</strong>
+                <small>Derived from selected institute activity depth.</small>
+              </article>
+              <article className="adminInstituteHeroMiniStat">
+                <span>People</span>
+                <strong>{currentCounts.studentCount + currentCounts.teacherCount}</strong>
+                <small>Students and teachers in the selected scope.</small>
+              </article>
+            </div>
+          </div>
+          <div className="studentInsightHeroActions adminInstituteHeroActions">
+            <Link className="button buttonPrimary" href="/admin/academic-setup">
+              Open Academic Setup
+            </Link>
+            <Link className="button buttonSecondary" href="/admin/settings">
+              Open Settings
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="resultsSummaryGrid adminInstituteKpiGrid">
+        <article className="metricCard metricCardPrimary dashboardHeroCard adminInstituteKpiCard">
+          <span>Institutes</span>
+          <strong>{mergedInstitutes.length}</strong>
+          <small>Total institute records in platform scope</small>
+        </article>
+        <article className="metricCard dashboardHeroCard adminInstituteKpiCard">
+          <span>Students</span>
+          <strong>{currentCounts.studentCount}</strong>
+          <small>Students in the selected institute</small>
+        </article>
+        <article className="metricCard dashboardHeroCard adminInstituteKpiCard">
+          <span>Teachers</span>
+          <strong>{currentCounts.teacherCount}</strong>
+          <small>Teachers in the selected institute</small>
+        </article>
+        <article className="metricCard dashboardHeroCard adminInstituteKpiCard">
+          <span>Exams</span>
+          <strong>{currentCounts.examCount}</strong>
+          <small>Exams in the selected institute</small>
+        </article>
+      </section>
+
+      <section className="adminInstituteWorkspaceShell adminInstituteWorkspace">
       <div className="adminInstituteToolbar contentCard">
         <div>
           <div className="adminInstituteToolbarStats">
@@ -1259,6 +1612,10 @@ export function InstituteManagementWorkspace({
         </div>
       </div>
 
+      {isSelectionLoading ? (
+        <p className="feedbackBanner">Loading selected institute workspace...</p>
+      ) : null}
+
       <div className="adminInstituteLayout">
         <article className="contentCard adminInstituteTableCard">
           <div className="sectionHeading">
@@ -1282,12 +1639,14 @@ export function InstituteManagementWorkspace({
                 </thead>
                 <tbody>
                   {filteredInstitutes.map((item) => {
-                    const isSelected = item.id === selectedInstituteId;
+                    const isSelected = item.id === currentSelectedInstituteId;
                     return (
                       <tr
                         className={isSelected ? "adminInstituteTableRowSelected" : undefined}
                         key={item.id}
-                        onClick={() => router.push(`/admin/institutes?institute=${item.id}`)}
+                        onClick={() => {
+                          void selectInstitute(item.id);
+                        }}
                       >
                         <td>
                           <strong>{item.name}</strong>
@@ -1323,15 +1682,19 @@ export function InstituteManagementWorkspace({
                           <div className="adminInstituteRowActions">
                             <button
                               className="button buttonGhost"
-                              onClick={() => router.push(`/admin/institutes?institute=${item.id}`)}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void selectInstitute(item.id, { forceUrlSync: true });
+                              }}
                               type="button"
                             >
                               View
                             </button>
                             <button
                               className="button buttonGhost"
-                              onClick={() => {
-                                router.push(`/admin/institutes?institute=${item.id}`);
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void selectInstitute(item.id);
                                 openEditModal(item);
                               }}
                               type="button"
@@ -1379,19 +1742,23 @@ export function InstituteManagementWorkspace({
                 </div>
                 <div className="studentResultStat">
                   <span>Students</span>
-                  <strong>{counts.studentCount}</strong>
+                  <strong>{currentCounts.studentCount}</strong>
                 </div>
                 <div className="studentResultStat">
                   <span>Teachers</span>
-                  <strong>{counts.teacherCount}</strong>
+                  <strong>{currentCounts.teacherCount}</strong>
                 </div>
                 <div className="studentResultStat">
                   <span>Exams</span>
-                  <strong>{counts.examCount}</strong>
+                  <strong>{currentCounts.examCount}</strong>
                 </div>
                 <div className="studentResultStat">
                   <span>Location</span>
                   <strong>{mergedInstitute.city || "NA"}</strong>
+                </div>
+                <div className="studentResultStat">
+                  <span>Management mode</span>
+                  <strong>{formatManagementModeLabel(mergedInstitute.management_mode)}</strong>
                 </div>
                 <div className="studentResultStat">
                   <span>Defaults</span>
@@ -1399,17 +1766,7 @@ export function InstituteManagementWorkspace({
                 </div>
               </div>
 
-              <div
-                style={{
-                  display: "grid",
-                  gap: 14,
-                  marginTop: 18,
-                  border: "1px solid rgba(92, 124, 250, 0.14)",
-                  borderRadius: 22,
-                  padding: 18,
-                  background: "rgba(92, 124, 250, 0.05)",
-                }}
-              >
+              <div className="adminInstituteOnboardingSummaryCard">
                 <div className="weakTopicRow">
                   <div>
                     <strong>Latest onboarding state</strong>
@@ -1432,13 +1789,7 @@ export function InstituteManagementWorkspace({
                 </div>
 
                 {mergedInstitute.onboarding_run_status ? (
-                  <div
-                    style={{
-                      display: "grid",
-                      gap: 12,
-                      gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                    }}
-                  >
+                  <div className="adminInstituteStatGrid">
                     <div className="studentResultStat">
                       <span>Run status</span>
                       <strong>
@@ -1463,31 +1814,17 @@ export function InstituteManagementWorkspace({
                 ) : null}
 
                 {selectedOnboardingSummary.length > 0 ? (
-                  <div
-                    style={{
-                      display: "grid",
-                      gap: 12,
-                      gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                    }}
-                  >
+                  <div className="adminInstituteProfileSummaryGrid">
                     {selectedOnboardingSummary.map((item) => (
-                      <div
-                        key={item.label}
-                        style={{
-                          border: "1px solid rgba(15, 23, 42, 0.08)",
-                          borderRadius: 16,
-                          padding: "12px 14px",
-                          background: "rgba(255, 255, 255, 0.78)",
-                        }}
-                      >
+                      <div className="adminInstituteProfileSummaryCard" key={item.label}>
                         <div className="setupFieldMeta">{item.label}</div>
-                        <strong style={{ display: "block", marginTop: 6 }}>{item.value}</strong>
+                        <strong>{item.value}</strong>
                       </div>
                     ))}
                   </div>
                 ) : null}
 
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                <div className="adminInstituteActionRow">
                   <button
                     className="button buttonSecondary"
                     onClick={() =>
@@ -1524,42 +1861,22 @@ export function InstituteManagementWorkspace({
                 </div>
               </div>
 
-              <div
-                style={{
-                  display: "grid",
-                  gap: 14,
-                  marginTop: 18,
-                  border: "1px solid rgba(15, 23, 42, 0.08)",
-                  borderRadius: 22,
-                  padding: 18,
-                  background: "rgba(255, 255, 255, 0.78)",
-                }}
-              >
+              <div className="adminInstituteRunHistoryCard">
                 <div className="weakTopicRow">
                   <div>
                     <strong>Onboarding history</strong>
                     <span>Recent runs for this institute, including create-time and Master defaults driven onboarding.</span>
                   </div>
                   <div className="weakTopicMeta">
-                    <strong>{onboardingRuns.length}</strong>
+                    <strong>{currentOnboardingRuns.length}</strong>
                     <span>Recent runs visible in this workspace</span>
                   </div>
                 </div>
 
-                {onboardingRuns.length > 0 ? (
-                  <div style={{ display: "grid", gap: 12 }}>
-                    {onboardingRuns.map((run) => (
-                      <div
-                        key={run.id}
-                        style={{
-                          display: "grid",
-                          gap: 10,
-                          border: "1px solid rgba(15, 23, 42, 0.08)",
-                          borderRadius: 18,
-                          padding: 14,
-                          background: "rgba(248, 250, 252, 0.78)",
-                        }}
-                      >
+                {currentOnboardingRuns.length > 0 ? (
+                  <div className="adminInstituteRunList">
+                    {currentOnboardingRuns.map((run) => (
+                      <div className="adminInstituteRunCard" key={run.id}>
                         <div className="weakTopicRow">
                           <div>
                             <strong>{run.profile_name || run.profile_code || "Manual onboarding"}</strong>
@@ -1576,7 +1893,7 @@ export function InstituteManagementWorkspace({
                             </span>
                           </div>
                         </div>
-                        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                        <div className="adminInstituteRunStatusRow">
                           <span className={getRunStatusPillClass(run.status)}>{run.status}</span>
                           {run.profile_code ? (
                             <span className="setupFieldMeta">Profile {run.profile_code}</span>
@@ -1588,14 +1905,7 @@ export function InstituteManagementWorkspace({
                           </p>
                         ) : null}
                         {expandedOnboardingRunId === run.id ? (
-                          <div
-                            style={{
-                              display: "grid",
-                              gap: 10,
-                              borderTop: "1px solid rgba(15, 23, 42, 0.08)",
-                              paddingTop: 12,
-                            }}
-                          >
+                          <div className="adminInstituteTaskList">
                             {loadingOnboardingTaskRunId === run.id ? (
                               <p className="setupFieldMeta">Loading task details...</p>
                             ) : onboardingTaskError ? (
@@ -1604,17 +1914,7 @@ export function InstituteManagementWorkspace({
                               </p>
                             ) : onboardingTaskRuns[run.id]?.length ? (
                               onboardingTaskRuns[run.id].map((task) => (
-                                <div
-                                  key={task.id}
-                                  style={{
-                                    display: "grid",
-                                    gap: 6,
-                                    border: "1px solid rgba(15, 23, 42, 0.08)",
-                                    borderRadius: 14,
-                                    padding: 12,
-                                    background: "rgba(255, 255, 255, 0.92)",
-                                  }}
-                                >
+                                <div className="adminInstituteTaskCard" key={task.id}>
                                   <div className="weakTopicRow">
                                     <div>
                                       <strong>{task.label || task.task_code}</strong>
@@ -1631,7 +1931,7 @@ export function InstituteManagementWorkspace({
                                       </span>
                                     </div>
                                   </div>
-                                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                                  <div className="adminInstituteTaskMetaRow">
                                     <span className={getRunStatusPillClass(task.status)}>{task.status}</span>
                                     <span className="setupFieldMeta">
                                       Result: {summarizeResultJson(task.result_json ?? {})}
@@ -1642,21 +1942,12 @@ export function InstituteManagementWorkspace({
                                       View result payload
                                     </summary>
                                     <pre
-                                      style={{
-                                        marginTop: 10,
-                                        padding: 12,
-                                        borderRadius: 12,
-                                        background: "rgba(15, 23, 42, 0.05)",
-                                        overflowX: "auto",
-                                        whiteSpace: "pre-wrap",
-                                        wordBreak: "break-word",
-                                        fontSize: 12,
-                                      }}
+                                      className="adminInstituteTaskResultPre"
                                     >
                                       {JSON.stringify(task.result_json ?? {}, null, 2)}
                                     </pre>
                                   </details>
-                                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                                  <div className="adminInstituteTaskActionRow">
                                     <button
                                       className="button buttonGhost"
                                       onClick={() => copyTaskResult(task.id, task.result_json ?? {})}
@@ -1672,7 +1963,7 @@ export function InstituteManagementWorkspace({
                             )}
                           </div>
                         ) : null}
-                        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                        <div className="adminInstituteActionRow">
                           <button
                             className="button buttonGhost"
                             onClick={() =>
@@ -1717,7 +2008,7 @@ export function InstituteManagementWorkspace({
                     ))}
                   </div>
                 ) : (
-                  <div className="featurePlaceholder" style={{ marginTop: 0 }}>
+                  <div className="featurePlaceholder adminInstituteInlinePlaceholder">
                     <p>No onboarding history exists for this institute yet.</p>
                   </div>
                 )}
@@ -1803,6 +2094,7 @@ export function InstituteManagementWorkspace({
           )}
         </article>
       </div>
+      </section>
 
       {modalMode === "create" ? (
         <InstituteModal
@@ -1832,7 +2124,7 @@ export function InstituteManagementWorkspace({
         />
       ) : null}
 
-      {modalMode === "edit" && institute ? (
+      {modalMode === "edit" && currentInstitute ? (
         <InstituteModal
           draft={draft}
           error={error}
@@ -1851,7 +2143,7 @@ export function InstituteManagementWorkspace({
           saving={saving}
           selectedOnboardingProfileCode=""
           subtitle="Update identity, contact, and geography in one focused popup."
-          title={`Edit ${institute.name}`}
+          title={`Edit ${currentInstitute.name}`}
           updateField={updateField}
         />
       ) : null}

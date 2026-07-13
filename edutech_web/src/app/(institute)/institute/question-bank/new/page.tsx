@@ -1,7 +1,7 @@
+import dynamic from "next/dynamic";
 import { Suspense } from "react";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
-import { TeacherQuestionEditor } from "@/components/ui/teacher-question-editor";
 import { InstitutePageHeader } from "@/components/ui/institute-page-header";
 import {
   createTeacherQuestion,
@@ -20,6 +20,27 @@ import {
   buildQuestionBankErrorSearch,
   parseQuestionBankValidationErrors,
 } from "@/lib/teacher/question-bank-validation";
+
+const TeacherQuestionEditor = dynamic(
+  () =>
+    import("@/components/ui/teacher-question-editor").then((module) => ({
+      default: module.TeacherQuestionEditor,
+    })),
+  {
+    loading: () => (
+      <section className="contentCard questionImportPanel">
+        <div className="builderSectionHeader">
+          <div>
+            <strong>Loading editor tools</strong>
+            <p>
+              The page shell is ready. Academic mapping, scoring, and answer-structure controls are loading now.
+            </p>
+          </div>
+        </div>
+      </section>
+    ),
+  },
+);
 
 async function createQuestionAction(formData: FormData) {
   "use server";
@@ -48,9 +69,9 @@ async function createQuestionAction(formData: FormData) {
   }
 }
 
-function InstituteQuestionCreateLoadingShell() {
+function InstituteQuestionCreatePageShell() {
   return (
-    <div className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteQuestionEditorPageVivid">
+    <>
       <InstitutePageHeader
         title="Create Question"
         description="Author a reusable assessment question with clear scoring, explanation, and answer structure."
@@ -66,11 +87,26 @@ function InstituteQuestionCreateLoadingShell() {
           <small>Preparing the authoring lane for the current institute scope</small>
         </div>
       </section>
-    </div>
+    </>
   );
 }
 
-async function InstituteQuestionCreatePageContent({
+function InstituteQuestionCreateEditorLoading() {
+  return (
+    <section className="contentCard questionImportPanel">
+      <div className="builderSectionHeader">
+        <div>
+          <strong>Loading editor tools</strong>
+          <p>
+            Academic mapping, scoring defaults, and answer-structure controls are loading now.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+async function InstituteQuestionCreateEditorData({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -94,25 +130,19 @@ async function InstituteQuestionCreatePageContent({
 
   if (!baseData) {
     return (
-      <div className="studentPage">
-        <InstitutePageHeader
-          title="Create Question"
-          description="This route depends on live academic lookups and question-bank write access."
-        />
-        <StudentStatePanel
-          eyebrow="Load issue"
-          title="Question editor could not be loaded"
-          description="The editor needs live program, subject, topic, and question-bank write endpoints before a question can be authored from the institute workspace."
-          bullets={[
-            "Programs, subjects, and topics lookups",
-            "Institute question create endpoint",
-            "Question detail endpoint for duplication",
-          ]}
-          ctaHref="/institute/question-bank"
-          ctaLabel="Back to Question Bank"
-          statusLabel="Retry after backend check"
-        />
-      </div>
+      <StudentStatePanel
+        eyebrow="Load issue"
+        title="Question editor could not be loaded"
+        description="The editor needs live program, subject, topic, and question-bank write endpoints before a question can be authored from the institute workspace."
+        bullets={[
+          "Programs, subjects, and topics lookups",
+          "Institute question create endpoint",
+          "Question detail endpoint for duplication",
+        ]}
+        ctaHref="/institute/question-bank"
+        ctaLabel="Back to Question Bank"
+        statusLabel="Retry after backend check"
+      />
     );
   }
 
@@ -143,33 +173,31 @@ async function InstituteQuestionCreatePageContent({
   const optionCatalog = groupTeacherOptionCatalog(optionCatalogEntries);
 
   return (
-    <>
-      <TeacherQuestionEditor
-        action={createQuestionAction}
-        headerEyebrow="Institute workspace"
-        contentScopeLabel="institute-scoped"
-        contentFormatOptions={optionCatalog.selectOptions("question_content_format")}
-        difficultyOptions={optionCatalog.selectOptions("question_difficulty")}
-        duplicateMode={Boolean(duplicateQuestion)}
-        initialQuestion={duplicateQuestion}
-        pageDescription={
-          duplicateQuestion
-            ? "Clone an existing question, refine the content, and save a cleaner reusable version into the institute bank."
-            : "Author a reusable assessment question with clear scoring, explanation, and answer structure."
-        }
-        pageTitle={duplicateQuestion ? "Duplicate Question" : "Create Question"}
-        pageClassName="instituteConsolePage instituteQuestionEditorPageVivid"
-        lookupEndpoint="/api/institute/question-bank/create-lookups"
-        passages={passages}
-        programs={programs}
-        questionTypeDefinitions={questionTypeDefinitions}
-        questionTypeOptions={optionCatalog.selectOptions("question_type")}
-        subjects={subjects}
-        topics={topics}
-        validationErrors={validationErrors}
-        validationMessage={error ? decodeURIComponent(error) : ""}
-      />
-    </>
+    <TeacherQuestionEditor
+      action={createQuestionAction}
+      headerEyebrow="Institute workspace"
+      contentScopeLabel="institute-scoped"
+      contentFormatOptions={optionCatalog.selectOptions("question_content_format")}
+      difficultyOptions={optionCatalog.selectOptions("question_difficulty")}
+      duplicateMode={Boolean(duplicateQuestion)}
+      initialQuestion={duplicateQuestion}
+      pageDescription={
+        duplicateQuestion
+          ? "Clone an existing question, refine the content, and save a cleaner reusable version into the institute bank."
+          : "Author a reusable assessment question with clear scoring, explanation, and answer structure."
+      }
+      pageTitle={duplicateQuestion ? "Duplicate Question" : "Create Question"}
+      pageClassName="instituteConsolePage instituteQuestionEditorPageVivid"
+      lookupEndpoint="/api/institute/question-bank/create-lookups"
+      passages={passages}
+      programs={programs}
+      questionTypeDefinitions={questionTypeDefinitions}
+      questionTypeOptions={optionCatalog.selectOptions("question_type")}
+      subjects={subjects}
+      topics={topics}
+      validationErrors={validationErrors}
+      validationMessage={error ? decodeURIComponent(error) : ""}
+    />
   );
 }
 
@@ -177,8 +205,11 @@ export default function InstituteQuestionCreatePage(props: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   return (
-    <Suspense fallback={<InstituteQuestionCreateLoadingShell />}>
-      <InstituteQuestionCreatePageContent {...props} />
-    </Suspense>
+    <div className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteQuestionEditorPageVivid">
+      <InstituteQuestionCreatePageShell />
+      <Suspense fallback={<InstituteQuestionCreateEditorLoading />}>
+        <InstituteQuestionCreateEditorData {...props} />
+      </Suspense>
+    </div>
   );
 }

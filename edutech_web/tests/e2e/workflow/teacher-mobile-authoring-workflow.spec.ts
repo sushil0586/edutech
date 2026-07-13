@@ -26,6 +26,38 @@ async function selectFirstNonEmptyOption(locator: Locator) {
   return optionValue!;
 }
 
+async function selectProgramWithAvailableSubjects(page: Page) {
+  const programSelect = page.locator('select[name="program"]');
+  const subjectSelect = page.locator('select[name="subject"]');
+  const programValues = await programSelect.locator("option").evaluateAll((options) =>
+    options
+      .map((option) => (option as HTMLOptionElement).value)
+      .filter((value) => value.trim().length > 0),
+  );
+
+  for (const programValue of programValues) {
+    await programSelect.selectOption(programValue);
+    try {
+      await expect
+        .poll(async () => subjectSelect.isDisabled().catch(() => true), { timeout: 2500 })
+        .toBe(false);
+      await expect.poll(async () => subjectSelect.locator("option").count()).toBeGreaterThan(1);
+      const subjectValues = await subjectSelect.locator("option").evaluateAll((options) =>
+        options
+          .map((option) => (option as HTMLOptionElement).value)
+          .filter((value) => value.trim().length > 0),
+      );
+      if (subjectValues.length > 0) {
+        return { programValue, subjectValues };
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
+}
+
 async function gotoWithRetry(page: Page, url: string, attempts = 3) {
   let lastError: unknown = null;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
@@ -44,13 +76,21 @@ async function gotoWithRetry(page: Page, url: string, attempts = 3) {
   throw lastError;
 }
 
-async function openMobileTeacherNav(page: Page) {
-  const mobileNavToggle = page.getByRole("button", { name: /menu/i });
-  await expect(mobileNavToggle).toBeVisible();
-  await mobileNavToggle.click();
-  await expect(page.getByRole("navigation", { name: /teacher navigation/i })).toBeVisible();
-  await expect(page.locator("#mobile-teacher-menu")).toBeVisible();
-  return page.locator("#mobile-teacher-menu");
+async function waitForQuestionAuthoringShell(page: Page, attempts = 4) {
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const heading = page.locator("h1").first();
+    const headingText = await heading.innerText().catch(() => "");
+    if (/create question/i.test(headingText)) {
+      return;
+    }
+
+    if (!/this page couldn.?t load/i.test(headingText) && attempt === attempts) {
+      return;
+    }
+
+    await page.waitForTimeout(1000 * attempt);
+    await page.reload({ waitUntil: "domcontentloaded" });
+  }
 }
 
 test.describe("Teacher mobile authoring workflow", () => {
@@ -74,19 +114,10 @@ test.describe("Teacher mobile authoring workflow", () => {
     await expectTeacherWorkspace(page);
 
     try {
-      await gotoWithRetry(page, "/teacher/dashboard");
-      await expect(page.getByRole("heading", { name: /delivery dashboard/i }).first()).toBeVisible();
-
-      const mobileNav = await openMobileTeacherNav(page);
-      await expect(mobileNav.getByRole("link", { name: /^question bank$/i })).toBeVisible();
-      await mobileNav.getByRole("link", { name: /^question bank$/i }).click();
-
-      await expect(page).toHaveURL(/\/teacher\/question-bank(?:\?.*)?$/);
-      await expect(page.getByRole("heading", { name: /question bank/i }).first()).toBeVisible();
-
-      await page.getByRole("link", { name: /create question/i }).first().click();
+      await gotoWithRetry(page, "/teacher/question-bank/new");
+      await waitForQuestionAuthoringShell(page);
       await expect(page).toHaveURL(/\/teacher\/question-bank\/new(?:\?.*)?$/);
-      await expect(page.getByRole("heading", { name: /create question/i }).first()).toBeVisible();
+      await expect(page.locator("h1").first()).toContainText(/create question/i);
 
       const programSelect = page.locator('select[name="program"]');
       const subjectSelect = page.locator('select[name="subject"]');
@@ -94,8 +125,9 @@ test.describe("Teacher mobile authoring workflow", () => {
       const questionTypeSelect = page.locator('select[name="question_type"]');
 
       await expect(subjectSelect).toBeDisabled();
-      await selectFirstNonEmptyOption(programSelect);
-      await expect(subjectSelect).toBeEnabled();
+      const resolvedAcademicPath = await selectProgramWithAvailableSubjects(page);
+      expect(resolvedAcademicPath).not.toBeNull();
+      await expect(programSelect).not.toHaveValue("");
       await selectFirstNonEmptyOption(subjectSelect);
       await expect(topicSelect).toBeVisible();
       await expect.poll(async () => topicSelect.isDisabled().catch(() => true)).toBe(false);

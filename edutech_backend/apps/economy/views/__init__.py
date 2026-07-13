@@ -3,6 +3,7 @@ from collections import defaultdict
 
 from django.db import models
 from django.http import HttpResponse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -31,9 +32,13 @@ from apps.economy.models import (
     StarLedger,
     StarPack,
     StudentRewardEvent,
+    StudentSubscription,
+    StudentEntitlement,
     StudentUnlockState,
     SubscriptionPlan,
     UnlockRule,
+    UnlockRuleType,
+    UnlockStateStatus,
 )
 from apps.economy.governance import (
     enforce_institute_admin_order_confirmation_policy,
@@ -86,11 +91,11 @@ from apps.economy.services import (
     create_star_pack_payment_order,
     create_subscription_payment_order,
     create_institute_subscription_request,
-    evaluate_and_sync_unlock_state,
     get_entitlement_quota_summary,
     get_or_create_student_economy_profile,
     grant_admin_stars,
     grant_institute_feature_entitlement,
+    invalidate_question_bank_package_entitlement_snapshots,
     list_active_star_packs,
     list_active_subscription_plans,
     list_requestable_subscription_plans_for_institute,
@@ -107,6 +112,7 @@ from apps.question_bank.models import (
     MasterQuestionSourceType,
     MasterQuestionVisibility,
 )
+from apps.results.models import ExamResult
 from apps.reports.models import AuditLog
 from apps.students.models import StudentProfile
 from apps.reports.services import create_audit_log
@@ -215,6 +221,225 @@ def _list_student_visible_exam_unlock_targets(student):
             }
         )
     return targets
+
+
+def _match_best_access_policy(candidates, *, subject):
+    subject_id = getattr(subject, "id", None)
+    if subject_id is not None:
+        for policy in candidates:
+            if policy.subject_id == subject_id:
+                return policy
+    for policy in candidates:
+        if policy.subject_id is None:
+            return policy
+    return None
+
+
+def _matching_unlock_rules(candidates, *, subject):
+    subject_id = getattr(subject, "id", None)
+    if subject_id is None:
+        return [rule for rule in candidates if rule.subject_id is None]
+    return [rule for rule in candidates if rule.subject_id is None or rule.subject_id == subject_id]
+
+
+def _active_student_entitlement_lookup(student):
+    now = timezone.now()
+    return set(
+        StudentEntitlement.objects.filter(
+            student=student,
+            is_active=True,
+            status="active",
+        )
+        .filter(
+            models.Q(valid_from__isnull=True) | models.Q(valid_from__lte=now),
+            models.Q(valid_until__isnull=True) | models.Q(valid_until__gte=now),
+        )
+        .values_list("entitlement_code", "content_type", "content_key")
+    )
+
+
+def _student_completion_count_cached(student, *, subject, cache):
+    subject_id = getattr(subject, "id", None)
+    if subject_id not in cache:
+        queryset = ExamResult.objects.filter(student=student, is_active=True)
+        if subject_id is not None:
+            queryset = queryset.filter(exam__subject=subject)
+        cache[subject_id] = queryset.count()
+    return cache[subject_id]
+
+
+def _student_best_percentage_cached(student, *, subject, cache):
+    subject_id = getattr(subject, "id", None)
+    if subject_id not in cache:
+        queryset = ExamResult.objects.filter(student=student, is_active=True)
+        if subject_id is not None:
+            queryset = queryset.filter(exam__subject=subject)
+        best = queryset.order_by("-percentage").values_list("percentage", flat=True).first()
+        cache[subject_id] = float(best or 0)
+    return cache[subject_id]
+
+
+def _refresh_student_unlock_states_bulk(*, student, candidate_targets, granted_by=None):
+    if not candidate_targets:
+        return []
+
+    target_keys = {(item["content_type"], item["content_key"]) for item in candidate_targets}
+    content_types = {item[0] for item in target_keys}
+    content_keys = {item[1] for item in target_keys}
+
+    access_policy_rows = (
+        ContentAccessPolicy.objects.filter(
+            institute=student.institute,
+            is_active=True,
+            content_type__in=content_types,
+            content_key__in=content_keys,
+        )
+        .select_related("subject")
+        .order_by("priority", "created_at")
+    )
+    unlock_rule_rows = (
+        UnlockRule.objects.filter(
+            institute=student.institute,
+            is_active=True,
+            content_type__in=content_types,
+            content_key__in=content_keys,
+        )
+        .select_related("subject")
+        .order_by("priority", "created_at")
+    )
+    policies_by_target = defaultdict(list)
+    rules_by_target = defaultdict(list)
+    for policy in access_policy_rows:
+        policies_by_target[(policy.content_type, policy.content_key)].append(policy)
+    for rule in unlock_rule_rows:
+        rules_by_target[(rule.content_type, rule.content_key)].append(rule)
+
+    existing_states = {
+        (state.content_type, state.content_key): state
+        for state in StudentUnlockState.objects.filter(student=student, is_active=True).select_related("subject")
+    }
+    entitlement_lookup = _active_student_entitlement_lookup(student)
+    completion_count_cache = {}
+    best_percentage_cache = {}
+    profile = get_or_create_student_economy_profile(student)
+    refreshed_states = []
+
+    for target in candidate_targets:
+        content_type = target["content_type"]
+        content_key = target["content_key"]
+        subject = target["subject"]
+        access_policy = _match_best_access_policy(
+            policies_by_target.get((content_type, content_key), []),
+            subject=subject,
+        )
+        unlock_rules = _matching_unlock_rules(
+            rules_by_target.get((content_type, content_key), []),
+            subject=subject,
+        )
+
+        status_value = UnlockStateStatus.UNLOCKED
+        reason_code = ""
+        reason_message = ""
+
+        if access_policy is not None:
+            spend_unlock_code = f"unlock:{content_type}:{content_key}"
+            has_spend_unlock = (spend_unlock_code, content_type, content_key) in entitlement_lookup
+
+            if access_policy.policy_type == "stars_only":
+                if not has_spend_unlock and profile.available_stars < access_policy.star_cost:
+                    status_value = UnlockStateStatus.LOCKED
+                    reason_code = "insufficient_stars"
+                    reason_message = f"{access_policy.star_cost} stars are required to access this content."
+            elif access_policy.policy_type == "entitlement_only":
+                has_entitlement = (
+                    access_policy.entitlement_code,
+                    content_type,
+                    content_key,
+                ) in entitlement_lookup
+                if not has_entitlement:
+                    status_value = UnlockStateStatus.LOCKED
+                    reason_code = "missing_entitlement"
+                    reason_message = "An entitlement is required to access this content."
+            elif access_policy.policy_type == "stars_or_entitlement":
+                has_entitlement = (
+                    access_policy.entitlement_code,
+                    content_type,
+                    content_key,
+                ) in entitlement_lookup
+                if not has_entitlement and not has_spend_unlock and profile.available_stars < access_policy.star_cost:
+                    status_value = UnlockStateStatus.LOCKED
+                    reason_code = "insufficient_stars_or_entitlement"
+                    reason_message = f"Either {access_policy.star_cost} stars or a valid entitlement is required."
+
+        if status_value == UnlockStateStatus.UNLOCKED:
+            for rule in unlock_rules:
+                passed = True
+                if rule.rule_type == UnlockRuleType.STARS_BALANCE:
+                    required = int(rule.required_star_balance or 0)
+                    passed = profile.available_stars >= required
+                    if not passed:
+                        reason_code = "insufficient_stars"
+                        reason_message = f"{required} stars are required to unlock this content."
+                elif rule.rule_type == UnlockRuleType.ENTITLEMENT:
+                    passed = (rule.required_entitlement_code, rule.content_type, rule.content_key) in entitlement_lookup
+                    if not passed:
+                        reason_code = "missing_entitlement"
+                        reason_message = "An entitlement is required to unlock this content."
+                elif rule.rule_type == UnlockRuleType.EXAM_COMPLETION:
+                    required = int(rule.required_completion_count or 0)
+                    completed = _student_completion_count_cached(
+                        student,
+                        subject=rule.subject,
+                        cache=completion_count_cache,
+                    )
+                    passed = completed >= required
+                    if not passed:
+                        reason_code = "completion_requirement_not_met"
+                        reason_message = f"Complete {required} qualifying tests to unlock this content."
+                elif rule.rule_type == UnlockRuleType.SCORE_THRESHOLD:
+                    required = float(rule.required_score_percentage or 0)
+                    achieved = _student_best_percentage_cached(
+                        student,
+                        subject=rule.subject,
+                        cache=best_percentage_cache,
+                    )
+                    passed = achieved >= required
+                    if not passed:
+                        reason_code = "score_requirement_not_met"
+                        reason_message = f"Score at least {required:g}% in a qualifying test to unlock this content."
+
+                if not passed:
+                    status_value = UnlockStateStatus.LOCKED
+                    break
+
+        unlock_state = existing_states.get((content_type, content_key))
+        if unlock_state is None:
+            unlock_state = StudentUnlockState(
+                institute=student.institute,
+                student=student,
+                content_type=content_type,
+                content_key=content_key,
+                metadata={},
+            )
+            existing_states[(content_type, content_key)] = unlock_state
+
+        unlock_state.subject = subject
+        if access_policy is not None and access_policy.content_label:
+            unlock_state.content_label = access_policy.content_label
+        unlock_state.status = status_value
+        unlock_state.lock_reason_code = reason_code
+        unlock_state.lock_reason_message = reason_message
+        unlock_state.last_evaluated_at = timezone.now()
+        if status_value == UnlockStateStatus.UNLOCKED and unlock_state.unlocked_at is None:
+            unlock_state.unlocked_at = timezone.now()
+        if status_value == UnlockStateStatus.LOCKED:
+            unlock_state.locked_at = timezone.now()
+        if granted_by is not None:
+            unlock_state.granted_by = granted_by
+        unlock_state.save()
+        refreshed_states.append(unlock_state)
+
+    return refreshed_states
 
 
 def _economy_catalog_group_payload(*, item_type, queryset):
@@ -941,6 +1166,26 @@ class AdminQuestionBankPackageListView(APIView):
 class AdminQuestionBankPackageDetailView(APIView):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
 
+    def get(self, request, package_id):
+        instance = get_scoped_object_or_403(
+            QuestionBankPackage.objects.select_related("institute").prefetch_related(
+                "scopes__program",
+                "scopes__subject",
+                "scopes__topic",
+                "institute_entitlements",
+                "subscription_plan_links",
+                "usage_entries",
+            ),
+            user=request.user,
+            value=package_id,
+            not_found_message="Question bank package not found.",
+        )
+        return action_response(
+            message="Question bank package detail loaded successfully.",
+            data=AdminQuestionBankPackageSerializer(instance).data,
+            status_code=status.HTTP_200_OK,
+        )
+
     def patch(self, request, package_id):
         instance = get_scoped_object_or_403(
             QuestionBankPackage.objects.select_related("institute").prefetch_related(
@@ -983,6 +1228,7 @@ class AdminQuestionBankPackageDetailView(APIView):
             .get(pk=updated_instance.pk)
         )
         current_scope_count = len([scope for scope in refreshed_instance.scopes.all() if scope.is_active])
+        invalidate_question_bank_package_entitlement_snapshots(question_bank_package=refreshed_instance)
         create_audit_log(
             user=request.user,
             action="economy_question_bank_package_update",
@@ -1546,6 +1792,7 @@ class AdminSubscriptionPlanListCreateView(APIView):
     def get(self, request):
         queryset = SubscriptionPlan.objects.select_related("institute").prefetch_related(
             "cycles__star_credit_rules",
+            "cycles__exam_allowance_config",
             "question_bank_package_links__question_bank_package__institute",
         ).order_by("institute__name", "name")
         return Response(
@@ -1561,6 +1808,7 @@ class AdminSubscriptionPlanListCreateView(APIView):
             SubscriptionPlan.objects.select_related("institute")
             .prefetch_related(
                 "cycles__star_credit_rules",
+                "cycles__exam_allowance_config",
                 "question_bank_package_links__question_bank_package__institute",
             )
             .get(pk=instance.pk)
@@ -1592,6 +1840,7 @@ class AdminSubscriptionPlanDetailView(APIView):
         instance = get_scoped_object_or_403(
             SubscriptionPlan.objects.select_related("institute").prefetch_related(
                 "cycles__star_credit_rules",
+                "cycles__exam_allowance_config",
                 "question_bank_package_links__question_bank_package__institute",
             ),
             user=request.user,
@@ -1613,6 +1862,7 @@ class AdminSubscriptionPlanDetailView(APIView):
             SubscriptionPlan.objects.select_related("institute")
             .prefetch_related(
                 "cycles__star_credit_rules",
+                "cycles__exam_allowance_config",
                 "question_bank_package_links__question_bank_package__institute",
             )
             .get(pk=updated_instance.pk)
@@ -2326,6 +2576,141 @@ class AdminStudentPaymentOrderListView(APIView):
         )
 
 
+class AdminSubscriptionAllowanceOpsSummaryView(APIView):
+    permission_classes = [IsAuthenticated, IsPlatformOrInstituteAdmin]
+
+    def get(self, request):
+        queryset = scope_queryset_for_institute(
+            StudentSubscription.objects.filter(
+                is_active=True,
+                status="active",
+            )
+            .select_related("student", "plan_cycle", "plan_cycle__plan", "plan_cycle__exam_allowance_config")
+            .prefetch_related("allowance_usage_entries"),
+            request.user,
+        )
+        institute_id = str(request.query_params.get("institute", "")).strip()
+        if institute_id:
+            queryset = queryset.filter(institute_id=institute_id)
+
+        active_quota_subscriptions = 0
+        active_student_ids = set()
+        near_exhausted_student_ids = set()
+        exhausted_student_ids = set()
+        current_cycle_usage_total = 0
+        plan_buckets = {}
+
+        for subscription in queryset:
+            allowance_config = getattr(subscription.plan_cycle, "exam_allowance_config", None)
+            if allowance_config is None or not allowance_config.is_active:
+                continue
+
+            included_allowance = int(allowance_config.included_exam_attempts or 0)
+            if included_allowance <= 0:
+                continue
+
+            usage_entries = [entry for entry in subscription.allowance_usage_entries.all() if entry.is_active]
+            if subscription.current_period_start is not None and subscription.current_period_end is not None:
+                usage_entries = [
+                    entry
+                    for entry in usage_entries
+                    if entry.billing_period_start == subscription.current_period_start
+                    and entry.billing_period_end == subscription.current_period_end
+                ]
+
+            used_allowance = sum(int(entry.consumed_count or 0) for entry in usage_entries)
+            remaining_allowance = max(included_allowance - used_allowance, 0)
+
+            active_quota_subscriptions += 1
+            active_student_ids.add(str(subscription.student_id))
+            current_cycle_usage_total += used_allowance
+
+            if remaining_allowance == 0:
+                exhausted_student_ids.add(str(subscription.student_id))
+            elif remaining_allowance <= 1:
+                near_exhausted_student_ids.add(str(subscription.student_id))
+
+            bucket = plan_buckets.setdefault(
+                str(subscription.plan_cycle.plan_id),
+                {
+                    "plan_id": str(subscription.plan_cycle.plan_id),
+                    "plan_name": subscription.plan_cycle.plan.name,
+                    "plan_code": subscription.plan_cycle.plan.code,
+                    "active_subscriptions": 0,
+                    "active_student_ids": set(),
+                    "included_allowance_total": 0,
+                    "used_allowance_total": 0,
+                    "remaining_allowance_total": 0,
+                    "near_exhausted_subscriptions": 0,
+                    "exhausted_subscriptions": 0,
+                },
+            )
+            bucket["active_subscriptions"] += 1
+            bucket["active_student_ids"].add(str(subscription.student_id))
+            bucket["included_allowance_total"] += included_allowance
+            bucket["used_allowance_total"] += used_allowance
+            bucket["remaining_allowance_total"] += remaining_allowance
+            if remaining_allowance == 0:
+                bucket["exhausted_subscriptions"] += 1
+            elif remaining_allowance <= 1:
+                bucket["near_exhausted_subscriptions"] += 1
+
+        top_used_plans = sorted(
+            plan_buckets.values(),
+            key=lambda item: (
+                -int(item["used_allowance_total"]),
+                -int(item["active_subscriptions"]),
+                str(item["plan_name"]).lower(),
+            ),
+        )[:5]
+
+        return Response(
+            {
+                "active_quota_subscriptions": active_quota_subscriptions,
+                "active_students_with_subscriptions": len(active_student_ids),
+                "students_near_exhaustion": len(near_exhausted_student_ids),
+                "students_exhausted": len(exhausted_student_ids),
+                "current_cycle_usage_total": current_cycle_usage_total,
+                "top_used_plans": [
+                    {
+                        "plan_id": item["plan_id"],
+                        "plan_name": item["plan_name"],
+                        "plan_code": item["plan_code"],
+                        "active_subscriptions": item["active_subscriptions"],
+                        "active_students": len(item["active_student_ids"]),
+                        "included_allowance_total": item["included_allowance_total"],
+                        "used_allowance_total": item["used_allowance_total"],
+                        "remaining_allowance_total": item["remaining_allowance_total"],
+                        "near_exhausted_subscriptions": item["near_exhausted_subscriptions"],
+                        "exhausted_subscriptions": item["exhausted_subscriptions"],
+                    }
+                    for item in top_used_plans
+                ],
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class AdminStudentSubscriptionListView(APIView):
+    permission_classes = [IsAuthenticated, IsPlatformOrInstituteAdmin]
+
+    def get(self, request, student_id):
+        student = get_scoped_object_or_403(
+            scope_student_profile_queryset(
+                StudentProfile.objects.select_related("institute"),
+                request.user,
+            ),
+            user=request.user,
+            value=student_id,
+            not_found_message="Student not found in your scope.",
+        )
+        queryset = list_student_subscriptions(student=student)
+        return Response(
+            StudentSubscriptionSerializer(queryset, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+
 class AdminStudentUnlockRefreshView(APIView):
     permission_classes = [IsAuthenticated, IsPlatformOrInstituteAdmin]
 
@@ -2349,16 +2734,18 @@ class AdminStudentUnlockRefreshView(APIView):
         for target in _list_student_visible_exam_unlock_targets(student):
             candidate_targets.setdefault((target["content_type"], target["content_key"]), target["subject"])
 
-        unlock_states = []
-        for (content_type, content_key), subject in candidate_targets.items():
-            refreshed = evaluate_and_sync_unlock_state(
-                student=student,
-                content_type=content_type,
-                content_key=content_key,
-                subject=subject,
-                granted_by=request.user,
-            )
-            unlock_states.append(refreshed)
+        unlock_states = _refresh_student_unlock_states_bulk(
+            student=student,
+            candidate_targets=[
+                {
+                    "content_type": content_type,
+                    "content_key": content_key,
+                    "subject": subject,
+                }
+                for (content_type, content_key), subject in candidate_targets.items()
+            ],
+            granted_by=request.user,
+        )
 
         return action_response(
             data=StudentUnlockStateSerializer(unlock_states, many=True).data,

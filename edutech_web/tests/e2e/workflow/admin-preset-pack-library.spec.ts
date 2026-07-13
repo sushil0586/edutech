@@ -33,7 +33,12 @@ test.describe("Admin preset pack library", () => {
     await expect(page.getByText(/scope:\s*all/i).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /open in builder/i }).first()).toBeVisible();
 
-    await page.getByRole("link", { name: /back to exams/i }).first().click();
+    const backToExamsLink = page.getByRole("link", { name: /back to exams/i }).first();
+    await expect(backToExamsLink).toHaveAttribute("href", "/admin/exams");
+    await Promise.all([
+      page.waitForURL(/\/admin\/exams(?:\?.*)?$/),
+      backToExamsLink.click(),
+    ]);
     await expect(page).toHaveURL(/\/admin\/exams(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /exam management/i }).first()).toBeVisible();
 

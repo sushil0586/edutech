@@ -43,6 +43,7 @@ import {
   filterStudentSummaryBySource,
   filterStudentSummaryBySubject,
   getExamSubjectDisplayLabel,
+  getExamSubjectNames,
   getStudentSourceOptions,
   getStudentSubjectOptions,
   resolveSelectedStudentSource,
@@ -1181,14 +1182,18 @@ export default async function AnalyticsPage({
                 {scopedSummary.recent_exams.length ? (
                   scopedSummary.recent_exams.slice(0, 4).map((exam) => {
                     const examSubjectLabel = getExamSubjectDisplayLabel(exam);
+                    const examSubjectNames = getExamSubjectNames(exam);
+                    const compareSubject =
+                      selectedSubject === ALL_SUBJECTS_CONTEXT
+                        ? examSubjectNames.length === 1
+                          ? examSubjectNames[0]
+                          : null
+                        : selectedSubjectLabel;
                     return (
                       <Link
                         className="dashboardRailRow"
                         href={buildAnalyticsResultsCompareHref({
-                          subject:
-                            selectedSubject === ALL_SUBJECTS_CONTEXT
-                              ? examSubjectLabel
-                              : selectedSubjectLabel,
+                          subject: compareSubject,
                           source:
                             selectedSource === ALL_SOURCES_CONTEXT
                               ? exam.source_type

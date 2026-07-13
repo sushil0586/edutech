@@ -93,6 +93,14 @@ class InstituteSubscriptionRequestStatus(models.TextChoices):
     REJECTED = "rejected", "Rejected"
 
 
+class SubscriptionAllowancePeriodMode(models.TextChoices):
+    BILLING_CYCLE = "billing_cycle", "Billing Cycle"
+
+
+class SubscriptionAllowanceCountingScope(models.TextChoices):
+    ALL_ELIGIBLE_EXAMS = "all_eligible_exams", "All Eligible Exams"
+
+
 class AccessPolicyType(models.TextChoices):
     FREE = "free", "Free"
     STARS_ONLY = "stars_only", "Stars Only"
@@ -970,6 +978,49 @@ class SubscriptionPlanQuestionBankPackage(BaseModel):
         return super().save(*args, **kwargs)
 
 
+class SubscriptionPlanExamAllowanceConfig(BaseModel):
+    institute = models.ForeignKey(
+        Institute,
+        on_delete=models.CASCADE,
+        related_name="subscription_plan_exam_allowance_configs",
+    )
+    plan_cycle = models.OneToOneField(
+        SubscriptionPlanCycle,
+        on_delete=models.CASCADE,
+        related_name="exam_allowance_config",
+    )
+    included_exam_attempts = models.PositiveIntegerField(default=1)
+    allowance_period_mode = models.CharField(
+        max_length=30,
+        choices=SubscriptionAllowancePeriodMode.choices,
+        default=SubscriptionAllowancePeriodMode.BILLING_CYCLE,
+    )
+    counting_scope = models.CharField(
+        max_length=40,
+        choices=SubscriptionAllowanceCountingScope.choices,
+        default=SubscriptionAllowanceCountingScope.ALL_ELIGIBLE_EXAMS,
+    )
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["plan_cycle__plan__name", "plan_cycle__price_amount", "created_at"]
+        indexes = [
+            models.Index(fields=["institute", "plan_cycle"]),
+            models.Index(fields=["allowance_period_mode", "is_active"]),
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.plan_cycle_id and self.plan_cycle.institute_id != self.institute_id:
+            raise ValidationError({"plan_cycle": "Plan cycle must belong to the selected institute."})
+        if self.included_exam_attempts <= 0:
+            raise ValidationError({"included_exam_attempts": "Included exam attempts must be greater than zero."})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
 class InstituteSubscriptionRequest(BaseModel):
     institute = models.ForeignKey(
         Institute,
@@ -1156,7 +1207,11 @@ class InstituteQuestionEntitlement(BaseModel):
     def save(self, *args, **kwargs):
         self.notes = self.notes.strip()
         self.full_clean()
-        return super().save(*args, **kwargs)
+        result = super().save(*args, **kwargs)
+        from apps.economy.services import _invalidate_question_bank_entitlement_snapshot_cache
+
+        _invalidate_question_bank_entitlement_snapshot_cache(institute=self.institute)
+        return result
 
 
 class InstituteQuestionFeatureEntitlement(BaseModel):
@@ -1231,7 +1286,14 @@ class InstituteQuestionFeatureEntitlement(BaseModel):
     def save(self, *args, **kwargs):
         self.feature_code = self.feature_code.strip().upper()
         self.full_clean()
-        return super().save(*args, **kwargs)
+        result = super().save(*args, **kwargs)
+        from apps.economy.services import _invalidate_question_bank_feature_cache
+
+        _invalidate_question_bank_feature_cache(
+            institute=self.institute,
+            feature_code=self.feature_code,
+        )
+        return result
 
 
 class InstituteQuestionUsageLedger(BaseModel):
@@ -1474,6 +1536,81 @@ class StudentSubscription(BaseModel):
             raise ValidationError(
                 {"current_period_end": "Current period end must be after current period start."}
             )
+
+
+class StudentSubscriptionAllowanceUsage(BaseModel):
+    institute = models.ForeignKey(
+        Institute,
+        on_delete=models.CASCADE,
+        related_name="student_subscription_allowance_usage_entries",
+    )
+    student_subscription = models.ForeignKey(
+        StudentSubscription,
+        on_delete=models.CASCADE,
+        related_name="allowance_usage_entries",
+    )
+    student = models.ForeignKey(
+        StudentProfile,
+        on_delete=models.CASCADE,
+        related_name="subscription_allowance_usage_entries",
+    )
+    exam = models.ForeignKey(
+        "exams.Exam",
+        on_delete=models.SET_NULL,
+        related_name="subscription_allowance_usage_entries",
+        blank=True,
+        null=True,
+    )
+    attempt = models.OneToOneField(
+        "attempts.StudentExamAttempt",
+        on_delete=models.SET_NULL,
+        related_name="subscription_allowance_usage_entry",
+        blank=True,
+        null=True,
+    )
+    billing_period_start = models.DateTimeField()
+    billing_period_end = models.DateTimeField()
+    consumed_count = models.PositiveIntegerField(default=1)
+    consumed_at = models.DateTimeField()
+    consumption_reason = models.CharField(max_length=50, default="attempt_start")
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["-consumed_at", "-created_at"]
+        indexes = [
+            models.Index(fields=["student_subscription", "consumed_at"]),
+            models.Index(fields=["student", "billing_period_start", "billing_period_end"]),
+            models.Index(fields=["institute", "consumption_reason"]),
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.student_subscription_id and self.student_subscription.institute_id != self.institute_id:
+            raise ValidationError(
+                {"student_subscription": "Student subscription must belong to the selected institute."}
+            )
+        if self.student_id and self.student.institute_id != self.institute_id:
+            raise ValidationError({"student": "Student must belong to the selected institute."})
+        if self.exam_id and self.exam.institute_id != self.institute_id:
+            raise ValidationError({"exam": "Exam must belong to the selected institute."})
+        if self.attempt_id and self.attempt.institute_id != self.institute_id:
+            raise ValidationError({"attempt": "Attempt must belong to the selected institute."})
+        if (
+            self.student_subscription_id
+            and self.student_id
+            and self.student_subscription.student_id != self.student_id
+        ):
+            raise ValidationError({"student": "Student must match the selected subscription."})
+        if self.billing_period_end <= self.billing_period_start:
+            raise ValidationError(
+                {"billing_period_end": "Billing period end must be after billing period start."}
+            )
+        if self.consumed_count <= 0:
+            raise ValidationError({"consumed_count": "Consumed count must be greater than zero."})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
 
 
 class SubscriptionBillingEvent(BaseModel):

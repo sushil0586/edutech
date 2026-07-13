@@ -356,6 +356,7 @@ class SubjectViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
                 "program_id",
                 "name",
                 "code",
+                "description",
                 "sort_order",
                 "is_active",
             )

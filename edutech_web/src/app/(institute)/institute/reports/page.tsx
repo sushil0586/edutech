@@ -2,8 +2,9 @@ import Link from "next/link";
 import { FilterSummaryPills } from "@/components/ui/filter-summary-pills";
 import { InstitutePageHeader } from "@/components/ui/institute-page-header";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
-import type { TeacherInsightSummary, TeacherResultSummary } from "@/features/dashboard/types";
+import type { AdminExamRuntimeSummary, TeacherInsightSummary, TeacherResultSummary } from "@/features/dashboard/types";
 import {
+  fetchExamRuntimeSummary,
   fetchTeacherExamPage,
   fetchTeacherInsightSummary,
   fetchTeacherResultSummary,
@@ -53,15 +54,17 @@ async function loadInstituteReports() {
       source: "unconfigured" as const,
       insightSummary: null as TeacherInsightSummary | null,
       resultSummary: [] as TeacherResultSummary[],
+      runtimeSummary: null as AdminExamRuntimeSummary | null,
       liveExamCount: 0,
       completedExamCount: 0,
     };
   }
 
   try {
-    const [insightSummary, resultSummary, liveExamsPage, completedExamsPage] = await Promise.all([
+    const [insightSummary, resultSummary, runtimeSummary, liveExamsPage, completedExamsPage] = await Promise.all([
       fetchTeacherInsightSummary(),
       fetchTeacherResultSummary(),
+      fetchExamRuntimeSummary().catch(() => null),
       fetchTeacherExamPage({ page: 1, pageSize: 1, filter: "live", sort: "recommended" }),
       fetchTeacherExamPage({ page: 1, pageSize: 1, filter: "completed", sort: "recommended" }),
     ]);
@@ -70,6 +73,7 @@ async function loadInstituteReports() {
       source: "live" as const,
       insightSummary,
       resultSummary,
+      runtimeSummary,
       liveExamCount: liveExamsPage.count,
       completedExamCount: completedExamsPage.count,
     };
@@ -78,6 +82,7 @@ async function loadInstituteReports() {
       source: "error" as const,
       insightSummary: null as TeacherInsightSummary | null,
       resultSummary: [] as TeacherResultSummary[],
+      runtimeSummary: null as AdminExamRuntimeSummary | null,
       liveExamCount: 0,
       completedExamCount: 0,
     };
@@ -96,7 +101,7 @@ export default async function InstituteReportsPage({
   await requireInstituteAdminSession();
 
   const params = (await searchParams) ?? {};
-  const { source, insightSummary, resultSummary, liveExamCount, completedExamCount } =
+  const { source, insightSummary, resultSummary, runtimeSummary, liveExamCount, completedExamCount } =
     await loadInstituteReports();
   const overview = insightSummary?.overview ?? null;
   const lane = resolveReportLane(params.lane);
@@ -161,7 +166,7 @@ export default async function InstituteReportsPage({
   );
 
   return (
-    <section className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteSupportPageVivid">
+    <section className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteSupportPageVivid instituteReportsPageVivid">
       <InstitutePageHeader
         title="Reports"
         description="Review institute-wide reporting health across tracked exams, attempt volume, publication backlog, and academic weak spots."
@@ -251,6 +256,72 @@ export default async function InstituteReportsPage({
             </article>
           </section>
 
+          {runtimeSummary ? (
+            <section className="dashboardLowerGrid">
+              <article className="dashboardPanel weakTopicsPanel">
+                <div className="studentPageTight">
+                  <span className="studentDashboardTag">Runtime ops</span>
+                  <h3>Live slot and attempt pressure across institute exams</h3>
+                  <div className="weakTopicStack">
+                    <div className="weakTopicRow">
+                      <div>
+                        <strong>{runtimeSummary.summary.tracked_exams} tracked exams</strong>
+                        <span>
+                          {runtimeSummary.summary.slot_managed_exams} slot-managed · {runtimeSummary.summary.threshold_managed_exams} threshold-managed
+                        </span>
+                      </div>
+                      <div className="weakTopicMeta">
+                        <strong>{runtimeSummary.summary.live_attempts}</strong>
+                        <span>live attempts</span>
+                      </div>
+                    </div>
+                    <div className="weakTopicRow">
+                      <div>
+                        <strong>{runtimeSummary.summary.active_slots} active slots</strong>
+                        <span>
+                          {runtimeSummary.summary.assigned_learners} assigned learners in current active-slot scope
+                        </span>
+                      </div>
+                      <div className="weakTopicMeta">
+                        <strong>{runtimeSummary.summary.full_slots + runtimeSummary.summary.near_full_slots}</strong>
+                        <span>full or near-full slots</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </article>
+
+              <article className="dashboardPanel weakTopicsPanel">
+                <div className="studentPageTight">
+                  <span className="studentDashboardTag">Pressure watchlist</span>
+                  <h3>Exams most likely to need slot or cap adjustments</h3>
+                  {runtimeSummary.top_pressure_exams.length === 0 ? (
+                    <div className="featurePlaceholder">
+                      <p>No active slot pressure is visible in the current institute scope.</p>
+                    </div>
+                  ) : (
+                    <div className="weakTopicStack">
+                      {runtimeSummary.top_pressure_exams.slice(0, 4).map((exam) => (
+                        <div className="weakTopicRow" key={exam.exam_id}>
+                          <div>
+                            <strong>{exam.title}</strong>
+                            <span>
+                              {exam.code} · {exam.active_slots} active slots · {exam.live_attempts} live attempts
+                            </span>
+                          </div>
+                          <div className="weakTopicMeta">
+                            <strong>{exam.full_slots + exam.near_full_slots}</strong>
+                            <span>{exam.configured_caps[0] ?? "No caps"}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </article>
+            </section>
+          ) : null}
+
           <section className="contentCard workspaceFiltersCard">
             <div className="sectionHeading">
               <strong>Report Controls</strong>
@@ -258,7 +329,11 @@ export default async function InstituteReportsPage({
                 {visibleBacklog.length} backlog items · {visibleWeakTopics.length} weak-topic signals
               </span>
             </div>
-            <form className="workspaceFiltersForm" method="GET">
+            <form
+              key={`${lane}:${sortOption}:${subjectFilter}`}
+              className="workspaceFiltersForm"
+              method="GET"
+            >
               <label className="workspaceFilterField">
                 <span>Focus lane</span>
                 <select defaultValue={lane} name="lane">

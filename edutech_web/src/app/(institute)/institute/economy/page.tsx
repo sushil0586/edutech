@@ -1,12 +1,23 @@
 import Link from "next/link";
 import { EconomySeedScreen } from "@/components/admin/economy-seed-screen";
 import { InstituteEconomyWorkspace } from "@/components/admin/institute-economy-workspace";
+import type {
+  EconomyOperatorPolicy,
+  StudentPaymentOrder,
+  StudentRewardEvent,
+  StudentWalletSummary,
+} from "@/features/dashboard/types";
 import { InstituteEconomyOverviewWorkspace } from "@/components/ui/institute-economy-overview-workspace";
 import { InstituteSubscriptionRequestWorkspace } from "@/components/ui/institute-subscription-request-workspace";
 import { InstitutePageHeader } from "@/components/ui/institute-page-header";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import type { TeacherExamListItem } from "@/features/dashboard/types";
-import { fetchPortalList } from "@/lib/api/portal";
+import {
+  fetchInstituteQuestionBankEntitlementsCached,
+  fetchInstituteQuestionBankFeatureEntitlementsCached,
+  fetchPortalList,
+  fetchPortalRecord,
+} from "@/lib/api/portal";
 import { fetchTeacherExamPage, getTeacherApiState } from "@/lib/api/teacher";
 import { requireInstituteAdminSession } from "@/lib/auth/session";
 
@@ -407,15 +418,13 @@ export default async function InstituteEconomyPage() {
   ] = await Promise.all([
     loadInstituteExams(),
     fetchPortalList<StudentRecord>(`/api/v1/students/${instituteQuery}`).catch(() => []),
-    fetchPortalList<InstituteQuestionBankEntitlement>(
-      "/api/v1/economy/admin/institute-question-bank-entitlements/",
-    ).catch(() => []),
+    fetchInstituteQuestionBankEntitlementsCached<InstituteQuestionBankEntitlement>().catch(() => []),
     fetchPortalList<InstituteQuestionBankUsageEntry>(
       "/api/v1/economy/admin/institute-question-bank-usage/",
     ).catch(() => []),
-    fetchPortalList<InstituteQuestionBankFeatureEntitlement>(
-      "/api/v1/economy/admin/institute-question-bank-feature-entitlements/",
-    ).catch(() => []),
+    fetchInstituteQuestionBankFeatureEntitlementsCached<InstituteQuestionBankFeatureEntitlement>().catch(
+      () => [],
+    ),
     fetchPortalList<RequestableSubscriptionPlan>(
       "/api/v1/economy/admin/institute-requestable-subscription-plans/",
     ).catch(() => []),
@@ -423,6 +432,28 @@ export default async function InstituteEconomyPage() {
       "/api/v1/economy/admin/institute-subscription-requests/",
     ).catch(() => []),
   ]);
+  const initialSupportStudentId =
+    students.find((student) => student.is_active)?.id ?? students[0]?.id ?? null;
+  const [
+    initialSupportPolicy,
+    initialSupportWallet,
+    initialSupportRewards,
+    initialSupportOrders,
+  ] =
+    initialSupportStudentId
+      ? await Promise.all([
+          fetchPortalRecord<EconomyOperatorPolicy>("/api/v1/economy/admin/policy/").catch(() => null),
+          fetchPortalRecord<StudentWalletSummary>(
+            `/api/v1/economy/admin/student/${initialSupportStudentId}/wallet/`,
+          ).catch(() => null),
+          fetchPortalList<StudentRewardEvent>(
+            `/api/v1/economy/admin/student/${initialSupportStudentId}/rewards/`,
+          ).catch(() => [] as StudentRewardEvent[]),
+          fetchPortalList<StudentPaymentOrder>(
+            `/api/v1/economy/admin/student/${initialSupportStudentId}/orders/`,
+          ).catch(() => [] as StudentPaymentOrder[]),
+        ])
+      : [null, null, [] as StudentRewardEvent[], [] as StudentPaymentOrder[]];
 
   const activePackageEntitlements = packageEntitlements.filter((item) => item.status === "active");
   const pausedPackageEntitlements = packageEntitlements.filter((item) => item.status === "paused");
@@ -839,7 +870,7 @@ export default async function InstituteEconomyPage() {
     <section className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteSupportPageVivid instituteEconomyPage">
       <InstitutePageHeader
         title="Economy Oversight"
-        description="Review how star-based access is attached to institute exams and support student wallets with controlled administrative actions."
+        description="Review exam access rules, package visibility, and student support actions for this institute."
         statusLabel={
           source === "live"
             ? `${gatedExams.length} exams with economy policy`
@@ -859,7 +890,7 @@ export default async function InstituteEconomyPage() {
       <section className="studentInsightHeroCard studentInsightHeroCardCompact">
         <div className="studentInsightHeroCopy">
           <span className="studentDashboardTag">Economy operations</span>
-          <strong>Keep access policy visibility and student support actions inside the same institute control plane</strong>
+          <strong>Keep exam access visibility and student support actions inside one institute control plane</strong>
           <p>
             This workspace is intentionally grounded in the backend contracts that exist today. It tracks exam-level
             economy policies and provides workspace-level wallet support actions without inventing a separate pricing
@@ -912,7 +943,11 @@ export default async function InstituteEconomyPage() {
           />
 
           <InstituteEconomyWorkspace
-            initialStudentId={students[0]?.id ?? null}
+            initialOrders={initialSupportOrders}
+            initialPolicy={initialSupportPolicy}
+            initialRewards={initialSupportRewards}
+            initialStudentId={initialSupportStudentId}
+            initialWallet={initialSupportWallet}
             students={students}
           />
           <InstituteSubscriptionRequestWorkspace

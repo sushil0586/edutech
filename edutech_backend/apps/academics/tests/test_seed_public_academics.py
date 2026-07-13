@@ -25,7 +25,7 @@ class SeedPublicAcademicsCommandTestCase(TestCase):
         self.assertEqual(AcademicYear.objects.filter(institute=self.public_institute).count(), 1)
         self.assertEqual(Program.objects.filter(institute=self.public_institute).count(), 1)
         self.assertEqual(Subject.objects.filter(institute=self.public_institute).count(), 5)
-        self.assertEqual(Topic.objects.filter(institute=self.public_institute).count(), 96)
+        self.assertEqual(Topic.objects.filter(institute=self.public_institute).count(), 102)
 
         program = Program.objects.get(institute=self.public_institute, code="CLS7")
         self.assertEqual(program.name, "Class 7")
@@ -47,7 +47,7 @@ class SeedPublicAcademicsCommandTestCase(TestCase):
         self.assertEqual(AcademicYear.objects.filter(institute=self.public_institute).count(), 1)
         self.assertEqual(Program.objects.filter(institute=self.public_institute).count(), 1)
         self.assertEqual(Subject.objects.filter(institute=self.public_institute).count(), 5)
-        self.assertEqual(Topic.objects.filter(institute=self.public_institute).count(), 96)
+        self.assertEqual(Topic.objects.filter(institute=self.public_institute).count(), 102)
         self.assertIn("updated=", stdout.getvalue())
 
     def test_seed_public_academics_can_target_public_institute_by_code(self):

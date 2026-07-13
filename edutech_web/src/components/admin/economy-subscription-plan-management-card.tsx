@@ -51,6 +51,14 @@ type SubscriptionCycle = {
   metadata: Record<string, unknown>;
   is_active: boolean;
   star_credit_rules: SubscriptionCreditRule[];
+  exam_allowance_config?: {
+    id?: string;
+    included_exam_attempts: number;
+    allowance_period_mode: string;
+    counting_scope: string;
+    metadata: Record<string, unknown>;
+    is_active: boolean;
+  } | null;
 };
 
 type AdminSubscriptionPlan = {
@@ -176,6 +184,18 @@ function buildCycleSummary(plan: AdminSubscriptionPlan) {
     .join(" · ");
 }
 
+function describeAllowancePosture(plan: AdminSubscriptionPlan) {
+  const activeAllowanceConfigs = plan.cycles
+    .map((cycle) => cycle.exam_allowance_config)
+    .filter((config): config is NonNullable<SubscriptionCycle["exam_allowance_config"]> => Boolean(config?.is_active));
+  if (activeAllowanceConfigs.length === 0) {
+    return "No active exam allowance configured.";
+  }
+  return activeAllowanceConfigs
+    .map((config) => `${config.included_exam_attempts} exams per ${titleCase(config.allowance_period_mode)}`)
+    .join(" · ");
+}
+
 function describeCoverageLabels(pkg: QuestionBankPackageOption) {
   if (pkg.coverage_subject_labels.length > 0) {
     return `Subjects: ${pkg.coverage_subject_labels.slice(0, 4).join(", ")}`;
@@ -286,6 +306,13 @@ function defaultCycle(): SubscriptionCycle {
     metadata: {},
     is_active: true,
     star_credit_rules: [defaultRule()],
+    exam_allowance_config: {
+      included_exam_attempts: 4,
+      allowance_period_mode: "billing_cycle",
+      counting_scope: "all_eligible_exams",
+      metadata: {},
+      is_active: true,
+    },
   };
 }
 
@@ -371,6 +398,8 @@ export function EconomySubscriptionPlanManagementCard({
             ...cycle,
             star_credit_rules:
               cycle.star_credit_rules.length > 0 ? cycle.star_credit_rules : [defaultRule()],
+            exam_allowance_config:
+              cycle.exam_allowance_config === undefined ? null : cycle.exam_allowance_config,
           }))
         : [defaultCycle()],
     );
@@ -392,6 +421,32 @@ export function EconomySubscriptionPlanManagementCard({
           star_credit_rules: cycle.star_credit_rules.map((rule, currentRuleIndex) =>
             currentRuleIndex === ruleIndex ? { ...rule, ...patch } : rule,
           ),
+        };
+      }),
+    );
+  }
+
+  function updateExamAllowanceConfig(
+    cycleIndex: number,
+    patch: Partial<NonNullable<SubscriptionCycle["exam_allowance_config"]>> | null,
+  ) {
+    setCycles((current) =>
+      current.map((cycle, currentCycleIndex) => {
+        if (currentCycleIndex !== cycleIndex) return cycle;
+        if (patch === null) {
+          return { ...cycle, exam_allowance_config: null };
+        }
+        return {
+          ...cycle,
+          exam_allowance_config: {
+            id: cycle.exam_allowance_config?.id,
+            included_exam_attempts: cycle.exam_allowance_config?.included_exam_attempts ?? 4,
+            allowance_period_mode: cycle.exam_allowance_config?.allowance_period_mode ?? "billing_cycle",
+            counting_scope: cycle.exam_allowance_config?.counting_scope ?? "all_eligible_exams",
+            metadata: cycle.exam_allowance_config?.metadata ?? {},
+            is_active: cycle.exam_allowance_config?.is_active ?? true,
+            ...patch,
+          },
         };
       }),
     );
@@ -579,6 +634,16 @@ export function EconomySubscriptionPlanManagementCard({
             metadata: rule.metadata ?? {},
             is_active: rule.is_active,
           })),
+          exam_allowance_config: cycle.exam_allowance_config
+            ? {
+                ...(cycle.exam_allowance_config.id ? { id: cycle.exam_allowance_config.id } : {}),
+                included_exam_attempts: Number(cycle.exam_allowance_config.included_exam_attempts),
+                allowance_period_mode: cycle.exam_allowance_config.allowance_period_mode,
+                counting_scope: cycle.exam_allowance_config.counting_scope,
+                metadata: cycle.exam_allowance_config.metadata ?? {},
+                is_active: cycle.exam_allowance_config.is_active,
+              }
+            : null,
         })),
         question_bank_package_links: questionBankPackageLinks.map((link) => ({
           ...(link.id ? { id: link.id } : {}),
@@ -1054,6 +1119,97 @@ export function EconomySubscriptionPlanManagementCard({
                       ))}
                     </div>
                   </div>
+
+                  <div className="economyFormSection">
+                    <div className="economyFormSectionHeader">
+                      <strong>Exam allowance</strong>
+                      <span>Set how many subscription-covered exam starts this cycle includes before fallback access rules are used.</span>
+                    </div>
+                    <div className="economyCompactStats">
+                      <span>{cycle.exam_allowance_config ? "Allowance configured" : "Allowance disabled"}</span>
+                      <span>
+                        {cycle.exam_allowance_config
+                          ? `${cycle.exam_allowance_config.included_exam_attempts} covered exam starts`
+                          : "No subscription quota on this cycle"}
+                      </span>
+                    </div>
+                    <div className="economySubscriptionCycleGrid">
+                      <label className="setupField">
+                        <span>Allowance enabled</span>
+                        <select
+                          value={cycle.exam_allowance_config ? "yes" : "no"}
+                          onChange={(event) =>
+                            event.target.value === "yes"
+                              ? updateExamAllowanceConfig(cycleIndex, {})
+                              : updateExamAllowanceConfig(cycleIndex, null)
+                          }
+                        >
+                          <option value="yes">Yes</option>
+                          <option value="no">No</option>
+                        </select>
+                      </label>
+                      <label className="setupField">
+                        <span>Included exam attempts</span>
+                        <input
+                          min="1"
+                          type="number"
+                          disabled={!cycle.exam_allowance_config}
+                          value={cycle.exam_allowance_config?.included_exam_attempts ?? 4}
+                          onChange={(event) =>
+                            updateExamAllowanceConfig(cycleIndex, {
+                              included_exam_attempts: Number(event.target.value),
+                            })
+                          }
+                        />
+                      </label>
+                      <label className="setupField">
+                        <span>Allowance period mode</span>
+                        <select
+                          disabled={!cycle.exam_allowance_config}
+                          value={cycle.exam_allowance_config?.allowance_period_mode ?? "billing_cycle"}
+                          onChange={(event) =>
+                            updateExamAllowanceConfig(cycleIndex, {
+                              allowance_period_mode: event.target.value,
+                            })
+                          }
+                        >
+                          <option value="billing_cycle">Billing cycle</option>
+                        </select>
+                      </label>
+                      <label className="setupField">
+                        <span>Counting scope</span>
+                        <select
+                          disabled={!cycle.exam_allowance_config}
+                          value={cycle.exam_allowance_config?.counting_scope ?? "all_eligible_exams"}
+                          onChange={(event) =>
+                            updateExamAllowanceConfig(cycleIndex, {
+                              counting_scope: event.target.value,
+                            })
+                          }
+                        >
+                          <option value="all_eligible_exams">All eligible exams</option>
+                        </select>
+                      </label>
+                      <label className="setupField">
+                        <span>Allowance status</span>
+                        <select
+                          disabled={!cycle.exam_allowance_config}
+                          value={cycle.exam_allowance_config?.is_active ? "yes" : "no"}
+                          onChange={(event) =>
+                            updateExamAllowanceConfig(cycleIndex, {
+                              is_active: event.target.value === "yes",
+                            })
+                          }
+                        >
+                          <option value="yes">Active</option>
+                          <option value="no">Paused</option>
+                        </select>
+                      </label>
+                    </div>
+                    <p className="academicSectionDescription">
+                      Example setup: `99 = 4`, `199 = 5`, `299 = 10` is handled by setting the included exam attempts on each active cycle.
+                    </p>
+                  </div>
                 </div>
               ))}
             </div>
@@ -1096,6 +1252,7 @@ export function EconomySubscriptionPlanManagementCard({
                 </span>
                 <span>Commercial lanes: {buildGrantModeSummary(plan)}</span>
                 <span>Billing posture: {buildCycleSummary(plan)}</span>
+                <span>Exam allowance: {describeAllowancePosture(plan)}</span>
                 <span>Renewal posture: {describeRenewalPosture(plan)}</span>
                 <span>Entitlement reconciliation: {describeReconciliationSummary(reconciliation)}</span>
                 <details className="economyCatalogDetailDisclosure">
@@ -1119,6 +1276,18 @@ export function EconomySubscriptionPlanManagementCard({
                           .join(" · ")}
                       </span>
                     ) : null}
+                    <span>
+                      Cycle allowance lanes:{" "}
+                      {plan.cycles
+                        .map((cycle, index) => {
+                          const config = cycle.exam_allowance_config;
+                          if (!config) {
+                            return `Cycle ${index + 1}: no allowance`;
+                          }
+                          return `Cycle ${index + 1}: ${config.included_exam_attempts} exams per ${titleCase(config.allowance_period_mode)}${config.is_active ? "" : " (paused)"}`;
+                        })
+                        .join(" · ")}
+                    </span>
                   </div>
                 </details>
                 <details className="economyCatalogDetailDisclosure">

@@ -5,7 +5,7 @@ import uuid
 from django.core.files.storage import default_storage
 from django.core.exceptions import PermissionDenied
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.db.models import Count, OuterRef, Prefetch, Q, Subquery
+from django.db.models import Case, Count, IntegerField, OuterRef, Prefetch, Q, Subquery, Value, When
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError as DRFValidationError
@@ -182,11 +182,15 @@ class MasterQuestionLibraryViewSet(ReadOnlyModelViewSet):
         raise PermissionDenied("You do not have permission to access the shared master-question library.")
 
     def _resolve_local_scope(self, *, institute, master_question, payload):
-        local_subject_code = str(payload.get("local_subject_code", "") or "").strip() or getattr(
-            getattr(master_question, "source_subject", None),
-            "code",
-            "",
-        )
+        raw_local_subject_code = payload.get("local_subject_code", None)
+        if raw_local_subject_code is None:
+            local_subject_code = getattr(
+                getattr(master_question, "source_subject", None),
+                "code",
+                "",
+            )
+        else:
+            local_subject_code = str(raw_local_subject_code or "").strip()
         local_subject = None
         local_topic = None
         local_program = None
@@ -211,11 +215,15 @@ class MasterQuestionLibraryViewSet(ReadOnlyModelViewSet):
                     {"local_program_code": "Program code does not match the resolved local subject."}
                 )
 
-        local_topic_code = str(payload.get("local_topic_code", "") or "").strip() or getattr(
-            getattr(master_question, "source_topic", None),
-            "code",
-            "",
-        )
+        raw_local_topic_code = payload.get("local_topic_code", None)
+        if raw_local_topic_code is None:
+            local_topic_code = getattr(
+                getattr(master_question, "source_topic", None),
+                "code",
+                "",
+            )
+        else:
+            local_topic_code = str(raw_local_topic_code or "").strip()
         if local_topic_code:
             local_topic = Topic.objects.filter(
                 institute=institute,
@@ -462,6 +470,196 @@ class QuestionViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
             return QuestionListSerializer
         return super().get_serializer_class()
 
+    def _compact_list_uses_metric_annotations(self):
+        if not self._is_compact_list_request():
+            return True
+
+        ordering = str(self.request.query_params.get("ordering", "") or "").strip()
+        ordering_key = ordering.lstrip("-")
+        if ordering_key in {"usage_count", "wrong_count", "skipped_count", "correct_count"}:
+            return True
+
+        if str(self.request.query_params.get("quality_signal", "") or "").strip():
+            return True
+        if str(self.request.query_params.get("revision_priority", "") or "").strip():
+            return True
+
+        return False
+
+    def _build_question_queryset(self, *, include_metrics: bool):
+        queryset = Question.objects.select_related(
+            "institute",
+            "program",
+            "subject",
+            "topic",
+            "created_by_teacher",
+            "passage",
+            "master_question",
+        )
+        if include_metrics:
+            queryset = queryset.annotate(
+                usage_count=Count("student_answers", filter=Q(student_answers__is_active=True), distinct=True),
+                correct_count=Count(
+                    "student_answers",
+                    filter=Q(
+                        student_answers__is_active=True,
+                        student_answers__selected_option__isnull=False,
+                        student_answers__is_correct=True,
+                    ),
+                    distinct=True,
+                ),
+                wrong_count=Count(
+                    "student_answers",
+                    filter=Q(
+                        student_answers__is_active=True,
+                        student_answers__selected_option__isnull=False,
+                        student_answers__is_correct=False,
+                    ),
+                    distinct=True,
+                ),
+                skipped_count=Count(
+                    "student_answers",
+                    filter=Q(
+                        student_answers__is_active=True,
+                        student_answers__selected_option__isnull=True,
+                    ),
+                    distinct=True,
+                ),
+                option_count=Count("options", filter=Q(options__is_active=True), distinct=True),
+                correct_option_count=Count(
+                    "options",
+                    filter=Q(options__is_active=True, options__is_correct=True),
+                    distinct=True,
+                ),
+                attachment_count=Count("attachments", filter=Q(attachments__is_active=True), distinct=True),
+                tag_count=Count("tag_maps", filter=Q(tag_maps__is_active=True), distinct=True),
+            )
+        if self._is_compact_list_request():
+            compact_only_fields = [
+                "id",
+                "institute_id",
+                "program_id",
+                "subject_id",
+                "topic_id",
+                "created_by_teacher_id",
+                "passage_id",
+                "passage_order",
+                "question_type",
+                "difficulty_level",
+                "content_format",
+                "question_text",
+                "explanation",
+                "default_marks",
+                "negative_marks",
+                "is_active",
+                "is_verified",
+                "metadata",
+                "master_question__source_type",
+                "master_question__source_program_id",
+                "master_question__source_subject_id",
+                "master_question__source_topic_id",
+                "master_question__visibility",
+                "master_question__metadata",
+                "passage__title",
+                "created_by_teacher__full_name",
+            ]
+            if include_metrics:
+                queryset = queryset.only(*compact_only_fields)
+            else:
+                queryset = queryset.only(*compact_only_fields)
+        else:
+            queryset = queryset.prefetch_related(
+                Prefetch(
+                    "options",
+                    queryset=QuestionOption.objects.filter(is_active=True)
+                    .annotate(
+                        selected_count=Count("student_answers", filter=Q(student_answers__is_active=True), distinct=True),
+                        selected_correct_count=Count(
+                            "student_answers",
+                            filter=Q(student_answers__is_active=True, student_answers__is_correct=True),
+                            distinct=True,
+                        ),
+                        selected_wrong_count=Count(
+                            "student_answers",
+                            filter=Q(student_answers__is_active=True, student_answers__is_correct=False),
+                            distinct=True,
+                        ),
+                    )
+                    .order_by("option_order"),
+                ),
+                "attachments",
+                "tag_maps__tag",
+            )
+        return queryset.distinct()
+
+    def _build_compact_page_queryset(self, question_ids):
+        if not question_ids:
+            return Question.objects.none()
+        preserved_order = Case(
+            *[When(id=question_id, then=Value(index)) for index, question_id in enumerate(question_ids)],
+            output_field=IntegerField(),
+        )
+        return (
+            self._build_question_queryset(include_metrics=True)
+            .filter(id__in=question_ids)
+            .annotate(_page_order=preserved_order)
+            .order_by("_page_order")
+        )
+
+    def _build_shared_library_access_map(self, objects):
+        profile = get_account_profile(self.request.user)
+        institute_id = getattr(profile, "institute_id", None) if profile is not None else None
+        if institute_id is None:
+            return {}
+
+        linked_master_questions = []
+        linked_question_master_ids = {}
+        seen_master_ids = set()
+        for obj in objects:
+            master_question = getattr(obj, "master_question", None)
+            if master_question is None:
+                continue
+            if str(getattr(master_question, "source_type", "") or "").strip() != "platform":
+                continue
+            linked_question_master_ids[str(obj.id)] = str(master_question.id)
+            if master_question.id in seen_master_ids:
+                continue
+            seen_master_ids.add(master_question.id)
+            linked_master_questions.append(master_question)
+
+        if not linked_master_questions:
+            return {}
+
+        access_summaries = bulk_get_master_question_access_summaries(
+            institute_id,
+            master_questions=linked_master_questions,
+        )
+        return {
+            question_id: bool(access_summaries.get(master_question_id, {}).get("has_access"))
+            for question_id, master_question_id in linked_question_master_ids.items()
+        }
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+        objects = list(page if page is not None else queryset)
+
+        if self._is_compact_list_request() and not self._compact_list_uses_metric_annotations():
+            page_ids = [obj.id for obj in objects]
+            objects = list(self._build_compact_page_queryset(page_ids))
+
+        serializer_context = self.get_serializer_context()
+        if self._is_compact_list_request():
+            serializer_context = {
+                **serializer_context,
+                "question_shared_library_access_map": self._build_shared_library_access_map(objects),
+            }
+
+        serializer = self.get_serializer(objects, many=True, context=serializer_context)
+        if page is not None:
+            return self.get_paginated_response(serializer.data)
+        return Response(serializer.data)
+
     def perform_create(self, serializer):
         question = serializer.save()
         notify_question_saved(question)
@@ -505,99 +703,8 @@ class QuestionViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
         instance.save(update_fields=["is_active", "updated_at"])
 
     def get_queryset(self):
-        queryset = Question.objects.select_related(
-            "institute",
-            "program",
-            "subject",
-            "topic",
-            "created_by_teacher",
-            "passage",
-            "master_question",
-        ).annotate(
-            usage_count=Count("student_answers", filter=Q(student_answers__is_active=True), distinct=True),
-            correct_count=Count(
-                "student_answers",
-                filter=Q(
-                    student_answers__is_active=True,
-                    student_answers__selected_option__isnull=False,
-                    student_answers__is_correct=True,
-                ),
-                distinct=True,
-            ),
-            wrong_count=Count(
-                "student_answers",
-                filter=Q(
-                    student_answers__is_active=True,
-                    student_answers__selected_option__isnull=False,
-                    student_answers__is_correct=False,
-                ),
-                distinct=True,
-            ),
-            skipped_count=Count(
-                "student_answers",
-                filter=Q(
-                    student_answers__is_active=True,
-                    student_answers__selected_option__isnull=True,
-                ),
-                distinct=True,
-            ),
-            option_count=Count("options", filter=Q(options__is_active=True), distinct=True),
-            correct_option_count=Count(
-                "options",
-                filter=Q(options__is_active=True, options__is_correct=True),
-                distinct=True,
-            ),
-            attachment_count=Count("attachments", filter=Q(attachments__is_active=True), distinct=True),
-            tag_count=Count("tag_maps", filter=Q(tag_maps__is_active=True), distinct=True),
-        )
-        if self._is_compact_list_request():
-            queryset = queryset.only(
-                "id",
-                "institute_id",
-                "program_id",
-                "subject_id",
-                "topic_id",
-                "created_by_teacher_id",
-                "passage_id",
-                "passage_order",
-                "question_type",
-                "difficulty_level",
-                "content_format",
-                "question_text",
-                "explanation",
-                "default_marks",
-                "negative_marks",
-                "is_active",
-                "is_verified",
-                "metadata",
-                "master_question__source_type",
-                "passage__title",
-                "created_by_teacher__full_name",
-            )
-        else:
-            queryset = queryset.prefetch_related(
-                Prefetch(
-                    "options",
-                    queryset=QuestionOption.objects.filter(is_active=True)
-                    .annotate(
-                        selected_count=Count("student_answers", filter=Q(student_answers__is_active=True), distinct=True),
-                        selected_correct_count=Count(
-                            "student_answers",
-                            filter=Q(student_answers__is_active=True, student_answers__is_correct=True),
-                            distinct=True,
-                        ),
-                        selected_wrong_count=Count(
-                            "student_answers",
-                            filter=Q(student_answers__is_active=True, student_answers__is_correct=False),
-                            distinct=True,
-                        ),
-                    )
-                    .order_by("option_order"),
-                ),
-                "attachments",
-                "tag_maps__tag",
-            )
-        queryset = queryset.distinct()
+        include_metrics = not self._is_compact_list_request() or self._compact_list_uses_metric_annotations()
+        queryset = self._build_question_queryset(include_metrics=include_metrics)
         return scope_question_queryset(queryset, self.request.user)
 
     @action(detail=False, methods=["get"], url_path="import-template")

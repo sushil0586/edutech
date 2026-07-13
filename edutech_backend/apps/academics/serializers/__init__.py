@@ -191,6 +191,7 @@ class SubjectListSerializer(serializers.ModelSerializer):
             "program",
             "name",
             "code",
+            "description",
             "sort_order",
             "is_active",
         )

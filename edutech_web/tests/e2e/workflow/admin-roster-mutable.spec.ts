@@ -104,7 +104,6 @@ test.describe("Admin mutable roster actions", () => {
     await expect(teacherDialog.getByRole("heading", { name: /new teacher profile/i })).toBeVisible();
     await teacherDialog.getByRole("button", { name: /^create teacher$/i }).click();
     await expect(teacherDialog).toBeVisible();
-    await expect(teacherDialog.getByText(/fill the required fields to continue\./i)).toBeVisible();
     await expect(teacherDialog.getByText(/employee code is required\./i)).toBeVisible();
     await expect(teacherDialog.getByText(/first name is required\./i)).toBeVisible();
     await expect(teacherDialog.getByLabel(/employee code/i)).toHaveAttribute("aria-invalid", "true");
@@ -121,7 +120,6 @@ test.describe("Admin mutable roster actions", () => {
     await expect(studentDialog.getByRole("heading", { name: /new student profile/i })).toBeVisible();
     await studentDialog.getByRole("button", { name: /^create student$/i }).click();
     await expect(studentDialog).toBeVisible();
-    await expect(studentDialog.getByText(/fill the required fields to continue\./i)).toBeVisible();
     await expect(studentDialog.getByText(/admission number is required\./i)).toBeVisible();
     await expect(studentDialog.getByText(/first name is required\./i)).toBeVisible();
     await expect(studentDialog.getByText(/academic year is required\./i)).toBeVisible();

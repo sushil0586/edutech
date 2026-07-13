@@ -6,7 +6,17 @@ import { BuilderTabs } from "@/components/ui/builder-tabs";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { TeacherPageHeader } from "@/components/ui/teacher-page-header";
 import type { TeacherResultSummary } from "@/features/dashboard/types";
-import { fetchTeacherExamDetail, fetchTeacherResultSummary } from "@/lib/api/teacher";
+import {
+  autoAssignTeacherExamStudentsToSlots,
+  bulkAssignTeacherExamStudentSlot,
+  createTeacherExamSlot,
+  fetchTeacherExamDetail,
+  fetchTeacherExamSlotAuditLogs,
+  previewTeacherExamAutoSlotAssignment,
+  fetchTeacherResultSummary,
+  overrideTeacherExamStudentSlot,
+  updateTeacherExamSlot,
+} from "@/lib/api/teacher";
 import {
   assignTeacherExamStudents,
   createTeacherExamQuestion,
@@ -49,6 +59,29 @@ function asIsoDateTime(value: FormDataEntryValue | null) {
   return new Date(stringValue).toISOString();
 }
 
+function asOptionalNumber(value: FormDataEntryValue | null) {
+  const stringValue = String(value ?? "").trim();
+  if (!stringValue) return null;
+  const numericValue = Number(stringValue);
+  return Number.isFinite(numericValue) ? numericValue : null;
+}
+
+function normalizeDateTimeInput(value: FormDataEntryValue | null) {
+  const normalized = String(value ?? "").trim();
+  if (!normalized) return "";
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) return normalized;
+  return date.toISOString();
+}
+
+function toDateTimeLocalValue(value: string | null | undefined) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = (part: number) => String(part).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 function formatDateTimeLocal(value: string | null) {
   if (!value) return "";
   const date = new Date(value);
@@ -62,6 +95,10 @@ function formatDateTimeLocal(value: string | null) {
 
 function titleCase(value: string) {
   return value.replaceAll("_", " ");
+}
+
+function resolveAutoSlotPreviewScope(value?: string) {
+  return value === "all_selected" ? "all_selected" : "unassigned_selected";
 }
 
 function qualityTone(signal: string) {
@@ -101,6 +138,23 @@ function questionBankPriorityScore(question: {
   if (!question.has_explanation) score += 18;
   return score;
 }
+
+type BuilderTabId = "sections" | "questions" | "assignment" | "bank";
+type AutoSlotPreviewScope = "all_selected" | "unassigned_selected";
+
+const examAccessModeOptions = [
+  { value: "global_window_legacy", label: "Global Window" },
+  { value: "slot_managed", label: "Slot Managed" },
+  { value: "long_window_attempt_managed", label: "Long Window Attempt Managed" },
+  { value: "platform_event_managed", label: "Platform Event Managed" },
+] as const;
+
+const examAccessSlotStatusOptions = [
+  { value: "draft", label: "Draft" },
+  { value: "active", label: "Active" },
+  { value: "closed", label: "Closed" },
+  { value: "cancelled", label: "Cancelled" },
+] as const;
 
 async function upsertTeacherExamQuestionLink(payload: {
   examId: string;
@@ -196,6 +250,10 @@ async function updateExamSettingsAction(formData: FormData) {
       result_publish_at: asIsoDateTime(formData.get("result_publish_at")),
       review_available_from: asIsoDateTime(formData.get("review_available_from")),
       review_available_until: asIsoDateTime(formData.get("review_available_until")),
+      access_mode: String(formData.get("access_mode") ?? "").trim(),
+      daily_start_cap: asOptionalNumber(formData.get("daily_start_cap")),
+      hourly_start_cap: asOptionalNumber(formData.get("hourly_start_cap")),
+      concurrent_active_attempt_cap: asOptionalNumber(formData.get("concurrent_active_attempt_cap")),
     });
   } catch (error) {
     unstable_rethrow(error);
@@ -466,11 +524,165 @@ async function updateStudentAccommodationAction(formData: FormData) {
   );
 }
 
-async function loadBuilderData(examId: string) {
-  const [detail, allResultSummaries] = await Promise.all([
+async function createExamSlotAction(formData: FormData) {
+  "use server";
+
+  const examId = String(formData.get("exam_id") ?? "").trim();
+  if (!examId) return;
+
+  try {
+    await createTeacherExamSlot(examId, {
+      cohort: asNullableValue(formData.get("cohort")) ?? undefined,
+      slot_label: String(formData.get("slot_label") ?? "").trim(),
+      slot_start_at: normalizeDateTimeInput(formData.get("slot_start_at")),
+      slot_end_at: normalizeDateTimeInput(formData.get("slot_end_at")),
+      grace_period_minutes: Number(formData.get("grace_period_minutes") ?? 0),
+      assignment_capacity: asOptionalNumber(formData.get("assignment_capacity")),
+      start_capacity: asOptionalNumber(formData.get("start_capacity")),
+      status: String(formData.get("status") ?? "active").trim() || "active",
+      metadata: {},
+      is_active: String(formData.get("is_active") ?? "true") === "true",
+    });
+  } catch (error) {
+    unstable_rethrow(error);
+    const message =
+      error instanceof Error && error.message
+        ? error.message
+        : "Unable to create the exam slot right now.";
+    redirect(`/teacher/exams/${examId}/builder?tab=assignment&error=${encodeURIComponent(message)}`);
+  }
+
+  redirect(`/teacher/exams/${examId}/builder?tab=assignment&message=${encodeURIComponent("Exam slot created.")}`);
+}
+
+async function updateExamSlotAction(formData: FormData) {
+  "use server";
+
+  const examId = String(formData.get("exam_id") ?? "").trim();
+  const slotId = String(formData.get("slot_id") ?? "").trim();
+  if (!examId || !slotId) return;
+
+  try {
+    await updateTeacherExamSlot(examId, slotId, {
+      cohort: asNullableValue(formData.get("cohort")),
+      slot_label: String(formData.get("slot_label") ?? "").trim(),
+      slot_start_at: normalizeDateTimeInput(formData.get("slot_start_at")),
+      slot_end_at: normalizeDateTimeInput(formData.get("slot_end_at")),
+      grace_period_minutes: Number(formData.get("grace_period_minutes") ?? 0),
+      assignment_capacity: asOptionalNumber(formData.get("assignment_capacity")),
+      start_capacity: asOptionalNumber(formData.get("start_capacity")),
+      status: String(formData.get("status") ?? "active").trim() || "active",
+      is_active: String(formData.get("is_active") ?? "true") === "true",
+    });
+  } catch (error) {
+    unstable_rethrow(error);
+    const message =
+      error instanceof Error && error.message
+        ? error.message
+        : "Unable to update the exam slot right now.";
+    redirect(`/teacher/exams/${examId}/builder?tab=assignment&error=${encodeURIComponent(message)}`);
+  }
+
+  redirect(`/teacher/exams/${examId}/builder?tab=assignment&message=${encodeURIComponent("Exam slot updated.")}`);
+}
+
+async function updateStudentSlotOverrideAction(formData: FormData) {
+  "use server";
+
+  const examId = String(formData.get("exam_id") ?? "").trim();
+  if (!examId) return;
+
+  try {
+    await overrideTeacherExamStudentSlot(examId, {
+      student: String(formData.get("student") ?? "").trim(),
+      access_slot: asNullableValue(formData.get("access_slot")),
+      notes: String(formData.get("notes") ?? "").trim(),
+    });
+  } catch (error) {
+    unstable_rethrow(error);
+    const message =
+      error instanceof Error && error.message
+        ? error.message
+        : "Unable to update the student slot override right now.";
+    redirect(`/teacher/exams/${examId}/builder?tab=assignment&error=${encodeURIComponent(message)}`);
+  }
+
+  redirect(`/teacher/exams/${examId}/builder?tab=assignment&message=${encodeURIComponent("Student slot override saved.")}`);
+}
+
+async function bulkAssignStudentSlotAction(formData: FormData) {
+  "use server";
+
+  const examId = String(formData.get("exam_id") ?? "").trim();
+  if (!examId) return;
+
+  try {
+    await bulkAssignTeacherExamStudentSlot(examId, {
+      apply_to:
+        (String(formData.get("apply_to") ?? "unassigned_selected").trim() as
+          | "all_selected"
+          | "unassigned_selected"
+          | "student_ids") || "unassigned_selected",
+      access_slot: asNullableValue(formData.get("access_slot")),
+      notes: String(formData.get("notes") ?? "").trim(),
+    });
+  } catch (error) {
+    unstable_rethrow(error);
+    const message =
+      error instanceof Error && error.message
+        ? error.message
+        : "Unable to update bulk student slot assignments right now.";
+    redirect(`/teacher/exams/${examId}/builder?tab=assignment&error=${encodeURIComponent(message)}`);
+  }
+
+  redirect(`/teacher/exams/${examId}/builder?tab=assignment&message=${encodeURIComponent("Bulk student slot assignment saved.")}`);
+}
+
+async function autoAssignStudentSlotsAction(formData: FormData) {
+  "use server";
+
+  const examId = String(formData.get("exam_id") ?? "").trim();
+  if (!examId) return;
+
+  try {
+    await autoAssignTeacherExamStudentsToSlots(examId, {
+      apply_to:
+        (String(formData.get("apply_to") ?? "unassigned_selected").trim() as
+          | "all_selected"
+          | "unassigned_selected") || "unassigned_selected",
+      notes: String(formData.get("notes") ?? "").trim(),
+    });
+  } catch (error) {
+    unstable_rethrow(error);
+    const message =
+      error instanceof Error && error.message
+        ? error.message
+        : "Unable to auto-distribute student slots right now.";
+    redirect(`/teacher/exams/${examId}/builder?tab=assignment&error=${encodeURIComponent(message)}`);
+  }
+
+  redirect(`/teacher/exams/${examId}/builder?tab=assignment&message=${encodeURIComponent("Automatic slot assignment completed.")}`);
+}
+
+async function loadBuilderData(
+  examId: string,
+  requestedTabId: BuilderTabId | null,
+  previewScope: AutoSlotPreviewScope,
+) {
+  const [detail, autoSlotPreviewResponse, slotAuditLogsResponse, allResultSummaries] = await Promise.all([
     fetchTeacherExamDetail(examId),
+    requestedTabId === "assignment"
+      ? previewTeacherExamAutoSlotAssignment(examId, { apply_to: previewScope }).catch(() => ({ data: null }))
+      : Promise.resolve({ data: null }),
+    fetchTeacherExamSlotAuditLogs(examId).catch(() => ({ data: [] })),
     fetchTeacherResultSummary().catch(() => [] as TeacherResultSummary[]),
   ]);
+  const activeExamQuestionsCount = detail.exam_questions.filter((question) => question.is_active).length;
+  const needsQuestionBank =
+    requestedTabId === "questions" ||
+    requestedTabId === "bank" ||
+    (requestedTabId === null && activeExamQuestionsCount === 0);
+  const needsStudents = requestedTabId === "assignment";
 
   const [
     academicYearsResult,
@@ -495,18 +707,20 @@ async function loadBuilderData(examId: string) {
           program: detail.program,
         })
       : Promise.resolve([]),
-    fetchTeacherQuestionPage({
-      page: 1,
-      page_size: 200,
-      subject: detail.subject || undefined,
-      program: detail.program || undefined,
-    }),
+    needsQuestionBank
+      ? fetchTeacherQuestionPage({
+          page: 1,
+          page_size: 200,
+          subject: detail.subject || undefined,
+          program: detail.program || undefined,
+        })
+      : Promise.resolve(null),
     detail.subject
       ? fetchTeacherTopics({
           subject: detail.subject,
         })
       : Promise.resolve([]),
-    detail.academic_year && detail.program
+    needsStudents && detail.academic_year && detail.program
       ? fetchTeacherStudents({
           academic_year: detail.academic_year,
           program: detail.program,
@@ -518,6 +732,8 @@ async function loadBuilderData(examId: string) {
 
   return {
     detail,
+    autoSlotPreview: autoSlotPreviewResponse.data ?? null,
+    slotAuditLogs: slotAuditLogsResponse.data ?? [],
     resultSummary: allResultSummaries.find((summary) => summary.exam === examId) ?? null,
     academicYears: academicYearsResult.status === "fulfilled" ? academicYearsResult.value : [],
     programs: programsResult.status === "fulfilled" ? programsResult.value : [],
@@ -536,13 +752,18 @@ export default async function TeacherExamBuilderPage({
   searchParams,
 }: {
   params: Promise<{ examId: string }>;
-  searchParams: Promise<{ error?: string; message?: string; tab?: string }>;
+  searchParams: Promise<{ error?: string; message?: string; tab?: string; preview_scope?: string }>;
 }) {
   await requireTeacherSession();
   const { examId } = await params;
-  const { error, message, tab } = await searchParams;
+  const { error, message, tab, preview_scope } = await searchParams;
+  const requestedTabId: BuilderTabId | null =
+    tab && ["sections", "questions", "assignment", "bank"].includes(tab)
+      ? (tab as BuilderTabId)
+      : null;
+  const previewScope = resolveAutoSlotPreviewScope(preview_scope);
 
-  const builderData = await loadBuilderData(examId).catch(() => null);
+  const builderData = await loadBuilderData(examId, requestedTabId, previewScope).catch(() => null);
 
   if (!builderData) {
     return (
@@ -571,6 +792,8 @@ export default async function TeacherExamBuilderPage({
 
   const {
     detail,
+    autoSlotPreview,
+    slotAuditLogs,
     resultSummary,
     academicYears,
     programs,
@@ -613,9 +836,9 @@ export default async function TeacherExamBuilderPage({
     (question) => question.quality_signal === "healthy" && question.is_verified && question.has_explanation,
   ).length;
   const builderAmbiguousCount = questions.filter((question) => question.quality_signal === "ambiguous").length;
-  const requestedTabId = tab && ["sections", "questions", "assignment", "bank"].includes(tab) ? tab : null;
   const initialWorkspaceTabId =
-    requestedTabId ?? (activeExamQuestions.length === 0 && availableQuestions.length > 0 ? "questions" : "sections");
+    requestedTabId ??
+    (activeExamQuestions.length === 0 && questionPage && availableQuestions.length > 0 ? "questions" : "sections");
   const builderWorkspaceItems = [
     {
       id: "sections",
@@ -839,6 +1062,431 @@ export default async function TeacherExamBuilderPage({
               />
             </div>
           </form>
+
+          <div className="builderDivider" />
+
+          <div className="builderPanelHeader">
+            <div>
+              <span className="builderFlowLabel">Capacity control</span>
+              <strong>Access Slots</strong>
+              <p>Design start windows, capacity, and concurrency without leaving the builder workflow.</p>
+            </div>
+            <div className="builderPanelMetrics">
+              <article className="builderMetricChip">
+                <span>Configured</span>
+                <strong>{detail.access_slots.length}</strong>
+              </article>
+              <article className="builderMetricChip">
+                <span>Mode</span>
+                <strong>{titleCase(detail.access_mode)}</strong>
+              </article>
+            </div>
+          </div>
+
+          <form action={createExamSlotAction} className="builderForm builderSubform">
+            <input name="exam_id" type="hidden" value={detail.id} />
+            <input name="is_active" type="hidden" value="true" />
+
+            <div className="builderGrid compact">
+              <label className="fieldStack">
+                <span>Slot label</span>
+                <input defaultValue={`${detail.cohort_name ?? "General"} Slot`} name="slot_label" placeholder="Morning Batch" required type="text" />
+              </label>
+              <label className="fieldStack">
+                <span>Cohort</span>
+                <select defaultValue={detail.cohort ?? ""} name="cohort">
+                  <option value="">All eligible cohorts</option>
+                  {cohorts.map((cohort) => (
+                    <option key={cohort.id} value={cohort.id}>
+                      {cohort.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="fieldStack">
+                <span>Slot start</span>
+                <input defaultValue={toDateTimeLocalValue(detail.start_at)} name="slot_start_at" required type="datetime-local" />
+              </label>
+              <label className="fieldStack">
+                <span>Slot end</span>
+                <input defaultValue={toDateTimeLocalValue(detail.end_at)} name="slot_end_at" required type="datetime-local" />
+              </label>
+              <label className="fieldStack">
+                <span>Grace period</span>
+                <input defaultValue="15" min="0" name="grace_period_minutes" step="1" type="number" />
+              </label>
+              <label className="fieldStack">
+                <span>Assignment capacity</span>
+                <input defaultValue="" min="1" name="assignment_capacity" placeholder="Optional" type="number" />
+              </label>
+              <label className="fieldStack">
+                <span>Concurrent start cap</span>
+                <input defaultValue="" min="1" name="start_capacity" placeholder="Optional" type="number" />
+              </label>
+              <label className="fieldStack">
+                <span>Status</span>
+                <select defaultValue="active" name="status">
+                  {examAccessSlotStatusOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="settingsActionRow">
+              <ActionSubmitButton className="button buttonSecondary" idleLabel="Create Slot" pendingLabel="Creating Slot..." />
+            </div>
+          </form>
+
+          <div className="builderStack">
+            {detail.access_slots.length ? (
+              detail.access_slots.map((slot) => (
+                <form action={updateExamSlotAction} className="builderListCard" key={slot.id}>
+                  <input name="exam_id" type="hidden" value={detail.id} />
+                  <input name="slot_id" type="hidden" value={slot.id} />
+                  <input name="is_active" type="hidden" value={String(slot.is_active)} />
+
+                  <div className="builderGrid compact">
+                    <label className="fieldStack">
+                      <span>Slot label</span>
+                      <input defaultValue={slot.slot_label} name="slot_label" required type="text" />
+                    </label>
+                    <label className="fieldStack">
+                      <span>Cohort</span>
+                      <select defaultValue={slot.cohort ?? ""} name="cohort">
+                        <option value="">All eligible cohorts</option>
+                        {cohorts.map((cohort) => (
+                          <option key={cohort.id} value={cohort.id}>
+                            {cohort.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="fieldStack">
+                      <span>Slot start</span>
+                      <input defaultValue={toDateTimeLocalValue(slot.slot_start_at)} name="slot_start_at" required type="datetime-local" />
+                    </label>
+                    <label className="fieldStack">
+                      <span>Slot end</span>
+                      <input defaultValue={toDateTimeLocalValue(slot.slot_end_at)} name="slot_end_at" required type="datetime-local" />
+                    </label>
+                    <label className="fieldStack">
+                      <span>Grace period</span>
+                      <input defaultValue={slot.grace_period_minutes} min="0" name="grace_period_minutes" step="1" type="number" />
+                    </label>
+                    <label className="fieldStack">
+                      <span>Assignment cap</span>
+                      <input defaultValue={slot.assignment_capacity ?? ""} min="1" name="assignment_capacity" placeholder="Optional" type="number" />
+                    </label>
+                    <label className="fieldStack">
+                      <span>Start cap</span>
+                      <input defaultValue={slot.start_capacity ?? ""} min="1" name="start_capacity" placeholder="Optional" type="number" />
+                    </label>
+                    <label className="fieldStack">
+                      <span>Status</span>
+                      <select defaultValue={slot.status} name="status">
+                        {examAccessSlotStatusOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+
+                  <div className="questionBankTagRow">
+                    <span className={`statusPill ${slot.occupancy.occupancy_state === "full" ? "statusDanger" : slot.occupancy.occupancy_state === "near_full" ? "statusWarning" : "statusLive"}`}>
+                      {slot.occupancy.occupancy_state.replaceAll("_", " ")}
+                    </span>
+                    <span className="statusPill statusDemo">
+                      {slot.occupancy.assignment_count}
+                      {slot.occupancy.assignment_capacity !== null ? ` / ${slot.occupancy.assignment_capacity}` : ""} assigned
+                    </span>
+                    <span className="statusPill statusDemo">
+                      {slot.occupancy.active_attempt_count}
+                      {slot.occupancy.start_capacity !== null ? ` / ${slot.occupancy.start_capacity}` : ""} in progress
+                    </span>
+                  </div>
+
+                  <p className="emptyText">
+                    {slot.cohort_name ?? "All eligible cohorts"} · starts {new Date(slot.slot_start_at).toLocaleString("en-IN")} · ends {new Date(slot.slot_end_at).toLocaleString("en-IN")}
+                  </p>
+
+                  <div className="settingsActionRow">
+                    <ActionSubmitButton className="button buttonSecondary" idleLabel="Update Slot" pendingLabel="Updating Slot..." />
+                  </div>
+                </form>
+              ))
+            ) : (
+              <div className="builderEmptyState">
+                <strong>No slots configured yet</strong>
+                <p>This exam can still use broad schedule rules, but slot-managed capacity control starts here.</p>
+              </div>
+            )}
+          </div>
+
+          <div className="builderDivider" />
+
+          <div className="builderPanelHeader">
+            <div>
+              <span className="builderFlowLabel">Selected-student control</span>
+              <strong>Student Slot Overrides</strong>
+              <p>Use direct overrides only when a learner needs a different slot from the default cohort routing.</p>
+            </div>
+            <div className="builderPanelMetrics">
+              <article className="builderMetricChip">
+                <span>Directly assigned</span>
+                <strong>{activeAssignedStudents.length}</strong>
+              </article>
+            </div>
+          </div>
+
+          {detail.assignment_mode === "selected_students" && activeAssignedStudents.length ? (
+            <>
+              {autoSlotPreview ? (
+                <div className="builderListCard">
+                  <div className="builderPanelHeader">
+                    <div>
+                      <span className="builderFlowLabel">Dry run</span>
+                      <strong>Automatic Distribution Preview</strong>
+                      <p>
+                        Preview shows how the current selected learner scope would be routed across active slots.
+                      </p>
+                    </div>
+                    <div className="builderPanelMetrics">
+                      <article className="builderMetricChip">
+                        <span>Targeted</span>
+                        <strong>{autoSlotPreview.targeted_count}</strong>
+                      </article>
+                      <article className="builderMetricChip">
+                        <span>Placed</span>
+                        <strong>{autoSlotPreview.updated_count}</strong>
+                      </article>
+                    </div>
+                  </div>
+
+                  <form className="builderForm builderSubform" method="GET">
+                    <input name="tab" type="hidden" value="assignment" />
+                    <div className="builderGrid compact">
+                      <label className="fieldStack">
+                        <span>Preview scope</span>
+                        <select defaultValue={previewScope} name="preview_scope">
+                          <option value="unassigned_selected">Only learners without direct slot</option>
+                          <option value="all_selected">All selected learners</option>
+                        </select>
+                      </label>
+                    </div>
+                    <div className="settingsActionRow">
+                      <button className="button buttonSecondary" type="submit">
+                        Refresh Preview
+                      </button>
+                    </div>
+                  </form>
+
+                  <div className="builderStack">
+                    {autoSlotPreview.assignments.slice(0, 6).map((assignment) => (
+                      <div className="builderListRow" key={`preview-${assignment.student_id}`}>
+                        <div>
+                          <strong>{assignment.student_name}</strong>
+                          <span>{assignment.admission_no} · {assignment.cohort_name || "No cohort"}</span>
+                        </div>
+                        <div className="builderListMeta">
+                          <span>{assignment.planned_slot_label || "Unplaced"}</span>
+                          <span>{assignment.current_slot_label ? `Current: ${assignment.current_slot_label}` : "No current slot"}</span>
+                        </div>
+                      </div>
+                    ))}
+                    {autoSlotPreview.unresolved_students.length ? (
+                      <div className="builderEmptyState">
+                        <strong>{autoSlotPreview.unresolved_students.length} learner(s) still unplaced</strong>
+                        <p>{autoSlotPreview.unresolved_students.slice(0, 3).join(", ")}</p>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="builderStack">
+                    {autoSlotPreview.slot_summary.map((slot) => (
+                      <div className="builderListRow" key={`preview-slot-${slot.slot_id}`}>
+                        <div>
+                          <strong>{slot.slot_label}</strong>
+                          <span>{slot.cohort_name || "All eligible cohorts"}</span>
+                        </div>
+                        <div className="builderListMeta">
+                          <span>
+                            {slot.current_assigned_count} {"->"} {slot.projected_assigned_count}
+                            {slot.assignment_capacity !== null ? ` / ${slot.assignment_capacity}` : ""}
+                          </span>
+                          <span>
+                            {slot.remaining_after_plan !== null
+                              ? `${slot.remaining_after_plan} remaining`
+                              : "No assignment cap"}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              <form action={autoAssignStudentSlotsAction} className="builderForm builderSubform">
+                <input name="exam_id" type="hidden" value={detail.id} />
+
+                <div className="builderGrid compact">
+                  <label className="fieldStack">
+                    <span>Auto distribute</span>
+                    <select defaultValue="unassigned_selected" name="apply_to">
+                      <option value="unassigned_selected">Only learners without direct slot</option>
+                      <option value="all_selected">Rebalance all selected learners</option>
+                    </select>
+                  </label>
+                  <label className="fieldStack">
+                    <span>Notes</span>
+                    <input defaultValue="" name="notes" placeholder="Optional auto-routing note" type="text" />
+                  </label>
+                </div>
+
+                <div className="settingsActionRow">
+                  <ActionSubmitButton className="button buttonSecondary" idleLabel="Auto Distribute Slots" pendingLabel="Distributing Slots..." />
+                </div>
+              </form>
+
+              <form action={bulkAssignStudentSlotAction} className="builderForm builderSubform">
+                <input name="exam_id" type="hidden" value={detail.id} />
+
+                <div className="builderGrid compact">
+                  <label className="fieldStack">
+                    <span>Bulk target</span>
+                    <select defaultValue="unassigned_selected" name="apply_to">
+                      <option value="unassigned_selected">Only learners without direct slot</option>
+                      <option value="all_selected">All selected learners</option>
+                    </select>
+                  </label>
+                  <label className="fieldStack">
+                    <span>Access slot</span>
+                    <select defaultValue="" name="access_slot">
+                      <option value="">Clear direct slot overrides</option>
+                      {detail.access_slots.map((slot) => (
+                        <option key={slot.id} value={slot.id}>
+                          {slot.slot_label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="fieldStack">
+                    <span>Notes</span>
+                    <input defaultValue="" name="notes" placeholder="Optional bulk scheduling note" type="text" />
+                  </label>
+                </div>
+
+                <div className="settingsActionRow">
+                  <ActionSubmitButton className="button buttonSecondary" idleLabel="Apply Bulk Slot" pendingLabel="Applying Bulk Slot..." />
+                </div>
+              </form>
+
+              <form action={updateStudentSlotOverrideAction} className="builderForm builderSubform">
+                <input name="exam_id" type="hidden" value={detail.id} />
+
+                <div className="builderGrid compact">
+                  <label className="fieldStack">
+                    <span>Student</span>
+                    <select defaultValue={activeAssignedStudents[0]?.student ?? ""} name="student" required>
+                      {activeAssignedStudents.map((student) => (
+                        <option key={student.id} value={student.student}>
+                          {student.full_name} · {student.admission_no}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="fieldStack">
+                    <span>Access slot</span>
+                    <select defaultValue="" name="access_slot">
+                      <option value="">Clear direct slot override</option>
+                      {detail.access_slots.map((slot) => (
+                        <option key={slot.id} value={slot.id}>
+                          {slot.slot_label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="fieldStack">
+                    <span>Notes</span>
+                    <input defaultValue="" name="notes" placeholder="Support note or reason" type="text" />
+                  </label>
+                </div>
+
+                <div className="settingsActionRow">
+                  <ActionSubmitButton className="button buttonSecondary" idleLabel="Save Slot Override" pendingLabel="Saving Override..." />
+                </div>
+              </form>
+            </>
+          ) : (
+            <div className="builderEmptyState">
+              <strong>Overrides unlock in selected-student mode</strong>
+              <p>Switch assignment mode to selected students and choose learners first if you need per-student slot routing.</p>
+            </div>
+          )}
+
+          <div className="builderStack">
+            {activeAssignedStudents.map((student) => (
+              <div className="builderListRow" key={`slot-assignment-${student.id}`}>
+                <div>
+                  <strong>{student.full_name}</strong>
+                  <span>
+                    {student.admission_no}
+                    {student.notes ? ` · ${student.notes}` : ""}
+                  </span>
+                </div>
+                <div className="builderListMeta">
+                  <span>{student.access_slot_label ?? student.cohort_name ?? "No slot"}</span>
+                  <span>{student.access_slot_label ? "Direct override" : "Default routing"}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="builderDivider" />
+
+          <div className="builderPanelHeader">
+            <div>
+              <span className="builderFlowLabel">Scheduling audit</span>
+              <strong>Recent Slot Operations</strong>
+              <p>Review the latest slot creations, updates, overrides, and bulk assignments for this exam.</p>
+            </div>
+            <div className="builderPanelMetrics">
+              <article className="builderMetricChip">
+                <span>Visible events</span>
+                <strong>{slotAuditLogs.length}</strong>
+              </article>
+            </div>
+          </div>
+
+          <div className="builderStack">
+            {slotAuditLogs.length ? (
+              slotAuditLogs.slice(0, 8).map((audit) => (
+                <div className="builderListRow" key={audit.id}>
+                  <div>
+                    <strong>{audit.message || audit.action.replaceAll("_", " ")}</strong>
+                    <span>
+                      {audit.user_label} · {new Date(audit.created_at).toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                  <div className="builderListMeta">
+                    <span>
+                      {String(audit.metadata.slot_label ?? audit.metadata.slot_id ?? "Exam scope")}
+                    </span>
+                    <span>{audit.action.replaceAll("_", " ")}</span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="builderEmptyState">
+                <strong>No slot operations yet</strong>
+                <p>Slot audit history will appear here once scheduling changes are made for this exam.</p>
+              </div>
+            )}
+          </div>
 
           <div className="builderDivider" />
 
@@ -1440,6 +2088,18 @@ export default async function TeacherExamBuilderPage({
                 </div>
                 <div className="builderGrid">
               <label className="fieldStack">
+                <span>Access mode</span>
+                <select defaultValue={detail.access_mode} name="access_mode">
+                  {examAccessModeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <small>Use slot-managed for institute-controlled windows, or long-window modes for broader public or platform access.</small>
+              </label>
+
+              <label className="fieldStack">
                 <span>Timer mode</span>
                 <select defaultValue={detail.timer_mode} name="timer_mode">
                   {timerModeOptions.map((option) => (
@@ -1506,6 +2166,30 @@ export default async function TeacherExamBuilderPage({
                 <small>
                   This setting controls browser-based monitoring only. Webcam capture or external proctoring would require a separate capability.
                 </small>
+              </label>
+
+              <label className="fieldStack">
+                <span>Daily start cap</span>
+                <input defaultValue={detail.daily_start_cap ?? ""} min="1" name="daily_start_cap" placeholder="Optional" type="number" />
+                <small>Useful for long-window public exams where starts should be paced across the day.</small>
+              </label>
+
+              <label className="fieldStack">
+                <span>Hourly start cap</span>
+                <input defaultValue={detail.hourly_start_cap ?? ""} min="1" name="hourly_start_cap" placeholder="Optional" type="number" />
+                <small>Use this to smooth burst traffic without switching the exam back into slots.</small>
+              </label>
+
+              <label className="fieldStack">
+                <span>Concurrent active cap</span>
+                <input
+                  defaultValue={detail.concurrent_active_attempt_cap ?? ""}
+                  min="1"
+                  name="concurrent_active_attempt_cap"
+                  placeholder="Optional"
+                  type="number"
+                />
+                <small>Blocks new starts once too many learners are actively in progress at the same time.</small>
               </label>
 
               <label className="fieldStack">

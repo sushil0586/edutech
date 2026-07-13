@@ -6001,7 +6001,9 @@ button {
 }
 
 .academicRecordTable {
-  min-width: 860px;
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
 }
 
 .academicRecordTable td .setupFieldMeta {
@@ -6011,7 +6013,28 @@ button {
 }
 
 .academicRecordActionLane {
+  display: grid;
   justify-content: flex-start;
+  gap: 8px;
+}
+
+.academicRecordTable th:last-child,
+.academicRecordTable td:last-child {
+  width: 148px;
+}
+
+.academicRecordTable td strong,
+.academicRecordTable td small {
+  overflow-wrap: anywhere;
+}
+
+.academicRecordActionLane .appTopbarAction {
+  width: 100%;
+  justify-content: flex-start;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 10px;
+  font-size: 0.82rem;
 }
 
 .academicInstituteSelector {
@@ -10754,6 +10777,96 @@ button {
   background: linear-gradient(180deg, rgba(249, 251, 255, 0.92), rgba(242, 246, 255, 0.86));
 }
 
+.sharedLibraryLinkerPage .sharedLibraryLinkerIntroCard {
+  border-radius: 24px;
+}
+
+.sharedLibraryLinkerPage .sharedLibraryLinkerIntroGrid {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.sharedLibraryLinkerPage .sharedLibraryLinkerIntroGrid .builderHintPanel,
+.sharedLibraryLinkerPage .sharedLibraryLinkerGuidePanel {
+  margin-top: 0;
+  padding: 14px 16px;
+  border-color: rgba(32, 106, 93, 0.1);
+  border-radius: 18px;
+  box-shadow: none;
+}
+
+.sharedLibraryLinkerPage .sharedLibraryLinkerIntroGrid .builderHintPanel strong,
+.sharedLibraryLinkerPage .sharedLibraryLinkerGuidePanel strong {
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+}
+
+.sharedLibraryLinkerPage .sharedLibraryLinkerIntroGrid .builderHintPanel p,
+.sharedLibraryLinkerPage .sharedLibraryLinkerGuidePanel p {
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+
+.sharedLibraryLinkerPage .sharedLibraryLinkerIntroGrid .builderHintPanel small,
+.sharedLibraryLinkerPage .sharedLibraryLinkerGuidePanel small {
+  line-height: 1.5;
+}
+
+.sharedLibraryLinkerPage .sharedLibraryLinkerStepCard .sectionHeading {
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+}
+
+.sharedLibraryLinkerPage .sharedLibraryLinkerStepCard .sectionHeading strong {
+  font-size: 1.05rem;
+}
+
+.sharedLibraryLinkerPage .sharedLibraryLinkerStepCard .questionBankChipRowCompact {
+  margin-top: 14px;
+}
+
+.linkedQuestionReviewPage .linkedQuestionLaneCard,
+.linkedQuestionReviewPage .linkedQuestionGuideCard {
+  border-radius: 24px;
+}
+
+.linkedQuestionReviewPage .linkedQuestionLaneIntroPanel,
+.linkedQuestionReviewPage .linkedQuestionGuidePanel {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border-color: rgba(32, 106, 93, 0.1);
+  border-radius: 18px;
+  box-shadow: none;
+}
+
+.linkedQuestionReviewPage .linkedQuestionLaneIntroPanel strong,
+.linkedQuestionReviewPage .linkedQuestionGuidePanel strong {
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+}
+
+.linkedQuestionReviewPage .linkedQuestionLaneIntroPanel p,
+.linkedQuestionReviewPage .linkedQuestionGuidePanel p {
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+
+.linkedQuestionReviewPage .linkedQuestionGuideCard .questionBankCardMetaNoteCompact {
+  gap: 8px 12px;
+}
+
+.linkedQuestionReviewPage .linkedQuestionLaneStack,
+.linkedQuestionReviewPage .linkedQuestionGuideStack {
+  gap: 10px;
+}
+
+.linkedQuestionReviewPage .linkedQuestionLaneStack .weakTopicRow,
+.linkedQuestionReviewPage .linkedQuestionGuideStack .weakTopicRow {
+  padding: 14px 16px;
+}
+
 .questionPreviewOverlay.questionPreviewGlossy {
   background:
     radial-gradient(circle at 14% 16%, rgba(96, 165, 250, 0.18), transparent 24%),
@@ -10867,6 +10980,17 @@ button {
 .questionBankInlineHint {
   color: var(--color-text-muted);
   font-size: 0.86rem;
+}
+
+.questionBankFilterSupportGrid {
+  display: grid;
+  gap: 14px;
+}
+
+.questionBankFilterSupportPrimary,
+.questionBankFilterSupportSecondary {
+  display: grid;
+  gap: 14px;
 }
 
 .questionBankToggle,
@@ -11295,6 +11419,89 @@ button {
   opacity: 0.55;
 }
 
+.questionBankPageVivid > .contentCard:first-of-type {
+  border-color: rgba(177, 198, 236, 0.42);
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(247, 250, 255, 0.9));
+  box-shadow:
+    0 16px 32px rgba(96, 118, 196, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.88);
+}
+
+.questionBankPageVivid > .contentCard:first-of-type .sectionHeading {
+  padding-bottom: 14px;
+  margin-bottom: 16px;
+}
+
+.questionBankPageVivid > .contentCard:first-of-type .sectionHeading strong {
+  font-size: 1.05rem;
+}
+
+.questionBankPageVivid > .contentCard:first-of-type .sectionHeading span {
+  max-width: 70ch;
+  line-height: 1.6;
+}
+
+.questionBankPageVivid > .builderSummaryGrid {
+  align-items: start;
+}
+
+.questionBankPageVivid > .builderSummaryGrid .builderSummaryCard {
+  min-height: 0;
+}
+
+.questionBankPageVivid .economyAccessChecklist {
+  gap: 10px;
+}
+
+.questionBankPageVivid .economyAccessChecklistCard {
+  padding: 14px 16px;
+  border-radius: 18px;
+  box-shadow: none;
+}
+
+.questionBankPageVivid .economyAccessChecklistCard strong {
+  font-size: 0.96rem;
+  line-height: 1.4;
+}
+
+.questionBankPageVivid .economyAccessChecklistCard small {
+  line-height: 1.55;
+}
+
+.questionBankPageVivid .questionBankList {
+  gap: 18px;
+}
+
+.questionBankPageVivid .questionBankCardCopy strong {
+  font-size: 1.04rem;
+  line-height: 1.45;
+}
+
+.questionBankPageVivid .questionBankDetailsBody {
+  gap: 14px;
+}
+
+.questionBankPageVivid .questionBankRichBlock strong,
+.questionBankPageVivid .questionBankDetailsBody strong {
+  color: #1c2840;
+}
+
+@media (min-width: 1041px) {
+  .questionBankPageVivid .questionBankFilterSurface {
+    padding: 20px 22px;
+  }
+
+  .questionBankPageVivid .questionBankBulkBar {
+    padding: 16px 18px;
+  }
+
+  .questionBankPageVivid .questionBankCard {
+    padding: 18px;
+  }
+}
+
 @media (max-width: 1040px) {
   .questionBankFilterActions,
   .questionBankInlineControls,
@@ -11324,6 +11531,199 @@ button {
 
   .questionBankInlineHint {
     width: 100%;
+  }
+}
+
+@media (max-width: 900px) {
+  .questionBankPageVivid::before {
+    inset: -20px -12px auto;
+    height: 420px;
+    filter: blur(10px);
+  }
+
+  .questionBankPageVivid::after {
+    inset: 140px -10px 0;
+    filter: blur(14px);
+  }
+
+  .questionBankPageVivid > .contentCard:first-of-type,
+  .questionBankPageVivid .questionBankFilterSurface,
+  .questionBankPageVivid .contentCard:has(.questionBankBulkBar),
+  .questionBankPageVivid .questionBankCard {
+    border-radius: 22px;
+    box-shadow:
+      0 12px 24px rgba(85, 122, 193, 0.06),
+      inset 0 1px 0 rgba(255, 255, 255, 0.88);
+  }
+
+  .questionBankPageVivid .pageHeaderActionGroup,
+  .questionBankPageVivid .questionBankButtonRow {
+    width: 100%;
+  }
+
+  .questionBankPageVivid .pageHeaderActionGroup .questionBankButtonRow > *,
+  .questionBankPageVivid .questionBankCardActions > *,
+  .questionBankPageVivid .questionBankBulkControls .questionBankButtonRow > * {
+    flex: 1 1 100%;
+  }
+
+  .questionBankPageVivid .pageHeaderActionGroup .questionBankButtonRow > * > .button,
+  .questionBankPageVivid .questionBankCardActions > * > .button,
+  .questionBankPageVivid .questionBankCardActions > * > a,
+  .questionBankPageVivid .questionBankCardActions > * > button {
+    width: 100%;
+  }
+
+  .questionBankPageVivid > .contentCard:first-of-type {
+    padding: 16px;
+  }
+
+  .questionBankPageVivid .economyAccessChecklist {
+    grid-template-columns: 1fr;
+  }
+
+  .questionBankPageVivid .economyAccessChecklistCard {
+    padding: 13px 14px;
+  }
+
+  .questionBankPageVivid .builderSummaryGrid.questionBankSummaryGridCompact {
+    gap: 8px;
+  }
+
+  .questionBankPageVivid .builderSummaryGrid.questionBankSummaryGridCompact .builderSummaryCard {
+    padding: 11px 12px 12px;
+  }
+
+  .questionBankPageVivid .builderSummaryGrid.questionBankSummaryGridCompact .builderSummaryCard strong {
+    font-size: 1.4rem;
+  }
+
+  .questionBankPageVivid .builderSummaryGrid.questionBankSummaryGridCompact .builderSummaryCard small {
+    font-size: 0.78rem;
+  }
+
+  .questionBankPageVivid .questionBankFilterSurface,
+  .questionBankPageVivid .contentCard:has(.questionBankBulkBar) {
+    padding: 16px;
+  }
+
+  .questionBankPageVivid .questionBankInlineControls {
+    gap: 12px;
+    padding-top: 12px;
+  }
+
+  .questionBankPageVivid .questionBankInlineToggles {
+    gap: 10px;
+  }
+
+  .questionBankPageVivid .questionBankBulkBar {
+    gap: 14px;
+    padding: 14px;
+    border-radius: 20px;
+  }
+
+  .questionBankPageVivid .questionBankBulkControls {
+    padding: 12px;
+    border-radius: 16px;
+  }
+
+  .questionBankPageVivid .questionBankCard {
+    gap: 14px;
+    padding: 16px;
+  }
+
+  .questionBankPageVivid .questionBankCardCopy {
+    gap: 8px;
+  }
+
+  .questionBankPageVivid .questionBankCardCopy strong {
+    font-size: 0.98rem;
+  }
+
+  .questionBankPageVivid .questionBankMetrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .questionBankPageVivid .questionBankMetrics > div {
+    padding: 12px 12px;
+  }
+
+  .questionBankPageVivid .questionBankMetrics span {
+    font-size: 0.74rem;
+    line-height: 1.35;
+  }
+
+  .questionBankPageVivid .questionBankMetrics strong {
+    font-size: 0.95rem;
+  }
+
+  .questionBankPageVivid .questionBankDetails {
+    padding-top: 14px;
+  }
+
+  .questionBankPageVivid .questionBankDetailsBody {
+    gap: 12px;
+    padding-top: 12px;
+  }
+
+  .questionBankPageVivid .questionBankOptionRow {
+    padding: 10px 12px;
+  }
+
+  .questionBankPageVivid .questionBankPagination > span {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .sharedLibraryLinkerPage .sharedLibraryLinkerIntroCard,
+  .sharedLibraryLinkerPage .sharedLibraryLinkerStepCard {
+    border-radius: 22px;
+  }
+
+  .sharedLibraryLinkerPage .sharedLibraryLinkerIntroGrid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  .sharedLibraryLinkerPage .sharedLibraryLinkerIntroGrid .builderHintPanel,
+  .sharedLibraryLinkerPage .sharedLibraryLinkerGuidePanel {
+    padding: 12px 14px;
+    border-radius: 16px;
+  }
+
+  .sharedLibraryLinkerPage .sharedLibraryLinkerStepCard .sectionHeading {
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+  }
+
+  .linkedQuestionReviewPage .linkedQuestionLaneCard,
+  .linkedQuestionReviewPage .linkedQuestionGuideCard {
+    border-radius: 22px;
+  }
+
+  .linkedQuestionReviewPage .linkedQuestionLaneIntroPanel,
+  .linkedQuestionReviewPage .linkedQuestionGuidePanel {
+    padding: 12px 14px;
+    border-radius: 16px;
+  }
+
+  .linkedQuestionReviewPage .linkedQuestionLaneStack .weakTopicRow,
+  .linkedQuestionReviewPage .linkedQuestionGuideStack .weakTopicRow {
+    padding: 12px 14px;
+  }
+}
+
+@media (max-width: 520px) {
+  .questionBankPageVivid .questionBankMetrics {
+    grid-template-columns: 1fr;
+  }
+
+  .questionBankPageVivid .questionBankToggle,
+  .questionBankPageVivid .questionBankSelectAll {
+    width: 100%;
+    justify-content: flex-start;
   }
 }
 
@@ -12948,7 +13348,14 @@ button {
   }
 
   .studentAppShell {
+    grid-template-columns: 1fr;
     padding: var(--space-4);
+  }
+
+  .studentAppShell:has(.adminInstitutePage),
+  .studentAppShell:has(.adminDashboardPage),
+  .studentAppShell:has(.adminAcademicPage) {
+    grid-template-columns: 1fr;
   }
 
   .mobileWorkspaceNav {
@@ -12957,6 +13364,10 @@ button {
 
   .appSidebarDesktop {
     display: none;
+  }
+
+  .studentAppMain {
+    width: 100%;
   }
 
   .studentPage {
@@ -12976,6 +13387,12 @@ button {
   }
 
   .appTopbar {
+    grid-template-columns: 1fr;
+  }
+
+  .studentAppShell:has(.adminInstitutePage) .appTopbar,
+  .studentAppShell:has(.adminDashboardPage) .appTopbar,
+  .studentAppShell:has(.adminAcademicPage) .appTopbar {
     grid-template-columns: 1fr;
   }
 
@@ -13451,6 +13868,21 @@ body::after {
   grid-template-columns: auto minmax(320px, 1fr) auto;
 }
 
+@media (max-width: 959px) {
+  .studentAppShell,
+  .studentAppShell:has(.adminInstitutePage),
+  .studentAppShell:has(.adminDashboardPage),
+  .studentAppShell:has(.adminAcademicPage) {
+    grid-template-columns: 1fr;
+  }
+
+  .studentAppShell:has(.adminInstitutePage) .appTopbar,
+  .studentAppShell:has(.adminDashboardPage) .appTopbar,
+  .studentAppShell:has(.adminAcademicPage) .appTopbar {
+    grid-template-columns: 1fr;
+  }
+}
+
 .adminDashboardPage {
   width: 100%;
   max-width: none;
@@ -13921,6 +14353,204 @@ body::after {
   color: #2046a8;
 }
 
+@media (min-width: 1100px) {
+  .instituteQuestionBankPage > .contentCard:first-of-type {
+    padding: 18px 20px;
+    border-radius: 24px;
+  }
+
+  .instituteQuestionBankPage > .contentCard:first-of-type .economyAccessChecklist {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .instituteQuestionBankPage > .contentCard:first-of-type .economyAccessChecklistCard {
+    min-height: 0;
+    padding: 13px 14px;
+  }
+
+  .instituteQuestionBankPage > .contentCard:first-of-type .economyAccessChecklistCard strong {
+    font-size: 0.92rem;
+  }
+
+  .instituteQuestionBankPage > .contentCard:first-of-type .economyAccessChecklistCard small,
+  .instituteQuestionBankPage > .contentCard:first-of-type .questionBankCardMetaNoteCompact span {
+    font-size: 0.78rem;
+    line-height: 1.45;
+  }
+
+  .instituteQuestionBankPage > .contentCard:first-of-type [data-testid="question-bank-access-steps"] {
+    gap: 8px;
+  }
+
+  .instituteQuestionBankPage > .contentCard:nth-of-type(2) {
+    padding: 18px 20px;
+    border-radius: 24px;
+  }
+
+  .instituteQuestionBankPage > .contentCard:nth-of-type(2) .linkedQuestionLaneIntroPanel {
+    margin-top: 12px;
+    padding: 14px 16px;
+    border-radius: 18px;
+    box-shadow: none;
+  }
+
+  .instituteQuestionBankPage > .contentCard:nth-of-type(2) .linkedQuestionLaneStack {
+    gap: 10px;
+  }
+
+  .instituteQuestionBankPage > .contentCard:nth-of-type(2) .linkedQuestionLaneStack .weakTopicRow {
+    padding: 14px 16px;
+  }
+
+  .instituteQuestionBankPage .instituteQuestionBankLaneCard .questionBankChipRowCompact {
+    gap: 8px;
+  }
+
+  .instituteQuestionBankPage .instituteQuestionBankIntakeCard {
+    padding: 16px 18px;
+    border-radius: 22px;
+  }
+
+  .instituteQuestionBankPage .instituteQuestionBankIntakeCard .questionBankCardMetaNoteCompact {
+    gap: 8px 12px;
+  }
+
+  .instituteQuestionBankPage > .builderSummaryGrid.questionBankSummaryGridCompact {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .instituteQuestionBankPage > .builderSummaryGrid.questionBankSummaryGridCompact .builderSummaryCard {
+    min-height: 116px;
+    padding: 12px 13px 14px;
+  }
+
+  .instituteQuestionBankPage > .builderSummaryGrid.questionBankSummaryGridCompact .builderSummaryCard strong {
+    font-size: 1.55rem;
+  }
+
+  .instituteQuestionBankPage > .builderSummaryGrid.questionBankSummaryGridCompact .builderSummaryCard small {
+    font-size: 0.78rem;
+    line-height: 1.42;
+  }
+
+  .instituteQuestionBankPage .questionBankFilterSurface {
+    padding: 18px 20px;
+    border-radius: 24px;
+  }
+
+  .instituteQuestionBankPage .questionBankFilterSupportGrid {
+    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+    align-items: start;
+    gap: 16px;
+  }
+
+  .instituteQuestionBankPage .questionBankFilterSupportPrimary,
+  .instituteQuestionBankPage .questionBankFilterSupportSecondary {
+    gap: 12px;
+  }
+
+  .instituteQuestionBankPage .questionBankFilterSupportSecondary {
+    padding: 14px 16px;
+    border: 1px solid rgba(188, 211, 245, 0.34);
+    border-radius: 20px;
+    background:
+      radial-gradient(circle at top right, rgba(191, 219, 254, 0.1), transparent 26%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(246, 249, 255, 0.88));
+    box-shadow:
+      0 12px 26px rgba(86, 113, 173, 0.05),
+      inset 0 1px 0 rgba(255, 255, 255, 0.88);
+  }
+
+  .instituteQuestionBankPage .questionBankFilterForm {
+    gap: 12px 14px;
+  }
+
+  .instituteQuestionBankPage .questionBankFilterActions {
+    padding-top: 0;
+  }
+
+  .instituteQuestionBankPage .questionBankList {
+    gap: 12px;
+  }
+
+  .instituteQuestionBankPage .questionBankCard {
+    gap: 12px;
+    padding: 16px 18px;
+    border-radius: 24px;
+    box-shadow:
+      0 16px 30px rgba(85, 122, 193, 0.06),
+      inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  }
+
+  .instituteQuestionBankPage .questionBankCardCopy strong {
+    font-size: 0.98rem;
+    line-height: 1.38;
+  }
+
+  .instituteQuestionBankPage .questionBankMetrics {
+    gap: 8px;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .instituteQuestionBankPage .questionBankMetrics > div {
+    padding: 10px 12px;
+  }
+
+  .instituteQuestionBankPage .questionBankMetrics strong {
+    font-size: 0.92rem;
+  }
+
+  .instituteQuestionBankPage .questionBankInventorySurface .questionBankBulkBar {
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: 18px;
+  }
+
+  .instituteQuestionBankPage .questionBankInventorySurface .questionBankBulkFields {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .instituteQuestionBankPage .questionBankInventorySurface .questionBankBulkControlGroups {
+    gap: 10px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .instituteQuestionBankPage .questionBankInventorySurface .questionBankBulkControls {
+    gap: 8px;
+    padding: 12px 14px;
+    border-radius: 16px;
+  }
+
+  .instituteQuestionBankPage .questionBankInventorySurface .questionBankCardFooter {
+    align-items: flex-start;
+  }
+
+  .instituteQuestionBankPage .questionBankInventorySurface .questionBankCardMetaNote {
+    max-width: 72ch;
+    gap: 8px 14px;
+  }
+
+  .instituteQuestionBankPage .questionBankInventorySurface .questionBankCardMetaNote span {
+    font-size: 0.82rem;
+    line-height: 1.45;
+  }
+
+  .instituteQuestionBankPage .questionBankInventorySurface .questionBankCardActions {
+    gap: 8px;
+    justify-content: flex-end;
+  }
+
+  .instituteQuestionBankPage .questionBankInventorySurface .questionBankCardActions > * > .button,
+  .instituteQuestionBankPage .questionBankInventorySurface .questionBankCardActions > * > a,
+  .instituteQuestionBankPage .questionBankInventorySurface .questionBankCardActions > * > button,
+  .instituteQuestionBankPage .questionBankInventorySurface .questionBankCardActions > .questionBankMetaChip {
+    min-height: 38px;
+  }
+}
+
 .instituteConsolePage:not(.adminDashboardPage) .filterSummaryPills,
 .instituteConsolePage:not(.adminDashboardPage) .questionBankChipRow,
 .instituteConsolePage:not(.adminDashboardPage) .workspaceFilterQuickChips {
@@ -13941,8 +14571,14 @@ body::after {
 .instituteConsolePage:not(.adminDashboardPage) .accountActionRow,
 .instituteConsolePage:not(.adminDashboardPage) .resultCardActions,
 .instituteConsolePage:not(.adminDashboardPage) .workspaceFilterActions,
-.instituteConsolePage:not(.adminDashboardPage) .questionBankButtonRow {
+  .instituteConsolePage:not(.adminDashboardPage) .questionBankButtonRow {
   align-items: center;
+}
+
+@media (max-width: 1099px) {
+  .instituteQuestionBankPage .questionBankFilterSupportGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .instituteConsolePage:not(.adminDashboardPage) .builderSummaryGrid,
@@ -14061,6 +14697,138 @@ body::after {
   min-height: 146px;
 }
 
+@media (min-width: 1100px) {
+  .instituteExamsPageVivid {
+    gap: 18px;
+  }
+
+  .instituteExamsPageVivid .pageHeader {
+    padding-bottom: 10px;
+  }
+
+  .instituteExamsPageVivid .pageHeaderActionGroup {
+    gap: 10px;
+  }
+
+  .instituteExamsPageVivid .pageUtilityRow {
+    margin-top: -2px;
+  }
+
+  .instituteExamsPageVivid .studentInsightHeroCardCompact,
+  .instituteExamsPageVivid .workspaceFiltersCard,
+  .instituteExamsPageVivid .workspaceResultsGroup,
+  .instituteExamsPageVivid .resultsSummaryGrid {
+    border-radius: 26px;
+  }
+
+  .instituteExamsPageVivid .studentInsightHeroCardCompact {
+    padding: 18px 20px;
+  }
+
+  .instituteExamsPageVivid .studentInsightHeroCopy strong {
+    font-size: 1.18rem;
+    line-height: 1.24;
+  }
+
+  .instituteExamsPageVivid .resultsSummaryGrid {
+    gap: 14px;
+  }
+
+  .instituteExamsPageVivid .resultsSummaryGrid .metricCard {
+    min-height: 132px;
+    padding: 16px 18px;
+  }
+
+  .instituteExamsPageVivid .workspaceFiltersCard {
+    padding: 18px 20px;
+  }
+
+  .instituteExamsPageVivid .workspaceFiltersCard .sectionHeading {
+    padding-bottom: 12px;
+    margin-bottom: 4px;
+  }
+
+  .instituteExamsPageVivid .workspaceFiltersCard .sectionHeading strong,
+  .instituteExamsPageVivid .workspaceResultsGroup .sectionHeading strong {
+    font-size: 1.08rem;
+  }
+
+  .instituteExamsPageVivid .workspaceFiltersCard .builderHintPanel {
+    margin-top: 8px;
+    padding: 14px 16px;
+    border-radius: 18px;
+  }
+
+  .instituteExamsPageVivid .workspaceFiltersForm {
+    margin-top: 14px;
+    gap: 12px;
+    align-items: end;
+  }
+
+  .instituteExamsPageVivid .workspaceFilterQuickRow {
+    margin-top: 12px;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .instituteExamsPageVivid .workspaceFilterQuickChips {
+    gap: 10px;
+  }
+
+  .instituteExamsPageVivid .workspaceResultsGroup {
+    padding: 18px 20px 20px;
+  }
+
+  .instituteExamsPageVivid .examGrid {
+    gap: 16px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .instituteExamsPageVivid .examCard {
+    gap: 14px;
+    padding: 18px;
+    border-radius: 22px;
+  }
+
+  .instituteExamsPageVivid .examCardTop > div strong {
+    font-size: 1.02rem;
+    line-height: 1.4;
+  }
+
+  .instituteExamsPageVivid .questionBankTagRow {
+    gap: 8px;
+  }
+
+  .instituteExamsPageVivid .examMetaGrid {
+    gap: 10px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .instituteExamsPageVivid .examMetaGrid > div {
+    padding: 12px 14px;
+  }
+
+  .instituteExamsPageVivid .examInstructions {
+    max-width: 58ch;
+    line-height: 1.62;
+  }
+
+  .instituteExamsPageVivid .examCard .builderHintPanel {
+    margin-top: 0;
+    padding: 14px 16px;
+    border-radius: 18px;
+  }
+
+  .instituteExamsPageVivid .examCardFooter {
+    padding-top: 2px;
+  }
+
+  .instituteExamsPageVivid .examStateSummary strong {
+    font-size: 0.96rem;
+    line-height: 1.35;
+  }
+}
+
 .instituteExamBuilderPageVivid .builderSectionCard,
 .instituteExamBuilderPageVivid .builderSaveBar,
 .instituteExamBuilderPageVivid .wizardActionBar,
@@ -14071,6 +14839,31 @@ body::after {
 
 .instituteSearchPageVivid .workspaceFiltersCard {
   background: var(--institute-console-surface-strong);
+}
+
+.instituteSearchPageVivid {
+  gap: 18px;
+}
+
+.instituteSearchPageVivid .pageHeader {
+  padding-bottom: 8px;
+}
+
+.instituteSearchPageVivid .contentCard {
+  border-radius: 24px;
+}
+
+.instituteSearchPageVivid .workspaceFiltersForm {
+  gap: 12px 14px;
+}
+
+.instituteSearchPageVivid .resultsList {
+  gap: 14px;
+}
+
+.instituteSearchPageVivid .resultsList > .resultCard {
+  padding: 18px;
+  border-radius: 22px;
 }
 
 .instituteSearchPageVivid .resultsList > .resultCard,
@@ -14303,6 +15096,144 @@ body::after {
   min-width: 0;
 }
 
+.instituteResultsPageVivid .teacherResultsSidebar .workspaceFiltersForm {
+  gap: 12px;
+}
+
+.instituteResultsPageVivid .teacherResultsSidebar .workspaceFilterActions {
+  gap: 10px;
+}
+
+@media (min-width: 1241px) {
+  .instituteResultsPageVivid .teacherResultsLayout {
+    grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .instituteResultsPageVivid .teacherResultsSidebar {
+    gap: 12px;
+  }
+
+  .instituteResultsPageVivid .teacherResultsSidebar > .contentCard,
+  .instituteResultsPageVivid .teacherResultsSidebar > .resultCard,
+  .instituteResultsPageVivid .teacherResultsSidebar .resultCard {
+    box-shadow:
+      0 10px 20px rgba(94, 110, 166, 0.06),
+      inset 0 1px 0 rgba(255, 255, 255, 0.84);
+  }
+
+  .instituteResultsPageVivid .teacherResultsMain {
+    gap: 14px;
+  }
+
+  .instituteResultsPageVivid .teacherResultsMain > .resultsSummaryGrid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .instituteResultsPageVivid .teacherResultsMain > .resultsSummaryGrid .metricCard {
+    min-height: 108px;
+    padding: 13px 14px 15px;
+  }
+
+  .instituteResultsPageVivid .teacherResultsMain > .resultsSummaryGrid .metricCard strong {
+    font-size: 1.68rem;
+  }
+
+  .instituteResultsPageVivid .teacherResultsSidebar > .contentCard:first-child,
+  .instituteResultsPageVivid .teacherResultsSidebar > .studentStatePanel:first-child {
+    padding: 16px;
+  }
+
+  .instituteResultsPageVivid .teacherResultsSidebar .sectionHeading {
+    padding-bottom: 10px;
+    margin-bottom: 2px;
+  }
+
+  .instituteResultsPageVivid .teacherResultsSidebar .workspaceFiltersForm {
+    margin-top: 10px;
+    gap: 10px;
+  }
+
+  .instituteResultsPageVivid .teacherResultsSidebar .resultCard {
+    padding: 14px;
+  }
+
+  .instituteResultsPageVivid .teacherResultsSidebar .resultCardTop strong {
+    font-size: 0.94rem;
+    line-height: 1.28;
+  }
+
+  .instituteResultsPageVivid .teacherResultsOverviewCard,
+  .instituteResultsPageVivid .teacherResultsMonitorCard,
+  .instituteResultsPageVivid .teacherResultsAttemptsCard,
+  .instituteResultsPageVivid .teacherAttemptDetailPanel,
+  .instituteResultsPageVivid .teacherResultsAnalyticsGrid > .contentCard {
+    gap: 12px;
+  }
+
+  .instituteResultsPageVivid .teacherResultsOverviewCard,
+  .instituteResultsPageVivid .teacherResultsMonitorCard,
+  .instituteResultsPageVivid .teacherResultsAttemptsCard {
+    padding: 15px;
+  }
+
+  .instituteResultsPageVivid .teacherWorkflowSummary {
+    gap: 14px;
+    padding: 14px 16px;
+    grid-template-columns: minmax(0, 1.3fr) minmax(220px, 0.82fr);
+  }
+
+  .instituteResultsPageVivid .teacherWorkflowSummary p {
+    line-height: 1.52;
+  }
+
+  .instituteResultsPageVivid .teacherWorkflowGrid,
+  .instituteResultsPageVivid .teacherResultsReadinessBoard,
+  .instituteResultsPageVivid .teacherResultsActionGrid,
+  .instituteResultsPageVivid .teacherResultsAnalyticsGrid {
+    gap: 10px;
+  }
+
+  .instituteResultsPageVivid .teacherResultsReadinessBoard {
+    grid-template-columns: minmax(0, 1.1fr) repeat(3, minmax(0, 1fr));
+  }
+
+  .instituteResultsPageVivid .teacherWorkflowCard,
+  .instituteResultsPageVivid .teacherResultsActionCard,
+  .instituteResultsPageVivid .teacherResultsReadinessHero,
+  .instituteResultsPageVivid .teacherResultsReadinessCard,
+  .instituteResultsPageVivid .teacherResultsDetailGrid > article {
+    padding: 14px;
+  }
+
+  .instituteResultsPageVivid .teacherResultsReadinessCard p,
+  .instituteResultsPageVivid .teacherResultsReadinessHero p,
+  .instituteResultsPageVivid .teacherResultsActionCard p,
+  .instituteResultsPageVivid .teacherWorkflowCard p,
+  .instituteResultsPageVivid .teacherAttemptDetailPanel p {
+    line-height: 1.48;
+  }
+
+  .instituteResultsPageVivid .teacherResultsMonitorCard .liveMonitorRefreshBar {
+    gap: 12px;
+  }
+
+  .instituteResultsPageVivid .teacherResultsMonitorCard .liveMonitorRefreshBar .resultCardActions .button {
+    min-height: 42px;
+  }
+
+  .instituteResultsPageVivid .teacherResultsAnalyticsGrid .teacherResultsActionCard,
+  .instituteResultsPageVivid .teacherResultsAnalyticsGrid .teacherLaneCard,
+  .instituteResultsPageVivid .teacherResultsAnalyticsGrid .teacherInterventionCard {
+    gap: 10px;
+  }
+
+  .instituteResultsPageVivid .teacherResultsAnalyticsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 1420px) {
   .instituteResultsPageVivid .teacherResultsStatsGridFive {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -14387,6 +15318,433 @@ body::after {
   background: var(--institute-console-surface-strong);
 }
 
+.instituteReviewsPageVivid {
+  gap: 18px;
+}
+
+.instituteReviewsPageVivid .pageHeader {
+  padding-bottom: 8px;
+}
+
+.instituteReviewsPageVivid > .resultsSummaryGrid:first-of-type {
+  gap: 12px;
+}
+
+.instituteReviewsPageVivid > .resultsSummaryGrid:first-of-type .metricCard {
+  min-height: 112px;
+  padding: 14px 16px;
+}
+
+.instituteReviewsPageVivid .workspaceFiltersCard,
+.instituteReviewsPageVivid .dashboardPanel.weakTopicsPanel,
+.instituteReviewsPageVivid #institute-review-bulk-form {
+  border-radius: 24px;
+}
+
+.instituteReviewsPageVivid .workspaceFiltersCard {
+  padding: 18px 20px;
+}
+
+.instituteReviewsPageVivid .teacherResultsReadinessCard {
+  border-radius: 20px;
+}
+
+.instituteReviewsPageVivid .teacherExamFilters {
+  gap: 12px 14px;
+}
+
+.instituteReviewsPageVivid .dashboardLowerGrid {
+  gap: 16px;
+}
+
+.instituteReviewsPageVivid .dashboardPanel.weakTopicsPanel > .studentPageTight {
+  gap: 14px;
+}
+
+.instituteReviewsPageVivid .dashboardPanel.weakTopicsPanel h3 {
+  font-size: 1.08rem;
+  line-height: 1.22;
+}
+
+.instituteReviewsPageVivid .weakTopicStack {
+  gap: 10px;
+}
+
+.instituteReviewsPageVivid .weakTopicRow {
+  padding: 14px 16px;
+  border-radius: 18px;
+}
+
+.instituteReviewsPageVivid .weakTopicRow strong {
+  line-height: 1.28;
+}
+
+.instituteReviewsPageVivid .resultCardActions {
+  gap: 10px;
+}
+
+@media (min-width: 1100px) {
+  .instituteTeacherAssignmentsPageVivid {
+    gap: 18px;
+  }
+
+  .instituteTeacherAssignmentsPageVivid .pageHeader {
+    padding-bottom: 8px;
+  }
+
+  .instituteTeacherAssignmentsPageVivid .studentInsightHeroCardCompact {
+    padding: 16px 18px;
+  }
+
+  .instituteTeacherAssignmentsPageVivid .studentInsightHeroCardCompact .studentInsightHeroCopy {
+    gap: 8px;
+  }
+
+  .instituteTeacherAssignmentsPageVivid .studentInsightHeroCardCompact .studentInsightHeroCopy > strong {
+    max-width: 22ch;
+    font-size: 1.18rem;
+    line-height: 1.22;
+  }
+
+  .instituteTeacherAssignmentsPageVivid .studentInsightHeroCardCompact .studentInsightHeroCopy > p {
+    max-width: 64ch;
+    line-height: 1.52;
+  }
+
+  .instituteTeacherAssignmentsPageVivid > .resultsSummaryGrid:first-of-type {
+    gap: 12px;
+  }
+
+  .instituteTeacherAssignmentsPageVivid > .resultsSummaryGrid:first-of-type .metricCard {
+    min-height: 108px;
+    padding: 14px 16px;
+  }
+
+  .instituteTeacherAssignmentsPageVivid .dashboardLowerGrid {
+    gap: 16px;
+  }
+
+  .instituteTeacherAssignmentsPageVivid .dashboardPanel.weakTopicsPanel > .studentPageTight {
+    gap: 14px;
+  }
+
+  .instituteTeacherAssignmentsPageVivid .dashboardPanel.weakTopicsPanel {
+    max-width: 720px;
+  }
+
+  .instituteTeacherAssignmentsPageVivid .dashboardPanel.weakTopicsPanel h3 {
+    font-size: 1.08rem;
+    line-height: 1.22;
+  }
+
+  .instituteTeacherAssignmentsPageVivid .weakTopicStack {
+    gap: 10px;
+  }
+
+  .instituteTeacherAssignmentsPageVivid .weakTopicRow {
+    padding: 14px 16px;
+    border-radius: 18px;
+  }
+
+  .instituteTeacherAssignmentsPageVivid .academicSectionPanel {
+    padding: 18px;
+  }
+
+  .instituteTeacherAssignmentsPageVivid .academicSectionHeader {
+    margin-bottom: 12px;
+  }
+
+  .instituteTeacherAssignmentsPageVivid .academicSectionHeaderActions {
+    gap: 10px;
+  }
+
+  .instituteTeacherAssignmentsPageVivid .adminPeopleRosterTableWrap.academicRecordTableWrap {
+    border-radius: 18px;
+  }
+
+  .instituteTeacherAssignmentsPageVivid .adminPeopleRosterTable td {
+    padding-top: 14px;
+    padding-bottom: 14px;
+  }
+
+  .instituteTeacherAssignmentsPageVivid .adminPeopleRosterActionLane.academicRecordActionLane {
+    gap: 8px;
+  }
+}
+
+@media (min-width: 1100px) {
+  .instituteSettingsPageVivid {
+    gap: 18px;
+  }
+
+  .instituteSettingsPageVivid .pageHeader {
+    padding-bottom: 8px;
+  }
+
+  .instituteSettingsPageVivid .studentInsightHeroCardCompact {
+    padding: 16px 18px;
+  }
+
+  .instituteSettingsPageVivid .studentInsightHeroCardCompact .studentInsightHeroCopy {
+    gap: 8px;
+  }
+
+  .instituteSettingsPageVivid .studentInsightHeroCardCompact .studentInsightHeroCopy > strong {
+    max-width: 23ch;
+    font-size: 1.18rem;
+    line-height: 1.22;
+  }
+
+  .instituteSettingsPageVivid .studentInsightHeroCardCompact .studentInsightHeroCopy > p {
+    max-width: 64ch;
+    line-height: 1.52;
+  }
+
+  .instituteSettingsPageVivid > .resultsSummaryGrid:first-of-type {
+    gap: 12px;
+  }
+
+  .instituteSettingsPageVivid > .resultsSummaryGrid:first-of-type .metricCard {
+    min-height: 110px;
+    padding: 14px 16px;
+  }
+
+  .instituteSettingsPageVivid .dashboardLowerGrid {
+    gap: 16px;
+  }
+
+  .instituteSettingsPageVivid .dashboardPanel.weakTopicsPanel > .studentPageTight {
+    gap: 14px;
+  }
+
+  .instituteSettingsPageVivid .dashboardPanel.weakTopicsPanel {
+    max-width: 520px;
+  }
+
+  .instituteSettingsPageVivid .dashboardPanel.weakTopicsPanel h3 {
+    font-size: 1.08rem;
+    line-height: 1.22;
+  }
+
+  .instituteSettingsPageVivid .weakTopicStack {
+    gap: 10px;
+  }
+
+  .instituteSettingsPageVivid .weakTopicRow {
+    padding: 14px 16px;
+    border-radius: 18px;
+  }
+
+  .instituteSettingsPageVivid .weakTopicRow strong {
+    line-height: 1.28;
+  }
+
+  .instituteSettingsPageVivid .resultCardActions {
+    gap: 10px;
+    padding-top: 2px;
+  }
+}
+
+@media (min-width: 1100px) {
+  .instituteReportsPageVivid {
+    gap: 18px;
+  }
+
+  .instituteReportsPageVivid .pageHeader {
+    padding-bottom: 8px;
+  }
+
+  .instituteReportsPageVivid .studentInsightHeroCardCompact {
+    padding: 16px 18px;
+  }
+
+  .instituteReportsPageVivid .studentInsightHeroCardCompact .studentInsightHeroCopy {
+    gap: 8px;
+  }
+
+  .instituteReportsPageVivid .studentInsightHeroCardCompact .studentInsightHeroCopy > strong {
+    font-size: 1.18rem;
+    line-height: 1.22;
+  }
+
+  .instituteReportsPageVivid > .resultsSummaryGrid:first-of-type {
+    gap: 12px;
+  }
+
+  .instituteReportsPageVivid > .resultsSummaryGrid:first-of-type .metricCard {
+    min-height: 108px;
+    padding: 14px 16px;
+  }
+
+  .instituteReportsPageVivid .workspaceFiltersCard {
+    padding: 18px 20px;
+  }
+
+  .instituteReportsPageVivid .workspaceFiltersCard .sectionHeading {
+    padding-bottom: 10px;
+    margin-bottom: 2px;
+  }
+
+  .instituteReportsPageVivid .workspaceFiltersForm {
+    margin-top: 10px;
+    gap: 12px;
+    align-items: end;
+  }
+
+  .instituteReportsPageVivid .workspaceFilterQuickRow {
+    margin-top: 10px;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .instituteReportsPageVivid .workspaceFilterQuickChips {
+    gap: 8px;
+  }
+
+  .instituteReportsPageVivid .dashboardLowerGrid {
+    gap: 16px;
+  }
+
+  .instituteReportsPageVivid .dashboardPanel.weakTopicsPanel > .studentPageTight {
+    gap: 14px;
+  }
+
+  .instituteReportsPageVivid .dashboardPanel.weakTopicsPanel h3 {
+    font-size: 1.08rem;
+    line-height: 1.22;
+  }
+
+  .instituteReportsPageVivid .weakTopicStack {
+    gap: 10px;
+  }
+
+  .instituteReportsPageVivid .weakTopicRow {
+    padding: 14px 16px;
+    border-radius: 18px;
+  }
+
+  .instituteReportsPageVivid .weakTopicRow strong {
+    line-height: 1.28;
+  }
+
+  .instituteReportsPageVivid .academicSectionDescription,
+  .instituteReportsPageVivid .weakTopicRow span,
+  .instituteReportsPageVivid .weakTopicMeta span {
+    line-height: 1.48;
+  }
+
+  .instituteReportsPageVivid .featurePlaceholder {
+    padding: 18px 20px;
+  }
+
+  .instituteSecurityPageVivid {
+    gap: 18px;
+  }
+
+  .instituteSecurityPageVivid .pageHeader {
+    padding-bottom: 8px;
+  }
+
+  .instituteSecurityPageVivid .studentInsightHeroCardCompact {
+    padding: 18px 20px;
+  }
+
+  .instituteSecurityPageVivid .studentInsightHeroCardCompact .studentInsightHeroCopy {
+    gap: 10px;
+  }
+
+  .instituteSecurityPageVivid .studentInsightHeroCardCompact .studentInsightHeroCopy > strong {
+    max-width: 20ch;
+    font-size: 1.22rem;
+    line-height: 1.22;
+  }
+
+  .instituteSecurityPageVivid .studentInsightHeroCardCompact .studentInsightHeroCopy > p {
+    max-width: 62ch;
+    line-height: 1.55;
+  }
+
+  .instituteSecurityPageVivid .resultsSummaryGrid {
+    gap: 12px;
+  }
+
+  .instituteSecurityPageVivid > .resultsSummaryGrid:first-of-type .metricCard {
+    min-height: 112px;
+    padding: 14px 16px;
+  }
+
+  .instituteSecurityPageVivid .workspaceFiltersCard {
+    padding: 18px 20px;
+  }
+
+  .instituteSecurityPageVivid .workspaceFiltersCard .sectionHeading {
+    padding-bottom: 10px;
+    margin-bottom: 2px;
+  }
+
+  .instituteSecurityPageVivid .workspaceFiltersForm {
+    margin-top: 12px;
+    gap: 12px;
+    align-items: end;
+  }
+
+  .instituteSecurityPageVivid .workspaceFilterQuickRow {
+    margin-top: 10px;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .instituteSecurityPageVivid .workspaceFilterQuickChips {
+    gap: 8px;
+  }
+
+  .instituteSecurityPageVivid .dashboardLowerGrid {
+    gap: 16px;
+  }
+
+  .instituteSecurityPageVivid .dashboardPanel.weakTopicsPanel > .studentPageTight {
+    gap: 14px;
+  }
+
+  .instituteSecurityPageVivid .dashboardPanel.weakTopicsPanel h3 {
+    font-size: 1.08rem;
+    line-height: 1.24;
+  }
+
+  .instituteSecurityPageVivid .weakTopicStack {
+    gap: 10px;
+  }
+
+  .instituteSecurityPageVivid .weakTopicRow {
+    padding: 14px 16px;
+    border-radius: 18px;
+  }
+
+  .instituteSecurityPageVivid > .dashboardLowerGrid:first-of-type .weakTopicRow {
+    padding: 12px 14px;
+  }
+
+  .instituteSecurityPageVivid > .dashboardLowerGrid:first-of-type .resultCardActions .button {
+    min-height: 42px;
+    padding-inline: 16px;
+  }
+
+  .instituteSecurityPageVivid .liveMonitorRefreshBar {
+    padding: 14px 16px;
+    border-radius: 20px;
+  }
+
+  .instituteSecurityPageVivid .featurePlaceholder {
+    padding: 18px 20px;
+  }
+
+  .instituteSecurityPageVivid .academicSectionDescription,
+  .instituteSecurityPageVivid .weakTopicRow span,
+  .instituteSecurityPageVivid .weakTopicMeta span {
+    line-height: 1.5;
+  }
+}
+
 .instituteQuestionImportWorkspaceVivid .builderSummaryCard:nth-child(1) {
   background: linear-gradient(135deg, rgba(235, 244, 255, 0.98), rgba(255, 255, 255, 0.94));
 }
@@ -14432,8 +15790,7 @@ body::after {
 }
 
 .adminAppMain .studentInsightHeroCardCompact,
-.adminAppMain .adminInstituteHero,
-.adminAppMain .adminCommandDeck {
+.adminAppMain .adminInstituteHero {
   display: none;
 }
 
@@ -14567,6 +15924,16 @@ body::after {
   color: #51607d;
 }
 
+.adminAppMain .weakTopicMeta {
+  min-width: clamp(110px, 14vw, 168px);
+  align-self: flex-start;
+}
+
+.adminAppMain .weakTopicMeta strong,
+.adminAppMain .weakTopicMeta span {
+  overflow-wrap: anywhere;
+}
+
 .adminAppMain .buttonPrimary,
 .adminAppMain .buttonSecondary,
 .adminAppMain .buttonGhost,
@@ -14674,8 +16041,638 @@ body::after {
   min-height: 132px;
 }
 
+.adminEconomyPage > .resultsSummaryGrid {
+  gap: 16px;
+}
+
+.adminEconomyPage > .dashboardLowerGrid,
+.adminEconomyPage > .dashboardGrid {
+  gap: 18px;
+}
+
+.adminEconomyPage > .dashboardLowerGrid .dashboardPanel.weakTopicsPanel,
+.adminEconomyPage > .dashboardGrid .dashboardPanel.weakTopicsPanel {
+  padding: 0;
+  overflow: hidden;
+}
+
+.adminEconomyPage > .dashboardLowerGrid .dashboardPanel.weakTopicsPanel > .studentPageTight,
+.adminEconomyPage > .dashboardGrid .dashboardPanel.weakTopicsPanel > .studentPageTight {
+  gap: 16px;
+  padding: 20px;
+}
+
+.adminEconomyPage > .dashboardLowerGrid .featurePlaceholder,
+.adminEconomyPage > .dashboardGrid .featurePlaceholder {
+  padding: 18px 20px;
+}
+
+.adminReportsPage {
+  gap: 18px;
+}
+
+.adminReportsPage .workspaceFilterActionsFullRow {
+  padding-top: 0;
+}
+
+.adminSecurityPage {
+  gap: 18px;
+}
+
+@media (min-width: 1100px) {
+  .adminSearchPage .workspaceFiltersCard {
+    padding: 18px 20px;
+  }
+
+  .adminSearchPage .workspaceFiltersForm {
+    grid-template-columns: minmax(0, 2.1fr) repeat(4, minmax(160px, 1fr));
+    gap: 14px;
+  }
+
+  .adminSearchPage .workspaceFilterFieldWide {
+    grid-column: span 2;
+  }
+
+  .adminSearchPage .workspaceFilterActions {
+    grid-column: 4 / -1;
+    justify-content: flex-start;
+    align-self: end;
+  }
+
+  .adminSearchPage .workspaceFilterQuickRow {
+    margin-top: 12px;
+  }
+
+  .adminSettingsPage {
+    gap: 20px;
+  }
+
+  .adminSettingsPage > .dashboardGrid {
+    grid-template-columns: minmax(0, 1.04fr) minmax(360px, 0.96fr);
+    gap: 18px;
+    align-items: start;
+  }
+
+  .adminSettingsPage > .dashboardLowerGrid {
+    grid-template-columns: minmax(0, 1.08fr) minmax(360px, 0.92fr);
+    gap: 18px;
+    align-items: start;
+  }
+
+  .adminSettingsPage > .dashboardLowerGrid > .dashboardPanel:last-child {
+    position: sticky;
+    top: 16px;
+    align-self: start;
+  }
+
+  .adminSettingsPage .weakTopicRow {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+
+  .adminSettingsPage .featurePlaceholder {
+    padding: 16px 18px;
+  }
+
+  .adminSettingsPage .economyCommerceCatalogRow {
+    padding: 12px 14px;
+    border-radius: 18px;
+    border: 1px solid rgba(192, 204, 235, 0.44);
+    background: linear-gradient(180deg, rgba(250, 252, 255, 0.94), rgba(246, 249, 255, 0.88));
+  }
+
+  .adminSettingsPage .economyCommerceCatalogMain,
+  .adminSettingsPage .economyCommerceCatalogMeta {
+    min-width: 0;
+  }
+
+  .adminSettingsPage .economyCommerceCatalogMain strong,
+  .adminSettingsPage .economyCommerceCatalogMain span,
+  .adminSettingsPage .economyCommerceCatalogMeta strong,
+  .adminSettingsPage .economyCommerceCatalogMeta span,
+  .adminSettingsPage .weakTopicMeta strong,
+  .adminSettingsPage .weakTopicMeta span {
+    overflow-wrap: anywhere;
+  }
+
+  .adminSecurityPage {
+    gap: 20px;
+  }
+
+  .adminSecurityPage .resultsSummaryGrid {
+    gap: 14px;
+  }
+
+  .adminSecurityPage > .resultsSummaryGrid .metricCard {
+    min-height: 132px;
+    padding: 16px 18px;
+  }
+
+  .adminSecurityPage > .resultsSummaryGrid .metricCard:nth-child(5) {
+    grid-column: 1 / -1;
+    min-height: 0;
+  }
+
+  .adminSecurityPage .workspaceFiltersCard {
+    padding: 18px 20px;
+  }
+
+  .adminSecurityPage .workspaceFiltersCard .sectionHeading {
+    padding-bottom: 12px;
+    margin-bottom: 4px;
+  }
+
+  .adminSecurityPage .workspaceFiltersForm {
+    margin-top: 14px;
+    gap: 12px;
+    align-items: end;
+  }
+
+  .adminSecurityPage .workspaceFilterActionsFullRow {
+    justify-content: flex-start;
+    padding-top: 2px;
+  }
+
+  .adminSecurityPage .workspaceFilterQuickRow {
+    margin-top: 12px;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .adminSecurityPage > .dashboardLowerGrid:first-of-type {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .adminSecurityPage > .dashboardLowerGrid:first-of-type .dashboardPanel.weakTopicsPanel {
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .adminSecurityPage > .dashboardLowerGrid:first-of-type .dashboardPanel.weakTopicsPanel > .studentPageTight {
+    gap: 16px;
+    padding: 20px;
+  }
+
+  .adminSecurityPage > .dashboardLowerGrid:first-of-type .weakTopicStack {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .adminSecurityPage > .dashboardLowerGrid:first-of-type .weakTopicRow {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    min-height: 100%;
+    padding: 14px 16px;
+    border-radius: 18px;
+    border: 1px solid rgba(192, 204, 235, 0.44);
+    background: linear-gradient(180deg, rgba(250, 252, 255, 0.94), rgba(246, 249, 255, 0.88));
+  }
+
+  .adminSecurityPage > .dashboardLowerGrid:first-of-type .resultCardActions {
+    justify-content: flex-end;
+  }
+
+  .adminSecurityPage > .dashboardLowerGrid:nth-of-type(2) {
+    gap: 18px;
+  }
+
+  .adminSecurityPage > .dashboardGrid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+  }
+
+  .adminSecurityPage > .dashboardGrid .dashboardPanel.weakTopicsPanel > .studentPageTight {
+    gap: 16px;
+    padding: 20px;
+  }
+
+  .adminSecurityPage > .dashboardGrid .workspaceResultsGroup {
+    gap: 12px;
+  }
+
+  .adminSecurityPage > .dashboardGrid .workspaceResultsGroup .weakTopicStack {
+    display: grid;
+    gap: 12px;
+  }
+
+  .adminSecurityPage > .dashboardGrid .workspaceResultsGroup .weakTopicRow {
+    padding: 14px 16px;
+    border-radius: 18px;
+    border: 1px solid rgba(192, 204, 235, 0.44);
+    background: linear-gradient(180deg, rgba(250, 252, 255, 0.94), rgba(246, 249, 255, 0.88));
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+}
+
+@media (max-width: 900px) {
+  .adminSecurityPage > .resultsSummaryGrid .metricCard:nth-child(5) {
+    grid-column: auto;
+  }
+}
+
+@media (min-width: 1100px) {
+  .adminReportsPage {
+    gap: 20px;
+  }
+
+  .adminReportsPage .pageHeader {
+    padding-bottom: 10px;
+  }
+
+  .adminReportsPage .resultsSummaryGrid {
+    gap: 14px;
+  }
+
+  .adminReportsPage .resultsSummaryGrid .metricCard {
+    min-height: 132px;
+    padding: 16px 18px;
+  }
+
+  .adminReportsPage .resultsSummaryGrid .metricCard:nth-child(5) {
+    grid-column: 1 / -1;
+    min-height: 0;
+  }
+
+  .adminReportsPage .workspaceFiltersCard {
+    padding: 18px 20px;
+  }
+
+  .adminReportsPage .workspaceFiltersCard .sectionHeading {
+    padding-bottom: 12px;
+    margin-bottom: 4px;
+  }
+
+  .adminReportsPage .workspaceFiltersForm {
+    margin-top: 14px;
+    gap: 12px;
+    align-items: end;
+  }
+
+  .adminReportsPage .workspaceFilterActionsFullRow {
+    justify-content: flex-start;
+    padding-top: 2px;
+  }
+
+  .adminReportsPage .workspaceFilterQuickRow {
+    margin-top: 12px;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .adminReportsPage .dashboardLowerGrid {
+    gap: 18px;
+  }
+
+  .adminReportsPage .dashboardPanel.weakTopicsPanel {
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .adminReportsPage .dashboardPanel.weakTopicsPanel > .studentPageTight {
+    gap: 16px;
+    padding: 20px;
+  }
+}
+
+@media (max-width: 900px) {
+  .adminReportsPage .resultsSummaryGrid .metricCard:nth-child(5) {
+    grid-column: auto;
+  }
+}
+
+@media (min-width: 1100px) {
+  .adminEconomyPage {
+    gap: 24px;
+  }
+
+  .adminEconomyPage .studentInsightHeroCardCompact {
+    padding: 20px 22px;
+  }
+
+  .adminEconomyPage .studentInsightHeroCardCompact .studentInsightHeroCopy {
+    gap: 14px;
+  }
+
+  .adminEconomyPage .studentInsightHeroCardCompact .studentInsightHeroActions {
+    padding-top: 4px;
+  }
+
+  .adminEconomyPage > .resultsSummaryGrid {
+    gap: 14px;
+  }
+
+  .adminEconomyPage > .resultsSummaryGrid .metricCard.dashboardHeroCard {
+    min-height: 128px;
+    padding: 16px 18px;
+  }
+
+  .adminEconomyPage > .dashboardLowerGrid:first-of-type {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .adminEconomyPage .workspaceTabsShell > .dashboardPanel.weakTopicsPanel:first-of-type {
+    padding: 20px 22px;
+    border-radius: 26px;
+  }
+
+  .adminEconomyPage .workspaceTabsShell > .dashboardPanel.weakTopicsPanel:first-of-type .studentPageTight {
+    gap: 14px;
+  }
+
+  .adminEconomyPage .workspaceTabsShell > .dashboardPanel.weakTopicsPanel:first-of-type h3 {
+    font-size: 1.32rem;
+    line-height: 1.2;
+  }
+
+  .adminEconomyPage .workspaceTabsShell > .dashboardPanel.weakTopicsPanel:first-of-type p,
+  .adminEconomyPage .workspaceTabsShell > .dashboardPanel.weakTopicsPanel:first-of-type small {
+    max-width: 72ch;
+    line-height: 1.58;
+  }
+
+  .adminEconomyPage .workspaceTabsListSticky {
+    padding: 10px;
+    border-radius: 24px;
+    background: rgba(255, 255, 255, 0.74);
+    box-shadow:
+      0 14px 30px rgba(91, 112, 173, 0.06),
+      inset 0 1px 0 rgba(255, 255, 255, 0.84);
+  }
+
+  .adminEconomyPage .workspaceTabsListSticky .workspaceTabButton {
+    min-height: 46px;
+  }
+
+  .adminEconomyPage .workspaceTabsShell > .dashboardPanel.weakTopicsPanel:nth-of-type(2) {
+    padding: 18px 20px;
+    border-radius: 24px;
+    background:
+      radial-gradient(circle at top right, rgba(191, 219, 254, 0.16), transparent 24%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(246, 249, 255, 0.92));
+    box-shadow:
+      0 16px 32px rgba(91, 112, 173, 0.07),
+      inset 0 1px 0 rgba(255, 255, 255, 0.88);
+  }
+
+  .adminEconomyPage .workspaceTabsShell > .dashboardPanel.weakTopicsPanel:nth-of-type(2) .studentPageTight {
+    gap: 12px;
+  }
+
+  .adminEconomyPage .workspaceTabsShell > .dashboardPanel.weakTopicsPanel:nth-of-type(2) h3 {
+    font-size: 1.34rem;
+    line-height: 1.18;
+  }
+
+  .adminEconomyPage .workspaceTabsShell > .dashboardPanel.weakTopicsPanel:nth-of-type(2) p {
+    max-width: 68ch;
+    line-height: 1.55;
+  }
+
+  .adminEconomyPage .workspaceTabsShell > .dashboardPanel.weakTopicsPanel:nth-of-type(2) .studentInsightHeroActions {
+    padding-top: 2px;
+  }
+
+  .adminEconomyPage .workspaceTabsShell > .resultsSummaryGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .adminEconomyPage .workspaceTabsShell > .resultsSummaryGrid .metricCard.dashboardHeroCard {
+    min-height: 124px;
+    padding: 16px 16px 18px;
+  }
+
+  .adminEconomyPage .workspaceTabsShell > .resultsSummaryGrid .metricCard.dashboardHeroCard strong {
+    font-size: 2rem;
+  }
+
+  .adminEconomyPage .workspaceTabsShell > .resultsSummaryGrid .metricCard.dashboardHeroCard small {
+    line-height: 1.45;
+  }
+
+  .adminEconomyPage .workspaceTabsShell > .dashboardLowerGrid:first-of-type {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .adminEconomyPage .workspaceTabsShell > .dashboardLowerGrid:first-of-type .dashboardPanel.weakTopicsPanel {
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .adminEconomyPage .workspaceTabsShell > .dashboardLowerGrid:first-of-type .dashboardPanel.weakTopicsPanel > .studentPageTight {
+    gap: 16px;
+    padding: 18px 20px;
+  }
+
+  .adminEconomyPage .workspaceTabsShell > .dashboardLowerGrid > .dashboardPanel:only-child {
+    grid-column: 1 / -1;
+  }
+
+  .adminEconomyPage .workspaceTabsShell > .dashboardLowerGrid .economySubscriptionEditorPanel {
+    padding: 20px 22px;
+    border-radius: 24px;
+  }
+
+  .adminEconomyPage .workspaceTabsShell > .dashboardLowerGrid .economyWorkspaceSplitGrid {
+    grid-template-columns: minmax(280px, 0.92fr) minmax(0, 1.08fr);
+    gap: 18px;
+  }
+
+  .adminEconomyPage .workspaceTabsShell > .dashboardLowerGrid .economyFormSection {
+    min-height: 100%;
+    margin-top: 6px;
+  }
+
+  .adminEconomyPage .workspaceTabsShell > .dashboardLowerGrid .economyEditorActionBar {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .adminEconomyPage .workspaceTabsShell > .dashboardLowerGrid .economyEditorActionBar .button {
+    min-width: 180px;
+  }
+}
+
 .instituteEconomyPage {
   gap: 24px;
+}
+
+.instituteDashboardPageVivid .adminInstituteHero,
+.instituteDashboardPageVivid .adminCommandDeck,
+.instituteDashboardPageVivid .workspaceFiltersCard,
+.instituteDashboardPageVivid .adminPriorityPanel,
+.instituteDashboardPageVivid .adminStructurePanel,
+.instituteDashboardPageVivid .dashboardPanel {
+  border-radius: 26px;
+}
+
+@media (min-width: 1100px) {
+  .instituteDashboardPageVivid {
+    gap: 18px;
+  }
+
+  .instituteDashboardPageVivid .pageHeader {
+    padding-bottom: 8px;
+  }
+
+  .instituteDashboardPageVivid .adminInstituteHero {
+    gap: 16px;
+    grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.88fr);
+  }
+
+  .instituteDashboardPageVivid .adminInstituteHeroCopy {
+    gap: 10px;
+  }
+
+  .instituteDashboardPageVivid .adminInstituteHeroCopy > strong {
+    font-size: 1.28rem;
+    line-height: 1.2;
+    max-width: 24ch;
+  }
+
+  .instituteDashboardPageVivid .adminInstituteHeroCopy > p {
+    max-width: 68ch;
+    line-height: 1.54;
+  }
+
+  .instituteDashboardPageVivid .adminInstituteHeroMeta {
+    gap: 8px;
+  }
+
+  .instituteDashboardPageVivid .adminInstituteHeroActions {
+    padding-top: 2px;
+  }
+
+  .instituteDashboardPageVivid .adminInstituteHeroAside {
+    gap: 12px;
+  }
+
+  .instituteDashboardPageVivid .adminInstituteHeroAsideCard,
+  .instituteDashboardPageVivid .adminInstituteHeroMiniStat {
+    border-radius: 20px;
+  }
+
+  .instituteDashboardPageVivid .adminCommandDeck {
+    gap: 16px;
+    grid-template-columns: minmax(0, 1.6fr) minmax(300px, 0.8fr);
+  }
+
+  .instituteDashboardPageVivid .adminCommandDeckHero {
+    padding: 20px 22px;
+  }
+
+  .instituteDashboardPageVivid .adminCommandDeckHero h2 {
+    max-width: 18ch;
+    font-size: clamp(1.8rem, 1.64rem + 0.55vw, 2.15rem);
+  }
+
+  .instituteDashboardPageVivid .adminCommandDeckHero p {
+    max-width: 64ch;
+    line-height: 1.54;
+  }
+
+  .instituteDashboardPageVivid .adminCommandDeckAside {
+    padding: 14px;
+  }
+
+  .instituteDashboardPageVivid .adminExecutiveStat {
+    padding: 16px;
+    border-radius: 20px;
+  }
+
+  .instituteDashboardPageVivid .adminMetricsGrid {
+    gap: 12px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .instituteDashboardPageVivid .adminMetricsGrid .metricCard {
+    min-height: 116px;
+    padding: 14px 16px;
+  }
+
+  .instituteDashboardPageVivid .adminSignalGrid {
+    gap: 12px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .instituteDashboardPageVivid .adminSignalCard {
+    gap: 10px;
+    padding: 16px;
+    border-radius: 22px;
+  }
+
+  .instituteDashboardPageVivid .dashboardGrid {
+    gap: 16px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .instituteDashboardPageVivid .dashboardGrid > .dashboardPanel {
+    padding: 18px;
+  }
+
+  .instituteDashboardPageVivid .weakTopicStack {
+    gap: 10px;
+  }
+
+  .instituteDashboardPageVivid .weakTopicRow {
+    padding: 14px 16px;
+    border-radius: 20px;
+  }
+
+  .instituteDashboardPageVivid .workspaceFiltersCard {
+    padding: 16px 18px;
+  }
+
+  .instituteDashboardPageVivid .workspaceFiltersCard .sectionHeading {
+    padding-bottom: 10px;
+    margin-bottom: 4px;
+  }
+
+  .instituteDashboardPageVivid .workspaceFiltersForm {
+    gap: 10px;
+    align-items: end;
+  }
+
+  .instituteDashboardPageVivid .workspaceFilterQuickRow {
+    margin-top: 8px;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .instituteDashboardPageVivid .workspaceFilterQuickChips {
+    gap: 8px;
+  }
+
+  .instituteDashboardPageVivid .adminWorkspaceGrid {
+    gap: 16px;
+    grid-template-columns: minmax(0, 1.48fr) minmax(320px, 0.86fr);
+  }
+
+  .instituteDashboardPageVivid .adminPriorityPanel,
+  .instituteDashboardPageVivid .adminStructurePanel {
+    padding: 18px;
+  }
+
+  .instituteDashboardPageVivid .adminPriorityGrid {
+    gap: 12px;
+  }
+
+  .instituteDashboardPageVivid .adminPriorityCard {
+    padding: 16px;
+    border-radius: 20px;
+  }
+
+  .instituteDashboardPageVivid .adminStructureGrid {
+    gap: 12px;
+  }
+
+  .instituteDashboardPageVivid .adminStructureGrid .metricCard.compact {
+    min-height: 112px;
+    border-radius: 20px;
+  }
 }
 
 .instituteEconomyPage .studentInsightHeroCardCompact,
@@ -14738,6 +16735,121 @@ body::after {
 .instituteEconomyPage .metricCard.dashboardHeroCard,
 .instituteEconomyPage .studentMetricCard {
   min-height: 128px;
+}
+
+@media (min-width: 1100px) {
+  .instituteEconomyPage {
+    gap: 20px;
+  }
+
+  .instituteEconomyPage .pageHeader {
+    padding-bottom: 8px;
+  }
+
+  .instituteEconomyPage .studentInsightHeroCardCompact {
+    padding: 20px 22px;
+  }
+
+  .instituteEconomyPage .studentInsightHeroCardCompact .studentInsightHeroCopy {
+    gap: 10px;
+  }
+
+  .instituteEconomyPage .studentInsightHeroCardCompact .studentInsightHeroCopy > strong {
+    max-width: 19ch;
+    font-size: 1.36rem;
+    line-height: 1.18;
+  }
+
+  .instituteEconomyPage .studentInsightHeroCardCompact .studentInsightHeroCopy > p {
+    max-width: 70ch;
+    line-height: 1.55;
+  }
+
+  .instituteEconomyPage .studentInsightHeroCardCompact .studentInsightHeroActions {
+    padding-top: 4px;
+  }
+
+  .instituteEconomyPage .dashboardLowerGrid {
+    gap: 16px;
+  }
+
+  .instituteEconomyPage .dashboardPanel.weakTopicsPanel > .studentPageTight {
+    gap: 14px;
+  }
+
+  .instituteEconomyPage .dashboardPanel.weakTopicsPanel h3,
+  .instituteEconomyPage .featurePlaceholder > strong {
+    font-size: 1.08rem;
+  }
+
+  .instituteEconomyPage .academicSectionDescription,
+  .instituteEconomyPage .featurePlaceholder > p,
+  .instituteEconomyPage .weakTopicRow span,
+  .instituteEconomyPage .weakTopicMeta span {
+    line-height: 1.5;
+  }
+
+  .instituteEconomyPage .setupFormGrid.setupFormGridDense {
+    gap: 12px;
+  }
+
+  .instituteEconomyPage .resultsSummaryGrid {
+    gap: 12px;
+  }
+
+  .instituteEconomyPage .metricCard.dashboardHeroCard,
+  .instituteEconomyPage .studentMetricCard {
+    min-height: 112px;
+    padding: 14px 16px;
+  }
+
+  .instituteEconomyPage .weakTopicStack {
+    gap: 10px;
+  }
+
+  .instituteEconomyPage .weakTopicRow {
+    padding: 14px 16px;
+    border-radius: 18px;
+  }
+
+  .instituteEconomyPage .economySubscriptionEditorPanel,
+  .instituteEconomyPage .featurePlaceholder:not(.economySubscriptionEditorPanel) {
+    padding: 18px 20px;
+  }
+
+  .instituteEconomyPage .economyWorkspaceSplitGrid {
+    grid-template-columns: minmax(260px, 0.92fr) minmax(0, 1.08fr);
+    gap: 14px;
+  }
+
+  .instituteEconomyPage .economyFormSection {
+    gap: 12px;
+    margin-top: 4px;
+    padding: 14px 16px;
+  }
+
+  .instituteEconomyPage .economyFormSectionHeader {
+    gap: 4px;
+  }
+
+  .instituteEconomyPage .economyCompactStats {
+    gap: 8px;
+  }
+
+  .instituteEconomyPage .economyCompactStats span {
+    min-height: 30px;
+    padding: 0 11px;
+    font-size: 0.82rem;
+  }
+
+  .instituteEconomyPage .economyEditorActionBar {
+    margin-top: 14px;
+    gap: 10px;
+  }
+
+  .instituteEconomyPage .economyEditorActionBar .button {
+    min-width: 164px;
+  }
 }
 
 .economyWorkspaceSplitGrid {
@@ -15715,6 +17827,17 @@ body::after {
   color: #385178;
 }
 
+.adminAppMain .appTopbarActions {
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+
+.adminAppMain .appTopbarProfile {
+  flex: 0 0 auto;
+  min-width: 198px;
+  justify-content: flex-start;
+}
+
 .adminAppMain .buttonPrimary:hover,
 .adminAppMain .buttonSecondary:hover,
 .adminAppMain .buttonGhost:hover,
@@ -16145,9 +18268,131 @@ body::after {
   background: linear-gradient(135deg, rgba(236, 251, 247, 0.98), rgba(255, 255, 255, 0.94));
 }
 
+@media (min-width: 1100px) {
+  .questionBankPageVivid > .contentCard:first-of-type {
+    padding: 18px 20px;
+    border-radius: 24px;
+  }
+
+  .questionBankPageVivid > .contentCard:first-of-type .economyAccessChecklist {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .questionBankPageVivid > .contentCard:first-of-type .economyAccessChecklistCard {
+    min-height: 0;
+    padding: 13px 14px;
+  }
+
+  .questionBankPageVivid > .contentCard:first-of-type .economyAccessChecklistCard strong {
+    font-size: 0.92rem;
+  }
+
+  .questionBankPageVivid > .contentCard:first-of-type .economyAccessChecklistCard small {
+    font-size: 0.78rem;
+    line-height: 1.45;
+  }
+
+  .questionBankPageVivid > .builderSummaryGrid.questionBankSummaryGridCompact {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .questionBankPageVivid > .builderSummaryGrid.questionBankSummaryGridCompact .builderSummaryCard {
+    min-height: 116px;
+  }
+
+  .questionBankPageVivid .questionBankFilterSurface {
+    padding: 18px 20px;
+    border-radius: 24px;
+  }
+
+  .questionBankPageVivid .questionBankFilterForm {
+    gap: 12px 14px;
+  }
+
+  .questionBankPageVivid .questionBankFilterActions {
+    padding-top: 0;
+  }
+
+  .questionBankPageVivid .questionBankBulkBar {
+    padding: 16px 18px;
+    border-radius: 22px;
+  }
+
+  .questionBankPageVivid .questionBankBulkMetaCopy strong {
+    font-size: 0.98rem;
+  }
+
+  .questionBankPageVivid .questionBankBulkControls {
+    padding: 12px 14px;
+    border-radius: 16px;
+  }
+
+  .questionBankPageVivid .questionBankList {
+    gap: 14px;
+  }
+
+  .questionBankPageVivid .questionBankCard {
+    padding: 18px;
+    border-radius: 24px;
+    box-shadow:
+      0 16px 30px rgba(85, 122, 193, 0.06),
+      inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  }
+
+  .questionBankPageVivid .questionBankCardCopy strong {
+    font-size: 1rem;
+    line-height: 1.42;
+  }
+
+  .questionBankPageVivid .questionBankMetrics {
+    gap: 10px;
+  }
+
+  .questionBankPageVivid .questionBankMetrics > div {
+    padding: 12px 14px;
+  }
+
+  .questionBankPageVivid .questionBankMetrics strong {
+    font-size: 0.96rem;
+  }
+
+  .questionBankPageVivid .questionBankDetailsBody {
+    gap: 14px;
+  }
+
+  .instituteQuestionBankPage > .contentCard {
+    padding: 18px 20px;
+    border-radius: 24px;
+  }
+
+  .instituteQuestionBankPage > .contentCard:nth-of-type(2) .weakTopicStack {
+    gap: 10px;
+  }
+
+  .instituteQuestionBankPage > .contentCard:nth-of-type(2) .weakTopicRow {
+    padding: 14px 16px;
+    border-radius: 18px;
+  }
+
+  .instituteQuestionBankPage > .contentCard:nth-of-type(3) {
+    padding: 16px 18px;
+  }
+
+  .instituteQuestionBankPage > .builderSummaryGrid.questionBankSummaryGridCompact {
+    gap: 10px;
+  }
+
+  .instituteQuestionBankPage > .builderSummaryGrid.questionBankSummaryGridCompact .builderSummaryCard {
+    min-height: 108px;
+    padding: 14px 16px;
+  }
+}
+
 .teacherResultsPageVivid .teacherResultsLayout {
-  grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
-  gap: 18px;
+  grid-template-columns: minmax(280px, 330px) minmax(0, 1fr);
+  gap: 20px;
   align-items: start;
 }
 
@@ -16170,18 +18415,22 @@ body::after {
 
 .teacherResultsPageVivid .teacherResultsActionGrid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
 }
 
 .teacherResultsPageVivid .teacherWorkflowGrid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
 }
 
 .teacherResultsPageVivid .teacherResultsReadinessBoard {
-  grid-template-columns: minmax(0, 1.2fr) repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
 }
 
 .teacherResultsPageVivid .teacherResultsSplit {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
 }
 
 .teacherResultsPageVivid .teacherResultsSidebar,
@@ -16195,6 +18444,7 @@ body::after {
 
 .teacherResultsPageVivid .teacherWorkflowSummary {
   grid-template-columns: minmax(0, 1.45fr) minmax(240px, 0.8fr);
+  gap: 14px;
 }
 
 .teacherResultsPageVivid .teacherResultsKpiGrid {
@@ -16202,7 +18452,86 @@ body::after {
 }
 
 .teacherResultsPageVivid .teacherResultsStatsGridSix {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.teacherResultsPageVivid .teacherResultsReadinessBoard > .teacherResultsReadinessHero {
+  grid-column: 1 / -1;
+}
+
+.teacherResultsPageVivid .teacherResultsSidebar > .contentCard:first-child,
+.teacherResultsPageVivid .teacherResultsSidebar > .studentStatePanel:first-child {
+  border-radius: 22px;
+  box-shadow:
+    0 16px 30px rgba(79, 70, 229, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.teacherResultsPageVivid .teacherResultsMain > .resultsSummaryGrid .metricCard,
+.teacherResultsPageVivid .teacherResultsActionCard,
+.teacherResultsPageVivid .teacherWorkflowCard,
+.teacherResultsPageVivid .teacherResultsReadinessHero,
+.teacherResultsPageVivid .teacherResultsReadinessCard,
+.teacherResultsPageVivid .resultCard {
+  box-shadow:
+    0 14px 28px rgba(79, 70, 229, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.teacherResultsPageVivid .teacherResultsActionCard,
+.teacherResultsPageVivid .teacherWorkflowCard,
+.teacherResultsPageVivid .teacherResultsReadinessHero,
+.teacherResultsPageVivid .teacherResultsReadinessCard {
+  padding: 18px;
+}
+
+.teacherResultsPageVivid .teacherResultsSidebar > .contentCard:first-child {
+  padding: 18px;
+}
+
+.teacherResultsPageVivid .teacherResultsMain > .resultsSummaryGrid {
+  gap: 14px;
+}
+
+.teacherResultsPageVivid .teacherResultsMain > .resultsSummaryGrid .metricCard {
+  min-height: 118px;
+}
+
+.teacherResultsPageVivid .teacherResultsActionCard,
+.teacherResultsPageVivid .teacherWorkflowCard,
+.teacherResultsPageVivid .teacherResultsReadinessHero,
+.teacherResultsPageVivid .teacherResultsReadinessCard,
+.teacherResultsPageVivid .resultCard {
+  border-radius: 20px;
+}
+
+.teacherResultsPageVivid .teacherResultsReadinessHero p,
+.teacherResultsPageVivid .teacherResultsReadinessCard p,
+.teacherResultsPageVivid .teacherWorkflowCard p,
+.teacherResultsPageVivid .resultCard p,
+.teacherResultsPageVivid .resultCard li {
+  max-width: 62ch;
+}
+
+.teacherResultsPageVivid .teacherResultsActionCard strong,
+.teacherResultsPageVivid .teacherWorkflowCard strong,
+.teacherResultsPageVivid .teacherResultsReadinessHero strong,
+.teacherResultsPageVivid .teacherResultsReadinessCard strong {
+  color: #1b2740;
+}
+
+.teacherResultsPageVivid .teacherResultsActionCard p,
+.teacherResultsPageVivid .teacherWorkflowCard p,
+.teacherResultsPageVivid .teacherWorkflowCard small,
+.teacherResultsPageVivid .teacherResultsReadinessHero p,
+.teacherResultsPageVivid .teacherResultsReadinessCard p,
+.teacherResultsPageVivid .teacherResultsReadinessCard li {
+  line-height: 1.6;
+}
+
+.teacherResultsPageVivid .teacherResultsMain {
+  gap: 16px;
 }
 
 @media (max-width: 1240px) {
@@ -16228,6 +18557,10 @@ body::after {
 }
 
 @media (max-width: 900px) {
+  .teacherResultsPageVivid .teacherResultsMain {
+    gap: 14px;
+  }
+
   .teacherResultsPageVivid .teacherWorkflowGrid,
   .teacherResultsPageVivid .teacherResultsReadinessBoard,
   .teacherResultsPageVivid .teacherResultsActionGrid,
@@ -16235,6 +18568,76 @@ body::after {
   .teacherResultsPageVivid .teacherResultsKpiGrid,
   .teacherResultsPageVivid .teacherResultsStatsGridSix {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .teacherResultsPageVivid .teacherResultsSidebar > .contentCard:first-child,
+  .teacherResultsPageVivid .teacherResultsSidebar > .studentStatePanel:first-child,
+  .teacherResultsPageVivid .teacherResultsMain > .contentCard,
+  .teacherResultsPageVivid .teacherResultsMain > .studentStatePanel,
+  .teacherResultsPageVivid .teacherResultsMain > .resultsSummaryGrid,
+  .teacherResultsPageVivid .teacherResultsMain > .resultsList,
+  .teacherResultsPageVivid .teacherResultsActionCard,
+  .teacherResultsPageVivid .teacherWorkflowCard,
+  .teacherResultsPageVivid .teacherResultsReadinessHero,
+  .teacherResultsPageVivid .teacherResultsReadinessCard,
+  .teacherResultsPageVivid .resultCard {
+    border-radius: 20px;
+    box-shadow:
+      0 12px 24px rgba(79, 70, 229, 0.045),
+      inset 0 1px 0 rgba(255, 255, 255, 0.78);
+  }
+
+  .teacherResultsPageVivid .teacherResultsMain > .resultsSummaryGrid .metricCard {
+    padding: 14px 14px 15px;
+  }
+
+  .teacherResultsPageVivid .teacherResultsActionCard,
+  .teacherResultsPageVivid .teacherWorkflowCard,
+  .teacherResultsPageVivid .teacherResultsReadinessHero,
+  .teacherResultsPageVivid .teacherResultsReadinessCard {
+    gap: 10px;
+    padding: 15px;
+  }
+
+  .teacherResultsPageVivid .teacherWorkflowSummary {
+    gap: 14px;
+    padding: 16px;
+    border-radius: 20px;
+  }
+
+  .teacherResultsPageVivid .teacherWorkflowSummary strong {
+    font-size: 1.02rem;
+  }
+
+  .teacherResultsPageVivid .teacherWorkflowHeader,
+  .teacherResultsPageVivid .teacherWorkflowActionArea,
+  .teacherResultsPageVivid .teacherResultsReadinessCardTop {
+    align-items: flex-start;
+  }
+
+  .teacherResultsPageVivid .resultCardActions,
+  .teacherResultsPageVivid .questionBankButtonRow {
+    width: 100%;
+  }
+
+  .teacherResultsPageVivid .resultCardActions > *,
+  .teacherResultsPageVivid .questionBankButtonRow > * {
+    flex: 1 1 100%;
+  }
+
+  .teacherResultsPageVivid .resultCardActions > * > .button,
+  .teacherResultsPageVivid .resultCardActions > * > a,
+  .teacherResultsPageVivid .resultCardActions > * > button,
+  .teacherResultsPageVivid .questionBankButtonRow > * > .button,
+  .teacherResultsPageVivid .questionBankButtonRow > * > a,
+  .teacherResultsPageVivid .questionBankButtonRow > * > button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 520px) {
+  .teacherResultsPageVivid .teacherResultsMain > .resultsSummaryGrid {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -16473,6 +18876,168 @@ body::after {
 .adminPriorityCard,
 .adminActionCard {
   min-width: 0;
+}
+
+@media (min-width: 1100px) {
+  .adminDashboardPage {
+    gap: 20px;
+  }
+
+  .adminDashboardPage .pageHeader {
+    padding-bottom: 10px;
+  }
+
+  .adminCommandDeck {
+    gap: 18px;
+    grid-template-columns: minmax(0, 1.8fr) minmax(320px, 0.82fr);
+  }
+
+  .adminCommandDeckHero,
+  .adminCommandDeckAside,
+  .adminDashboardPage .workspaceFiltersCard,
+  .adminPriorityPanel,
+  .adminStructurePanel,
+  .adminActionPanel,
+  .adminDashboardLowerGrid > .dashboardPanel {
+    border-radius: 26px;
+  }
+
+  .adminCommandDeckHero {
+    gap: 16px;
+    padding: 24px 26px;
+  }
+
+  .adminCommandDeckHero h2 {
+    max-width: 16ch;
+    font-size: clamp(2rem, 1.8rem + 0.75vw, 2.55rem);
+  }
+
+  .adminCommandDeckHero p {
+    max-width: 70ch;
+    line-height: 1.6;
+  }
+
+  .adminHeroMetaRow {
+    gap: 12px;
+  }
+
+  .adminHeroMetaRow span {
+    min-height: 38px;
+    padding: 0 13px;
+  }
+
+  .adminCommandDeckAside {
+    gap: 14px;
+    padding: 16px;
+  }
+
+  .adminExecutiveStat {
+    padding: 18px;
+  }
+
+  .adminMetricsGrid {
+    gap: 14px;
+  }
+
+  .adminMetricsGrid .metricCard {
+    min-height: 144px;
+    padding: 18px;
+  }
+
+  .adminSignalGrid {
+    gap: 14px;
+  }
+
+  .adminSignalCard {
+    gap: 12px;
+    padding: 18px;
+    border-radius: 22px;
+  }
+
+  .adminDashboardPage .workspaceFiltersCard {
+    padding: 18px 20px;
+  }
+
+  .adminDashboardPage .workspaceFiltersCard .sectionHeading {
+    padding-bottom: 12px;
+    margin-bottom: 4px;
+  }
+
+  .adminDashboardPage .workspaceFiltersForm {
+    gap: 12px;
+    align-items: end;
+  }
+
+  .adminDashboardPage .workspaceFilterQuickRow {
+    margin-top: 10px;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .adminDashboardPage .workspaceFilterQuickChips {
+    gap: 10px;
+  }
+
+  .adminWorkspaceGrid {
+    gap: 18px;
+    grid-template-columns: minmax(0, 1.55fr) minmax(330px, 0.92fr);
+  }
+
+  .adminPriorityPanel,
+  .adminStructurePanel,
+  .adminActionPanel,
+  .adminDashboardLowerGrid > .dashboardPanel {
+    padding: 20px;
+  }
+
+  .adminPriorityGrid {
+    gap: 14px;
+  }
+
+  .adminPriorityCard,
+  .adminActionCard {
+    gap: 14px;
+    padding: 18px;
+    border-radius: 20px;
+  }
+
+  .adminPriorityCardHeader strong,
+  .adminActionCard strong {
+    font-size: 1.04rem;
+    line-height: 1.32;
+  }
+
+  .adminPriorityCardHeader > div:first-child span,
+  .adminActionCard p {
+    line-height: 1.55;
+  }
+
+  .adminStructureGrid {
+    gap: 14px;
+  }
+
+  .adminStructureGrid .metricCard.compact {
+    min-height: 132px;
+    border-radius: 20px;
+  }
+
+  .adminDashboardLowerGrid {
+    gap: 18px;
+    grid-template-columns: minmax(0, 1.22fr) minmax(340px, 0.78fr);
+  }
+
+  .adminDashboardLowerGrid .weakTopicStack {
+    gap: 12px;
+  }
+
+  .adminDashboardLowerGrid .weakTopicRow {
+    padding: 16px 18px;
+    border-radius: 20px;
+  }
+
+  .adminActionGrid {
+    gap: 14px;
+  }
 }
 
 @media (max-width: 1200px) {
@@ -16783,7 +19348,7 @@ body::after {
 .adminInstituteLayout {
   display: grid;
   gap: 16px;
-  grid-template-columns: minmax(0, 2fr) minmax(340px, 0.88fr);
+  grid-template-columns: minmax(0, 1.9fr) minmax(360px, 1fr);
   align-items: start;
 }
 
@@ -16803,7 +19368,7 @@ body::after {
 
 .adminInstituteTable {
   width: 100%;
-  min-width: 780px;
+  min-width: 800px;
   border-collapse: collapse;
 }
 
@@ -16853,6 +19418,7 @@ body::after {
 .adminInstituteTable td strong {
   font-size: var(--text-base);
   line-height: var(--leading-snug);
+  overflow-wrap: break-word;
 }
 
 .adminInstituteTable td small {
@@ -16860,6 +19426,7 @@ body::after {
   color: var(--color-text-muted);
   font-size: var(--text-sm);
   line-height: var(--leading-normal);
+  overflow-wrap: anywhere;
 }
 
 .adminInstituteRowActions {
@@ -16907,6 +19474,7 @@ body::after {
   font-size: var(--text-md);
   letter-spacing: var(--tracking-heading);
   line-height: var(--leading-snug);
+  overflow-wrap: anywhere;
 }
 
 .adminInstituteDetailHero p {
@@ -16919,6 +19487,118 @@ body::after {
 .adminInstituteInfoList {
   display: grid;
   gap: 12px;
+}
+
+.adminInstituteInfoList .weakTopicMeta strong,
+.adminInstituteInfoList .weakTopicMeta span,
+.adminInstituteOnboardingSummaryCard .weakTopicMeta strong,
+.adminInstituteOnboardingSummaryCard .weakTopicMeta span,
+.adminInstituteRunHistoryCard .weakTopicMeta strong,
+.adminInstituteRunHistoryCard .weakTopicMeta span {
+  overflow-wrap: anywhere;
+}
+
+.adminInstituteOnboardingSummaryCard,
+.adminInstituteRunHistoryCard {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+  padding: 18px;
+  border-radius: 22px;
+}
+
+.adminInstituteOnboardingSummaryCard {
+  border: 1px solid rgba(92, 124, 250, 0.14);
+  background: linear-gradient(180deg, rgba(240, 246, 255, 0.9), rgba(255, 255, 255, 0.74));
+}
+
+.adminInstituteRunHistoryCard {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.adminInstituteStatGrid,
+.adminInstituteProfileSummaryGrid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.adminInstituteProfileSummaryCard {
+  padding: 12px 14px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.adminInstituteProfileSummaryCard strong {
+  display: block;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+}
+
+.adminInstituteRunList,
+.adminInstituteTaskList {
+  display: grid;
+  gap: 12px;
+}
+
+.adminInstituteRunList {
+  max-height: min(54vh, 780px);
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.adminInstituteRunCard {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 18px;
+  background: rgba(248, 250, 252, 0.78);
+}
+
+.adminInstituteTaskList {
+  padding-top: 12px;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.adminInstituteTaskCard {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.adminInstituteRunStatusRow,
+.adminInstituteTaskMetaRow,
+.adminInstituteActionRow,
+.adminInstituteTaskActionRow {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.adminInstituteActionRow {
+  gap: 12px;
+}
+
+.adminInstituteTaskResultPre {
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.05);
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+}
+
+.adminInstituteInlinePlaceholder {
+  margin-top: 0;
 }
 
 .adminInstituteAccountPanel {
@@ -17034,6 +19714,113 @@ body::after {
 
   .adminInstituteDetailCard {
     position: static;
+  }
+}
+
+@media (min-width: 1100px) {
+  .adminInstitutePage {
+    gap: 22px;
+  }
+
+  .adminInstituteKpiGrid {
+    gap: 16px;
+  }
+
+  .adminInstituteLayout {
+    gap: 18px;
+    grid-template-columns: minmax(0, 1.64fr) minmax(420px, 1.08fr);
+  }
+
+  .adminInstituteTableCard,
+  .adminInstituteDetailCard {
+    border-radius: 26px;
+  }
+
+  .adminInstituteTableCard {
+    padding: 18px 18px 20px;
+  }
+
+  .adminInstituteTableCard .sectionHeading,
+  .adminInstituteDetailCard .sectionHeading {
+    padding-bottom: 12px;
+    margin-bottom: 2px;
+  }
+
+  .adminInstituteTableCard .sectionHeading strong,
+  .adminInstituteDetailCard .sectionHeading strong {
+    font-size: 1.08rem;
+  }
+
+  .adminInstituteToolbar {
+    padding: 18px 20px;
+    border-radius: 26px;
+  }
+
+  .adminInstituteToolbarActions {
+    gap: 12px;
+  }
+
+  .adminInstituteTableWrap {
+    max-height: calc(100vh - 220px);
+    border-radius: 20px;
+  }
+
+  .adminInstituteTable thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+
+  .adminInstituteTable tbody td {
+    padding: 15px 14px;
+  }
+
+  .adminInstituteDetailCard {
+    top: 16px;
+    gap: 16px;
+    padding: 18px;
+  }
+
+  .adminInstituteDetailHero {
+    padding: 16px 18px;
+  }
+
+  .adminInstituteDetailGrid {
+    gap: 14px;
+  }
+
+  .adminInstituteOnboardingSummaryCard,
+  .adminInstituteRunHistoryCard {
+    padding: 20px;
+  }
+
+  .adminInstituteRunList {
+    max-height: min(42vh, 560px);
+  }
+
+  .adminInstituteRunCard .weakTopicRow,
+  .adminInstituteTaskCard .weakTopicRow,
+  .adminInstituteInfoList .weakTopicRow {
+    padding: 12px 14px;
+    border-radius: 18px;
+    border: 1px solid rgba(192, 204, 235, 0.44);
+    background: linear-gradient(180deg, rgba(250, 252, 255, 0.94), rgba(246, 249, 255, 0.88));
+  }
+
+  .adminInstituteInfoList {
+    gap: 14px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+
+  .adminInstituteInfoList > :first-child,
+  .adminInstituteInfoList > :nth-child(4),
+  .adminInstituteInfoList > :nth-child(5) {
+    grid-column: 1 / -1;
+  }
+
+  .adminInstituteAccountPanel {
+    padding: 16px 18px;
   }
 }
 
@@ -17294,8 +20081,17 @@ body::after {
   gap: 16px;
 }
 
+.instituteConsolePage .adminPeopleRosterBrowser {
+  gap: 12px;
+}
+
 .instituteConsolePage .rosterBrowserHeader {
   gap: 12px;
+}
+
+.instituteConsolePage .rosterBrowserHeader > div:first-child {
+  display: grid;
+  gap: 8px;
 }
 
 .instituteConsolePage .rosterBrowserHeader h3 {
@@ -17442,20 +20238,13 @@ body::after {
 }
 
 .instituteConsolePage .adminPeopleActionBarCopy {
-  gap: 6px;
+  gap: 4px;
 }
 
 .instituteConsolePage .adminPeopleActionBarCopy strong {
   font-size: var(--text-base);
   line-height: var(--leading-snug);
   letter-spacing: var(--tracking-heading);
-}
-
-.instituteConsolePage .adminPeopleActionBarCopy span:first-child {
-  font-size: var(--text-xs);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-label);
-  color: var(--color-text-muted);
 }
 
 .instituteConsolePage .adminPeopleActionBarButtons {
@@ -17475,6 +20264,10 @@ body::after {
 
 .adminPeopleRosterPanelSingle {
   min-width: 0;
+}
+
+.adminPeoplePageCompact .adminPeopleRosterPanelSingle {
+  overflow: hidden;
 }
 
 .adminPeopleRosterActionLane {
@@ -17509,8 +20302,9 @@ body::after {
 
 .adminPeopleRosterTable {
   width: 100%;
-  min-width: 1120px;
+  min-width: 980px;
   border-collapse: collapse;
+  table-layout: fixed;
 }
 
 .adminPeopleRosterTable thead th {
@@ -17567,6 +20361,7 @@ body::after {
 .adminPeopleRosterTable td strong {
   font-size: var(--text-base);
   line-height: var(--leading-snug);
+  overflow-wrap: anywhere;
 }
 
 .adminPeopleRosterTable td small {
@@ -17574,12 +20369,118 @@ body::after {
   color: var(--color-text-muted);
   font-size: var(--text-sm);
   line-height: var(--leading-normal);
+  overflow-wrap: anywhere;
 }
 
 .adminPeopleRosterStatusStack {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+@media (min-width: 1100px) {
+  .adminPeoplePageCompact {
+    gap: 18px;
+  }
+
+  .adminPeoplePageCompact .pageHeader {
+    padding-bottom: 10px;
+  }
+
+  .adminPeoplePageCompact .adminPeopleControlPanel,
+  .adminPeoplePageCompact .adminPeopleRosterPanelSingle {
+    border-radius: 26px;
+  }
+
+  .adminPeoplePageCompact .adminPeopleControlPanel {
+    gap: 14px;
+    padding: 18px 20px;
+  }
+
+  .adminPeoplePageCompact .adminPeopleViewTabs {
+    gap: 12px;
+  }
+
+  .adminPeoplePageCompact .adminPeopleActionBar {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) auto;
+    align-items: end;
+    gap: 18px;
+    padding-top: 12px;
+  }
+
+  .adminPeoplePageCompact .adminPeopleActionBarCopy {
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .adminPeoplePageCompact .adminPeopleInstituteSelectField {
+    max-width: 760px;
+    gap: 10px;
+  }
+
+  .adminPeoplePageCompact .adminPeopleInstituteSelectField > span {
+    font-size: 0.76rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .adminPeoplePageCompact .adminPeopleInstituteSelectRow {
+    gap: 12px;
+  }
+
+  .adminPeoplePageCompact .adminPeopleInstituteSelectRow select {
+    min-height: 44px;
+  }
+
+  .adminPeoplePageCompact .adminPeopleActionBarCopy strong {
+    font-size: 1.08rem;
+    line-height: 1.28;
+  }
+
+  .adminPeoplePageCompact .adminPeopleActionBarCopy > span:last-child {
+    max-width: 68ch;
+    line-height: 1.55;
+  }
+
+  .adminPeoplePageCompact .adminPeopleActionBarButtons {
+    justify-content: flex-end;
+    align-items: center;
+  }
+
+  .adminPeoplePageCompact .adminPeopleActionBarButtons > *,
+  .adminPeoplePageCompact .adminPeopleActionBarButtons .accountActionRow > * {
+    flex: 0 0 auto;
+  }
+
+  .adminPeoplePageCompact .adminPeopleSingleGrid {
+    gap: 18px;
+  }
+
+  .instituteConsolePage .adminPeopleControlPanel {
+    gap: 10px;
+    padding: 16px 18px;
+  }
+
+  .instituteConsolePage .adminPeopleActionBar {
+    gap: 14px;
+    padding-top: 10px;
+  }
+
+  .instituteConsolePage .rosterBrowserHeader {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 14px;
+  }
+
+  .instituteConsolePage .rosterBrowserMeta {
+    margin-top: -2px;
+  }
+
+  .instituteConsolePage .adminPeopleRosterTableWrap {
+    border-radius: 20px;
+  }
 }
 
 .adminAcademicPage {
@@ -17600,6 +20501,10 @@ body::after {
 
 .adminAcademicControlPanel {
   padding: 14px 16px;
+}
+
+.instituteConsolePage .adminAcademicControlPanel {
+  gap: 10px;
 }
 
 .instituteConsolePage .adminPeopleViewTabs {
@@ -17630,6 +20535,159 @@ body::after {
   justify-content: flex-end;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+@media (min-width: 1100px) {
+  .adminAcademicPage {
+    gap: 20px;
+  }
+
+  .adminAcademicPage .pageHeader {
+    padding: 14px 18px 12px;
+    border-radius: 28px;
+  }
+
+  .adminAcademicPage .pageHeaderCopy h1 {
+    font-size: clamp(2.2rem, 1.9rem + 0.85vw, 2.8rem);
+  }
+
+  .adminAcademicControlPanel {
+    gap: 16px;
+    padding: 18px 20px;
+    border-radius: 26px;
+  }
+
+  .instituteConsolePage .adminAcademicControlPanel {
+    gap: 12px;
+    padding: 16px 18px;
+  }
+
+  .adminAcademicControlPanel .adminPeopleViewTabs {
+    gap: 8px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 4px 0 12px;
+    border-bottom: 1px solid rgba(202, 214, 241, 0.44);
+    scrollbar-width: thin;
+  }
+
+  .adminAcademicControlPanel .adminPeopleViewTab {
+    flex: 0 0 auto;
+    min-height: 40px;
+    padding: 0 14px;
+    border-radius: 16px;
+  }
+
+  .adminAcademicControlPanel .adminPeopleActionBar {
+    display: grid;
+    gap: 18px;
+    grid-template-columns: minmax(0, 1.25fr) auto;
+    align-items: end;
+  }
+
+  .adminAcademicControlPanel .adminPeopleActionBarCopy {
+    gap: 10px;
+  }
+
+  .instituteConsolePage .adminAcademicControlPanel .adminPeopleActionBar {
+    gap: 14px;
+    padding-top: 10px;
+  }
+
+  .instituteConsolePage .adminAcademicControlPanel .adminPeopleActionBarCopy {
+    gap: 4px;
+  }
+
+  .adminAcademicControlPanel .adminPeopleInstituteSelectField {
+    display: grid;
+    gap: 10px;
+    padding: 16px 18px;
+    border-radius: 20px;
+    border: 1px solid rgba(192, 204, 235, 0.44);
+    background: linear-gradient(180deg, rgba(251, 253, 255, 0.96), rgba(244, 248, 255, 0.9));
+  }
+
+  .adminAcademicControlPanel .adminPeopleInstituteSelectField > span {
+    font-size: 0.76rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .adminAcademicControlPanel .adminPeopleInstituteSelectRow {
+    gap: 10px;
+  }
+
+  .adminAcademicControlPanel .adminPeopleActionBarCopy > strong {
+    font-size: 1.1rem;
+    line-height: 1.25;
+  }
+
+  .adminAcademicControlPanel .adminPeopleActionBarCopy > span {
+    max-width: 64ch;
+    line-height: 1.58;
+  }
+
+  .instituteConsolePage .adminAcademicControlPanel .adminPeopleActionBarCopy > span {
+    line-height: 1.45;
+  }
+
+  .adminAcademicScopeStats {
+    align-self: start;
+    padding: 10px;
+    border-radius: 18px;
+    border: 1px solid rgba(202, 214, 241, 0.4);
+    background: rgba(255, 255, 255, 0.74);
+  }
+
+  .instituteConsolePage .adminAcademicScopeStats {
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .adminAcademicSingleGrid > .dashboardPanel.academicSectionPanel,
+  .adminAcademicSingleGrid > .contentCard,
+  .adminAcademicSingleGrid > .featurePlaceholder {
+    border-radius: 28px;
+  }
+
+  .adminAcademicSingleGrid > .dashboardPanel.academicSectionPanel {
+    padding: 20px 22px;
+  }
+
+  .instituteConsolePage .adminAcademicSingleGrid > .dashboardPanel.academicSectionPanel {
+    padding-top: 18px;
+  }
+
+  .adminAcademicSingleGrid .academicSectionHeader {
+    padding-bottom: 12px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid rgba(202, 214, 241, 0.36);
+  }
+
+  .adminAcademicSingleGrid .academicSectionHeader strong,
+  .adminAcademicSingleGrid .sectionHeading strong {
+    font-size: 1.08rem;
+  }
+
+  .adminAcademicSingleGrid .academicRecordTableWrap {
+    border-radius: 20px;
+    overflow: auto;
+  }
+
+  .adminAcademicSingleGrid .academicRecordTable {
+    min-width: 0;
+  }
+
+  .adminAcademicSingleGrid .academicRecordTable thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+
+  .adminAcademicSingleGrid .academicRecordTable tbody td {
+    padding-top: 15px;
+    padding-bottom: 15px;
+  }
 }
 
 .adminAcademicDefaultsPanel {

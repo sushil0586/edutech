@@ -61,6 +61,21 @@ Write the manuals in this order so the documentation grows from highest-value wo
 9. Parent role guides
 10. Platform admin guides
 
+## Role Guides
+
+If you want a role-first view instead of a workflow-first view, start here:
+
+- [Role Guides Index](./role-guides/README.md)
+- Printable PDFs live in `docs/user-manual/pdfs/`
+
+## Workflow PDFs
+
+- [Exam Creation And Builder PDF](./pdfs/exam-creation-and-builder.pdf)
+- [Exam Detail And Lifecycle PDF](./pdfs/exam-detail-and-lifecycle.pdf)
+- [Question Bank And Import PDF](./pdfs/question-bank-and-import.pdf)
+- [Results And Analytics PDF](./pdfs/results-and-analytics.pdf)
+- [Student Exam Taking Flow PDF](./pdfs/student-exam-taking-flow.pdf)
+
 ## Document Standard
 
 Each manual should follow this structure:
@@ -119,3 +134,4 @@ After the exam builder manual, the strongest next documents are:
 - `EXAM_DETAIL_AND_LIFECYCLE_USER_MANUAL.md`
 - `QUESTION_BANK_AND_IMPORT_USER_MANUAL.md`
 - `RESULTS_AND_ANALYTICS_USER_MANUAL.md`
+- `STUDENT_EXAM_TAKING_FLOW_USER_MANUAL.md`

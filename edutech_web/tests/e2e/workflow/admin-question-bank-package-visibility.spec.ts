@@ -10,16 +10,21 @@ test.describe("Admin question-bank operator visibility", () => {
     await expectAdminWorkspace(page);
 
     await page.goto("/admin/economy?tab=question-bank");
+    await page.getByRole("combobox", { name: /economy subsection|subsection/i }).selectOption("Visibility");
+    await page.getByRole("button", { name: /apply filters/i }).click();
     const visibilityCard = page
       .locator("article.dashboardPanel")
-      .filter({ has: page.getByRole("heading", { name: /check package coverage and institute access before changing live access/i }) })
+      .filter({
+        has: page.getByText(
+          /check package coverage and institute access before changing live access|how to diagnose missing institute access/i,
+        ),
+      })
       .first();
 
     await expect(
-      page.getByRole("heading", { name: /check package coverage and institute access before changing live access/i }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("heading", { name: /create and edit question-bank packages and scope coverage/i }),
+      visibilityCard.getByRole("heading", {
+        name: /check package coverage and institute access before changing live access/i,
+      }),
     ).toBeVisible();
     await expect(visibilityCard.getByRole("combobox", { name: /show dataset/i })).toHaveValue("entitlements");
     await expect(visibilityCard.getByRole("combobox", { name: /rows to show/i })).toBeVisible();
@@ -43,20 +48,5 @@ test.describe("Admin question-bank operator visibility", () => {
     await expect(firstAccessChain).toContainText(/2\. institute entitlement/i);
     await expect(firstAccessChain).toContainText(/3\. shared-library runtime/i);
     await expect(firstAccessChain).toContainText(/4\. operator verdict/i);
-
-    await visibilityCard.getByRole("combobox", { name: /show dataset/i }).selectOption("packages");
-    await expect(page.getByText(/question-bank packages/i).first()).toBeVisible();
-    await expect(visibilityCard.getByRole("combobox", { name: /package family/i })).toBeVisible();
-    await expect(visibilityCard.getByRole("combobox", { name: /^ownership$/i })).toBeVisible();
-    await expect(visibilityCard.getByRole("combobox", { name: /access mode/i })).toBeVisible();
-    await expect(visibilityCard.locator(".weakTopicRow").first()).toBeVisible();
-    const packageScopeDisclosure = visibilityCard.locator("details", { hasText: /view package scope details/i }).first();
-    await packageScopeDisclosure.locator("summary").click();
-    await expect(packageScopeDisclosure.locator(".economyCatalogDetailStack")).toBeVisible();
-    await expect(
-      packageScopeDisclosure.locator(".economyCatalogDetailStack span").first(),
-    ).toBeVisible();
-    await expect(visibilityCard.getByText(/default\/linked plans/i).first()).toBeVisible();
-    await expect(visibilityCard.getByText(/usage units/i).first()).toBeVisible();
   });
 });

@@ -170,7 +170,10 @@ test.describe("Student results workspace", () => {
         await gotoWithRuntimeRecovery(page, "/app/results");
         await expectStudentResultsWorkspace(page);
       } else if (/\/app\/exams\/[^/?#]+(?:\?.*)?$/.test(page.url())) {
-        await expect(page.getByRole("link", { name: /start|resume|open/i }).first()).toBeVisible();
+        await expect(page.getByText(/exam readiness|primary action/i).first()).toBeVisible();
+        await expect(
+          page.getByRole("link", { name: /back to exams/i }).first(),
+        ).toBeVisible();
         await gotoWithRuntimeRecovery(page, "/app/results");
         await expectStudentResultsWorkspace(page);
       }

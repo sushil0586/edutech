@@ -10,7 +10,7 @@ class QuestionBankAssessmentFamilyContractTestCase(TestCase):
         self.builder = AcademicAssessmentBuilder()
         self.context = self.builder.build_full_flow_entities()
         self.family = AssessmentFamily.objects.create(
-            code="competitive",
+            code="COMPETITIVE_QB_CONTRACT_TEST",
             label="Competitive",
             description="Competitive assessment contract",
             allowed_question_types=[
@@ -62,4 +62,3 @@ class QuestionBankAssessmentFamilyContractTestCase(TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertIn("question_type", response.data)
-

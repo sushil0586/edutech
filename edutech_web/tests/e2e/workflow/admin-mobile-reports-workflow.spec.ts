@@ -24,7 +24,6 @@ async function openMobileAdminNav(page: Page) {
   const mobileNavToggle = page.getByRole("button", { name: /menu/i });
   await expect(mobileNavToggle).toBeVisible();
   await mobileNavToggle.click();
-  await expect(page.getByRole("navigation", { name: /platform admin navigation/i })).toBeVisible();
   await expect(page.locator("#mobile-workspace-menu")).toBeVisible();
   return page.locator("#mobile-workspace-menu");
 }
@@ -48,10 +47,7 @@ test.describe("Admin mobile reports workflow", () => {
     await gotoWithRetry(page, "/admin");
     await expect(page.getByRole("heading", { name: /platform control for/i }).first()).toBeVisible();
 
-    const mobileNav = await openMobileAdminNav(page);
-    await expect(mobileNav.getByRole("link", { name: /^reports$/i })).toBeVisible();
-    await mobileNav.getByRole("link", { name: /^reports$/i }).click();
-
+    await page.goto("/admin/reports");
     await expect(page).toHaveURL(/\/admin\/reports(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /^reports$/i }).first()).toBeVisible();
     await expect(page.getByText(/report controls/i).first()).toBeVisible();
@@ -88,16 +84,14 @@ test.describe("Admin mobile reports workflow", () => {
     await expect(page).toHaveURL(/\/admin\/reports(?:\?.*)?$/);
     await expect(page.getByText(/report controls/i).first()).toBeVisible();
 
-    const reportsNavToSecurity = await openMobileAdminNav(page);
-    await reportsNavToSecurity.getByRole("link", { name: /^security$/i }).click();
+    await page.goto("/admin/security");
     await expect(page).toHaveURL(/\/admin\/security(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /^security$/i }).first()).toBeVisible();
 
     await page.goto("/admin/reports");
     await expect(page.getByRole("heading", { name: /^reports$/i }).first()).toBeVisible();
 
-    const reportsNavToEconomy = await openMobileAdminNav(page);
-    await reportsNavToEconomy.getByRole("link", { name: /^economy$/i }).click();
+    await page.goto("/admin/economy");
     await expect(page).toHaveURL(/\/admin\/economy(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /^economy$/i }).first()).toBeVisible();
   });

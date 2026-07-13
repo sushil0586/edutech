@@ -6,6 +6,7 @@ from decimal import Decimal, InvalidOperation
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.utils import timezone
 
 from apps.economy.services import (
     institute_has_master_question_access,
@@ -398,6 +399,63 @@ def sync_master_question_from_institute_question(question, *, option_payloads=No
     if master_option_payloads:
         MasterQuestionOption.objects.bulk_create(master_option_payloads)
     return master
+
+
+def bulk_materialize_master_questions_from_imported_questions(*, question_payload_pairs):
+    if not question_payload_pairs:
+        return
+
+    master_questions = []
+    for question, _payload in question_payload_pairs:
+        master_questions.append(
+            MasterQuestion(
+                source_institute=question.institute,
+                source_program=question.program,
+                source_subject=question.subject,
+                source_topic=question.topic,
+                created_by_teacher=question.created_by_teacher,
+                question_type=question.question_type,
+                difficulty_level=question.difficulty_level,
+                content_format=question.content_format,
+                question_text=question.question_text,
+                explanation=question.explanation,
+                default_marks=question.default_marks,
+                negative_marks=question.negative_marks,
+                is_verified=question.is_verified,
+                source_type=_derive_master_source_type(question),
+                visibility=_derive_master_visibility(question),
+                metadata={
+                    "origin_question_id": str(question.id),
+                    **(question.metadata if isinstance(question.metadata, dict) else {}),
+                },
+                is_active=question.is_active,
+            )
+        )
+
+    MasterQuestion.objects.bulk_create(master_questions)
+
+    updated_at = timezone.now()
+    question_updates = []
+    master_options = []
+    for (question, payload), master_question in zip(question_payload_pairs, master_questions):
+        question.master_question = master_question
+        question.updated_at = updated_at
+        question_updates.append(question)
+        for option in payload["options"]:
+            master_options.append(
+                MasterQuestionOption(
+                    master_question=master_question,
+                    content_format=option.get("content_format", question.content_format),
+                    option_text=option["option_text"],
+                    option_order=option.get("option_order", 1),
+                    is_correct=option.get("is_correct", False),
+                    is_active=option.get("is_active", True),
+                )
+            )
+
+    Question.objects.bulk_update(question_updates, ["master_question", "updated_at"])
+    if master_options:
+        MasterQuestionOption.objects.bulk_create(master_options)
 
 
 @transaction.atomic
@@ -1889,8 +1947,12 @@ def import_bulk_questions(*, institute, preview_payload, created_by=None):
         if tag_map_batch:
             QuestionTagMap.objects.bulk_create(tag_map_batch, ignore_conflicts=True)
 
-        for question, payload in zip(question_batch, finalized_payloads):
-            sync_master_question_from_institute_question(question, option_payloads=payload["options"])
+        question_payload_pairs = list(zip(question_batch, finalized_payloads))
+        bulk_materialize_master_questions_from_imported_questions(
+            question_payload_pairs=question_payload_pairs
+        )
+
+        for question, _payload in question_payload_pairs:
             notify_question_saved(question)
             created_questions.append(question)
 

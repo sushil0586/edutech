@@ -93,3 +93,56 @@ export async function completeStudentProfile(page: Page) {
 
   await page.getByRole("button", { name: /complete profile/i }).click();
 }
+
+export async function completeTeacherProfile(page: Page) {
+  await expect(page).toHaveURL(/\/complete-profile/);
+  await expect(page.getByRole("button", { name: /complete profile/i })).toBeVisible();
+
+  const teachingFocus = page.locator('select[name="teaching_focus"]');
+  await expect(teachingFocus).toBeVisible();
+  const focusOptions = await teachingFocus.locator("option").allTextContents();
+  const preferredFocus =
+    focusOptions.find((option) => /school|middle|foundation/i.test(option)) ?? focusOptions.find(Boolean);
+  if (preferredFocus) {
+    await teachingFocus.selectOption({ label: preferredFocus });
+  }
+
+  const teachingScopeButtons = page.locator(".registrationTagSelector button");
+  const buttonCount = await teachingScopeButtons.count();
+  if (buttonCount > 0) {
+    const firstButton = teachingScopeButtons.first();
+    const isPressed = await firstButton.getAttribute("aria-pressed").catch(() => null);
+    const className = (await firstButton.getAttribute("class").catch(() => "")) ?? "";
+    if (isPressed !== "true" && !className.includes("registrationTagOptionActive")) {
+      await firstButton.click();
+    }
+  }
+
+  const country = page.locator('select[name="country"]');
+  await country.selectOption({ label: "India" });
+  const state = page.locator('select[name="state"]');
+  await expect(state).toBeEnabled();
+  await state.selectOption({ label: "Delhi" });
+
+  const city = page.locator('select[name="city"]');
+  await expect(city).toBeEnabled();
+  const cityOptions = await city.locator("option").allTextContents();
+  const preferredCity = cityOptions.find((option) => option.trim() === "Delhi") ?? cityOptions.find(Boolean);
+  if (preferredCity) {
+    await city.selectOption({ label: preferredCity });
+  }
+
+  const pincode = page.locator('select[name="pincode"]');
+  await expect(pincode).toBeEnabled();
+  const pincodeOptions = await pincode.locator("option").allTextContents();
+  const preferredPincode =
+    pincodeOptions.find((option) => option.trim() === "110001") ?? pincodeOptions.find(Boolean);
+  if (preferredPincode) {
+    await pincode.selectOption({ label: preferredPincode });
+  }
+
+  const timezone = page.locator('input[name="timezone"]');
+  await timezone.fill("Asia/Kolkata");
+
+  await page.getByRole("button", { name: /complete profile/i }).click();
+}

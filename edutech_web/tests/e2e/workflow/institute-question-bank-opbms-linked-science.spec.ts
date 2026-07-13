@@ -81,14 +81,11 @@ test.describe("Institute OPBMS linked science browser coverage", () => {
 
     await expect(page.getByText(/subject:\s*science/i).first()).toBeVisible();
     await expect(page.getByText(/topics with available source questions:/i).first()).toBeVisible();
-    await expect(page.getByText(/this page is not for changing question wording/i).first()).toBeVisible();
+    await expect(page.getByText(/this page is not for editing wording/i).first()).toBeVisible();
     await expect(page.getByRole("button", { name: /show only topics still linkable/i })).toBeVisible();
     await expect(page.getByText(/available in platform bank/i).first()).toBeVisible();
     await expect(page.getByText(/already linked locally/i).first()).toBeVisible();
     await expect(page.getByText(/not yet added/i).first()).toBeVisible();
-    await expect(
-      page.getByText(/available in platform bank = questions currently offered by the platform/i).first(),
-    ).toBeVisible();
     await expect(page.getByText(/choose one topic only, especially for careful manual review/i).first()).toBeVisible();
 
     await linker.openFirstAvailableTopic();
@@ -102,12 +99,16 @@ test.describe("Institute OPBMS linked science browser coverage", () => {
     await expect(page.getByRole("link", { name: /open linked rows for this topic/i })).toBeVisible();
 
     await expect(page.getByText(/rows per page:\s*100/i).first()).toBeVisible();
-    await linker.setRowsPerPage("25");
-    await expect(page).toHaveURL(/library_page_size=25/);
+    await Promise.all([
+      page.waitForURL(/library_page_size=25/),
+      linker.setRowsPerPage("25"),
+    ]);
     await expect(page.getByText(/rows per page:\s*25/i).first()).toBeVisible();
 
-    await linker.searchCurrentTopic("acid");
-    await expect(page).toHaveURL(/search=acid/);
+    await Promise.all([
+      page.waitForURL(/search=acid/),
+      linker.searchCurrentTopic("acid"),
+    ]);
     await linker.expectTopicReviewVisible();
 
     const nextPage = linker.nextPageButton();

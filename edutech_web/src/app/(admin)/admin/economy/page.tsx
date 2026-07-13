@@ -8,12 +8,19 @@ import { EconomyReferralProgramManagementCard } from "@/components/admin/economy
 import { EconomyRewardRuleManagementCard } from "@/components/admin/economy-reward-rule-management-card";
 import { EconomySeedScreen } from "@/components/admin/economy-seed-screen";
 import { EconomyStarPackManagementCard } from "@/components/admin/economy-star-pack-management-card";
+import { EconomySubscriptionPlanManagementCard } from "@/components/admin/economy-subscription-plan-management-card";
 import { EconomyUnlockRuleManagementCard } from "@/components/admin/economy-unlock-rule-management-card";
 import { InstituteEconomyWorkspace } from "@/components/admin/institute-economy-workspace";
+import type {
+  EconomyOperatorPolicy,
+  StudentPaymentOrder,
+  StudentRewardEvent,
+  StudentWalletSummary,
+} from "@/features/dashboard/types";
 import { PlatformAdminPageHeader } from "@/components/ui/platform-admin-page-header";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import type { TeacherExamListItem } from "@/features/dashboard/types";
-import { fetchPortalCount, fetchPortalList, fetchPortalRecord } from "@/lib/api/portal";
+import { fetchPortalCount, fetchPortalList, fetchPortalListAll, fetchPortalRecord } from "@/lib/api/portal";
 import { fetchTeacherExamPage, getTeacherApiState } from "@/lib/api/teacher";
 
 type StudentRecord = {
@@ -117,6 +124,26 @@ type EconomyPolicyConfig = {
   created_at: string;
   updated_at: string;
   is_active: boolean;
+};
+
+type AdminSubscriptionAllowanceOpsSummary = {
+  active_quota_subscriptions: number;
+  active_students_with_subscriptions: number;
+  students_near_exhaustion: number;
+  students_exhausted: number;
+  current_cycle_usage_total: number;
+  top_used_plans: Array<{
+    plan_id: string;
+    plan_name: string;
+    plan_code: string;
+    active_subscriptions: number;
+    active_students: number;
+    included_allowance_total: number;
+    used_allowance_total: number;
+    remaining_allowance_total: number;
+    near_exhausted_subscriptions: number;
+    exhausted_subscriptions: number;
+  }>;
 };
 
 type AdminStarPack = {
@@ -613,6 +640,7 @@ async function loadPlatformEconomy() {
     return {
       source: "unconfigured" as const,
       gatedExams: [] as TeacherExamListItem[],
+      gatedExamCount: 0,
       starLockedCount: 0,
       entitlementCount: 0,
       totalStarCost: 0,
@@ -629,6 +657,7 @@ async function loadPlatformEconomy() {
     return {
       source: "live" as const,
       gatedExams: gatedExamsPage.results,
+      gatedExamCount: gatedExamsPage.count ?? gatedExamsPage.results.length,
       starLockedCount: gatedExamsPage.summary?.star_gated_count ?? 0,
       entitlementCount: gatedExamsPage.summary?.entitlement_gated_count ?? 0,
       totalStarCost: gatedExamsPage.summary?.total_star_cost ?? 0,
@@ -637,6 +666,7 @@ async function loadPlatformEconomy() {
     return {
       source: "error" as const,
       gatedExams: [] as TeacherExamListItem[],
+      gatedExamCount: 0,
       starLockedCount: 0,
       entitlementCount: 0,
       totalStarCost: 0,
@@ -732,9 +762,19 @@ export default async function AdminEconomyPage({
     const needsQuestionBankData = activeTab === "question-bank";
     const needsSupportOpsData = activeTab === "support-ops";
     const needsBootstrapData = activeTab === "bootstrap";
+    const needsCatalogGovernanceData = needsCatalogData && (activeFocus === "all" || activeFocus === "governance");
+    const needsStarPackData = needsCatalogData && activeFocus === "star-packs";
+    const needsReferralProgramData = needsCatalogData && activeFocus === "referrals";
+    const needsRewardRuleData = needsCatalogData && activeFocus === "rewards";
+    const needsAccessPoliciesData = needsAccessControlData && (activeFocus === "all" || activeFocus === "policies");
+    const needsUnlockRulesData = needsAccessControlData && (activeFocus === "all" || activeFocus === "unlocks");
+    const needsPolicySettingsData = needsAccessControlData && (activeFocus === "all" || activeFocus === "settings");
+    const needsSupportRequestsData = needsSupportOpsData && (activeFocus === "all" || activeFocus === "requests");
+    const needsSupportStudentsData = needsSupportOpsData && (activeFocus === "all" || activeFocus === "student-support");
+    const needsSupportAllowanceSummaryData = needsSupportOpsData;
     const needsQuestionBankPackagesData =
       needsQuestionBankData &&
-      (questionBankFocus === "all" || questionBankFocus === "packages" || questionBankFocus === "visibility" || questionBankFocus === "plans");
+      (questionBankFocus === "all" || questionBankFocus === "visibility" || questionBankFocus === "plans");
     const needsQuestionBankVisibilityData =
       needsQuestionBankData && (questionBankFocus === "all" || questionBankFocus === "visibility");
     const needsQuestionBankPlanData =
@@ -743,16 +783,20 @@ export default async function AdminEconomyPage({
     const needsOverviewBoundaryData = needsOverviewData && (activeFocus === "all" || activeFocus === "boundary");
     const needsExamSummaryData = needsOverviewData || needsBootstrapData;
     const needsInstitutes =
+      needsOverviewData ||
       needsCatalogData ||
-      needsQuestionBankPackagesData ||
-      needsQuestionBankPlanData ||
+      needsAccessControlData ||
+      needsQuestionBankData ||
       needsSupportOpsData ||
       needsBootstrapData;
     const needsPrograms = false;
-    const needsSubjects = needsCatalogData || needsAccessControlData;
+    const needsSubjects =
+      needsRewardRuleData ||
+      needsAccessPoliciesData ||
+      needsUnlockRulesData;
     const needsTopics = false;
-    const needsStudentList = needsSupportOpsData;
-    const needsStudentCount = needsSupportOpsData || needsOverviewData || needsOverviewBoundaryData;
+    const needsStudentList = needsSupportStudentsData;
+    const needsStudentCount = needsSupportStudentsData || needsOverviewData || needsOverviewBoundaryData;
     const scopedStudentQuery = requestedInstituteId
       ? `/api/v1/students/?page_size=100&institute=${requestedInstituteId}`
       : "/api/v1/students/?page_size=100";
@@ -763,7 +807,7 @@ export default async function AdminEconomyPage({
       ? `/api/v1/academics/subjects/?page_size=200&institute=${requestedInstituteId}`
       : "/api/v1/academics/subjects/?page_size=200";
     const [
-    { source, gatedExams, starLockedCount, entitlementCount, totalStarCost },
+    { source, gatedExams, gatedExamCount, starLockedCount, entitlementCount, totalStarCost },
     students,
     studentCount,
     catalogOverview,
@@ -784,6 +828,7 @@ export default async function AdminEconomyPage({
     topics,
     economyPolicy,
     economyPolicyAuditHistory,
+    subscriptionAllowanceOpsSummary,
     ] =
       await Promise.all([
     needsExamSummaryData
@@ -791,75 +836,83 @@ export default async function AdminEconomyPage({
       : Promise.resolve({
           source: "unconfigured" as const,
           gatedExams: [] as TeacherExamListItem[],
+          gatedExamCount: 0,
           starLockedCount: 0,
           entitlementCount: 0,
           totalStarCost: 0,
         }),
     needsStudentList
-      ? fetchPortalList<StudentRecord>(scopedStudentQuery).catch(() => [] as StudentRecord[])
+      ? fetchPortalListAll<StudentRecord>(scopedStudentQuery).catch(() => [] as StudentRecord[])
       : Promise.resolve([] as StudentRecord[]),
     needsStudentCount
       ? loadPortalCount(scopedStudentCountQuery)
       : Promise.resolve(0),
-    needsCatalogData
+    needsCatalogGovernanceData
       ? fetchPortalRecord<EconomyCatalogOverview>("/api/v1/economy/admin/catalog-overview/").catch(() => null)
       : Promise.resolve(null),
-    needsCatalogData
-      ? fetchPortalList<AdminStarPack>("/api/v1/economy/admin/star-packs/").catch(() => [] as AdminStarPack[])
+    needsStarPackData
+      ? fetchPortalListAll<AdminStarPack>("/api/v1/economy/admin/star-packs/").catch(() => [] as AdminStarPack[])
       : Promise.resolve([] as AdminStarPack[]),
     needsCatalogData || needsQuestionBankPlanData
-      ? fetchPortalList<AdminSubscriptionPlan>("/api/v1/economy/admin/subscription-plans/").catch(() => [] as AdminSubscriptionPlan[])
+      ? fetchPortalListAll<AdminSubscriptionPlan>("/api/v1/economy/admin/subscription-plans/").catch(() => [] as AdminSubscriptionPlan[])
       : Promise.resolve([] as AdminSubscriptionPlan[]),
-    needsCatalogData
-      ? fetchPortalList<AdminReferralProgram>("/api/v1/economy/admin/referral-programs/").catch(() => [] as AdminReferralProgram[])
+    needsReferralProgramData
+      ? fetchPortalListAll<AdminReferralProgram>("/api/v1/economy/admin/referral-programs/").catch(() => [] as AdminReferralProgram[])
       : Promise.resolve([] as AdminReferralProgram[]),
-    needsCatalogData
-      ? fetchPortalList<AdminRewardRule>("/api/v1/economy/admin/reward-rules/").catch(() => [] as AdminRewardRule[])
+    needsRewardRuleData
+      ? fetchPortalListAll<AdminRewardRule>("/api/v1/economy/admin/reward-rules/").catch(() => [] as AdminRewardRule[])
       : Promise.resolve([] as AdminRewardRule[]),
-    needsAccessControlData
-      ? fetchPortalList<AdminContentAccessPolicy>("/api/v1/economy/admin/content-access-policies/").catch(() => [] as AdminContentAccessPolicy[])
+    needsAccessPoliciesData
+      ? fetchPortalListAll<AdminContentAccessPolicy>("/api/v1/economy/admin/content-access-policies/").catch(() => [] as AdminContentAccessPolicy[])
       : Promise.resolve([] as AdminContentAccessPolicy[]),
-    needsAccessControlData
-      ? fetchPortalList<AdminUnlockRule>("/api/v1/economy/admin/unlock-rules/").catch(() => [] as AdminUnlockRule[])
+    needsUnlockRulesData
+      ? fetchPortalListAll<AdminUnlockRule>("/api/v1/economy/admin/unlock-rules/").catch(() => [] as AdminUnlockRule[])
       : Promise.resolve([] as AdminUnlockRule[]),
     needsQuestionBankPackagesData
-      ? fetchPortalList<AdminQuestionBankPackage>("/api/v1/economy/admin/question-bank-packages/?compact=1").catch(
+      ? fetchPortalListAll<AdminQuestionBankPackage>("/api/v1/economy/admin/question-bank-packages/?compact=1").catch(
           () => [] as AdminQuestionBankPackage[],
         )
       : Promise.resolve([] as AdminQuestionBankPackage[]),
     needsQuestionBankVisibilityData || needsQuestionBankPlanData
-      ? fetchPortalList<AdminInstituteQuestionEntitlement>("/api/v1/economy/admin/question-bank-entitlements/").catch(() => [] as AdminInstituteQuestionEntitlement[])
+      ? fetchPortalListAll<AdminInstituteQuestionEntitlement>("/api/v1/economy/admin/question-bank-entitlements/").catch(() => [] as AdminInstituteQuestionEntitlement[])
       : Promise.resolve([] as AdminInstituteQuestionEntitlement[]),
     needsQuestionBankVisibilityData
-      ? fetchPortalList<AdminInstituteQuestionFeatureEntitlement>("/api/v1/economy/admin/question-bank-feature-entitlements/").catch(() => [] as AdminInstituteQuestionFeatureEntitlement[])
+      ? fetchPortalListAll<AdminInstituteQuestionFeatureEntitlement>("/api/v1/economy/admin/question-bank-feature-entitlements/").catch(() => [] as AdminInstituteQuestionFeatureEntitlement[])
       : Promise.resolve([] as AdminInstituteQuestionFeatureEntitlement[]),
     needsOverviewUsageData || needsQuestionBankVisibilityData
-      ? fetchPortalList<AdminInstituteQuestionUsageEntry>("/api/v1/economy/admin/question-bank-usage/").catch(() => [] as AdminInstituteQuestionUsageEntry[])
+      ? fetchPortalListAll<AdminInstituteQuestionUsageEntry>("/api/v1/economy/admin/question-bank-usage/").catch(() => [] as AdminInstituteQuestionUsageEntry[])
       : Promise.resolve([] as AdminInstituteQuestionUsageEntry[]),
-    needsSupportOpsData
-      ? fetchPortalList<AdminInstituteSubscriptionRequest>("/api/v1/economy/admin/institute-subscription-requests/").catch(() => [] as AdminInstituteSubscriptionRequest[])
+    needsSupportRequestsData
+      ? fetchPortalListAll<AdminInstituteSubscriptionRequest>("/api/v1/economy/admin/institute-subscription-requests/").catch(() => [] as AdminInstituteSubscriptionRequest[])
       : Promise.resolve([] as AdminInstituteSubscriptionRequest[]),
     needsInstitutes
-      ? fetchPortalList<InstituteRecord>("/api/v1/institutes/?page_size=100").catch(() => [] as InstituteRecord[])
+      ? fetchPortalListAll<InstituteRecord>("/api/v1/institutes/?page_size=100").catch(() => [] as InstituteRecord[])
       : Promise.resolve([] as InstituteRecord[]),
     needsPrograms
       ? fetchPortalList<ProgramRecord>("/api/v1/academics/programs/?page_size=200").catch(() => [] as ProgramRecord[])
       : Promise.resolve([] as ProgramRecord[]),
     needsSubjects
-      ? fetchPortalList<SubjectRecord>(scopedSubjectQuery).catch(() => [] as SubjectRecord[])
+      ? fetchPortalListAll<SubjectRecord>(scopedSubjectQuery).catch(() => [] as SubjectRecord[])
       : Promise.resolve([] as SubjectRecord[]),
     needsTopics
       ? fetchPortalList<TopicRecord>("/api/v1/academics/topics/?page_size=400").catch(() => [] as TopicRecord[])
       : Promise.resolve([] as TopicRecord[]),
-    needsAccessControlData
+    needsPolicySettingsData
       ? fetchPortalRecord<EconomyPolicyConfig>("/api/v1/economy/admin/policy-config/").catch(() => null)
       : Promise.resolve(null),
-    needsAccessControlData
-      ? fetchPortalList<EconomyPolicyAuditEntry>("/api/v1/economy/admin/policy-audit/").catch(() => [] as EconomyPolicyAuditEntry[])
+    needsPolicySettingsData
+      ? fetchPortalListAll<EconomyPolicyAuditEntry>("/api/v1/economy/admin/policy-audit/").catch(() => [] as EconomyPolicyAuditEntry[])
       : Promise.resolve([] as EconomyPolicyAuditEntry[]),
+    needsSupportAllowanceSummaryData
+      ? fetchPortalRecord<AdminSubscriptionAllowanceOpsSummary>(
+          requestedInstituteId
+            ? `/api/v1/economy/admin/subscription-allowance-summary/?institute=${requestedInstituteId}`
+            : "/api/v1/economy/admin/subscription-allowance-summary/",
+        ).catch(() => null)
+      : Promise.resolve(null),
       ]);
 
-    const safeStudents = asArray(students);
+  const safeStudents = asArray(students);
     const safeStarPacks = asArray(starPacks);
     const safeSubscriptionPlans = asArray(subscriptionPlans);
     const safeReferralPrograms = asArray(referralPrograms);
@@ -876,10 +929,33 @@ export default async function AdminEconomyPage({
     const safeSubjects = asArray(subjects);
     const safeTopics = asArray(topics);
     const safeEconomyPolicyAuditHistory = asArray(economyPolicyAuditHistory);
-    const visibleStudentCount = needsStudentList ? safeStudents.length : studentCount;
+    const visibleStudentCount = needsStudentCount ? studentCount : safeStudents.length;
 
-    const selectedInstituteId = resolveInstituteScope(requestedInstituteId, safeInstitutes);
-    const scopedInstitutes = selectedInstituteId
+  const selectedInstituteId = resolveInstituteScope(requestedInstituteId, safeInstitutes);
+  const initialSupportStudentId = needsSupportStudentsData
+    ? (safeStudents.find((student) => student.is_active)?.id ?? safeStudents[0]?.id ?? null)
+    : null;
+  const [
+    initialSupportPolicy,
+    initialSupportWallet,
+    initialSupportRewards,
+    initialSupportOrders,
+  ] =
+    needsSupportStudentsData && initialSupportStudentId
+      ? await Promise.all([
+          fetchPortalRecord<EconomyOperatorPolicy>("/api/v1/economy/admin/policy/").catch(() => null),
+          fetchPortalRecord<StudentWalletSummary>(
+            `/api/v1/economy/admin/student/${initialSupportStudentId}/wallet/`,
+          ).catch(() => null),
+          fetchPortalListAll<StudentRewardEvent>(
+            `/api/v1/economy/admin/student/${initialSupportStudentId}/rewards/`,
+          ).catch(() => [] as StudentRewardEvent[]),
+          fetchPortalListAll<StudentPaymentOrder>(
+            `/api/v1/economy/admin/student/${initialSupportStudentId}/orders/`,
+          ).catch(() => [] as StudentPaymentOrder[]),
+        ])
+      : [null, null, [] as StudentRewardEvent[], [] as StudentPaymentOrder[]];
+  const scopedInstitutes = selectedInstituteId
     ? safeInstitutes.filter((institute) => institute.id === selectedInstituteId)
     : safeInstitutes;
     const scopedStarPacks = selectedInstituteId
@@ -933,17 +1009,71 @@ export default async function AdminEconomyPage({
   const activeSubscriptionPlans = scopedSubscriptionPlans.filter((plan) => plan.is_active).length;
   const pendingSubscriptionRequests = scopedInstituteSubscriptionRequests.filter((request) => request.status === "pending").length;
   const activeEntitlements = scopedQuestionBankEntitlements.filter((entry) => entry.status === "active").length;
+  const activeStarPacks = scopedStarPacks.filter((pack) => pack.is_active).length;
+  const activeReferralPrograms = scopedReferralPrograms.filter((program) => program.is_active).length;
+  const activeRewardRules = scopedRewardRules.filter((rule) => rule.is_active).length;
+  const activeAccessPolicies = scopedContentAccessPolicies.filter((policy) => policy.is_active).length;
+  const activeUnlockRules = scopedUnlockRules.filter((rule) => rule.is_active).length;
+  const economyHeaderStatus = (() => {
+    switch (activeTab) {
+      case "overview":
+        return {
+          label:
+            source === "live"
+              ? `${gatedExamCount} exams with economy policy`
+              : source === "unconfigured"
+                ? "Backend not configured"
+                : "Economy visibility unavailable",
+          tone:
+            source === "live"
+              ? "live"
+              : source === "unconfigured"
+                ? "warning"
+                : "demo",
+        } as const;
+      case "catalog":
+        return {
+          label: `${activeSubscriptionPlans + activeStarPacks + activeReferralPrograms + activeRewardRules} active commercial controls`,
+          tone: "live" as const,
+        };
+      case "access-control":
+        return {
+          label: `${activeAccessPolicies + activeUnlockRules} active policy rules`,
+          tone: "live" as const,
+        };
+      case "question-bank":
+        return {
+          label: `${activeQuestionBankPackages} active packages in scope`,
+          tone: "live" as const,
+        };
+      case "support-ops":
+        return {
+          label: `${pendingSubscriptionRequests} pending requests in queue`,
+          tone: "live" as const,
+        };
+      case "bootstrap":
+        return {
+          label: "Bootstrap guidance active",
+          tone: "warning" as const,
+        };
+      default:
+        return {
+          label: "Economy workspace ready",
+          tone: "live" as const,
+        };
+    }
+  })();
   const laneSummaryCards = renderLaneSummaryCards(activeTab, {
-    gatedExams: gatedExams.length,
+    gatedExams: gatedExamCount,
     starLockedCount,
     entitlementCount,
     totalStarCost,
     activeSubscriptionPlans,
-    starPackCount: scopedStarPacks.filter((pack) => pack.is_active).length,
-    referralProgramCount: scopedReferralPrograms.filter((program) => program.is_active).length,
-    rewardRuleCount: scopedRewardRules.filter((rule) => rule.is_active).length,
-    accessPolicyCount: scopedContentAccessPolicies.filter((policy) => policy.is_active).length,
-    unlockRuleCount: scopedUnlockRules.filter((rule) => rule.is_active).length,
+    starPackCount: activeStarPacks,
+    referralProgramCount: activeReferralPrograms,
+    rewardRuleCount: activeRewardRules,
+    accessPolicyCount: activeAccessPolicies,
+    unlockRuleCount: activeUnlockRules,
     auditCount: safeEconomyPolicyAuditHistory.length,
     activeQuestionBankPackages,
     activeEntitlements,
@@ -962,7 +1092,7 @@ export default async function AdminEconomyPage({
     {
       key: "overview",
       label: "Overview",
-      count: needsOverviewData ? gatedExams.length : undefined,
+      count: needsOverviewData ? gatedExamCount : undefined,
       description: "Command view for policy coverage, usage concentration, and current operational boundaries.",
     },
     {
@@ -1035,20 +1165,8 @@ export default async function AdminEconomyPage({
       <PlatformAdminPageHeader
         title="Economy"
         description="Review platform-visible economy coverage, operate student support actions, and keep catalog governance tied to platform-owned policy rather than hardcoded pricing assumptions."
-        statusLabel={
-          source === "live"
-            ? `${gatedExams.length} exams with economy policy`
-            : source === "unconfigured"
-              ? "Backend not configured"
-              : "Economy visibility unavailable"
-        }
-        statusTone={
-          source === "live"
-            ? "live"
-            : source === "unconfigured"
-              ? "warning"
-              : "demo"
-        }
+        statusLabel={economyHeaderStatus.label}
+        statusTone={economyHeaderStatus.tone}
       />
 
       <section className="studentInsightHeroCard studentInsightHeroCardCompact">
@@ -1084,7 +1202,12 @@ export default async function AdminEconomyPage({
               Keep the visible dataset small by choosing one institute and one subsection at a time before scanning
               package, entitlement, or support records.
             </p>
-            <form action="/admin/economy" className="economyVisibilityFilterStack" method="get">
+            <form
+              key={`${activeTab}:${selectedInstituteId || "all"}:${activeFocus}`}
+              action="/admin/economy"
+              className="economyVisibilityFilterStack"
+              method="get"
+            >
               <input type="hidden" name="tab" value={activeTab} />
               <div className="economyVisibilityFilterRow">
                 <label className="economyVisibilityFilterField">
@@ -1286,7 +1409,7 @@ export default async function AdminEconomyPage({
               <section className="resultsSummaryGrid">
                 <article className="metricCard metricCardPrimary dashboardHeroCard">
                   <span>Exams with economy policy</span>
-                  <strong>{gatedExams.length}</strong>
+                  <strong>{gatedExamCount}</strong>
                   <small>Exams carrying an explicit access rule.</small>
                 </article>
                 <article className="metricCard dashboardHeroCard">
@@ -1369,7 +1492,7 @@ export default async function AdminEconomyPage({
                           <span>Economy policy setup still flows from exam creation and exam detail configuration.</span>
                         </div>
                         <div className="weakTopicMeta">
-                          <strong>{gatedExams.length}</strong>
+                          <strong>{gatedExamCount}</strong>
                           <span>Policies in scope</span>
                         </div>
                       </div>
@@ -1505,6 +1628,14 @@ export default async function AdminEconomyPage({
             {activeFocus === "all" || activeFocus === "rewards" ? (
               <EconomyRewardRuleManagementCard initialRules={scopedRewardRules} institutes={scopedInstitutes} subjects={safeSubjects} />
             ) : null}
+            {activeFocus === "all" || activeFocus === "plans" ? (
+              <EconomySubscriptionPlanManagementCard
+                initialPlans={scopedSubscriptionPlans}
+                institutes={scopedInstitutes}
+                questionBankPackages={scopedQuestionBankPackages}
+                entitlements={scopedQuestionBankEntitlements}
+              />
+            ) : null}
           </>
         ) : null}
 
@@ -1556,12 +1687,83 @@ export default async function AdminEconomyPage({
 
         {activeTab === "support-ops" ? (
           <>
+            {subscriptionAllowanceOpsSummary ? (
+              <article className="dashboardPanel weakTopicsPanel">
+                <div className="studentPageTight">
+                  <span className="studentDashboardTag">Subscription pressure</span>
+                  <h3>Current quota posture before support tickets arrive</h3>
+                  <p className="academicSectionDescription">
+                    Use this lane to spot students who are close to exhausting subscription-covered exam starts and to
+                    identify the plans absorbing the most current-cycle load.
+                  </p>
+                  <div className="resultsSummaryGrid">
+                    <article className="metricCard metricCardPrimary dashboardHeroCard">
+                      <span>Active quota subscriptions</span>
+                      <strong>{subscriptionAllowanceOpsSummary.active_quota_subscriptions}</strong>
+                      <small>Live subscriptions with exam allowance in the current scope.</small>
+                    </article>
+                    <article className="metricCard dashboardHeroCard">
+                      <span>Students on subscription</span>
+                      <strong>{subscriptionAllowanceOpsSummary.active_students_with_subscriptions}</strong>
+                      <small>Unique students currently covered by allowance-bearing plans.</small>
+                    </article>
+                    <article className="metricCard dashboardHeroCard">
+                      <span>Near exhaustion</span>
+                      <strong>{subscriptionAllowanceOpsSummary.students_near_exhaustion}</strong>
+                      <small>Students with one or fewer covered starts left this cycle.</small>
+                    </article>
+                    <article className="metricCard dashboardHeroCard">
+                      <span>Exhausted this cycle</span>
+                      <strong>{subscriptionAllowanceOpsSummary.students_exhausted}</strong>
+                      <small>Students already out of subscription-covered starts.</small>
+                    </article>
+                    <article className="metricCard dashboardHeroCard">
+                      <span>Allowance consumed</span>
+                      <strong>{subscriptionAllowanceOpsSummary.current_cycle_usage_total}</strong>
+                      <small>Total covered starts consumed in the current cycle.</small>
+                    </article>
+                  </div>
+                  <div className="weakTopicStack">
+                    {subscriptionAllowanceOpsSummary.top_used_plans.length ? (
+                      subscriptionAllowanceOpsSummary.top_used_plans.map((plan) => (
+                        <div className="weakTopicRow" key={plan.plan_id}>
+                          <div>
+                            <strong>{plan.plan_name}</strong>
+                            <span>
+                              {plan.plan_code} · {plan.active_subscriptions} active subscriptions · {plan.active_students} students
+                            </span>
+                            <span>
+                              Used {plan.used_allowance_total} of {plan.included_allowance_total} covered starts · Remaining {plan.remaining_allowance_total}
+                            </span>
+                            <span>
+                              {plan.near_exhausted_subscriptions} near exhaustion · {plan.exhausted_subscriptions} exhausted
+                            </span>
+                          </div>
+                          <div className="weakTopicMeta">
+                            <strong>{plan.used_allowance_total}</strong>
+                            <span>Used this cycle</span>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="featurePlaceholder">
+                        <p>No active subscription allowance usage is visible in the current scope yet.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </article>
+            ) : null}
             {activeFocus === "all" || activeFocus === "requests" ? (
               <EconomyInstituteSubscriptionRequestCard initialRequests={scopedInstituteSubscriptionRequests} />
             ) : null}
             {activeFocus === "all" || activeFocus === "student-support" ? (
               <InstituteEconomyWorkspace
-                initialStudentId={safeStudents[0]?.id ?? null}
+                initialOrders={initialSupportOrders}
+                initialPolicy={initialSupportPolicy}
+                initialRewards={initialSupportRewards}
+                initialStudentId={initialSupportStudentId}
+                initialWallet={initialSupportWallet}
                 students={safeStudents}
               />
             ) : null}

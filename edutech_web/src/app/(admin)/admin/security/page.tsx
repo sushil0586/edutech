@@ -221,7 +221,7 @@ export default async function AdminSecurityPage({
   const groupedAttempts = groupSecurityAttempts(attempts, attemptGroup);
 
   return (
-    <section className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteSecurityPageVivid">
+    <section className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteSecurityPageVivid adminSecurityPage">
       <PlatformAdminPageHeader
         title="Security"
         description="Review exam security posture, access-key usage, and live integrity pressure from one platform-admin governance screen."
@@ -321,7 +321,23 @@ export default async function AdminSecurityPage({
               <strong>Security Controls</strong>
               <span>{visibleExams.length} exams visible · {attemptCount} attempts in watchlist scope</span>
             </div>
-            <form className="workspaceFiltersForm" method="GET">
+            <form
+              key={[
+                selectedExam?.id ?? "",
+                search,
+                examFilter,
+                examSort,
+                safeExamPage,
+                examPageSize,
+                attemptFilter,
+                attemptSort,
+                attemptGroup,
+                safeAttemptPage,
+                attemptPageSize,
+              ].join("|")}
+              className="workspaceFiltersForm"
+              method="GET"
+            >
               {selectedExam?.id ? <input name="examId" type="hidden" value={selectedExam.id} /> : null}
               <input name="exam_page" type="hidden" value="1" />
               <input name="attempt_page" type="hidden" value="1" />
@@ -399,7 +415,7 @@ export default async function AdminSecurityPage({
                   <option value="24">24</option>
                 </select>
               </label>
-              <div className="workspaceFilterActions">
+              <div className="workspaceFilterActions workspaceFilterActionsFullRow">
                 <button className="button buttonPrimary" type="submit">
                   Apply filters
                 </button>

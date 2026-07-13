@@ -224,8 +224,13 @@ test.describe("Student utility workspace coverage", () => {
     if (await noSearchResults.isVisible().catch(() => false)) {
       await expect(noSearchResults).toBeVisible();
     } else {
-      await expect(page.getByText(/search results|suggested pages/i).first()).toBeVisible();
-      await expect(page.locator(".detailGrid .detailCard").first()).toBeVisible();
+      await expectAnyVisible(page, [/search results|suggested pages/i, /\b\d+\s+result(s)?\b/i]);
+      const detailCard = page.locator(".detailGrid .detailCard").first();
+      if (await detailCard.isVisible().catch(() => false)) {
+        await expect(detailCard).toBeVisible();
+      } else {
+        await expect(page.locator("main a[href='/app/results']").first()).toBeVisible();
+      }
     }
 
     await page.getByRole("link", { name: /reset filters/i }).first().click();

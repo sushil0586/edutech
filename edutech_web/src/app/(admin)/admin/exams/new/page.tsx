@@ -136,7 +136,7 @@ async function createPlatformExamAction(formData: FormData) {
 
     const exam = await createTeacherExam(payload);
     await configureTeacherExamEconomyAccess(exam.id, {
-      policy_type: String(formData.get("economy_policy_type") ?? "").trim(),
+      commercial_path: String(formData.get("economy_policy_type") ?? "").trim(),
       star_cost: Number(formData.get("economy_star_cost") ?? 0),
       entitlement_code: String(formData.get("economy_entitlement_code") ?? "").trim(),
       priority: Number(formData.get("economy_policy_priority") ?? 100),

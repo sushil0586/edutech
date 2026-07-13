@@ -50,6 +50,7 @@ from apps.economy.services import (
     get_entitlement_quota_summary,
     get_or_create_student_economy_profile,
     get_or_create_student_referral_code,
+    invalidate_question_bank_package_entitlement_snapshots,
     institute_has_master_question_access,
     institute_has_question_bank_feature,
     institute_has_question_bank_package,
@@ -61,6 +62,7 @@ from apps.economy.services import (
     process_exam_result_rewards,
     process_signup_rewards,
     record_exam_question_bank_usage,
+    resolve_access_policy_commercial_path,
     update_institute_question_feature_entitlement_status,
     update_institute_question_bank_entitlement_status,
 )
@@ -208,6 +210,32 @@ class EconomyServicesTestCase(TestCase):
             content_key="olympiad-pack-1",
         )
         self.assertEqual(unlocked_state.status, "unlocked")
+
+    def test_resolve_access_policy_commercial_path_normalizes_exam_aliases(self):
+        alias_expectations = {
+            "free_exam": "free",
+            "star_unlock_exam": "stars_only",
+            "subscription_covered_exam": "subscription_only",
+            "subscription_or_stars_exam": "subscription_or_stars",
+            "institute_sponsored_exam": "institute_sponsored",
+            "platform_sponsored_exam": "platform_managed",
+        }
+
+        for explicit_path, expected in alias_expectations.items():
+            policy = ContentAccessPolicy(
+                institute=self.context["institute"],
+                content_type="exam",
+                content_key=f"alias-{expected}",
+                content_label=f"Alias {explicit_path}",
+                policy_type="free",
+                metadata={"commercial_path": explicit_path},
+            )
+
+            self.assertEqual(
+                resolve_access_policy_commercial_path(policy),
+                expected,
+                explicit_path,
+            )
 
     def test_process_signup_rewards_credits_matching_rules(self):
         RewardRule.objects.create(
@@ -645,6 +673,85 @@ class EconomyServicesTestCase(TestCase):
             )
         self.assertFalse(revoked_summary[str(master_question.id)]["has_access"])
         self.assertGreater(len(post_revoke_query_context), 0)
+
+    def test_package_scope_changes_invalidate_cached_entitlement_snapshots(self):
+        cache.clear()
+        public_hub = self.builder.create_institute(
+            code="PUBEQ4QS",
+            name="Public Question Hub 4 Scope Cache",
+            metadata={"is_public_content_hub": True},
+        )
+        private_institute = self.builder.create_institute(
+            code="SCH905",
+            name="Subscribed School Scope Cache",
+        )
+        public_program = self.builder.create_program(public_hub, code="CLS7", name="Class 7")
+        math_subject = self.builder.create_subject(public_hub, public_program, code="CLS7-MATH", name="Math")
+        science_subject = self.builder.create_subject(public_hub, public_program, code="CLS7-SCI", name="Science")
+        math_topic = self.builder.create_topic(public_hub, math_subject, code="ALG-01", name="Algebra")
+        science_topic = self.builder.create_topic(public_hub, science_subject, code="SCI-01", name="Matter")
+        science_master_question = MasterQuestion.objects.create(
+            source_institute=public_hub,
+            source_program=public_program,
+            source_subject=science_subject,
+            source_topic=science_topic,
+            question_type="mcq_single",
+            difficulty_level="intermediate",
+            question_text="Which change is reversible?",
+            source_type=MasterQuestionSourceType.PLATFORM,
+            visibility=MasterQuestionVisibility.SHARED_BY_REQUEST,
+        )
+        package = QuestionBankPackage.objects.create(
+            institute=public_hub,
+            name="Cached Mixed Library",
+            code="CACHED_MIXED_LIBRARY",
+            package_type=QuestionBankPackageType.SUBJECT_LIBRARY,
+            ownership_type=QuestionBankOwnershipType.PLATFORM,
+        )
+        QuestionBankPackageScope.objects.create(
+            institute=public_hub,
+            package=package,
+            program=public_program,
+            subject=math_subject,
+            topic=math_topic,
+            question_source_type="platform_only",
+        )
+        grant_institute_question_bank_entitlement(
+            institute=private_institute,
+            question_bank_package=package,
+        )
+
+        initial_matches = find_matching_question_bank_packages_for_master_question(
+            private_institute,
+            master_question=science_master_question,
+        )
+        self.assertEqual(initial_matches, [])
+
+        QuestionBankPackageScope.objects.create(
+            institute=public_hub,
+            package=package,
+            program=public_program,
+            subject=science_subject,
+            question_source_type="platform_only",
+        )
+
+        with CaptureQueriesContext(connection) as stale_cache_query_context:
+            stale_matches = find_matching_question_bank_packages_for_master_question(
+                private_institute,
+                master_question=science_master_question,
+            )
+        self.assertEqual(stale_matches, [])
+        self.assertEqual(len(stale_cache_query_context), 0)
+
+        invalidate_question_bank_package_entitlement_snapshots(question_bank_package=package)
+
+        with CaptureQueriesContext(connection) as refreshed_query_context:
+            refreshed_matches = find_matching_question_bank_packages_for_master_question(
+                private_institute,
+                master_question=science_master_question,
+            )
+        self.assertEqual([item.id for item in refreshed_matches], [package.id])
+        self.assertGreater(len(refreshed_query_context), 0)
 
     def test_platform_master_question_access_requires_matching_package_scope(self):
         public_hub = self.builder.create_institute(

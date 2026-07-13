@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
+import { resetAndSeedDemoSharedLibraryWorkflow } from "../helpers/demo-shared-library";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
 import { expectTeacherWorkspace } from "../helpers/navigation";
 
@@ -44,7 +45,9 @@ async function findSeededLinkedInventoryCard(cards: Locator, questionPrefix: str
   for (let index = 0; index < cardCount; index += 1) {
     const card = cards.nth(index);
     const cardText = ((await card.textContent()) ?? "").replace(/\s+/g, " ").trim();
-    const hasLinkedCopy = (await card.getByText(/linked licensed copy/i).count()) > 0;
+    const hasLinkedCopy =
+      (await card.getByText(/read-only linked row/i).count()) > 0 ||
+      (await card.getByText(/source state:\s*linked source/i).count()) > 0;
 
     if (hasLinkedCopy) {
       if (cardText.includes(questionPrefix)) {
@@ -70,6 +73,14 @@ async function getAccessToken(page: Page) {
 }
 
 test.describe("Teacher shared-library to builder flow", () => {
+  test.beforeEach(() => {
+    resetAndSeedDemoSharedLibraryWorkflow();
+  });
+
+  test.afterEach(() => {
+    resetAndSeedDemoSharedLibraryWorkflow();
+  });
+
   test.skip(
     testRequiresRole("teacher") || testRequiresRole("admin"),
     "Teacher or admin Playwright credentials are not configured.",
@@ -236,7 +247,7 @@ test.describe("Teacher shared-library to builder flow", () => {
         .filter({ hasText: searchProbe })
         .first();
       await expect(pausedInventoryCard).toBeVisible();
-      await expect(pausedInventoryCard.getByText(/linked licensed copy/i).first()).toBeVisible();
+      await expect(pausedInventoryCard.getByText(/source state:\s*linked source/i).first()).toBeVisible();
       await expect(pausedInventoryCard.getByText(/licensed source paused/i)).toBeVisible();
       await expect(pausedInventoryCard.getByText(/read-only linked/i).first()).toBeVisible();
 

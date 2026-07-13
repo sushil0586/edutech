@@ -158,6 +158,7 @@ async function createDisposableStudentWithLogin(
     data: {
       username,
       password,
+      confirm_password: password,
       auto_generate: false,
     },
   });

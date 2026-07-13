@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type InstituteOption = {
   id: string;
@@ -44,6 +44,7 @@ export function EconomyStarPackManagementCard({
   institutes: InstituteOption[];
 }) {
   const [starPacks, setStarPacks] = useState(initialStarPacks);
+  const [loadingCatalog, setLoadingCatalog] = useState(false);
   const [editingId, setEditingId] = useState("");
   const [instituteId, setInstituteId] = useState(institutes[0]?.id ?? "");
   const [name, setName] = useState("");
@@ -56,6 +57,54 @@ export function EconomyStarPackManagementCard({
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    setStarPacks(initialStarPacks);
+  }, [initialStarPacks]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadStarPacks() {
+      if (initialStarPacks.length > 0 || starPacks.length > 0) {
+        return;
+      }
+
+      setLoadingCatalog(true);
+      try {
+        const response = await fetch("/api/v1/economy/admin/star-packs/", {
+          method: "GET",
+          cache: "no-store",
+        });
+        if (!response.ok) {
+          throw new Error("Star packs could not be loaded.");
+        }
+        const payload = (await response.json()) as AdminStarPack[] | { results?: AdminStarPack[] };
+        const nextItems = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload.results)
+            ? payload.results
+            : [];
+        if (!cancelled) {
+          setStarPacks(nextItems);
+        }
+      } catch (loadError) {
+        if (!cancelled) {
+          setError(loadError instanceof Error ? loadError.message : "Star packs could not be loaded.");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingCatalog(false);
+        }
+      }
+    }
+
+    void loadStarPacks();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initialStarPacks.length, starPacks.length]);
 
   function resetForm() {
     setEditingId("");
@@ -167,6 +216,7 @@ export function EconomyStarPackManagementCard({
 
         {message ? <p className="feedbackBanner feedbackBannerSuccess">{message}</p> : null}
         {error ? <p className="feedbackBanner feedbackBannerError">{error}</p> : null}
+        {loadingCatalog ? <p className="setupFieldMeta">Loading star packs...</p> : null}
 
         <section className="featurePlaceholder economySubscriptionEditorPanel">
           <strong>{editingId ? "Edit star pack" : "New star pack"}</strong>

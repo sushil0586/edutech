@@ -2,6 +2,11 @@ import { expect, test, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectInstituteWorkspace } from "../helpers/navigation";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
+import {
+  resolveStudentProfileScope,
+  selectOptionByLabelFragment,
+  type StudentProfileScope,
+} from "../helpers/student-scope";
 
 const mutableExamActionsEnabled = isMutableLaneEnabled(
   "PLAYWRIGHT_ENABLE_MUTABLE_EXAM_ACTIONS",
@@ -11,7 +16,7 @@ const instituteApiBaseUrl = (
 ).replace(/\/$/, "");
 
 type PolicySecurityScenario = {
-  policyType: "stars_only" | "stars_or_entitlement";
+  policyType: "stars_only" | "subscription_or_stars" | "institute_sponsored";
   securityMode: "focus" | "fullscreen";
   starCost: string;
   priority: string;
@@ -27,11 +32,18 @@ const scenarios: PolicySecurityScenario[] = [
     entitlementRequired: false,
   },
   {
-    policyType: "stars_or_entitlement",
+    policyType: "subscription_or_stars",
     securityMode: "fullscreen",
     starCost: "9",
     priority: "72",
     entitlementRequired: true,
+  },
+  {
+    policyType: "institute_sponsored",
+    securityMode: "focus",
+    starCost: "0",
+    priority: "73",
+    entitlementRequired: false,
   },
 ];
 
@@ -87,15 +99,30 @@ async function fetchInstituteExamDetail(page: Page, examId: string) {
   expect(response.ok()).toBe(true);
   return (await response.json()) as {
     security_mode: string;
+    economy_policy?: {
+      commercial_path?: string;
+    } | null;
   };
 }
 
-async function createInstituteWizardExam(page: Page, uniqueSeed: number) {
+async function createInstituteWizardExam(page: Page, uniqueSeed: number, studentScope: StudentProfileScope) {
   const examTitle = `PW Institute Policy Security ${uniqueSeed}`;
   const examCode = `PW-IPS-${uniqueSeed}`;
 
   await page.goto("/institute/exams/new");
   await expect(page.getByRole("heading", { name: /create exam/i }).first()).toBeVisible();
+  if (studentScope.academicYearName) {
+    await selectOptionByLabelFragment(
+      page.getByRole("combobox", { name: /academic year/i }),
+      studentScope.academicYearName,
+    );
+  }
+  if (studentScope.programName) {
+    await selectOptionByLabelFragment(
+      page.getByRole("combobox", { name: /^program/i }),
+      studentScope.programName,
+    );
+  }
   await page.getByRole("textbox", { name: /exam title/i }).fill(examTitle);
   await page.getByRole("textbox", { name: /exam code/i }).fill(examCode);
 
@@ -126,7 +153,8 @@ async function saveAccessPolicyScenario(
 
   const accessPolicySelect = page.getByRole("combobox", { name: /access policy/i });
   await expect(accessPolicySelect.locator('option[value="stars_only"]')).toHaveCount(1);
-  await expect(accessPolicySelect.locator('option[value="stars_or_entitlement"]')).toHaveCount(1);
+  await expect(accessPolicySelect.locator('option[value="subscription_or_stars"]')).toHaveCount(1);
+  await expect(accessPolicySelect.locator('option[value="institute_sponsored"]')).toHaveCount(1);
 
   await accessPolicySelect.selectOption(scenario.policyType);
   await page.getByRole("spinbutton", { name: /star cost/i }).fill(scenario.starCost);
@@ -162,14 +190,17 @@ async function saveSecurityScenario(page: Page, examId: string, securityMode: Po
 
 async function expectSecurityWorkspaceVisibility(
   page: Page,
+  examId: string,
   examTitle: string,
   securityMode: PolicySecurityScenario["securityMode"],
 ) {
-  await page.goto("/institute/security");
+  await page.goto(
+    `/institute/security?examId=${encodeURIComponent(examId)}&exam_filter=elevated&exam_sort=latest`,
+  );
   await expect(page.getByRole("heading", { name: /security/i }).first()).toBeVisible();
   await expect(page.getByText(new RegExp(escapeRegExp(examTitle), "i")).first()).toBeVisible();
   await expect(
-    page.getByText(new RegExp(`^${escapeRegExp(securityMode)}$`, "i")).first(),
+    page.getByText(new RegExp(`\\b${escapeRegExp(securityMode)}\\b`, "i")).first(),
   ).toBeVisible();
 }
 
@@ -194,12 +225,13 @@ test.describe("Institute exam policy and security matrix", () => {
 
     let examId: string | null = null;
     const uniqueSeed = Date.now();
+    const studentScope = await resolveStudentProfileScope(page);
 
     try {
       await loginAsRole(page, "institute");
       await expectInstituteWorkspace(page);
 
-      const created = await createInstituteWizardExam(page, uniqueSeed);
+      const created = await createInstituteWizardExam(page, uniqueSeed, studentScope);
       examId = created.examId;
 
       for (const [index, scenario] of scenarios.entries()) {
@@ -219,8 +251,9 @@ test.describe("Institute exam policy and security matrix", () => {
 
         const detail = await fetchInstituteExamDetail(page, examId);
         expect(detail.security_mode).toBe(scenario.securityMode);
+        expect(detail.economy_policy?.commercial_path ?? "").toBe(scenario.policyType);
 
-        await expectSecurityWorkspaceVisibility(page, created.examTitle, scenario.securityMode);
+        await expectSecurityWorkspaceVisibility(page, examId, created.examTitle, scenario.securityMode);
       }
     } finally {
       if (examId) {

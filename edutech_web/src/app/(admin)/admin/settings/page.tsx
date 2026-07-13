@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { EconomyPolicySettingsCard } from "@/components/admin/economy-policy-settings-card";
 import { PlatformAdminPageHeader } from "@/components/ui/platform-admin-page-header";
-import { fetchPortalCount, fetchPortalList, fetchPortalRecord } from "@/lib/api/portal";
+import { fetchPortalCount, fetchPortalList, fetchPortalListAll, fetchPortalRecord } from "@/lib/api/portal";
 import { requirePlatformAdminSession } from "@/lib/auth/session";
 
 type InstituteRecord = {
@@ -61,26 +61,30 @@ async function loadCount(path: string) {
 
 export default async function AdminSettingsPage() {
   const profile = await requirePlatformAdminSession();
-  const institutes = await fetchPortalList<InstituteRecord>("/api/v1/institutes/?page_size=50").catch(() => []);
-  const activeInstituteCount = institutes.filter((institute) => institute.is_active).length;
-  const configuredExamDefaultsCount = institutes.filter(
-    (institute) => Object.keys(institute.exam_defaults ?? {}).length > 0,
-  ).length;
-  const economyPolicy = await fetchPortalRecord<EconomyPolicyConfig>("/api/v1/economy/admin/policy-config/").catch(
-    () => null,
-  );
-  const economyPolicyAuditHistory = await fetchPortalList<EconomyPolicyAuditEntry>(
-    "/api/v1/economy/admin/policy-audit/",
-  ).catch(() => []);
-  const [studentCount, teacherCount, academicYearCount, subjectCount] = await Promise.all([
+  const [
+    institutes,
+    economyPolicy,
+    economyPolicyAuditHistory,
+    studentCount,
+    teacherCount,
+    academicYearCount,
+    subjectCount,
+  ] = await Promise.all([
+    fetchPortalListAll<InstituteRecord>("/api/v1/institutes/?page_size=50").catch(() => []),
+    fetchPortalRecord<EconomyPolicyConfig>("/api/v1/economy/admin/policy-config/").catch(() => null),
+    fetchPortalList<EconomyPolicyAuditEntry>("/api/v1/economy/admin/policy-audit/?page_size=5").catch(() => []),
     loadCount("/api/v1/students/"),
     loadCount("/api/v1/teachers/"),
     loadCount("/api/v1/academics/academic-years/"),
     loadCount("/api/v1/academics/subjects/"),
   ]);
+  const activeInstituteCount = institutes.filter((institute) => institute.is_active).length;
+  const configuredExamDefaultsCount = institutes.filter(
+    (institute) => Object.keys(institute.exam_defaults ?? {}).length > 0,
+  ).length;
 
   return (
-    <section className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteSupportPageVivid">
+    <section className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteSupportPageVivid adminSettingsPage">
       <PlatformAdminPageHeader
         title="Settings"
         description="Review the current platform-governance scope, confirm what is already configurable, and keep the admin role aligned with truthful backend-backed controls."
@@ -216,14 +220,11 @@ export default async function AdminSettingsPage() {
         </article>
       </section>
 
-      <section className="dashboardGrid">
+      <section className="dashboardLowerGrid">
         <EconomyPolicySettingsCard
           initialAuditHistory={economyPolicyAuditHistory}
           initialConfig={economyPolicy}
         />
-      </section>
-
-      <section className="dashboardLowerGrid">
         <article className="dashboardPanel">
           <div className="studentPageTight">
             <span className="studentDashboardTag">Platform Scope Snapshot</span>

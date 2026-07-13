@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
-import { loginAsRole, testRequiresRole } from "../helpers/auth";
-import { getRoleCredentials } from "../fixtures/env";
+import { loginAsRole, loginWithCredentials, testRequiresRole } from "../helpers/auth";
+import { awsStudentCredentials, familyRuntimeScenarios } from "../helpers/family-runtime";
 import {
   expectAdminWorkspace,
   expectStudentWorkspace,
@@ -53,8 +53,61 @@ const scenarios: AdminWizardScenario[] = [
   },
 ];
 
+const deterministicWizardScenario =
+  familyRuntimeScenarios.find((scenario) => scenario.presetId === "aws_practitioner") ??
+  familyRuntimeScenarios[0]!;
+
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+async function selectFirstNonEmptyOption(locator: ReturnType<Page["locator"]>) {
+  const options = await locator.locator("option").evaluateAll((nodes) =>
+    nodes
+      .map((node) => (node as HTMLOptionElement).value)
+      .filter((value) => value.trim().length > 0),
+  );
+  expect(options.length).toBeGreaterThan(0);
+  await locator.selectOption(options[0]!);
+}
+
+async function waitForNonEmptyOptionValues(locator: ReturnType<Page["locator"]>) {
+  await expect
+    .poll(
+      async () =>
+        locator.locator("option").evaluateAll((nodes) =>
+          nodes
+            .map((node) => (node as HTMLOptionElement).value)
+            .filter((value) => value.trim().length > 0),
+        ),
+      { timeout: 15000 },
+    )
+    .not.toEqual([]);
+}
+
+async function selectOptionByLabelPattern(
+  locator: ReturnType<Page["locator"]>,
+  pattern: RegExp,
+) {
+  const matchingOption = await locator.locator("option").evaluateAll(
+    (nodes, sourcePattern) => {
+      const compiledPattern = new RegExp(sourcePattern.source, sourcePattern.flags);
+      return (
+        nodes
+          .map((node) => ({
+            value: (node as HTMLOptionElement).value,
+            label: ((node as HTMLOptionElement).label || node.textContent || "").trim(),
+          }))
+          .find(
+            (option) =>
+              option.value.trim().length > 0 && compiledPattern.test(option.label),
+          ) ?? null
+      );
+    },
+    { source: pattern.source, flags: pattern.flags },
+  );
+  expect(matchingOption).not.toBeNull();
+  await locator.selectOption(matchingOption!.value);
 }
 
 function toDateTimeLocalValue(date: Date) {
@@ -86,11 +139,8 @@ async function deleteAdminExamDirectly(page: Page, examId: string) {
 }
 
 async function resolveStudentDisplayName(page: Page) {
-  const studentCredentials = getRoleCredentials("student");
-  expect(studentCredentials).not.toBeNull();
-
-  let studentDisplayName = studentCredentials!.username;
-  await loginAsRole(page, "student");
+  let studentDisplayName = awsStudentCredentials.username;
+  await loginWithCredentials(page, awsStudentCredentials, "student");
   await expectStudentWorkspace(page);
 
   await page.goto("/app/profile");
@@ -118,11 +168,41 @@ async function createAdminWizardExam(
 
   await page.goto("/admin/exams/new");
   await expect(page.getByRole("heading", { name: /create exam/i }).first()).toBeVisible();
+  const preferredInstituteChip = page.locator(".academicInstituteChip").filter({
+    hasText: /Demo Learning Institute|DLI001/i,
+  }).first();
+  if (await preferredInstituteChip.count()) {
+    await preferredInstituteChip.click();
+    await expect(page).toHaveURL(/\/admin\/exams\/new\?institute=/);
+  }
   const instituteId = await page.locator('input[name="institute"]').first().inputValue();
   expect(instituteId).not.toBe("");
+  const academicYear = page.locator('select[name="academic_year"]').first();
+  const program = page.locator('select[name="program"]').first();
+  const subject = page.locator('select[name="subject"]').first();
   await page.getByRole("textbox", { name: /exam title/i }).fill(examTitle);
   await page.getByRole("textbox", { name: /exam code/i }).fill(examCode);
   await page.locator('select[name="source_type"]').selectOption(scenario.sourceType);
+  const hasCanonicalFamilyAcademicYear = await academicYear.evaluate((element) => {
+    const select = element as HTMLSelectElement;
+    return Array.from(select.options).some((option) => option.label.trim() === "2026-2027");
+  });
+  if (hasCanonicalFamilyAcademicYear) {
+    await academicYear.selectOption({ label: "2026-2027" });
+  } else if ((await academicYear.inputValue()) === "") {
+    await selectFirstNonEmptyOption(academicYear);
+  }
+  await waitForNonEmptyOptionValues(program);
+  await selectOptionByLabelPattern(
+    program,
+    new RegExp(`^${escapeRegExp(deterministicWizardScenario.programLabel)}(?:\\s*\\(|$)`, "i"),
+  );
+  await expect(subject).toBeEnabled();
+  await waitForNonEmptyOptionValues(subject);
+  await selectOptionByLabelPattern(
+    subject,
+    new RegExp(`^${escapeRegExp(deterministicWizardScenario.subjectLabel)}(?:\\s*\\(|$)`, "i"),
+  );
   await page.getByRole("button", { name: /^continue$/i }).click();
 
   await page.locator('select[name="exam_type"]').selectOption(scenario.examType);

@@ -1,9 +1,13 @@
 import { cache } from "react";
 import {
   TeacherExam,
+  TeacherExamAccessSlot,
+  TeacherExamAutoSlotPreview,
+  TeacherExamSlotAuditLog,
   TeacherExamPage,
   TeacherExamAttempt,
   TeacherExamAttemptPage,
+  AdminExamRuntimeSummary,
   TeacherExamPublishReadiness,
   TeacherAttemptIntervention,
   TeacherInsightSummary,
@@ -181,6 +185,25 @@ export async function fetchTeacherInsightSummary() {
 
 export async function fetchTeacherResultSummary() {
   return requestTeacherJson<TeacherResultSummary[]>("/api/v1/teacher/results/summary/");
+}
+
+export async function fetchAdminExamRuntimeSummary(options?: {
+  status?: "active" | "all" | "live" | "scheduled";
+}) {
+  return fetchExamRuntimeSummary(options);
+}
+
+export async function fetchExamRuntimeSummary(options?: {
+  status?: "active" | "all" | "live" | "scheduled";
+}) {
+  const params = new URLSearchParams();
+  if (options?.status && options.status !== "active") {
+    params.set("status", options.status);
+  }
+  const query = params.toString();
+  return requestTeacherJson<AdminExamRuntimeSummary>(
+    `/api/v1/reports/exam-runtime-summary/${query ? `?${query}` : ""}`,
+  );
 }
 
 export async function fetchTeacherResultPublishReadiness(examId: string) {
@@ -688,6 +711,7 @@ export async function runTeacherExamAction(
 export async function configureTeacherExamEconomyAccess(
   examId: string,
   payload: {
+    commercial_path?: string;
     policy_type?: string;
     star_cost?: number;
     entitlement_code?: string;
@@ -699,6 +723,144 @@ export async function configureTeacherExamEconomyAccess(
     message?: string;
     data?: TeacherExam;
   }>(`/api/v1/exams/${examId}/economy-access-policy/`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function createTeacherExamSlot(
+  examId: string,
+  payload: {
+    cohort?: string;
+    slot_label: string;
+    slot_start_at: string;
+    slot_end_at: string;
+    grace_period_minutes?: number;
+    assignment_capacity?: number | null;
+    start_capacity?: number | null;
+    status?: string;
+    metadata?: Record<string, unknown>;
+    is_active?: boolean;
+  },
+) {
+  return requestTeacherJson<{
+    success?: boolean;
+    message?: string;
+    data?: TeacherExamAccessSlot;
+  }>(`/api/v1/exams/${examId}/slots/`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateTeacherExamSlot(
+  examId: string,
+  slotId: string,
+  payload: Partial<{
+    cohort: string | null;
+    slot_label: string;
+    slot_start_at: string;
+    slot_end_at: string;
+    grace_period_minutes: number;
+    assignment_capacity: number | null;
+    start_capacity: number | null;
+    status: string;
+    metadata: Record<string, unknown>;
+    is_active: boolean;
+  }>,
+) {
+  return requestTeacherJson<{
+    success?: boolean;
+    message?: string;
+    data?: TeacherExamAccessSlot;
+  }>(`/api/v1/exams/${examId}/slots/${slotId}/`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function overrideTeacherExamStudentSlot(
+  examId: string,
+  payload: {
+    student: string;
+    access_slot?: string | null;
+    notes?: string;
+  },
+) {
+  return requestTeacherJson<{
+    success?: boolean;
+    message?: string;
+    data?: TeacherExam["assigned_students"][number];
+  }>(`/api/v1/exams/${examId}/student-slot-override/`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function bulkAssignTeacherExamStudentSlot(
+  examId: string,
+  payload: {
+    apply_to: "all_selected" | "unassigned_selected" | "student_ids";
+    access_slot?: string | null;
+    student_ids?: string[];
+    notes?: string;
+  },
+) {
+  return requestTeacherJson<{
+    success?: boolean;
+    message?: string;
+    data?: {
+      updated_count: number;
+      access_slot: string | null;
+      slot_label: string;
+      affected_student_ids: string[];
+    };
+  }>(`/api/v1/exams/${examId}/bulk-student-slot-assign/`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function fetchTeacherExamSlotAuditLogs(examId: string) {
+  return requestTeacherJson<{
+    success?: boolean;
+    message?: string;
+    data?: TeacherExamSlotAuditLog[];
+  }>(`/api/v1/exams/${examId}/slot-audit-logs/`);
+}
+
+export async function autoAssignTeacherExamStudentsToSlots(
+  examId: string,
+  payload: {
+    apply_to: "all_selected" | "unassigned_selected";
+    notes?: string;
+  },
+) {
+  return requestTeacherJson<{
+    success?: boolean;
+    message?: string;
+    data?: {
+      updated_count: number;
+      affected_student_ids: string[];
+      slot_ids: string[];
+    };
+  }>(`/api/v1/exams/${examId}/auto-assign-students-to-slots/`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function previewTeacherExamAutoSlotAssignment(
+  examId: string,
+  payload: {
+    apply_to: "all_selected" | "unassigned_selected";
+  },
+) {
+  return requestTeacherJson<{
+    success?: boolean;
+    message?: string;
+    data?: TeacherExamAutoSlotPreview;
+  }>(`/api/v1/exams/${examId}/preview-auto-assign-students-to-slots/`, {
     method: "POST",
     body: JSON.stringify(payload),
   });

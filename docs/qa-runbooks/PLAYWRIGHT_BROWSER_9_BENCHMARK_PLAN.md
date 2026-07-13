@@ -87,7 +87,7 @@ Do not call a section `9/10` if:
 | Economy and entitlements | 8.9 | 9.0 | 0.1 | reversible mutation lanes are now strong, but repeated-run and stage-rerun proof still lag |
 | Cross-browser desktop sanity | 9.0 | 9.0 | 0.0 | focused desktop pack now has repeated-run workflow-depth proof across Firefox and WebKit, with remaining gaps concentrated in breadth rather than core viability |
 | Student mobile-web baseline | 8.5 | 9.0 | 0.5 | strong route and exam continuity, but not enough real-device or long-runtime depth |
-| Operator small-screen browser confidence | 9.1 | 9.0 | 0.0 | compact-viewport baseline plus multiple real task-flow lanes now exists across admin, institute, and teacher, the focused compact pack is now repeat-stable on Chromium with `26 passed` and on Firefox/WebKit with `52 passed`, and institute mobile exams is also green across Chromium, Firefox, and WebKit, with remaining gaps mostly in real-device depth |
+| Operator small-screen browser confidence | 9.2 | 9.0 | 0.0 | compact-viewport baseline plus multiple real task-flow lanes now exists across admin, institute, and teacher, the focused compact pack is now repeat-stable locally on Chromium with `26 passed`, on Firefox/WebKit with `52 passed`, and on stage Chromium with `26 passed`, with remaining gaps mostly in real-device depth |
 | Mutable destructive workflow confidence | 8.5 | 9.0 | 0.5 | repeated-run proof is now materially stronger, but destructive breadth is still uneven outside the strongest opt-in lanes |
 
 ## Section Details
@@ -106,6 +106,7 @@ Why this is strong:
 - the main admin workspace family now reruns green locally as a grouped baseline with `13 passed`
 - the broader compact operator mobile pack that includes admin economy, people, security, and reports lanes now also stayed green locally with `26 passed` on Chromium using `--repeat-each=2`
 - the same compact operator mobile pack now also stayed green on Firefox and WebKit with `52 passed` using `--project=firefox --project=webkit --repeat-each=2`
+- the same compact operator mobile pack now also stayed green on stage Chromium with `26 passed` after shared-library seed remediation
 
 What is already proven:
 
@@ -152,6 +153,7 @@ Why this is strong:
 - populated institute results and analytics views are now in the suite catalog
 - institute compact-viewport workflows now also sit inside the repeat-stable compact operator pack that stayed green locally with `26 passed` on Chromium using `--repeat-each=2`
 - the same compact institute mobile workflows now also hold inside the Firefox/WebKit repeat sweep with `52 passed`
+- the same compact institute mobile workflows now also hold inside the stage Chromium repeat sweep with `26 passed`
 
 What is already proven:
 
@@ -193,6 +195,7 @@ Why this is good but not yet benchmark-strong:
 - but teacher-side parity is still less complete than institute in a few dense lanes
 - teacher compact-viewport workflows now also sit inside the repeat-stable compact operator pack that stayed green locally with `26 passed` on Chromium using `--repeat-each=2`
 - the same compact teacher mobile workflows now also hold inside the Firefox/WebKit repeat sweep with `52 passed`
+- the same compact teacher mobile workflows now also hold inside the stage Chromium repeat sweep with `26 passed` after shared-library seed remediation
 
 What is already proven:
 

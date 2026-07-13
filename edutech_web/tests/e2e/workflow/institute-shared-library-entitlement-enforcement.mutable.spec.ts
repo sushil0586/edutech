@@ -26,9 +26,13 @@ type InstituteRecord = {
 type MasterLibraryRow = {
   id: string;
   question_text: string;
+  source_program_code: string;
+  source_subject_code: string;
+  source_topic_code: string | null;
   has_access: boolean;
   has_entitlement: boolean;
   access_availability: string;
+  access_status: string;
   matching_packages: Array<{
     code: string;
     name: string;
@@ -43,9 +47,44 @@ type EntitlementRow = {
   status: string;
 };
 
+type LookupProgram = {
+  id: string;
+  code: string;
+  name: string;
+};
+
+type LookupSubject = {
+  id: string;
+  code: string;
+  name: string;
+};
+
+type LookupTopic = {
+  id: string;
+  code: string;
+  name: string;
+};
+
 async function getAccessToken(page: Page) {
   const cookies = await page.context().cookies();
   return cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
+}
+
+function buildQuestionBankUrl(
+  path: string,
+  params: Record<string, string | null | undefined>,
+) {
+  const searchParams = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (!value) {
+      return;
+    }
+    searchParams.set(key, value);
+  });
+
+  const query = searchParams.toString();
+  return query ? `${path}?${query}` : path;
 }
 
 test.describe("Institute shared-library entitlement enforcement", () => {
@@ -112,7 +151,11 @@ test.describe("Institute shared-library entitlement enforcement", () => {
           row.has_access &&
           row.has_entitlement &&
           row.access_availability === "available" &&
-          row.matching_packages.length === 1,
+          row.matching_packages.length === 1 &&
+          row.access_status !== "linked" &&
+          row.access_status !== "requested" &&
+          Boolean(row.source_program_code) &&
+          Boolean(row.source_subject_code),
       ) ?? null;
 
     if (!candidateRow) {
@@ -177,30 +220,112 @@ test.describe("Institute shared-library entitlement enforcement", () => {
       await loginAsRole(page, "institute");
       await expectInstituteWorkspace(page);
 
-      await page.goto("/institute/question-bank");
+      const [programsResponse, subjectsResponse] = await Promise.all([
+        page.request.get(`${backendBaseUrl}/api/v1/academics/programs/?is_active=true&page_size=500`, {
+          headers: {
+            Authorization: `Bearer ${instituteAccessToken}`,
+          },
+        }),
+        page.request.get(
+          `${backendBaseUrl}/api/v1/academics/subjects/?is_active=true&page_size=500`,
+          {
+            headers: {
+              Authorization: `Bearer ${instituteAccessToken}`,
+            },
+          },
+        ),
+      ]);
+      expect(programsResponse.ok()).toBe(true);
+      expect(subjectsResponse.ok()).toBe(true);
+
+      const programsBody = (await programsResponse.json()) as { results?: LookupProgram[] };
+      const subjectsBody = (await subjectsResponse.json()) as { results?: LookupSubject[] };
+      const localProgram =
+        programsBody.results?.find((row) => row.code === candidateRow!.source_program_code) ?? null;
+      const localSubject =
+        subjectsBody.results?.find((row) => row.code === candidateRow!.source_subject_code) ?? null;
+
+      if (!localProgram || !localSubject) {
+        test.skip(
+          true,
+          `No local institute program/subject matched ${candidateRow!.source_program_code}/${candidateRow!.source_subject_code}.`,
+        );
+      }
+
+      let localTopic: LookupTopic | null = null;
+      if (candidateRow!.source_topic_code) {
+        const topicsResponse = await page.request.get(
+          `${backendBaseUrl}/api/v1/academics/topics/?is_active=true&page_size=500&subject=${localSubject!.id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${instituteAccessToken}`,
+            },
+          },
+        );
+        expect(topicsResponse.ok()).toBe(true);
+        const topicsBody = (await topicsResponse.json()) as { results?: LookupTopic[] };
+        localTopic =
+          topicsBody.results?.find((row) => row.code === candidateRow!.source_topic_code) ?? null;
+      }
+
+      const pausedMasterLibraryResponse = await page.request.get(
+        `${backendBaseUrl}/api/v1/question-bank/master-library/?page_size=100&search=${encodeURIComponent(
+          searchProbe,
+        )}&subject_code=${encodeURIComponent(candidateRow!.source_subject_code)}${
+          candidateRow!.source_topic_code
+            ? `&topic_code=${encodeURIComponent(candidateRow!.source_topic_code)}`
+            : ""
+        }`,
+        {
+          headers: {
+            Authorization: `Bearer ${instituteAccessToken}`,
+          },
+        },
+      );
+      expect(pausedMasterLibraryResponse.ok()).toBe(true);
+      const pausedMasterLibraryBody = (await pausedMasterLibraryResponse.json()) as {
+        results?: MasterLibraryRow[];
+      };
+      const pausedRow =
+        pausedMasterLibraryBody.results?.find((row) => row.id === candidateRow!.id) ?? null;
+
+      expect(pausedRow).not.toBeNull();
+      expect(pausedRow?.has_access).toBeFalsy();
+      expect(pausedRow?.access_availability).not.toBe("available");
+
+      await page.goto(
+        buildQuestionBankUrl("/institute/question-bank", {
+          program: localProgram!.id,
+          subject: localSubject!.id,
+          topic: localTopic?.id ?? undefined,
+          search: searchProbe,
+        }),
+      );
       await expect(page.getByRole("heading", { name: /question bank/i }).first()).toBeVisible();
-
-      const searchField = page.getByRole("textbox", { name: /search question text/i });
-      await searchField.fill(searchProbe);
-      await page.getByRole("button", { name: /apply filters/i }).click();
       await expect(page).toHaveURL(/search=/);
+      await expect(page.getByText(/why questions are or are not visible/i).first()).toBeVisible();
+      await expect(page.getByText(/shared library intake/i).first()).toBeVisible();
+      await expect(page.getByRole("link", { name: /open shared library linker/i }).first()).toBeVisible();
 
-      const sharedLibrarySection = page.locator("section.contentCard").filter({
-        has: page.getByRole("heading", { name: /shared platform library/i }),
-      }).first();
-      await expect(sharedLibrarySection).toBeVisible();
-
-      const targetCard = sharedLibrarySection
-        .locator(".questionBankCard")
-        .filter({ hasText: searchProbe })
-        .filter({ hasText: /subscription required/i })
-        .first();
-      await expect(targetCard).toBeVisible();
-      await expect(targetCard.getByText(/subscription required/i)).toBeVisible();
+      await page.goto(
+        buildQuestionBankUrl("/institute/question-bank/library-linker", {
+          program: localProgram!.id,
+          subject: localSubject!.id,
+          topic: localTopic?.id ?? undefined,
+          search: searchProbe,
+        }),
+      );
+      await expect(page.getByRole("heading", { name: /shared library linker/i }).first()).toBeVisible();
+      await expect(page.getByText(/current lane:\s*shared library linker/i).first()).toBeVisible();
+      await expect(page.getByRole("textbox", { name: /search current topic/i })).toHaveValue(searchProbe);
+      await expect(page.getByText(/step 3\.\s*review and link platform source questions/i).first()).toBeVisible();
+      await expect(page.locator(".questionBankCard").filter({ hasText: searchProbe })).toHaveCount(0);
+      await expect(page.getByText(/no platform questions matched this search/i).first()).toBeVisible();
       await expect(
-        targetCard.getByText(/no matching subscribed package was found for this local scope/i).first(),
+        page.getByText(
+          /try clearing the search box or reviewing the same topic without text filtering first/i,
+        ).first(),
       ).toBeVisible();
-      await expect(targetCard.getByRole("button", { name: /link to local bank/i })).toHaveCount(0);
     } finally {
       for (const entitlement of targetEntitlements) {
         const reactivateResponse = await page.request.patch(

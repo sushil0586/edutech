@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from rest_framework.test import APIClient, APITestCase
 
 from apps.economy.models import (
@@ -231,10 +233,19 @@ class MasterQuestionLibraryApiTests(APITestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data["results"]), 3)
+        math_rows = [
+            item for item in response.data["results"] if item["source_subject_code"] == self.public_subject.code
+        ]
+        science_rows = [
+            item for item in response.data["results"] if item["source_subject_code"] == self.public_science_subject.code
+        ]
+        self.assertEqual(len(math_rows), 2)
+        self.assertEqual(len(science_rows), 1)
         self.assertTrue(all(item["has_access"] is False for item in response.data["results"]))
         self.assertTrue(all(item["has_entitlement"] is False for item in response.data["results"]))
         self.assertTrue(all(item["access_availability"] == "subscription_required" for item in response.data["results"]))
-        self.assertTrue(all(item["matching_packages"] == [] for item in response.data["results"]))
+        self.assertTrue(all(item["matching_packages"] == [] for item in math_rows))
+        self.assertTrue(all(item["matching_packages"] == [] for item in science_rows))
 
     def test_teacher_master_library_list_shows_matching_package_after_grant(self):
         grant_institute_question_bank_entitlement(
@@ -502,6 +513,45 @@ class MasterQuestionLibraryApiTests(APITestCase):
         self.assertTrue(paused_row["is_shared_library_link"])
         self.assertFalse(paused_row["shared_library_access_active"])
         self.assertEqual(paused_row["shared_library_access_state"], "inactive")
+
+    def test_compact_question_list_batches_shared_library_access_resolution(self):
+        grant_institute_question_bank_entitlement(
+            institute=self.private_institute,
+            question_bank_package=self.package,
+        )
+        self.client.force_authenticate(user=self.institute_admin_user)
+
+        first_link_response = self.client.post(
+            f"/api/v1/question-bank/master-library/{self.master_question.id}/link/",
+            {
+                "local_subject_code": self.private_subject.code,
+                "local_topic_code": self.private_topic.code,
+            },
+            format="json",
+        )
+        self.assertEqual(first_link_response.status_code, 200)
+
+        second_link_response = self.client.post(
+            f"/api/v1/question-bank/master-library/{self.second_master_question.id}/link/",
+            {
+                "local_subject_code": self.private_subject.code,
+                "local_topic_code": self.private_topic.code,
+            },
+            format="json",
+        )
+        self.assertEqual(second_link_response.status_code, 200)
+
+        with patch("apps.question_bank.views.bulk_get_master_question_access_summaries") as access_summary_mock:
+            access_summary_mock.return_value = {
+                str(self.master_question.id): {"has_access": True},
+                str(self.second_master_question.id): {"has_access": True},
+            }
+            response = self.client.get("/api/v1/question-bank/questions/?compact=1")
+
+        self.assertEqual(response.status_code, 200)
+        access_summary_mock.assert_called_once()
+        called_master_questions = access_summary_mock.call_args.kwargs["master_questions"]
+        self.assertEqual(len(called_master_questions), 2)
 
     def test_master_library_list_reports_linked_access_status(self):
         grant_institute_question_bank_entitlement(

@@ -93,6 +93,17 @@ function planValueSummary(
   return `${creditAmount.toLocaleString("en-IN")} stars every ${titleCase(billingInterval).toLowerCase()}${intervalCount > 1 ? ` x ${intervalCount}` : ""}`;
 }
 
+function allowanceSummaryLabel(summary: {
+  included_allowance: number;
+  used_allowance: number;
+  remaining_allowance: number;
+} | null | undefined) {
+  if (!summary) {
+    return "No exam allowance configured";
+  }
+  return `${summary.remaining_allowance}/${summary.included_allowance} attempts left`;
+}
+
 type SubscriptionWorkspaceSection = "all" | "guidance" | "subscriptions" | "orders" | "plans";
 type SubscriptionRows = "3" | "6" | "10";
 
@@ -424,7 +435,24 @@ export default async function SubscriptionsPage({
                                 : "Waiting"}
                           </strong>
                         </article>
+                        <article className="detailCard">
+                          <span>Exam allowance</span>
+                          <strong>{allowanceSummaryLabel(subscription.allowance_summary)}</strong>
+                        </article>
                       </div>
+                      {subscription.allowance_summary ? (
+                        <div className="studentInsightMessageStack">
+                          <div className="studentInsightMessage">
+                            <span className="placeholderDot" aria-hidden="true" />
+                            <p>
+                              {subscription.allowance_summary.used_allowance} used in the current billing cycle.
+                              {subscription.allowance_summary.billing_period_end
+                                ? ` Current allowance window ends ${studentDateTimeLabel(subscription.allowance_summary.billing_period_end)}.`
+                                : ""}
+                            </p>
+                          </div>
+                        </div>
+                      ) : null}
                       <div className="dashboardRailStack">
                         {subscription.billing_events.slice(0, 3).map((event) => (
                           <div className="dashboardRailRow" key={event.id}>
@@ -555,6 +583,9 @@ export default async function SubscriptionsPage({
                                     cycle.billing_interval,
                                     cycle.interval_count,
                                   )}
+                                  {cycle.exam_allowance_config
+                                    ? ` · ${cycle.exam_allowance_config.included_exam_attempts} exam attempts per cycle`
+                                    : ""}
                                 </span>
                               </div>
                           <form action={createSubscriptionOrderAction}>

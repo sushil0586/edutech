@@ -3,7 +3,7 @@ import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { resetAndSeedDemoSharedLibraryWorkflow } from "../helpers/demo-shared-library";
 import { expectTeacherWorkspace } from "../helpers/navigation";
 
-const PAUSED_ONLY_PREFIX = "PAUSED ONLY DEMO :: ";
+const PAUSED_ONLY_PREFIX = "PAUSED ONLY DEMO ::";
 
 async function gotoWithRetry(page: Page, url: string, attempts = 3) {
   let lastError: unknown = null;

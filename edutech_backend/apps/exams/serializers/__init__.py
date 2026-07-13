@@ -10,6 +10,8 @@ from apps.academics.assessment_family_contracts import (
 from apps.exams.models import (
     AdvancedExamTemplate,
     Exam,
+    ExamAccessMode,
+    ExamAccessSlot,
     ExamPresetPack,
     ExamPresetPackScope,
     ExamPublishLog,
@@ -33,12 +35,17 @@ from apps.exams.services import (
     resolve_exam_experience_profile,
     resolve_exam_experience_profile_from_values,
     resolve_exam_economy_access,
+    resolve_exam_runtime_thresholds,
+    resolve_exam_start_access,
     resolve_exam_result_visibility_policy,
     resolve_exam_source_metadata,
+    summarize_exam_slot_occupancy,
     resolve_security_policy,
     sync_exam_access_policy,
     sync_total_marks_from_questions,
 )
+from apps.economy.services import serialize_subscription_allowance_resolution
+from apps.economy.services import resolve_access_policy_commercial_path
 from apps.question_bank.registry import (
     get_question_type_definition,
     get_question_type_definition_payload,
@@ -68,6 +75,106 @@ def _response_artifact_contract_for_question(question, *, exam_question=None):
             "supports_response_artifacts": bool(allowed_types),
             "allowed_response_artifact_types": allowed_types,
         }
+
+    effective_allowed_types = []
+    for asset_kind in allowed_types:
+        if asset_kind == "audio_recording" and not bool(policy.get("allow_audio_recording", False)):
+            continue
+        if asset_kind == "video_recording" and not bool(policy.get("allow_video_recording", False)):
+            continue
+        effective_allowed_types.append(asset_kind)
+
+    return {
+        "supports_response_artifacts": bool(effective_allowed_types),
+        "allowed_response_artifact_types": effective_allowed_types,
+    }
+
+
+EXAM_COMMERCIAL_PATH_CHOICES = (
+    ("", "Open Access"),
+    ("free", "Free"),
+    ("stars_only", "Stars Only"),
+    ("subscription_only", "Subscription Only"),
+    ("subscription_or_stars", "Subscription Or Stars"),
+    ("institute_sponsored", "Institute Sponsored"),
+    ("platform_managed", "Platform Managed"),
+)
+
+
+def _normalize_exam_commercial_policy_input(*, policy_type="", commercial_path="", star_cost=0, entitlement_code=""):
+    normalized_policy_type = str(policy_type or "").strip()
+    normalized_commercial_path = str(commercial_path or "").strip()
+    normalized_entitlement_code = str(entitlement_code or "").strip()
+    normalized_star_cost = int(star_cost or 0)
+
+    if normalized_commercial_path == "":
+        if not normalized_policy_type:
+            return {
+                "policy_type": "",
+                "commercial_path": "",
+                "star_cost": 0,
+                "entitlement_code": "",
+            }
+        policy_probe = type(
+            "CommercialPathProbe",
+            (),
+            {
+                "policy_type": normalized_policy_type,
+                "entitlement_code": normalized_entitlement_code,
+                "metadata": {},
+            },
+        )()
+        normalized_commercial_path = resolve_access_policy_commercial_path(policy_probe)
+
+    if normalized_commercial_path == "free":
+        return {
+            "policy_type": "free",
+            "commercial_path": "free",
+            "star_cost": 0,
+            "entitlement_code": "",
+        }
+    if normalized_commercial_path == "stars_only":
+        return {
+            "policy_type": "stars_only",
+            "commercial_path": "stars_only",
+            "star_cost": normalized_star_cost,
+            "entitlement_code": "",
+        }
+    if normalized_commercial_path == "subscription_only":
+        return {
+            "policy_type": "entitlement_only",
+            "commercial_path": "subscription_only",
+            "star_cost": 0,
+            "entitlement_code": normalized_entitlement_code or "subscription:default",
+        }
+    if normalized_commercial_path == "subscription_or_stars":
+        return {
+            "policy_type": "stars_or_entitlement",
+            "commercial_path": "subscription_or_stars",
+            "star_cost": normalized_star_cost,
+            "entitlement_code": normalized_entitlement_code or "subscription:default",
+        }
+    if normalized_commercial_path == "institute_sponsored":
+        return {
+            "policy_type": "free",
+            "commercial_path": "institute_sponsored",
+            "star_cost": 0,
+            "entitlement_code": "",
+        }
+    if normalized_commercial_path == "platform_managed":
+        return {
+            "policy_type": "free",
+            "commercial_path": "platform_managed",
+            "star_cost": 0,
+            "entitlement_code": "",
+        }
+
+    return {
+        "policy_type": normalized_policy_type,
+        "commercial_path": normalized_commercial_path,
+        "star_cost": normalized_star_cost,
+        "entitlement_code": normalized_entitlement_code,
+    }
 
     effective_allowed_types = []
     for asset_kind in allowed_types:
@@ -306,6 +413,8 @@ class ExamAssignedStudentSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(source="student.full_name", read_only=True)
     admission_no = serializers.CharField(source="student.admission_no", read_only=True)
     cohort_name = serializers.CharField(source="student.cohort.name", read_only=True)
+    access_slot = serializers.UUIDField(source="access_slot_id", read_only=True)
+    access_slot_label = serializers.CharField(source="access_slot.slot_label", read_only=True)
 
     class Meta:
         model = ExamStudentAssignment
@@ -315,6 +424,8 @@ class ExamAssignedStudentSerializer(serializers.ModelSerializer):
             "full_name",
             "admission_no",
             "cohort_name",
+            "access_slot",
+            "access_slot_label",
             "notes",
             "is_active",
         )
@@ -327,6 +438,114 @@ class ExamStudentAssignmentUpdateSerializer(serializers.Serializer):
         required=False,
         allow_empty=True,
     )
+
+
+class ExamAccessSlotSerializer(serializers.ModelSerializer):
+    cohort_name = serializers.CharField(source="cohort.name", read_only=True)
+    occupancy = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ExamAccessSlot
+        fields = (
+            "id",
+            "exam",
+            "cohort",
+            "cohort_name",
+            "slot_label",
+            "slot_start_at",
+            "slot_end_at",
+            "grace_period_minutes",
+            "assignment_capacity",
+            "start_capacity",
+            "status",
+            "metadata",
+            "is_active",
+            "occupancy",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = ("id", "exam", "created_at", "updated_at", "occupancy")
+
+    def get_occupancy(self, obj):
+        return summarize_exam_slot_occupancy(obj)
+
+
+class ExamAccessSlotWriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExamAccessSlot
+        fields = (
+            "cohort",
+            "slot_label",
+            "slot_start_at",
+            "slot_end_at",
+            "grace_period_minutes",
+            "assignment_capacity",
+            "start_capacity",
+            "status",
+            "metadata",
+            "is_active",
+        )
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        exam = self.context["exam"]
+        cohort = attrs.get("cohort", getattr(getattr(self, "instance", None), "cohort", None))
+        if cohort is not None:
+            if cohort.institute_id != exam.institute_id:
+                raise serializers.ValidationError({"cohort": "Cohort must belong to the same institute as the exam."})
+            if cohort.program_id != exam.program_id:
+                raise serializers.ValidationError({"cohort": "Cohort must belong to the same program as the exam."})
+        return attrs
+
+
+class ExamStudentSlotOverrideSerializer(serializers.Serializer):
+    student = serializers.UUIDField()
+    access_slot = serializers.UUIDField(required=False, allow_null=True)
+    notes = serializers.CharField(required=False, allow_blank=True, default="")
+
+
+class ExamStudentBulkSlotAssignmentSerializer(serializers.Serializer):
+    APPLY_TO_ALL_SELECTED = "all_selected"
+    APPLY_TO_UNASSIGNED_SELECTED = "unassigned_selected"
+    APPLY_TO_STUDENT_IDS = "student_ids"
+
+    apply_to = serializers.ChoiceField(
+        choices=(
+            (APPLY_TO_ALL_SELECTED, "All selected students"),
+            (APPLY_TO_UNASSIGNED_SELECTED, "Selected students without direct slot"),
+            (APPLY_TO_STUDENT_IDS, "Specific student IDs"),
+        ),
+        default=APPLY_TO_UNASSIGNED_SELECTED,
+    )
+    access_slot = serializers.UUIDField(required=False, allow_null=True)
+    student_ids = serializers.ListField(
+        child=serializers.UUIDField(),
+        required=False,
+        allow_empty=True,
+    )
+    notes = serializers.CharField(required=False, allow_blank=True, default="")
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        if attrs.get("apply_to") == self.APPLY_TO_STUDENT_IDS and not attrs.get("student_ids"):
+            raise serializers.ValidationError(
+                {"student_ids": "Select at least one student when using specific student assignment."}
+            )
+        return attrs
+
+
+class ExamStudentAutoSlotAssignmentSerializer(serializers.Serializer):
+    APPLY_TO_ALL_SELECTED = "all_selected"
+    APPLY_TO_UNASSIGNED_SELECTED = "unassigned_selected"
+
+    apply_to = serializers.ChoiceField(
+        choices=(
+            (APPLY_TO_ALL_SELECTED, "All selected students"),
+            (APPLY_TO_UNASSIGNED_SELECTED, "Selected students without direct slot"),
+        ),
+        default=APPLY_TO_UNASSIGNED_SELECTED,
+    )
+    notes = serializers.CharField(required=False, allow_blank=True, default="")
 
 
 class ExamQuestionSerializer(serializers.ModelSerializer):
@@ -495,6 +714,9 @@ class ExamWriteSerializer(serializers.ModelSerializer):
         required=False,
         default="freeze_on_exam_closure",
     )
+    daily_start_cap = serializers.IntegerField(required=False, allow_null=True, min_value=1)
+    hourly_start_cap = serializers.IntegerField(required=False, allow_null=True, min_value=1)
+    concurrent_active_attempt_cap = serializers.IntegerField(required=False, allow_null=True, min_value=1)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -538,6 +760,8 @@ class ExamWriteSerializer(serializers.ModelSerializer):
                     attrs,
                     supplied_fields=self.initial_data.keys(),
                 )
+        if attrs.get("access_mode") in {None, ""}:
+            attrs["access_mode"] = getattr(instance, "resolved_access_mode", None) or ExamAccessMode.GLOBAL_WINDOW_LEGACY
         start_at = attrs.get("start_at", getattr(instance, "start_at", None))
         end_at = attrs.get("end_at", getattr(instance, "end_at", None))
         if start_at and end_at and end_at <= start_at:
@@ -588,12 +812,47 @@ class ExamWriteSerializer(serializers.ModelSerializer):
         validated_data["metadata"] = metadata
         return validated_data
 
+    def _merge_runtime_thresholds(self, validated_data, instance=None):
+        threshold_updates = {
+            "daily_start_cap": validated_data.pop("daily_start_cap", None),
+            "hourly_start_cap": validated_data.pop("hourly_start_cap", None),
+            "concurrent_active_attempt_cap": validated_data.pop(
+                "concurrent_active_attempt_cap",
+                None,
+            ),
+        }
+        metadata = validated_data.get("metadata")
+        metadata = dict(metadata) if isinstance(metadata, dict) else {}
+
+        if instance is not None and isinstance(getattr(instance, "metadata", None), dict):
+            merged_metadata = dict(instance.metadata)
+            merged_metadata.update(metadata)
+            metadata = merged_metadata
+
+        existing_thresholds = metadata.get("runtime_thresholds", {})
+        thresholds = dict(existing_thresholds) if isinstance(existing_thresholds, dict) else {}
+        for key, value in threshold_updates.items():
+            if value is None:
+                thresholds.pop(key, None)
+            else:
+                thresholds[key] = int(value)
+
+        if thresholds:
+            metadata["runtime_thresholds"] = thresholds
+        else:
+            metadata.pop("runtime_thresholds", None)
+
+        validated_data["metadata"] = metadata
+        return validated_data
+
     def create(self, validated_data):
         validated_data = self._merge_result_visibility_policy(validated_data)
+        validated_data = self._merge_runtime_thresholds(validated_data)
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
         validated_data = self._merge_result_visibility_policy(validated_data, instance=instance)
+        validated_data = self._merge_runtime_thresholds(validated_data, instance=instance)
         return super().update(instance, validated_data)
 
     class Meta:
@@ -612,6 +871,7 @@ class ExamEconomyPolicySerializer(serializers.Serializer):
     content_type = serializers.CharField()
     content_key = serializers.CharField()
     content_label = serializers.CharField()
+    commercial_path = serializers.CharField()
     policy_type = serializers.CharField()
     star_cost = serializers.IntegerField()
     entitlement_code = serializers.CharField()
@@ -624,6 +884,12 @@ class ExamEconomyPolicySerializer(serializers.Serializer):
 
 
 class ExamEconomyPolicyUpdateSerializer(serializers.Serializer):
+    commercial_path = serializers.ChoiceField(
+        choices=EXAM_COMMERCIAL_PATH_CHOICES,
+        required=False,
+        allow_blank=True,
+        default="",
+    )
     policy_type = serializers.ChoiceField(
         choices=[
             ("", "Open Access"),
@@ -646,6 +912,17 @@ class ExamEconomyPolicyUpdateSerializer(serializers.Serializer):
     priority = serializers.IntegerField(required=False, min_value=1, default=100)
 
     def validate(self, attrs):
+        normalized = _normalize_exam_commercial_policy_input(
+            policy_type=attrs.get("policy_type", ""),
+            commercial_path=attrs.get("commercial_path", ""),
+            star_cost=attrs.get("star_cost", 0),
+            entitlement_code=attrs.get("entitlement_code", ""),
+        )
+        attrs["policy_type"] = normalized["policy_type"]
+        attrs["commercial_path"] = normalized["commercial_path"]
+        attrs["star_cost"] = normalized["star_cost"]
+        attrs["entitlement_code"] = normalized["entitlement_code"]
+
         policy_type = attrs.get("policy_type", "")
         star_cost = int(attrs.get("star_cost", 0) or 0)
         entitlement_code = str(attrs.get("entitlement_code", "") or "").strip()
@@ -794,6 +1071,11 @@ class AdvancedExamMetadataSerializer(serializers.Serializer):
         required=False,
         allow_null=True,
     )
+    access_mode = serializers.ChoiceField(
+        choices=Exam._meta.get_field("access_mode").choices,
+        required=False,
+        allow_null=True,
+    )
     experience_profile = serializers.DictField(required=False, default=dict)
 
     def validate_experience_profile(self, value):
@@ -914,6 +1196,12 @@ class AdvancedExamUnlockRuleSerializer(serializers.Serializer):
 
 
 class AdvancedExamEconomySerializer(serializers.Serializer):
+    commercial_path = serializers.ChoiceField(
+        choices=EXAM_COMMERCIAL_PATH_CHOICES,
+        required=False,
+        allow_blank=True,
+        default="",
+    )
     policy_type = serializers.ChoiceField(
         choices=[
             ("", "Open Access"),
@@ -938,6 +1226,16 @@ class AdvancedExamEconomySerializer(serializers.Serializer):
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
+        normalized = _normalize_exam_commercial_policy_input(
+            policy_type=attrs.get("policy_type", ""),
+            commercial_path=attrs.get("commercial_path", ""),
+            star_cost=attrs.get("star_cost", 0),
+            entitlement_code=attrs.get("entitlement_code", ""),
+        )
+        attrs["policy_type"] = normalized["policy_type"]
+        attrs["commercial_path"] = normalized["commercial_path"]
+        attrs["star_cost"] = normalized["star_cost"]
+        attrs["entitlement_code"] = normalized["entitlement_code"]
         policy_type = attrs.get("policy_type", "")
         if policy_type == "stars_only" and attrs.get("star_cost", 0) <= 0:
             raise serializers.ValidationError({"star_cost": "Star-cost policies require a positive cost."})
@@ -1136,6 +1434,7 @@ class ExamReadSerializer(serializers.ModelSerializer):
         source="student_assignments",
         read_only=True,
     )
+    access_slots = ExamAccessSlotSerializer(many=True, read_only=True)
     assigned_student_count = serializers.SerializerMethodField()
     exam_questions = ExamQuestionSerializer(many=True, read_only=True)
     publish_logs = ExamPublishLogSerializer(many=True, read_only=True)
@@ -1151,6 +1450,10 @@ class ExamReadSerializer(serializers.ModelSerializer):
     benchmark_visibility_mode = serializers.SerializerMethodField()
     rank_freeze_policy = serializers.SerializerMethodField()
     publish_readiness = serializers.SerializerMethodField()
+    access_mode = serializers.SerializerMethodField()
+    daily_start_cap = serializers.SerializerMethodField()
+    hourly_start_cap = serializers.SerializerMethodField()
+    concurrent_active_attempt_cap = serializers.SerializerMethodField()
 
     class Meta:
         model = Exam
@@ -1190,6 +1493,7 @@ class ExamReadSerializer(serializers.ModelSerializer):
                 "content_type": policy.content_type,
                 "content_key": policy.content_key,
                 "content_label": policy.content_label,
+                "commercial_path": resolve_access_policy_commercial_path(policy),
                 "policy_type": policy.policy_type,
                 "star_cost": int(policy.star_cost or 0),
                 "entitlement_code": policy.entitlement_code,
@@ -1225,6 +1529,21 @@ class ExamReadSerializer(serializers.ModelSerializer):
 
     def get_publish_readiness(self, obj):
         return build_exam_publish_readiness(obj)
+
+    def get_access_mode(self, obj):
+        return obj.resolved_access_mode
+
+    def get_daily_start_cap(self, obj):
+        thresholds = resolve_exam_runtime_thresholds(obj)
+        return thresholds["daily_start_cap"]
+
+    def get_hourly_start_cap(self, obj):
+        thresholds = resolve_exam_runtime_thresholds(obj)
+        return thresholds["hourly_start_cap"]
+
+    def get_concurrent_active_attempt_cap(self, obj):
+        thresholds = resolve_exam_runtime_thresholds(obj)
+        return thresholds["concurrent_active_attempt_cap"]
 
     def get_subject_name(self, obj):
         summary = _exam_subject_summary_payload(obj)
@@ -1273,6 +1592,10 @@ class ExamListSerializer(serializers.ModelSerializer):
     percentile_visibility_mode = serializers.SerializerMethodField()
     benchmark_visibility_mode = serializers.SerializerMethodField()
     rank_freeze_policy = serializers.SerializerMethodField()
+    access_mode = serializers.SerializerMethodField()
+    daily_start_cap = serializers.SerializerMethodField()
+    hourly_start_cap = serializers.SerializerMethodField()
+    concurrent_active_attempt_cap = serializers.SerializerMethodField()
 
     class Meta:
         model = Exam
@@ -1321,6 +1644,10 @@ class ExamListSerializer(serializers.ModelSerializer):
             "source_label",
             "source_name",
             "source_teacher_name",
+            "access_mode",
+            "daily_start_cap",
+            "hourly_start_cap",
+            "concurrent_active_attempt_cap",
             "assignment_mode",
             "allow_resume",
             "allow_section_switching",
@@ -1342,6 +1669,21 @@ class ExamListSerializer(serializers.ModelSerializer):
             "updated_at",
         )
         read_only_fields = fields
+
+    def get_access_mode(self, obj):
+        return obj.resolved_access_mode
+
+    def get_daily_start_cap(self, obj):
+        thresholds = resolve_exam_runtime_thresholds(obj)
+        return thresholds["daily_start_cap"]
+
+    def get_hourly_start_cap(self, obj):
+        thresholds = resolve_exam_runtime_thresholds(obj)
+        return thresholds["hourly_start_cap"]
+
+    def get_concurrent_active_attempt_cap(self, obj):
+        thresholds = resolve_exam_runtime_thresholds(obj)
+        return thresholds["concurrent_active_attempt_cap"]
 
     def get_active_questions_count(self, obj):
         annotated = getattr(obj, "active_questions_count", None)
@@ -1391,6 +1733,7 @@ class ExamListSerializer(serializers.ModelSerializer):
                 "content_type": policy.content_type,
                 "content_key": policy.content_key,
                 "content_label": policy.content_label,
+                "commercial_path": resolve_access_policy_commercial_path(policy),
                 "policy_type": policy.policy_type,
                 "star_cost": int(policy.star_cost or 0),
                 "entitlement_code": policy.entitlement_code,
@@ -1684,6 +2027,7 @@ class StudentExamAvailabilitySerializer(serializers.ModelSerializer):
     assigned_to_student = serializers.SerializerMethodField()
     security_policy = serializers.SerializerMethodField()
     economy_access = serializers.SerializerMethodField()
+    start_access = serializers.SerializerMethodField()
     source_type = serializers.SerializerMethodField()
     source_label = serializers.SerializerMethodField()
     source_name = serializers.SerializerMethodField()
@@ -1736,6 +2080,7 @@ class StudentExamAvailabilitySerializer(serializers.ModelSerializer):
             "source_teacher_id",
             "source_teacher_name",
             "economy_access",
+            "start_access",
             "experience_profile",
         )
 
@@ -1805,6 +2150,32 @@ class StudentExamAvailabilitySerializer(serializers.ModelSerializer):
                 return attempt
         return None
 
+    def _start_access(self, obj):
+        cache = self.context.setdefault("_exam_start_access_cache", {})
+        cache_key = str(obj.id)
+        if cache_key in cache:
+            return cache[cache_key]
+
+        student = self._student()
+        if student is None:
+            cache[cache_key] = {
+                "is_allowed": False,
+                "reason_source": "authentication",
+                "reason_code": "student_scope_missing",
+                "reason_message": "Student scope is required to evaluate start access.",
+                "runtime_decision": None,
+            }
+            return cache[cache_key]
+
+        cache[cache_key] = resolve_exam_start_access(
+            student,
+            obj,
+            economy_access=self._economy_access(obj),
+            attempts_used=self.get_attempts_used(obj),
+            has_active_attempt=self._active_attempt(obj) is not None,
+        )
+        return cache[cache_key]
+
     def _availability_state_value(self, obj):
         student = self._student()
         if student is not None and not self._is_assigned_to_student(obj):
@@ -1870,6 +2241,7 @@ class StudentExamAvailabilitySerializer(serializers.ModelSerializer):
         from apps.attempts.services import refresh_attempt_runtime_state
 
         refresh_attempt_runtime_state(attempt)
+        attempt.refresh_from_db(fields=["metadata", "expires_at", "status", "updated_at"])
         metadata = attempt.metadata if isinstance(attempt.metadata, dict) else {}
         section_runtime = metadata.get("section_runtime", {})
         if not isinstance(section_runtime, dict):
@@ -1918,12 +2290,7 @@ class StudentExamAvailabilitySerializer(serializers.ModelSerializer):
         return int((obj.end_at - timezone.now()).total_seconds())
 
     def get_can_start(self, obj):
-        return (
-            self._availability_state_value(obj) == "available_now"
-            and not self._economy_access(obj)["is_locked"]
-            and self._active_attempt(obj) is None
-            and self.get_remaining_attempts(obj) > 0
-        )
+        return self._start_access(obj)["is_allowed"]
 
     def get_can_resume(self, obj):
         return self._active_attempt(obj) is not None
@@ -1956,7 +2323,25 @@ class StudentExamAvailabilitySerializer(serializers.ModelSerializer):
         return resolve_security_policy(obj)
 
     def get_economy_access(self, obj):
-        return self._economy_access(obj)
+        economy_access = dict(self._economy_access(obj))
+        economy_access["subscription_resolution"] = serialize_subscription_allowance_resolution(
+            economy_access.get("subscription_resolution")
+        )
+        return economy_access
+
+    def get_start_access(self, obj):
+        start_access = dict(self._start_access(obj))
+        runtime_decision = start_access.get("runtime_decision")
+        if isinstance(runtime_decision, dict):
+            start_access["runtime_decision"] = {
+                "management_mode": runtime_decision.get("management_mode"),
+                "access_mode": runtime_decision.get("access_mode"),
+                "block_reason_code": runtime_decision.get("block_reason_code", ""),
+                "capacity_state": runtime_decision.get("capacity_state"),
+                "threshold_state": runtime_decision.get("threshold_state"),
+                "effective_slot": runtime_decision.get("effective_slot"),
+            }
+        return start_access
 
     def get_availability_state(self, obj):
         base_state = self._availability_state_value(obj)
@@ -1983,6 +2368,52 @@ class StudentExamAvailabilitySerializer(serializers.ModelSerializer):
         return resolve_exam_experience_profile(obj)
 
 
+class StudentExamFollowUpSerializer(StudentExamAvailabilitySerializer):
+    active_attempt = serializers.SerializerMethodField()
+    subject_name = serializers.SerializerMethodField()
+    experience_profile = serializers.SerializerMethodField()
+
+    class Meta(StudentExamAvailabilitySerializer.Meta):
+        fields = (
+            "id",
+            "title",
+            "code",
+            "exam_type",
+            "subject_name",
+            "source_type",
+            "source_label",
+            "source_name",
+            "source_teacher_id",
+            "source_teacher_name",
+            "active_attempt",
+            "can_start",
+            "can_resume",
+            "economy_access",
+            "experience_profile",
+        )
+
+    def get_active_attempt(self, obj):
+        attempt = self._active_attempt(obj)
+        if attempt is None:
+            return None
+        return {
+            "id": str(attempt.id),
+            "status": attempt.status,
+        }
+
+    def get_subject_name(self, obj):
+        subject = getattr(obj, "subject", None)
+        if subject is not None and getattr(subject, "name", None):
+            return subject.name
+        return "Mixed Subjects"
+
+    def get_experience_profile(self, obj):
+        profile = resolve_exam_experience_profile(obj)
+        return {
+            "assessment_family": profile.get("assessment_family", ""),
+        }
+
+
 class StudentExamReadinessSerializer(StudentExamDetailSerializer):
     def _availability_serializer(self, obj):
         return StudentExamAvailabilitySerializer(
@@ -1999,12 +2430,20 @@ class StudentExamReadinessSerializer(StudentExamDetailSerializer):
                 "active_attempt": availability.get_active_attempt(instance),
                 "attempts_used": availability.get_attempts_used(instance),
                 "remaining_attempts": availability.get_remaining_attempts(instance),
+                "can_start": availability.get_can_start(instance),
+                "can_resume": availability.get_can_resume(instance),
                 "review_available": availability.get_review_available(instance),
                 "result_published": availability.get_result_published(instance),
                 "result_status": availability.get_result_status(instance),
+                "latest_attempt_status": availability.get_latest_attempt_status(instance),
                 "availability_state": availability.get_availability_state(instance),
+                "starts_in_seconds": availability.get_starts_in_seconds(instance),
+                "ends_in_seconds": availability.get_ends_in_seconds(instance),
+                "assignment_mode": instance.assignment_mode,
+                "assigned_to_student": availability.get_assigned_to_student(instance),
                 "security_policy": availability.get_security_policy(instance),
                 "economy_access": availability.get_economy_access(instance),
+                "start_access": availability.get_start_access(instance),
             }
         )
         return data

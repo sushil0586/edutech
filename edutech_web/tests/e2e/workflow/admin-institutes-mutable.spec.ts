@@ -77,6 +77,8 @@ test.describe("Admin mutable institute actions", () => {
     const instituteWebsite = `https://pw-admin-${uniqueSeed}.example.test`;
     const instituteDescription = "Disposable admin institute created by Playwright.";
     const instituteUpdatedDescription = "Disposable admin institute updated by Playwright.";
+    const instituteManagementMode = "public_institute_managed";
+    const instituteUpdatedManagementMode = "platform_managed";
 
     let instituteId: string | null = null;
 
@@ -93,6 +95,7 @@ test.describe("Admin mutable institute actions", () => {
       await createDialog.getByLabel(/^email$/i).fill(instituteEmail);
       await createDialog.getByLabel(/^phone$/i).fill(institutePhone);
       await createDialog.getByLabel(/website/i).fill(instituteWebsite);
+      await createDialog.getByLabel(/management mode/i).selectOption(instituteManagementMode);
       await createDialog.getByLabel(/description/i).fill(instituteDescription);
 
       const createResponsePromise = page.waitForResponse(
@@ -107,12 +110,16 @@ test.describe("Admin mutable institute actions", () => {
       instituteId = createPayload.id ?? null;
       expect(instituteId).not.toBeNull();
 
-      await expect(page).toHaveURL(new RegExp(`/admin/institutes\\?institute=${instituteId}`));
+      await expect(page).toHaveURL(new RegExp(`institute=${instituteId}`));
+      if (!page.url().includes("/admin/institutes")) {
+        await page.goto(`/admin/institutes?institute=${instituteId}`);
+      }
       const detailCard = page.locator(".adminInstituteDetailCard").first();
       await expect(
         detailCard.getByRole("heading", { name: new RegExp(escapeRegExp(instituteName), "i") }),
       ).toBeVisible();
       await expect(detailCard.getByText(new RegExp(escapeRegExp(instituteCode), "i")).first()).toBeVisible();
+      await expect(detailCard.getByText(/public institute managed/i).first()).toBeVisible();
 
       await page.getByRole("button", { name: /edit selected/i }).click();
       const editDialog = page.getByRole("dialog");
@@ -121,6 +128,7 @@ test.describe("Admin mutable institute actions", () => {
       await editDialog.getByLabel(/institute name/i).fill(instituteUpdatedName);
       await editDialog.getByLabel(/^code$/i).fill(instituteUpdatedCode);
       await editDialog.getByLabel(/^email$/i).fill(instituteUpdatedEmail);
+      await editDialog.getByLabel(/management mode/i).selectOption(instituteUpdatedManagementMode);
       await editDialog.getByLabel(/description/i).fill(instituteUpdatedDescription);
 
       const patchResponsePromise = page.waitForResponse(
@@ -140,6 +148,7 @@ test.describe("Admin mutable institute actions", () => {
       await expect(
         detailCard.getByText(new RegExp(escapeRegExp(instituteUpdatedDescription), "i")).first(),
       ).toBeVisible();
+      await expect(detailCard.getByText(/platform managed/i).first()).toBeVisible();
 
       const accountPanel = detailCard.locator(".adminInstituteAccountPanel").first();
       await expect(accountPanel).toContainText(/credential controls/i);

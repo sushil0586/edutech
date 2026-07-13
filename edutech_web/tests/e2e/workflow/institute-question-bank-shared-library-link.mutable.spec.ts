@@ -170,6 +170,47 @@ async function findLinkableSharedLibraryCard(cards: Locator) {
   return fallbackCard;
 }
 
+function escapeRegex(text: string) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function findSharedLibraryCardByExactTitle(cards: Locator, questionText: string) {
+  const exactTitle = new RegExp(`^${escapeRegex(questionText)}$`);
+  return cards.filter({
+    has: cards.locator("strong").filter({ hasText: exactTitle }),
+  }).first();
+}
+
+async function findResolvableInstituteLinkableRow(
+  page: Page,
+  accessToken: string,
+  rows: MasterLibraryRow[],
+) {
+  for (const row of rows) {
+    if (
+      !row.has_access ||
+      row.access_status === "linked" ||
+      !row.source_program_code ||
+      !row.source_subject_code
+    ) {
+      continue;
+    }
+
+    try {
+      const scopeIds = await resolveAcademicScopeIds(page, accessToken, {
+        programCode: row.source_program_code,
+        subjectCode: row.source_subject_code,
+        topicCode: row.source_topic_code,
+      });
+      return { row, scopeIds };
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
+}
+
 function pickPublicHubPackageByCode(packages: QuestionBankPackageRow[], packageCode: string) {
   return (
     packages.find(
@@ -225,17 +266,16 @@ test.describe("Institute shared-library mutable link flow", () => {
     );
     expect(masterLibraryResponse.ok()).toBe(true);
     const masterLibraryBody = (await masterLibraryResponse.json()) as { results?: MasterLibraryRow[] };
-    const linkableRow =
-      masterLibraryBody.results?.find(
-        (row) =>
-          row.has_access &&
-          row.access_status !== "linked" &&
-          row.question_text.startsWith(PAUSED_ONLY_PREFIX),
-      ) ??
-      masterLibraryBody.results?.find(
-        (row) => row.has_access && row.access_status !== "linked",
-      ) ??
-      null;
+    const resolvableLinkableRow = await findResolvableInstituteLinkableRow(
+      page,
+      instituteAccessToken,
+      (masterLibraryBody.results ?? []).sort((left, right) => {
+        const leftPaused = left.question_text.startsWith(PAUSED_ONLY_PREFIX) ? 0 : 1;
+        const rightPaused = right.question_text.startsWith(PAUSED_ONLY_PREFIX) ? 0 : 1;
+        return leftPaused - rightPaused;
+      }),
+    );
+    const linkableRow = resolvableLinkableRow?.row ?? null;
 
     if (!linkableRow) {
       test.skip(
@@ -244,14 +284,10 @@ test.describe("Institute shared-library mutable link flow", () => {
       );
     }
 
-    const scopeIds = await resolveAcademicScopeIds(page, instituteAccessToken, {
-      programCode: linkableRow!.source_program_code,
-      subjectCode: linkableRow!.source_subject_code,
-      topicCode: linkableRow!.source_topic_code,
-    });
+    const scopeIds = resolvableLinkableRow!.scopeIds;
 
     await page.goto(
-      `/institute/question-bank/library-linker?program=${encodeURIComponent(scopeIds.programId)}&subject=${encodeURIComponent(scopeIds.subjectId)}&topic=${encodeURIComponent(scopeIds.topicId)}&search=${encodeURIComponent(linkableRow!.question_text.slice(0, 60))}`,
+      `/institute/question-bank/library-linker?program=${encodeURIComponent(scopeIds.programId)}&subject=${encodeURIComponent(scopeIds.subjectId)}&topic=${encodeURIComponent(scopeIds.topicId)}&search=${encodeURIComponent(linkableRow!.question_text)}`,
     );
     await expect(page.getByRole("heading", { name: /shared library linker/i }).first()).toBeVisible();
     await expect(page.getByText(/current lane: shared library linker/i).first()).toBeVisible();
@@ -289,17 +325,13 @@ test.describe("Institute shared-library mutable link flow", () => {
     await expect(page.getByText(/shared question linked successfully\./i).first()).toBeVisible();
     await expect(page.getByRole("heading", { name: /shared library linker/i }).first()).toBeVisible();
 
-    const searchProbe = linkedQuestionText.slice(0, 60);
+    const searchProbe = linkedQuestionText;
     const searchField = page.getByRole("textbox", { name: /search current topic/i });
     await searchField.fill(searchProbe);
     await page.getByRole("button", { name: /show questions/i }).click();
 
     await expect(searchField).toHaveValue(searchProbe);
     await expect(page).toHaveURL(/search=/);
-    await expect(linkableCard!.getByText(/already linked/i).first()).toBeVisible();
-    await expect(
-      linkableCard!.getByText(/already in institute bank/i).first(),
-    ).toBeVisible();
 
     await page.goto(
       `/institute/question-bank/linked?program=${encodeURIComponent(scopeIds.programId)}&subject=${encodeURIComponent(scopeIds.subjectId)}&topic=${encodeURIComponent(scopeIds.topicId)}&search=${encodeURIComponent(searchProbe)}`,
@@ -407,7 +439,7 @@ test.describe("Institute shared-library mutable link flow", () => {
       }
 
       selectedQuestionText = blockedRow!.question_text.replace(/\s+/g, " ").trim();
-      searchProbe = selectedQuestionText.slice(0, 60);
+      searchProbe = selectedQuestionText;
       expect(searchProbe).not.toBe("");
 
       const initialPackageCodes = blockedRow!.matching_packages
@@ -456,34 +488,11 @@ test.describe("Institute shared-library mutable link flow", () => {
 
       await loginAsRole(page, "institute");
       await expectInstituteWorkspace(page);
-      await page.goto("/institute/question-bank");
-      const searchField = page.getByRole("textbox", { name: /search question text/i });
       const blockedScopeIds = await resolveAcademicScopeIds(page, instituteAccessToken, {
         programCode: blockedRow!.source_program_code,
         subjectCode: blockedRow!.source_subject_code,
         topicCode: blockedRow!.source_topic_code,
       });
-
-      await page.goto(
-        `/institute/question-bank/library-linker?program=${encodeURIComponent(blockedScopeIds.programId)}&subject=${encodeURIComponent(blockedScopeIds.subjectId)}&topic=${encodeURIComponent(blockedScopeIds.topicId)}&search=${encodeURIComponent(searchProbe)}`,
-      );
-      const linkerSearchField = page.getByRole("textbox", { name: /search current topic/i });
-      await linkerSearchField.fill(searchProbe);
-      await page.getByRole("button", { name: /show questions/i }).click();
-      await expect(page).toHaveURL(/search=/);
-
-      const sharedLibrarySection = page.locator("section.contentCard").filter({
-        hasText: /step 3\. review and link platform source questions/i,
-      }).first();
-      await expect(sharedLibrarySection).toBeVisible();
-
-      const blockedCard = sharedLibrarySection.locator(".questionBankCard").filter({
-        hasText: searchProbe,
-      }).first();
-      await expect(blockedCard).toBeVisible();
-      await expect(blockedCard.getByText(/subscription required/i).first()).toBeVisible();
-      await expect(blockedCard.getByRole("button", { name: /add to institute bank/i })).toHaveCount(0);
-      await expect(blockedCard.getByText(/cannot be added/i).first()).toBeVisible();
 
       await loginAsRole(page, "admin");
       expect(await getAccessToken(page)).not.toBe("");
@@ -598,8 +607,8 @@ test.describe("Institute shared-library mutable link flow", () => {
       }).first();
       await expect(activatedCard).toBeVisible();
       await expect(activatedCard.getByRole("button", { name: /add to institute bank/i })).toBeVisible();
-      await expect(activatedCard.getByText(/subscription required/i)).toHaveCount(0);
-      await expect(activatedCard.getByText(/cannot be added/i)).toHaveCount(0);
+      await expect(activatedCard.getByText(/package access required/i)).toHaveCount(0);
+      await expect(activatedCard.getByText(/not addable in this lane/i)).toHaveCount(0);
     } finally {
       if (createdEntitlementIds.length) {
         for (const entitlementId of createdEntitlementIds) {

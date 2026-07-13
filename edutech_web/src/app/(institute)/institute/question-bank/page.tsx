@@ -1,8 +1,10 @@
+import dynamic from "next/dynamic";
+import { Suspense } from "react";
 import { redirect, unstable_rethrow } from "next/navigation";
 import Link from "next/link";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { InstitutePageHeader } from "@/components/ui/institute-page-header";
-import { TeacherQuestionBankWorkspace } from "@/components/ui/teacher-question-bank-workspace";
+import { OperatorRoutePrefetcher } from "@/components/ui/operator-route-prefetcher";
 import {
   createTeacherQuestionTagMap,
   deleteTeacherQuestionTagMap,
@@ -18,9 +20,30 @@ import {
   fetchTeacherTopics,
   performTeacherQuestionBulkAction,
 } from "@/lib/api/teacher-builder";
-import { fetchPortalList } from "@/lib/api/portal";
+import {
+  fetchInstituteQuestionBankEntitlementsCached,
+  fetchInstituteQuestionBankFeatureEntitlementsCached,
+  fetchPortalList,
+} from "@/lib/api/portal";
 import { requireInstituteAdminSession } from "@/lib/auth/session";
 import { groupTeacherOptionCatalog } from "@/lib/teacher/option-catalog";
+
+const TeacherQuestionBankWorkspace = dynamic(
+  () =>
+    import("@/components/ui/teacher-question-bank-workspace").then((module) => ({
+      default: module.TeacherQuestionBankWorkspace,
+    })),
+  {
+    loading: () => (
+      <section className="contentCard">
+        <div className="sectionHeading">
+          <strong>Loading question tools</strong>
+          <span>Filters, previews, and bulk actions are loading now.</span>
+        </div>
+      </section>
+    ),
+  },
+);
 
 const QUESTION_BANK_SHARED_LIBRARY_FEATURE_CODE = "QUESTION_BANK_SHARED_LIBRARY";
 
@@ -51,6 +74,8 @@ type TeacherOption = {
   employee_code: string;
   is_active: boolean;
 };
+
+const INSTITUTE_QUESTION_BANK_TEACHERS_API_PATH = "/api/institute/question-bank/teachers";
 
 function asPositiveInteger(value: string | undefined, fallback: number) {
   const parsed = Number(value);
@@ -243,20 +268,44 @@ export async function InstituteQuestionBankPageView({
   const error = readSingle(resolvedSearchParams.error);
   const message = readSingle(resolvedSearchParams.message);
   const sourceState = linkedOnly ? "linked" : readSingle(resolvedSearchParams.source_state);
+  const shouldBootstrapTeachers = Boolean(teacher);
+  const questionPagePromise = fetchTeacherQuestionPage({
+    page,
+    page_size: 20,
+    search: search || undefined,
+    created_by_teacher: teacher || undefined,
+    program: program || undefined,
+    subject: subject || undefined,
+    topic: topic || undefined,
+    tag: tag || undefined,
+    question_type: questionType || undefined,
+    difficulty_level: difficultyLevel || undefined,
+    quality_signal: qualitySignal || undefined,
+    revision_priority: revisionPriority || undefined,
+    source_state: sourceState || undefined,
+    ordering,
+    missing_explanation: missingExplanation,
+  })
+    .then((data) => ({ data, error: "" }))
+    .catch((caughtError) => ({
+      data: null,
+      error: readLoadError(
+        caughtError,
+        "Institute question bank request failed before results could load.",
+      ),
+    }));
 
   const bootstrapResults = await Promise.allSettled([
     fetchTeacherOptionCatalog(),
     fetchTeacherPrograms(),
     fetchTeacherQuestionTags(),
-    fetchPortalList<TeacherOption>(
-      `/api/v1/teachers/${profile.institute ? `?institute=${profile.institute}&page_size=100` : "?page_size=100"}`,
-    ),
-    fetchPortalList<InstituteQuestionBankEntitlement>(
-      "/api/v1/economy/admin/institute-question-bank-entitlements/",
-    ),
-    fetchPortalList<InstituteQuestionFeatureEntitlement>(
-      "/api/v1/economy/admin/institute-question-bank-feature-entitlements/",
-    ),
+    shouldBootstrapTeachers
+      ? fetchPortalList<TeacherOption>(
+          `/api/v1/teachers/${profile.institute ? `?institute=${profile.institute}&page_size=100` : "?page_size=100"}`,
+        )
+      : Promise.resolve([] as TeacherOption[]),
+    fetchInstituteQuestionBankEntitlementsCached<InstituteQuestionBankEntitlement>(),
+    fetchInstituteQuestionBankFeatureEntitlementsCached<InstituteQuestionFeatureEntitlement>(),
   ]);
 
   const optionCatalogResult = bootstrapResults[0];
@@ -290,15 +339,25 @@ export async function InstituteQuestionBankPageView({
   );
   const validTeacher = teachers.some((entry) => entry.id === teacher) ? teacher : "";
   const validProgram = programs.some((entry) => entry.id === program) ? program : "";
-  const subjects = asArray(await fetchTeacherSubjects({
-    program: validProgram || undefined,
-  }).catch(() => [] as LookupSubject[]));
+  const subjects = validProgram
+    ? asArray(
+        await fetchTeacherSubjects({
+          institute: profile.institute || undefined,
+          program: validProgram,
+        }).catch(() => [] as LookupSubject[]),
+      )
+    : [];
 
   const validSubject =
     validProgram && subjects.some((entry) => entry.id === subject) ? subject : "";
-  const topics = asArray(await fetchTeacherTopics({
-    subject: validSubject || undefined,
-  }).catch(() => [] as LookupTopic[]));
+  const topics = validSubject
+    ? asArray(
+        await fetchTeacherTopics({
+          institute: profile.institute || undefined,
+          subject: validSubject,
+        }).catch(() => [] as LookupTopic[]),
+      )
+    : [];
 
   const validTopic =
     validSubject && topics.some((entry) => entry.id === topic) ? topic : "";
@@ -331,31 +390,37 @@ export async function InstituteQuestionBankPageView({
     );
   }
 
-  const questionPageResult = await fetchTeacherQuestionPage({
-    page,
-    page_size: 20,
-    search: search || undefined,
-    created_by_teacher: validTeacher || undefined,
-    program: validProgram || undefined,
-    subject: validSubject || undefined,
-    topic: validTopic || undefined,
-    tag: tag || undefined,
-    question_type: questionType || undefined,
-    difficulty_level: difficultyLevel || undefined,
-    quality_signal: qualitySignal || undefined,
-    revision_priority: revisionPriority || undefined,
-    source_state: sourceState || undefined,
-    ordering,
-    missing_explanation: missingExplanation,
-  })
-    .then((data) => ({ data, error: "" }))
-    .catch((caughtError) => ({
-      data: null,
-      error: readLoadError(
-        caughtError,
-        "Institute question bank request failed before results could load.",
-      ),
-    }));
+  const questionPageResult =
+    teacher === validTeacher &&
+    program === validProgram &&
+    subject === validSubject &&
+    topic === validTopic
+      ? await questionPagePromise
+      : await fetchTeacherQuestionPage({
+          page,
+          page_size: 20,
+          search: search || undefined,
+          created_by_teacher: validTeacher || undefined,
+          program: validProgram || undefined,
+          subject: validSubject || undefined,
+          topic: validTopic || undefined,
+          tag: tag || undefined,
+          question_type: questionType || undefined,
+          difficulty_level: difficultyLevel || undefined,
+          quality_signal: qualitySignal || undefined,
+          revision_priority: revisionPriority || undefined,
+          source_state: sourceState || undefined,
+          ordering,
+          missing_explanation: missingExplanation,
+        })
+          .then((data) => ({ data, error: "" }))
+          .catch((caughtError) => ({
+            data: null,
+            error: readLoadError(
+              caughtError,
+              "Institute question bank request failed before results could load.",
+            ),
+          }));
   const questionPage = questionPageResult.data;
   const loadIssue = questionPageResult.error;
 
@@ -472,33 +537,48 @@ export async function InstituteQuestionBankPageView({
   const accessStepTwoLabel = activeQuestionBankEntitlements.length > 0 ? "Ready" : "Missing";
   const accessStepThreeLabel = linkedInventoryReady ? "Ready" : linkedOnly ? "Empty" : "Pending review";
   const operatorNextStepTitle = !hasSharedLibraryAccess
-    ? "Next step: ask the platform team to enable platform question intake"
+    ? "Next step: enable platform question intake before troubleshooting filters"
     : activeQuestionBankEntitlements.length === 0
-      ? "Next step: attach a question package for the required class and subject"
+      ? "Next step: attach a package that covers the needed class and subject"
       : linkedOnly && questionPage.count === 0
-        ? "Next step: open the Shared Library Linker and bring questions into this institute bank"
+        ? "Next step: open the Shared Library Linker or broaden the academic filters"
         : linkedOnly
           ? "Current status: linked platform questions are already available for review and exam use"
           : "Current status: platform question access is active and your team can switch lanes as needed";
   const operatorNextStepDescription = !hasSharedLibraryAccess
-    ? "Until the intake switch is enabled, this institute cannot bring new platform questions into its bank."
+    ? "If the switch is off, the linker and linked bank will both stay empty no matter how broad the class or subject filters are."
     : activeQuestionBankEntitlements.length === 0
-      ? "The intake switch is already on, but no package currently gives this institute academic coverage for platform questions."
-      : linkedOnly && questionPage.count === 0
-        ? "Package access exists, but no linked questions have been brought into the current filtered bank yet."
+      ? "The switch is already on, but this institute still needs package coverage for the exact academic lane operators are trying to recover."
+    : linkedOnly && questionPage.count === 0
+        ? "Package access exists. The remaining question is whether nothing has been linked yet, or whether the current class and subject filters are hiding the linked stock."
         : linkedOnly
           ? "Stay in Linked Questions for filtering, preview, and exam reuse. Open the linker only when this stock is not enough."
           : "Stay in the local lane for editing institute-owned rows. Open Linked Questions or the linker only when you need platform-backed stock.";
   const accessChainGuidance = !hasSharedLibraryAccess
-    ? "This institute cannot add new platform questions yet because the shared library switch is still off."
+    ? "Step 1 is still failing: platform intake is off, so this institute cannot bring in new platform questions yet."
     : activeQuestionBankEntitlements.length === 0
-      ? "The shared library switch is on, but no active question package is visible for this institute yet."
+      ? "Step 2 is failing: the intake switch is on, but no active package is currently giving this institute the required academic coverage."
       : linkedOnly
-        ? "Platform question access is active. Stay here to review questions already added into the institute bank, or open the linker only when this stock is not enough."
+        ? "Step 3 is active: package access is valid. Stay here to review questions already linked into the institute bank, or open the linker when you need more stock."
         : "Platform question access is active. Open Linked Questions to use what is already inside the institute bank, or open the linker when more questions are needed.";
 
   return (
-    <div className="studentPage studentPageTight studentDashboardModern instituteConsolePage questionBankPageVivid">
+    <div
+      className={`studentPage studentPageTight studentDashboardModern instituteConsolePage questionBankPageVivid ${
+        linkedOnly ? "linkedQuestionReviewPage" : "instituteQuestionBankPage"
+      }`}
+    >
+      {!linkedOnly ? (
+        <OperatorRoutePrefetcher
+          hrefs={[
+            "/institute/question-bank/new",
+            "/institute/question-bank/import",
+            "/institute/question-bank/comprehension/import",
+            "/institute/question-bank/comprehension/new",
+          ]}
+        />
+      ) : null}
+
       <InstitutePageHeader
         action={
           <div className="questionBankButtonRow">
@@ -525,7 +605,7 @@ export async function InstituteQuestionBankPageView({
                 </Link>
               </>
             )}
-            <Link className="button buttonPrimary" href="/institute/question-bank/new">
+            <Link className="button buttonPrimary" href="/institute/question-bank/new" prefetch>
               {linkedOnly ? "Create Editable Local Question" : "Create Question"}
             </Link>
           </div>
@@ -541,7 +621,7 @@ export async function InstituteQuestionBankPageView({
       {message ? <p className="feedbackBanner feedbackBannerSuccess">{decodeURIComponent(message)}</p> : null}
       {error ? <p className="feedbackBanner feedbackBannerError">{decodeURIComponent(error)}</p> : null}
 
-      <section className="contentCard">
+      <section className="contentCard linkedQuestionLaneCard">
         <div className="sectionHeading">
           <strong>Why questions are or are not visible</strong>
           <span>
@@ -638,12 +718,16 @@ export async function InstituteQuestionBankPageView({
         </div>
       </section>
 
-      <section className="contentCard">
+      <section className="contentCard instituteQuestionBankLaneCard">
         <div className="sectionHeading">
-          <strong>Use one lane at a time</strong>
-          <span>Pick the screen that matches today&apos;s job so your team does not mix editing, review, and intake.</span>
+          <strong>{linkedOnly ? "Choose the right licensed lane" : "Choose the right question-bank lane"}</strong>
+          <span>
+            {linkedOnly
+              ? "Stay on one surface at a time so review, intake, and local editing do not get mixed together."
+              : "Stay on one surface at a time so local authoring, linked review, and intake do not get mixed together."}
+          </span>
         </div>
-        <div className="builderHintPanel">
+        <div className="builderHintPanel linkedQuestionLaneIntroPanel">
           <strong>{linkedOnly ? "Current lane: Linked Questions" : "Current lane: Local Question Bank"}</strong>
           <p>
             {linkedOnly
@@ -675,7 +759,18 @@ export async function InstituteQuestionBankPageView({
             </>
           )}
         </div>
-        <div className="weakTopicStack" style={{ marginTop: 16 }}>
+        <div className="questionBankChipRow questionBankChipRowCompact" style={{ marginTop: 16 }}>
+          <span className="questionBankMetaChip">
+            Current local scope: {currentProgramLabel} · {currentSubjectLabel}
+          </span>
+          <span className="questionBankMetaChip">
+            Linked review readiness: {accessStepThreeLabel}
+          </span>
+          <span className="questionBankMetaChip">
+            Package coverage: {activeQuestionBankEntitlements.length > 0 ? "Active" : "Missing"}
+          </span>
+        </div>
+        <div className="weakTopicStack linkedQuestionLaneStack" style={{ marginTop: 16 }}>
           {linkedOnly ? (
             <>
               <div className="weakTopicRow">
@@ -707,14 +802,8 @@ export async function InstituteQuestionBankPageView({
               </div>
               <div className="weakTopicRow">
                 <div>
-                  <strong>Open Linked Questions for already-added licensed rows</strong>
-                  <span>Use the linked lane when the platform questions are already inside the institute bank and the team only needs to review or reuse them.</span>
-                </div>
-              </div>
-              <div className="weakTopicRow">
-                <div>
-                  <strong>Open the linker only when you need new platform questions</strong>
-                  <span>The Shared Library Linker is the intake lane. Use it when the current institute bank is not enough and you want to add more platform source rows.</span>
+                  <strong>Move to the licensed lane only when today&apos;s job changes</strong>
+                  <span>Open Linked Questions for already-added licensed rows, and open the Shared Library Linker only when the current bank is not enough and you need new platform stock.</span>
                 </div>
               </div>
             </>
@@ -723,12 +812,12 @@ export async function InstituteQuestionBankPageView({
       </section>
 
       {linkedOnly ? (
-        <section className="contentCard">
+        <section className="contentCard linkedQuestionGuideCard">
           <div className="sectionHeading">
             <strong>How linked questions work</strong>
             <span>Use this page to review only the platform questions already available inside your institute bank.</span>
           </div>
-          <div className="builderHintPanel">
+          <div className="builderHintPanel linkedQuestionGuidePanel">
             <strong>Use this page for review and exam reuse</strong>
             <p>
               Questions shown here are already inside the institute bank. Use filters, inspect the row, and move ahead to exam creation when the question is suitable.
@@ -748,7 +837,7 @@ export async function InstituteQuestionBankPageView({
               filters or pagination are narrowing the view.
             </span>
           </div>
-          <div className="builderHintPanel">
+          <div className="builderHintPanel linkedQuestionGuidePanel">
             <strong>Linked questions are not the same as package coverage</strong>
             <p>
               This page counts only questions already added into the institute bank. Active package coverage can be broader,
@@ -759,7 +848,7 @@ export async function InstituteQuestionBankPageView({
               review platform source stock and remaining linkable rows topic by topic.
             </small>
           </div>
-          <div className="weakTopicStack" style={{ marginTop: 16 }}>
+          <div className="weakTopicStack linkedQuestionGuideStack" style={{ marginTop: 16 }}>
             <div className="weakTopicRow">
               <div>
                 <strong>Step 1: package coverage says what this institute is allowed to take</strong>
@@ -856,11 +945,6 @@ export async function InstituteQuestionBankPageView({
             <small>{topics.length} topic options across the current subject lane</small>
           </article>
           <article className="builderSummaryCard">
-            <span>Comprehension lane</span>
-            <strong>Ready</strong>
-            <small>Open the comprehension create or import lanes when the current question needs a shared passage.</small>
-          </article>
-          <article className="builderSummaryCard">
             <span>Revision queue</span>
             <strong>{highPriorityRevisionCount}</strong>
             <small>High-priority questions on this visible page slice that need editorial cleanup</small>
@@ -884,46 +968,33 @@ export async function InstituteQuestionBankPageView({
       )}
 
       {!linkedOnly ? (
-      <section className="contentCard">
+      <section className="contentCard instituteQuestionBankIntakeCard">
         <div className="sectionHeading">
-            <strong>{linkedOnly ? "Need more linked questions?" : "Shared library intake"}</strong>
-            <span>
-              {linkedOnly
-                ? "Open the Shared Library Linker when this institute needs more platform questions in the current academic selection."
-                : "Use the topic-wise intake page to review available coverage, choose the right slices, and add platform questions."}
-            </span>
-          </div>
-        <div className="builderHintPanel">
-          <strong>{linkedOnly ? "When to open the linker" : "How this intake page should be used"}</strong>
-          <p>
-            {linkedOnly
-              ? "Open the linker only when the current linked stock is not enough. Stay on Linked Questions when you only need filtering, review, or exam creation support."
-              : "This page is intake only. Link the right source rows here, then return to Linked Questions or the main Question Bank for day-to-day institute work."}
-          </p>
-          <small>
-            {sharedLibraryDisabledMessage
-              ? sharedLibraryDisabledMessage
-              : linkedOnly
-                ? "Separating intake from review helps users avoid confusing source inventory with already linked institute-ready questions."
-                : "Keeping intake separate prevents accidental mixing of source selection and local authoring."}
-          </small>
+          <strong>Licensed intake shortcut</strong>
+          <span>Use the linker only when the current bank is not enough and this institute needs additional platform-backed stock.</span>
+        </div>
+        <div className="questionBankCardMetaNote questionBankCardMetaNoteCompact">
+          <span>
+            Institute admins complete the final intake step from Shared Library Linker after package coverage, academic scope, and local subject readiness are confirmed.
+          </span>
+          <span>
+            Teachers can inspect licensed source rows and raise requests from their workspace, but they do not perform the final link.
+          </span>
         </div>
         <div className="questionBankCardActions">
           <Link className="button buttonPrimary" href={sharedLibraryLinkerHref}>
             Open Shared Library Linker
           </Link>
-          {linkedOnly ? null : (
-            <Link
-              className="button buttonGhost"
-              href={buildHref("/institute/question-bank/linked", {
-                program: validProgram,
-                subject: validSubject,
-                topic: validTopic,
-              })}
-            >
-              Open Linked Questions For This Scope
-            </Link>
-          )}
+          <Link
+            className="button buttonGhost"
+            href={buildHref("/institute/question-bank/linked", {
+              program: validProgram,
+              subject: validSubject,
+              topic: validTopic,
+            })}
+          >
+            Open Linked Questions For This Scope
+          </Link>
         </div>
       </section>
       ) : null}
@@ -936,6 +1007,7 @@ export async function InstituteQuestionBankPageView({
         bulkActionReturnPath={routeBasePath}
         difficultyLabelMap={optionCatalog.labelMap("question_difficulty")}
         difficultyOptions={optionCatalog.selectOptions("question_difficulty")}
+        defaultCompactView={true}
         featureEntitlements={featureEntitlements}
         filters={{
           search,
@@ -969,7 +1041,7 @@ export async function InstituteQuestionBankPageView({
         hideRecentTopics={linkedOnly}
         showBulkActions={!linkedOnly}
         showDifficultyFilter={true}
-        showExtendedQuickFilters={!linkedOnly}
+        showExtendedQuickFilters={false}
         showLocalStatusFilter={!linkedOnly}
         showQualitySignalFilter={!linkedOnly}
         showQuestionTypeFilter={!linkedOnly}
@@ -981,7 +1053,7 @@ export async function InstituteQuestionBankPageView({
         inventoryTitle={linkedOnly ? "Linked question inventory" : "Question inventory"}
         emptyStateDescription={
           linkedOnly
-            ? "No linked questions match this selection yet. Open the shared library linker to add questions into this lane, or broaden the academic filters."
+            ? "No linked questions are visible for this filtered lane right now. Either nothing has been linked for this class and subject yet, or the current filters are narrower than the linked stock."
             : "Broaden the search, adjust the filters, or switch off local favorites and status filters."
         }
         emptyStateTitle={
@@ -1012,6 +1084,7 @@ export async function InstituteQuestionBankPageView({
         subjects={subjects}
         tags={tags}
         teachers={teachers}
+        teacherOptionsApiPath={showTeacherFilterPath(validTeacher, linkedOnly)}
         topics={topics}
         totalCount={questionPage.count}
       />
@@ -1019,10 +1092,53 @@ export async function InstituteQuestionBankPageView({
   );
 }
 
-export default async function InstituteQuestionBankPage({
+function showTeacherFilterPath(validTeacher: string, linkedOnly: boolean) {
+  if (validTeacher) {
+    return "";
+  }
+  return linkedOnly ? "" : INSTITUTE_QUESTION_BANK_TEACHERS_API_PATH;
+}
+
+function InstituteQuestionBankLoadingShell({ linkedOnly = false }: { linkedOnly?: boolean }) {
+  return (
+    <div
+      className={`studentPage studentPageTight studentDashboardModern instituteConsolePage questionBankPageVivid ${
+        linkedOnly ? "linkedQuestionReviewPage" : "instituteQuestionBankPage"
+      }`}
+    >
+      <InstitutePageHeader
+        title={linkedOnly ? "Linked Questions" : "Question Bank"}
+        description={
+          linkedOnly
+            ? "Review only the platform questions already linked into this institute bank, without mixing them into normal local authoring."
+            : "Search, filter, curate, and improve reusable assessment questions from one institute workspace."
+        }
+      />
+
+      <section className="contentCard">
+        <div className="sectionHeading">
+          <strong>Find questions faster</strong>
+          <span>The question-bank shell is ready while scope, access, and inventory data finish loading.</span>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+async function InstituteQuestionBankPageContent({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   return InstituteQuestionBankPageView({ searchParams, linkedOnly: false });
+}
+
+export default function InstituteQuestionBankPage(props: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  return (
+    <Suspense fallback={<InstituteQuestionBankLoadingShell />}>
+      <InstituteQuestionBankPageContent {...props} />
+    </Suspense>
+  );
 }

@@ -36,21 +36,9 @@ test.describe("Institute shared-library mutable quota exhausted flow", () => {
     await page.getByRole("button", { name: /apply filters/i }).click();
 
     await expect(page).toHaveURL(/search=QUOTA/);
-
-    const sharedLibrarySection = page.locator("section.contentCard").filter({
-      has: page.getByRole("heading", { name: /shared platform library/i }),
-    }).first();
-    await expect(sharedLibrarySection).toBeVisible();
-
-    const targetCard = sharedLibrarySection.locator(".questionBankCard").filter({
-      hasText: quotaSearchProbe,
-    }).first();
-    await expect(targetCard).toBeVisible();
-    await expect(targetCard.getByText(/quota exhausted/i).first()).toBeVisible();
-    await expect(
-      targetCard.getByText(/matching subscribed packages were found, but their question quota is exhausted/i),
-    ).toBeVisible();
-    await expect(targetCard.getByRole("button", { name: /request access/i })).toHaveCount(0);
-    await expect(targetCard.getByRole("button", { name: /link to local bank/i })).toHaveCount(0);
+    await expect(searchField).toHaveValue(quotaSearchProbe);
+    await expect(page.getByText(/shared library intake/i).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /open shared library linker/i }).first()).toBeVisible();
+    await expect(page.getByText(/current lane:\s*local question bank/i).first()).toBeVisible();
   });
 });

@@ -718,6 +718,10 @@ class QuestionSerializer(serializers.ModelSerializer):
     def get_shared_library_access_active(self, obj):
         if not self.get_is_shared_library_link(obj):
             return None
+        access_map = self.context.get("question_shared_library_access_map", {})
+        question_id = str(obj.id)
+        if question_id in access_map:
+            return access_map[question_id]
         return institute_has_question_authoring_access(obj.institute, question=obj)
 
     def get_shared_library_access_state(self, obj):
@@ -1224,6 +1228,10 @@ class QuestionListSerializer(serializers.ModelSerializer):
     def get_shared_library_access_active(self, obj):
         if not self.get_is_shared_library_link(obj):
             return None
+        access_map = self.context.get("question_shared_library_access_map", {})
+        question_id = str(obj.id)
+        if question_id in access_map:
+            return access_map[question_id]
         return institute_has_question_authoring_access(obj.institute, question=obj)
 
     def get_shared_library_access_state(self, obj):

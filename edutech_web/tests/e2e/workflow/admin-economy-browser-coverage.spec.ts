@@ -23,6 +23,16 @@ type EconomyPolicyConfigResponse = {
   message?: string;
 };
 
+function extractLeadingNumber(value: string | null) {
+  const match = value?.match(/\d+/);
+  return match ? Number(match[0]) : null;
+}
+
+function extractPhraseNumber(value: string | null, phrase: RegExp) {
+  const match = value?.match(phrase);
+  return match?.[1] ? Number(match[1]) : null;
+}
+
 function economyCard(page: Page, heading: RegExp) {
   return page
     .locator("article.dashboardPanel")
@@ -62,8 +72,32 @@ async function gotoEconomyLane(page: Page, path: string, tabHref: string) {
 async function expectSelectHasOptions(locator: Locator) {
   await expect(locator).toBeVisible();
   await expect
-    .poll(async () => locator.locator("option").count())
+    .poll(async () =>
+      locator.evaluate((element) =>
+        element instanceof HTMLSelectElement ? element.options.length : 0,
+      ),
+    )
     .toBeGreaterThan(0);
+}
+
+async function getNonEmptyOptionValues(locator: Locator) {
+  return locator.locator("option").evaluateAll((options) =>
+    options
+      .map((option) => (option as HTMLOptionElement).value)
+      .filter((value) => value.trim().length > 0),
+  );
+}
+
+async function expectLaneFocusControl(page: Page, expectedValue: string) {
+  const subsection = page.getByRole("combobox", { name: /economy subsection/i });
+  if (await subsection.count()) {
+    await expectSelectHasOptions(subsection);
+    await expect(subsection).toHaveValue(expectedValue);
+    return;
+  }
+
+  const hiddenFocus = page.locator('input[type="hidden"][name="focus"]');
+  await expect(hiddenFocus).toHaveValue(expectedValue);
 }
 
 test.describe("Admin economy browser functionality coverage", () => {
@@ -87,6 +121,9 @@ test.describe("Admin economy browser functionality coverage", () => {
     const subsection = page.getByRole("combobox", { name: /economy subsection/i });
     await expectSelectHasOptions(instituteScope);
     await expectSelectHasOptions(subsection);
+    const instituteOptions = await getNonEmptyOptionValues(instituteScope);
+    expect(instituteOptions.length).toBeGreaterThan(0);
+    await expect(instituteScope.locator("option")).toHaveCount(instituteOptions.length + 1);
 
     await subsection.selectOption("policy");
     await expect(subsection).toHaveValue("policy");
@@ -94,6 +131,150 @@ test.describe("Admin economy browser functionality coverage", () => {
     await expect(page.getByText(/current workspace lane/i).first()).toBeVisible();
     await expect(page.locator('a[href="/admin/institutes"]').first()).toBeVisible();
     await expect(page.locator('a[href="/admin/settings"]').first()).toBeVisible();
+  });
+
+  test("@workflow browser coverage keeps economy scope filters hydrated across visible lanes", async ({
+    page,
+  }) => {
+    const visibleLanes = [
+      { tab: "overview", focus: "policy" },
+      { tab: "catalog", focus: "star-packs" },
+      { tab: "access-control", focus: "policies" },
+      { tab: "question-bank", focus: "visibility" },
+      { tab: "support-ops", focus: "student-support" },
+      { tab: "bootstrap", focus: "all" },
+    ] as const;
+
+    for (const lane of visibleLanes) {
+      await gotoEconomyLane(
+        page,
+        `/admin/economy?tab=${lane.tab}&focus=${lane.focus}`,
+        `/admin/economy?tab=${lane.tab}`,
+      );
+
+      const instituteScope = page.getByRole("combobox", { name: /institute scope/i });
+      await expectSelectHasOptions(instituteScope);
+
+      const instituteOptions = await getNonEmptyOptionValues(instituteScope);
+      expect(
+        instituteOptions.length,
+        `Expected ${lane.tab} lane to hydrate at least one institute option.`,
+      ).toBeGreaterThan(0);
+      await expect(
+        instituteScope.locator("option"),
+        `Expected ${lane.tab} lane to include All institutes plus hydrated institute options.`,
+      ).toHaveCount(instituteOptions.length + 1);
+      await expectLaneFocusControl(page, lane.focus);
+    }
+  });
+
+  test("@workflow browser coverage can apply and reset overview scope filters truthfully", async ({
+    page,
+  }) => {
+    await gotoEconomyLane(page, "/admin/economy?tab=overview&focus=policy", "/admin/economy?tab=overview");
+
+    const instituteScope = page.getByRole("combobox", { name: /institute scope/i });
+    const subsection = page.getByRole("combobox", { name: /economy subsection/i });
+    const instituteOptions = await getNonEmptyOptionValues(instituteScope);
+    expect(instituteOptions.length).toBeGreaterThan(0);
+
+    const selectedInstituteId = instituteOptions[0];
+    await instituteScope.selectOption(selectedInstituteId);
+    await subsection.selectOption("boundary");
+    await page.getByRole("button", { name: /apply filters/i }).click();
+
+    await expect
+      .poll(() => {
+        const url = new URL(page.url());
+        return {
+          tab: url.searchParams.get("tab"),
+          institute: url.searchParams.get("institute"),
+          focus: url.searchParams.get("focus"),
+        };
+      })
+      .toEqual({
+        tab: "overview",
+        institute: selectedInstituteId,
+        focus: "boundary",
+      });
+    await expect(instituteScope).toHaveValue(selectedInstituteId);
+    await expect(subsection).toHaveValue("boundary");
+    await expect(page.locator("small").filter({ hasText: /currently scoped in this lane/i }).first()).toBeVisible();
+
+    await page.getByRole("link", { name: /reset scope/i }).click();
+    await expect(page).toHaveURL(/\/admin\/economy\?tab=overview$/);
+    await expect(instituteScope).toHaveValue("");
+    await expect(subsection).toHaveValue("policy");
+    await expect(page.getByText(/all institutes are currently in scope/i).first()).toBeVisible();
+  });
+
+  test("@workflow browser coverage keeps scoped support and question-bank counts internally consistent", async ({
+    page,
+  }) => {
+    await gotoEconomyLane(
+      page,
+      "/admin/economy?tab=support-ops&focus=student-support",
+      "/admin/economy?tab=support-ops",
+    );
+
+    const instituteScope = page.getByRole("combobox", { name: /institute scope/i });
+    await expectSelectHasOptions(instituteScope);
+    const instituteOptions = await getNonEmptyOptionValues(instituteScope);
+    expect(instituteOptions.length).toBeGreaterThan(0);
+
+    const selectedInstituteId = instituteOptions[0];
+    await instituteScope.selectOption(selectedInstituteId);
+    await page.getByRole("button", { name: /apply filters/i }).click();
+
+    await expect
+      .poll(() => new URL(page.url()).searchParams.get("institute"))
+      .toBe(selectedInstituteId);
+
+    const scopedSummary = page.locator(".studentInsightHeroCardCompact small").first();
+    await expect(scopedSummary).toContainText(/students in scope/i);
+    const scopedSummaryCount = extractPhraseNumber(
+      await scopedSummary.textContent(),
+      /(\d+)\s+students in scope/i,
+    );
+
+    const supportStudentsCard = page
+      .locator(".resultsSummaryGrid .metricCard")
+      .filter({ has: page.getByText(/^students in scope$/i) })
+      .first();
+    await expect(supportStudentsCard).toBeVisible();
+    const supportStudentsCount = extractLeadingNumber(
+      await supportStudentsCard.locator("strong").first().textContent(),
+    );
+
+    expect(scopedSummaryCount).not.toBeNull();
+    expect(supportStudentsCount).not.toBeNull();
+    expect(scopedSummaryCount).toBe(supportStudentsCount);
+
+    await gotoEconomyLane(
+      page,
+      `/admin/economy?tab=question-bank&focus=packages&institute=${selectedInstituteId}`,
+      "/admin/economy?tab=question-bank",
+    );
+
+    const packageStatus = page.getByText(/active packages in scope/i).first();
+    await expect(packageStatus).toBeVisible();
+    const packageStatusCount = extractPhraseNumber(
+      await packageStatus.textContent(),
+      /(\d+)\s+active packages in scope/i,
+    );
+
+    const packageMetricCard = page
+      .locator(".resultsSummaryGrid .metricCard")
+      .filter({ has: page.getByText(/^active packages$/i) })
+      .first();
+    await expect(packageMetricCard).toBeVisible();
+    const packageMetricCount = extractLeadingNumber(
+      await packageMetricCard.locator("strong").first().textContent(),
+    );
+
+    expect(packageStatusCount).not.toBeNull();
+    expect(packageMetricCount).not.toBeNull();
+    expect(packageStatusCount).toBe(packageMetricCount);
   });
 
   test("@workflow browser coverage for catalog governance cards and form controls", async ({ page }) => {

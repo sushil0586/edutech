@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from io import StringIO
 
+from django.core.cache import cache
 from django.core.management import call_command
 from django.test import TestCase
 
@@ -32,3 +33,30 @@ class SeedDemoAcademicDataCommandTestCase(TestCase):
         self.assertTrue(AccountProfile.objects.filter(user__username="demo-teacher", role="teacher").exists())
         self.assertIn("Demo academic assessment data is ready", stdout.getvalue())
         self.assertIn("demo-platform-admin", stdout.getvalue())
+
+    def test_prepare_demo_playwright_auth_reseeds_demo_data_and_clears_login_throttles(self):
+        stdout = StringIO()
+        user_model = get_user_model()
+        throttle_keys = [
+            "throttle_login_127.0.0.1",
+            "throttle_login_::1",
+            "throttle_login_testserver",
+        ]
+        for key in throttle_keys:
+            cache.set(key, ["recent-attempt"], timeout=60)
+
+        call_command(
+            "prepare_demo_playwright_auth",
+            "--ident",
+            "custom-ident",
+            stdout=stdout,
+        )
+
+        self.assertTrue(user_model.objects.filter(username="demo-platform-admin").exists())
+        self.assertIsNone(cache.get("throttle_login_127.0.0.1"))
+        self.assertIsNone(cache.get("throttle_login_::1"))
+        self.assertIsNone(cache.get("throttle_login_testserver"))
+        self.assertIsNone(cache.get("throttle_login_custom-ident"))
+        self.assertIn("Playwright demo auth is prepared.", stdout.getvalue())
+        self.assertIn("127.0.0.1", stdout.getvalue())
+        self.assertIn("custom-ident", stdout.getvalue())

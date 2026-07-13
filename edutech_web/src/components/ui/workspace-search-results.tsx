@@ -92,7 +92,7 @@ export function WorkspaceSearchResults({
       : role === "teacher"
         ? "studentPage studentDashboardModern teacherConsolePage teacherSearchPageVivid"
         : role === "admin"
-          ? "studentPage studentDashboardModern instituteConsolePage instituteSearchPageVivid"
+          ? "studentPage studentDashboardModern instituteConsolePage instituteSearchPageVivid adminSearchPage"
       : "studentPage studentDashboardModern";
   const trimmedQuery = query.trim();
   const liveHrefSet = new Set(liveResults.map((entry) => entry.href));
@@ -216,7 +216,11 @@ export function WorkspaceSearchResults({
             {trimmedQuery ? ` of ${mergedResults.length} matches` : ""}
           </span>
         </div>
-        <form className="workspaceFiltersForm" method="GET">
+        <form
+          key={`${trimmedQuery}:${sectionFilter}:${sourceFilter}:${sortOption}:${groupOption}`}
+          className="workspaceFiltersForm"
+          method="GET"
+        >
           <label className="workspaceFilterField workspaceFilterFieldWide">
             <span>Search</span>
             <input defaultValue={trimmedQuery} name="q" placeholder={`Search ${workspaceLabels[role].toLowerCase()}`} type="search" />

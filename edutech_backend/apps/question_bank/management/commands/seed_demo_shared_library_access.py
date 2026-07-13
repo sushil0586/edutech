@@ -282,11 +282,18 @@ class Command(BaseCommand):
         self.stdout.write(f"- cloned_questions={len(cloned_questions)}")
         self.stdout.write(f"- unentitled_cloned_questions={len(unentitled_questions)}")
         self.stdout.write(f"- quota_demo_questions={len(quota_demo['questions'])}")
-        self.stdout.write(f"- quota_demo_package={quota_demo['package'].code}")
+        self.stdout.write(
+            f"- quota_demo_package={quota_demo['package'].code if quota_demo['package'] else 'none'}"
+        )
         self.stdout.write(f"- blocked_matchable_questions={len(blocked_matchable_demo['questions'])}")
-        self.stdout.write(f"- blocked_matchable_package={blocked_matchable_demo['package'].code}")
+        self.stdout.write(
+            "- blocked_matchable_package="
+            f"{blocked_matchable_demo['package'].code if blocked_matchable_demo['package'] else 'none'}"
+        )
         self.stdout.write(f"- paused_only_questions={len(paused_only_demo['questions'])}")
-        self.stdout.write(f"- paused_only_package={paused_only_demo['package'].code}")
+        self.stdout.write(
+            f"- paused_only_package={paused_only_demo['package'].code if paused_only_demo['package'] else 'none'}"
+        )
         self.stdout.write(f"- package={package.code} ({package.name})")
         self.stdout.write(f"- scope_row_id={scope.id}")
         self.stdout.write(f"- canonical_package_owner={public_hub.code}")
@@ -392,6 +399,46 @@ class Command(BaseCommand):
                 source_type=source_type,
                 include_private=include_private,
             )
+
+    def _build_seed_scope_for_requested_subject(
+        self,
+        *,
+        public_hub,
+        target_institute,
+        requested_subject_code,
+        donor_program,
+        donor_subject,
+    ):
+        requested_subject_code = str(requested_subject_code or "").strip() or donor_subject.code
+        target_subject = Subject.objects.filter(
+            institute=target_institute,
+            code=requested_subject_code,
+            is_active=True,
+        ).select_related("program").first()
+
+        program_source = target_subject.program if target_subject and target_subject.program_id else donor_program
+        subject_name = target_subject.name if target_subject else donor_subject.name
+        subject_description = target_subject.description if target_subject else donor_subject.description
+        subject_sort_order = target_subject.sort_order if target_subject else donor_subject.sort_order
+
+        hub_program = self._upsert_program(public_hub=public_hub, donor_program=program_source)
+        hub_subject, _ = Subject.objects.update_or_create(
+            institute=public_hub,
+            code=requested_subject_code,
+            defaults={
+                "program": hub_program,
+                "name": subject_name,
+                "description": subject_description,
+                "sort_order": subject_sort_order,
+                "is_active": True,
+            },
+        )
+
+        return {
+            "hub_program": hub_program,
+            "hub_subject": hub_subject,
+            "subject_was_remapped": requested_subject_code != donor_subject.code,
+        }
 
     def _cleanup_legacy_demo_packages(self, *, public_hub, canonical_package_codes):
         normalized_codes = [str(code or "").strip().upper() for code in canonical_package_codes if str(code or "").strip()]
@@ -547,16 +594,20 @@ class Command(BaseCommand):
         if donor_program is None or donor_subject is None:
             raise CommandError("Unentitled donor questions must have source program and subject.")
 
-        hub_program = self._upsert_program(public_hub=public_hub, donor_program=donor_program)
-        hub_subject = self._upsert_subject(
+        scope = self._build_seed_scope_for_requested_subject(
             public_hub=public_hub,
-            hub_program=hub_program,
+            target_institute=donor_institute,
+            requested_subject_code=subject_code,
+            donor_program=donor_program,
             donor_subject=donor_subject,
         )
+        hub_program = scope["hub_program"]
+        hub_subject = scope["hub_subject"]
+        subject_was_remapped = scope["subject_was_remapped"]
 
         unentitled_questions = []
         for donor_question in donor_questions:
-            hub_topic = self._upsert_topic(
+            hub_topic = None if subject_was_remapped else self._upsert_topic(
                 public_hub=public_hub,
                 hub_subject=hub_subject,
                 donor_topic=donor_question.source_topic,
@@ -604,16 +655,20 @@ class Command(BaseCommand):
         if donor_program is None or donor_subject is None:
             raise CommandError("Quota demo donor questions must have source program and subject.")
 
-        hub_program = self._upsert_program(public_hub=public_hub, donor_program=donor_program)
-        hub_subject = self._upsert_subject(
+        scope = self._build_seed_scope_for_requested_subject(
             public_hub=public_hub,
-            hub_program=hub_program,
+            target_institute=target_institute,
+            requested_subject_code=subject_code,
+            donor_program=donor_program,
             donor_subject=donor_subject,
         )
+        hub_program = scope["hub_program"]
+        hub_subject = scope["hub_subject"]
+        subject_was_remapped = scope["subject_was_remapped"]
 
         quota_questions = []
         for donor_question in donor_questions:
-            hub_topic = self._upsert_topic(
+            hub_topic = None if subject_was_remapped else self._upsert_topic(
                 public_hub=public_hub,
                 hub_subject=hub_subject,
                 donor_topic=donor_question.source_topic,
@@ -705,16 +760,20 @@ class Command(BaseCommand):
         if donor_program is None or donor_subject is None:
             raise CommandError("Blocked-matchable donor questions must have source program and subject.")
 
-        hub_program = self._upsert_program(public_hub=public_hub, donor_program=donor_program)
-        hub_subject = self._upsert_subject(
+        scope = self._build_seed_scope_for_requested_subject(
             public_hub=public_hub,
-            hub_program=hub_program,
+            target_institute=target_institute,
+            requested_subject_code=subject_code,
+            donor_program=donor_program,
             donor_subject=donor_subject,
         )
+        hub_program = scope["hub_program"]
+        hub_subject = scope["hub_subject"]
+        subject_was_remapped = scope["subject_was_remapped"]
 
         blocked_questions = []
         for donor_question in donor_questions:
-            hub_topic = self._upsert_topic(
+            hub_topic = None if subject_was_remapped else self._upsert_topic(
                 public_hub=public_hub,
                 hub_subject=hub_subject,
                 donor_topic=donor_question.source_topic,
@@ -785,16 +844,20 @@ class Command(BaseCommand):
         if donor_program is None or donor_subject is None:
             raise CommandError("Paused-only donor questions must have source program and subject.")
 
-        hub_program = self._upsert_program(public_hub=public_hub, donor_program=donor_program)
-        hub_subject = self._upsert_subject(
+        scope = self._build_seed_scope_for_requested_subject(
             public_hub=public_hub,
-            hub_program=hub_program,
+            target_institute=target_institute,
+            requested_subject_code=subject_code,
+            donor_program=donor_program,
             donor_subject=donor_subject,
         )
+        hub_program = scope["hub_program"]
+        hub_subject = scope["hub_subject"]
+        subject_was_remapped = scope["subject_was_remapped"]
 
         paused_questions = []
         for donor_question in donor_questions:
-            hub_topic = self._upsert_topic(
+            hub_topic = None if subject_was_remapped else self._upsert_topic(
                 public_hub=public_hub,
                 hub_subject=hub_subject,
                 donor_topic=donor_question.source_topic,
@@ -945,39 +1008,46 @@ class Command(BaseCommand):
         return QuestionBankPackage.objects.filter(institute=public_hub, code=package_code).first()
 
     def _resolve_target_local_scope(self, *, target_institute, donor_program, donor_subject, donor_topic):
-        local_program = Program.objects.filter(
+        local_program, _ = Program.objects.update_or_create(
             institute=target_institute,
             code=donor_program.code,
-            is_active=True,
-        ).first()
-        if local_program is None:
-            raise CommandError(
-                f"Target institute {target_institute.code} is missing program {donor_program.code} for quota demo link."
-            )
+            defaults={
+                "assessment_family": donor_program.assessment_family,
+                "name": donor_program.name,
+                "category": donor_program.category,
+                "description": donor_program.description,
+                "sort_order": donor_program.sort_order,
+                "is_active": True,
+            },
+        )
 
-        local_subject = Subject.objects.filter(
+        local_subject, _ = Subject.objects.update_or_create(
             institute=target_institute,
-            program=local_program,
             code=donor_subject.code,
-            is_active=True,
-        ).first()
-        if local_subject is None:
-            raise CommandError(
-                f"Target institute {target_institute.code} is missing subject {donor_subject.code} for quota demo link."
-            )
+            defaults={
+                "program": local_program,
+                "name": donor_subject.name,
+                "description": donor_subject.description,
+                "sort_order": donor_subject.sort_order,
+                "is_active": True,
+            },
+        )
 
         local_topic = None
         if donor_topic is not None:
-            local_topic = Topic.objects.filter(
+            local_topic, _ = Topic.objects.update_or_create(
                 institute=target_institute,
                 subject=local_subject,
                 code=donor_topic.code,
-                is_active=True,
-            ).first()
-            if local_topic is None:
-                raise CommandError(
-                    f"Target institute {target_institute.code} is missing topic {donor_topic.code} for quota demo link."
-                )
+                defaults={
+                    "parent_topic": None,
+                    "name": donor_topic.name,
+                    "description": donor_topic.description,
+                    "difficulty_level": donor_topic.difficulty_level,
+                    "sort_order": donor_topic.sort_order,
+                    "is_active": True,
+                },
+            )
 
         return local_program, local_subject, local_topic
 

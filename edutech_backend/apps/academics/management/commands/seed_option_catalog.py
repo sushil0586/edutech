@@ -41,8 +41,10 @@ OPTION_CATALOG_SEED = [
     ("exam_economy_access_policy", "", "Open Access", "No star or entitlement requirement.", 10, True),
     ("exam_economy_access_policy", "free", "Explicitly Free", "Marked free for reporting and policy clarity.", 20, False),
     ("exam_economy_access_policy", "stars_only", "Stars Only", "Requires stars to unlock.", 30, False),
-    ("exam_economy_access_policy", "entitlement_only", "Entitlement Only", "Requires an entitlement code.", 40, False),
-    ("exam_economy_access_policy", "stars_or_entitlement", "Stars or Entitlement", "Either stars or entitlement grants access.", 50, False),
+    ("exam_economy_access_policy", "subscription_only", "Subscription Only", "Requires active subscription-backed access.", 40, False),
+    ("exam_economy_access_policy", "subscription_or_stars", "Subscription Or Stars", "Uses subscription first, then stars where allowed.", 50, False),
+    ("exam_economy_access_policy", "institute_sponsored", "Institute Sponsored", "Institute covers learner access without charging quota or stars.", 60, False),
+    ("exam_economy_access_policy", "platform_managed", "Platform Managed", "Platform centrally governs learner access for this exam.", 70, False),
     ("question_type", "mcq_single", "MCQ Single", "Single-correct multiple-choice question.", 10, True),
     ("question_type", "mcq_multiple", "MCQ Multiple", "Multiple-correct multiple-choice question.", 20, False),
     ("question_type", "true_false", "True / False", "Binary true or false question.", 30, False),
@@ -90,6 +92,11 @@ class Command(BaseCommand):
                 created_count += 1
             else:
                 updated_count += 1
+
+        OptionCatalogEntry.objects.filter(
+            namespace="exam_economy_access_policy",
+            code__in=["entitlement_only", "stars_or_entitlement"],
+        ).update(is_active=False)
 
         self.stdout.write(
             self.style.SUCCESS(

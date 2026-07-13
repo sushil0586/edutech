@@ -15,7 +15,7 @@ function resolveTargetInstituteCode(preferredInstituteCode?: string) {
     return configuredInstituteCode;
   }
 
-  const fallbackCandidates = ["OPBMS", "DLI001"];
+  const fallbackCandidates = ["DLI001", "OPBMS"];
   for (const candidate of fallbackCandidates) {
     try {
       execFileSync(
@@ -41,7 +41,7 @@ function resolveTargetInstituteCode(preferredInstituteCode?: string) {
     }
   }
 
-  return "OPBMS";
+  return "DLI001";
 }
 
 function runManagePyCommand(args: string[]) {
@@ -57,6 +57,70 @@ function resolveDonorInstituteCode() {
     process.env.PLAYWRIGHT_DEMO_SHARED_LIBRARY_DONOR_INSTITUTE_CODE?.trim() ||
     "PUB001"
   );
+}
+
+function laneSubjectOverride(lane: "base" | "unentitled" | "quota" | "blocked" | "paused") {
+  const envMap = {
+    base: "PLAYWRIGHT_DEMO_SHARED_LIBRARY_BASE_SUBJECT_CODE",
+    unentitled: "PLAYWRIGHT_DEMO_SHARED_LIBRARY_UNENTITLED_SUBJECT_CODE",
+    quota: "PLAYWRIGHT_DEMO_SHARED_LIBRARY_QUOTA_SUBJECT_CODE",
+    blocked: "PLAYWRIGHT_DEMO_SHARED_LIBRARY_BLOCKED_SUBJECT_CODE",
+    paused: "PLAYWRIGHT_DEMO_SHARED_LIBRARY_PAUSED_SUBJECT_CODE",
+  } as const;
+  return process.env[envMap[lane]]?.trim() || "";
+}
+
+function chooseDistinctSubjects(
+  compatibleSubjectCodes: string[],
+  fallbackSubjectCodes: string[],
+  laneOrder: Array<"base" | "unentitled" | "quota" | "blocked" | "paused">,
+) {
+  const compatibleCodes = [...new Set(compatibleSubjectCodes.filter((code) => code.trim()))];
+  const fallbackCodes = [...new Set(fallbackSubjectCodes.filter((code) => code.trim()))];
+  const allCodes = [...new Set([...compatibleCodes, ...fallbackCodes])];
+  if (allCodes.length === 0) {
+    throw new Error("No subject codes available.");
+  }
+
+  const lanesRequiringCompatibleCoverage = new Set(["base", "quota", "blocked", "paused"]);
+  const chosenByLane = new Map<string, string>();
+  const usedCompatibleCodes = new Set<string>();
+  const usedFallbackCodes = new Set<string>();
+
+  for (const lane of laneOrder) {
+    const override = laneSubjectOverride(lane);
+    if (override) {
+      chosenByLane.set(lane, override);
+      continue;
+    }
+
+    const compatibleCandidate =
+      compatibleCodes.find((code) => !usedCompatibleCodes.has(code)) ??
+      compatibleCodes[0] ??
+      null;
+    const fallbackCandidate =
+      allCodes.find((code) => !usedFallbackCodes.has(code)) ??
+      allCodes[0];
+
+    const nextCode =
+      lanesRequiringCompatibleCoverage.has(lane) && compatibleCandidate
+        ? compatibleCandidate
+        : compatibleCandidate ?? fallbackCandidate;
+
+    chosenByLane.set(lane, nextCode);
+    if (compatibleCodes.includes(nextCode)) {
+      usedCompatibleCodes.add(nextCode);
+    }
+    usedFallbackCodes.add(nextCode);
+  }
+
+  return {
+    base: chosenByLane.get("base") ?? allCodes[0],
+    unentitled: chosenByLane.get("unentitled") ?? allCodes[0],
+    quota: chosenByLane.get("quota") ?? allCodes[0],
+    blocked: chosenByLane.get("blocked") ?? allCodes[0],
+    paused: chosenByLane.get("paused") ?? allCodes[0],
+  };
 }
 
 function resolveSeedSubjectCodes(targetInstituteCode: string) {
@@ -77,7 +141,7 @@ function resolveSeedSubjectCodes(targetInstituteCode: string) {
             "MasterQuestion.objects.filter(" +
             `source_institute__code='${donorInstituteCode}', ` +
             "is_active=True, source_subject__isnull=False" +
-            ").values_list('source_subject__code', flat=True).distinct())",
+            ").order_by('source_subject__code').values_list('source_subject__code', flat=True).distinct())",
           `target_codes = set(Subject.objects.filter(institute__code='${targetInstituteCode}', is_active=True).values_list('code', flat=True))`,
           "compatible = [code for code in donor_codes if code and code in target_codes]",
           "fallback = [code for code in donor_codes if code]",
@@ -103,28 +167,26 @@ function resolveSeedSubjectCodes(targetInstituteCode: string) {
     const fallbackCodes = (parsed.fallback ?? [])
       .filter((code) => typeof code === "string" && code.trim())
       .map((code) => code.trim());
-    const subjectCodes = compatibleCodes.length > 0 ? compatibleCodes : fallbackCodes;
-    if (subjectCodes.length === 0) {
-      throw new Error("No donor subject codes available.");
-    }
-
-    const pick = (index: number) => subjectCodes[index] || subjectCodes[0];
+    const selectedSubjects = chooseDistinctSubjects(compatibleCodes, fallbackCodes, [
+      "base",
+      "unentitled",
+      "quota",
+      "blocked",
+      "paused",
+    ]);
     return {
       donorInstituteCode,
-      base: pick(0),
-      unentitled: pick(1),
-      quota: pick(2),
-      blocked: pick(3),
-      paused: pick(4),
+      ...selectedSubjects,
     };
   } catch {
+    const fallbackSubjects = chooseDistinctSubjects(
+      ["CLS7-MATH", "CLS7-SCI", "CLS8-MATH"],
+      ["CLS7-MATH", "DM-NEET-BIO", "DM-AWS-CP", "AWS-CP", "CLS8-SCI"],
+      ["base", "unentitled", "quota", "blocked", "paused"],
+    );
     return {
       donorInstituteCode,
-      base: "CLS7-MATH",
-      unentitled: "CLS7-MATH",
-      quota: "CLS7-MATH",
-      blocked: "CLS7-MATH",
-      paused: "CLS7-MATH",
+      ...fallbackSubjects,
     };
   }
 }

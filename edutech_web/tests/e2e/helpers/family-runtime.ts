@@ -293,6 +293,286 @@ function throttleBackoffMs(message: string) {
   return null;
 }
 
+type LookupInstituteRecord = {
+  id: string;
+  code: string;
+  name: string;
+};
+
+type LookupAcademicYearRecord = {
+  id: string;
+  name: string;
+};
+
+type LookupProgramRecord = {
+  id: string;
+  code: string;
+  name: string;
+};
+
+type LookupCohortRecord = {
+  id: string;
+  code: string;
+  name: string;
+};
+
+type LookupSubjectRecord = {
+  id: string;
+  code: string;
+  name: string;
+};
+
+type LookupTopicRecord = {
+  id: string;
+  code: string;
+  name: string;
+};
+
+type CurrentAccountProfile = {
+  institute?: string | null;
+  institute_name?: string | null;
+};
+
+const FAMILY_INSTITUTE_CODE = process.env.PLAYWRIGHT_FAMILY_INSTITUTE_CODE?.trim() || "DLI001";
+const FAMILY_ACADEMIC_YEAR_NAME = process.env.PLAYWRIGHT_FAMILY_ACADEMIC_YEAR_NAME?.trim() || "2026-2027";
+
+async function requestBackendJson<T>(
+  page: Page,
+  accessToken: string,
+  path: string,
+  options?: {
+    method?: "GET" | "POST";
+    data?: Record<string, unknown>;
+  },
+) {
+  const request = options?.method === "POST" ? page.request.post.bind(page.request) : page.request.get.bind(page.request);
+  const response = await request(`${backendBaseUrl}${path}`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    data: options?.data,
+    timeout: 15000,
+  });
+  expect(response.ok(), await response.text()).toBe(true);
+  return (await response.json()) as T;
+}
+
+async function resolveAdminFamilyInstitute(page: Page, accessToken: string) {
+  const payload = await requestBackendJson<{ results: LookupInstituteRecord[] }>(
+    page,
+    accessToken,
+    "/api/v1/institutes/?page_size=100",
+  );
+  const match =
+    payload.results.find((item) => item.code === FAMILY_INSTITUTE_CODE) ??
+    payload.results.find((item) => item.name.trim() === "Demo Learning Institute");
+  expect(match).toBeTruthy();
+  return match!;
+}
+
+async function resolveActorInstitute(page: Page, accessToken: string) {
+  const me = await requestBackendJson<CurrentAccountProfile>(page, accessToken, "/api/v1/auth/me/");
+  const instituteId = me.institute?.trim() ?? "";
+  expect(instituteId).not.toBe("");
+  const detailResponse = await page.request.get(`${backendBaseUrl}/api/v1/institutes/${instituteId}/`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    timeout: 15000,
+  });
+  if (detailResponse.ok()) {
+    return (await detailResponse.json()) as LookupInstituteRecord;
+  }
+  return {
+    id: instituteId,
+    code: FAMILY_INSTITUTE_CODE,
+    name: me.institute_name?.trim() || "Demo Learning Institute",
+  };
+}
+
+async function resolveScopedFamilyBlueprintContext(
+  page: Page,
+  role: "admin" | "teacher" | "institute",
+  scenario: FamilyRuntimeScenario,
+  accessToken: string,
+) {
+  const institute =
+    role === "admin"
+      ? await resolveAdminFamilyInstitute(page, accessToken)
+      : await resolveActorInstitute(page, accessToken);
+
+  const academicYears = await requestBackendJson<{ results: LookupAcademicYearRecord[] }>(
+    page,
+    accessToken,
+    `/api/v1/academics/academic-years/?is_active=true&institute=${encodeURIComponent(institute.id)}`,
+  );
+  const academicYear =
+    academicYears.results.find((item) => item.name.trim() === FAMILY_ACADEMIC_YEAR_NAME) ??
+    academicYears.results[0];
+  expect(academicYear).toBeTruthy();
+
+  const programs = await requestBackendJson<{ results: LookupProgramRecord[] }>(
+    page,
+    accessToken,
+    `/api/v1/academics/programs/?is_active=true&page_size=500&institute=${encodeURIComponent(institute.id)}`,
+  );
+  const program = programs.results.find((item) => item.name.trim() === scenario.programLabel);
+  expect(program).toBeTruthy();
+
+  const subjects = await requestBackendJson<{ results: LookupSubjectRecord[] }>(
+    page,
+    accessToken,
+    `/api/v1/academics/subjects/?is_active=true&page_size=500&institute=${encodeURIComponent(institute.id)}&program=${encodeURIComponent(program!.id)}`,
+  );
+  const subject = subjects.results.find((item) => item.name.trim() === scenario.subjectLabel);
+  expect(subject).toBeTruthy();
+
+  const cohorts = await requestBackendJson<{ results: LookupCohortRecord[] }>(
+    page,
+    accessToken,
+    `/api/v1/academics/cohorts/?is_active=true&institute=${encodeURIComponent(institute.id)}&academic_year=${encodeURIComponent(academicYear!.id)}&program=${encodeURIComponent(program!.id)}`,
+  );
+  const cohort = cohorts.results[0];
+  expect(cohort).toBeTruthy();
+
+  const topics = await requestBackendJson<{ results: LookupTopicRecord[] }>(
+    page,
+    accessToken,
+    `/api/v1/academics/topics/?is_active=true&page_size=500&institute=${encodeURIComponent(institute.id)}&subject=${encodeURIComponent(subject!.id)}`,
+  );
+  const topic = topics.results[0];
+  expect(topic).toBeTruthy();
+
+  return {
+    institute,
+    academicYear: academicYear!,
+    program: program!,
+    cohort: cohort!,
+    subject: subject!,
+    topic: topic!,
+  };
+}
+
+async function createScopedFamilyExamDirectly(
+  page: Page,
+  role: "admin" | "teacher" | "institute",
+  scenario: FamilyRuntimeScenario,
+  uniqueSeed: number,
+  options?: {
+    sectionCount?: number;
+    questionCountPerSection?: number;
+    titlePrefix?: string;
+    codePrefix?: string;
+  },
+) {
+  const presetPayload = await fetchPresetPacks(page);
+  const pack = presetPayload.results.find((item) => item.id === scenario.presetId);
+  expect(pack).toBeTruthy();
+
+  const titlePrefix = options?.titlePrefix ?? "PW Family Runtime";
+  const codePrefix = options?.codePrefix ?? "PWFR";
+  const examTitle = `${titlePrefix} ${scenario.presetId} ${uniqueSeed}`;
+  const examCode = `${codePrefix}-${scenario.presetId.slice(0, 6).toUpperCase()}-${uniqueSeed}`;
+  const sectionCount = options?.sectionCount ?? 1;
+  const questionCountPerSection = options?.questionCountPerSection ?? 1;
+  const accessToken = await backendAccessToken(page);
+  const scope = await resolveScopedFamilyBlueprintContext(page, role, scenario, accessToken);
+
+  const sections = Array.from({ length: sectionCount }, (_, index) => ({
+    name:
+      pack?.builderDefaults?.sections?.[index]?.name?.trim() ||
+      `Section ${String.fromCharCode(65 + index)}`,
+    order: index + 1,
+    question_count: questionCountPerSection,
+    marks_per_question: "1.00",
+    negative_marks_per_question: "0.00",
+    difficulty_mix: {
+      foundation: 100,
+      intermediate: 0,
+      advanced: 0,
+    },
+    topics: [
+      {
+        topic_code: scope.topic.code,
+        count: questionCountPerSection,
+      },
+    ],
+  }));
+
+  const payload = {
+    scope: {
+      institute_code: scope.institute.code,
+      academic_year_name: scope.academicYear.name,
+      program_code: scope.program.code,
+      cohort_code: scope.cohort.code,
+      subject_code: scope.subject.code,
+    },
+    exam: {
+      title: examTitle,
+      code: examCode,
+      description: `${scenario.familyLabel} direct-runtime exam`,
+      preset_pack_code: scenario.presetId,
+      exam_type: "test",
+      delivery_mode: "online",
+      status: "draft",
+      duration_minutes: 60,
+      passing_marks: "0.00",
+      instructions: "Answer carefully.",
+    },
+    composition: {
+      selection_mode: "subject_fallback",
+      sections,
+    },
+    delivery: {
+      timer_mode: "global",
+      navigation_mode: "free_exam",
+      attempt_policy: "single",
+      max_attempts: 1,
+      result_publish_mode: "after_review",
+      review_mode: "attempted_only",
+      security_mode: "normal",
+      assignment_mode: "scope",
+      randomize_questions: true,
+      randomize_options: true,
+    },
+    economy: {
+      policy_type: "",
+      star_cost: 0,
+      entitlement_code: "",
+      priority: 100,
+      unlock_rule: {
+        rule_type: "",
+        required_star_balance: null,
+        required_entitlement_code: "",
+        required_completion_count: null,
+        required_score_percentage: null,
+        priority: 100,
+        admin_override_allowed: true,
+      },
+    },
+  };
+
+  const created = await requestBackendJson<{ data: { id: string } }>(
+    page,
+    accessToken,
+    "/api/v1/exams/advanced-builder/create/",
+    {
+      method: "POST",
+      data: payload,
+    },
+  );
+
+  expect(created.data.id).toBeTruthy();
+
+  return {
+    examId: created.data.id,
+    examTitle,
+    pack: pack!,
+  };
+}
+
 export async function resolveStudentAttemptTarget(
   page: Page,
   credentials: DirectLoginCredentials,
@@ -490,6 +770,19 @@ async function alignInstituteScopeWithPresetFamily(
   }
   await programSelect.selectOption({ label: programLabel });
   await expect(programSelect).toHaveValue(/\S+/);
+  await expect
+    .poll(
+      async () =>
+        subjectSelect.evaluate(
+          (element, label) =>
+            Array.from((element as HTMLSelectElement).options).some(
+              (option) => option.label.trim() === String(label).trim(),
+            ),
+          subjectLabel,
+        ),
+      { timeout: 15000 },
+    )
+    .toBe(true);
   await subjectSelect.selectOption({ label: subjectLabel });
   await expect(subjectSelect).toHaveValue(/\S+/);
 
@@ -628,6 +921,48 @@ export async function createAdminFamilyExam(
   return createScopedFamilyExam(page, "admin", scenario, uniqueSeed, options);
 }
 
+export async function createInstituteFamilyExamDirectly(
+  page: Page,
+  scenario: FamilyRuntimeScenario,
+  uniqueSeed: number,
+  options?: {
+    sectionCount?: number;
+    questionCountPerSection?: number;
+    titlePrefix?: string;
+    codePrefix?: string;
+  },
+) {
+  return createScopedFamilyExamDirectly(page, "institute", scenario, uniqueSeed, options);
+}
+
+export async function createTeacherFamilyExamDirectly(
+  page: Page,
+  scenario: FamilyRuntimeScenario,
+  uniqueSeed: number,
+  options?: {
+    sectionCount?: number;
+    questionCountPerSection?: number;
+    titlePrefix?: string;
+    codePrefix?: string;
+  },
+) {
+  return createScopedFamilyExamDirectly(page, "teacher", scenario, uniqueSeed, options);
+}
+
+export async function createAdminFamilyExamDirectly(
+  page: Page,
+  scenario: FamilyRuntimeScenario,
+  uniqueSeed: number,
+  options?: {
+    sectionCount?: number;
+    questionCountPerSection?: number;
+    titlePrefix?: string;
+    codePrefix?: string;
+  },
+) {
+  return createScopedFamilyExamDirectly(page, "admin", scenario, uniqueSeed, options);
+}
+
 export async function assignStudentToExam(page: Page, examId: string, studentProfileId: string) {
   const accessToken = await backendAccessToken(page);
   const response = await page.request.post(`${backendBaseUrl}/api/v1/exams/${examId}/assign-students/`, {
@@ -711,6 +1046,34 @@ export async function scheduleAndPublishExam(page: Page, examId: string) {
     timeout: 15000,
   });
   expect(liveResponse.ok()).toBe(true);
+}
+
+export async function reopenExamWindow(
+  page: Page,
+  examId: string,
+  options?: {
+    maxAttempts?: number;
+  },
+) {
+  const now = new Date();
+  const startAt = new Date(now.getTime() - 5 * 60 * 1000);
+  const endAt = new Date(now.getTime() + 90 * 60 * 1000);
+
+  const accessToken = await backendAccessToken(page);
+  const updateResponse = await page.request.patch(`${backendBaseUrl}/api/v1/exams/${examId}/`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    data: {
+      start_at: startAt.toISOString(),
+      end_at: endAt.toISOString(),
+      passing_marks: "0.00",
+      ...(options?.maxAttempts ? { max_attempts: options.maxAttempts } : {}),
+    },
+    timeout: 15000,
+  });
+  expect(updateResponse.ok(), await updateResponse.text()).toBe(true);
 }
 
 export async function markExamCompleted(page: Page, examId: string) {

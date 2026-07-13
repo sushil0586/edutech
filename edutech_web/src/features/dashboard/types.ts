@@ -142,6 +142,47 @@ export type StudentAvailableExam = {
   ends_in_seconds?: number;
   can_start: boolean;
   can_resume: boolean;
+  start_access: {
+    is_allowed: boolean;
+    reason_source: string;
+    reason_code: string;
+    reason_message: string;
+    runtime_decision: {
+      management_mode: string;
+      access_mode: string;
+      block_reason_code: string;
+      capacity_state: {
+        occupancy_state: string;
+        start_capacity: number | null;
+        active_attempt_count: number;
+        start_remaining: number | null;
+        capacity_blocked: boolean;
+      } | null;
+      threshold_state: {
+        enabled: boolean;
+        management_mode: string;
+        access_mode: string;
+        daily_start_cap: number | null;
+        hourly_start_cap: number | null;
+        concurrent_active_attempt_cap: number | null;
+        source: string;
+        daily_start_count: number;
+        hourly_start_count: number;
+        concurrent_active_attempt_count: number;
+        daily_start_remaining: number | null;
+        hourly_start_remaining: number | null;
+        concurrent_active_attempt_remaining: number | null;
+        blocked: boolean;
+        block_reason_code: string;
+        block_reason_message: string;
+      } | null;
+      effective_slot: {
+        id: string | null;
+        label: string;
+        status: string;
+      } | null;
+    } | null;
+  };
   review_available: boolean;
   result_published: boolean;
   result_status: string | null;
@@ -157,6 +198,27 @@ export type StudentAvailableExam = {
   source_teacher_name: string | null;
   economy_access: StudentContentEconomyAccess;
   experience_profile: StudentExamExperienceProfile;
+};
+
+export type StudentPracticeFollowUpExam = {
+  id: string;
+  title: string;
+  code: string;
+  exam_type: string;
+  subject_name: string | null;
+  source_type: string;
+  source_label: string;
+  source_name: string;
+  source_teacher_id: string | null;
+  source_teacher_name: string | null;
+  active_attempt: {
+    id: string;
+    status: string;
+  } | null;
+  can_start: boolean;
+  can_resume: boolean;
+  economy_access: StudentContentEconomyAccess;
+  experience_profile: Pick<StudentExamExperienceProfile, "assessment_family">;
 };
 
 export type DashboardData = {
@@ -267,6 +329,7 @@ export type StudentContentEconomyAccess = {
   subject_id: string | null;
   content_label: string;
   policy_type: string | null;
+  commercial_path?: string | null;
   star_cost: number;
   requires_unlock: boolean;
   can_unlock_with_stars: boolean;
@@ -275,6 +338,23 @@ export type StudentContentEconomyAccess = {
   lock_reason_code: string;
   lock_reason_message: string;
   unlock_state_status: string;
+  decision_type?: string;
+  should_consume_subscription_allowance?: boolean;
+  subscription_resolution?: {
+    is_applicable: boolean;
+    commercial_path: string | null;
+    is_covered: boolean;
+    reason_code: string;
+    reason_message: string;
+    billing_period_start: string | null;
+    billing_period_end: string | null;
+    included_allowance: number;
+    used_allowance: number;
+    remaining_allowance: number;
+    student_subscription_id: string | null;
+    subscription_plan_cycle_id: string | null;
+    allowance_config_id: string | null;
+  };
 };
 
 export type StudentStarPack = {
@@ -308,6 +388,14 @@ export type StudentSubscriptionPlanCycle = {
   metadata: Record<string, unknown>;
   is_active: boolean;
   star_credit_rules: StudentSubscriptionStarCreditRule[];
+  exam_allowance_config?: {
+    id: string;
+    included_exam_attempts: number;
+    allowance_period_mode: string;
+    counting_scope: string;
+    metadata: Record<string, unknown>;
+    is_active: boolean;
+  } | null;
 };
 
 export type StudentSubscriptionPlan = {
@@ -389,6 +477,31 @@ export type StudentSubscription = {
   cancelled_at: string | null;
   metadata: Record<string, unknown>;
   billing_events: StudentSubscriptionBillingEvent[];
+  allowance_usage_entries: Array<{
+    id: string;
+    student_subscription: string;
+    student: string;
+    exam: string | null;
+    attempt: string | null;
+    billing_period_start: string;
+    billing_period_end: string;
+    consumed_count: number;
+    consumed_at: string;
+    consumption_reason: string;
+    metadata: Record<string, unknown>;
+    created_at: string;
+    updated_at: string;
+    is_active: boolean;
+  }>;
+  allowance_summary: {
+    included_allowance: number;
+    used_allowance: number;
+    remaining_allowance: number;
+    allowance_period_mode: string;
+    counting_scope: string;
+    billing_period_start: string | null;
+    billing_period_end: string | null;
+  } | null;
   created_at: string;
   updated_at: string;
   is_active: boolean;
@@ -867,10 +980,53 @@ export type StudentExamDetail = {
   } | null;
   attempts_used: number;
   remaining_attempts: number;
+  can_start: boolean;
+  can_resume: boolean;
   review_available: boolean;
   result_published: boolean;
   result_status: string | null;
   availability_state: string;
+  start_access: {
+    is_allowed: boolean;
+    reason_source: string;
+    reason_code: string;
+    reason_message: string;
+    runtime_decision: {
+      management_mode: string;
+      access_mode: string;
+      block_reason_code: string;
+      capacity_state: {
+        occupancy_state: string;
+        start_capacity: number | null;
+        active_attempt_count: number;
+        start_remaining: number | null;
+        capacity_blocked: boolean;
+      } | null;
+      threshold_state: {
+        enabled: boolean;
+        management_mode: string;
+        access_mode: string;
+        daily_start_cap: number | null;
+        hourly_start_cap: number | null;
+        concurrent_active_attempt_cap: number | null;
+        source: string;
+        daily_start_count: number;
+        hourly_start_count: number;
+        concurrent_active_attempt_count: number;
+        daily_start_remaining: number | null;
+        hourly_start_remaining: number | null;
+        concurrent_active_attempt_remaining: number | null;
+        blocked: boolean;
+        block_reason_code: string;
+        block_reason_message: string;
+      } | null;
+      effective_slot: {
+        id: string | null;
+        label: string;
+        status: string;
+      } | null;
+    } | null;
+  };
   security_mode: string;
   security_policy: StudentSecurityPolicy;
   economy_access: StudentContentEconomyAccess;
@@ -1182,6 +1338,8 @@ export type TeacherAssignedStudent = {
   full_name: string;
   admission_no: string;
   cohort_name: string | null;
+  access_slot: string | null;
+  access_slot_label: string | null;
   notes: string;
   is_active: boolean;
 };
@@ -1234,6 +1392,7 @@ export type TeacherExamEconomyPolicy = {
   content_type: string;
   content_key: string;
   content_label: string;
+  commercial_path: string;
   policy_type: string;
   star_cost: number;
   entitlement_code: string;
@@ -1243,6 +1402,75 @@ export type TeacherExamEconomyPolicy = {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+};
+
+export type TeacherExamSlotOccupancy = {
+  slot_id: string;
+  slot_label: string;
+  assignment_capacity: number | null;
+  assignment_count: number;
+  assignment_remaining: number | null;
+  start_capacity: number | null;
+  active_attempt_count: number;
+  start_remaining: number | null;
+  occupancy_state: "healthy" | "near_full" | "full";
+};
+
+export type TeacherExamAccessSlot = {
+  id: string;
+  exam: string;
+  cohort: string | null;
+  cohort_name: string | null;
+  slot_label: string;
+  slot_start_at: string;
+  slot_end_at: string;
+  grace_period_minutes: number;
+  assignment_capacity: number | null;
+  start_capacity: number | null;
+  status: string;
+  metadata: Record<string, unknown>;
+  is_active: boolean;
+  occupancy: TeacherExamSlotOccupancy;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TeacherExamSlotAuditLog = {
+  id: string;
+  action: string;
+  entity_type: string;
+  entity_id: string;
+  message: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  user_id: string | null;
+  user_label: string;
+};
+
+export type TeacherExamAutoSlotPreview = {
+  apply_to: "all_selected" | "unassigned_selected";
+  updated_count: number;
+  targeted_count: number;
+  assignments: Array<{
+    student_id: string;
+    student_name: string;
+    admission_no: string;
+    current_slot_id: string | null;
+    current_slot_label: string;
+    planned_slot_id: string | null;
+    planned_slot_label: string;
+    cohort_name: string;
+  }>;
+  slot_summary: Array<{
+    slot_id: string;
+    slot_label: string;
+    cohort_name: string;
+    assignment_capacity: number | null;
+    current_assigned_count: number;
+    projected_assigned_count: number;
+    remaining_after_plan: number | null;
+  }>;
+  unresolved_students: string[];
 };
 
 export type TeacherExamSectionSubjectSummary = {
@@ -1336,6 +1564,10 @@ export type TeacherExam = {
   source_label: string;
   source_name: string;
   source_teacher_name: string | null;
+  access_mode: string;
+  daily_start_cap: number | null;
+  hourly_start_cap: number | null;
+  concurrent_active_attempt_cap: number | null;
   assignment_mode: string;
   allow_resume: boolean;
   allow_section_switching: boolean;
@@ -1350,6 +1582,7 @@ export type TeacherExam = {
   experience_profile: StudentExamExperienceProfile;
   metadata: Record<string, unknown>;
   sections: TeacherExamSection[];
+  access_slots: TeacherExamAccessSlot[];
   assigned_students: TeacherAssignedStudent[];
   assigned_student_count: number;
   exam_questions: TeacherExamQuestion[];
@@ -1407,6 +1640,10 @@ export type TeacherExamListItem = {
   source_label: string;
   source_name: string;
   source_teacher_name: string | null;
+  access_mode: string;
+  daily_start_cap: number | null;
+  hourly_start_cap: number | null;
+  concurrent_active_attempt_cap: number | null;
   assignment_mode: string;
   allow_resume: boolean;
   allow_section_switching: boolean;
@@ -1493,6 +1730,37 @@ export type TeacherResultSummary = {
   created_at: string;
   updated_at: string;
   is_active: boolean;
+};
+
+export type AdminExamRuntimeSummary = {
+  summary: {
+    tracked_exams: number;
+    slot_managed_exams: number;
+    threshold_managed_exams: number;
+    active_slots: number;
+    full_slots: number;
+    near_full_slots: number;
+    live_attempts: number;
+    assigned_learners: number;
+    exams_with_pressure: number;
+    status_filter: string;
+  };
+  top_pressure_exams: Array<{
+    exam_id: string;
+    title: string;
+    code: string;
+    institute_name: string;
+    status: string;
+    access_mode: string;
+    active_slots: number;
+    full_slots: number;
+    near_full_slots: number;
+    live_attempts: number;
+    assigned_learners: number;
+    configured_caps: string[];
+    pressure_score: number;
+    slot_labels: string[];
+  }>;
 };
 
 export type TeacherInsightSummary = {

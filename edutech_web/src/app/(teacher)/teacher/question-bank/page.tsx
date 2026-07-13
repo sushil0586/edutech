@@ -1,25 +1,45 @@
+import dynamic from "next/dynamic";
+import { Suspense } from "react";
 import { redirect, unstable_rethrow } from "next/navigation";
 import Link from "next/link";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { TeacherPageHeader } from "@/components/ui/teacher-page-header";
-import { TeacherQuestionBankWorkspace } from "@/components/ui/teacher-question-bank-workspace";
+import { OperatorRoutePrefetcher } from "@/components/ui/operator-route-prefetcher";
 import {
   createTeacherQuestionTagMap,
-  fetchTeacherMasterQuestionLibrary,
   fetchTeacherOptionCatalog,
   deleteTeacherQuestionTagMap,
   fetchTeacherPrograms,
   fetchTeacherQuestionDetail,
-  fetchTeacherQuestionPassagePage,
   fetchTeacherQuestionPage,
   fetchTeacherQuestionTags,
   fetchTeacherSubjects,
   fetchTeacherTopics,
   performTeacherQuestionBulkAction,
 } from "@/lib/api/teacher-builder";
-import { fetchPortalList } from "@/lib/api/portal";
+import {
+  fetchInstituteQuestionBankEntitlementsCached,
+  fetchInstituteQuestionBankFeatureEntitlementsCached,
+} from "@/lib/api/portal";
 import { requireTeacherSession } from "@/lib/auth/session";
 import { groupTeacherOptionCatalog } from "@/lib/teacher/option-catalog";
+
+const TeacherQuestionBankWorkspace = dynamic(
+  () =>
+    import("@/components/ui/teacher-question-bank-workspace").then((module) => ({
+      default: module.TeacherQuestionBankWorkspace,
+    })),
+  {
+    loading: () => (
+      <section className="contentCard">
+        <div className="sectionHeading">
+          <strong>Loading question tools</strong>
+          <span>Filters, previews, and bulk actions are loading now.</span>
+        </div>
+      </section>
+    ),
+  },
+);
 
 const QUESTION_BANK_SHARED_LIBRARY_FEATURE_CODE = "QUESTION_BANK_SHARED_LIBRARY";
 
@@ -73,52 +93,6 @@ function readLoadError(error: unknown, fallback: string) {
     return error.message.trim();
   }
   return fallback;
-}
-
-function summarizeRichText(value: string | null | undefined, fallback: string) {
-  const normalized = (value || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-  return normalized || fallback;
-}
-
-function buildQuestionScopeFilters(params: {
-  search: string;
-  program: string;
-  subject: string;
-  topic: string;
-  tag: string;
-  questionType: string;
-  difficultyLevel: string;
-  missingExplanation: boolean;
-}) {
-  return {
-    search: params.search || undefined,
-    program: params.program || undefined,
-    subject: params.subject || undefined,
-    topic: params.topic || undefined,
-    tag: params.tag || undefined,
-    question_type: params.questionType || undefined,
-    difficulty_level: params.difficultyLevel || undefined,
-    missing_explanation: params.missingExplanation,
-    page: 1,
-    page_size: 1,
-  };
-}
-
-async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string) {
-  let timer: ReturnType<typeof setTimeout> | null = null;
-
-  try {
-    return await Promise.race([
-      promise,
-      new Promise<T>((_, reject) => {
-        timer = setTimeout(() => reject(new Error(message)), timeoutMs);
-      }),
-    ]);
-  } finally {
-    if (timer) {
-      clearTimeout(timer);
-    }
-  }
 }
 
 async function applyQuestionBulkAction(formData: FormData) {
@@ -220,7 +194,27 @@ async function applyQuestionBulkAction(formData: FormData) {
   }
 }
 
-export default async function TeacherQuestionBankPage({
+function TeacherQuestionBankLoadingShell() {
+  return (
+    <div className="studentPage studentPageTight studentDashboardModern teacherConsolePage questionBankPageVivid">
+      <TeacherPageHeader
+        title="Question Bank"
+        description="Search, filter, curate, and improve reusable assessment questions from one teacher-scoped workspace."
+        statusLabel="Loading question scope"
+        statusTone="live"
+      />
+
+      <section className="contentCard">
+        <div className="sectionHeading">
+          <strong>Find questions faster</strong>
+          <span>The question-bank shell is ready while filters, inventory, and access data finish loading.</span>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+async function TeacherQuestionBankPageContent({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -240,20 +234,40 @@ export default async function TeacherQuestionBankPage({
   const missingExplanation = readSingle(resolvedSearchParams.missing_explanation) === "true";
   const qualitySignal = readSingle(resolvedSearchParams.quality_signal);
   const revisionPriority = readSingle(resolvedSearchParams.revision_priority);
+  const libraryPage = asPositiveInteger(readSingle(resolvedSearchParams.library_page), 1);
+  const libraryPageSize = asPositiveInteger(readSingle(resolvedSearchParams.library_page_size), 24);
   const error = readSingle(resolvedSearchParams.error);
   const message = readSingle(resolvedSearchParams.message);
+  const questionPagePromise = fetchTeacherQuestionPage({
+    page,
+    page_size: 20,
+    search: search || undefined,
+    program: program || undefined,
+    subject: subject || undefined,
+    topic: topic || undefined,
+    tag: tag || undefined,
+    question_type: questionType || undefined,
+    difficulty_level: difficultyLevel || undefined,
+    quality_signal: qualitySignal || undefined,
+    revision_priority: revisionPriority || undefined,
+    ordering,
+    missing_explanation: missingExplanation,
+  })
+    .then((data) => ({ data, error: "" }))
+    .catch((caughtError) => ({
+      data: null,
+      error: readLoadError(
+        caughtError,
+        "Teacher question bank request failed before results could load.",
+      ),
+    }));
 
   const bootstrapResults = await Promise.allSettled([
     fetchTeacherOptionCatalog(),
     fetchTeacherPrograms(),
     fetchTeacherQuestionTags(),
-    fetchTeacherQuestionPassagePage({ page_size: 20 }),
-    fetchPortalList<InstituteQuestionBankEntitlement>(
-      "/api/v1/economy/admin/institute-question-bank-entitlements/",
-    ),
-    fetchPortalList<InstituteQuestionFeatureEntitlement>(
-      "/api/v1/economy/admin/institute-question-bank-feature-entitlements/",
-    ),
+    fetchInstituteQuestionBankEntitlementsCached<InstituteQuestionBankEntitlement>(),
+    fetchInstituteQuestionBankFeatureEntitlementsCached<InstituteQuestionFeatureEntitlement>(),
   ]);
 
   const optionCatalogEntries =
@@ -262,33 +276,32 @@ export default async function TeacherQuestionBankPage({
     bootstrapResults[1].status === "fulfilled" ? bootstrapResults[1].value : [];
   const tags =
     bootstrapResults[2].status === "fulfilled" ? bootstrapResults[2].value : [];
-  const passagePage =
-    bootstrapResults[3].status === "fulfilled" ? bootstrapResults[3].value : null;
   const questionBankEntitlements =
-    bootstrapResults[4].status === "fulfilled" ? bootstrapResults[4].value : [];
+    bootstrapResults[3].status === "fulfilled" ? bootstrapResults[3].value : [];
   const featureEntitlements =
-    bootstrapResults[5].status === "fulfilled" ? bootstrapResults[5].value : [];
+    bootstrapResults[4].status === "fulfilled" ? bootstrapResults[4].value : [];
   const hasSharedLibraryAccess = featureEntitlements.some(
     (entitlement) =>
       entitlement.feature_code === QUESTION_BANK_SHARED_LIBRARY_FEATURE_CODE &&
       entitlement.status === "active",
   );
   const validProgram = programs.some((entry) => entry.id === program) ? program : "";
-  const subjects = await fetchTeacherSubjects({
-    program: validProgram || undefined,
-  }).catch(() => []);
+  const subjects = validProgram
+    ? await fetchTeacherSubjects({
+        program: validProgram,
+      }).catch(() => [])
+    : [];
 
   const validSubject =
     validProgram && subjects.some((entry) => entry.id === subject) ? subject : "";
-  const topics = await fetchTeacherTopics({
-    subject: validSubject || undefined,
-  }).catch(() => []);
+  const topics = validSubject
+    ? await fetchTeacherTopics({
+        subject: validSubject,
+      }).catch(() => [])
+    : [];
 
   const validTopic =
     validSubject && topics.some((entry) => entry.id === topic) ? topic : "";
-  const selectedSubjectRecord = subjects.find((entry) => entry.id === validSubject) ?? null;
-  const selectedTopicRecord = topics.find((entry) => entry.id === validTopic) ?? null;
-
   if (program !== validProgram || subject !== validSubject || topic !== validTopic) {
     redirect(
       `/teacher/question-bank${buildQuestionBankQuery({
@@ -310,61 +323,37 @@ export default async function TeacherQuestionBankPage({
     );
   }
 
-  const questionPageResult = await fetchTeacherQuestionPage({
-    page,
-    page_size: 20,
-    search: search || undefined,
-    program: validProgram || undefined,
-    subject: validSubject || undefined,
-    topic: validTopic || undefined,
-    tag: tag || undefined,
-    question_type: questionType || undefined,
-    difficulty_level: difficultyLevel || undefined,
-    quality_signal: qualitySignal || undefined,
-    revision_priority: revisionPriority || undefined,
-    ordering,
-    missing_explanation: missingExplanation,
-  })
-    .then((data) => ({ data, error: "" }))
-    .catch((caughtError) => ({
-      data: null,
-      error: readLoadError(
-        caughtError,
-        "Teacher question bank request failed before results could load.",
-      ),
-    }));
-  const questionPage = questionPageResult.data;
-  const loadIssue = questionPageResult.error;
-
-  const masterLibraryResult = hasSharedLibraryAccess
-    ? await withTimeout(
-        fetchTeacherMasterQuestionLibrary({
-          page: 1,
-          page_size: 8,
+  const questionPageResult =
+    program === validProgram && subject === validSubject && topic === validTopic
+      ? await questionPagePromise
+      : await fetchTeacherQuestionPage({
+          page,
+          page_size: 20,
           search: search || undefined,
-          subject_code: selectedSubjectRecord?.code ?? undefined,
-          topic_code: selectedTopicRecord?.code ?? undefined,
+          program: validProgram || undefined,
+          subject: validSubject || undefined,
+          topic: validTopic || undefined,
+          tag: tag || undefined,
           question_type: questionType || undefined,
           difficulty_level: difficultyLevel || undefined,
+          quality_signal: qualitySignal || undefined,
+          revision_priority: revisionPriority || undefined,
           ordering,
-        }),
-        6000,
-        "Shared platform library is taking too long to respond right now.",
-      )
-        .then((data) => ({ data, error: "" }))
-        .catch((caughtError) => ({
-          data: null,
-          error: readLoadError(
-            caughtError,
-            "Shared platform library could not be loaded right now.",
-          ),
-        }))
-    : { data: null, error: "" };
-  const masterLibraryPage = masterLibraryResult.data;
-  const masterLibraryLoadError = masterLibraryResult.error;
+          missing_explanation: missingExplanation,
+        })
+          .then((data) => ({ data, error: "" }))
+          .catch((caughtError) => ({
+            data: null,
+            error: readLoadError(
+              caughtError,
+              "Teacher question bank request failed before results could load.",
+            ),
+          }));
+  const questionPage = questionPageResult.data;
+  const loadIssue = questionPageResult.error;
   const sharedLibraryDisabledMessage = hasSharedLibraryAccess
     ? ""
-    : "Shared platform library is not enabled for your institute subscription yet.";
+    : "Platform question intake is still turned off for this institute, so teachers can only work with local questions here.";
 
   if (!questionPage) {
     return (
@@ -396,33 +385,30 @@ export default async function TeacherQuestionBankPage({
   const missingExplanationCount = questionPage.results.filter(
     (question) => !question.has_explanation,
   ).length;
-  const scopeFilters = buildQuestionScopeFilters({
-    search,
-    program: validProgram,
-    subject: validSubject,
-    topic: validTopic,
-    tag,
-    questionType,
-    difficultyLevel,
-    missingExplanation: missingExplanation,
-  });
-  const qualitySummaryResults = await Promise.allSettled([
-    fetchTeacherQuestionPage({ ...scopeFilters, revision_priority: "high" }),
-    fetchTeacherQuestionPage({ ...scopeFilters, quality_signal: "ambiguous" }),
-    fetchTeacherQuestionPage({ ...scopeFilters, quality_signal: "skip_risk" }),
-    fetchTeacherQuestionPage({ ...scopeFilters, quality_signal: "emerging" }),
-  ]);
-  const highPriorityRevisionCount =
-    qualitySummaryResults[0].status === "fulfilled" ? qualitySummaryResults[0].value.count : 0;
-  const ambiguousCount =
-    qualitySummaryResults[1].status === "fulfilled" ? qualitySummaryResults[1].value.count : 0;
-  const skipRiskCount =
-    qualitySummaryResults[2].status === "fulfilled" ? qualitySummaryResults[2].value.count : 0;
-  const emergingCount =
-    qualitySummaryResults[3].status === "fulfilled" ? qualitySummaryResults[3].value.count : 0;
+  const visibleHighPriorityRevisionCount = questionPage.results.filter(
+    (question) => question.revision_priority === "high" || question.revision_priority === "urgent",
+  ).length;
+  const visibleAmbiguousCount = questionPage.results.filter(
+    (question) => question.quality_signal === "ambiguous",
+  ).length;
+  const visibleSkipRiskCount = questionPage.results.filter(
+    (question) => question.quality_signal === "skip_risk",
+  ).length;
+  const visibleEmergingCount = questionPage.results.filter(
+    (question) => question.quality_signal === "emerging",
+  ).length;
 
   return (
     <div className="studentPage studentPageTight studentDashboardModern teacherConsolePage questionBankPageVivid">
+      <OperatorRoutePrefetcher
+        hrefs={[
+          "/teacher/question-bank/new",
+          "/teacher/question-bank/import",
+          "/teacher/question-bank/comprehension/import",
+          "/teacher/question-bank/comprehension/new",
+        ]}
+      />
+
       <TeacherPageHeader
         action={
           <div className="questionBankButtonRow">
@@ -435,7 +421,7 @@ export default async function TeacherQuestionBankPage({
             <Link className="button buttonSecondary" href="/teacher/question-bank/comprehension/new">
               Create Comprehension Set
             </Link>
-            <Link className="button buttonPrimary" href="/teacher/question-bank/new">
+            <Link className="button buttonPrimary" href="/teacher/question-bank/new" prefetch>
               Create Question
             </Link>
           </div>
@@ -453,8 +439,8 @@ export default async function TeacherQuestionBankPage({
         <div className="sectionHeading">
           <strong>How licensed platform questions work here</strong>
           <span>
-            Teachers can inspect licensed platform questions in this workspace, but institute-level
-            access decides whether the lane is visible and whether requests can move forward.
+            This panel answers three operator questions quickly: can teachers see platform questions,
+            can they act on them, and who owns the final linking step.
           </span>
         </div>
         <div className="economyAccessChecklist">
@@ -471,8 +457,8 @@ export default async function TeacherQuestionBankPage({
             </strong>
             <small>
               {hasSharedLibraryAccess
-                ? "This teacher workspace can inspect licensed platform rows when the matching package lane is also active."
-                : "Platform rows stay hidden until institute-level shared-library visibility is enabled."}
+                ? "Teachers can review platform-backed rows only when the institute package lane also matches the current class and subject."
+                : "This is an institute-level switch. If support expects platform questions here, ask the institute admin or platform team to enable intake first."}
             </small>
           </div>
           <div
@@ -492,8 +478,8 @@ export default async function TeacherQuestionBankPage({
             </strong>
             <small>
               {questionBankEntitlements.length > 0
-                ? "Matching package coverage lets teachers inspect licensed rows and raise access requests for the right class and subject."
-                : "Without a matching package, licensed questions stay blocked even if the shared-library switch is already on."}
+                ? "A matching package means teachers can inspect the licensed lane and raise the right request for the current class and subject."
+                : "Even with the switch on, teachers will not see licensed questions until an institute package covers this academic lane."}
             </small>
           </div>
           <div
@@ -510,8 +496,8 @@ export default async function TeacherQuestionBankPage({
                 : "Teacher request flow is not ready yet"}
             </strong>
             <small>
-              Teachers do not link licensed questions directly here. When the switch and package are both
-              active, use the request path and let institute-level intake control final linking.
+              Teachers do not perform the final link here. When the switch and package are ready, the
+              teacher lane stays request-only and the institute admin still approves or performs the intake step.
             </small>
           </div>
         </div>
@@ -539,65 +525,31 @@ export default async function TeacherQuestionBankPage({
           <small>{topics.length} topic options across the current subject lane</small>
         </article>
         <article className="builderSummaryCard">
-          <span>Comprehension sets</span>
-          <strong>{passagePage?.count ?? 0}</strong>
-          <small>Shared passages available for linked question authoring</small>
+          <span>Comprehension tools</span>
+          <strong>Ready</strong>
+          <small>Create or import passage-backed sets from the authoring actions above</small>
         </article>
         <article className="builderSummaryCard">
-          <span>Revision queue</span>
-          <strong>{highPriorityRevisionCount}</strong>
-          <small>High-priority questions waiting for distractor, wording, or explanation cleanup</small>
+          <span>Visible revision queue</span>
+          <strong>{visibleHighPriorityRevisionCount}</strong>
+          <small>High-priority items visible on the current page without extra background counting</small>
         </article>
         <article className="builderSummaryCard">
-          <span>Ambiguous items</span>
-          <strong>{ambiguousCount}</strong>
-          <small>Wrong plus skip patterns suggest unclear prompts or misleading choices</small>
+          <span>Visible ambiguous items</span>
+          <strong>{visibleAmbiguousCount}</strong>
+          <small>Current-page questions whose response patterns suggest unclear wording or options</small>
         </article>
         <article className="builderSummaryCard">
-          <span>Skip risk</span>
-          <strong>{skipRiskCount}</strong>
-          <small>Questions that students avoid often and may need simplification or better scaffolding</small>
+          <span>Visible skip risk</span>
+          <strong>{visibleSkipRiskCount}</strong>
+          <small>Current-page questions students may be skipping often enough to need editorial review</small>
         </article>
         <article className="builderSummaryCard">
-          <span>Emerging data</span>
-          <strong>{emergingCount}</strong>
-          <small>Questions with too little response volume to trust editorial conclusions yet</small>
+          <span>Visible emerging data</span>
+          <strong>{visibleEmergingCount}</strong>
+          <small>Current-page questions with limited response history and lower editorial confidence</small>
         </article>
       </section>
-
-      {passagePage?.results?.length ? (
-        <section className="contentCard">
-          <div className="sectionHeading">
-            <strong>Recent comprehension sets</strong>
-            <span>{passagePage.count} in current teacher scope</span>
-          </div>
-          <div className="questionBankList">
-            {passagePage.results.slice(0, 4).map((passage) => (
-              <article className="questionBankCard" key={passage.id}>
-                <div className="questionBankCardHeader">
-                  <div className="questionBankCardCopy">
-                    <strong>{passage.title}</strong>
-                    <div className="questionBankChipRow">
-                      <span className="questionBankMetaChip">{passage.content_format}</span>
-                      <span className="questionBankMetaChip">{passage.linked_question_count} linked</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="questionBankCardFooter">
-                  <div className="questionBankCardMetaNote">
-                    <span>{summarizeRichText(passage.description, "No teacher note added yet.")}</span>
-                  </div>
-                  <div className="questionBankCardActions">
-                    <Link className="button buttonSecondary" href={`/teacher/question-bank/comprehension/${passage.id}`}>
-                      Open Set
-                    </Link>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-      ) : null}
 
       <TeacherQuestionBankWorkspace
         key={[validProgram, validSubject, validTopic, search, tag, questionType, difficultyLevel, qualitySignal, revisionPriority, ordering, missingExplanation ? "1" : "0", page].join(":")}
@@ -623,8 +575,9 @@ export default async function TeacherQuestionBankPage({
         hasPreviousPage={Boolean(questionPage.previous)}
         canLinkSharedLibrary={false}
         sharedLibraryMode="request_only"
-        masterLibraryLoadError={masterLibraryLoadError}
-        masterLibraryQuestions={masterLibraryPage?.results ?? []}
+        deferMasterLibraryBootstrap={hasSharedLibraryAccess}
+        masterLibraryPage={libraryPage}
+        masterLibraryPageSize={libraryPageSize}
         sharedLibraryDisabledMessage={sharedLibraryDisabledMessage}
         page={page}
         programs={programs}
@@ -638,5 +591,15 @@ export default async function TeacherQuestionBankPage({
         totalCount={questionPage.count}
       />
     </div>
+  );
+}
+
+export default function TeacherQuestionBankPage(props: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  return (
+    <Suspense fallback={<TeacherQuestionBankLoadingShell />}>
+      <TeacherQuestionBankPageContent {...props} />
+    </Suspense>
   );
 }

@@ -19,7 +19,7 @@ class SeedInstituteAcademicsCommandTestCase(TestCase):
         call_command("seed_institute_academics", "SCH001", stdout=stdout)
 
         self.assertEqual(Subject.objects.filter(institute=self.institute).count(), 5)
-        self.assertEqual(Topic.objects.filter(institute=self.institute).count(), 96)
+        self.assertEqual(Topic.objects.filter(institute=self.institute).count(), 102)
         self.assertIn("Institute academics seeded for SCH001", stdout.getvalue())
 
     def test_seed_institute_academics_rejects_public_hub(self):

@@ -269,6 +269,10 @@ export function TeacherQuestionEditor({
     }
 
     if (!programId) {
+      setLoadedSubjects([]);
+      setLoadedTopics([]);
+      setLoadedPassages([]);
+      setLookupLoading(false);
       return;
     }
 
@@ -684,9 +688,7 @@ export function TeacherQuestionEditor({
                 </select>
                 <small>
                   {programId
-                    ? lookupLoading
-                      ? "Loading subjects for the selected program."
-                      : "Only subjects mapped to the selected program are shown."
+                    ? "Only subjects mapped to the selected program are shown."
                     : "Program selection unlocks the correct subject list."}
                 </small>
                 {subjectError ? <small className="setupFieldError">{subjectError}</small> : null}

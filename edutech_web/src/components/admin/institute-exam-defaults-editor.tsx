@@ -134,12 +134,14 @@ function firstError(value: unknown) {
 
 export function InstituteExamDefaultsEditor({
   instituteId,
+  savePath,
   initialDefaults,
   optionGroups,
   assessmentFamilies,
   compact = false,
 }: {
   instituteId: string;
+  savePath?: string;
   initialDefaults: InstituteExamDefaults;
   optionGroups: ExamDefaultOptionGroups;
   assessmentFamilies: AssessmentFamilyRecord[];
@@ -246,7 +248,7 @@ export function InstituteExamDefaultsEditor({
           ...form,
         },
       };
-      const response = await fetch(`/api/admin/institutes/${instituteId}`, {
+      const response = await fetch(savePath ?? `/api/admin/institutes/${instituteId}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",

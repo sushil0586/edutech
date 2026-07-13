@@ -1,9 +1,37 @@
 import { type Page } from "@playwright/test";
 
 const NEXT_FALLBACK_HEADING = /this page couldn[’']t load/i;
+const NEXT_FALLBACK_RELOAD_BUTTON = /^reload$/i;
 
 async function isTransientFallbackPage(page: Page) {
   return page.getByRole("heading", { name: NEXT_FALLBACK_HEADING }).first().isVisible().catch(() => false);
+}
+
+async function recoverTransientFallbackPage(page: Page) {
+  const reloadButton = page.getByRole("button", { name: NEXT_FALLBACK_RELOAD_BUTTON }).first();
+
+  if (await reloadButton.isVisible().catch(() => false)) {
+    await reloadButton.click();
+    await page.waitForLoadState("domcontentloaded").catch(() => null);
+    return;
+  }
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+}
+
+async function waitForFallbackToSettle(page: Page, milliseconds = 3000) {
+  const interval = 500;
+  const attempts = Math.max(1, Math.ceil(milliseconds / interval));
+
+  for (let index = 0; index < attempts; index += 1) {
+    if (!(await isTransientFallbackPage(page))) {
+      return false;
+    }
+
+    await page.waitForTimeout(interval);
+  }
+
+  return await isTransientFallbackPage(page);
 }
 
 export async function gotoWithRuntimeRecovery(page: Page, url: string, attempts = 4) {
@@ -12,6 +40,7 @@ export async function gotoWithRuntimeRecovery(page: Page, url: string, attempts 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
       await page.goto(url, { waitUntil: "domcontentloaded" });
+      await page.waitForLoadState("load").catch(() => null);
     } catch (error) {
       lastError = error;
       const message = error instanceof Error ? error.message : String(error);
@@ -23,17 +52,19 @@ export async function gotoWithRuntimeRecovery(page: Page, url: string, attempts 
         throw error;
       }
 
-      await page.waitForTimeout(1500 * attempt);
+      await page.waitForTimeout(1000 * attempt);
       continue;
     }
 
-    if (!(await isTransientFallbackPage(page))) {
+    if (!(await waitForFallbackToSettle(page))) {
       return;
     }
 
     lastError = new Error(`Transient Next fallback page rendered for ${url}`);
     if (attempt < attempts) {
-      await page.waitForTimeout(500 * attempt);
+      await recoverTransientFallbackPage(page);
+      await page.waitForLoadState("load").catch(() => null);
+      await page.waitForTimeout(1000 * attempt);
     }
   }
 

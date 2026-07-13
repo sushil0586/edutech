@@ -172,7 +172,7 @@ test.describe("Teacher mutable exam detail actions", () => {
       await page.goto(examDetailBaseUrl);
 
       await page.getByRole("combobox", { name: /access policy/i }).selectOption({
-        label: "Entitlement Only",
+        label: "Subscription Only",
       });
       await page.getByRole("spinbutton", { name: /star cost/i }).fill("0");
       await page.getByRole("textbox", { name: /entitlement code/i }).fill(entitlementCode);
@@ -180,7 +180,7 @@ test.describe("Teacher mutable exam detail actions", () => {
       await page.getByRole("button", { name: /save access policy/i }).click();
       await expect(page).toHaveURL(/\/teacher\/exams\/.+\?message=/);
       await expect(page.getByText(/exam access policy updated successfully/i)).toBeVisible();
-      await expect(page.getByRole("combobox", { name: /access policy/i })).toHaveValue("entitlement_only");
+      await expect(page.getByRole("combobox", { name: /access policy/i })).toHaveValue("subscription_only");
       await expect(page.getByRole("textbox", { name: /entitlement code/i })).toHaveValue(entitlementCode);
       await expect(page.getByRole("spinbutton", { name: /priority/i })).toHaveValue(updatedPriority);
 

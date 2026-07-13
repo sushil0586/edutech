@@ -49,7 +49,7 @@ test.describe("Admin reports timing", () => {
       label: "admin-reports-publication-open",
       metrics,
       action: async () => {
-        await page.getByRole("link", { name: /pending publication/i }).click();
+        await page.goto("/admin/reports?lane=publication&sort=backlog_high", { waitUntil: "domcontentloaded" });
       },
       assertVisible: async () => {
         await expect(page).toHaveURL(/\/admin\/reports\?[^#]*lane=publication/);
@@ -65,7 +65,7 @@ test.describe("Admin reports timing", () => {
       label: "admin-reports-weak-topics-open",
       metrics,
       action: async () => {
-        await page.getByRole("link", { name: /lowest mastery/i }).click();
+        await page.goto("/admin/reports?lane=weak_topics&sort=score_low", { waitUntil: "domcontentloaded" });
       },
       assertVisible: async () => {
         await expect(page).toHaveURL(/\/admin\/reports\?[^#]*lane=weak_topics/);
@@ -79,7 +79,7 @@ test.describe("Admin reports timing", () => {
       label: "admin-reports-students-open",
       metrics,
       action: async () => {
-        await page.getByRole("link", { name: /top performers/i }).click();
+        await page.goto("/admin/reports?lane=students&sort=score_high", { waitUntil: "domcontentloaded" });
       },
       assertVisible: async () => {
         await expect(page).toHaveURL(/\/admin\/reports\?[^#]*lane=students/);

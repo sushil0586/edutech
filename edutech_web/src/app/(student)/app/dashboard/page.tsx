@@ -39,6 +39,52 @@ import {
   resolvePracticeFocusRecommendation,
 } from "@/lib/student/practice";
 
+function subscriptionAllowanceBadge(exam: {
+  economy_access: {
+    subscription_resolution?: {
+      is_applicable: boolean;
+      is_covered: boolean;
+      included_allowance: number;
+      remaining_allowance: number;
+    };
+  };
+}) {
+  const summary = exam.economy_access.subscription_resolution;
+  if (!summary?.is_applicable) {
+    return null;
+  }
+  if (summary.is_covered) {
+    return `${summary.remaining_allowance}/${summary.included_allowance} allowance left`;
+  }
+  return "Allowance exhausted";
+}
+
+function subscriptionAllowanceGuidance(exam: {
+  economy_access: {
+    can_unlock_with_stars?: boolean;
+    star_cost?: number;
+    subscription_resolution?: {
+      is_applicable: boolean;
+      is_covered: boolean;
+      included_allowance: number;
+      remaining_allowance: number;
+      reason_message: string;
+    };
+  };
+}) {
+  const summary = exam.economy_access.subscription_resolution;
+  if (!summary?.is_applicable) {
+    return null;
+  }
+  if (summary.is_covered) {
+    return `Subscription-covered. ${summary.remaining_allowance} of ${summary.included_allowance} allowance attempts remain in this billing cycle.`;
+  }
+  if (exam.economy_access.can_unlock_with_stars && exam.economy_access.star_cost) {
+    return `Subscription allowance is exhausted for this billing cycle, but this exam can still be unlocked with ${exam.economy_access.star_cost} stars.`;
+  }
+  return summary.reason_message || "Subscription allowance is exhausted for this billing cycle.";
+}
+
 function getContextValue(context: Record<string, unknown> | undefined, key: string) {
   const value = context?.[key];
   return typeof value === "string" ? value.trim() : "";
@@ -617,12 +663,28 @@ export default async function DashboardPage({
                 {recommendedExamSubjectLabel ? (
                   <StatusPill tone="demo">{recommendedExamSubjectLabel}</StatusPill>
                 ) : null}
+                {subscriptionAllowanceBadge(recommendedExam) ? (
+                  <StatusPill
+                    tone={
+                      recommendedExam.economy_access.subscription_resolution?.is_covered
+                        ? "live"
+                        : "warning"
+                    }
+                  >
+                    {subscriptionAllowanceBadge(recommendedExam)}
+                  </StatusPill>
+                ) : null}
               </div>
               <div className="studentDashboardMetaRow">
-              <span>{recommendedExamSubjectLabel}</span>
-              <span>{recommendedExam.duration_minutes} min</span>
-              <span>{examBadge(recommendedExam)}</span>
+                <span>{recommendedExamSubjectLabel}</span>
+                <span>{recommendedExam.duration_minutes} min</span>
+                <span>{examBadge(recommendedExam)}</span>
               </div>
+              {subscriptionAllowanceGuidance(recommendedExam) ? (
+                <small className="emptyText">
+                  {subscriptionAllowanceGuidance(recommendedExam)}
+                </small>
+              ) : null}
             </>
           ) : null}
           <div className="studentDashboardActionRow">
@@ -799,6 +861,17 @@ export default async function DashboardPage({
                     {exam.source_type === "teacher" && exam.source_teacher_name ? (
                       <StatusPill tone="demo">{exam.source_teacher_name}</StatusPill>
                     ) : null}
+                    {subscriptionAllowanceBadge(exam) ? (
+                      <StatusPill
+                        tone={
+                          exam.economy_access.subscription_resolution?.is_covered
+                            ? "live"
+                            : "warning"
+                        }
+                      >
+                        {subscriptionAllowanceBadge(exam)}
+                      </StatusPill>
+                    ) : null}
                   </div>
                   <div className="studentDashboardMetaRow">
                     <span>{exam.exam_type.replaceAll("_", " ")}</span>
@@ -811,6 +884,9 @@ export default async function DashboardPage({
                       </span>
                     ) : null}
                   </div>
+                  {subscriptionAllowanceGuidance(exam) ? (
+                    <small className="emptyText">{subscriptionAllowanceGuidance(exam)}</small>
+                  ) : null}
                   <Link className="button buttonSecondary" href={actionHref}>
                     {actionLabel}
                   </Link>

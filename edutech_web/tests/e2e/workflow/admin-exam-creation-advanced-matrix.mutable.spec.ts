@@ -1,11 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
-import { loginAsRole, testRequiresRole } from "../helpers/auth";
+import { loginAsRole, loginWithCredentials, testRequiresRole } from "../helpers/auth";
 import {
   expectPreviewFamilyContract,
   fetchPrograms,
   type ProgramRegistryRecord,
 } from "../helpers/assessment-family";
-import { getRoleCredentials } from "../fixtures/env";
+import { awsStudentCredentials, familyRuntimeScenarios } from "../helpers/family-runtime";
 import { expectAdminWorkspace, expectStudentWorkspace } from "../helpers/navigation";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
 
@@ -29,8 +29,22 @@ const scenarios: AdminAdvancedScenario[] = [
   { examType: "mock_exam" },
 ];
 
+const deterministicAdvancedBuilderScenario =
+  familyRuntimeScenarios.find((scenario) => scenario.presetId === "aws_practitioner") ??
+  familyRuntimeScenarios[0]!;
+
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+async function waitForPrimarySubjectTopics(page: Page) {
+  const firstTopicSelect = page.locator(".advancedBuilderTopicRow").first().locator("select");
+  await expect
+    .poll(async () => firstTopicSelect.locator("option").count(), {
+      timeout: 30000,
+      message: "Expected the advanced builder topic selector to load real topic options.",
+    })
+    .toBeGreaterThan(1);
 }
 
 async function backendAccessToken(page: Page) {
@@ -53,11 +67,8 @@ async function deleteAdminExamDirectly(page: Page, examId: string) {
 }
 
 async function resolveStudentDisplayName(page: Page) {
-  const studentCredentials = getRoleCredentials("student");
-  expect(studentCredentials).not.toBeNull();
-
-  let studentDisplayName = studentCredentials!.username;
-  await loginAsRole(page, "student");
+  let studentDisplayName = awsStudentCredentials.username;
+  await loginWithCredentials(page, awsStudentCredentials, "student");
   await expectStudentWorkspace(page);
 
   await page.goto("/app/profile");
@@ -90,21 +101,49 @@ async function createAdminAdvancedExam(
   await page.goto("/admin/exams/advanced");
   await expect(page.getByRole("heading", { name: /advanced exam builder/i }).first()).toBeVisible();
 
+  await page.getByLabel(/select template institute/i).selectOption("Demo Learning Institute (DLI001)");
+  await page.getByRole("button", { name: /^apply$/i }).click();
+  await expect(page.getByText(/Demo Learning Institute template scope/i)).toBeVisible();
+
   const instituteId = await page.getByLabel(/select template institute/i).inputValue();
   expect(instituteId).not.toBe("");
   await expect(page.getByText(/not found in the selected institute/i)).toHaveCount(0);
-  const selectedProgramId = await page.getByRole("combobox", { name: /^program/i }).first().inputValue();
+
+  const academicYearSelect = page
+    .locator(".advancedBuilderField")
+    .filter({ has: page.getByText(/^Academic year$/i) })
+    .locator("select");
+  const programSelect = page
+    .locator(".advancedBuilderField")
+    .filter({ has: page.getByText(/^Program$/i) })
+    .locator("select");
+  const subjectSelect = page
+    .locator(".advancedBuilderField")
+    .filter({ has: page.getByText(/^Primary subject$/i) })
+    .locator("select");
+
+  const hasCanonicalFamilyAcademicYear = await academicYearSelect.evaluate((element) => {
+    const select = element as HTMLSelectElement;
+    return Array.from(select.options).some((option) => option.label.trim() === "2026-2027");
+  });
+  if (hasCanonicalFamilyAcademicYear) {
+    await academicYearSelect.selectOption({ label: "2026-2027" });
+    await expect(academicYearSelect).toHaveValue(/\S+/);
+  }
+  await programSelect.selectOption({ label: deterministicAdvancedBuilderScenario.programLabel });
+  await expect(programSelect).toHaveValue(/\S+/);
+  await subjectSelect.selectOption({ label: deterministicAdvancedBuilderScenario.subjectLabel });
+  await expect(subjectSelect).toHaveValue(/\S+/);
+  await waitForPrimarySubjectTopics(page);
+
+  const selectedProgramId = await programSelect.inputValue();
   const availablePrograms = await fetchPrograms(page, instituteId);
   const selectedProgram = availablePrograms.find((program) => program.id === selectedProgramId) ?? null;
 
-  const programOptions = await page
-    .getByRole("combobox", { name: /^program/i })
-    .first()
+  const programOptions = await programSelect
     .locator("option")
     .evaluateAll((options) => options.map((option) => (option as HTMLOptionElement).value).filter(Boolean));
-  const subjectOptions = await page
-    .getByRole("combobox", { name: /^subject$/i })
-    .first()
+  const subjectOptions = await subjectSelect
     .locator("option")
     .evaluateAll((options) => options.map((option) => (option as HTMLOptionElement).value).filter(Boolean));
   expect(programOptions.length).toBeGreaterThan(0);
@@ -131,6 +170,13 @@ async function createAdminAdvancedExam(
   }
 
   const firstTopicRow = firstSectionCard.locator(".advancedBuilderTopicRow").first();
+  await expect
+    .poll(async () => firstTopicRow.locator("select").locator("option").count(), {
+      timeout: 30000,
+      message: "Expected the advanced builder topic selector to load real topic options.",
+    })
+    .toBeGreaterThan(1);
+  await firstTopicRow.locator("select").selectOption({ index: 1 });
   await firstTopicRow.locator('input[type="number"]').fill("1");
 
   const previewResponsePromise = page.waitForResponse((response) =>
@@ -200,8 +246,14 @@ async function assignStudentToAdminExam(page: Page, examId: string, studentDispl
       await studentCheckboxes.nth(index).uncheck().catch(() => null);
     }
     await matchingStudentRow.locator('input[name="student_ids"]').check();
+    if (studentCount > 1) {
+      await studentCheckboxes.nth(1).check().catch(() => null);
+    }
   } else {
     await studentCheckboxes.first().check();
+    if (studentCount > 1) {
+      await studentCheckboxes.nth(1).check().catch(() => null);
+    }
   }
 
   await assignmentForm.getByRole("button", { name: /save assignment/i }).click();
@@ -239,7 +291,7 @@ async function expectAdminVisibility(
 
   await page.goto(`/admin/exams/${examId}`);
   await expect(page.getByText(/assigned students/i).first()).toBeVisible();
-  await expect(page.getByText(/^\d+\s+learners$/i).first()).toBeVisible();
+  await expect(page.getByText(/^\d+\s+learners?$/i).first()).toBeVisible();
   await expect(page.getByText(/this exam currently has no directly assigned students\./i)).not.toBeVisible();
 }
 

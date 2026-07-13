@@ -1,8 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
-import { getRoleCredentials } from "../fixtures/env";
 import { expectInstituteWorkspace, expectStudentWorkspace } from "../helpers/navigation";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
+import {
+  resolveStudentProfileScope,
+  selectOptionByLabelFragment,
+  type StudentProfileScope,
+} from "../helpers/student-scope";
 
 const mutableExamActionsEnabled = isMutableLaneEnabled(
   "PLAYWRIGHT_ENABLE_MUTABLE_EXAM_ACTIONS",
@@ -62,39 +66,29 @@ async function deleteInstituteExam(page: Page, examId: string) {
   expect(proxyResponse.ok()).toBe(true);
 }
 
-async function resolveStudentDisplayName(page: Page) {
-  const studentCredentials = getRoleCredentials("student");
-  expect(studentCredentials).not.toBeNull();
-
-  let studentDisplayName = studentCredentials!.username;
-  await loginAsRole(page, "student");
-  await expectStudentWorkspace(page);
-
-  await page.goto("/app/profile");
-  await expect(page.getByRole("heading", { name: /^profile$/i }).first()).toBeVisible();
-  const identityCard = page.locator(".detailCard").filter({
-    has: page.getByText(/^name$/i),
-  }).first();
-  if (await identityCard.count()) {
-    const renderedName = (await identityCard.locator("strong").first().textContent())?.trim();
-    if (renderedName) {
-      studentDisplayName = renderedName;
-    }
-  }
-
-  return studentDisplayName;
-}
-
 async function createInstituteWizardExam(
   page: Page,
   scenario: InstituteWizardScenario,
   uniqueSeed: number,
+  studentScope: StudentProfileScope,
 ) {
   const examTitle = `PW Institute ${scenario.examType} ${uniqueSeed}`;
   const examCode = `PW-IW-${scenario.examType.slice(0, 2).toUpperCase()}-${uniqueSeed}`;
 
   await page.goto("/institute/exams/new");
   await expect(page.getByRole("heading", { name: /create exam/i }).first()).toBeVisible();
+  if (studentScope.academicYearName) {
+    await selectOptionByLabelFragment(
+      page.getByRole("combobox", { name: /academic year/i }),
+      studentScope.academicYearName,
+    );
+  }
+  if (studentScope.programName) {
+    await selectOptionByLabelFragment(
+      page.getByRole("combobox", { name: /^program/i }),
+      studentScope.programName,
+    );
+  }
   await page.getByRole("textbox", { name: /exam title/i }).fill(examTitle);
   await page.getByRole("textbox", { name: /exam code/i }).fill(examCode);
   await page.getByRole("button", { name: /^continue$/i }).click();
@@ -237,21 +231,11 @@ async function expectInstituteVisibility(
   examType: InstituteWizardScenario["examType"],
   studentDisplayName: string,
 ) {
-  await page.goto("/institute/exams");
-  await expect(page.getByRole("heading", { name: /exam management/i }).first()).toBeVisible();
-
-  const examCard = page.locator(".examCard").filter({
-    has: page.getByText(new RegExp(escapeRegExp(examTitle), "i")),
-  }).first();
-  await expect(examCard).toBeVisible();
-  await expect(
-    examCard
-      .locator(".questionBankTagChip")
-      .filter({ hasText: new RegExp(`^${escapeRegExp(examType.replaceAll("_", " "))}$`, "i") })
-      .first(),
-  ).toBeVisible();
-
   await page.goto(`/institute/exams/${examId}`);
+  await expect(
+    page.getByRole("heading", { name: new RegExp(escapeRegExp(examTitle), "i") }).first(),
+  ).toBeVisible();
+  await expect(page.getByText(new RegExp(`^${escapeRegExp(examType.replaceAll("_", " "))}$`, "i")).first()).toBeVisible();
   await expect(page.getByText(/assigned students/i).first()).toBeVisible();
   await expect(page.getByText(new RegExp(escapeRegExp(studentDisplayName), "i")).first()).toBeVisible();
 }
@@ -295,24 +279,24 @@ test.describe("Institute exam creation wizard matrix", () => {
       const uniqueSeed = Date.now();
       const sectionName = `PW Section ${scenario.examType} ${uniqueSeed}`;
       let examId: string | null = null;
-      const studentDisplayName = await resolveStudentDisplayName(page);
+      const studentScope = await resolveStudentProfileScope(page);
 
       try {
         await loginAsRole(page, "institute");
         await expectInstituteWorkspace(page);
 
-        const created = await createInstituteWizardExam(page, scenario, uniqueSeed);
+        const created = await createInstituteWizardExam(page, scenario, uniqueSeed, studentScope);
         examId = created.examId;
 
         await addOneSectionAndQuestion(page, examId, sectionName);
-        await assignStudentToInstituteExam(page, examId, studentDisplayName);
+        await assignStudentToInstituteExam(page, examId, studentScope.displayName);
         await scheduleAndPublishInstituteExam(page, examId);
         await expectInstituteVisibility(
           page,
           examId,
           created.examTitle,
           scenario.examType,
-          studentDisplayName,
+          studentScope.displayName,
         );
         await expectStudentVisibility(
           page,

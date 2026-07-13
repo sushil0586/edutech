@@ -9,7 +9,7 @@ import { StudentPageHeader } from "@/components/ui/student-page-header";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { StudentWorkspaceLink as Link } from "@/components/ui/student-workspace-link";
 import {
-  fetchStudentAvailableExams,
+  fetchStudentPracticeFollowUpExams,
   fetchStudentResults,
   getStudentApiState,
   spendStarsForContent,
@@ -278,7 +278,7 @@ async function loadResults() {
   try {
     const [results, exams] = await Promise.all([
       fetchStudentResults(),
-      fetchStudentAvailableExams(),
+      fetchStudentPracticeFollowUpExams(),
     ]);
     return {
       source: "live" as const,

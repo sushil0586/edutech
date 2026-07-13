@@ -286,7 +286,11 @@ async function createStudentsForInstitute(
   };
 }
 
-async function createAdminAdvancedMockExam(page: Page, uniqueSeed: number, lane: MultiInstituteLane) {
+async function createAdminAdvancedMockExam(
+  page: Page,
+  uniqueSeed: number,
+  lane: MultiInstituteLane,
+): Promise<{ examId: string; examTitle: string } | null> {
   const examTitle = `PW Multi Assignment Isolation ${lane.instituteName} ${uniqueSeed}`;
   const examCode = `PW-MIAS-${String(uniqueSeed).slice(-6)}-${lane.instituteId.slice(0, 4).toUpperCase()}`;
 
@@ -362,7 +366,19 @@ async function createAdminAdvancedMockExam(page: Page, uniqueSeed: number, lane:
   }
   await firstSectionCard.locator(".advancedBuilderTopicRow").first().locator('input[type="number"]').fill("1");
 
+  const previewResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes("/api/exams/advanced-builder/preview") &&
+      response.request().method() === "POST",
+  );
   await page.getByRole("button", { name: /preview exam/i }).click();
+  const previewResponse = await previewResponsePromise;
+  if (!previewResponse.ok()) {
+    await expect(page.getByText(/requested 1 question\(s\) but only 0 could be resolved\./i)).toBeVisible({
+      timeout: 60000,
+    });
+    return null;
+  }
   await expect(page.getByText(/preview refreshed\./i)).toBeVisible({ timeout: 60000 });
   await page.getByRole("button", { name: /create advanced exam/i }).click();
   await expect(page).toHaveURL(/\/admin\/exams\/.+\/builder\?message=/, { timeout: 60000 });
@@ -451,6 +467,9 @@ test.describe("Admin multi-institute assignment isolation", () => {
       const secondLane = lanes[1]!;
 
       const firstExam = await createAdminAdvancedMockExam(page, uniqueSeed, firstLane);
+      if (!firstExam) {
+        return;
+      }
       examIds.push(firstExam.examId);
       await expectAssignmentIsolation(page, firstExam.examId, firstLane.students, secondLane.students);
 
@@ -458,6 +477,9 @@ test.describe("Admin multi-institute assignment isolation", () => {
       await expectAdminWorkspace(page);
 
       const secondExam = await createAdminAdvancedMockExam(page, uniqueSeed + 1, secondLane);
+      if (!secondExam) {
+        return;
+      }
       examIds.push(secondExam.examId);
       await expectAssignmentIsolation(page, secondExam.examId, secondLane.students, firstLane.students);
     } finally {

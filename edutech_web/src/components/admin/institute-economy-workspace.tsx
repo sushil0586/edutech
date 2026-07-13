@@ -5,6 +5,7 @@ import type {
   EconomyOperatorPolicy,
   StudentPaymentOrder,
   StudentRewardEvent,
+  StudentSubscription,
   StudentUnlockState,
   StudentWalletSummary,
 } from "@/features/dashboard/types";
@@ -19,6 +20,7 @@ type StudentOption = {
 type WalletResponse = StudentWalletSummary;
 type RewardResponse = StudentRewardEvent[];
 type OrderResponse = StudentPaymentOrder[];
+type SubscriptionResponse = StudentSubscription[];
 type UnlockRefreshResponse = {
   data?: StudentUnlockState[];
   message?: string;
@@ -43,22 +45,30 @@ function titleCase(value: string) {
 }
 
 export function InstituteEconomyWorkspace({
+  initialOrders,
+  initialPolicy,
+  initialRewards,
   students,
   initialStudentId,
+  initialWallet,
 }: {
+  initialOrders?: StudentPaymentOrder[];
+  initialPolicy?: EconomyOperatorPolicy | null;
+  initialRewards?: StudentRewardEvent[];
   students: StudentOption[];
   initialStudentId: string | null;
+  initialWallet?: StudentWalletSummary | null;
 }) {
   const [studentStatusFilter, setStudentStatusFilter] = useState<"all" | "active" | "inactive">("active");
-  const [workspaceView, setWorkspaceView] = useState<"all" | "actions" | "wallet" | "activity" | "orders">("actions");
-  const [supportView, setSupportView] = useState<"all" | "wallet" | "rewards" | "unlocks" | "orders">("wallet");
+  const [workspaceView, setWorkspaceView] = useState<"all" | "actions" | "wallet" | "activity" | "orders">("all");
+  const [supportView, setSupportView] = useState<"all" | "wallet" | "rewards" | "unlocks" | "orders" | "subscriptions">("wallet");
   const [historyRows, setHistoryRows] = useState<"4" | "6" | "10">("4");
   const [studentId, setStudentId] = useState(initialStudentId ?? students[0]?.id ?? "");
-  const [reloadKey, setReloadKey] = useState(0);
-  const [wallet, setWallet] = useState<StudentWalletSummary | null>(null);
-  const [policy, setPolicy] = useState<EconomyOperatorPolicy | null>(null);
-  const [rewards, setRewards] = useState<StudentRewardEvent[]>([]);
-  const [orders, setOrders] = useState<StudentPaymentOrder[]>([]);
+  const [wallet, setWallet] = useState<StudentWalletSummary | null>(initialWallet ?? null);
+  const [policy, setPolicy] = useState<EconomyOperatorPolicy | null>(initialPolicy ?? null);
+  const [rewards, setRewards] = useState<StudentRewardEvent[]>(initialRewards ?? []);
+  const [orders, setOrders] = useState<StudentPaymentOrder[]>(initialOrders ?? []);
+  const [subscriptions, setSubscriptions] = useState<StudentSubscription[]>([]);
   const [refreshStates, setRefreshStates] = useState<StudentUnlockState[]>([]);
   const [reason, setReason] = useState("");
   const [stars, setStars] = useState("25");
@@ -70,6 +80,22 @@ export function InstituteEconomyWorkspace({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const previousStudentIdRef = useRef(studentId);
+  const walletCacheRef = useRef(
+    new Map<string, StudentWalletSummary | null>(
+      initialStudentId ? [[initialStudentId, initialWallet ?? null]] : [],
+    ),
+  );
+  const rewardsCacheRef = useRef(
+    new Map<string, StudentRewardEvent[]>(
+      initialStudentId ? [[initialStudentId, initialRewards ?? []]] : [],
+    ),
+  );
+  const ordersCacheRef = useRef(
+    new Map<string, StudentPaymentOrder[]>(
+      initialStudentId ? [[initialStudentId, initialOrders ?? []]] : [],
+    ),
+  );
+  const subscriptionsCacheRef = useRef(new Map<string, StudentSubscription[]>());
   const filteredStudents = useMemo(() => {
     if (studentStatusFilter === "active") {
       return students.filter((student) => student.is_active);
@@ -86,6 +112,7 @@ export function InstituteEconomyWorkspace({
   );
   const visibleRewards = rewards.slice(0, visibleHistoryRows);
   const visibleOrders = orders.slice(0, visibleHistoryRows);
+  const visibleSubscriptions = subscriptions.slice(0, visibleHistoryRows);
   const supportViewOptions = useMemo(() => {
     switch (workspaceView) {
       case "wallet":
@@ -94,7 +121,8 @@ export function InstituteEconomyWorkspace({
         return [
           { value: "rewards", label: "Rewards only" },
           { value: "unlocks", label: "Unlocks only" },
-          { value: "all", label: "Rewards and unlocks" },
+          { value: "subscriptions", label: "Subscriptions only" },
+          { value: "all", label: "All activity" },
         ] as const;
       case "orders":
         return [{ value: "orders", label: "Orders only" }] as const;
@@ -104,6 +132,7 @@ export function InstituteEconomyWorkspace({
           { value: "rewards", label: "Rewards context" },
           { value: "unlocks", label: "Unlock context" },
           { value: "orders", label: "Orders context" },
+          { value: "subscriptions", label: "Subscription context" },
           { value: "all", label: "All support context" },
         ] as const;
       case "all":
@@ -114,6 +143,7 @@ export function InstituteEconomyWorkspace({
           { value: "rewards", label: "Rewards only" },
           { value: "unlocks", label: "Unlocks only" },
           { value: "orders", label: "Orders only" },
+          { value: "subscriptions", label: "Subscriptions only" },
         ] as const;
     }
   }, [workspaceView]);
@@ -128,10 +158,40 @@ export function InstituteEconomyWorkspace({
   const showRewardsPanel = supportView === "all" || supportView === "rewards";
   const showUnlocksPanel = supportView === "all" || supportView === "unlocks";
   const showOrdersPanel = supportView === "all" || supportView === "orders";
+  const showSubscriptionsPanel = supportView === "all" || supportView === "subscriptions";
   const showActionPanel = workspaceView === "all" || workspaceView === "actions";
   const showWalletWorkspacePanel = workspaceView === "all" || workspaceView === "wallet";
   const showActivityWorkspacePanel = workspaceView === "all" || workspaceView === "activity";
   const showOrdersWorkspacePanel = workspaceView === "all" || workspaceView === "orders";
+  const showSubscriptionsWorkspacePanel = workspaceView === "all" || workspaceView === "activity";
+  const requiredStudentSections = useMemo(() => {
+    const sections: Array<"wallet" | "rewards" | "orders" | "subscriptions"> = [];
+
+    if (showWalletPanel && showWalletWorkspacePanel) {
+      sections.push("wallet");
+    }
+    if (showRewardsPanel && showActivityWorkspacePanel) {
+      sections.push("rewards");
+    }
+    if (showOrdersPanel && showOrdersWorkspacePanel) {
+      sections.push("orders");
+    }
+    if (showSubscriptionsPanel && showSubscriptionsWorkspacePanel) {
+      sections.push("subscriptions");
+    }
+
+    return sections;
+  }, [
+    showActivityWorkspacePanel,
+    showOrdersPanel,
+    showOrdersWorkspacePanel,
+    showRewardsPanel,
+    showSubscriptionsPanel,
+    showSubscriptionsWorkspacePanel,
+    showWalletPanel,
+    showWalletWorkspacePanel,
+  ]);
+  const requiredStudentSectionsKey = requiredStudentSections.join(",");
 
   useEffect(() => {
     if (!filteredStudents.length) {
@@ -152,41 +212,179 @@ export function InstituteEconomyWorkspace({
     }
   }, [supportView, supportViewOptions]);
 
-  useEffect(() => {
-    let cancelled = false;
+  async function fetchWallet(studentIdToLoad: string, signal?: AbortSignal) {
+    const response = await fetch(`/api/admin/economy/student/${studentIdToLoad}/wallet`, {
+      method: "GET",
+      cache: "no-store",
+      signal,
+    });
+    const body = (await response.json().catch(() => ({}))) as WalletResponse & {
+      detail?: string;
+    };
 
-    async function loadPolicy() {
-      try {
-        const response = await fetch("/api/admin/economy/policy", {
-          method: "GET",
-          cache: "no-store",
-        });
-        const body = (await response.json().catch(() => ({}))) as PolicyResponse & {
-          detail?: string;
-        };
-        if (!response.ok) {
-          throw new Error(
-            typeof body.detail === "string"
-              ? body.detail
-              : `Policy request failed with status ${response.status}`,
-          );
-        }
-        if (!cancelled) {
-          setPolicy(body);
-        }
-      } catch {
-        if (!cancelled) {
-          setPolicy(null);
-        }
-      }
+    if (!response.ok) {
+      throw new Error(
+        typeof body.detail === "string"
+          ? body.detail
+          : `Wallet request failed with status ${response.status}`,
+      );
     }
 
-    void loadPolicy();
+    return body;
+  }
 
-    return () => {
-      cancelled = true;
+  async function fetchRewards(studentIdToLoad: string, signal?: AbortSignal) {
+    const response = await fetch(`/api/admin/economy/student/${studentIdToLoad}/rewards`, {
+      method: "GET",
+      cache: "no-store",
+      signal,
+    });
+    const body = (await response.json().catch(() => [])) as RewardResponse & {
+      detail?: string;
     };
-  }, []);
+
+    if (!response.ok) {
+      const rewardDetail =
+        body && typeof body === "object" && "detail" in body
+          ? body.detail
+          : null;
+      throw new Error(
+        typeof rewardDetail === "string"
+          ? rewardDetail
+          : `Rewards request failed with status ${response.status}`,
+      );
+    }
+
+    return Array.isArray(body) ? body : [];
+  }
+
+  async function fetchOrders(studentIdToLoad: string, signal?: AbortSignal) {
+    const response = await fetch(`/api/admin/economy/student/${studentIdToLoad}/orders`, {
+      method: "GET",
+      cache: "no-store",
+      signal,
+    });
+    const body = (await response.json().catch(() => [])) as OrderResponse & {
+      detail?: string;
+    };
+
+    if (!response.ok) {
+      const orderDetail =
+        body && typeof body === "object" && "detail" in body
+          ? body.detail
+          : null;
+      throw new Error(
+        typeof orderDetail === "string"
+          ? orderDetail
+          : `Orders request failed with status ${response.status}`,
+      );
+    }
+
+    return Array.isArray(body) ? body : [];
+  }
+
+  async function fetchSubscriptions(studentIdToLoad: string, signal?: AbortSignal) {
+    const response = await fetch(`/api/admin/economy/student/${studentIdToLoad}/subscriptions`, {
+      method: "GET",
+      cache: "no-store",
+      signal,
+    });
+    const body = (await response.json().catch(() => [])) as SubscriptionResponse & {
+      detail?: string;
+    };
+
+    if (!response.ok) {
+      const detail =
+        body && typeof body === "object" && "detail" in body
+          ? body.detail
+          : null;
+      throw new Error(
+        typeof detail === "string"
+          ? detail
+          : `Subscriptions request failed with status ${response.status}`,
+      );
+    }
+
+    return Array.isArray(body) ? body : [];
+  }
+
+  function syncStudentEconomyFromCache(
+    studentIdToLoad: string,
+    sections: Array<"wallet" | "rewards" | "orders" | "subscriptions">,
+  ) {
+    if (sections.includes("wallet") && walletCacheRef.current.has(studentIdToLoad)) {
+      setWallet(walletCacheRef.current.get(studentIdToLoad) ?? null);
+    }
+    if (sections.includes("rewards") && rewardsCacheRef.current.has(studentIdToLoad)) {
+      setRewards(rewardsCacheRef.current.get(studentIdToLoad) ?? []);
+    }
+    if (sections.includes("orders") && ordersCacheRef.current.has(studentIdToLoad)) {
+      setOrders(ordersCacheRef.current.get(studentIdToLoad) ?? []);
+    }
+    if (sections.includes("subscriptions") && subscriptionsCacheRef.current.has(studentIdToLoad)) {
+      setSubscriptions(subscriptionsCacheRef.current.get(studentIdToLoad) ?? []);
+    }
+
+    setRefreshStates([]);
+  }
+
+  function getMissingStudentSections(
+    studentIdToLoad: string,
+    sections: Array<"wallet" | "rewards" | "orders" | "subscriptions">,
+  ) {
+    return sections.filter((section) => {
+      switch (section) {
+        case "wallet":
+          return !walletCacheRef.current.has(studentIdToLoad);
+        case "rewards":
+          return !rewardsCacheRef.current.has(studentIdToLoad);
+        case "orders":
+          return !ordersCacheRef.current.has(studentIdToLoad);
+        case "subscriptions":
+          return !subscriptionsCacheRef.current.has(studentIdToLoad);
+        default:
+          return false;
+      }
+    });
+  }
+
+  async function refreshStudentEconomy(args: {
+    studentId: string;
+    signal?: AbortSignal;
+    sections?: Array<"wallet" | "rewards" | "orders" | "subscriptions">;
+  }) {
+    const sections = args.sections ?? ["wallet", "rewards", "orders", "subscriptions"];
+    const shouldLoadWallet = sections.includes("wallet");
+    const shouldLoadRewards = sections.includes("rewards");
+    const shouldLoadOrders = sections.includes("orders");
+    const shouldLoadSubscriptions = sections.includes("subscriptions");
+
+    const [nextWallet, nextRewards, nextOrders, nextSubscriptions] = await Promise.all([
+      shouldLoadWallet ? fetchWallet(args.studentId, args.signal) : Promise.resolve(null),
+      shouldLoadRewards ? fetchRewards(args.studentId, args.signal) : Promise.resolve(null),
+      shouldLoadOrders ? fetchOrders(args.studentId, args.signal) : Promise.resolve(null),
+      shouldLoadSubscriptions ? fetchSubscriptions(args.studentId, args.signal) : Promise.resolve(null),
+    ]);
+
+    if (shouldLoadWallet) {
+      walletCacheRef.current.set(args.studentId, nextWallet);
+      setWallet(nextWallet);
+    }
+    if (shouldLoadRewards) {
+      rewardsCacheRef.current.set(args.studentId, nextRewards ?? []);
+      setRewards(nextRewards ?? []);
+    }
+    if (shouldLoadOrders) {
+      ordersCacheRef.current.set(args.studentId, nextOrders ?? []);
+      setOrders(nextOrders ?? []);
+    }
+    if (shouldLoadSubscriptions) {
+      subscriptionsCacheRef.current.set(args.studentId, nextSubscriptions ?? []);
+      setSubscriptions(nextSubscriptions ?? []);
+    }
+
+    setRefreshStates([]);
+  }
 
   useEffect(() => {
     if (!studentId) {
@@ -204,75 +402,28 @@ export function InstituteEconomyWorkspace({
         previousStudentIdRef.current = studentId;
       }
 
+      syncStudentEconomyFromCache(studentId, requiredStudentSections);
+
+      const missingSections = getMissingStudentSections(studentId, requiredStudentSections);
+      if (missingSections.length === 0) {
+        setLoading(false);
+        return;
+      }
+
       try {
-        const [walletResponse, rewardsResponse, ordersResponse] = await Promise.all([
-          fetch(`/api/admin/economy/student/${studentId}/wallet`, {
-            method: "GET",
-            cache: "no-store",
-          }),
-          fetch(`/api/admin/economy/student/${studentId}/rewards`, {
-            method: "GET",
-            cache: "no-store",
-          }),
-          fetch(`/api/admin/economy/student/${studentId}/orders`, {
-            method: "GET",
-            cache: "no-store",
-          }),
-        ]);
-
-        const walletBody = (await walletResponse.json().catch(() => ({}))) as WalletResponse & {
-          detail?: string;
-        };
-        const rewardsBody = (await rewardsResponse.json().catch(() => [])) as RewardResponse & {
-          detail?: string;
-        };
-        const ordersBody = (await ordersResponse.json().catch(() => [])) as OrderResponse & {
-          detail?: string;
-        };
-
-        if (!walletResponse.ok) {
-          throw new Error(
-            typeof walletBody.detail === "string"
-              ? walletBody.detail
-              : `Wallet request failed with status ${walletResponse.status}`,
-          );
-        }
-
-        if (!rewardsResponse.ok) {
-          const rewardDetail =
-            rewardsBody && typeof rewardsBody === "object" && "detail" in rewardsBody
-              ? rewardsBody.detail
-              : null;
-          throw new Error(
-            typeof rewardDetail === "string"
-              ? rewardDetail
-              : `Rewards request failed with status ${rewardsResponse.status}`,
-          );
-        }
-
-        if (!ordersResponse.ok) {
-          const orderDetail =
-            ordersBody && typeof ordersBody === "object" && "detail" in ordersBody
-              ? ordersBody.detail
-              : null;
-          throw new Error(
-            typeof orderDetail === "string"
-              ? orderDetail
-              : `Orders request failed with status ${ordersResponse.status}`,
-          );
-        }
-
         if (!cancelled) {
-          setWallet(walletBody);
-          setRewards(Array.isArray(rewardsBody) ? rewardsBody : []);
-          setOrders(Array.isArray(ordersBody) ? ordersBody : []);
-          setRefreshStates([]);
+          await refreshStudentEconomy({
+            signal: undefined,
+            sections: missingSections,
+            studentId,
+          });
         }
       } catch (loadError) {
         if (!cancelled) {
           setWallet(null);
           setRewards([]);
           setOrders([]);
+          setSubscriptions([]);
           setRefreshStates([]);
           setError(loadError instanceof Error ? loadError.message : "Unable to load student economy.");
         }
@@ -288,7 +439,7 @@ export function InstituteEconomyWorkspace({
     return () => {
       cancelled = true;
     };
-  }, [reloadKey, studentId]);
+  }, [requiredStudentSections, requiredStudentSectionsKey, studentId]);
 
   async function handleGrantStars() {
     if (!studentId) {
@@ -341,7 +492,10 @@ export function InstituteEconomyWorkspace({
       setReason("");
       setSourceReference("");
       setRefreshStates([]);
-      setReloadKey((value) => value + 1);
+      await refreshStudentEconomy({
+        studentId,
+        sections: ["wallet", "rewards"],
+      });
     } catch (grantError) {
       setError(grantError instanceof Error ? grantError.message : "Unable to grant stars.");
     } finally {
@@ -377,9 +531,8 @@ export function InstituteEconomyWorkspace({
 
       setRefreshStates(Array.isArray(body.data) ? body.data : []);
       setWorkspaceView("all");
-      setSupportView("all");
+      setSupportView("unlocks");
       setMessage(body.message ?? "Unlock states refreshed successfully.");
-      setReloadKey((value) => value + 1);
     } catch (refreshError) {
       setError(
         refreshError instanceof Error ? refreshError.message : "Unable to refresh unlock states.",
@@ -427,7 +580,10 @@ export function InstituteEconomyWorkspace({
       }
 
       setMessage(body.message ?? "Payment order completed successfully.");
-      setReloadKey((value) => value + 1);
+      await refreshStudentEconomy({
+        studentId,
+        sections: ["wallet", "orders"],
+      });
     } catch (confirmError) {
       setError(confirmError instanceof Error ? confirmError.message : "Unable to confirm the order.");
     } finally {
@@ -435,7 +591,10 @@ export function InstituteEconomyWorkspace({
     }
   }
 
-  const pendingOrders = orders.filter((order) => ["pending", "processing"].includes(order.status));
+  const hasOrdersForStudent = studentId ? ordersCacheRef.current.has(studentId) : false;
+  const pendingOrders = hasOrdersForStudent
+    ? orders.filter((order) => ["pending", "processing"].includes(order.status))
+    : [];
   const grantStarsDisabledByPolicy = policy ? !policy.can_grant_stars : false;
   const confirmOrdersDisabledByPolicy = policy ? !policy.can_confirm_orders : false;
   const grantLimitLabel =
@@ -488,7 +647,7 @@ export function InstituteEconomyWorkspace({
                 <option value="all">All sections</option>
                 <option value="actions">Support controls only</option>
                 <option value="wallet">Wallet only</option>
-                <option value="activity">Rewards and unlocks</option>
+                <option value="activity">Activity and subscriptions</option>
                 <option value="orders">Orders only</option>
               </select>
             </label>
@@ -514,7 +673,7 @@ export function InstituteEconomyWorkspace({
                 disabled={supportViewLocked}
                 onChange={(event) =>
                   setSupportView(
-                    event.target.value as "all" | "wallet" | "rewards" | "unlocks" | "orders",
+                    event.target.value as "all" | "wallet" | "rewards" | "unlocks" | "orders" | "subscriptions",
                   )
                 }
               >
@@ -557,8 +716,12 @@ export function InstituteEconomyWorkspace({
             </article>
             <article className="metricCard dashboardHeroCard">
               <span>Pending orders</span>
-              <strong>{pendingOrders.length}</strong>
-              <small>Settlement work waiting for operator review.</small>
+              <strong>{hasOrdersForStudent ? pendingOrders.length : "On demand"}</strong>
+              <small>
+                {hasOrdersForStudent
+                  ? "Settlement work waiting for operator review."
+                  : "Loads when the orders lane is visible."}
+              </small>
             </article>
           </div>
 
@@ -766,6 +929,80 @@ export function InstituteEconomyWorkspace({
                     <strong>{titleCase(state.status)}</strong>
                     <span>{formatDateTime(state.last_evaluated_at)}</span>
                   </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </article>
+      ) : null}
+
+      {showSubscriptionsPanel && showSubscriptionsWorkspacePanel ? (
+      <article className="dashboardPanel weakTopicsPanel">
+        <div className="studentPageTight">
+          <span className="studentDashboardTag">Subscription allowance</span>
+          <h3>Active plan, remaining quota, and recent consumption</h3>
+          {loading ? (
+            <div className="featurePlaceholder">
+              <p>Loading subscription allowance history...</p>
+            </div>
+          ) : subscriptions.length === 0 ? (
+            <div className="featurePlaceholder">
+              <p>No active or historical subscriptions are visible for the selected student.</p>
+            </div>
+          ) : (
+            <div className="weakTopicStack">
+              {visibleSubscriptions.map((subscription) => (
+                <div className="featurePlaceholder" key={subscription.id}>
+                  <strong>{subscription.plan_name}</strong>
+                  <p className="academicSectionDescription">
+                    {titleCase(subscription.status)} · {titleCase(subscription.billing_interval)} x {subscription.interval_count}
+                    {subscription.current_period_end
+                      ? ` · Current cycle ends ${formatDateTime(subscription.current_period_end)}`
+                      : ""}
+                  </p>
+                  <div className="resultsSummaryGrid">
+                    <article className="metricCard dashboardHeroCard">
+                      <span>Allowance included</span>
+                      <strong>{subscription.allowance_summary?.included_allowance ?? "--"}</strong>
+                      <small>Subscription-covered exam starts in this cycle.</small>
+                    </article>
+                    <article className="metricCard dashboardHeroCard">
+                      <span>Used this cycle</span>
+                      <strong>{subscription.allowance_summary?.used_allowance ?? "--"}</strong>
+                      <small>Allowance already consumed.</small>
+                    </article>
+                    <article className="metricCard dashboardHeroCard">
+                      <span>Remaining</span>
+                      <strong>{subscription.allowance_summary?.remaining_allowance ?? "--"}</strong>
+                      <small>Quota left before fallback access is needed.</small>
+                    </article>
+                  </div>
+                  {subscription.allowance_usage_entries.length ? (
+                    <div className="weakTopicStack">
+                      {subscription.allowance_usage_entries.slice(0, visibleHistoryRows).map((entry) => (
+                        <div className="weakTopicRow" key={entry.id}>
+                          <div>
+                            <strong>{entry.consumption_reason.replaceAll("_", " ")}</strong>
+                            <span>
+                              Exam {entry.exam ?? "unknown"} · Attempt {entry.attempt ?? "not linked"}
+                            </span>
+                            <span>
+                              Billing window {formatDateTime(entry.billing_period_start)} to {formatDateTime(entry.billing_period_end)}
+                            </span>
+                          </div>
+                          <div className="weakTopicMeta">
+                            <strong>{entry.consumed_count}</strong>
+                            <span>{formatDateTime(entry.consumed_at)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="featurePlaceholder">
+                      <p>No allowance consumption has been recorded for this subscription yet.</p>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

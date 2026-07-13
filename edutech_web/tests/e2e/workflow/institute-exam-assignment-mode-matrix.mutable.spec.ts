@@ -1,8 +1,12 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
-import { getRoleCredentials } from "../fixtures/env";
 import { expectInstituteWorkspace, expectStudentWorkspace } from "../helpers/navigation";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
+import {
+  resolveStudentProfileScope,
+  selectOptionByLabelFragment,
+  type StudentProfileScope,
+} from "../helpers/student-scope";
 
 const mutableExamActionsEnabled = isMutableLaneEnabled(
   "PLAYWRIGHT_ENABLE_MUTABLE_EXAM_ACTIONS",
@@ -75,35 +79,24 @@ async function fetchInstituteExamDetail(page: Page, examId: string) {
   };
 }
 
-async function resolveStudentDisplayName(page: Page) {
-  const studentCredentials = getRoleCredentials("student");
-  expect(studentCredentials).not.toBeNull();
-
-  let studentDisplayName = studentCredentials!.username;
-  await loginAsRole(page, "student");
-  await expectStudentWorkspace(page);
-
-  await page.goto("/app/profile");
-  await expect(page.getByRole("heading", { name: /^profile$/i }).first()).toBeVisible();
-  const identityCard = page.locator(".detailCard").filter({
-    has: page.getByText(/^name$/i),
-  }).first();
-  if (await identityCard.count()) {
-    const renderedName = (await identityCard.locator("strong").first().textContent())?.trim();
-    if (renderedName) {
-      studentDisplayName = renderedName;
-    }
-  }
-
-  return studentDisplayName;
-}
-
-async function createInstituteWizardExam(page: Page, uniqueSeed: number) {
+async function createInstituteWizardExam(page: Page, uniqueSeed: number, studentScope: StudentProfileScope) {
   const examTitle = `PW Institute Assignment Modes ${uniqueSeed}`;
   const examCode = `PW-IAM-${uniqueSeed}`;
 
   await page.goto("/institute/exams/new");
   await expect(page.getByRole("heading", { name: /create exam/i }).first()).toBeVisible();
+  if (studentScope.academicYearName) {
+    await selectOptionByLabelFragment(
+      page.getByRole("combobox", { name: /academic year/i }),
+      studentScope.academicYearName,
+    );
+  }
+  if (studentScope.programName) {
+    await selectOptionByLabelFragment(
+      page.getByRole("combobox", { name: /^program/i }),
+      studentScope.programName,
+    );
+  }
   await page.getByRole("textbox", { name: /exam title/i }).fill(examTitle);
   await page.getByRole("textbox", { name: /exam code/i }).fill(examCode);
   await page.getByRole("button", { name: /^continue$/i }).click();
@@ -216,13 +209,13 @@ test.describe("Institute exam assignment-mode matrix", () => {
 
     const uniqueSeed = Date.now();
     let examId: string | null = null;
-    const studentDisplayName = await resolveStudentDisplayName(page);
+    const studentScope = await resolveStudentProfileScope(page);
 
     try {
       await loginAsRole(page, "institute");
       await expectInstituteWorkspace(page);
 
-      const created = await createInstituteWizardExam(page, uniqueSeed);
+      const created = await createInstituteWizardExam(page, uniqueSeed, studentScope);
       examId = created.examId;
 
       const initialAssignmentForm = await openAssignmentForm(page, examId);
@@ -233,7 +226,7 @@ test.describe("Institute exam assignment-mode matrix", () => {
 
       for (const option of assignmentModes) {
         const assignmentForm = await openAssignmentForm(page, examId);
-        await saveAssignmentMode(page, assignmentForm, option, studentDisplayName);
+        await saveAssignmentMode(page, assignmentForm, option, studentScope.displayName);
 
         const persistedAssignmentForm = await openAssignmentForm(page, examId);
         await expect(persistedAssignmentForm.locator('select[name="assignment_mode"]')).toHaveValue(option.value);
@@ -244,14 +237,14 @@ test.describe("Institute exam assignment-mode matrix", () => {
         if (option.value === "selected_students") {
           expect(
             detail.assigned_students.some((student) =>
-              student.full_name.toLowerCase().includes(studentDisplayName.toLowerCase()),
+              student.full_name.toLowerCase().includes(studentScope.displayName.toLowerCase()),
             ),
           ).toBe(true);
         } else {
           expect(detail.assigned_students).toHaveLength(0);
         }
 
-        await expectDetailAssignmentState(page, examId, studentDisplayName, option);
+        await expectDetailAssignmentState(page, examId, studentScope.displayName, option);
       }
     } finally {
       if (examId) {

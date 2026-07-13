@@ -2,6 +2,20 @@ import { expect, test } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectAdminWorkspace } from "../helpers/navigation";
 
+function extractLeadingNumber(value: string | null) {
+  const match = value?.match(/\d+/);
+  return match ? Number(match[0]) : null;
+}
+
+function extractTrailingCount(value: string | null) {
+  const match = value?.match(/·\s*(\d+)\s*$/);
+  return match?.[1] ? Number(match[1]) : null;
+}
+
+function activeSectionPanel(page: import("@playwright/test").Page) {
+  return page.locator(".dashboardPanel.academicSectionPanel").last();
+}
+
 test.describe("Admin academic setup workspace", () => {
   test.skip(testRequiresRole("admin"), "Admin Playwright credentials are not configured.");
 
@@ -34,32 +48,41 @@ test.describe("Admin academic setup workspace", () => {
     await expect(showArchivedPrograms).toBeVisible();
     await showArchivedPrograms.check();
     await expect(showArchivedPrograms).toBeChecked();
-    await page.getByRole("button", { name: /add/i }).first().click();
+
+    const sectionSummary = page.locator(".adminPeopleActionBarCopy > span").last();
+    const visibleBadge = page.locator(".academicSectionHeader .setupFieldMeta").first();
+    const sectionSummaryCount = extractTrailingCount(await sectionSummary.textContent());
+    const visibleBadgeCount = extractLeadingNumber(await visibleBadge.textContent());
+    expect(sectionSummaryCount).not.toBeNull();
+    expect(visibleBadgeCount).not.toBeNull();
+    expect(sectionSummaryCount).toBe(visibleBadgeCount);
+
+    await activeSectionPanel(page).getByRole("button", { name: /^add$/i }).click();
     await expect(page.getByRole("dialog")).toBeVisible();
     await expect(page.getByRole("heading", { name: /add programs/i })).toBeVisible();
     await expect(page.getByLabel(/program name/i)).toBeVisible();
     await expect(page.getByLabel(/assessment family/i)).toBeVisible();
     await page.getByRole("button", { name: /cancel|close/i }).last().click();
     await expect(page.getByRole("dialog")).toHaveCount(0);
-    await expect(page.getByRole("button", { name: /add/i }).first()).toBeVisible();
+    await expect(activeSectionPanel(page).getByRole("button", { name: /^add$/i })).toBeVisible();
 
     await page.getByRole("link", { name: /subjects/i }).first().click();
     await expect(page).toHaveURL(/section=subjects/);
     await expect(page.getByText(/^subjects$/i).first()).toBeVisible();
-    await page.getByRole("button", { name: /add/i }).first().click();
+    await activeSectionPanel(page).getByRole("button", { name: /^add$/i }).click();
     await expect(page.getByRole("dialog")).toBeVisible();
     await expect(page.getByRole("heading", { name: /add subjects/i })).toBeVisible();
     await expect(page.getByLabel(/subject name/i)).toBeVisible();
     await expect(page.getByLabel(/subject code/i)).toBeVisible();
     await page.getByRole("button", { name: /cancel|close/i }).last().click();
     await expect(page.getByRole("dialog")).toHaveCount(0);
-    await expect(page.getByRole("button", { name: /add/i }).first()).toBeVisible();
+    await expect(activeSectionPanel(page).getByRole("button", { name: /^add$/i })).toBeVisible();
 
     await page.getByRole("link", { name: /topics/i }).first().click();
     await expect(page).toHaveURL(/section=topics/);
     await expect(page.getByText(/^topics$/i).first()).toBeVisible();
-    await expect(page.getByRole("button", { name: /add/i }).first()).toBeVisible();
-    await page.getByRole("button", { name: /add/i }).first().click();
+    await expect(activeSectionPanel(page).getByRole("button", { name: /^add$/i })).toBeVisible();
+    await activeSectionPanel(page).getByRole("button", { name: /^add$/i }).click();
     await expect(page.getByRole("dialog")).toBeVisible();
     await expect(page.getByRole("heading", { name: /add topics/i })).toBeVisible();
     await expect(page.getByLabel(/difficulty/i)).toBeVisible();

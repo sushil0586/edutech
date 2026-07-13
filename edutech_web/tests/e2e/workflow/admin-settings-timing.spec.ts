@@ -46,8 +46,10 @@ test.describe("Admin settings timing", () => {
       },
     });
 
-    await page.locator('a[href="/admin/people"]').first().click();
-    await expect(page).toHaveURL(/\/admin\/people(?:\?.*)?$/);
+    await Promise.all([
+      page.waitForURL(/\/admin\/people(?:\?.*)?$/),
+      page.getByRole("link", { name: /manage people/i }).click(),
+    ]);
 
     await measureTiming({
       label: "admin-settings-return-from-people",
@@ -61,8 +63,10 @@ test.describe("Admin settings timing", () => {
       },
     });
 
-    await page.locator('a[href="/admin/academic-setup"]').first().click();
-    await expect(page).toHaveURL(/\/admin\/academic-setup(?:\?.*)?$/);
+    await Promise.all([
+      page.waitForURL(/\/admin\/academic-setup(?:\?.*)?$/),
+      page.getByRole("link", { name: /manage academics/i }).click(),
+    ]);
 
     await measureTiming({
       label: "admin-settings-return-from-academics",

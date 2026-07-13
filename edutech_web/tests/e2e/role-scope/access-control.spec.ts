@@ -1,5 +1,6 @@
 import { expect, Page, test } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
+import { expectStudentWorkspace, expectTeacherWorkspace } from "../helpers/navigation";
 
 async function expectRedirectToLogin(pathname: string, page: Page) {
   await page.goto(pathname);
@@ -17,6 +18,11 @@ async function expectBlockedRoleRedirect(pathname: string, allowedTargets: RegEx
 }
 
 test.describe("Role and access control", () => {
+  test.skip(
+    testRequiresRole("teacher") || testRequiresRole("student"),
+    "Teacher and student Playwright credentials are required.",
+  );
+
   test("anonymous user is redirected from institute results to login", async ({ page }) => {
     await expectRedirectToLogin("/institute/results", page);
   });
@@ -57,6 +63,22 @@ test.describe("Role and access control", () => {
       [/\/login(?:\?|$)/, /\/app\/dashboard(?:\?|$)/],
       page,
     );
+  });
+
+  test("browser session can switch cleanly between teacher and student workspaces", async ({ page }) => {
+    await loginAsRole(page, "teacher");
+    await expectTeacherWorkspace(page);
+
+    await loginAsRole(page, "student");
+    await expectStudentWorkspace(page);
+    await page.goto("/app/exams");
+    await expect(page).toHaveURL(/\/app\/exams(?:\?.*)?$/);
+    await expect(page.getByRole("heading", { name: /mock tests/i }).first()).toBeVisible();
+
+    await loginAsRole(page, "teacher");
+    await expectTeacherWorkspace(page);
+    await page.goto("/teacher/dashboard");
+    await expect(page.getByRole("heading", { name: /dashboard/i }).first()).toBeVisible();
   });
 
   test.skip(testRequiresRole("institute"), "Institute Playwright credentials are not configured.");

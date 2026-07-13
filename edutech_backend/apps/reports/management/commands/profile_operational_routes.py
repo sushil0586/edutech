@@ -347,6 +347,16 @@ class Command(BaseCommand):
                 "user": institute_admin_user,
                 "path": "/api/v1/economy/admin/institute-question-bank-entitlements/",
             },
+            {
+                "label": "institute_scoped_question_bank_feature_entitlements",
+                "user": teacher_user,
+                "path": "/api/v1/economy/admin/institute-question-bank-feature-entitlements/",
+            },
+            {
+                "label": "question_bank_import_template",
+                "user": teacher_user,
+                "path": "/api/v1/question-bank/questions/import-template/",
+            },
         ]
         if teacher_exam_id is not None:
             routes.append(

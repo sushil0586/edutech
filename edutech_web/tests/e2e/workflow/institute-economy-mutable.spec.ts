@@ -6,6 +6,12 @@ import { expectInstituteWorkspace, expectStudentWorkspace } from "../helpers/nav
 const mutableInstituteEconomyActionsEnabled = isMutableLaneEnabled(
   "PLAYWRIGHT_ENABLE_MUTABLE_INSTITUTE_ECONOMY_ACTIONS",
 );
+const backendBaseUrl = (
+  process.env.API_BASE_URL ??
+  process.env.NEXT_PUBLIC_API_BASE_URL ??
+  process.env.PLAYWRIGHT_API_BASE_URL ??
+  "http://127.0.0.1:9001"
+).replace(/\/$/, "");
 
 type EconomyPolicyConfig = {
   institute_admin_can_confirm_orders: boolean;
@@ -15,12 +21,38 @@ type EconomyPolicyConfig = {
   institute_admin_max_grant_stars: number;
 };
 
+type CreatedStarPackResponse = {
+  data?: {
+    id: string;
+    institute: string;
+    name: string;
+    code: string;
+    stars_credited: number;
+    price_amount: string;
+    currency: string;
+  };
+  message?: string;
+};
+
 function supportActionsCard(page: Page) {
   return page.locator(".dashboardPanel").filter({
     has: page.getByRole("heading", {
       name: /inspect wallet state and perform controlled admin actions/i,
     }),
   }).first();
+}
+
+function unlockRefreshCard(page: Page) {
+  return page.locator(".dashboardPanel").filter({
+    has: page.getByRole("heading", {
+      name: /current unlock states after recalculation/i,
+    }),
+  }).first();
+}
+
+async function getAccessToken(page: Page) {
+  const cookies = await page.context().cookies();
+  return cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
 }
 
 async function readEconomyPolicy(page: Page) {
@@ -34,6 +66,19 @@ async function updateEconomyPolicy(page: Page, data: EconomyPolicyConfig) {
     data,
   });
   expect(response.ok()).toBe(true);
+}
+
+async function resolveSeedStudentId(page: Page) {
+  await page.goto("/app/profile");
+  await expect(page.getByRole("heading", { name: /profile/i }).first()).toBeVisible();
+
+  const studentProfileCard = page.locator(".detailCard").filter({
+    has: page.getByText(/^student profile$/i),
+  }).first();
+  await expect(studentProfileCard).toBeVisible();
+  const studentId = (await studentProfileCard.locator("strong").textContent())?.trim() ?? "";
+  expect(studentId).toBeTruthy();
+  return studentId;
 }
 
 test.describe("Institute mutable economy actions", () => {
@@ -146,15 +191,7 @@ test.describe("Institute mutable economy actions", () => {
       await loginAsRole(page, "student");
       await expectStudentWorkspace(page);
 
-      await page.goto("/app/profile");
-      await expect(page.getByRole("heading", { name: /profile/i }).first()).toBeVisible();
-
-      const studentProfileCard = page.locator(".detailCard").filter({
-        has: page.getByText(/^student profile$/i),
-      }).first();
-      await expect(studentProfileCard).toBeVisible();
-      const studentId = (await studentProfileCard.locator("strong").textContent())?.trim() ?? "";
-      expect(studentId).toBeTruthy();
+      const studentId = await resolveSeedStudentId(page);
 
       let createdOrderType: "star_pack" | "subscription" | null = null;
 
@@ -224,6 +261,98 @@ test.describe("Institute mutable economy actions", () => {
     } finally {
       await loginAsRole(page, "admin");
       await updateEconomyPolicy(page, currentPolicy);
+    }
+  });
+
+  test("@workflow @mutable institute admin can grant stars and verify wallet and unlock refresh truth in one support session", async ({
+    page,
+  }) => {
+    test.setTimeout(120000);
+
+    await loginAsRole(page, "admin");
+    const currentPolicy = await readEconomyPolicy(page);
+
+    try {
+      await updateEconomyPolicy(page, {
+        ...currentPolicy,
+        institute_admin_can_grant_stars: true,
+        institute_admin_max_grant_stars: Math.max(currentPolicy.institute_admin_max_grant_stars, 6),
+      });
+      await loginAsRole(page, "institute");
+      await expectInstituteWorkspace(page);
+
+      await page.goto("/institute/economy");
+      await expect(page.getByRole("heading", { name: /economy oversight/i })).toBeVisible();
+
+      const supportCard = supportActionsCard(page);
+      await expect(supportCard).toBeVisible();
+      const studentId = await supportCard.getByLabel(/^student$/i).inputValue();
+      expect(studentId).toBeTruthy();
+
+      const walletBeforeResponse = await page.request.get(`/api/admin/economy/student/${studentId}/wallet`);
+      expect(walletBeforeResponse.ok()).toBe(true);
+      const walletBefore = (await walletBeforeResponse.json()) as {
+        available_stars: number;
+        admin_granted_stars: number;
+      };
+
+      const workspaceView = page.getByLabel(/institute economy workspace view/i);
+      const supportView = page.getByLabel(/support view|context to keep visible|visible data panel|activity detail/i);
+      await expect(workspaceView).toBeVisible();
+      await expect(supportView).toBeVisible();
+
+      await workspaceView.selectOption("all");
+      await supportView.selectOption("wallet").catch(() => null);
+      const grantAmount = 3;
+      const grantSeed = Date.now();
+      await supportCard.getByLabel(/stars to grant/i).fill(String(grantAmount));
+      await supportCard.getByLabel(/reason/i).fill(`Institute support follow-up ${grantSeed}`);
+      await supportCard.getByLabel(/reference/i).fill(`INST-SUPPORT-${grantSeed}`);
+      await supportCard.getByRole("button", { name: /^grant stars$/i }).click();
+      await expect(page.getByText(/stars granted successfully\./i)).toBeVisible();
+
+      await workspaceView.selectOption("wallet");
+      await expect(page.getByText(/live wallet state/i).first()).toBeVisible();
+      await expect
+        .poll(
+          async () => {
+            const walletAfterResponse = await page.request.get(`/api/admin/economy/student/${studentId}/wallet`);
+            expect(walletAfterResponse.ok()).toBe(true);
+            const walletAfter = (await walletAfterResponse.json()) as {
+              available_stars: number;
+              admin_granted_stars: number;
+            };
+            return walletAfter.available_stars === walletBefore.available_stars + grantAmount &&
+              walletAfter.admin_granted_stars >= walletBefore.admin_granted_stars + grantAmount;
+          },
+          { timeout: 20000 },
+        )
+        .toBe(true);
+
+      await workspaceView.selectOption("all");
+      await supportView.selectOption("all").catch(() => null);
+      await expect(supportCard.getByRole("button", { name: /refresh unlocks/i })).toBeEnabled();
+      const refreshResponsePromise = page.waitForResponse(
+        (response) =>
+          response.url().includes(`/api/admin/economy/student/${studentId}/refresh-unlocks`) &&
+          response.request().method() === "POST",
+      );
+      await supportCard.getByRole("button", { name: /refresh unlocks/i }).click();
+      const refreshResponse = await refreshResponsePromise;
+      expect(refreshResponse.ok()).toBe(true);
+      await expect(unlockRefreshCard(page)).toBeVisible();
+
+      await supportView.selectOption("orders").catch(async () => {
+        await workspaceView.selectOption("orders");
+      });
+      await expect(page.getByText(/pending order requests for the selected student/i).first()).toBeVisible();
+    } finally {
+      if (!page.isClosed()) {
+        try {
+          await loginAsRole(page, "admin");
+          await updateEconomyPolicy(page, currentPolicy);
+        } catch {}
+      }
     }
   });
 });

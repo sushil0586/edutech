@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import type { StudentResult } from "@/features/dashboard/types";
-import { loginWithCredentials } from "../helpers/auth";
 import { expectStudentWorkspace } from "../helpers/navigation";
+import { loginStudentFamilyAccountOrSkip } from "../helpers/student-family";
 
 const backendBaseUrl = (
   process.env.API_BASE_URL ??
@@ -64,7 +64,7 @@ test.describe("Student family mobile results sanity", () => {
     test(`@workflow ${family.label} seeded result stays reachable on a mobile-sized viewport`, async ({
       page,
     }) => {
-      await loginWithCredentials(page, family.credentials, "student");
+      await loginStudentFamilyAccountOrSkip(page, family.credentials, family.label);
       await expectStudentWorkspace(page);
 
       const results = await fetchStudentResults(page);

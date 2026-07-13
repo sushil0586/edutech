@@ -111,6 +111,33 @@ Current baseline anchor:
 - `p95 369ms`
 - `0%` failures
 
+## Student Results-History Comparison
+
+Command:
+
+```bash
+K6_BASE_URL=https://learn.accerio.in \
+K6_USER_CREDENTIALS_JSON='[{"username":"demo-student","password":"Demo@12345"}]' \
+K6_VUS=10 \
+K6_ITERATIONS=10 \
+k6 run performance/k6/student-results-history.js
+```
+
+| Metric | Before resize | After resize | Delta | Outcome |
+| --- | --- | --- | --- | --- |
+| `http_req_duration avg` |  |  |  |  |
+| `http_req_duration p90` |  |  |  |  |
+| `http_req_duration p95` |  |  |  |  |
+| `http_req_duration max` |  |  |  |  |
+| request failures |  |  |  |  |
+| observed host CPU |  |  |  |  |
+| observed run queue |  |  |  |  |
+
+Current baseline anchor:
+
+- local backend profiling after the latest hardening moved `student_result_list` from warm `24.55ms` and `65` queries on a `41`-row payload down to warm `14.11ms` and `2` queries
+- this smoke should be used to confirm whether those backend savings still matter once stage concurrency and auth/session overhead are added back in
+
 ## Host Snapshot Comparison
 
 Capture during or immediately after each smoke/ramp run.
@@ -131,8 +158,36 @@ Capture during or immediately after each smoke/ramp run.
 | Did direct auth timings improve materially? |  |
 | Did auth smoke `p95` improve materially? |  |
 | Did session-reuse concurrency headroom improve? |  |
+| Did student results-history remain healthy under load? |  |
 | Is CPU saturation reduced enough to justify keeping the larger instance? |  |
 | Is another code-level optimization wave still required before more infra changes? |  |
+
+## Interpretation Checklist
+
+Use this section after the table is filled so the final conclusion is consistent from one run to the next.
+
+### Mark this wave as `scale-up successful` when:
+
+- `login` is materially below `~1.2s`
+- `me` stays at or below `~0.6s`
+- auth-smoke `p95` is clearly below `6.9s to 7.1s`
+- request failures stay at or near `0%`
+- host CPU is no longer pinned for most of the run
+- results-history smoke stays stable enough that backend savings still appear to matter under concurrency
+
+### Mark this wave as `needs another backend pass` when:
+
+- direct timings barely move after the resize
+- auth-smoke `p95` remains close to the old band
+- results-history is much slower or less stable than discovery
+- failures appear without obvious infra exhaustion
+
+### Mark this wave as `backend no longer primary bottleneck` when:
+
+- direct timings improve
+- smoke tails improve
+- CPU pressure drops
+- remaining concerns are mostly workflow clarity, operator recovery, or long-tail scenario proof
 
 ## Required Doc Updates After This Run
 

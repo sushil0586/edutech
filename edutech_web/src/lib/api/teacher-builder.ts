@@ -655,7 +655,12 @@ async function requestTeacherBuilderJson<T>(
   }
 
   const method = init?.method ?? "GET";
-  const shouldUseCachedRead = method === "GET" && !init?.body && !init?.headers;
+  const shouldUseCachedRead =
+    method === "GET" &&
+    !init?.body &&
+    !init?.headers &&
+    init?.cache == null &&
+    init?.next == null;
 
   if (shouldUseCachedRead) {
     return requestTeacherBuilderJsonCached<T>(path, accessToken);
@@ -695,6 +700,7 @@ export async function fetchTeacherPrograms(filters?: { institute?: string | null
       page_size: 500,
       institute: filters?.institute,
     })}`,
+    { cache: "no-store" },
   );
   return response.results;
 }
@@ -727,6 +733,7 @@ export async function fetchTeacherSubjects(filters?: { institute?: string | null
       page_size: 500,
       program: filters?.program,
     })}`,
+    { cache: "no-store" },
   );
   return response.results;
 }
@@ -739,6 +746,7 @@ export async function fetchTeacherTopics(filters?: { institute?: string | null; 
       page_size: 500,
       subject: filters?.subject,
     })}`,
+    { cache: "no-store" },
   );
   return response.results;
 }
@@ -749,6 +757,7 @@ export async function fetchTeacherOptionCatalog() {
       is_active: true,
       page_size: 200,
     })}`,
+    { cache: "force-cache" },
   );
   return response.results;
 }
@@ -913,6 +922,7 @@ export async function fetchTeacherQuestionTypeRegistry() {
     `/api/v1/question-bank/questions/type-registry/${toQueryString({
       available_only: true,
     })}`,
+    { cache: "force-cache" },
   );
   return response.results;
 }
@@ -943,6 +953,7 @@ export async function fetchTeacherQuestionPassagePage(filters?: {
       created_by_teacher: filters?.created_by_teacher,
       is_active: true,
     })}`,
+    { cache: "force-cache" },
   );
 }
 
@@ -972,6 +983,7 @@ export async function fetchTeacherQuestionTags(search?: string) {
       search: search ?? undefined,
       page_size: 100,
     })}`,
+    { cache: "force-cache" },
   );
   return response.results;
 }
@@ -1052,14 +1064,14 @@ export async function fetchTeacherQuestionImportTemplate() {
   return requestTeacherBuilderJson<{
     columns: string[];
     csv_content: string;
-  }>("/api/v1/question-bank/questions/import-template/");
+  }>("/api/v1/question-bank/questions/import-template/", { cache: "force-cache" });
 }
 
 export async function fetchTeacherQuestionPassageImportTemplate() {
   return requestTeacherBuilderJson<{
     columns: string[];
     csv_content: string;
-  }>("/api/v1/question-bank/passages/import-template/");
+  }>("/api/v1/question-bank/passages/import-template/", { cache: "force-cache" });
 }
 
 export async function previewTeacherQuestionImport(payload: {

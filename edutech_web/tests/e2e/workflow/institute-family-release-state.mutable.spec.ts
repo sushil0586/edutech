@@ -87,7 +87,10 @@ test.describe("Institute family release-state contracts", () => {
         await expect(page).toHaveURL(/\/app\/results(?:\?.*)?$/);
         await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
         await expect(page.getByText(/results loaded/i).first()).toBeVisible();
-        await expect(resultCardByTitle(page, created.examTitle)).toHaveCount(0);
+        const resultCard = resultCardByTitle(page, created.examTitle);
+        await expect(resultCard).toBeVisible();
+        await expect(resultCard.getByText(/^pending$/i).first()).toBeVisible();
+        await expect(resultCard.getByRole("link", { name: /open answer review/i })).toHaveCount(0);
 
         await page.goto(`/app/attempts/${attemptId}/review`);
         await expect(page).toHaveURL(new RegExp(`/app/attempts/${attemptId}/review(?:\\?.*)?$`));

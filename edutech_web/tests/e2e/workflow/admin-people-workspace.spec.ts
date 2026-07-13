@@ -53,6 +53,11 @@ type ProgramRecord = {
   is_active?: boolean;
 };
 
+function extractTrailingRecordsCount(value: string | null) {
+  const match = value?.match(/·\s*(\d+)\s+records/i);
+  return match?.[1] ? Number(match[1]) : null;
+}
+
 function escapeCsvValue(value: string) {
   if (/[",\n]/.test(value)) {
     return `"${value.replaceAll('"', '""')}"`;
@@ -154,6 +159,11 @@ async function selectInstituteWithRosterRows(
   return null;
 }
 
+function extractMetaCount(value: string | null, label: "shown" | "total") {
+  const match = value?.match(new RegExp(`(\\d+)\\s+${label}`, "i"));
+  return match?.[1] ? Number(match[1]) : null;
+}
+
 async function openDialogFromAction(
   page: Page,
   actionName: RegExp,
@@ -210,9 +220,21 @@ test.describe("Admin people workspace", () => {
     await expect(page.getByRole("textbox", { name: /search roster/i })).toBeVisible();
     await expect(page.getByRole("combobox", { name: /filter login status/i })).toBeVisible();
     await expect(page.getByRole("combobox", { name: /sort by name/i })).toBeVisible();
-    const populatedStudentInstitute = await selectInstituteWithRosterRows(page, "students");
+    await selectInstituteWithRosterRows(page, "students");
+    const studentSummaryText = await page.locator(".adminPeopleActionBarCopy > span").last().textContent();
+    const studentSummaryCount = extractTrailingRecordsCount(studentSummaryText);
+    const studentMetaText = await page.getByText(/\d+\s+shown/i).locator("..").textContent();
+    const studentShownCount = extractMetaCount(studentMetaText, "shown");
+    const studentTotalCount = extractMetaCount(studentMetaText, "total");
+    const studentRenderedRows = await page.locator(".adminPeopleRosterTable tbody tr").count();
+    expect(studentSummaryCount).not.toBeNull();
+    expect(studentShownCount).not.toBeNull();
+    expect(studentTotalCount).not.toBeNull();
+    expect(studentRenderedRows).toBe(studentTotalCount);
+    expect(studentSummaryCount).toBeGreaterThanOrEqual(studentTotalCount ?? 0);
     await expect(page.getByText(/shown/i).first()).toBeVisible();
-    if (populatedStudentInstitute) {
+    const firstStudentRow = page.locator(".adminPeopleRosterTable tbody tr").first();
+    if (await firstStudentRow.isVisible().catch(() => false)) {
       await expectRosterRowAccountContract(page.locator(".adminPeopleRosterTable tbody tr").first());
     } else {
       await expect(page.getByText(/no student records are available yet/i)).toBeVisible();
@@ -283,8 +305,20 @@ test.describe("Admin people workspace", () => {
     await expect(page.getByRole("textbox", { name: /search roster/i })).toBeVisible();
     await page.getByRole("textbox", { name: /search roster/i }).fill("");
     await page.getByRole("combobox", { name: /filter login status/i }).selectOption("all");
-    const populatedTeacherInstitute = await selectInstituteWithRosterRows(page, "teachers");
-    if (populatedTeacherInstitute) {
+    await selectInstituteWithRosterRows(page, "teachers");
+    const teacherSummaryText = await page.locator(".adminPeopleActionBarCopy > span").last().textContent();
+    const teacherSummaryCount = extractTrailingRecordsCount(teacherSummaryText);
+    const teacherMetaText = await page.getByText(/\d+\s+shown/i).locator("..").textContent();
+    const teacherShownCount = extractMetaCount(teacherMetaText, "shown");
+    const teacherTotalCount = extractMetaCount(teacherMetaText, "total");
+    const teacherRenderedRows = await page.locator(".adminPeopleRosterTable tbody tr").count();
+    expect(teacherSummaryCount).not.toBeNull();
+    expect(teacherShownCount).not.toBeNull();
+    expect(teacherTotalCount).not.toBeNull();
+    expect(teacherRenderedRows).toBe(teacherTotalCount);
+    expect(teacherSummaryCount).toBeGreaterThanOrEqual(teacherTotalCount ?? 0);
+    const firstTeacherRow = page.locator(".adminPeopleRosterTable tbody tr").first();
+    if (await firstTeacherRow.isVisible().catch(() => false)) {
       await expectRosterRowAccountContract(page.locator(".adminPeopleRosterTable tbody tr").first());
     } else {
       await expect(page.getByText(/no teacher records are available yet/i)).toBeVisible();

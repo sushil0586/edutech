@@ -4,6 +4,7 @@ from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.accounts.models import AccountProfile
@@ -15,8 +16,14 @@ from apps.economy.models import InstituteQuestionEntitlementStatus
 from apps.economy.models import QuestionBankOwnershipType
 from apps.economy.models import QuestionBankPackage
 from apps.economy.models import QuestionBankPackageType
+from apps.economy.models import StudentSubscription
+from apps.economy.models import StudentSubscriptionAllowanceUsage
+from apps.economy.models import SubscriptionPlan
+from apps.economy.models import SubscriptionPlanCycle
+from apps.economy.models import SubscriptionPlanExamAllowanceConfig
 from apps.economy.services import grant_admin_stars
-from apps.exams.models import ExamSection, ExamSourceType
+from apps.exams.models import ExamAccessMode, ExamSection, ExamSourceType
+from apps.institutes.models import InstituteManagementMode
 from apps.exams.services import publish_exam, sync_total_marks_from_questions
 from apps.results.services import calculate_exam_performance_summary, generate_result_from_attempt
 from common.tests.builders import AcademicAssessmentBuilder
@@ -560,6 +567,80 @@ class AuthenticationAccessControlTestCase(TestCase):
             payload["active_attempt"]["section_runtime"]["current_section_expires_at"]
         )
 
+    def test_student_exam_detail_includes_serialized_subscription_allowance_summary(self):
+        self._authenticate_with_token("student-auth", "Student@123")
+        plan = SubscriptionPlan.objects.create(
+            institute=self.context["institute"],
+            name="Auth Allowance Plan",
+            code="AUTH_ALLOWANCE_PLAN",
+            description="Subscription allowance detail contract test.",
+        )
+        cycle = SubscriptionPlanCycle.objects.create(
+            institute=self.context["institute"],
+            plan=plan,
+            billing_interval="monthly",
+            interval_count=1,
+            price_amount="199.00",
+            currency="INR",
+        )
+        SubscriptionPlanExamAllowanceConfig.objects.create(
+            institute=self.context["institute"],
+            plan_cycle=cycle,
+            included_exam_attempts=4,
+            allowance_period_mode="billing_cycle",
+            counting_scope="all_eligible_exams",
+        )
+        subscription = StudentSubscription.objects.create(
+            institute=self.context["institute"],
+            student=self.context["student"],
+            plan_cycle=cycle,
+            status="active",
+            activated_at=timezone.now() - timedelta(days=2),
+            current_period_start=timezone.now() - timedelta(days=2),
+            current_period_end=timezone.now() + timedelta(days=28),
+            metadata={},
+        )
+        StudentSubscriptionAllowanceUsage.objects.create(
+            institute=self.context["institute"],
+            student_subscription=subscription,
+            student=self.context["student"],
+            exam=self.exam,
+            billing_period_start=subscription.current_period_start,
+            billing_period_end=subscription.current_period_end,
+            consumed_count=1,
+            consumed_at=timezone.now() - timedelta(hours=1),
+            consumption_reason="attempt_start",
+            metadata={},
+        )
+        ContentAccessPolicy.objects.create(
+            institute=self.context["institute"],
+            subject=self.context["subject"],
+            content_type="exam",
+            content_key=str(self.exam.id),
+            content_label=self.exam.title,
+            policy_type="entitlement_only",
+            entitlement_code="subscription:starter",
+            priority=10,
+            metadata={"commercial_path": "subscription_only"},
+        )
+
+        detail_response = self.client.get(f"/api/v1/student/exams/{self.exam.id}/detail/")
+
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertEqual(detail_response.data["economy_access"]["commercial_path"], "subscription_only")
+        self.assertEqual(
+            detail_response.data["economy_access"]["subscription_resolution"]["remaining_allowance"],
+            3,
+        )
+        self.assertEqual(
+            detail_response.data["economy_access"]["subscription_resolution"]["included_allowance"],
+            4,
+        )
+        self.assertEqual(
+            detail_response.data["economy_access"]["subscription_resolution"]["student_subscription_id"],
+            str(subscription.id),
+        )
+
     def test_expired_in_progress_attempt_is_not_returned_as_resumable(self):
         fresh_student = self.builder.create_student(
             self.context["institute"],
@@ -745,6 +826,8 @@ class AuthenticationAccessControlTestCase(TestCase):
             format="json",
         )
         self.assertEqual(upcoming_response.status_code, 400)
+        self.assertEqual(upcoming_response.data["blocked_start"]["reason_source"], "runtime")
+        self.assertEqual(upcoming_response.data["blocked_start"]["reason_code"], "before_window")
 
         expired_response = self.client.post(
             "/api/v1/attempts/start/",
@@ -752,6 +835,57 @@ class AuthenticationAccessControlTestCase(TestCase):
             format="json",
         )
         self.assertEqual(expired_response.status_code, 400)
+        self.assertEqual(expired_response.data["blocked_start"]["reason_source"], "runtime")
+        self.assertEqual(expired_response.data["blocked_start"]["reason_code"], "after_window")
+
+    def test_public_long_window_exam_blocks_start_when_daily_cap_is_reached(self):
+        self.context["institute"].management_mode = InstituteManagementMode.PUBLIC_INSTITUTE_MANAGED
+        self.context["institute"].save(update_fields=["management_mode", "updated_at"])
+        public_exam = self.builder.create_exam(
+            self.context["institute"],
+            self.context["academic_year"],
+            self.context["program"],
+            self.context["cohort"],
+            self.context["subject"],
+            title="Public Capped Exam",
+            code="PUBLIC-CAP-01",
+        )
+        public_exam.access_mode = ExamAccessMode.LONG_WINDOW_ATTEMPT_MANAGED
+        public_exam.status = "scheduled"
+        public_exam.metadata = {"runtime_thresholds": {"daily_start_cap": 1}}
+        public_exam.save(update_fields=["access_mode", "status", "metadata", "updated_at"])
+        self.builder.add_question_to_exam(public_exam, self.context["question"])
+        start_attempt(self.context["student"], public_exam)
+
+        second_student = self.builder.create_student(
+            self.context["institute"],
+            self.context["academic_year"],
+            self.context["program"],
+            self.context["cohort"],
+            admission_no="PUBLIC-CAP-02",
+            email="public-cap-02@example.com",
+            first_name="Public",
+            last_name="Blocked",
+        )
+        second_student_user, _ = self.builder.create_student_account(
+            institute=self.context["institute"],
+            student_profile=second_student,
+            username="public-cap-student",
+            password="Student@123",
+            email="public-cap-student@example.com",
+        )
+
+        self.client.force_authenticate(user=second_student_user)
+
+        response = self.client.post(
+            "/api/v1/attempts/start/",
+            {"exam": str(public_exam.id), "student": str(second_student.id)},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["blocked_start"]["reason_source"], "runtime")
+        self.assertEqual(response.data["blocked_start"]["reason_code"], "daily_start_cap_reached")
 
     def test_student_exam_payload_includes_star_access_lock_state(self):
         fresh_exam = self.builder.create_exam(
@@ -795,11 +929,19 @@ class AuthenticationAccessControlTestCase(TestCase):
         self.assertTrue(economy_access["is_locked"])
         self.assertFalse(payload["can_start"])
         self.assertEqual(payload["availability_state"], "locked")
+        self.assertFalse(payload["start_access"]["is_allowed"])
+        self.assertEqual(payload["start_access"]["reason_source"], "economy")
+        self.assertEqual(
+            payload["start_access"]["reason_code"],
+            economy_access["lock_reason_code"],
+        )
 
         detail_response = self.client.get(f"/api/v1/student/exams/{fresh_exam.id}/detail/")
         self.assertEqual(detail_response.status_code, 200)
         self.assertEqual(detail_response.data["economy_access"]["policy_type"], "stars_only")
         self.assertTrue(detail_response.data["economy_access"]["is_locked"])
+        self.assertFalse(detail_response.data["start_access"]["is_allowed"])
+        self.assertEqual(detail_response.data["start_access"]["reason_source"], "economy")
         self.assertEqual(
             detail_response.data["experience_profile"]["assessment_family"],
             "benchmark",
@@ -840,6 +982,8 @@ class AuthenticationAccessControlTestCase(TestCase):
         )
         self.assertEqual(locked_response.status_code, 400)
         self.assertIn("stars are required", str(locked_response.data["exam"][0]).lower())
+        self.assertEqual(locked_response.data["blocked_start"]["reason_source"], "economy")
+        self.assertTrue(locked_response.data["blocked_start"]["reason_code"])
 
         grant_admin_stars(
             student=self.context["student"],
@@ -1273,6 +1417,49 @@ class AuthenticationAccessControlTestCase(TestCase):
 
         self.context["institute"].refresh_from_db()
         self.assertEqual(self.context["institute"].metadata["exam_defaults"]["timer_mode"], "hybrid")
+
+    def test_platform_admin_can_update_institute_management_mode(self):
+        self._authenticate_with_token("platform-admin-cred", "Platform@123")
+
+        response = self.client.patch(
+            f"/api/v1/institutes/{self.context['institute'].id}/",
+            {
+                "management_mode": InstituteManagementMode.PUBLIC_INSTITUTE_MANAGED,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.data["management_mode"],
+            InstituteManagementMode.PUBLIC_INSTITUTE_MANAGED,
+        )
+
+        self.context["institute"].refresh_from_db()
+        self.assertEqual(
+            self.context["institute"].management_mode,
+            InstituteManagementMode.PUBLIC_INSTITUTE_MANAGED,
+        )
+
+    def test_institute_admin_cannot_update_institute_management_mode(self):
+        self._authenticate_with_token("institute-admin-auth", "Admin@123")
+
+        response = self.client.patch(
+            f"/api/v1/institutes/{self.context['institute'].id}/",
+            {
+                "management_mode": InstituteManagementMode.PUBLIC_INSTITUTE_MANAGED,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("management_mode", response.data)
+
+        self.context["institute"].refresh_from_db()
+        self.assertEqual(
+            self.context["institute"].management_mode,
+            InstituteManagementMode.PRIVATE_INSTITUTE_MANAGED,
+        )
 
     def test_institute_detail_includes_linked_admin_login_metadata(self):
         self._authenticate_with_token("platform-admin-cred", "Platform@123")

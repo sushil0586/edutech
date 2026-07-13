@@ -276,7 +276,11 @@ export default async function TeacherExamsPage({
                 {totalExams !== visibleExams.length ? ` of ${totalExams}` : ""}
               </span>
             </div>
-            <form className="workspaceFiltersForm" method="GET">
+            <form
+              key={`${statusFilter}:${sortOption}:${groupOption}:${examPageSize}`}
+              className="workspaceFiltersForm"
+              method="GET"
+            >
               <input name="exam_page" type="hidden" value="1" />
               <label className="workspaceFilterField">
                 <span>Status</span>

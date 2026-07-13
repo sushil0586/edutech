@@ -34,11 +34,8 @@ async function captureDownload(page: Page, trigger: () => Promise<void>) {
 }
 
 async function expectTeacherImportBlockedState(page: Page) {
-  const blockedTitle = page.getByRole("heading", {
-    name: /question-bank bulk import is not enabled for your institute yet/i,
-  });
-
-  if ((await blockedTitle.count()) === 0) {
+  const pageText = await page.locator("body").innerText();
+  if (!/question-bank bulk import is not enabled for (your|this) institute yet/i.test(pageText)) {
     return false;
   }
 
@@ -65,11 +62,15 @@ test.describe("Teacher question import downloads", () => {
     await page.goto("/teacher/question-bank/import");
     await expect(page.getByRole("heading", { name: /import questions/i }).first()).toBeVisible();
     if (await expectTeacherImportBlockedState(page)) {
+      console.log("teacher-question-import-export", JSON.stringify({ lane: "question", result: "blocked-state" }));
       await page.goto("/teacher/question-bank/comprehension/import");
       await expect(page.getByRole("heading", { name: /import comprehension sets/i }).first()).toBeVisible();
       await expectTeacherImportBlockedState(page);
+      console.log("teacher-question-import-export", JSON.stringify({ lane: "comprehension", result: "blocked-state" }));
       return;
     }
+
+    console.log("teacher-question-import-export", JSON.stringify({ lane: "question", result: "available" }));
 
     const questionTemplate = await captureDownload(page, async () => {
       await page.getByRole("button", { name: /^download template$/i }).click();
@@ -91,6 +92,7 @@ test.describe("Teacher question import downloads", () => {
 
     await page.goto("/teacher/question-bank/comprehension/import");
     await expect(page.getByRole("heading", { name: /import comprehension sets/i }).first()).toBeVisible();
+    console.log("teacher-question-import-export", JSON.stringify({ lane: "comprehension", result: "available" }));
 
     const comprehensionTemplate = await captureDownload(page, async () => {
       await page.getByRole("button", { name: /^download template$/i }).click();

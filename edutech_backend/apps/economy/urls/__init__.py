@@ -37,6 +37,8 @@ from apps.economy.views import (
     AdminGrantStarsView,
     AdminStudentPaymentOrderListView,
     AdminStudentRewardEventListView,
+    AdminSubscriptionAllowanceOpsSummaryView,
+    AdminStudentSubscriptionListView,
     AdminStudentUnlockRefreshView,
     AdminStudentWalletView,
     StudentCreateStarPackOrderView,
@@ -212,6 +214,11 @@ urlpatterns = [
     ),
     path("admin/grant-stars/", AdminGrantStarsView.as_view(), name="admin-grant-stars"),
     path(
+        "admin/subscription-allowance-summary/",
+        AdminSubscriptionAllowanceOpsSummaryView.as_view(),
+        name="admin-subscription-allowance-summary",
+    ),
+    path(
         "admin/orders/<uuid:order_id>/confirm/",
         AdminConfirmPaymentOrderView.as_view(),
         name="admin-confirm-payment-order",
@@ -226,6 +233,11 @@ urlpatterns = [
         "admin/student/<uuid:student_id>/rewards/",
         AdminStudentRewardEventListView.as_view(),
         name="admin-student-rewards",
+    ),
+    path(
+        "admin/student/<uuid:student_id>/subscriptions/",
+        AdminStudentSubscriptionListView.as_view(),
+        name="admin-student-subscriptions",
     ),
     path(
         "admin/student/<uuid:student_id>/refresh-unlocks/",

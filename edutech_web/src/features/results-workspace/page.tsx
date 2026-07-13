@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { OperatorWorkspaceLink as Link } from "@/components/ui/operator-workspace-link";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { FilterSummaryPills } from "@/components/ui/filter-summary-pills";
@@ -11,7 +12,9 @@ import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { TeacherRubricReviewFields } from "@/components/ui/teacher-rubric-review-fields";
 import { TeacherPageHeader } from "@/components/ui/teacher-page-header";
 import type {
+  AdminExamRuntimeSummary,
   ReadinessIssue,
+  TeacherExam,
   TeacherExamListItem,
   TeacherExamPublishLog,
   TeacherQuestionAnalysisPage,
@@ -21,13 +24,13 @@ import { buildQuestionTypePresentationProfile } from "@/lib/assessment/question-
 import {
   calculateTeacherExamRanks,
   createTeacherAttemptInterventionNote,
+  fetchExamRuntimeSummary,
   fetchTeacherAttemptInterventions,
   fetchTeacherAttemptQuestionAnalysis,
   fetchTeacherExamDetail,
   fetchTeacherExamAttemptPage,
   fetchTeacherExamPublishReadiness,
   fetchTeacherExamLeaderboard,
-  fetchTeacherExams,
   fetchTeacherExamPage,
   fetchTeacherLiveExamMonitor,
   fetchTeacherQuestionAnalysis,
@@ -59,7 +62,7 @@ type HeaderComponent = typeof InstitutePageHeader | typeof TeacherPageHeader;
 type ResultsWorkspaceRole = "institute" | "teacher";
 type ResultsWorkspaceView = "overview" | "live" | "attempts" | "leaderboard" | "analysis";
 
-type ResultsExamRecord = Awaited<ReturnType<typeof fetchTeacherExams>>[number] | TeacherExamListItem;
+type ResultsExamRecord = TeacherExam | TeacherExamListItem;
 type ResultsExamCard = ResultsExamRecord;
 type ResultsAttempt = Awaited<ReturnType<typeof fetchTeacherExamAttemptPage>>["results"][number];
 type ResultsLeaderboardRow = Awaited<ReturnType<typeof fetchTeacherExamLeaderboard>>["results"][number];
@@ -88,6 +91,26 @@ type AttemptReviewFilter =
 type AttemptSort = "latest" | "score_low" | "warnings_high" | "time_long";
 type AttemptGroup = "none" | "health" | "status";
 type StudentQuestionFilter = "all" | "correct" | "wrong" | "skipped" | "marked" | "slow";
+
+async function fetchTeacherExamListItemsAll(pageSize = 500) {
+  const firstPage = await fetchTeacherExamPage({ page: 1, pageSize });
+  const totalPages = Math.max(Math.ceil(firstPage.count / pageSize), 1);
+
+  if (totalPages === 1) {
+    return firstPage.results;
+  }
+
+  const remainingPages = await Promise.all(
+    Array.from({ length: totalPages - 1 }, (_, index) =>
+      fetchTeacherExamPage({
+        page: index + 2,
+        pageSize,
+      }),
+    ),
+  );
+
+  return [firstPage, ...remainingPages].flatMap((page) => page.results);
+}
 type WorkflowTone = "statusLive" | "statusDemo" | "statusWarning";
 
 type FamilyInsightCard = {
@@ -1493,8 +1516,12 @@ function resultsViewPath(basePath: string, view: ResultsWorkspaceView) {
   return `${basePath}/${view}`;
 }
 
+function hasPublishLogs(exam: ResultsExamRecord): exam is TeacherExam {
+  return "publish_logs" in exam && Array.isArray(exam.publish_logs);
+}
+
 function getLatestPublishLog(exam: ResultsExamRecord): TeacherExamPublishLog | null {
-  return "publish_logs" in exam ? exam.publish_logs[0] ?? null : null;
+  return hasPublishLogs(exam) ? exam.publish_logs[0] ?? null : null;
 }
 
 function buildResultsHref(
@@ -2326,6 +2353,8 @@ type WorkspaceContext = {
   };
 };
 
+type WorkspaceBaseHrefArgs = WorkspaceContext["baseHrefArgs"];
+
 function renderViewNavigation(context: WorkspaceContext) {
   const { config, view, baseHrefArgs } = context;
   const attemptsBadgeCount = context.attemptsPageData.count || context.selectedSummary?.total_attempted || 0;
@@ -2400,6 +2429,136 @@ function renderViewNavigation(context: WorkspaceContext) {
         </Link>
       ))}
     </section>
+  );
+}
+
+function renderResultsDeferredFallback(args: {
+  config: ResultsWorkspaceConfig;
+  view: ResultsWorkspaceView;
+  baseHrefArgs: WorkspaceBaseHrefArgs;
+}) {
+  const { config, view, baseHrefArgs } = args;
+  const items = [
+    {
+      id: "overview" as const,
+      title: "Overview",
+      note: "Workflow, readiness, and exam health",
+      badge: "Loading",
+    },
+    {
+      id: "live" as const,
+      title: "Live Monitor",
+      note: "Intervention queue and active alerts",
+      badge: "Loading",
+    },
+    {
+      id: "attempts" as const,
+      title: "Attempts",
+      note: "Review filters and attempt-by-attempt details",
+      badge: "Loading",
+    },
+    {
+      id: "leaderboard" as const,
+      title: "Leaderboard",
+      note: "Ranks, publication state, and top outcomes",
+      badge: "Loading",
+    },
+    {
+      id: "analysis" as const,
+      title: "Analysis",
+      note: "Topics, hard questions, and skip patterns",
+      badge: "Loading",
+    },
+  ];
+
+  return (
+    <>
+      {view === "overview" ? (
+        <section className="resultsSummaryGrid teacherResultsStatsGrid teacherResultsStatsGridFive">
+          {items.map((item) => (
+            <Link
+              key={item.id}
+              className={`metricCard dashboardHeroCard${view === item.id ? " teacherResultsCardActive" : ""}`}
+              href={buildResultsHref(resultsViewPath(config.basePath, item.id), baseHrefArgs)}
+            >
+              <span>{item.title}</span>
+              <strong>{item.badge}</strong>
+              <small>{item.note}</small>
+            </Link>
+          ))}
+        </section>
+      ) : (
+        <section className="contentCard">
+          <div className="sectionHeading">
+            <strong>Switch result lane</strong>
+            <span>{config.roleNoun} workflow views</span>
+          </div>
+          <div className="workspaceFilterActions workspaceFilterActionsFullRow">
+            {items.map((item) => (
+              <Link
+                key={item.id}
+                className={`button ${view === item.id ? "buttonPrimary" : "buttonSecondary"}`}
+                href={buildResultsHref(resultsViewPath(config.basePath, item.id), baseHrefArgs)}
+              >
+                {item.title}: {item.badge}
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {view === "overview" ? (
+        <>
+          <section className="contentCard">
+            <div className="sectionHeading">
+              <strong>Exam publish readiness</strong>
+              <span>Loading exam lifecycle checks</span>
+            </div>
+          </section>
+          <section className="contentCard">
+            <div className="sectionHeading">
+              <strong>Result publish readiness</strong>
+              <span>Loading result publication checks</span>
+            </div>
+          </section>
+        </>
+      ) : null}
+
+      {view === "live" ? (
+        <section className="contentCard">
+          <div className="sectionHeading">
+            <strong>Live Monitor</strong>
+            <span>Active alerts</span>
+          </div>
+        </section>
+      ) : null}
+
+      {view === "leaderboard" ? (
+        <section className="contentCard">
+          <div className="sectionHeading">
+            <strong>Publication checklist</strong>
+            <span>Loading rank and release posture</span>
+          </div>
+        </section>
+      ) : null}
+
+      {view === "analysis" ? (
+        <>
+          <section className="contentCard">
+            <div className="sectionHeading">
+              <strong>Question risk board</strong>
+              <span>Loading question-level evidence</span>
+            </div>
+          </section>
+          <section className="contentCard">
+            <div className="sectionHeading">
+              <strong>Student explorer</strong>
+              <span>Loading learner evidence</span>
+            </div>
+          </section>
+        </>
+      ) : null}
+    </>
   );
 }
 
@@ -5464,156 +5623,78 @@ function renderAnalysisView(context: WorkspaceContext) {
   );
 }
 
-export async function ResultsWorkspacePage({
-  role,
-  view,
-  searchParams,
-}: {
-  role: ResultsWorkspaceRole;
+async function ResultsWorkspaceDetail(args: {
+  config: ResultsWorkspaceConfig;
   view: ResultsWorkspaceView;
-  searchParams: SearchParams;
+  currentPath: string;
+  resultExamCards: Array<{ exam: ResultsExamCard; summary: TeacherResultSummary | null }>;
+  selectedExam: ResultsExamRecord;
+  selectedSummary: TeacherResultSummary | null;
+  groupedExamCards: ReturnType<typeof groupResultExamCards>;
+  visibleExamCardsLength: number;
+  examListFilter: ResultExamFilter;
+  examListSort: ResultExamSort;
+  examListGroup: ResultExamGroup;
+  safeExamPage: number;
+  examTotalPages: number;
+  examPageSize: number;
+  attemptFilter: AttemptReviewFilter;
+  attemptSort: AttemptSort;
+  attemptGroup: AttemptGroup;
+  questionFilter: string;
+  studentQuestionFilter: StudentQuestionFilter;
+  studentQuestionSearch: string;
+  attemptPage: number;
+  attemptPageSize: number;
+  leaderboardPage: number;
+  leaderboardPageSize: number;
+  topicPage: number;
+  topicPageSize: number;
+  questionPage: number;
+  questionPageSize: number;
+  selectedAttemptId: string;
+  totalAttempts: number;
+  totalPassed: number;
+  totalFailed: number;
+  averageAcrossExams: number;
+  baseHrefArgs: WorkspaceBaseHrefArgs;
 }) {
-  const config = getWorkspaceConfig(role);
-  const Header = config.header;
-  const pageClassName =
-    config.role === "institute"
-      ? "studentPage studentPageTight studentDashboardModern instituteConsolePage instituteResultsPageVivid"
-      : "studentPage studentPageTight studentDashboardModern teacherResultsPageVivid";
-
-  await requireResultsSession(role);
-
-  const resolvedSearchParams = await searchParams;
-  const currentPath = resultsViewPath(config.basePath, view);
-  const selectedExamId = readSingle(resolvedSearchParams.exam);
-  const selectedAttemptId = readSingle(resolvedSearchParams.attempt);
-  const attemptFilter = resolveAttemptFilter(readSingle(resolvedSearchParams.attempt_filter) || "all");
-  const attemptSort = resolveAttemptSort(readSingle(resolvedSearchParams.attempt_sort) || "latest");
-  const attemptGroup = resolveAttemptGroup(readSingle(resolvedSearchParams.attempt_group) || "none");
-  const questionFilter = readSingle(resolvedSearchParams.question_filter) || "all";
-  const studentQuestionFilter = resolveStudentQuestionFilter(
-    readSingle(resolvedSearchParams.student_question_filter) || "all",
-  );
-  const studentQuestionSearch = readSingle(resolvedSearchParams.student_question_search) || "";
-  const examListFilter = resolveExamFilter(readSingle(resolvedSearchParams.exam_list_filter) || "all");
-  const examListSort = resolveExamSort(readSingle(resolvedSearchParams.exam_list_sort) || "latest");
-  const examListGroup = resolveExamGroup(readSingle(resolvedSearchParams.exam_list_group) || "none");
-  const examPage = parsePositiveInt(readSingle(resolvedSearchParams.exam_page), 1);
-  const examPageSize = parsePositiveInt(readSingle(resolvedSearchParams.exam_page_size), 10);
-  const attemptPage = parsePositiveInt(readSingle(resolvedSearchParams.attempt_page), 1);
-  const attemptPageSize = parsePositiveInt(readSingle(resolvedSearchParams.attempt_page_size), 12);
-  const leaderboardPage = parsePositiveInt(readSingle(resolvedSearchParams.leaderboard_page), 1);
-  const leaderboardPageSize = parsePositiveInt(readSingle(resolvedSearchParams.leaderboard_page_size), 6);
-  const topicPage = parsePositiveInt(readSingle(resolvedSearchParams.topic_page), 1);
-  const topicPageSize = parsePositiveInt(readSingle(resolvedSearchParams.topic_page_size), 6);
-  const questionPage = parsePositiveInt(readSingle(resolvedSearchParams.question_page), 1);
-  const questionPageSize = parsePositiveInt(readSingle(resolvedSearchParams.question_page_size), 6);
-  const error = readSingle(resolvedSearchParams.error);
-  const message = readSingle(resolvedSearchParams.message);
-
-  const useCompactExamBootstrap = view !== "overview";
-  const compactExamPageSize = Math.max(examPageSize, 5);
-
-  const [summaries, teacherExams, compactExamPage, selectedSubviewExamDetail] = await Promise.all([
-    fetchTeacherResultSummary().catch(() => null),
-    useCompactExamBootstrap ? Promise.resolve(null) : fetchTeacherExams().catch(() => null),
-    useCompactExamBootstrap
-      ? fetchTeacherExamPage({ page: 1, pageSize: compactExamPageSize }).catch(() => null)
-      : Promise.resolve(null),
-    useCompactExamBootstrap && selectedExamId
-      ? fetchTeacherExamDetail(selectedExamId).catch(() => null)
-      : Promise.resolve(null),
-  ]);
-
-  const examRecords: ResultsExamRecord[] = useCompactExamBootstrap
-    ? (() => {
-        if (!compactExamPage) {
-          return [];
-        }
-        const compactItems = compactExamPage.results;
-        if (!selectedSubviewExamDetail) {
-          return compactItems;
-        }
-        const hasSelectedExam = compactItems.some((exam) => exam.id === selectedSubviewExamDetail.id);
-        if (!hasSelectedExam) {
-          return [selectedSubviewExamDetail, ...compactItems];
-        }
-        return compactItems.map((exam) =>
-          exam.id === selectedSubviewExamDetail.id ? selectedSubviewExamDetail : exam,
-        );
-      })()
-    : teacherExams ?? [];
-  const examBootstrapUnavailable = useCompactExamBootstrap ? !compactExamPage : !teacherExams;
-
-  if (!summaries || examBootstrapUnavailable) {
-    return (
-      <div className="studentPage">
-        <Header
-          title="Results"
-          description={`This route depends on the live ${config.roleNounLower} results summary and analytics endpoints.`}
-        />
-        <StudentStatePanel
-          eyebrow="Load issue"
-          title={`${config.roleNoun} results workspace could not be loaded`}
-          description={`The ${config.roleNounLower} results area depends on live summary, leaderboard, attempts, and monitoring endpoints, and the current request did not complete successfully.`}
-          bullets={[
-            `${config.roleNoun} results summary endpoint`,
-            "Exam leaderboard and attempts endpoints",
-            "Live monitor and publish actions",
-          ]}
-          ctaHref={config.dashboardPath}
-          ctaLabel="Back to Dashboard"
-          statusLabel="Retry after backend check"
-        />
-      </div>
-    );
-  }
-
-  if (examRecords.length === 0) {
-    const emptyState = buildResultsEmptyStateContent(config.roleNounLower, view);
-    return (
-      <div className="studentPage">
-        <Header
-          title="Results"
-          description={`Track exam outcome readiness, live attempt behavior, and result publication from one ${config.roleNounLower}-scoped workspace.`}
-        />
-        <StudentStatePanel
-          eyebrow={emptyState.eyebrow}
-          title={emptyState.title}
-          description={emptyState.description}
-          bullets={emptyState.bullets}
-          ctaHref={config.examBasePath}
-          ctaLabel="Open Exams"
-          secondaryCtaHref={config.dashboardPath}
-          secondaryCtaLabel="Back to Dashboard"
-          statusLabel={emptyState.statusLabel}
-          footnote="These routes are healthy, but they need real exam and attempt data before route-specific filters, tables, and analytics can render."
-        />
-      </div>
-    );
-  }
-
-  const resultSummaries = summaries;
-  const summaryByExamId = new Map(resultSummaries.map((summary) => [summary.exam, summary]));
-  const resultExamCards = examRecords.map((exam) => ({
-    exam,
-    summary: summaryByExamId.get(exam.id) ?? null,
-  }));
-  const visibleExamCards = sortResultExamCards(filterResultExamCards(resultExamCards, examListFilter), examListSort);
-  const highRiskExamCount = resultExamCards.filter(
-    ({ summary }) => summary?.review_release_risk?.level === "high",
-  ).length;
-  const mediumRiskExamCount = resultExamCards.filter(
-    ({ summary }) => summary?.review_release_risk?.level === "medium",
-  ).length;
-  const examTotalPages = Math.max(Math.ceil(visibleExamCards.length / examPageSize), 1);
-  const safeExamPage = Math.min(examPage, examTotalPages);
-  const pagedExamCards = visibleExamCards.slice((safeExamPage - 1) * examPageSize, safeExamPage * examPageSize);
-  const groupedExamCards = groupResultExamCards(pagedExamCards, examListGroup);
-
-  const currentExamId = selectedExamId || resultExamCards[0]?.exam.id || "";
-  const selectedExamCard = resultExamCards.find((item) => item.exam.id === currentExamId) ?? resultExamCards[0];
-  const selectedExam = selectedExamCard.exam;
-  const selectedSummary = selectedExamCard.summary;
+  const {
+    config,
+    view,
+    currentPath,
+    resultExamCards,
+    selectedExam,
+    selectedSummary,
+    groupedExamCards,
+    visibleExamCardsLength,
+    examListFilter,
+    examListSort,
+    examListGroup,
+    safeExamPage,
+    examTotalPages,
+    examPageSize,
+    attemptFilter,
+    attemptSort,
+    attemptGroup,
+    questionFilter,
+    studentQuestionFilter,
+    studentQuestionSearch,
+    attemptPage,
+    attemptPageSize,
+    leaderboardPage,
+    leaderboardPageSize,
+    topicPage,
+    topicPageSize,
+    questionPage,
+    questionPageSize,
+    selectedAttemptId,
+    totalAttempts,
+    totalPassed,
+    totalFailed,
+    averageAcrossExams,
+    baseHrefArgs,
+  } = args;
 
   const needsMonitor = view === "overview" || view === "live";
   const needsReadiness = view === "overview";
@@ -5622,7 +5703,8 @@ export async function ResultsWorkspacePage({
   const needsQuestionAnalysis = view === "analysis";
   const needsTopicPerformance = view === "analysis";
   const leaderboardRequestPage = view === "overview" ? 1 : leaderboardPage;
-  const leaderboardRequestPageSize = view === "overview" ? 1 : leaderboardPageSize;
+  const leaderboardRequestPageSize =
+    view === "overview" ? 1 : view === "analysis" ? Math.min(leaderboardPageSize, 3) : leaderboardPageSize;
 
   const [
     monitor,
@@ -5710,16 +5792,6 @@ export async function ResultsWorkspacePage({
       : Promise.resolve({ count: 0, next: null, previous: null, results: [] }),
   ]);
 
-  const totalAttempts = resultSummaries.reduce((sum, item) => sum + item.total_attempted, 0);
-  const totalPassed = resultSummaries.reduce((sum, item) => sum + item.total_passed, 0);
-  const totalFailed = resultSummaries.reduce((sum, item) => sum + item.total_failed, 0);
-  const averageAcrossExams =
-    resultSummaries.length > 0
-      ? Math.round(
-          resultSummaries.reduce((sum, item) => sum + Number(item.average_percentage), 0) /
-            resultSummaries.length,
-        )
-      : 0;
   const selectedPendingCount = selectedSummary
     ? pendingCount(selectedSummary.total_attempted, selectedSummary.total_passed, selectedSummary.total_failed)
     : 0;
@@ -5812,9 +5884,7 @@ export async function ResultsWorkspacePage({
   const selectedAttempt =
     attemptsPageData.selected_attempt ??
     attempts.find((attempt) => attempt.id === selectedAttemptId) ??
-    attempts[0] ??
-    monitor?.recent_attempts[0] ??
-    null;
+    (view === "analysis" && !selectedAttemptId ? null : attempts[0] ?? monitor?.recent_attempts[0] ?? null);
   const attemptQuestionAnalysisData =
     view === "analysis" && selectedAttempt
       ? await fetchTeacherAttemptQuestionAnalysis(selectedExam.id, {
@@ -5866,7 +5936,7 @@ export async function ResultsWorkspacePage({
     selectedAttempt,
     selectedAttemptInterventions,
     groupedExamCards,
-    visibleExamCardsLength: visibleExamCards.length,
+    visibleExamCardsLength,
     examListFilter,
     examListSort,
     examListGroup,
@@ -5923,30 +5993,317 @@ export async function ResultsWorkspacePage({
     examLifecycleStatus,
     examReadinessPanel,
     resultReadinessPanel,
-    baseHrefArgs: {
-      examId: selectedExam.id,
-      attemptId: selectedAttemptId,
-      attemptFilter,
-      attemptSort,
-      attemptGroup,
-      attemptPage,
-      attemptPageSize,
-      questionFilter,
-      examListFilter,
-      examListSort,
-      examListGroup,
-      examPage: safeExamPage,
-      examPageSize,
-      leaderboardPage,
-      leaderboardPageSize,
-      topicPage,
-      topicPageSize,
-      questionPage,
-      questionPageSize,
-      studentQuestionFilter,
-      studentQuestionSearch,
-    },
+    baseHrefArgs,
   };
+
+  return (
+    <>
+      {renderViewNavigation(context)}
+      {view === "overview" ? renderOverviewView(context) : null}
+      {view === "live" ? renderLiveMonitorView(context) : null}
+      {view === "attempts" ? renderAttemptsView(context) : null}
+      {view === "leaderboard" ? renderLeaderboardView(context) : null}
+      {view === "analysis" ? renderAnalysisView(context) : null}
+    </>
+  );
+}
+
+export async function ResultsWorkspacePage({
+  role,
+  view,
+  searchParams,
+}: {
+  role: ResultsWorkspaceRole;
+  view: ResultsWorkspaceView;
+  searchParams: SearchParams;
+}) {
+  const config = getWorkspaceConfig(role);
+  const Header = config.header;
+  const pageClassName =
+    config.role === "institute"
+      ? "studentPage studentPageTight studentDashboardModern instituteConsolePage instituteResultsPageVivid"
+      : "studentPage studentPageTight studentDashboardModern teacherResultsPageVivid";
+
+  await requireResultsSession(role);
+
+  const resolvedSearchParams = await searchParams;
+  const currentPath = resultsViewPath(config.basePath, view);
+  const selectedExamId = readSingle(resolvedSearchParams.exam);
+  const selectedAttemptId = readSingle(resolvedSearchParams.attempt);
+  const attemptFilter = resolveAttemptFilter(readSingle(resolvedSearchParams.attempt_filter) || "all");
+  const attemptSort = resolveAttemptSort(readSingle(resolvedSearchParams.attempt_sort) || "latest");
+  const attemptGroup = resolveAttemptGroup(readSingle(resolvedSearchParams.attempt_group) || "none");
+  const questionFilter = readSingle(resolvedSearchParams.question_filter) || "all";
+  const studentQuestionFilter = resolveStudentQuestionFilter(
+    readSingle(resolvedSearchParams.student_question_filter) || "all",
+  );
+  const studentQuestionSearch = readSingle(resolvedSearchParams.student_question_search) || "";
+  const examListFilter = resolveExamFilter(readSingle(resolvedSearchParams.exam_list_filter) || "all");
+  const examListSort = resolveExamSort(readSingle(resolvedSearchParams.exam_list_sort) || "latest");
+  const examListGroup = resolveExamGroup(readSingle(resolvedSearchParams.exam_list_group) || "none");
+  const examPage = parsePositiveInt(readSingle(resolvedSearchParams.exam_page), 1);
+  const examPageSize = parsePositiveInt(readSingle(resolvedSearchParams.exam_page_size), 10);
+  const attemptPage = parsePositiveInt(readSingle(resolvedSearchParams.attempt_page), 1);
+  const attemptPageSize = parsePositiveInt(readSingle(resolvedSearchParams.attempt_page_size), 12);
+  const leaderboardPage = parsePositiveInt(readSingle(resolvedSearchParams.leaderboard_page), 1);
+  const leaderboardPageSize = parsePositiveInt(readSingle(resolvedSearchParams.leaderboard_page_size), 6);
+  const topicPage = parsePositiveInt(readSingle(resolvedSearchParams.topic_page), 1);
+  const topicPageSize = parsePositiveInt(readSingle(resolvedSearchParams.topic_page_size), 6);
+  const questionPage = parsePositiveInt(readSingle(resolvedSearchParams.question_page), 1);
+  const questionPageSize = parsePositiveInt(readSingle(resolvedSearchParams.question_page_size), 6);
+  const error = readSingle(resolvedSearchParams.error);
+  const message = readSingle(resolvedSearchParams.message);
+
+  const useCompactExamBootstrap = view !== "overview";
+  const compactExamPageSize = Math.max(examPageSize, 5);
+  const needsRuntimeOps = view === "overview";
+
+  const [summaries, runtimeSummary, teacherExams, compactExamPage, selectedSubviewExamDetail] = await Promise.all([
+    fetchTeacherResultSummary().catch(() => null),
+    needsRuntimeOps ? fetchExamRuntimeSummary().catch(() => null) : Promise.resolve(null),
+    useCompactExamBootstrap ? Promise.resolve(null) : fetchTeacherExamListItemsAll().catch(() => null),
+    useCompactExamBootstrap
+      ? fetchTeacherExamPage({ page: 1, pageSize: compactExamPageSize }).catch(() => null)
+      : Promise.resolve(null),
+    useCompactExamBootstrap && selectedExamId
+      ? fetchTeacherExamDetail(selectedExamId).catch(() => null)
+      : Promise.resolve(null),
+  ]);
+
+  const examRecords: ResultsExamRecord[] = useCompactExamBootstrap
+    ? (() => {
+        if (!compactExamPage) {
+          return [];
+        }
+        const compactItems = compactExamPage.results;
+        if (!selectedSubviewExamDetail) {
+          return compactItems;
+        }
+        const hasSelectedExam = compactItems.some((exam) => exam.id === selectedSubviewExamDetail.id);
+        if (!hasSelectedExam) {
+          return [selectedSubviewExamDetail, ...compactItems];
+        }
+        return compactItems.map((exam) =>
+          exam.id === selectedSubviewExamDetail.id ? selectedSubviewExamDetail : exam,
+        );
+      })()
+    : teacherExams ?? [];
+  const runtimeOps: AdminExamRuntimeSummary | null = runtimeSummary;
+  const examBootstrapUnavailable = useCompactExamBootstrap ? !compactExamPage : !teacherExams;
+
+  if (!summaries || examBootstrapUnavailable) {
+    return (
+      <div className="studentPage">
+        <Header
+          title="Results"
+          description={`This route depends on the live ${config.roleNounLower} results summary and analytics endpoints.`}
+        />
+        <StudentStatePanel
+          eyebrow="Load issue"
+          title={`${config.roleNoun} results workspace could not be loaded`}
+          description={`The ${config.roleNounLower} results area depends on live summary, leaderboard, attempts, and monitoring endpoints, and the current request did not complete successfully.`}
+          bullets={[
+            `${config.roleNoun} results summary endpoint`,
+            "Exam leaderboard and attempts endpoints",
+            "Live monitor and publish actions",
+          ]}
+          ctaHref={config.dashboardPath}
+          ctaLabel="Back to Dashboard"
+          statusLabel="Retry after backend check"
+        />
+      </div>
+    );
+  }
+
+  if (examRecords.length === 0) {
+    const emptyState = buildResultsEmptyStateContent(config.roleNounLower, view);
+    return (
+      <div className="studentPage">
+        <Header
+          title="Results"
+          description={`Track exam outcome readiness, live attempt behavior, and result publication from one ${config.roleNounLower}-scoped workspace.`}
+        />
+        <StudentStatePanel
+          eyebrow={emptyState.eyebrow}
+          title={emptyState.title}
+          description={emptyState.description}
+          bullets={emptyState.bullets}
+          ctaHref={config.examBasePath}
+          ctaLabel="Open Exams"
+          secondaryCtaHref={config.dashboardPath}
+          secondaryCtaLabel="Back to Dashboard"
+          statusLabel={emptyState.statusLabel}
+          footnote="These routes are healthy, but they need real exam and attempt data before route-specific filters, tables, and analytics can render."
+        />
+      </div>
+    );
+  }
+
+  const resultSummaries = summaries;
+  const summaryByExamId = new Map(resultSummaries.map((summary) => [summary.exam, summary]));
+  const resultExamCards = examRecords.map((exam) => ({
+    exam,
+    summary: summaryByExamId.get(exam.id) ?? null,
+  }));
+  const visibleExamCards = sortResultExamCards(filterResultExamCards(resultExamCards, examListFilter), examListSort);
+  const highRiskExamCount = resultExamCards.filter(
+    ({ summary }) => summary?.review_release_risk?.level === "high",
+  ).length;
+  const mediumRiskExamCount = resultExamCards.filter(
+    ({ summary }) => summary?.review_release_risk?.level === "medium",
+  ).length;
+  const examTotalPages = Math.max(Math.ceil(visibleExamCards.length / examPageSize), 1);
+  const safeExamPage = Math.min(examPage, examTotalPages);
+  const pagedExamCards = visibleExamCards.slice((safeExamPage - 1) * examPageSize, safeExamPage * examPageSize);
+  const groupedExamCards = groupResultExamCards(pagedExamCards, examListGroup);
+
+  const currentExamId = selectedExamId || resultExamCards[0]?.exam.id || "";
+  const selectedExamCard = resultExamCards.find((item) => item.exam.id === currentExamId) ?? resultExamCards[0];
+  const selectedExam = selectedExamCard.exam;
+  const selectedSummary = selectedExamCard.summary;
+
+  const totalAttempts = resultSummaries.reduce((sum, item) => sum + item.total_attempted, 0);
+  const totalPassed = resultSummaries.reduce((sum, item) => sum + item.total_passed, 0);
+  const totalFailed = resultSummaries.reduce((sum, item) => sum + item.total_failed, 0);
+  const averageAcrossExams =
+    resultSummaries.length > 0
+      ? Math.round(
+          resultSummaries.reduce((sum, item) => sum + Number(item.average_percentage), 0) /
+            resultSummaries.length,
+        )
+      : 0;
+  const baseHrefArgs: WorkspaceBaseHrefArgs = {
+    examId: selectedExam.id,
+    attemptId: selectedAttemptId,
+    attemptFilter,
+    attemptSort,
+    attemptGroup,
+    attemptPage,
+    attemptPageSize,
+    questionFilter,
+    examListFilter,
+    examListSort,
+    examListGroup,
+    examPage: safeExamPage,
+    examPageSize,
+    leaderboardPage,
+    leaderboardPageSize,
+    topicPage,
+    topicPageSize,
+    questionPage,
+    questionPageSize,
+    studentQuestionFilter,
+    studentQuestionSearch,
+  };
+  const lightContext = {
+    config,
+    view,
+    currentPath,
+    resultExamCards,
+    selectedExam,
+    selectedSummary,
+    selectedAttempt: null,
+    selectedAttemptInterventions: [],
+    groupedExamCards,
+    visibleExamCardsLength: visibleExamCards.length,
+    examListFilter,
+    examListSort,
+    examListGroup,
+    safeExamPage,
+    examTotalPages,
+    examPageSize,
+    attemptFilter,
+    attemptSort,
+    attemptGroup,
+    questionFilter,
+    studentQuestionFilter,
+    studentQuestionSearch,
+    attemptPage,
+    attemptPageSize,
+    attemptTotalPages: 1,
+    leaderboardPage,
+    leaderboardPageSize,
+    leaderboardTotalPages: 1,
+    topicPage,
+    topicPageSize,
+    topicTotalPages: 1,
+    questionPage,
+    questionPageSize,
+    questionTotalPages: 1,
+    groupedAttempts: [],
+    attemptsPageData: {
+      count: 0,
+      next: null,
+      previous: null,
+      results: [],
+      summary: { total_attempts: 0 },
+      applied_filter: "all",
+      applied_sort: "latest",
+      applied_search: "",
+      selected_attempt: null,
+    },
+    leaderboardPageData: {
+      count: 0,
+      next: null,
+      previous: null,
+      results: [],
+      summary: {
+        total: 0,
+        ranked_count: 0,
+        published_count: 0,
+        all_ranked: false,
+        published_results: false,
+      },
+    },
+    topicPerformancePageData: { count: 0, next: null, previous: null, results: [] },
+    questionAnalysisPageData: { count: 0, next: null, previous: null, results: [] },
+    attemptQuestionAnalysisData: {
+      selected_attempt: null,
+      summary: {
+        total_questions: 0,
+        attempted_questions: 0,
+        correct_count: 0,
+        wrong_count: 0,
+        skipped_count: 0,
+        marked_count: 0,
+        total_time_seconds: 0,
+        average_time_seconds: 0,
+      },
+      applied_filter: studentQuestionFilter,
+      results: [],
+    },
+    monitor: null,
+    readiness: { label: "Loading", note: "Loading lifecycle readiness", tone: "statusDemo" as WorkflowTone },
+    readinessSnapshot: [],
+    workflowSteps: [],
+    recommendedWorkflowStep: null,
+    canRefreshLifecycle: false,
+    resultsPublished: false,
+    evaluatedResults: selectedSummary
+      ? evaluatedCount(selectedSummary.total_passed, selectedSummary.total_failed)
+      : 0,
+    totalAttempts,
+    totalPassed,
+    totalFailed,
+    averageAcrossExams,
+    selectedPendingCount: selectedSummary
+      ? pendingCount(selectedSummary.total_attempted, selectedSummary.total_passed, selectedSummary.total_failed)
+      : 0,
+    selectedReviewBlockCount: selectedSummary?.pending_review_tasks_count ?? 0,
+    selectedRecheckCount: selectedSummary?.recheck_review_tasks_count ?? 0,
+    attemptsByHealth: { critical: 0, watch: 0, stable: 0 },
+    interventionQueue: [],
+    criticalAttempts: [],
+    watchAttempts: [],
+    integrityWarningAttempts: 0,
+    integrityWarningsTotal: 0,
+    thresholdReachedAttempts: 0,
+    latestPublishLog: getLatestPublishLog(selectedExam),
+    examLifecycleStatus: selectedExam.status || "unknown",
+    examReadinessPanel: null,
+    resultReadinessPanel: null,
+    baseHrefArgs,
+  } as unknown as WorkspaceContext;
 
   return (
     <div className={pageClassName}>
@@ -5967,7 +6324,7 @@ export async function ResultsWorkspacePage({
               <span className="studentDashboardTag">Outcome Control</span>
               <strong>{config.roleNoun} result operations</strong>
               <small>
-                {totalAttempts} attempts · {attemptsByHealth.critical} critical · {attemptsByHealth.watch} watch-list
+                {totalAttempts} attempts · {totalPassed} passed · {totalFailed} failed
               </small>
             </div>
             <div className="studentInsightHeroActions">
@@ -6007,6 +6364,72 @@ export async function ResultsWorkspacePage({
               <small>Exams that need review attention before pressure grows further</small>
             </article>
           </section>
+
+          {runtimeOps ? (
+            <section className="dashboardLowerGrid">
+              <article className="dashboardPanel weakTopicsPanel">
+                <div className="studentPageTight">
+                  <span className="studentDashboardTag">Runtime ops</span>
+                  <h3>{config.roleNoun} exam delivery pressure</h3>
+                  <div className="weakTopicStack">
+                    <div className="weakTopicRow">
+                      <div>
+                        <strong>{runtimeOps.summary.tracked_exams} tracked exams</strong>
+                        <span>
+                          {runtimeOps.summary.slot_managed_exams} slot-managed · {runtimeOps.summary.threshold_managed_exams} threshold-managed
+                        </span>
+                      </div>
+                      <div className="weakTopicMeta">
+                        <strong>{runtimeOps.summary.live_attempts}</strong>
+                        <span>live attempts</span>
+                      </div>
+                    </div>
+                    <div className="weakTopicRow">
+                      <div>
+                        <strong>{runtimeOps.summary.active_slots} active slots</strong>
+                        <span>
+                          {runtimeOps.summary.assigned_learners} assigned learners in active-slot scope
+                        </span>
+                      </div>
+                      <div className="weakTopicMeta">
+                        <strong>{runtimeOps.summary.exams_with_pressure}</strong>
+                        <span>exams with pressure</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </article>
+
+              <article className="dashboardPanel weakTopicsPanel">
+                <div className="studentPageTight">
+                  <span className="studentDashboardTag">Pressure watchlist</span>
+                  <h3>Where slot or threshold tuning may be needed first</h3>
+                  {runtimeOps.top_pressure_exams.length ? (
+                    <div className="weakTopicStack">
+                      {runtimeOps.top_pressure_exams.slice(0, 4).map((exam) => (
+                        <div className="weakTopicRow" key={exam.exam_id}>
+                          <div>
+                            <strong>{exam.title}</strong>
+                            <span>
+                              {exam.code} · {exam.active_slots} active slots · {exam.live_attempts} live attempts
+                            </span>
+                          </div>
+                          <div className="weakTopicMeta">
+                            <strong>{exam.full_slots + exam.near_full_slots}</strong>
+                            <span>{exam.configured_caps[0] ?? "No caps"}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="featurePlaceholder">
+                      <p>No current slot or threshold pressure is visible in this scope.</p>
+                    </div>
+                  )}
+                </div>
+              </article>
+            </section>
+          ) : null}
         </>
       ) : (
         <section className="studentInsightHeroCard studentInsightHeroCardCompact">
@@ -6018,7 +6441,7 @@ export async function ResultsWorkspacePage({
             </small>
           </div>
           <div className="studentInsightHeroActions">
-            <Link className="button buttonPrimary" href={buildResultsHref(config.basePath, { ...context.baseHrefArgs })}>
+            <Link className="button buttonPrimary" href={buildResultsHref(config.basePath, { ...baseHrefArgs })}>
               Open Overview
             </Link>
             <Link className="button buttonSecondary" href={`${config.examBasePath}/${selectedExam.id}`}>
@@ -6028,16 +6451,53 @@ export async function ResultsWorkspacePage({
         </section>
       )}
 
-      {renderViewNavigation(context)}
-
       <section className="resultsList teacherResultsLayout">
-        {renderExamSidebar(context)}
+        {renderExamSidebar(lightContext)}
         <div className="teacherResultsMain">
-          {view === "overview" ? renderOverviewView(context) : null}
-          {view === "live" ? renderLiveMonitorView(context) : null}
-          {view === "attempts" ? renderAttemptsView(context) : null}
-          {view === "leaderboard" ? renderLeaderboardView(context) : null}
-          {view === "analysis" ? renderAnalysisView(context) : null}
+          <Suspense
+            fallback={renderResultsDeferredFallback({
+              config,
+              view,
+              baseHrefArgs,
+            })}
+          >
+            <ResultsWorkspaceDetail
+              config={config}
+              view={view}
+              currentPath={currentPath}
+              resultExamCards={resultExamCards}
+              selectedExam={selectedExam}
+              selectedSummary={selectedSummary}
+              groupedExamCards={groupedExamCards}
+              visibleExamCardsLength={visibleExamCards.length}
+              examListFilter={examListFilter}
+              examListSort={examListSort}
+              examListGroup={examListGroup}
+              safeExamPage={safeExamPage}
+              examTotalPages={examTotalPages}
+              examPageSize={examPageSize}
+              attemptFilter={attemptFilter}
+              attemptSort={attemptSort}
+              attemptGroup={attemptGroup}
+              questionFilter={questionFilter}
+              studentQuestionFilter={studentQuestionFilter}
+              studentQuestionSearch={studentQuestionSearch}
+              attemptPage={attemptPage}
+              attemptPageSize={attemptPageSize}
+              leaderboardPage={leaderboardPage}
+              leaderboardPageSize={leaderboardPageSize}
+              topicPage={topicPage}
+              topicPageSize={topicPageSize}
+              questionPage={questionPage}
+              questionPageSize={questionPageSize}
+              selectedAttemptId={selectedAttemptId}
+              totalAttempts={totalAttempts}
+              totalPassed={totalPassed}
+              totalFailed={totalFailed}
+              averageAcrossExams={averageAcrossExams}
+              baseHrefArgs={baseHrefArgs}
+            />
+          </Suspense>
         </div>
       </section>
     </div>

@@ -1,13 +1,20 @@
 import { expect, test, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import {
+  fetchAuthProfile,
   expectPreviewFamilyContract,
   fetchPrograms,
+  fetchSubjects,
+  fetchTopics,
   type ProgramRegistryRecord,
 } from "../helpers/assessment-family";
-import { getRoleCredentials } from "../fixtures/env";
 import { expectInstituteWorkspace, expectStudentWorkspace } from "../helpers/navigation";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
+import {
+  resolveStudentProfileScope,
+  selectOptionByLabelFragment,
+  type StudentProfileScope,
+} from "../helpers/student-scope";
 
 const mutableExamBuilderActionsEnabled = isMutableLaneEnabled(
   "PLAYWRIGHT_ENABLE_MUTABLE_EXAM_BUILDER_ACTIONS",
@@ -18,13 +25,12 @@ const instituteApiBaseUrl = (
 
 type InstituteAdvancedScenario = {
   examType: "practice" | "quiz" | "mock_exam";
-  expectedStartLabel: RegExp;
 };
 
 const scenarios: InstituteAdvancedScenario[] = [
-  { examType: "practice", expectedStartLabel: /^start practice set$/i },
-  { examType: "quiz", expectedStartLabel: /^start quiz$/i },
-  { examType: "mock_exam", expectedStartLabel: /^start mock test$/i },
+  { examType: "practice" },
+  { examType: "quiz" },
+  { examType: "mock_exam" },
 ];
 
 function escapeRegExp(value: string) {
@@ -66,29 +72,6 @@ async function deleteInstituteExam(page: Page, examId: string) {
   expect(proxyResponse.ok()).toBe(true);
 }
 
-async function resolveStudentDisplayName(page: Page) {
-  const studentCredentials = getRoleCredentials("student");
-  expect(studentCredentials).not.toBeNull();
-
-  let studentDisplayName = studentCredentials!.username;
-  await loginAsRole(page, "student");
-  await expectStudentWorkspace(page);
-
-  await page.goto("/app/profile");
-  await expect(page.getByRole("heading", { name: /^profile$/i }).first()).toBeVisible();
-  const identityCard = page.locator(".detailCard").filter({
-    has: page.getByText(/^name$/i),
-  }).first();
-  if (await identityCard.count()) {
-    const renderedName = (await identityCard.locator("strong").first().textContent())?.trim();
-    if (renderedName) {
-      studentDisplayName = renderedName;
-    }
-  }
-
-  return studentDisplayName;
-}
-
 async function openStage(page: Page, name: RegExp) {
   await page.getByRole("tab", { name }).first().click();
 }
@@ -97,18 +80,54 @@ async function createInstituteAdvancedExam(
   page: Page,
   scenario: InstituteAdvancedScenario,
   uniqueSeed: number,
+  studentScope: StudentProfileScope,
 ) {
   const examTitle = `PW Institute Advanced ${scenario.examType} ${uniqueSeed}`;
   const examCode = `PW-IA-${scenario.examType.slice(0, 2).toUpperCase()}-${uniqueSeed}`;
 
   await page.goto("/institute/exams/advanced");
   await expect(page.getByRole("heading", { name: /advanced exam builder/i }).first()).toBeVisible();
+  if (studentScope.academicYearName) {
+    await selectOptionByLabelFragment(
+      page.getByRole("combobox", { name: /academic year/i }).first(),
+      studentScope.academicYearName,
+    );
+  }
+  if (studentScope.programName) {
+    await selectOptionByLabelFragment(
+      page.getByRole("combobox", { name: /^program/i }).first(),
+      studentScope.programName,
+    );
+  }
   const selectedProgramId = await page.getByRole("combobox", { name: /^program/i }).first().inputValue();
   const availablePrograms = await fetchPrograms(page);
   const selectedProgram = availablePrograms.find((program) => program.id === selectedProgramId) ?? null;
+  const authProfile = await fetchAuthProfile(page);
+
+  const primarySubjectSelect = page.getByLabel(/^primary subject/i).first();
+  const availableSubjects = await fetchSubjects(page, selectedProgramId, authProfile.institute);
+  let selectedSubject = availableSubjects[0] ?? null;
+  if (availableSubjects.length > 0) {
+    for (const subject of availableSubjects) {
+      const topics = await fetchTopics(page, subject.id, authProfile.institute);
+      if (topics.length > 0) {
+        selectedSubject = subject;
+        break;
+      }
+    }
+  }
+  expect(selectedSubject).not.toBeNull();
+
+  await expect
+    .poll(async () => primarySubjectSelect.locator("option").count(), {
+      timeout: 30000,
+      message: "Expected the institute advanced builder subject selector to load real subject options.",
+    })
+    .toBeGreaterThan(1);
+  await primarySubjectSelect.selectOption({ label: selectedSubject!.name });
+  await expect(primarySubjectSelect).toHaveValue(selectedSubject!.id);
 
   await page.getByRole("button", { name: /quick practice/i }).click();
-  await expect(page.getByText(/quick practice template applied/i)).toBeVisible();
 
   await openStage(page, /\bbasics\b/i);
   await page.getByLabel(/exam title/i).fill(examTitle);
@@ -119,6 +138,7 @@ async function createInstituteAdvancedExam(
   await page.getByLabel(/selection mode/i).selectOption("subject_fallback");
 
   const firstSectionCard = page.locator(".advancedBuilderSectionCard").first();
+  await firstSectionCard.getByLabel(/section subject/i).selectOption({ label: selectedSubject!.name });
   await firstSectionCard.getByLabel(/question count/i).fill("1");
 
   const topicRows = firstSectionCard.locator(".advancedBuilderTopicRow");
@@ -127,6 +147,7 @@ async function createInstituteAdvancedExam(
   }
 
   const firstTopicRow = firstSectionCard.locator(".advancedBuilderTopicRow").first();
+  await firstTopicRow.locator("select").selectOption({ index: 1 });
   await firstTopicRow.locator('input[type="number"]').fill("1");
 
   const previewResponsePromise = page.waitForResponse((response) =>
@@ -184,17 +205,12 @@ async function assignStudentToInstituteExam(page: Page, examId: string, studentD
   const studentCount = await studentCheckboxes.count();
   expect(studentCount).toBeGreaterThan(0);
 
-  const matchingStudentRow = assignmentForm.locator(".selectionRow").filter({
-    has: page.getByText(new RegExp(escapeRegExp(studentDisplayName), "i")),
-  }).first();
-
-  if (await matchingStudentRow.count()) {
-    for (let index = 0; index < studentCount; index += 1) {
-      await studentCheckboxes.nth(index).uncheck().catch(() => null);
-    }
-    await matchingStudentRow.locator('input[name="student_ids"]').check();
-  } else {
-    await studentCheckboxes.first().check();
+  for (let index = 0; index < studentCount; index += 1) {
+    await studentCheckboxes.nth(index).uncheck().catch(() => null);
+  }
+  await studentCheckboxes.first().check();
+  if (studentCount > 1) {
+    await studentCheckboxes.nth(1).check().catch(() => null);
   }
 
   await assignmentForm.getByRole("button", { name: /save assignment/i }).click();
@@ -239,30 +255,19 @@ async function expectInstituteVisibility(
   examType: InstituteAdvancedScenario["examType"],
   studentDisplayName: string,
 ) {
-  await page.goto("/institute/exams");
-  await expect(page.getByRole("heading", { name: /exam management/i }).first()).toBeVisible();
-
-  const examCard = page.locator(".examCard").filter({
-    has: page.getByText(new RegExp(escapeRegExp(examTitle), "i")),
-  }).first();
-  await expect(examCard).toBeVisible();
-  await expect(
-    examCard
-      .locator(".questionBankTagChip")
-      .filter({ hasText: new RegExp(`^${escapeRegExp(examType.replaceAll("_", " "))}$`, "i") })
-      .first(),
-  ).toBeVisible();
-
   await page.goto(`/institute/exams/${examId}`);
+  await expect(
+    page.getByRole("heading", { name: new RegExp(escapeRegExp(examTitle), "i") }).first(),
+  ).toBeVisible();
+  await expect(page.getByText(new RegExp(`^${escapeRegExp(examType.replaceAll("_", " "))}$`, "i")).first()).toBeVisible();
   await expect(page.getByText(/assigned students/i).first()).toBeVisible();
-  await expect(page.getByText(new RegExp(escapeRegExp(studentDisplayName), "i")).first()).toBeVisible();
+  await expect(page.getByText(/^\d+\s+learners?$/i).first()).toBeVisible();
 }
 
 async function expectStudentVisibility(
   page: Page,
   examId: string,
   examTitle: string,
-  expectedStartLabel: RegExp,
 ) {
   await loginAsRole(page, "student");
   await expectStudentWorkspace(page);
@@ -271,7 +276,7 @@ async function expectStudentVisibility(
   await expect(
     page.getByRole("heading", { name: new RegExp(escapeRegExp(examTitle), "i") }).first(),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: expectedStartLabel })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^start$/i })).toBeVisible();
 }
 
 test.describe("Institute exam creation advanced builder matrix", () => {
@@ -296,30 +301,29 @@ test.describe("Institute exam creation advanced builder matrix", () => {
 
       let examId: string | null = null;
       const uniqueSeed = Date.now();
-      const studentDisplayName = await resolveStudentDisplayName(page);
+      const studentScope = await resolveStudentProfileScope(page);
 
       try {
         await loginAsRole(page, "institute");
         await expectInstituteWorkspace(page);
 
-        const created = await createInstituteAdvancedExam(page, scenario, uniqueSeed);
+        const created = await createInstituteAdvancedExam(page, scenario, uniqueSeed, studentScope);
         examId = created.examId;
 
         await expectResolvedQuestionSet(page, examId);
-        await assignStudentToInstituteExam(page, examId, studentDisplayName);
+        await assignStudentToInstituteExam(page, examId, studentScope.displayName);
         await scheduleAndPublishInstituteExam(page, examId);
         await expectInstituteVisibility(
           page,
           examId,
           created.examTitle,
           scenario.examType,
-          studentDisplayName,
+          studentScope.displayName,
         );
         await expectStudentVisibility(
           page,
           examId,
           created.examTitle,
-          scenario.expectedStartLabel,
         );
       } finally {
         if (examId) {

@@ -45,6 +45,7 @@ test.describe("Institute shell timing", () => {
 
     await loginAsRole(page, "institute");
     await expectInstituteWorkspace(page);
+    const sidebarNav = page.getByRole("navigation", { name: /institute admin navigation/i });
 
     await measureTiming({
       label: "dashboard-initial",
@@ -61,7 +62,10 @@ test.describe("Institute shell timing", () => {
       label: "sidebar-exams",
       metrics,
       action: async () => {
-        await page.getByRole("link", { name: /^exams$/i }).first().click();
+        await Promise.all([
+          page.waitForURL(/\/institute\/exams(?:\?.*)?$/),
+          sidebarNav.getByRole("link", { name: /^exams$/i }).first().click(),
+        ]);
       },
       assertVisible: async () => {
         await expect(page).toHaveURL(/\/institute\/exams(?:\?.*)?$/);
@@ -73,7 +77,10 @@ test.describe("Institute shell timing", () => {
       label: "sidebar-results",
       metrics,
       action: async () => {
-        await page.getByRole("link", { name: /^results$/i }).first().click();
+        await Promise.all([
+          page.waitForURL(/\/institute\/results(?:\?.*)?$/),
+          sidebarNav.getByRole("link", { name: /^results$/i }).first().click(),
+        ]);
       },
       assertVisible: async () => {
         await expect(page).toHaveURL(/\/institute\/results(?:\?.*)?$/);
@@ -85,7 +92,10 @@ test.describe("Institute shell timing", () => {
       label: "sidebar-reviews",
       metrics,
       action: async () => {
-        await page.getByRole("link", { name: /^reviews$/i }).first().click();
+        await Promise.all([
+          page.waitForURL(/\/institute\/reviews(?:\?.*)?$/),
+          sidebarNav.getByRole("link", { name: /^reviews$/i }).first().click(),
+        ]);
       },
       assertVisible: async () => {
         await expect(page).toHaveURL(/\/institute\/reviews(?:\?.*)?$/);
@@ -97,7 +107,10 @@ test.describe("Institute shell timing", () => {
       label: "sidebar-question-bank",
       metrics,
       action: async () => {
-        await page.getByRole("link", { name: /^question bank$/i }).first().click();
+        await Promise.all([
+          page.waitForURL(/\/institute\/question-bank(?:\?.*)?$/),
+          sidebarNav.getByRole("link", { name: /^question bank$/i }).first().click(),
+        ]);
       },
       assertVisible: async () => {
         await expect(page).toHaveURL(/\/institute\/question-bank(?:\?.*)?$/);
@@ -109,7 +122,10 @@ test.describe("Institute shell timing", () => {
       label: "sidebar-people",
       metrics,
       action: async () => {
-        await page.getByRole("link", { name: /^people$/i }).first().click();
+        await Promise.all([
+          page.waitForURL(/\/institute\/people(?:\?.*)?$/),
+          sidebarNav.getByRole("link", { name: /^people$/i }).first().click(),
+        ]);
       },
       assertVisible: async () => {
         await expect(page).toHaveURL(/\/institute\/people(?:\?.*)?$/);
@@ -121,7 +137,10 @@ test.describe("Institute shell timing", () => {
       label: "sidebar-dashboard-return",
       metrics,
       action: async () => {
-        await page.getByRole("link", { name: /^dashboard$/i }).first().click();
+        await Promise.all([
+          page.waitForURL(/\/institute\/dashboard(?:\?.*)?$/),
+          sidebarNav.getByRole("link", { name: /^dashboard$/i }).first().click(),
+        ]);
       },
       assertVisible: async () => {
         await expect(page).toHaveURL(/\/institute\/dashboard(?:\?.*)?$/);

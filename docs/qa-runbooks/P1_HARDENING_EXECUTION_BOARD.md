@@ -65,10 +65,9 @@ Current smaller-screen read:
 
 This is the recommended order for the next active hardening passes:
 
-1. Multi-learner publication and leaderboard distribution depth
-2. Institute-side descriptive scoring mutation
-3. Advanced economy catalog/policy mutation combinations
-4. Small-screen sanity for dense operator shells
+1. Advanced economy catalog/policy mutation combinations
+2. Small-screen sanity for dense operator shells
+3. Cross-surface results/review consistency under narrower filtered states
 
 ---
 
@@ -108,9 +107,15 @@ Progress update:
   - review queue navigation and scoped recovery behavior
   - review-ready route reachability from the institute results shell
   - single-learner publication through leaderboard-ready state
+- Institute-side multi-learner publication depth is now browser-proven through:
+  - disposable second-student provisioning with login creation
+  - institute exam creation inside the seeded learner's academic/program/cohort scope
+  - two distinct attempt outcomes
+  - rank calculation and result publication
+  - leaderboard API and UI verification for rank `1` and rank `2`
 - Assignment/publication browser evidence now also safely proves:
   - `selected_students` assignment persistence across current mutable admin, institute, and teacher creation lanes
-  - a single ranked learner appearing on leaderboard-ready publication flows
+  - both single-ranked and two-ranked learner publication flows on the currently covered institute and teacher leaderboard lanes
 - Teacher mutable review coverage now browser-proves a disposable descriptive/manual-review lifecycle:
   - create manual-review question
   - attach it to a disposable exam
@@ -135,7 +140,8 @@ Primary user impact:
 
 - Operators can reach results and review lanes, and teacher-side manual-review scoring is now browser-proven.
 - Institute-side review navigation and review-ready routing are also browser-proven, but institute-side descriptive scoring mutation and multi-role descriptive-review depth still need more realism.
-- `selected_students` assignment through to single-ranked leaderboard-ready publication is browser-proven, and the currently exposed builder assignment-mode catalog is now covered, but broader multi-learner distribution depth still needs intentional coverage.
+- `selected_students` assignment through to leaderboard-ready publication is browser-proven for both single-learner and targeted two-learner distribution depth, and the currently exposed builder assignment-mode catalog is now covered.
+- The stronger remaining realism gap in this area is institute-side descriptive/manual-review mutation breadth across more than one operator surface, not basic multi-learner ranking continuity.
 
 Acceptance criteria:
 
@@ -153,7 +159,7 @@ Playwright coverage targets:
 - teacher results summary -> attempts -> leaderboard -> analysis route continuity
 - published vs unpublished result behavior
 - review-related no-data and partially-ready states
-- multi-learner publication and leaderboard distribution depth beyond the current single-ranked learner baseline
+- multi-learner publication and leaderboard distribution depth across broader score-shape combinations than the current `100%` vs `0%` baseline
 
 Suggested spec targets:
 
@@ -166,7 +172,7 @@ Suggested spec targets:
 
 Signoff condition:
 
-- One populated institute flow and one populated teacher flow complete results navigation without misleading state copy, and at least one institute-side descriptive/manual-review mutation path is browser-proven alongside the existing teacher lane.
+- One populated institute flow and one populated teacher flow complete results navigation without misleading state copy, institute-side multi-learner leaderboard publication is browser-proven, and at least one institute-side descriptive/manual-review mutation path is browser-proven alongside the existing teacher lane.
 
 ---
 
@@ -285,12 +291,14 @@ Progress update:
   - entitlement pause/reactivate lifecycle changes
   - entitlement notes and date-window edits
   - institute-admin grant/confirm disable behavior when platform policy turns those actions off
+  - subscription-plan cycle, price, grant-mode, and star-credit-rule mutation through the dense admin governance editor
+  - safe recovery after a wrong subscription-plan `Apply to institute` target choice, including remediation guidance before apply and cleared reconciliation after the correct target is applied
 - The current browser evidence now supports closing first-time-operator baseline hardening for the highest-risk economy lanes.
 
 Primary user impact:
 
 - First-time operators now have browser-proven guidance in the highest-risk economy lanes.
-- Key support-ops and policy-disable baselines are also browser-proven, but denser catalog mutations and broader policy combinations still remain heavier than the rest of the product.
+- Key support-ops, policy-disable, subscription-plan cycle/credit-rule mutation, and wrong-target recovery baselines are also browser-proven, but broader catalog combinations still remain heavier than the rest of the product.
 
 Acceptance criteria:
 

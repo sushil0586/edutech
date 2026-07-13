@@ -62,7 +62,7 @@ Expected page areas:
 - delivery and access controls
 - summary cards showing available scope data
 
-[Screenshot: Create Exam page overview]
+![Create Exam page overview](./assets/workflows/exam-creation/01-create-overview.png)
 
 ### Step 1: Open Create Exam
 
@@ -273,7 +273,8 @@ You may be asked for:
 3. Select `Add Section`.
 4. Confirm the section appears in the section list.
 
-[Screenshot: Sections tab with add section form]
+![Sections tab with add section form](./assets/workflows/exam-creation/03-sections-form.png)
+![Sections tab success state](./assets/workflows/exam-creation/04-sections-success.png)
 
 ### How To Remove A Section
 
@@ -319,6 +320,9 @@ This is one of the most important steps in builder setup.
 Expected confirmation:
 
 - `Question linked to exam.`
+
+![Linked Questions tab form](./assets/workflows/exam-creation/05-linked-question-form.png)
+![Linked Questions success state](./assets/workflows/exam-creation/06-linked-question-success.png)
 
 ### How To Bulk Link Questions
 
@@ -377,7 +381,8 @@ The `Student Assignment` tab connects the exam to learners.
 4. Save the assignment.
 5. Review the assigned learner list.
 
-[Screenshot: Student Assignment tab]
+![Student Assignment tab form](./assets/workflows/exam-creation/07-assignment-form.png)
+![Student Assignment success state](./assets/workflows/exam-creation/08-assignment-success.png)
 
 Note:
 If no students appear, check cohort mapping, roster setup, and institute scope first.
@@ -442,3 +447,9 @@ Before final PDF export, add:
 2. branded cover page
 3. page footer with version and release date
 4. support contact section
+
+## Quick Visual Reference
+
+The builder flow shown in this manual uses the same live structure for both teacher and institute admin:
+
+![Exam Builder overview](./assets/workflows/exam-creation/02-builder-overview.png)

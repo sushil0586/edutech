@@ -16,6 +16,7 @@ import {
   StudentNotification,
   StudentNotificationListResponse,
   StudentPaymentOrder,
+  StudentPracticeFollowUpExam,
   StudentRewardEvent,
   StudentResult,
   StudentStarLedgerEntry,
@@ -177,6 +178,28 @@ export async function fetchStudentAvailableExams(
 
   const queryString = query.toString();
   return fetchStudentJson<StudentAvailableExam[]>(
+    `/api/v1/student/exams/available/${queryString ? `?${queryString}` : ""}`,
+  );
+}
+
+export async function fetchStudentPracticeFollowUpExams(
+  filters?: StudentAvailableExamFilters,
+) {
+  const query = new URLSearchParams();
+
+  if (filters?.source && filters.source !== "all") {
+    query.set("source", filters.source);
+  }
+
+  if (filters?.source === "teacher" && filters.teacher) {
+    query.set("teacher", filters.teacher);
+  }
+
+  query.set("compact", "true");
+  query.set("exam_type", "practice");
+
+  const queryString = query.toString();
+  return fetchStudentJson<StudentPracticeFollowUpExam[]>(
     `/api/v1/student/exams/available/${queryString ? `?${queryString}` : ""}`,
   );
 }

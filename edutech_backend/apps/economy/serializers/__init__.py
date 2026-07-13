@@ -24,9 +24,11 @@ from apps.economy.models import (
     StarPack,
     StudentEconomyProfile,
     StudentSubscription,
+    StudentSubscriptionAllowanceUsage,
     StudentUnlockState,
     SubscriptionBillingEvent,
     SubscriptionPlan,
+    SubscriptionPlanExamAllowanceConfig,
     SubscriptionPlanCycle,
     SubscriptionPlanQuestionBankPackage,
     SubscriptionStarCreditRule,
@@ -289,9 +291,25 @@ class AdminSubscriptionStarCreditRuleSerializer(serializers.ModelSerializer):
         )
 
 
+class AdminSubscriptionPlanExamAllowanceConfigSerializer(serializers.ModelSerializer):
+    id = serializers.UUIDField(required=False)
+
+    class Meta:
+        model = SubscriptionPlanExamAllowanceConfig
+        fields = (
+            "id",
+            "included_exam_attempts",
+            "allowance_period_mode",
+            "counting_scope",
+            "metadata",
+            "is_active",
+        )
+
+
 class AdminSubscriptionPlanCycleSerializer(serializers.ModelSerializer):
     id = serializers.UUIDField(required=False)
     star_credit_rules = AdminSubscriptionStarCreditRuleSerializer(many=True, required=False)
+    exam_allowance_config = AdminSubscriptionPlanExamAllowanceConfigSerializer(required=False, allow_null=True)
 
     class Meta:
         model = SubscriptionPlanCycle
@@ -304,6 +322,7 @@ class AdminSubscriptionPlanCycleSerializer(serializers.ModelSerializer):
             "metadata",
             "is_active",
             "star_credit_rules",
+            "exam_allowance_config",
         )
 
 
@@ -477,11 +496,12 @@ class AdminSubscriptionPlanSerializer(serializers.ModelSerializer):
     def _sync_cycles(self, *, plan, cycles_data):
         existing_cycles = {
             str(cycle.id): cycle
-            for cycle in plan.cycles.all().prefetch_related("star_credit_rules")
+            for cycle in plan.cycles.all().prefetch_related("star_credit_rules", "exam_allowance_config")
         }
 
         for cycle_data in cycles_data:
             rules_data = cycle_data.pop("star_credit_rules", [])
+            allowance_config_data = cycle_data.pop("exam_allowance_config", None)
             cycle_id = str(cycle_data.pop("id", "") or "")
             if cycle_id and cycle_id in existing_cycles:
                 cycle = existing_cycles[cycle_id]
@@ -512,6 +532,28 @@ class AdminSubscriptionPlanSerializer(serializers.ModelSerializer):
                         plan_cycle=cycle,
                         **rule_data,
                     )
+
+            if allowance_config_data is not None:
+                allowance_config = getattr(cycle, "exam_allowance_config", None)
+                allowance_config_id = str(allowance_config_data.pop("id", "") or "")
+                if allowance_config is None:
+                    SubscriptionPlanExamAllowanceConfig.objects.create(
+                        institute=plan.institute,
+                        plan_cycle=cycle,
+                        **allowance_config_data,
+                    )
+                else:
+                    if allowance_config_id and str(allowance_config.id) != allowance_config_id:
+                        raise serializers.ValidationError(
+                            {
+                                "cycles": (
+                                    "Exam allowance config id does not match the selected subscription cycle."
+                                )
+                            }
+                        )
+                    for attr, value in allowance_config_data.items():
+                        setattr(allowance_config, attr, value)
+                    allowance_config.save()
 
     def _sync_question_bank_package_links(self, *, plan, question_bank_package_links_data):
         existing_links = {
@@ -1530,8 +1572,22 @@ class SubscriptionStarCreditRuleSerializer(serializers.ModelSerializer):
         )
 
 
+class SubscriptionPlanExamAllowanceConfigSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SubscriptionPlanExamAllowanceConfig
+        fields = (
+            "id",
+            "included_exam_attempts",
+            "allowance_period_mode",
+            "counting_scope",
+            "metadata",
+            "is_active",
+        )
+
+
 class SubscriptionPlanCycleSerializer(serializers.ModelSerializer):
     star_credit_rules = SubscriptionStarCreditRuleSerializer(many=True, read_only=True)
+    exam_allowance_config = SubscriptionPlanExamAllowanceConfigSerializer(read_only=True)
 
     class Meta:
         model = SubscriptionPlanCycle
@@ -1544,6 +1600,7 @@ class SubscriptionPlanCycleSerializer(serializers.ModelSerializer):
             "metadata",
             "is_active",
             "star_credit_rules",
+            "exam_allowance_config",
         )
 
 
@@ -1643,12 +1700,35 @@ class SubscriptionBillingEventSerializer(serializers.ModelSerializer):
         )
 
 
+class StudentSubscriptionAllowanceUsageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StudentSubscriptionAllowanceUsage
+        fields = (
+            "id",
+            "student_subscription",
+            "student",
+            "exam",
+            "attempt",
+            "billing_period_start",
+            "billing_period_end",
+            "consumed_count",
+            "consumed_at",
+            "consumption_reason",
+            "metadata",
+            "created_at",
+            "updated_at",
+            "is_active",
+        )
+
+
 class StudentSubscriptionSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source="student.full_name", read_only=True)
     plan_name = serializers.CharField(source="plan_cycle.plan.name", read_only=True)
     billing_interval = serializers.CharField(source="plan_cycle.billing_interval", read_only=True)
     interval_count = serializers.IntegerField(source="plan_cycle.interval_count", read_only=True)
     billing_events = SubscriptionBillingEventSerializer(many=True, read_only=True)
+    allowance_usage_entries = StudentSubscriptionAllowanceUsageSerializer(many=True, read_only=True)
+    allowance_summary = serializers.SerializerMethodField()
 
     class Meta:
         model = StudentSubscription
@@ -1668,10 +1748,40 @@ class StudentSubscriptionSerializer(serializers.ModelSerializer):
             "cancelled_at",
             "metadata",
             "billing_events",
+            "allowance_usage_entries",
+            "allowance_summary",
             "created_at",
             "updated_at",
             "is_active",
         )
+
+    def get_allowance_summary(self, obj):
+        allowance_config = getattr(obj.plan_cycle, "exam_allowance_config", None)
+        if allowance_config is None or not allowance_config.is_active:
+            return None
+
+        current_period_start = obj.current_period_start
+        current_period_end = obj.current_period_end
+        usage_entries = [entry for entry in obj.allowance_usage_entries.all() if entry.is_active]
+        if current_period_start is not None and current_period_end is not None:
+            usage_entries = [
+                entry
+                for entry in usage_entries
+                if entry.billing_period_start == current_period_start
+                and entry.billing_period_end == current_period_end
+            ]
+
+        used_allowance = sum(int(entry.consumed_count or 0) for entry in usage_entries)
+        included_allowance = int(allowance_config.included_exam_attempts or 0)
+        return {
+            "included_allowance": included_allowance,
+            "used_allowance": used_allowance,
+            "remaining_allowance": max(included_allowance - used_allowance, 0),
+            "allowance_period_mode": allowance_config.allowance_period_mode,
+            "counting_scope": allowance_config.counting_scope,
+            "billing_period_start": current_period_start,
+            "billing_period_end": current_period_end,
+        }
 
 
 class SpendStarsForContentSerializer(serializers.Serializer):

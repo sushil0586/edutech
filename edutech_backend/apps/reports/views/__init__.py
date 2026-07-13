@@ -1,9 +1,13 @@
-from django.db.models import Q
+from django.db.models import Count, Prefetch, Q
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.accounts.models import AccountRole
+from apps.accounts.scopes import get_account_profile, scope_exam_queryset
+from apps.exams.models import Exam, ExamAccessSlot
+from apps.exams.services import resolve_exam_runtime_thresholds
 from apps.reports.models import InAppNotification
 from apps.reports.serializers import (
     InAppNotificationSerializer,
@@ -18,6 +22,225 @@ from apps.reports.services import (
 )
 from common.pagination import StandardResultsSetPagination
 from common.responses import action_response
+
+
+def _slot_pressure_state(slot):
+    start_capacity = slot.start_capacity
+    assignment_capacity = slot.assignment_capacity
+    assignment_count = int(getattr(slot, "assignment_count", 0) or 0)
+    active_attempt_count = int(getattr(slot, "active_attempt_count", 0) or 0)
+
+    assignment_remaining = (
+        None if assignment_capacity is None else max(int(assignment_capacity) - assignment_count, 0)
+    )
+    start_remaining = (
+        None if start_capacity is None else max(int(start_capacity) - active_attempt_count, 0)
+    )
+
+    occupancy_state = "healthy"
+    if start_capacity is not None and active_attempt_count >= start_capacity:
+        occupancy_state = "full"
+    elif assignment_capacity is not None and assignment_count >= assignment_capacity:
+        occupancy_state = "full"
+    elif (
+        start_capacity is not None
+        and start_remaining is not None
+        and start_remaining <= max(1, int(start_capacity * 0.1))
+    ):
+        occupancy_state = "near_full"
+    elif (
+        assignment_capacity is not None
+        and assignment_remaining is not None
+        and assignment_remaining <= max(1, int(assignment_capacity * 0.1))
+    ):
+        occupancy_state = "near_full"
+
+    return {
+        "assignment_count": assignment_count,
+        "active_attempt_count": active_attempt_count,
+        "occupancy_state": occupancy_state,
+    }
+
+
+class ExamRuntimeSummaryView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        profile = get_account_profile(request.user)
+        if profile is None or profile.role not in {
+            AccountRole.PLATFORM_ADMIN,
+            AccountRole.INSTITUTE_ADMIN,
+            AccountRole.TEACHER,
+        }:
+            return Response(
+                {"detail": "You do not have permission to view runtime ops."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        status_filter = (request.query_params.get("status") or "active").strip().lower()
+        allowed_statuses = {"active", "all", "live", "scheduled"}
+        if status_filter not in allowed_statuses:
+            status_filter = "active"
+
+        exams_queryset = scope_exam_queryset(
+            Exam.objects.select_related("institute").only(
+                "id",
+                "title",
+                "code",
+                "status",
+                "access_mode",
+                "metadata",
+                "institute__name",
+            ),
+            request.user,
+        ).filter(is_active=True)
+
+        if status_filter == "live":
+            exams_queryset = exams_queryset.filter(status="live")
+        elif status_filter == "scheduled":
+            exams_queryset = exams_queryset.filter(status="scheduled")
+        elif status_filter == "active":
+            exams_queryset = exams_queryset.filter(status__in=["scheduled", "live"])
+
+        slot_queryset = (
+            ExamAccessSlot.objects.filter(is_active=True)
+            .annotate(
+                assignment_count=Count(
+                    "student_assignments",
+                    filter=Q(student_assignments__is_active=True),
+                    distinct=True,
+                ),
+                active_attempt_count=Count(
+                    "attempts",
+                    filter=Q(attempts__is_active=True, attempts__status="in_progress"),
+                    distinct=True,
+                ),
+            )
+            .only(
+                "id",
+                "exam_id",
+                "slot_label",
+                "status",
+                "assignment_capacity",
+                "start_capacity",
+                "slot_start_at",
+                "slot_end_at",
+            )
+        )
+
+        exams = list(
+            exams_queryset.prefetch_related(
+                Prefetch("access_slots", queryset=slot_queryset, to_attr="_runtime_access_slots")
+            )
+        )
+
+        total_active_slots = 0
+        total_full_slots = 0
+        total_near_full_slots = 0
+        total_live_attempts = 0
+        total_assigned_learners = 0
+        slot_managed_exams = 0
+        threshold_managed_exams = 0
+        exams_with_pressure = 0
+        exam_rows = []
+
+        for exam in exams:
+            access_mode = getattr(exam, "resolved_access_mode", None) or exam.access_mode or "global_window_legacy"
+            if access_mode == "slot_managed":
+                slot_managed_exams += 1
+            runtime_thresholds = resolve_exam_runtime_thresholds(exam)
+            if any(
+                value is not None
+                for value in (
+                    runtime_thresholds.get("daily_start_cap"),
+                    runtime_thresholds.get("hourly_start_cap"),
+                    runtime_thresholds.get("concurrent_active_attempt_cap"),
+                )
+            ):
+                threshold_managed_exams += 1
+
+            active_slots = [slot for slot in getattr(exam, "_runtime_access_slots", []) if slot.status == "active"]
+            active_slot_count = len(active_slots)
+            full_slot_count = 0
+            near_full_slot_count = 0
+            live_attempts = 0
+            assigned_learners = 0
+            slot_labels = []
+            for slot in active_slots:
+                state = _slot_pressure_state(slot)
+                assigned_learners += state["assignment_count"]
+                live_attempts += state["active_attempt_count"]
+                if state["occupancy_state"] == "full":
+                    full_slot_count += 1
+                elif state["occupancy_state"] == "near_full":
+                    near_full_slot_count += 1
+                slot_labels.append(slot.slot_label)
+
+            total_active_slots += active_slot_count
+            total_full_slots += full_slot_count
+            total_near_full_slots += near_full_slot_count
+            total_live_attempts += live_attempts
+            total_assigned_learners += assigned_learners
+
+            pressure_score = (full_slot_count * 100) + (near_full_slot_count * 25) + live_attempts
+            if pressure_score > 0:
+                exams_with_pressure += 1
+
+            configured_caps = [
+                cap
+                for cap in [
+                    f"Daily {runtime_thresholds.get('daily_start_cap')}" if runtime_thresholds.get("daily_start_cap") else None,
+                    f"Hourly {runtime_thresholds.get('hourly_start_cap')}" if runtime_thresholds.get("hourly_start_cap") else None,
+                    f"Concurrent {runtime_thresholds.get('concurrent_active_attempt_cap')}" if runtime_thresholds.get("concurrent_active_attempt_cap") else None,
+                ]
+                if cap
+            ]
+
+            exam_rows.append(
+                {
+                    "exam_id": str(exam.id),
+                    "title": exam.title,
+                    "code": exam.code,
+                    "institute_name": getattr(exam.institute, "name", ""),
+                    "status": exam.status,
+                    "access_mode": access_mode,
+                    "active_slots": active_slot_count,
+                    "full_slots": full_slot_count,
+                    "near_full_slots": near_full_slot_count,
+                    "live_attempts": live_attempts,
+                    "assigned_learners": assigned_learners,
+                    "configured_caps": configured_caps,
+                    "pressure_score": pressure_score,
+                    "slot_labels": slot_labels[:3],
+                }
+            )
+
+        exam_rows.sort(
+            key=lambda item: (
+                -int(item["pressure_score"]),
+                -int(item["live_attempts"]),
+                item["title"].lower(),
+            )
+        )
+
+        return Response(
+            {
+                "summary": {
+                    "tracked_exams": len(exams),
+                    "slot_managed_exams": slot_managed_exams,
+                    "threshold_managed_exams": threshold_managed_exams,
+                    "active_slots": total_active_slots,
+                    "full_slots": total_full_slots,
+                    "near_full_slots": total_near_full_slots,
+                    "live_attempts": total_live_attempts,
+                    "assigned_learners": total_assigned_learners,
+                    "exams_with_pressure": exams_with_pressure,
+                    "status_filter": status_filter,
+                },
+                "top_pressure_exams": exam_rows[:8],
+            }
+        )
+
 
 class NotificationListView(APIView):
     permission_classes = [IsAuthenticated]

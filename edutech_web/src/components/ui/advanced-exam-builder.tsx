@@ -215,12 +215,46 @@ const prioritySuggestions = ["10", "20", "50", "100"];
 const unlockPrioritySuggestions = ["10", "20", "50", "100"];
 const unlockCountSuggestions = ["1", "2", "3", "5", "10"];
 const unlockScoreSuggestions = ["40.00", "50.00", "60.00", "70.00", "80.00"];
+const commercialPathValueMap: Record<string, string> = {
+  free: "free",
+  free_exam: "free",
+  stars_only: "stars_only",
+  star_unlock_exam: "stars_only",
+  entitlement_only: "subscription_only",
+  subscription_only: "subscription_only",
+  subscription_covered_exam: "subscription_only",
+  stars_or_entitlement: "subscription_or_stars",
+  subscription_or_stars: "subscription_or_stars",
+  subscription_or_stars_exam: "subscription_or_stars",
+  institute_sponsored: "institute_sponsored",
+  institute_sponsored_exam: "institute_sponsored",
+  platform_managed: "platform_managed",
+  platform_sponsored_exam: "platform_managed",
+};
 const experienceMediaFlowOptions: Option[] = [
   { value: "free_reference", label: "Free reference media" },
   { value: "light_reference", label: "Light reference media" },
   { value: "guided_section_media", label: "Section-guided media" },
   { value: "controlled_exam_media", label: "Controlled exam media" },
 ];
+
+function normalizeCommercialPathValue(value: string | undefined) {
+  return commercialPathValueMap[value ?? ""] ?? value ?? "";
+}
+
+function normalizeCommercialPathOptions(options: Option[]) {
+  const canonicalOptions: Option[] = [
+    { value: "", label: "Open Access" },
+    { value: "free", label: "Free" },
+    { value: "stars_only", label: "Stars Only" },
+    { value: "subscription_only", label: "Subscription Only" },
+    { value: "subscription_or_stars", label: "Subscription Or Stars" },
+    { value: "institute_sponsored", label: "Institute Sponsored" },
+    { value: "platform_managed", label: "Platform Managed" },
+  ];
+  const availableValues = new Set(options.map((option) => normalizeCommercialPathValue(option.value)));
+  return canonicalOptions.filter((option) => option.value === "" || availableValues.has(option.value));
+}
 
 type SavedBuilderTemplate = {
   id: string;
@@ -1194,6 +1228,10 @@ export function AdvancedExamBuilder({
   economyPolicyOptions,
   defaultSource,
 }: AdvancedExamBuilderProps) {
+  const normalizedEconomyPolicyOptions = useMemo(
+    () => normalizeCommercialPathOptions(economyPolicyOptions),
+    [economyPolicyOptions],
+  );
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialProgramRecord = programs[0] ?? null;
@@ -1303,7 +1341,9 @@ export function AdvancedExamBuilder({
   );
 
   const [economy, setEconomy] = useState({
-    policyType: initialEconomyDefaults?.policyType ?? economyPolicyOptions[0]?.value ?? "",
+    policyType: normalizeCommercialPathValue(
+      initialEconomyDefaults?.policyType ?? normalizedEconomyPolicyOptions[0]?.value ?? "",
+    ),
     starCost: initialEconomyDefaults?.starCost ?? "0",
     entitlementCode: initialEconomyDefaults?.entitlementCode ?? "",
     priority: "100",
@@ -1805,6 +1845,7 @@ export function AdvancedExamBuilder({
     0,
   );
   const previewBlockerCount = preview?.blockers.length ?? 0;
+  const createBlockedByError = error.trim().length > 0;
   const sectionScoringAlerts = useMemo(
     () =>
       sections.flatMap((section, index) =>
@@ -2356,7 +2397,7 @@ export function AdvancedExamBuilder({
     }));
     setEconomy((current) => ({
       ...current,
-      policyType: "stars_or_entitlement",
+      policyType: "subscription_or_stars",
       starCost: "120",
       entitlementCode: `bundle:${subjectCode.toLowerCase()}-premium`,
       priority: "20",
@@ -2484,7 +2525,8 @@ export function AdvancedExamBuilder({
           : null,
       },
       economy: {
-        policy_type: economy.policyType,
+        commercial_path: economy.policyType,
+        policy_type: "",
         star_cost: Number(economy.starCost || 0),
         entitlement_code: economy.entitlementCode.trim(),
         priority: Number(economy.priority || 100),
@@ -4679,7 +4721,7 @@ export function AdvancedExamBuilder({
                         setEconomy((current) => ({ ...current, policyType: event.target.value }))
                       }
                     >
-                      {economyPolicyOptions.map((item) => (
+                      {normalizedEconomyPolicyOptions.map((item) => (
                         <option key={item.value} value={item.value}>
                           {item.label}
                         </option>
@@ -4865,8 +4907,8 @@ export function AdvancedExamBuilder({
                     {isPreviewPending ? "Refreshing Preview..." : "Preview Exam"}
                   </button>
                   <button
-                    className={`button ${previewBlockerCount > 0 ? "buttonDisabled" : "buttonPrimary"}`}
-                    disabled={isCreatePending || isPreviewPending || previewBlockerCount > 0}
+                    className={`button ${previewBlockerCount > 0 || createBlockedByError ? "buttonDisabled" : "buttonPrimary"}`}
+                    disabled={isCreatePending || isPreviewPending || previewBlockerCount > 0 || createBlockedByError}
                     onClick={() => startTransition(() => void runCreate())}
                     type="button"
                   >

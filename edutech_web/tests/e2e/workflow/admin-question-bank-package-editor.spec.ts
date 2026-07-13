@@ -12,6 +12,7 @@ test.describe("Admin question-bank package editor safety", () => {
     await loginAsRole(page, "admin");
     await expectAdminWorkspace(page);
     await economyPage.goto();
+    await economyPage.openEditorView();
 
     const packageCard = economyPage.packageCard();
     await expect(packageCard).toBeVisible();

@@ -3,7 +3,7 @@ import { FilterSummaryPills } from "@/components/ui/filter-summary-pills";
 import { PlatformAdminPageHeader } from "@/components/ui/platform-admin-page-header";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import type { TeacherExam } from "@/features/dashboard/types";
-import { fetchPortalList } from "@/lib/api/portal";
+import { fetchPortalListAll } from "@/lib/api/portal";
 import { requirePlatformAdminSession } from "@/lib/auth/session";
 
 type PlatformExamStatusFilter = "all" | "live" | "scheduled" | "draft";
@@ -178,7 +178,7 @@ function normalizeSelectedInstitute(
 
 async function loadPlatformExams(selectedInstituteId: string) {
   try {
-    const exams = await fetchPortalList<TeacherExam>(
+    const exams = await fetchPortalListAll<TeacherExam>(
       `/api/v1/exams/?page_size=200${selectedInstituteId ? `&institute=${selectedInstituteId}` : ""}`,
     );
     return {
@@ -206,7 +206,7 @@ export default async function PlatformAdminExamsPage({
 }) {
   await requirePlatformAdminSession();
   const params = (await searchParams) ?? {};
-  const institutes = await fetchPortalList<InstituteOption>("/api/v1/institutes/?page_size=100").catch(() => []);
+  const institutes = await fetchPortalListAll<InstituteOption>("/api/v1/institutes/?page_size=100").catch(() => []);
   const selectedInstituteId = normalizeSelectedInstitute(params.institute, institutes);
   const selectedInstitute = institutes.find((item) => item.id === selectedInstituteId) ?? null;
   const { source, exams } = await loadPlatformExams(selectedInstituteId);
@@ -312,7 +312,11 @@ export default async function PlatformAdminExamsPage({
                 {visibleExams.length !== exams.length ? ` of ${exams.length}` : ""}
               </span>
             </div>
-            <form className="workspaceFiltersForm" method="GET">
+            <form
+              key={[selectedInstituteId, statusFilter, sourceFilter, sortOption, groupOption].join("|")}
+              className="workspaceFiltersForm"
+              method="GET"
+            >
               <label className="workspaceFilterField">
                 <span>Institute</span>
                 <select defaultValue={selectedInstituteId} name="institute">
@@ -363,7 +367,7 @@ export default async function PlatformAdminExamsPage({
                   <option value="subject">Subject</option>
                 </select>
               </label>
-              <div className="workspaceFilterActions">
+              <div className="workspaceFilterActions workspaceFilterActionsFullRow">
                 <button className="button buttonPrimary" type="submit">
                   Apply filters
                 </button>
@@ -426,13 +430,6 @@ export default async function PlatformAdminExamsPage({
                   </Link>
                 ))}
               </div>
-            </div>
-            <div className="workspaceFilterChips">
-              <span className="statusPill statusDefault">Institute: {selectedInstitute?.code ?? "all"}</span>
-              <span className="statusPill statusDefault">Status: {statusFilter.replaceAll("_", " ")}</span>
-              <span className="statusPill statusDefault">Source: {sourceFilter.replaceAll("_", " ")}</span>
-              <span className="statusPill statusDefault">Sort: {sortOption.replaceAll("_", " ")}</span>
-              <span className="statusPill statusDefault">Group: {groupOption.replaceAll("_", " ")}</span>
             </div>
             <FilterSummaryPills
               items={[

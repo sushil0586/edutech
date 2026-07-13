@@ -331,7 +331,11 @@ export default async function TeacherDashboardPage({
                 {visibleExamOverview.length} exam summaries · {visibleWeakTopics.length} weak topics
               </span>
             </div>
-            <form className="workspaceFiltersForm" method="GET">
+            <form
+              key={`${lane}:${subjectFilter}:${sortOption}`}
+              className="workspaceFiltersForm"
+              method="GET"
+            >
               <label className="workspaceFilterField">
                 <span>Focus lane</span>
                 <select defaultValue={lane} name="lane">

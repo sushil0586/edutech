@@ -28,30 +28,39 @@ test.describe("Teacher cross-browser shell sanity", () => {
   }) => {
     await loginAsRole(page, "teacher");
     await expectTeacherWorkspace(page);
+    const teacherNavigation = page.getByRole("navigation", { name: /teacher navigation/i });
 
     await gotoWithRetry(page, "/teacher/dashboard");
     await expect(page.getByRole("heading", { name: /delivery dashboard/i }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /dashboard/i }).first()).toHaveAttribute(
+    await expect(teacherNavigation.getByRole("link", { name: /dashboard/i })).toHaveAttribute(
       "aria-current",
       "page",
     );
 
-    await page.getByRole("link", { name: /^exams$/i }).first().click();
+    await teacherNavigation.getByRole("link", { name: /^exams$/i }).click();
     await expect(page).toHaveURL(/\/teacher\/exams(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /exam management/i }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /quick create/i }).first()).toBeVisible();
 
-    await page.getByRole("link", { name: /^question bank$/i }).first().click();
+    await teacherNavigation.getByRole("link", { name: /^question bank$/i }).click();
     await expect(page).toHaveURL(/\/teacher\/question-bank(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /question bank/i }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /create question/i }).first()).toBeVisible();
 
-    await page.getByRole("link", { name: /^results$/i }).first().click();
+    await expect(teacherNavigation.getByRole("link", { name: /^results$/i })).toHaveAttribute(
+      "href",
+      "/teacher/results",
+    );
+    await gotoWithRetry(page, "/teacher/results");
     await expect(page).toHaveURL(/\/teacher\/results(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
     await expect(page.getByText(/^exam publish readiness$/i).first()).toBeVisible();
 
-    await page.getByRole("link", { name: /^reviews$/i }).first().click();
+    await expect(teacherNavigation.getByRole("link", { name: /^reviews$/i })).toHaveAttribute(
+      "href",
+      "/teacher/reviews",
+    );
+    await gotoWithRetry(page, "/teacher/reviews");
     await expect(page).toHaveURL(/\/teacher\/reviews(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /review queue/i }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /open results/i }).first()).toBeVisible();

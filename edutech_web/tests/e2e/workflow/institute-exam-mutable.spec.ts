@@ -86,7 +86,7 @@ test.describe("Institute mutable exam actions", () => {
     const examCode = `PW-MUT-${uniqueSeed}`;
     const entitlementCode = `pw_mutable_${uniqueSeed}`;
     const updatedPriority = "77";
-    const entitlementPolicyLabel = "Entitlement Only";
+    const entitlementPolicyLabel = "Subscription Only";
     const sectionName = `PW Institute Section ${uniqueSeed}`;
     let examId: string | null = null;
 
@@ -265,12 +265,12 @@ test.describe("Institute mutable exam actions", () => {
       await page.getByRole("button", { name: /save access policy/i }).click();
       await expect(page).toHaveURL(/\/institute\/exams\/.+\?message=/);
       await expect(page.getByText(/exam access policy updated successfully/i)).toBeVisible();
-      await expect(page.getByRole("combobox", { name: /access policy/i })).toHaveValue("entitlement_only");
+      await expect(page.getByRole("combobox", { name: /access policy/i })).toHaveValue("subscription_only");
       await expect(page.getByRole("textbox", { name: /entitlement code/i })).toHaveValue(entitlementCode);
       await expect(page.getByRole("spinbutton", { name: /priority/i })).toHaveValue(updatedPriority);
 
       await page.goto(examDetailBaseUrl);
-      await expect(page.getByRole("combobox", { name: /access policy/i })).toHaveValue("entitlement_only");
+      await expect(page.getByRole("combobox", { name: /access policy/i })).toHaveValue("subscription_only");
       await expect(page.getByRole("textbox", { name: /entitlement code/i })).toHaveValue(entitlementCode);
       await expect(page.getByRole("spinbutton", { name: /priority/i })).toHaveValue(updatedPriority);
 

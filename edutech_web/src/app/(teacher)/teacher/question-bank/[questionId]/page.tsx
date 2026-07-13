@@ -219,14 +219,43 @@ export default async function TeacherQuestionDetailPage({
     : resolvedSearchParams.message ?? "";
   const validationErrors = parseQuestionBankValidationErrors(resolvedSearchParams.validation);
 
+  const question = await fetchTeacherQuestionDetail(questionId).catch(() => null);
+
+  if (!question) {
+    return (
+      <div className="studentPage">
+        <TeacherPageHeader
+          title="Question Detail"
+          description="This route depends on live question-bank detail and academic lookup endpoints."
+        />
+        <StudentStatePanel
+          eyebrow="Load issue"
+          title="Question detail could not be loaded"
+          description="The selected question was not available from the teacher-scoped question bank, or the academic lookup endpoints did not complete successfully."
+          bullets={[
+            "Teacher question detail endpoint",
+            "Programs, subjects, and topics lookups",
+            "Teacher question update endpoint",
+          ]}
+          ctaHref="/teacher/question-bank"
+          ctaLabel="Back to Question Bank"
+          statusLabel="Retry after backend check"
+        />
+      </div>
+    );
+  }
+
   const data = await Promise.all([
     fetchTeacherOptionCatalog(),
     fetchTeacherQuestionTypeRegistry(),
     fetchTeacherPrograms(),
-    fetchTeacherSubjects(),
-    fetchTeacherTopics(),
+    question.program
+      ? fetchTeacherSubjects({ institute: question.institute, program: question.program }).catch(() => [])
+      : Promise.resolve([]),
+    question.subject
+      ? fetchTeacherTopics({ institute: question.institute, subject: question.subject }).catch(() => [])
+      : Promise.resolve([]),
     fetchTeacherQuestionPassages(),
-    fetchTeacherQuestionDetail(questionId),
     fetchTeacherQuestionTags(),
   ]).catch(() => null);
 
@@ -254,7 +283,7 @@ export default async function TeacherQuestionDetailPage({
     );
   }
 
-  const [optionCatalogEntries, questionTypeDefinitions, programs, subjects, topics, passages, question, tags] = data;
+  const [optionCatalogEntries, questionTypeDefinitions, programs, subjects, topics, passages, tags] = data;
   if (isReadOnlyLibraryQuestion(question)) {
     redirect(
       `/teacher/question-bank/new?duplicate=${question.id}&error=${encodeURIComponent(
@@ -267,8 +296,9 @@ export default async function TeacherQuestionDetailPage({
   const attachmentTypeLabelMap = optionCatalog.labelMap("question_attachment_type");
   const attachedTagIds = new Set(question.tag_maps.map((tagMap) => tagMap.tag));
   const availableTags = tags.filter((tag) => !attachedTagIds.has(tag.id));
+  type LoadedQuestion = NonNullable<typeof question>;
 
-  function renderAttachmentPreview(attachment: (typeof question.attachments)[number]) {
+  function renderAttachmentPreview(attachment: LoadedQuestion["attachments"][number]) {
     const source = attachment.file_url || attachment.file;
 
     if (!source) {

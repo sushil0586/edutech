@@ -49,10 +49,17 @@ test.describe("Teacher and institute role consistency", () => {
     await expect(teacherPage.getByRole("heading", { name: /question bank/i }).first()).toBeVisible();
     await expect(teacherPage.getByText(/find questions faster/i).first()).toBeVisible();
     await expect(teacherPage.getByText(/how licensed platform questions work here/i).first()).toBeVisible();
+    await expect(
+      teacherPage.getByText(
+        /this panel answers three operator questions quickly: can teachers see platform questions, can they act on them, and who owns the final linking step/i,
+      ).first(),
+    ).toBeVisible();
     await expect(teacherPage.getByRole("link", { name: /import questions csv/i }).first()).toBeVisible();
     await expect(teacherPage.getByRole("link", { name: /import comprehension csv/i }).first()).toBeVisible();
     await expect(teacherPage.getByRole("link", { name: /create question/i }).first()).toBeVisible();
     await expect(teacherPage.getByRole("link", { name: /create comprehension set/i }).first()).toBeVisible();
+    await expect(institutePage.locator("form.questionBankBulkBar").first()).toBeVisible();
+    await expect(teacherPage.locator("form.questionBankBulkBar").first()).toBeVisible();
 
     await institutePage.getByRole("link", { name: /create question/i }).first().click();
     await teacherPage.getByRole("link", { name: /create question/i }).first().click();
@@ -98,9 +105,40 @@ test.describe("Teacher and institute role consistency", () => {
     await teacherPage.goto("/teacher/question-bank");
 
     await expect(institutePage.getByText(/open shared library linker/i).first()).toBeVisible();
+    await expect(institutePage.getByRole("link", { name: /open linked questions/i }).first()).toBeVisible();
     await expect(teacherPage.getByText(/shared platform library/i).first()).toBeVisible();
     await expect(teacherPage.getByRole("button", { name: /link to local bank/i })).toHaveCount(0);
-    await expect(teacherPage.getByText(/teachers do not link licensed questions directly here/i).first()).toBeVisible();
+    await expect(teacherPage.getByRole("button", { name: /bulk link current lane/i })).toHaveCount(0);
+    await expect(
+      teacherPage.getByText(
+        /teachers do not perform the final link here|the teacher lane stays request-only and the institute admin still approves or performs the intake step/i,
+      ).first(),
+    ).toBeVisible();
+    await expect(teacherPage.getByText(/teacher role in licensed intake/i).first()).toBeVisible();
+    await expect(
+      teacherPage.getByText(/institute admins complete the final linking step in shared library linker/i).first(),
+    ).toBeVisible();
+
+    await institutePage.goto("/institute/question-bank/linked");
+    await expect(institutePage.getByRole("heading", { name: /linked questions/i }).first()).toBeVisible();
+    await expect(institutePage.getByText(/current lane:\s*linked questions/i).first()).toBeVisible();
+    await expect(institutePage.getByText(/current linked view/i).first()).toBeVisible();
+    await expect(institutePage.locator("form.questionBankBulkBar")).toHaveCount(0);
+    await expect(
+      institutePage.getByText(/bulk mutation tools are hidden in linked review mode/i).first(),
+    ).toBeVisible();
+    await expect(
+      institutePage.getByRole("link", { name: /open shared library linker/i }).first(),
+    ).toBeVisible();
+    await expect(
+      institutePage.getByRole("link", { name: /create editable local question/i }).first(),
+    ).toBeVisible();
+
+    await institutePage.goto("/institute/question-bank");
+    await expect(institutePage.getByText(/who completes licensed intake/i).first()).toBeVisible();
+    await expect(
+      institutePage.getByText(/teachers can inspect licensed source rows and raise requests from their workspace, but they do not perform the final link/i).first(),
+    ).toBeVisible();
 
     await institutePage.goto("/institute/results");
     await expect(institutePage.getByRole("heading", { name: /results/i }).first()).toBeVisible();
@@ -135,6 +173,13 @@ test.describe("Teacher and institute role consistency", () => {
       await expect(page.getByText(/^student access and stars$/i).first()).toBeVisible();
       await expect(page.getByText(/^publish history$/i).first()).toBeVisible();
     }
+
+    await expect(institutePage.getByText(/^exam readiness$/i).first()).toBeVisible();
+    await expect(institutePage.getByText(/^hard blockers$/i).first()).toBeVisible();
+    await expect(institutePage.getByText(/^already ready$/i).first()).toBeVisible();
+    await expect(teacherPage.getByText(/^exam readiness$/i)).toHaveCount(0);
+    await expect(teacherPage.getByText(/^hard blockers$/i)).toHaveCount(0);
+    await expect(teacherPage.getByText(/^already ready$/i)).toHaveCount(0);
 
     await institutePage.close();
     await teacherPage.close();

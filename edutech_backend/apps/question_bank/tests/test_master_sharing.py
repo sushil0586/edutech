@@ -7,10 +7,14 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.core.exceptions import ValidationError
 
+from apps.academics.models import Program, Subject, Topic
 from apps.question_bank.models import (
     InstituteQuestionAccess,
     InstituteQuestionAccessStatus,
     MasterQuestion,
+    MasterQuestionOption,
+    MasterQuestionSourceType,
+    MasterQuestionVisibility,
     Question,
     QuestionOption,
 )
@@ -819,3 +823,137 @@ class MasterQuestionSharingTestCase(TestCase):
             ).exists()
         )
         self.assertIn("materialized=1", stdout.getvalue())
+
+    def test_seed_demo_shared_library_access_creates_missing_target_scope_for_quota_lane(self):
+        base_master = MasterQuestion.objects.create(
+            source_institute=self.public_institute,
+            source_program=self.public_program,
+            source_subject=self.public_subject,
+            source_topic=self.public_topic,
+            question_type="mcq_single",
+            difficulty_level="intermediate",
+            content_format="markdown_latex",
+            question_text="Base donor science question?",
+            explanation="Base donor explanation.",
+            default_marks="1.00",
+            negative_marks="0.25",
+            is_verified=True,
+            source_type=MasterQuestionSourceType.PLATFORM,
+            visibility=MasterQuestionVisibility.SHARED_BY_REQUEST,
+            metadata={"seed_case": "base_access_scope"},
+        )
+        MasterQuestionOption.objects.create(
+            master_question=base_master,
+            content_format="markdown_latex",
+            option_text="Correct option",
+            option_order=1,
+            is_correct=True,
+        )
+        MasterQuestionOption.objects.create(
+            master_question=base_master,
+            content_format="markdown_latex",
+            option_text="Wrong option",
+            option_order=2,
+            is_correct=False,
+        )
+
+        donor_program = self.builder.create_program(
+            self.public_institute,
+            code="DM-NEET",
+            name="Demo NEET Track",
+        )
+        donor_subject = self.builder.create_subject(
+            self.public_institute,
+            donor_program,
+            code="DM-NEET-BIO",
+            name="NEET Biology",
+        )
+        donor_topic = self.builder.create_topic(
+            self.public_institute,
+            donor_subject,
+            code="BIO-CELL",
+            name="Cell Biology",
+        )
+
+        for index in range(2):
+            master = MasterQuestion.objects.create(
+                source_institute=self.public_institute,
+                source_program=donor_program,
+                source_subject=donor_subject,
+                source_topic=donor_topic,
+                question_type="mcq_single",
+                difficulty_level="intermediate",
+                content_format="markdown_latex",
+                question_text=f"Quota donor biology question {index + 1}?",
+                explanation="Biology donor explanation.",
+                default_marks="1.00",
+                negative_marks="0.25",
+                is_verified=True,
+                source_type=MasterQuestionSourceType.PLATFORM,
+                visibility=MasterQuestionVisibility.SHARED_BY_REQUEST,
+                metadata={"seed_case": "quota_missing_target_scope"},
+            )
+            MasterQuestionOption.objects.create(
+                master_question=master,
+                content_format="markdown_latex",
+                option_text="Correct option",
+                option_order=1,
+                is_correct=True,
+            )
+            MasterQuestionOption.objects.create(
+                master_question=master,
+                content_format="markdown_latex",
+                option_text="Wrong option",
+                option_order=2,
+                is_correct=False,
+            )
+
+        self.assertFalse(
+            Program.objects.filter(institute=self.private_institute, code="DM-NEET").exists()
+        )
+        self.assertFalse(
+            Subject.objects.filter(institute=self.private_institute, code="DM-NEET-BIO").exists()
+        )
+        self.assertFalse(
+            Topic.objects.filter(institute=self.private_institute, code="BIO-CELL").exists()
+        )
+
+        call_command(
+            "seed_demo_shared_library_access",
+            target_institute_code="SCH001",
+            donor_institute_code="PUB001",
+            public_hub_code="PUBDLI1",
+            subject_code="CLS7-SCI",
+            question_count=1,
+            unentitled_question_count=0,
+            quota_demo_subject_code="DM-NEET-BIO",
+            quota_demo_question_count=2,
+            blocked_matchable_question_count=0,
+            paused_only_question_count=0,
+        )
+
+        self.assertTrue(
+            Program.objects.filter(institute=self.private_institute, code="DM-NEET").exists()
+        )
+        self.assertTrue(
+            Subject.objects.filter(institute=self.private_institute, code="DM-NEET-BIO").exists()
+        )
+        self.assertTrue(
+            Topic.objects.filter(institute=self.private_institute, code="BIO-CELL").exists()
+        )
+        self.assertTrue(
+            Question.objects.filter(
+                institute=self.private_institute,
+                program__code="DM-NEET",
+                subject__code="DM-NEET-BIO",
+                topic__code="BIO-CELL",
+                question_text__startswith="QUOTA LOCK DEMO :: ",
+            ).exists()
+        )
+        self.assertTrue(
+            InstituteQuestionAccess.objects.filter(
+                institute=self.private_institute,
+                master_question__source_subject__code="DM-NEET-BIO",
+                status=InstituteQuestionAccessStatus.LINKED,
+            ).exists()
+        )

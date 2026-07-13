@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectInstituteWorkspace } from "../helpers/navigation";
+import { gotoWithRuntimeRecovery } from "../helpers/runtime";
 
 async function gotoWithRetry(page: Page, url: string, attempts = 3) {
   let lastError: unknown = null;
@@ -22,7 +23,7 @@ async function gotoWithRetry(page: Page, url: string, attempts = 3) {
 
 async function gotoInstituteExamsWorkspace(page: Page) {
   for (let attempt = 1; attempt <= 3; attempt += 1) {
-    await page.goto("/institute/exams", { waitUntil: "networkidle" });
+    await gotoWithRuntimeRecovery(page, "/institute/exams");
     const workspaceHeading = page.getByRole("heading", { name: /exam management/i }).first();
     if (await workspaceHeading.isVisible().catch(() => false)) {
       await expect(page).toHaveURL(/\/institute\/exams(?:\?.*)?$/);
@@ -103,7 +104,7 @@ test.describe("Institute mobile exams workflow", () => {
       return;
     }
 
-    await expect(page.getByText(/how to use this workspace/i).first()).toBeVisible();
+      await expect(page.getByText(/how to use this workspace/i).first()).toBeVisible();
 
     await page.getByRole("combobox", { name: /^status$/i }).selectOption("live");
     await page.getByRole("combobox", { name: /sort/i }).selectOption("start_soon");
@@ -135,10 +136,13 @@ test.describe("Institute mobile exams workflow", () => {
 
       await expect(page).toHaveURL(/\/institute\/exams\/[^/?#]+(?:\?.*)?$/);
       await expect(page.getByText(/exam code/i).first()).toBeVisible();
-      await expect(page.getByRole("link", { name: /open builder/i }).first()).toBeVisible();
+      const openBuilderLink = page.getByRole("link", { name: /open builder/i }).first();
+      await expect(openBuilderLink).toBeVisible();
       await expect(page.getByRole("link", { name: /link questions/i }).first()).toBeVisible();
 
-      await page.getByRole("link", { name: /open builder/i }).first().click();
+      const openBuilderHref = await openBuilderLink.getAttribute("href");
+      expect(openBuilderHref).toMatch(/\/institute\/exams\/[^/?#]+\/builder(?:\?.*)?$/);
+      await page.goto(openBuilderHref!);
       await expect(page).toHaveURL(/\/institute\/exams\/[^/?#]+\/builder(?:\?.*)?$/);
       await expect(page.getByRole("heading", { name: /builder/i }).first()).toBeVisible();
       await expect(page.getByText(/paper design/i).first()).toBeVisible();

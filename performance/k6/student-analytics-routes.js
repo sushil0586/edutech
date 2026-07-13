@@ -48,14 +48,14 @@ export default function () {
     "student results returns array": (res) => hasArrayBody(res),
   });
 
-  const insightResponse = getJson(`${baseUrl}/api/v1/student/analytics/insight-summary/`, accessToken);
+  const insightResponse = getJson(`${baseUrl}/api/v1/student/insights/summary/`, accessToken);
   check(insightResponse, {
     "student insight status is 200": (res) => res.status === 200,
     "student insight returns object": (res) => hasObjectBody(res),
     "student insight has recent exams": (res) => hasArrayBody(res, "recent_exams"),
   });
 
-  const questionAnalyticsResponse = getJson(`${baseUrl}/api/v1/student/analytics/questions/`, accessToken);
+  const questionAnalyticsResponse = getJson(`${baseUrl}/api/v1/student/insights/question-analytics/`, accessToken);
   check(questionAnalyticsResponse, {
     "student analytics questions status is 200": (res) => res.status === 200,
     "student analytics questions returns object": (res) => hasObjectBody(res),

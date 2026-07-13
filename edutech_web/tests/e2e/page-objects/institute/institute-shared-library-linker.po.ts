@@ -42,7 +42,9 @@ export class InstituteSharedLibraryLinkerPage {
   async expectLoaded() {
     await expect(this.page.getByRole("heading", { name: /shared library linker/i }).first()).toBeVisible();
     await expect(this.page.getByText(/current lane: shared library linker/i).first()).toBeVisible();
-    await expect(this.page.getByText(/this page is not for changing question wording/i).first()).toBeVisible();
+    await expect(
+      this.page.getByText(/this page is not for editing wording|use this page only for intake/i).first(),
+    ).toBeVisible();
   }
 
   async selectProgram(programLabel: RegExp) {

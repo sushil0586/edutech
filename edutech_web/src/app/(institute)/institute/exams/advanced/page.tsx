@@ -11,7 +11,7 @@ import {
   fetchTeacherSubjects,
   fetchTeacherTopics,
 } from "@/lib/api/teacher-builder";
-import { fetchPortalList } from "@/lib/api/portal";
+import { fetchInstituteQuestionBankFeatureEntitlementsCached } from "@/lib/api/portal";
 import { requireInstituteAdminSession } from "@/lib/auth/session";
 import { groupTeacherOptionCatalog } from "@/lib/teacher/option-catalog";
 
@@ -37,9 +37,10 @@ export default async function InstituteAdvancedExamBuilderPage() {
     throw new Error("Institute scope is missing.");
   }
 
-  const featureEntitlements = await fetchPortalList<InstituteQuestionFeatureEntitlement>(
-    "/api/v1/economy/admin/institute-question-bank-feature-entitlements/",
-  ).catch(() => []);
+  const featureEntitlements =
+    await fetchInstituteQuestionBankFeatureEntitlementsCached<InstituteQuestionFeatureEntitlement>().catch(
+      () => [],
+    );
   const hasAdvancedBuilderAccess = featureEntitlements.some(
     (entitlement) =>
       entitlement.feature_code === ADVANCED_BUILDER_FEATURE_CODE &&
@@ -85,22 +86,9 @@ export default async function InstituteAdvancedExamBuilderPage() {
     fetchTeacherOptionCatalog(),
     fetchTeacherAssessmentRegistry(),
   ]);
-
-  const selectedAcademicYear = academicYears[0]?.id ?? "";
-  const selectedProgram = programs[0]?.id ?? "";
-
-  const [cohorts, subjects] = await Promise.all([
-    fetchTeacherCohorts({
-      academic_year: selectedAcademicYear,
-      program: selectedProgram,
-    }),
-    fetchTeacherSubjects({
-      program: selectedProgram,
-    }),
-  ]);
-
-  const initialSubject = subjects[0]?.id ?? null;
-  const topics = initialSubject ? await fetchTeacherTopics({ subject: initialSubject }) : [];
+  const cohorts: Awaited<ReturnType<typeof fetchTeacherCohorts>> = [];
+  const subjects: Awaited<ReturnType<typeof fetchTeacherSubjects>> = [];
+  const topics: Awaited<ReturnType<typeof fetchTeacherTopics>> = [];
   const optionCatalog = groupTeacherOptionCatalog(optionCatalogEntries);
 
   return (

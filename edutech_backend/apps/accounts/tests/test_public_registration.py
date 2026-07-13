@@ -417,6 +417,13 @@ class PublicRegistrationApiTestCase(TestCase):
             rule_type="signup",
             stars_awarded=100,
         )
+        ReferralProgram.objects.create(
+            institute=self.registration_institute,
+            name="Default referral",
+            referrer_stars=50,
+            referee_stars=25,
+            reward_side="both",
+        )
 
         self.client.post(
             "/api/v1/auth/register/",

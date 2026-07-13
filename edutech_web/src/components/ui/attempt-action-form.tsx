@@ -127,6 +127,13 @@ export function AttemptActionForm({
       }),
     );
 
+    // Server actions surface a runtime fetch error when the browser is offline.
+    // Keep the user on the current attempt page so the resilience panel can guide recovery.
+    if (!window.navigator.onLine) {
+      event.preventDefault();
+      return;
+    }
+
     if (trackDirty) {
       setIsDirty(false);
     }

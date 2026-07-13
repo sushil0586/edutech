@@ -117,6 +117,41 @@ type WizardGuidedDefaults = {
   allowReviewAfterSubmitValue: boolean;
 };
 
+const commercialPathValueMap: Record<string, string> = {
+  free: "free",
+  free_exam: "free",
+  stars_only: "stars_only",
+  star_unlock_exam: "stars_only",
+  entitlement_only: "subscription_only",
+  subscription_only: "subscription_only",
+  subscription_covered_exam: "subscription_only",
+  stars_or_entitlement: "subscription_or_stars",
+  subscription_or_stars: "subscription_or_stars",
+  subscription_or_stars_exam: "subscription_or_stars",
+  institute_sponsored: "institute_sponsored",
+  institute_sponsored_exam: "institute_sponsored",
+  platform_managed: "platform_managed",
+  platform_sponsored_exam: "platform_managed",
+};
+
+function normalizeCommercialPathValue(value: string | undefined) {
+  return commercialPathValueMap[value ?? ""] ?? value ?? "";
+}
+
+function normalizeCommercialPathOptions(options: Option[]) {
+  const canonicalOptions: Option[] = [
+    { value: "", label: "Open Access" },
+    { value: "free", label: "Free" },
+    { value: "stars_only", label: "Stars Only" },
+    { value: "subscription_only", label: "Subscription Only" },
+    { value: "subscription_or_stars", label: "Subscription Or Stars" },
+    { value: "institute_sponsored", label: "Institute Sponsored" },
+    { value: "platform_managed", label: "Platform Managed" },
+  ];
+  const availableValues = new Set(options.map((option) => normalizeCommercialPathValue(option.value)));
+  return canonicalOptions.filter((option) => option.value === "" || availableValues.has(option.value));
+}
+
 function summarizePresetSections(
   presetPack: (typeof examPresetPacks)[number] | null,
 ) {
@@ -261,7 +296,9 @@ function buildGuidedDefaults({
       packDefaults?.delivery.resultPublishMode ?? defaultResultPublishMode,
     reviewModeValue: packDefaults?.delivery.reviewMode ?? defaultReviewMode,
     securityModeValue: packDefaults?.delivery.securityMode ?? defaultSecurityMode,
-    economyPolicyType: packDefaults?.economy.policyType ?? defaultEconomyPolicyType,
+    economyPolicyType: normalizeCommercialPathValue(
+      packDefaults?.economy.policyType ?? defaultEconomyPolicyType,
+    ),
     starCostValue: packDefaults?.economy.starCost ?? "0",
     entitlementCodeValue: packDefaults?.economy.entitlementCode ?? "",
     allowResumeValue: packDefaults?.delivery.allowResume ?? true,
@@ -314,7 +351,11 @@ export function CreateExamWizard({
   const defaultResultPublishMode = resultPublishModeOptions[0]?.value ?? "";
   const defaultReviewMode = reviewModeOptions[0]?.value ?? "";
   const defaultSecurityMode = securityModeOptions[0]?.value ?? "";
-  const defaultEconomyPolicyType = economyAccessPolicyOptions[0]?.value ?? "";
+  const normalizedEconomyAccessPolicyOptions = useMemo(
+    () => normalizeCommercialPathOptions(economyAccessPolicyOptions),
+    [economyAccessPolicyOptions],
+  );
+  const defaultEconomyPolicyType = normalizedEconomyAccessPolicyOptions[0]?.value ?? "";
   const defaultRankVisibilityMode = rankVisibilityModeOptions[0]?.value ?? "hidden";
   const defaultPercentileVisibilityMode = percentileVisibilityModeOptions[0]?.value ?? "hidden";
   const defaultBenchmarkVisibilityMode = benchmarkVisibilityModeOptions[0]?.value ?? "peer_average_only";
@@ -847,7 +888,7 @@ export function CreateExamWizard({
                   onChange={(event) => setEconomyPolicyType(event.target.value)}
                   value={economyPolicyType}
                 >
-                  {economyAccessPolicyOptions.map((option) => (
+                  {normalizedEconomyAccessPolicyOptions.map((option) => (
                     <option key={option.value || "open-access"} value={option.value}>
                       {option.label}
                     </option>
@@ -866,9 +907,9 @@ export function CreateExamWizard({
                   value={starCostValue}
                 />
                 <small>
-                  {economyPolicyType === "stars_only" || economyPolicyType === "stars_or_entitlement"
-                    ? "Required when students should unlock this exam using stars."
-                    : "Keep zero for open or entitlement-only access."}
+                  {economyPolicyType === "stars_only" || economyPolicyType === "subscription_or_stars"
+                    ? "Required when students may unlock this exam with stars."
+                    : "Keep zero for free, subscription, or sponsored access."}
                 </small>
               </label>
 
@@ -877,10 +918,17 @@ export function CreateExamWizard({
                 <input
                   name="economy_entitlement_code"
                   onChange={(event) => setEntitlementCodeValue(event.target.value)}
-                  placeholder="premium_math_access"
+                  placeholder="subscription:math-premium"
                   type="text"
                   value={entitlementCodeValue}
                 />
+                <small>
+                  {economyPolicyType === "subscription_only" || economyPolicyType === "subscription_or_stars"
+                    ? "Use a subscription-style code, or leave the default pattern."
+                    : economyPolicyType === "institute_sponsored" || economyPolicyType === "platform_managed"
+                      ? "No entitlement code is needed for sponsored or platform-managed access."
+                      : "Only needed when this exam uses an entitlement-backed path."}
+                </small>
               </label>
 
               <label className="fieldStack">
