@@ -199,14 +199,14 @@ async function createAdminAdvancedExam(
   };
   expect(previewPayload.valid).toBe(true);
   expectPreviewFamilyContract(previewPayload, selectedProgram?.assessment_family_profile ?? null);
-  await expect(page.getByText(/preview refreshed\./i)).toBeVisible({ timeout: 60000 });
+  await expect(page.getByText(/preview ready\./i)).toBeVisible({ timeout: 60000 });
   await expect(page.getByText(/run preview when you are ready/i)).toHaveCount(0);
   await expect(page.getByText(/preview resolution/i).first()).toBeVisible();
 
   await page.getByRole("button", { name: /create advanced exam/i }).click();
 
   await expect(page).toHaveURL(/\/admin\/exams\/.+\/builder\?message=/, { timeout: 60000 });
-  await expect(page.getByText(/advanced exam created successfully\./i)).toBeVisible();
+  await expect(page.getByText(/advanced exam created/i)).toBeVisible();
 
   const builderUrl = page.url();
   const examId = builderUrl.match(/\/admin\/exams\/([^/?#]+)\/builder/)?.[1] ?? null;
