@@ -21,6 +21,12 @@ type Option = {
   label: string;
 };
 
+type InventorySummary = {
+  foundation: number;
+  intermediate: number;
+  advanced: number;
+};
+
 type TemplateAudience = "teacher" | "institute";
 
 type AcademicYearOption = {
@@ -51,6 +57,8 @@ type ScopeOption = {
   id: string;
   name: string;
   code: string;
+  active_question_count?: number;
+  difficulty_inventory?: InventorySummary;
 };
 
 type TopicOption = {
@@ -60,6 +68,8 @@ type TopicOption = {
   code: string;
   difficulty_level: string;
   sort_order: number;
+  active_question_count?: number;
+  difficulty_inventory?: InventorySummary;
 };
 
 type DifficultyMix = {
@@ -187,6 +197,18 @@ type AdvancedExamBuilderProps = {
   assignmentModeOptions: Option[];
   economyPolicyOptions: Option[];
   defaultSource: string;
+};
+
+type BuilderGuidanceCard = {
+  tone: "neutral" | "warning" | "blocker" | "success";
+  title: string;
+  detail: string;
+};
+
+type BuilderStatus = {
+  tone: "ready" | "risk" | "blocked";
+  label: string;
+  detail: string;
 };
 
 type BuilderTemplateId =
@@ -809,6 +831,131 @@ function titleCase(value: string) {
     .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
+function normalizeInventorySummary(summary?: InventorySummary | null) {
+  return {
+    foundation: Number(summary?.foundation ?? 0),
+    intermediate: Number(summary?.intermediate ?? 0),
+    advanced: Number(summary?.advanced ?? 0),
+  };
+}
+
+function inventoryTotal(summary?: InventorySummary | null) {
+  const normalized = normalizeInventorySummary(summary);
+  return normalized.foundation + normalized.intermediate + normalized.advanced;
+}
+
+function inventoryBadgeText(summary?: InventorySummary | null) {
+  const normalized = normalizeInventorySummary(summary);
+  return `F ${normalized.foundation} · I ${normalized.intermediate} · A ${normalized.advanced}`;
+}
+
+function addInventorySummary(left?: InventorySummary | null, right?: InventorySummary | null) {
+  const leftValue = normalizeInventorySummary(left);
+  const rightValue = normalizeInventorySummary(right);
+  return {
+    foundation: leftValue.foundation + rightValue.foundation,
+    intermediate: leftValue.intermediate + rightValue.intermediate,
+    advanced: leftValue.advanced + rightValue.advanced,
+  };
+}
+
+function toRoundedPercentages(summary?: InventorySummary | null): DifficultyMix {
+  const normalized = normalizeInventorySummary(summary);
+  const total = inventoryTotal(normalized);
+  if (total <= 0) {
+    return { foundation: 0, intermediate: 0, advanced: 0 };
+  }
+
+  const raw = [
+    { key: "foundation", value: (normalized.foundation / total) * 100 },
+    { key: "intermediate", value: (normalized.intermediate / total) * 100 },
+    { key: "advanced", value: (normalized.advanced / total) * 100 },
+  ] as const;
+  const floored = raw.map((entry) => ({
+    key: entry.key,
+    value: Math.floor(entry.value),
+    remainder: entry.value - Math.floor(entry.value),
+  }));
+  let remainder = 100 - floored.reduce((sum, entry) => sum + entry.value, 0);
+  const ordered = [...floored].sort((left, right) => right.remainder - left.remainder);
+
+  for (const entry of ordered) {
+    if (remainder <= 0) {
+      break;
+    }
+    entry.value += 1;
+    remainder -= 1;
+  }
+
+  return {
+    foundation: floored.find((entry) => entry.key === "foundation")?.value ?? 0,
+    intermediate: floored.find((entry) => entry.key === "intermediate")?.value ?? 0,
+    advanced: floored.find((entry) => entry.key === "advanced")?.value ?? 0,
+  };
+}
+
+function totalDifficultyMix(mix: DifficultyMix) {
+  return Number(mix.foundation || 0) + Number(mix.intermediate || 0) + Number(mix.advanced || 0);
+}
+
+function uniqueSelectedTopicCount(section: Pick<SectionDraft, "topics">) {
+  return new Set(
+    section.topics
+      .map((topicRow) => topicRow.topicCode)
+      .filter((topicCode) => topicCode.trim().length > 0),
+  ).size;
+}
+
+function selectionModeLabel(selectionMode: string) {
+  switch (selectionMode) {
+    case "relaxed":
+      return "Flexible Match";
+    case "subject_fallback":
+      return "Fill From Subject If Needed";
+    default:
+      return "Exact Match";
+  }
+}
+
+function selectionModeSummary(selectionMode: string) {
+  switch (selectionMode) {
+    case "relaxed":
+      return "Allows nearby fallback inside the same section when exact difficulty or topic coverage runs thin.";
+    case "subject_fallback":
+      return "Tries the chosen primary subject as a rescue pool when the exact topic rows run short.";
+    default:
+      return "Requires the builder to satisfy the exact topic and difficulty contract you requested.";
+  }
+}
+
+function selectionModeRecommendation(selectionMode: string) {
+  switch (selectionMode) {
+    case "relaxed":
+      return "Best for practice sets where you want the requested count even if the exact mix softens slightly.";
+    case "subject_fallback":
+      return "Best when you trust the subject pool and care more about finishing the paper than staying topic-pure.";
+    default:
+      return "Best for high-confidence publishing when the question bank inventory is already known to be healthy.";
+  }
+}
+
+function getActionableBuilderAdvice(message: string) {
+  const normalizedMessage = message.toLowerCase();
+  if (normalizedMessage.includes("could be resolved")) {
+    return "Reduce the requested count, lower advanced demand, add one more topic, or switch to a fallback mode before trying again.";
+  }
+  if (normalizedMessage.includes("single topic")) {
+    return "Add at least one more topic lane if you want broader coverage and less repetition.";
+  }
+  if (normalizedMessage.includes("emerging")) {
+    return "This exam can still be created, but expect weaker confidence signals until those questions collect more live attempts.";
+  }
+  if (normalizedMessage.includes("topic slot")) {
+    return "Make the topic lane counts add up exactly to the section question count so preview can resolve cleanly.";
+  }
+  return "";
+}
+
 function qualityTone(signal: keyof QuestionQualitySummary) {
   if (signal === "ambiguous" || signal === "revision_candidate") return "statusDemo";
   if (signal === "skip_risk" || signal === "hard" || signal === "watch") return "statusWarning";
@@ -1278,6 +1425,7 @@ export function AdvancedExamBuilder({
   const [isPreviewPending, setIsPreviewPending] = useState(false);
   const [isCreatePending, setIsCreatePending] = useState(false);
   const [preview, setPreview] = useState<ExamPreview | null>(null);
+  const [inventoryModalSectionId, setInventoryModalSectionId] = useState("");
 
   const [selectedAcademicYear, setSelectedAcademicYear] = useState(academicYears[0]?.id ?? "");
   const [selectedProgram, setSelectedProgram] = useState(programs[0]?.id ?? "");
@@ -1594,6 +1742,7 @@ export function AdvancedExamBuilder({
           return;
         }
 
+        const fallbackSubjectId = nextSubjects[0]?.id ?? "";
         setCohortOptions(nextCohorts);
         setSubjectOptions(nextSubjects);
         setSelectedCohort((current) =>
@@ -1606,7 +1755,21 @@ export function AdvancedExamBuilder({
         setSelectedSubject((current) =>
           current && nextSubjects.some((subject) => subject.id === current)
             ? current
-            : (nextSubjects[0]?.id ?? ""),
+            : fallbackSubjectId,
+        );
+        setSections((currentSections) =>
+          currentSections.map((section) =>
+            section.subjectId && nextSubjects.some((subject) => subject.id === section.subjectId)
+              ? section
+              : {
+                  ...section,
+                  subjectId: fallbackSubjectId,
+                  topics: section.topics.map((topicRow) => ({
+                    ...topicRow,
+                    topicCode: "",
+                  })),
+                },
+          ),
         );
       } catch (scopeError) {
         if (!ignore) {
@@ -1722,28 +1885,77 @@ export function AdvancedExamBuilder({
     () => subjectOptions.find((item) => item.id === selectedSubject) ?? null,
     [subjectOptions, selectedSubject],
   );
-
-  useEffect(() => {
-    if (subjectOptions.length === 0) {
-      return;
-    }
-
-    const fallbackSubjectId = selectedSubject || subjectOptions[0]?.id || "";
-    setSections((currentSections) =>
-      currentSections.map((section) =>
-        section.subjectId && subjectOptions.some((subject) => subject.id === section.subjectId)
-          ? section
-          : {
-              ...section,
-              subjectId: fallbackSubjectId,
-              topics: section.topics.map((topicRow) => ({
-                ...topicRow,
-                topicCode: "",
-              })),
-            },
+  const subjectOptionsById = useMemo(
+    () => Object.fromEntries(subjectOptions.map((subject) => [subject.id, subject])),
+    [subjectOptions],
+  );
+  const topicOptionsByCode = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.values(topicOptionsBySubject)
+          .flat()
+          .map((topic) => [topic.code, topic]),
       ),
-    );
-  }, [selectedSubject, subjectOptions]);
+    [topicOptionsBySubject],
+  );
+  const inventoryModalSection = useMemo(
+    () => sections.find((section) => section.id === inventoryModalSectionId) ?? null,
+    [inventoryModalSectionId, sections],
+  );
+  const getSectionSelectedTopicInventory = useCallback(
+    (section: SectionDraft) =>
+      section.topics.reduce<InventorySummary>((total, topicRow) => {
+        if (!topicRow.topicCode) {
+          return total;
+        }
+        return addInventorySummary(total, topicOptionsByCode[topicRow.topicCode]?.difficulty_inventory);
+      }, normalizeInventorySummary(undefined)),
+    [topicOptionsByCode],
+  );
+  const getSectionInventoryWarnings = useCallback(
+    (section: SectionDraft) => {
+      const warnings: string[] = [];
+      const selectedTopicInventory = getSectionSelectedTopicInventory(section);
+      const subjectInventory = normalizeInventorySummary(subjectOptionsById[section.subjectId]?.difficulty_inventory);
+      const advancedRequested = Number(section.difficultyMix.advanced || 0) > 0;
+      const intermediateRequested = Number(section.difficultyMix.intermediate || 0) > 0;
+      const selectedTopicCount = uniqueSelectedTopicCount(section);
+
+      if (advancedRequested && selectedTopicCount > 0 && selectedTopicInventory.advanced === 0) {
+        warnings.push("Advanced questions are requested, but the selected topic lanes currently have zero advanced inventory.");
+      }
+
+      if (
+        advancedRequested &&
+        selectedTopicCount === 0 &&
+        selectionMode === "strict" &&
+        subjectInventory.advanced === 0
+      ) {
+        warnings.push("Advanced questions are requested, but this subject currently has zero advanced inventory.");
+      }
+
+      if (
+        advancedRequested &&
+        selectionMode !== "strict" &&
+        selectedTopicCount > 0 &&
+        selectedTopicInventory.advanced === 0
+      ) {
+        warnings.push("Fallback mode may still fill this section, but the exact advanced mix is unlikely to hold with the current topic inventory.");
+      }
+
+      if (
+        intermediateRequested &&
+        selectedTopicCount > 0 &&
+        selectedTopicInventory.intermediate === 0
+      ) {
+        warnings.push("Intermediate questions are requested, but the selected topics currently show no intermediate inventory.");
+      }
+
+      return warnings;
+    },
+    [getSectionSelectedTopicInventory, selectionMode, subjectOptionsById],
+  );
+
   const selectedExamTypeLabel = useMemo(
     () => examTypeOptions.find((item) => item.value === exam.examType)?.label ?? titleCase(exam.examType),
     [exam.examType, examTypeOptions],
@@ -1840,12 +2052,161 @@ export function AdvancedExamBuilder({
   );
   const previewSectionsWithWarnings = preview?.sections.filter((section) => section.warnings.length > 0) ?? [];
   const previewSectionsWithBlockers = preview?.sections.filter((section) => section.blockers.length > 0) ?? [];
+  const previewSectionsWithWarningsCount = previewSectionsWithWarnings.length;
   const previewSectionWarningCount = previewSectionsWithWarnings.reduce(
     (total, section) => total + section.warnings.length,
     0,
   );
   const previewBlockerCount = preview?.blockers.length ?? 0;
   const createBlockedByError = error.trim().length > 0;
+  const selectionModeGuide = useMemo(
+    () => ({
+      label: selectionModeLabel(selectionMode),
+      summary: selectionModeSummary(selectionMode),
+      recommendation: selectionModeRecommendation(selectionMode),
+    }),
+    [selectionMode],
+  );
+  const compositionWatchlist = useMemo<BuilderGuidanceCard[]>(() => {
+    const cards: BuilderGuidanceCard[] = [];
+    const sectionsWithTopicMismatch = sections.filter(
+      (section, index) => getSectionTopicCountError(section, index).trim().length > 0,
+    );
+    if (sectionsWithTopicMismatch.length > 0) {
+      cards.push({
+        tone: "blocker",
+        title: "Topic counts do not balance yet",
+        detail:
+          "One or more sections do not have topic lane counts that add up to the requested question total.",
+      });
+    }
+
+    const sectionsWithDifficultyMismatch = sections.filter(
+      (section) => totalDifficultyMix(section.difficultyMix) !== 100,
+    );
+    if (sectionsWithDifficultyMismatch.length > 0) {
+      cards.push({
+        tone: "warning",
+        title: "Difficulty mix should total 100%",
+        detail: `${sectionsWithDifficultyMismatch.length} section(s) currently ask for a difficulty split that does not add up to 100%.`,
+      });
+    }
+
+    const singleTopicSections = sections.filter(
+      (section) => uniqueSelectedTopicCount(section) === 1 && Number(section.questionCount || 0) >= 12,
+    );
+    if (singleTopicSections.length > 0) {
+      cards.push({
+        tone: "warning",
+        title: "Coverage may feel too narrow",
+        detail: `${singleTopicSections.length} section(s) rely on a single topic lane, which often leads to repetitive coverage warnings in preview.`,
+      });
+    }
+
+    const advancedDemandSections = sections.filter((section) => Number(section.difficultyMix.advanced || 0) > 0);
+    if (advancedDemandSections.length > 0) {
+      cards.push({
+        tone: "warning",
+        title: "Advanced demand needs real inventory",
+        detail:
+          selectionMode === "strict"
+            ? "Strict mode will only resolve advanced questions if the linked topic pool truly has them."
+            : "Preview this mix carefully because fallback modes may soften the exact advanced request when inventory is thin.",
+      });
+    }
+
+    const timedSectionsMissingDuration = sections.filter(
+      (section) => section.timerEnabled && Number(section.durationMinutes || 0) <= 0,
+    );
+    if (timedSectionsMissingDuration.length > 0) {
+      cards.push({
+        tone: "blocker",
+        title: "Timed sections need a duration",
+        detail: `${timedSectionsMissingDuration.length} timed section(s) are missing a valid duration in minutes.`,
+      });
+    }
+
+    if (selectionMode === "subject_fallback" && !selectedSubjectRecord) {
+      cards.push({
+        tone: "warning",
+        title: "Primary subject fallback is not anchored",
+        detail: "Choose a primary subject if you want subject fallback mode to behave predictably.",
+      });
+    }
+
+    if (cards.length === 0) {
+      cards.push({
+        tone: "success",
+        title: "Composition basics look aligned",
+        detail: "Topic counts, difficulty totals, and section setup look ready for preview.",
+      });
+    }
+
+    return cards;
+  }, [sections, selectedSubjectRecord, selectionMode]);
+  const sectionCoverageGuidance = useMemo(() => {
+    return sections
+      .map((section, index) => {
+        const selectedTopicCount = uniqueSelectedTopicCount(section);
+        if (selectedTopicCount === 1 && Number(section.questionCount || 0) >= 12) {
+          return `${resolveSectionLabel(section, index)} may feel repetitive. Add one more topic if you want broader coverage.`;
+        }
+        if (selectedTopicCount === 2 && Number(section.questionCount || 0) >= 20) {
+          return `${resolveSectionLabel(section, index)} is concentrated into two topics. Consider a third topic for a more balanced paper.`;
+        }
+        return "";
+      })
+      .filter(Boolean);
+  }, [sections]);
+  const builderStatus = useMemo<BuilderStatus>(() => {
+    const hasBlockerCard = compositionWatchlist.some((item) => item.tone === "blocker");
+    if (hasBlockerCard || previewBlockerCount > 0 || createBlockedByError) {
+      return {
+        tone: "blocked",
+        label: "Needs Fixes",
+        detail: "At least one blocking issue should be resolved before preview or create.",
+      };
+    }
+
+    const hasRiskCard = compositionWatchlist.some((item) => item.tone === "warning");
+    if (hasRiskCard || previewSectionsWithWarningsCount > 0 || (preview?.warnings.length ?? 0) > 0) {
+      return {
+        tone: "risk",
+        label: "Inventory Risk",
+        detail: "This setup is usable, but one or more sections may resolve narrowly or soften at preview time.",
+      };
+    }
+
+    return {
+      tone: "ready",
+      label: "Ready To Preview",
+      detail: "The current setup looks internally consistent and ready for a live resolution check.",
+    };
+  }, [
+    compositionWatchlist,
+    createBlockedByError,
+    preview,
+    previewBlockerCount,
+    previewSectionsWithWarningsCount,
+  ]);
+  const actionAdvice = useMemo(() => {
+    const candidateMessages = [
+      error,
+      ...(preview?.blockers ?? []),
+      ...(preview?.warnings ?? []),
+      ...(preview?.sections.flatMap((section) => section.warnings) ?? []),
+    ];
+    const seen = new Set<string>();
+    return candidateMessages
+      .map((message) => getActionableBuilderAdvice(message))
+      .filter((message) => {
+        if (!message || seen.has(message)) {
+          return false;
+        }
+        seen.add(message);
+        return true;
+      });
+  }, [error, preview]);
   const sectionScoringAlerts = useMemo(
     () =>
       sections.flatMap((section, index) =>
@@ -2151,6 +2512,7 @@ export function AdvancedExamBuilder({
   }, [
     applyManagedPresetPack,
     presetPackLibrary,
+    selectedSubject,
     selectedSubjectRecord,
     selectedTemplateTopicCodes,
     topicOptions.length,
@@ -2228,6 +2590,43 @@ export function AdvancedExamBuilder({
       topics: section.topics.filter((topicRow) => topicRow.id !== topicRowId),
     }));
   }
+
+  const applyInventoryBalancedMix = useCallback(
+    (sectionId: string) => {
+      let previousMix: DifficultyMix | null = null;
+      let nextMix: DifficultyMix | null = null;
+      setSections((current) =>
+        current.map((section) => {
+          if (section.id !== sectionId) {
+            return section;
+          }
+          previousMix = { ...section.difficultyMix };
+          const selectedTopicInventory = getSectionSelectedTopicInventory(section);
+          const inventorySource =
+            inventoryTotal(selectedTopicInventory) > 0
+              ? selectedTopicInventory
+              : normalizeInventorySummary(subjectOptionsById[section.subjectId]?.difficulty_inventory);
+          nextMix = toRoundedPercentages(inventorySource);
+          return {
+            ...section,
+            difficultyMix: nextMix,
+          };
+        }),
+      );
+      setPreview(null);
+      setError("");
+      const previousMixSnapshot = previousMix as DifficultyMix | null;
+      const nextMixSnapshot = nextMix as DifficultyMix | null;
+      if (previousMixSnapshot && nextMixSnapshot) {
+        setMessage(
+          `Difficulty mix updated from ${previousMixSnapshot.foundation}/${previousMixSnapshot.intermediate}/${previousMixSnapshot.advanced} to ${nextMixSnapshot.foundation}/${nextMixSnapshot.intermediate}/${nextMixSnapshot.advanced} based on available inventory.`,
+        );
+        return;
+      }
+      setMessage("Difficulty mix was rebalanced to match the currently available inventory.");
+    },
+    [getSectionSelectedTopicInventory, subjectOptionsById],
+  );
 
   function applyTemplate(templateId: BuilderTemplateId) {
     if (topicOptions.length === 0 || !selectedSubjectRecord) {
@@ -3216,8 +3615,16 @@ export function AdvancedExamBuilder({
       if (!response.ok) {
         throw new Error(parseApiError(payload));
       }
-      setPreview(payload as ExamPreview);
-      setMessage("Preview refreshed. The right summary now reflects the latest exam resolution.");
+      const nextPreview = payload as ExamPreview;
+      const totalWarnings =
+        (nextPreview.warnings?.length ?? 0) +
+        nextPreview.sections.reduce((total, section) => total + section.warnings.length, 0);
+      setPreview(nextPreview);
+      setMessage(
+        totalWarnings > 0
+          ? `Preview ready. ${nextPreview.resolved_exam.total_questions} questions resolved with ${totalWarnings} caution point(s) to review.`
+          : `Preview ready. All ${nextPreview.resolved_exam.total_questions} questions resolved cleanly with no caution points.`,
+      );
     } catch (previewError) {
       setPreview(null);
       setError(previewError instanceof Error ? previewError.message : "Unable to preview this exam right now.");
@@ -3257,6 +3664,10 @@ export function AdvancedExamBuilder({
         "data" in payload && payload.data && typeof payload.data === "object" && "id" in payload.data
           ? String(payload.data.id ?? "")
           : "";
+      const activeQuestionsCount =
+        "data" in payload && payload.data && typeof payload.data === "object" && "active_questions_count" in payload.data
+          ? Number(payload.data.active_questions_count ?? 0)
+          : 0;
 
       if (!examId) {
         throw new Error("The exam was created, but the response did not include an id.");
@@ -3264,7 +3675,9 @@ export function AdvancedExamBuilder({
 
       router.push(
         `${successBasePath}/${examId}/builder?message=${encodeURIComponent(
-          "Advanced exam created successfully.",
+          activeQuestionsCount > 0
+            ? `Advanced exam created with ${activeQuestionsCount} active questions.`
+            : "Advanced exam created successfully.",
         )}`,
       );
       router.refresh();
@@ -4178,11 +4591,17 @@ export function AdvancedExamBuilder({
                 <label className="advancedBuilderField advancedBuilderFieldSlim">
                   <span>Selection mode</span>
                   <select value={selectionMode} onChange={(event) => setSelectionMode(event.target.value)}>
-                    <option value="strict">Strict</option>
-                    <option value="relaxed">Relaxed</option>
-                    <option value="subject_fallback">Use primary subject as fallback</option>
+                    <option value="strict">Exact match</option>
+                    <option value="relaxed">Flexible match</option>
+                    <option value="subject_fallback">Fill from subject if needed</option>
                   </select>
                 </label>
+
+                <div className="builderHintPanel">
+                  <strong>{selectionModeGuide.label}</strong>
+                  <p>{selectionModeGuide.summary}</p>
+                  <small>{selectionModeGuide.recommendation}</small>
+                </div>
 
                 {selectedProgramPresetPack ? (
                   <div className="builderHintPanel">
@@ -4207,23 +4626,34 @@ export function AdvancedExamBuilder({
                   </div>
                 ) : null}
 
-                <div className="advancedBuilderSectionStack">
-                  {sections.map((section, sectionIndex) => (
+                  <div className="advancedBuilderSectionStack">
+                    {sections.map((section, sectionIndex) => (
                     <article className="advancedBuilderSectionCard" key={section.id}>
                       <div className="advancedBuilderSectionCardTop">
                         <div>
                           <strong>{resolveSectionLabel(section, sectionIndex)}</strong>
                           <span>{section.questionCount} requested question(s)</span>
                         </div>
-                        {sections.length > 1 ? (
-                          <button
-                            className="button buttonGhost"
-                            onClick={() => removeSection(section.id)}
-                            type="button"
-                          >
-                            Remove
-                          </button>
-                        ) : null}
+                        <div className="advancedBuilderSectionCardActions">
+                          {section.subjectId ? (
+                            <button
+                              className="button buttonGhost"
+                              onClick={() => setInventoryModalSectionId(section.id)}
+                              type="button"
+                            >
+                              View Inventory
+                            </button>
+                          ) : null}
+                          {sections.length > 1 ? (
+                            <button
+                              className="button buttonGhost"
+                              onClick={() => removeSection(section.id)}
+                              type="button"
+                            >
+                              Remove
+                            </button>
+                          ) : null}
+                        </div>
                       </div>
 
                       <div className="advancedBuilderGrid advancedBuilderGridTwo">
@@ -4279,6 +4709,17 @@ export function AdvancedExamBuilder({
                           <small>
                             The section subject is the real content mapping used for mixed-subject exams.
                           </small>
+                          {section.subjectId ? (
+                            <div className="advancedBuilderInventoryMeta">
+                              <span className="advancedBuilderInventorySummary">
+                                {inventoryBadgeText(subjectOptionsById[section.subjectId]?.difficulty_inventory)}
+                              </span>
+                              <small>
+                                {inventoryTotal(subjectOptionsById[section.subjectId]?.difficulty_inventory)} active
+                                question(s) in this subject.
+                              </small>
+                            </div>
+                          ) : null}
                         </label>
                         <label className="advancedBuilderField">
                           <span>Marks per question</span>
@@ -4337,6 +4778,52 @@ export function AdvancedExamBuilder({
                         ))}
                       </div>
 
+                      <p
+                        className={`advancedBuilderFieldNote ${
+                          totalDifficultyMix(section.difficultyMix) === 100
+                            ? "advancedBuilderFieldNoteSuccess"
+                            : "advancedBuilderFieldNoteWarning"
+                        }`}
+                      >
+                        Difficulty total: {totalDifficultyMix(section.difficultyMix)}%
+                        {totalDifficultyMix(section.difficultyMix) === 100
+                          ? " and ready for preview."
+                          : " so preview may fail or soften unexpectedly until this reaches 100%."}
+                      </p>
+
+                      {Number(section.difficultyMix.advanced || 0) > 0 ? (
+                        <p className="advancedBuilderFieldNote advancedBuilderFieldNoteMuted">
+                          Advanced demand is set to {section.difficultyMix.advanced}%. Make sure this section&apos;s
+                          topic pool truly contains advanced inventory before you publish.
+                        </p>
+                      ) : null}
+
+                      {uniqueSelectedTopicCount(section) > 0 ? (
+                        <p className="advancedBuilderFieldNote advancedBuilderFieldNoteMuted">
+                          Selected topic inventory: {inventoryBadgeText(getSectionSelectedTopicInventory(section))}
+                        </p>
+                      ) : null}
+
+                      {getSectionInventoryWarnings(section).length > 0 ? (
+                        <div className="advancedBuilderInlineAlert advancedBuilderInlineAlertDanger">
+                          <strong>Inventory mismatch</strong>
+                          <ul>
+                            {getSectionInventoryWarnings(section).map((warning) => (
+                              <li key={warning}>{warning}</li>
+                            ))}
+                          </ul>
+                          <div className="advancedBuilderInlineAlertActions">
+                            <button
+                              className="button buttonSecondary"
+                              onClick={() => applyInventoryBalancedMix(section.id)}
+                              type="button"
+                            >
+                              Use Available Mix
+                            </button>
+                          </div>
+                        </div>
+                      ) : null}
+
                       {sectionScoringAlerts.some((item) => item.sectionId === section.id) ? (
                         <div className="builderHintPanel">
                           <strong>Section scoring review</strong>
@@ -4361,50 +4848,63 @@ export function AdvancedExamBuilder({
                         </div>
 
                         {section.topics.map((topicRow) => (
-                          <div className="advancedBuilderTopicRow" key={topicRow.id}>
-                            <select
-                              value={topicRow.topicCode}
-                              onChange={(event) =>
-                                updateSection(section.id, (current) => ({
-                                  ...current,
-                                  topics: current.topics.map((row) =>
-                                    row.id === topicRow.id
-                                      ? { ...row, topicCode: event.target.value }
-                                      : row,
-                                  ),
-                                }))
-                              }
-                            >
-                              <option value="">Choose topic</option>
-                              {getTopicOptionsForSection(section, topicOptionsBySubject).map((topic) => (
-                                <option key={topic.id} value={topic.code}>
-                                  {formatTopicOptionLabel(topic)}
-                                </option>
-                              ))}
-                            </select>
-                            <input
-                              min={1}
-                              type="number"
-                              value={topicRow.count}
-                              onChange={(event) =>
-                                updateSection(section.id, (current) => ({
-                                  ...current,
-                                  topics: current.topics.map((row) =>
-                                    row.id === topicRow.id
-                                      ? { ...row, count: Number(event.target.value || 0) }
-                                      : row,
-                                  ),
-                                }))
-                              }
-                            />
-                            {section.topics.length > 1 ? (
-                              <button
-                                className="button buttonGhost"
-                                onClick={() => removeTopicRow(section.id, topicRow.id)}
-                                type="button"
+                          <div className="advancedBuilderTopicRowStack" key={topicRow.id}>
+                            <div className="advancedBuilderTopicRow">
+                              <select
+                                value={topicRow.topicCode}
+                                onChange={(event) =>
+                                  updateSection(section.id, (current) => ({
+                                    ...current,
+                                    topics: current.topics.map((row) =>
+                                      row.id === topicRow.id
+                                        ? { ...row, topicCode: event.target.value }
+                                        : row,
+                                    ),
+                                  }))
+                                }
                               >
-                                Remove
-                              </button>
+                                <option value="">Choose topic</option>
+                                {getTopicOptionsForSection(section, topicOptionsBySubject).map((topic) => (
+                                  <option key={topic.id} value={topic.code}>
+                                    {formatTopicOptionLabel(topic)}
+                                  </option>
+                                ))}
+                              </select>
+                              <input
+                                min={1}
+                                type="number"
+                                value={topicRow.count}
+                                onChange={(event) =>
+                                  updateSection(section.id, (current) => ({
+                                    ...current,
+                                    topics: current.topics.map((row) =>
+                                      row.id === topicRow.id
+                                        ? { ...row, count: Number(event.target.value || 0) }
+                                        : row,
+                                    ),
+                                  }))
+                                }
+                              />
+                              {section.topics.length > 1 ? (
+                                <button
+                                  className="button buttonGhost"
+                                  onClick={() => removeTopicRow(section.id, topicRow.id)}
+                                  type="button"
+                                >
+                                  Remove
+                                </button>
+                              ) : null}
+                            </div>
+                            {topicRow.topicCode ? (
+                              <div className="advancedBuilderInventoryMeta advancedBuilderInventoryMetaTopic">
+                                <span className="advancedBuilderInventorySummary">
+                                  {inventoryBadgeText(topicOptionsByCode[topicRow.topicCode]?.difficulty_inventory)}
+                                </span>
+                                <small>
+                                  {inventoryTotal(topicOptionsByCode[topicRow.topicCode]?.difficulty_inventory)} active
+                                  question(s) in this topic.
+                                </small>
+                              </div>
                             ) : null}
                           </div>
                         ))}
@@ -4412,6 +4912,11 @@ export function AdvancedExamBuilder({
                         {getSectionTopicCountError(section, sectionIndex) ? (
                           <p className="feedbackBanner feedbackBannerError">
                             {getSectionTopicCountError(section, sectionIndex)}
+                          </p>
+                        ) : null}
+                        {uniqueSelectedTopicCount(section) === 1 && Number(section.questionCount || 0) >= 12 ? (
+                          <p className="advancedBuilderFieldNote advancedBuilderFieldNoteMuted">
+                            This section leans heavily on one topic. Add another topic if you want broader learner coverage.
                           </p>
                         ) : null}
                       </div>
@@ -4933,6 +5438,14 @@ export function AdvancedExamBuilder({
                     <strong>{titleCase(audience)}</strong>
                   </div>
                   <div>
+                    <span>Status</span>
+                    <strong>
+                      <span className={`advancedBuilderStatusChip advancedBuilderStatusChip${builderStatus.tone[0].toUpperCase()}${builderStatus.tone.slice(1)}`}>
+                        {builderStatus.label}
+                      </span>
+                    </strong>
+                  </div>
+                  <div>
                     <span>Preset pack</span>
                     <strong>{selectedPresetPack?.label ?? "Custom"}</strong>
                   </div>
@@ -4951,13 +5464,80 @@ export function AdvancedExamBuilder({
                 </div>
 
                 <div className="advancedBuilderSummaryBlock">
+                  <strong>Overall status</strong>
+                  <p className="advancedBuilderSummaryNote">{builderStatus.detail}</p>
+                </div>
+
+                <div className="advancedBuilderSummaryBlock">
+                  <strong>Resolution posture</strong>
+                  <ul>
+                    <li>
+                      <span>Mode</span>
+                      <small>{selectionModeGuide.label}</small>
+                    </li>
+                    <li>
+                      <span>What it means</span>
+                      <small>{selectionModeGuide.summary}</small>
+                    </li>
+                  </ul>
+                  <p className="advancedBuilderSummaryNote">{selectionModeGuide.recommendation}</p>
+                </div>
+
+                {selectedSubjectRecord ? (
+                  <div className="advancedBuilderSummaryBlock">
+                    <strong>Primary subject inventory</strong>
+                    <ul>
+                      <li>
+                        <span>{selectedSubjectRecord.name}</span>
+                        <small>{inventoryBadgeText(selectedSubjectRecord.difficulty_inventory)}</small>
+                      </li>
+                      <li>
+                        <span>Total active questions</span>
+                        <small>{inventoryTotal(selectedSubjectRecord.difficulty_inventory)}</small>
+                      </li>
+                    </ul>
+                    <p className="advancedBuilderSummaryNote">
+                      Use this as the first sanity check before you request large advanced or single-topic sections.
+                    </p>
+                  </div>
+                ) : null}
+
+                <div className="advancedBuilderSummaryBlock">
+                  <strong>Before preview</strong>
+                  <div className="advancedBuilderGuidanceStack">
+                    {compositionWatchlist.map((item) => (
+                      <article
+                        className={`advancedBuilderGuidanceCard advancedBuilderGuidanceCard${item.tone[0].toUpperCase()}${item.tone.slice(1)}`}
+                        key={`${item.title}-${item.detail}`}
+                      >
+                        <strong>{item.title}</strong>
+                        <p>{item.detail}</p>
+                      </article>
+                    ))}
+                  </div>
+                </div>
+
+                {sectionCoverageGuidance.length > 0 ? (
+                  <div className="advancedBuilderSummaryBlock">
+                    <strong>Coverage tips</strong>
+                    <ul>
+                      {sectionCoverageGuidance.map((tip) => (
+                        <li key={tip}>
+                          <span>{tip}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+
+                <div className="advancedBuilderSummaryBlock">
                   <strong>Current composition</strong>
                   <ul>
                     {deferredSections.map((section) => (
                       <li key={section.id}>
                         <span>{section.name || "Untitled section"}</span>
                         <small>
-                          {section.questionCount} question(s) · {section.topics.length} topic lane(s)
+                          {section.questionCount} question(s) · {uniqueSelectedTopicCount(section)} selected topic(s)
                         </small>
                       </li>
                     ))}
@@ -5113,6 +5693,19 @@ export function AdvancedExamBuilder({
                       </div>
                     ) : null}
 
+                    {actionAdvice.length > 0 ? (
+                      <div className="advancedBuilderSummaryBlock">
+                        <strong>Suggested next steps</strong>
+                        <ul>
+                          {actionAdvice.map((advice) => (
+                            <li key={advice}>
+                              <span>{advice}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+
                     {previewSectionsWithBlockers.length > 0 ? (
                       <div className="advancedBuilderSummaryBlock advancedBuilderSummaryBlocker">
                         <strong>Blocked sections</strong>
@@ -5213,6 +5806,13 @@ export function AdvancedExamBuilder({
                       Preview will validate topic counts, difficulty mix, academic-year end date handling, and final
                       question resolution before anything is created.
                     </p>
+                    {actionAdvice.length > 0 ? (
+                      <ul>
+                        {actionAdvice.map((advice) => (
+                          <li key={advice}>{advice}</li>
+                        ))}
+                      </ul>
+                    ) : null}
                   </div>
                 )}
               </section>
@@ -5220,6 +5820,92 @@ export function AdvancedExamBuilder({
           </div>
         </div>
       </div>
+
+      {inventoryModalSection ? (
+        <div
+          className="advancedBuilderInventoryOverlay"
+          onClick={() => setInventoryModalSectionId("")}
+          role="presentation"
+        >
+          <div
+            className="advancedBuilderInventoryDialog"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="advanced-builder-inventory-title"
+          >
+            <div className="advancedBuilderInventoryDialogHeader">
+              <div>
+                <span className="studentDashboardTag">Inventory details</span>
+                <h3 id="advanced-builder-inventory-title">
+                  {resolveSectionLabel(
+                    inventoryModalSection,
+                    sections.findIndex((section) => section.id === inventoryModalSection.id),
+                  )}
+                </h3>
+                <p>
+                  Check real subject and topic stock before you raise counts or ask for harder difficulty lanes.
+                </p>
+              </div>
+              <button
+                className="button buttonGhost"
+                onClick={() => setInventoryModalSectionId("")}
+                type="button"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="advancedBuilderInventoryDialogBody">
+              <div className="advancedBuilderSummaryBlock">
+                <strong>Section subject</strong>
+                <ul>
+                  <li>
+                    <span>{subjectOptionsById[inventoryModalSection.subjectId]?.name ?? "Pending"}</span>
+                    <small>
+                      {inventoryBadgeText(subjectOptionsById[inventoryModalSection.subjectId]?.difficulty_inventory)}
+                    </small>
+                  </li>
+                  <li>
+                    <span>Total active questions</span>
+                    <small>
+                      {inventoryTotal(subjectOptionsById[inventoryModalSection.subjectId]?.difficulty_inventory)}
+                    </small>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="advancedBuilderSummaryBlock">
+                <strong>Selected topics</strong>
+                <div className="advancedBuilderInventoryTopicList">
+                  {inventoryModalSection.topics.map((topicRow) => {
+                    const topic = topicOptionsByCode[topicRow.topicCode];
+                    const topicInventory = normalizeInventorySummary(topic?.difficulty_inventory);
+                    return (
+                      <article className="advancedBuilderInventoryTopicCard" key={topicRow.id}>
+                        <div className="advancedBuilderInventoryTopicCardTop">
+                          <strong>{topic?.name ?? "Choose topic"}</strong>
+                          <small>{topicRow.count} requested</small>
+                        </div>
+                        <div className="advancedBuilderQualityChips">
+                          <span className="questionBankMetaChip">F {topicInventory.foundation}</span>
+                          <span className="questionBankMetaChip">I {topicInventory.intermediate}</span>
+                          <span className="questionBankMetaChip">A {topicInventory.advanced}</span>
+                        </div>
+                        <p className="advancedBuilderSummaryNote">
+                          {topic
+                            ? `${inventoryTotal(topicInventory)} active question(s) are available in this topic right now.`
+                            : "Select a topic to inspect its live question stock."}
+                        </p>
+                      </article>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

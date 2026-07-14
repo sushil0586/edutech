@@ -68,6 +68,12 @@ type AdminQuestionBankFeatureEntitlement = {
   institute_code?: string;
 };
 
+type StudentUnlockState = {
+  content_key: string;
+  content_label: string;
+  status?: string;
+};
+
 type StudentAvailableExam = {
   id: string;
   title: string;
@@ -770,8 +776,9 @@ test.describe("Admin mutable economy actions", () => {
     if (!bootstrapInstitute) {
       test.skip(true, "No attachable question-bank packages are currently available for subscription plan mapping.");
     }
-    let selectedInstituteLabel = bootstrapInstitute.label;
-    await instituteSelect.selectOption(bootstrapInstitute.value);
+    const bootstrapInstituteSnapshot = bootstrapInstitute!;
+    let selectedInstituteLabel = bootstrapInstituteSnapshot.label;
+    await instituteSelect.selectOption(bootstrapInstituteSnapshot.value);
     await page.waitForTimeout(200);
 
     const packageSection = subscriptionEditor.locator(".economyFormSection").nth(1);
@@ -781,7 +788,7 @@ test.describe("Admin mutable economy actions", () => {
       const adminAccessToken = await getAccessToken(page);
       expect(adminAccessToken).not.toBe("");
       await createQuestionBankPackageDirectly(page, adminAccessToken, {
-        instituteId: bootstrapInstitute.value,
+        instituteId: bootstrapInstituteSnapshot.value,
         packageName: `Playwright Linked Package ${Date.now()}`,
         packageCode: `pw_link_pkg_${Date.now()}`,
       });
@@ -793,7 +800,7 @@ test.describe("Admin mutable economy actions", () => {
       await subscriptionCard
         .getByRole("combobox", { name: /subscription plan workspace view/i })
         .selectOption("all");
-      await instituteSelect.selectOption(bootstrapInstitute.value);
+      await instituteSelect.selectOption(bootstrapInstituteSnapshot.value);
       await page.waitForTimeout(200);
       packageCheckboxCount = await packageSection.locator('input[type="checkbox"]').count();
     }
@@ -866,6 +873,7 @@ test.describe("Admin mutable economy actions", () => {
 
     const persistedPlan = createBody.data ?? null;
     expect(persistedPlan).toBeTruthy();
+    const persistedPlanSnapshot = persistedPlan!;
     expect(persistedPlan?.name).toBe(planName);
     expect(persistedPlan?.code).toBe(planCode);
     expect(persistedPlan?.question_bank_package_links ?? []).toHaveLength(1);
@@ -874,13 +882,13 @@ test.describe("Admin mutable economy actions", () => {
       `${backendBaseUrl}/api/v1/economy/admin/subscription-plans/${createdPlanId}/`,
       {
         data: {
-          institute: persistedPlan!.institute,
+          institute: persistedPlanSnapshot.institute,
           name: updatedPlanName,
-          code: persistedPlan!.code,
-          description: persistedPlan!.description,
-          metadata: persistedPlan!.metadata ?? {},
-          is_active: persistedPlan!.is_active,
-          cycles: persistedPlan!.cycles.map((cycle) => ({
+          code: persistedPlanSnapshot.code,
+          description: persistedPlanSnapshot.description,
+          metadata: persistedPlanSnapshot.metadata ?? {},
+          is_active: persistedPlanSnapshot.is_active,
+          cycles: (persistedPlanSnapshot.cycles ?? []).map((cycle) => ({
             ...(cycle.id ? { id: cycle.id } : {}),
             billing_interval: cycle.billing_interval,
             interval_count: Number(cycle.interval_count),
@@ -951,6 +959,7 @@ test.describe("Admin mutable economy actions", () => {
     if (!bootstrapInstitute) {
       test.skip(true, "No institute is available for subscription-plan governance coverage.");
     }
+    const bootstrapInstituteSnapshot = bootstrapInstitute!;
 
     const uniqueSeed = Date.now();
     const packageName = `Playwright Subscription Package ${uniqueSeed}`;
@@ -960,7 +969,7 @@ test.describe("Admin mutable economy actions", () => {
     const updatedName = `${createdName} Updated`;
 
     const createdPackage = await createQuestionBankPackageDirectly(page, adminAccessToken, {
-      instituteId: bootstrapInstitute.value,
+      instituteId: bootstrapInstituteSnapshot.value,
       packageName,
       packageCode,
     });
@@ -979,7 +988,7 @@ test.describe("Admin mutable economy actions", () => {
         .getByRole("combobox", { name: /subscription plan status filter/i })
         .selectOption("all");
 
-      await instituteSelect.selectOption(bootstrapInstitute.value);
+      await instituteSelect.selectOption(bootstrapInstituteSnapshot.value);
       await subscriptionEditor.getByLabel(/plan name/i).fill(createdName);
       await subscriptionEditor.getByLabel(/plan code/i).fill(createdCode);
       await subscriptionEditor.getByLabel(/^description$/i).fill("Playwright cycle-and-rule mutation coverage");
@@ -1076,7 +1085,7 @@ test.describe("Admin mutable economy actions", () => {
         .selectOption("all");
       await subscriptionCard
         .getByRole("combobox", { name: /subscription plan institute filter/i })
-        .selectOption(bootstrapInstitute.value);
+        .selectOption(bootstrapInstituteSnapshot.value);
       await subscriptionCard
         .getByRole("combobox", { name: /subscription plan rows to show/i })
         .selectOption("12");
@@ -1170,7 +1179,7 @@ test.describe("Admin mutable economy actions", () => {
         .selectOption("all");
       await subscriptionCard
         .getByRole("combobox", { name: /subscription plan institute filter/i })
-        .selectOption(bootstrapInstitute.value);
+        .selectOption(bootstrapInstituteSnapshot.value);
       await subscriptionCard
         .getByRole("combobox", { name: /subscription plan rows to show/i })
         .selectOption("12");
@@ -1233,18 +1242,20 @@ test.describe("Admin mutable economy actions", () => {
     if (!bootstrapInstitute) {
       test.skip(true, "No institute is available for subscription-plan recovery coverage.");
     }
+    const bootstrapInstituteSnapshot = bootstrapInstitute!;
     const wrongTargetInstitute =
       instituteOptions.find(
         (option) =>
           option.value &&
-          option.value !== bootstrapInstitute.value &&
+          option.value !== bootstrapInstituteSnapshot.value &&
           !/inactive/i.test(option.label),
       ) ??
-      instituteOptions.find((option) => option.value && option.value !== bootstrapInstitute.value) ??
+      instituteOptions.find((option) => option.value && option.value !== bootstrapInstituteSnapshot.value) ??
       null;
     if (!wrongTargetInstitute) {
       test.skip(true, "No alternate institute is available to prove safe recovery after a wrong apply target choice.");
     }
+    const wrongTargetInstituteSnapshot = wrongTargetInstitute!;
 
     const uniqueSeed = Date.now();
     const packageName = `Playwright Recovery Package ${uniqueSeed}`;
@@ -1253,7 +1264,7 @@ test.describe("Admin mutable economy actions", () => {
     const planCode = `PW_REC_PLAN_${uniqueSeed}`;
 
     const createdPackage = await createQuestionBankPackageDirectly(page, adminAccessToken, {
-      instituteId: bootstrapInstitute.value,
+      instituteId: bootstrapInstituteSnapshot.value,
       packageName,
       packageCode,
     });
@@ -1272,7 +1283,7 @@ test.describe("Admin mutable economy actions", () => {
         .getByRole("combobox", { name: /subscription plan status filter/i })
         .selectOption("all");
 
-      await instituteSelect.selectOption(bootstrapInstitute.value);
+      await instituteSelect.selectOption(bootstrapInstituteSnapshot.value);
       await subscriptionEditor.getByLabel(/plan name/i).fill(planName);
       await subscriptionEditor.getByLabel(/plan code/i).fill(planCode);
       await subscriptionEditor.getByLabel(/^description$/i).fill("Playwright safe recovery coverage.");
@@ -1306,7 +1317,7 @@ test.describe("Admin mutable economy actions", () => {
         .selectOption("all");
       await subscriptionCard
         .getByRole("combobox", { name: /subscription plan institute filter/i })
-        .selectOption(bootstrapInstitute.value);
+        .selectOption(bootstrapInstituteSnapshot.value);
       await subscriptionCard
         .getByRole("combobox", { name: /subscription plan rows to show/i })
         .selectOption("12");
@@ -1319,7 +1330,7 @@ test.describe("Admin mutable economy actions", () => {
       await expect(createdRow).toBeVisible();
 
       const applyTargetSelect = createdRow.getByLabel(new RegExp(`apply ${planName} to institute`, "i"));
-      await applyTargetSelect.selectOption(wrongTargetInstitute.value);
+      await applyTargetSelect.selectOption(wrongTargetInstituteSnapshot.value);
 
       const reconciliationDisclosure = createdRow
         .locator("details.economyCatalogDetailDisclosure")
@@ -1327,18 +1338,18 @@ test.describe("Admin mutable economy actions", () => {
         .first();
       await reconciliationDisclosure.locator("summary").click();
       await expect(reconciliationDisclosure).toContainText(
-        new RegExp(`Institute:\\s*${wrongTargetInstitute.label.split("(")[1]?.replace(")", "").trim() ?? ""}`, "i"),
+        new RegExp(`Institute:\\s*${wrongTargetInstituteSnapshot.label.split("(")[1]?.replace(")", "").trim() ?? ""}`, "i"),
       );
       await expect(reconciliationDisclosure).toContainText(
         new RegExp(`Missing active entitlements:\\s*${packageCode.toUpperCase()}`, "i"),
       );
       await expect(reconciliationDisclosure).toContainText(
-        new RegExp(`Re-apply access for ${wrongTargetInstitute.label.split("(")[1]?.replace(")", "").trim() ?? ""}`, "i"),
+        new RegExp(`Re-apply access for ${wrongTargetInstituteSnapshot.label.split("(")[1]?.replace(")", "").trim() ?? ""}`, "i"),
       );
 
-      await applyTargetSelect.selectOption(bootstrapInstitute.value);
+      await applyTargetSelect.selectOption(bootstrapInstituteSnapshot.value);
       await expect(reconciliationDisclosure).toContainText(
-        new RegExp(`Institute:\\s*${bootstrapInstitute.label.split("(")[1]?.replace(")", "").trim() ?? ""}`, "i"),
+        new RegExp(`Institute:\\s*${bootstrapInstituteSnapshot.label.split("(")[1]?.replace(")", "").trim() ?? ""}`, "i"),
       );
 
       const applyResponsePromise = page.waitForResponse(
@@ -1371,7 +1382,7 @@ test.describe("Admin mutable economy actions", () => {
         .selectOption("all");
       await subscriptionCard
         .getByRole("combobox", { name: /subscription plan institute filter/i })
-        .selectOption(bootstrapInstitute.value);
+        .selectOption(bootstrapInstituteSnapshot.value);
       await subscriptionCard
         .getByRole("combobox", { name: /subscription plan rows to show/i })
         .selectOption("12");
@@ -1562,8 +1573,9 @@ test.describe("Admin mutable economy actions", () => {
     if (!bootstrapInstitute) {
       test.skip(true, "No attachable question-bank packages or prelinked subscription plans are available in this environment.");
     }
-    let selectedInstituteLabel = bootstrapInstitute.label;
-    await instituteSelect.selectOption(bootstrapInstitute.value);
+    const bootstrapInstituteSnapshot = bootstrapInstitute!;
+    let selectedInstituteLabel = bootstrapInstituteSnapshot.label;
+    await instituteSelect.selectOption(bootstrapInstituteSnapshot.value);
     await page.waitForTimeout(200);
     const packageSection = subscriptionEditor.locator(".economyFormSection").nth(1);
     let attachablePackageCount = await packageSection.locator('input[type="checkbox"]').count();
@@ -1572,7 +1584,7 @@ test.describe("Admin mutable economy actions", () => {
       const adminAccessToken = await getAccessToken(page);
       expect(adminAccessToken).not.toBe("");
       await createQuestionBankPackageDirectly(page, adminAccessToken, {
-        instituteId: bootstrapInstitute.value,
+        instituteId: bootstrapInstituteSnapshot.value,
         packageName: `Playwright Apply Package ${Date.now()}`,
         packageCode: `pw_apply_pkg_${Date.now()}`,
       });
@@ -1584,7 +1596,7 @@ test.describe("Admin mutable economy actions", () => {
       await subscriptionCard
         .getByRole("combobox", { name: /subscription plan workspace view/i })
         .selectOption("all");
-      await instituteSelect.selectOption(bootstrapInstitute.value);
+      await instituteSelect.selectOption(bootstrapInstituteSnapshot.value);
       await page.waitForTimeout(200);
       attachablePackageCount = await packageSection.locator('input[type="checkbox"]').count();
     }
@@ -1698,6 +1710,7 @@ test.describe("Admin mutable economy actions", () => {
     if (!targetSubscriptionEntitlement) {
       test.skip(true, "No active subscription-backed question-bank entitlement exists in this environment.");
     }
+    const targetSubscriptionEntitlementSnapshot = targetSubscriptionEntitlement!;
 
     await gotoAdminEconomyLane(page, "question-bank", "visibility");
 
@@ -1707,7 +1720,7 @@ test.describe("Admin mutable economy actions", () => {
     await visibilityCard.getByRole("combobox", { name: /granted via/i }).selectOption("subscription");
 
     const activeSubscriptionRow = visibilityCard.getByTestId(
-      `entitlement-row-${targetSubscriptionEntitlement.id}`,
+      `entitlement-row-${targetSubscriptionEntitlementSnapshot.id}`,
     );
     await expect(activeSubscriptionRow).toBeVisible();
     await expect(
@@ -1770,6 +1783,7 @@ test.describe("Admin mutable economy actions", () => {
     if (!targetSubscriptionEntitlement) {
       test.skip(true, "No active subscription-backed question-bank entitlement exists in this environment.");
     }
+    const targetSubscriptionEntitlementSnapshot = targetSubscriptionEntitlement!;
 
     await gotoAdminEconomyLane(page, "question-bank", "visibility");
 
@@ -1779,7 +1793,7 @@ test.describe("Admin mutable economy actions", () => {
     await visibilityCard.getByRole("combobox", { name: /granted via/i }).selectOption("subscription");
 
     const entitlementRow = visibilityCard.getByTestId(
-      `entitlement-row-${targetSubscriptionEntitlement.id}`,
+      `entitlement-row-${targetSubscriptionEntitlementSnapshot.id}`,
     );
     await expect(entitlementRow).toBeVisible();
 
@@ -1934,9 +1948,10 @@ test.describe("Admin mutable economy actions", () => {
     if (!targetFeatureEntitlement) {
       test.skip(true, "No feature entitlement row exists in this environment.");
     }
-    if (targetFeatureEntitlement.status !== "active") {
+    const targetFeatureEntitlementSnapshot = targetFeatureEntitlement!;
+    if (targetFeatureEntitlementSnapshot.status !== "active") {
       const activateResponse = await page.request.patch(
-        `/api/admin/economy/question-bank-feature-entitlements/${targetFeatureEntitlement.id}`,
+        `/api/admin/economy/question-bank-feature-entitlements/${targetFeatureEntitlementSnapshot.id}`,
         {
           data: {
             status: "active",
@@ -1957,7 +1972,7 @@ test.describe("Admin mutable economy actions", () => {
     const featureRow = visibilityCard
       .locator(".weakTopicRow")
       .filter({
-        hasText: new RegExp(targetFeatureEntitlement.feature_code.replaceAll("_", " "), "i"),
+        hasText: new RegExp(targetFeatureEntitlementSnapshot.feature_code!.replaceAll("_", " "), "i"),
       })
       .first();
     await expect(featureRow).toBeVisible();
@@ -2400,12 +2415,13 @@ test.describe("Admin mutable economy actions", () => {
         "Refresh unlock response did not return a materialized unlock-state row for the selected exam.",
       );
     }
+    const initialUnlockStateSnapshot = initialUnlockState!;
 
     const refreshCard = unlockRefreshCard(page);
     await expect(refreshCard).toBeVisible();
     const lockedRow = refreshCard
       .locator(".weakTopicRow")
-      .filter({ hasText: initialUnlockState.content_label })
+      .filter({ hasText: initialUnlockStateSnapshot.content_label })
       .first();
     await expect(lockedRow).toBeVisible();
     await expect(lockedRow.getByText(/locked/i)).toBeVisible();
@@ -2452,10 +2468,11 @@ test.describe("Admin mutable economy actions", () => {
         "Refresh unlock response after wallet grant did not return a materialized unlock-state row for the selected exam.",
       );
     }
+    const unlockedStateSnapshot = unlockedState!;
 
     const unlockedRow = refreshCard
       .locator(".weakTopicRow")
-      .filter({ hasText: unlockedState.content_label })
+      .filter({ hasText: unlockedStateSnapshot.content_label })
       .first();
     await expect(unlockedRow).toBeVisible();
     await expect(unlockedRow.getByText(/unlocked/i)).toBeVisible();

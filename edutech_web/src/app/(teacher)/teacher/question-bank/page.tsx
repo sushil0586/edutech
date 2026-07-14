@@ -219,7 +219,7 @@ async function TeacherQuestionBankPageContent({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requireTeacherSession();
+  const profile = await requireTeacherSession();
   const resolvedSearchParams = await searchParams;
 
   const page = asPositiveInteger(readSingle(resolvedSearchParams.page), 1);
@@ -264,7 +264,7 @@ async function TeacherQuestionBankPageContent({
 
   const bootstrapResults = await Promise.allSettled([
     fetchTeacherOptionCatalog(),
-    fetchTeacherPrograms(),
+    fetchTeacherPrograms({ institute: profile.institute || undefined }),
     fetchTeacherQuestionTags(),
     fetchInstituteQuestionBankEntitlementsCached<InstituteQuestionBankEntitlement>(),
     fetchInstituteQuestionBankFeatureEntitlementsCached<InstituteQuestionFeatureEntitlement>(),
@@ -558,6 +558,7 @@ async function TeacherQuestionBankPageContent({
         difficultyLabelMap={optionCatalog.labelMap("question_difficulty")}
         difficultyOptions={optionCatalog.selectOptions("question_difficulty")}
         featureEntitlements={featureEntitlements}
+        instituteId={profile.institute || undefined}
         filters={{
           search,
           program: validProgram,

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { ActionSubmitButton } from "@/components/ui/action-submit-button";
+import { BuilderStudentAssignmentSelector } from "@/components/ui/builder-student-assignment-selector";
 import { BuilderQuestionMapping } from "@/components/ui/builder-question-mapping";
 import { BuilderTabs } from "@/components/ui/builder-tabs";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
@@ -1078,632 +1079,617 @@ export default async function InstituteExamBuilderPage({
                 <span>Visible in scope</span>
                 <strong>{students.length}</strong>
               </article>
-            </div>
-          </div>
-
-          <form action={updateAssignmentsAction} className="builderForm">
-            <input name="exam_id" type="hidden" value={detail.id} />
-
-            <div className="builderComposerGrid">
-              <label className="fieldStack">
-                <span>Assignment mode</span>
-                <select defaultValue={detail.assignment_mode} name="assignment_mode">
-                  {assignmentModeOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <div className="builderMiniBanner">
-                <div>
-                  <strong>Current targeting</strong>
-                  <span>{titleCase(detail.assignment_mode)} · {detail.cohort_name ?? "All eligible cohorts in scope"}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="selectionList">
-              {students.map((student) => (
-                <label className="selectionRow" key={student.id}>
-                  <input
-                    defaultChecked={selectedStudentIds.has(student.id)}
-                    name="student_ids"
-                    type="checkbox"
-                    value={student.id}
-                  />
-                  <div>
-                    <strong>{student.full_name}</strong>
-                    <span>{student.admission_no}</span>
-                  </div>
-                </label>
-              ))}
-
-              {!students.length ? (
-                <div className="builderEmptyState">
-                  <strong>No assignable students found</strong>
-                  <p>The current academic year, program, and cohort scope did not return any learners yet.</p>
-                </div>
-              ) : null}
-            </div>
-
-            <div className="settingsActionRow">
-              <ActionSubmitButton
-                className="button buttonPrimary"
-                idleLabel="Save Assignment"
-                pendingLabel="Saving Assignment..."
-              />
-            </div>
-          </form>
-
-          <div className="builderDivider" />
-
-          <div className="builderPanelHeader">
-            <div>
-              <span className="builderFlowLabel">Capacity control</span>
-              <strong>Access Slots</strong>
-              <p>Design start windows, capacity, and concurrency without leaving the builder workflow.</p>
-            </div>
-            <div className="builderPanelMetrics">
               <article className="builderMetricChip">
-                <span>Configured</span>
+                <span>Configured slots</span>
                 <strong>{detail.access_slots.length}</strong>
               </article>
-              <article className="builderMetricChip">
-                <span>Mode</span>
-                <strong>{titleCase(detail.access_mode)}</strong>
-              </article>
             </div>
           </div>
 
-          <form action={createExamSlotAction} className="builderForm builderSubform">
-            <input name="exam_id" type="hidden" value={detail.id} />
-            <input name="is_active" type="hidden" value="true" />
-
-            <div className="builderGrid compact">
-              <label className="fieldStack">
-                <span>Slot label</span>
-                <input defaultValue={`${detail.cohort_name ?? "General"} Slot`} name="slot_label" placeholder="Morning Batch" required type="text" />
-              </label>
-              <label className="fieldStack">
-                <span>Cohort</span>
-                <select defaultValue={detail.cohort ?? ""} name="cohort">
-                  <option value="">All eligible cohorts</option>
-                  {cohorts.map((cohort) => (
-                    <option key={cohort.id} value={cohort.id}>
-                      {cohort.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="fieldStack">
-                <span>Slot start</span>
-                <input defaultValue={toDateTimeLocalValue(detail.start_at)} name="slot_start_at" required type="datetime-local" />
-              </label>
-              <label className="fieldStack">
-                <span>Slot end</span>
-                <input defaultValue={toDateTimeLocalValue(detail.end_at)} name="slot_end_at" required type="datetime-local" />
-              </label>
-              <label className="fieldStack">
-                <span>Grace period</span>
-                <input defaultValue="15" min="0" name="grace_period_minutes" step="1" type="number" />
-              </label>
-              <label className="fieldStack">
-                <span>Assignment capacity</span>
-                <input defaultValue="" min="1" name="assignment_capacity" placeholder="Optional" type="number" />
-              </label>
-              <label className="fieldStack">
-                <span>Concurrent start cap</span>
-                <input defaultValue="" min="1" name="start_capacity" placeholder="Optional" type="number" />
-              </label>
-              <label className="fieldStack">
-                <span>Status</span>
-                <select defaultValue="active" name="status">
-                  {examAccessSlotStatusOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+          <div className="builderHintPanel assignmentWorkflowGuide">
+            <strong>Use this tab in order</strong>
+            <p>
+              Start with learner targeting, then move into access slots, overrides, and support.
+              Each section below focuses on one operational job so you do not have to scan the whole page every time.
+            </p>
+            <div className="assignmentWorkflowNav">
+              <a className="button buttonGhost" href="#assignment-roster">Learners</a>
+              <a className="button buttonGhost" href="#assignment-slots">Access Slots</a>
+              <a className="button buttonGhost" href="#assignment-overrides">Overrides</a>
+              <a className="button buttonGhost" href="#assignment-audit">Audit</a>
+              <a className="button buttonGhost" href="#assignment-support">Accommodation</a>
             </div>
+          </div>
 
-            <div className="settingsActionRow">
-              <ActionSubmitButton className="button buttonSecondary" idleLabel="Create Slot" pendingLabel="Creating Slot..." />
-            </div>
-          </form>
-
-          <div className="builderStack">
-            {detail.access_slots.length ? (
-              detail.access_slots.map((slot) => (
-                <form action={updateExamSlotAction} className="builderListCard" key={slot.id}>
-                  <input name="exam_id" type="hidden" value={detail.id} />
-                  <input name="slot_id" type="hidden" value={slot.id} />
-                  <input name="is_active" type="hidden" value={String(slot.is_active)} />
-
-                  <div className="builderGrid compact">
-                    <label className="fieldStack">
-                      <span>Slot label</span>
-                      <input defaultValue={slot.slot_label} name="slot_label" required type="text" />
-                    </label>
-                    <label className="fieldStack">
-                      <span>Cohort</span>
-                      <select defaultValue={slot.cohort ?? ""} name="cohort">
-                        <option value="">All eligible cohorts</option>
-                        {cohorts.map((cohort) => (
-                          <option key={cohort.id} value={cohort.id}>
-                            {cohort.name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="fieldStack">
-                      <span>Slot start</span>
-                      <input defaultValue={toDateTimeLocalValue(slot.slot_start_at)} name="slot_start_at" required type="datetime-local" />
-                    </label>
-                    <label className="fieldStack">
-                      <span>Slot end</span>
-                      <input defaultValue={toDateTimeLocalValue(slot.slot_end_at)} name="slot_end_at" required type="datetime-local" />
-                    </label>
-                    <label className="fieldStack">
-                      <span>Grace period</span>
-                      <input defaultValue={slot.grace_period_minutes} min="0" name="grace_period_minutes" step="1" type="number" />
-                    </label>
-                    <label className="fieldStack">
-                      <span>Assignment cap</span>
-                      <input defaultValue={slot.assignment_capacity ?? ""} min="1" name="assignment_capacity" placeholder="Optional" type="number" />
-                    </label>
-                    <label className="fieldStack">
-                      <span>Start cap</span>
-                      <input defaultValue={slot.start_capacity ?? ""} min="1" name="start_capacity" placeholder="Optional" type="number" />
-                    </label>
-                    <label className="fieldStack">
-                      <span>Status</span>
-                      <select defaultValue={slot.status} name="status">
-                        {examAccessSlotStatusOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-
-                  <div className="questionBankTagRow">
-                    <span className={`statusPill ${slot.occupancy.occupancy_state === "full" ? "statusDanger" : slot.occupancy.occupancy_state === "near_full" ? "statusWarning" : "statusLive"}`}>
-                      {slot.occupancy.occupancy_state.replaceAll("_", " ")}
-                    </span>
-                    <span className="statusPill statusDemo">
-                      {slot.occupancy.assignment_count}
-                      {slot.occupancy.assignment_capacity !== null ? ` / ${slot.occupancy.assignment_capacity}` : ""} assigned
-                    </span>
-                    <span className="statusPill statusDemo">
-                      {slot.occupancy.active_attempt_count}
-                      {slot.occupancy.start_capacity !== null ? ` / ${slot.occupancy.start_capacity}` : ""} in progress
-                    </span>
-                  </div>
-
-                  <p className="emptyText">
-                    {slot.cohort_name ?? "All eligible cohorts"} · starts {new Date(slot.slot_start_at).toLocaleString("en-IN")} · ends {new Date(slot.slot_end_at).toLocaleString("en-IN")}
-                  </p>
-
-                  <div className="settingsActionRow">
-                    <ActionSubmitButton className="button buttonSecondary" idleLabel="Update Slot" pendingLabel="Updating Slot..." />
-                  </div>
-                </form>
-              ))
-            ) : (
-              <div className="builderEmptyState">
-                <strong>No slots configured yet</strong>
-                <p>This exam can still use broad schedule rules, but slot-managed capacity control starts here.</p>
+          <section className="builderSectionCard" id="assignment-roster">
+            <div className="builderPanelHeader">
+              <div>
+                <span className="builderFlowLabel">Step 1</span>
+                <strong>Choose who receives this exam</strong>
+                <p>Set the assignment mode, then confirm the learner list before you touch slot routing or overrides.</p>
               </div>
-            )}
-          </div>
-
-          <div className="builderDivider" />
-
-          <div className="builderPanelHeader">
-            <div>
-              <span className="builderFlowLabel">Selected-student control</span>
-              <strong>Student Slot Overrides</strong>
-              <p>Use direct overrides only when a learner needs a different slot from the default cohort routing.</p>
             </div>
-            <div className="builderPanelMetrics">
-              <article className="builderMetricChip">
-                <span>Directly assigned</span>
-                <strong>{activeAssignedStudents.length}</strong>
-              </article>
+
+            <BuilderStudentAssignmentSelector
+              action={updateAssignmentsAction}
+              assignmentMode={detail.assignment_mode}
+              assignmentModeOptions={assignmentModeOptions}
+              cohortName={detail.cohort_name ?? null}
+              examId={detail.id}
+              initialSelectedStudentIds={Array.from(selectedStudentIds)}
+              students={students}
+            />
+          </section>
+
+          <section className="builderSectionCard" id="assignment-slots">
+            <div className="builderPanelHeader">
+              <div>
+                <span className="builderFlowLabel">Step 2</span>
+                <strong>Shape access slots</strong>
+                <p>Design start windows, capacity, and concurrency without leaving the builder workflow.</p>
+              </div>
+              <div className="builderPanelMetrics">
+                <article className="builderMetricChip">
+                  <span>Configured</span>
+                  <strong>{detail.access_slots.length}</strong>
+                </article>
+                <article className="builderMetricChip">
+                  <span>Mode</span>
+                  <strong>{titleCase(detail.access_mode)}</strong>
+                </article>
+              </div>
             </div>
-          </div>
 
-          {detail.assignment_mode === "selected_students" && activeAssignedStudents.length ? (
-            <>
-              {autoSlotPreview ? (
-                <div className="builderListCard">
-                  <div className="builderPanelHeader">
-                    <div>
-                      <span className="builderFlowLabel">Dry run</span>
-                      <strong>Automatic Distribution Preview</strong>
-                      <p>
-                        Preview shows how the current selected learner scope would be routed across active slots.
-                      </p>
-                    </div>
-                    <div className="builderPanelMetrics">
-                      <article className="builderMetricChip">
-                        <span>Targeted</span>
-                        <strong>{autoSlotPreview.targeted_count}</strong>
-                      </article>
-                      <article className="builderMetricChip">
-                        <span>Placed</span>
-                        <strong>{autoSlotPreview.updated_count}</strong>
-                      </article>
-                    </div>
-                  </div>
+            <form action={createExamSlotAction} className="builderForm builderSubform">
+              <input name="exam_id" type="hidden" value={detail.id} />
+              <input name="is_active" type="hidden" value="true" />
 
-                  <form className="builderForm builderSubform" method="GET">
-                    <input name="tab" type="hidden" value="assignment" />
+              <div className="builderGrid compact">
+                <label className="fieldStack">
+                  <span>Slot label</span>
+                  <input defaultValue={`${detail.cohort_name ?? "General"} Slot`} name="slot_label" placeholder="Morning Batch" required type="text" />
+                </label>
+                <label className="fieldStack">
+                  <span>Cohort</span>
+                  <select defaultValue={detail.cohort ?? ""} name="cohort">
+                    <option value="">All eligible cohorts</option>
+                    {cohorts.map((cohort) => (
+                      <option key={cohort.id} value={cohort.id}>
+                        {cohort.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="fieldStack">
+                  <span>Slot start</span>
+                  <input defaultValue={toDateTimeLocalValue(detail.start_at)} name="slot_start_at" required type="datetime-local" />
+                </label>
+                <label className="fieldStack">
+                  <span>Slot end</span>
+                  <input defaultValue={toDateTimeLocalValue(detail.end_at)} name="slot_end_at" required type="datetime-local" />
+                </label>
+                <label className="fieldStack">
+                  <span>Grace period</span>
+                  <input defaultValue="15" min="0" name="grace_period_minutes" step="1" type="number" />
+                </label>
+                <label className="fieldStack">
+                  <span>Assignment capacity</span>
+                  <input defaultValue="" min="1" name="assignment_capacity" placeholder="Optional" type="number" />
+                </label>
+                <label className="fieldStack">
+                  <span>Concurrent start cap</span>
+                  <input defaultValue="" min="1" name="start_capacity" placeholder="Optional" type="number" />
+                </label>
+                <label className="fieldStack">
+                  <span>Status</span>
+                  <select defaultValue="active" name="status">
+                    {examAccessSlotStatusOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <div className="settingsActionRow">
+                <ActionSubmitButton className="button buttonSecondary" idleLabel="Create Slot" pendingLabel="Creating Slot..." />
+              </div>
+            </form>
+
+            <div className="builderStack">
+              {detail.access_slots.length ? (
+                detail.access_slots.map((slot) => (
+                  <form action={updateExamSlotAction} className="builderListCard" key={slot.id}>
+                    <input name="exam_id" type="hidden" value={detail.id} />
+                    <input name="slot_id" type="hidden" value={slot.id} />
+                    <input name="is_active" type="hidden" value={String(slot.is_active)} />
+
                     <div className="builderGrid compact">
                       <label className="fieldStack">
-                        <span>Preview scope</span>
-                        <select defaultValue={previewScope} name="preview_scope">
+                        <span>Slot label</span>
+                        <input defaultValue={slot.slot_label} name="slot_label" required type="text" />
+                      </label>
+                      <label className="fieldStack">
+                        <span>Cohort</span>
+                        <select defaultValue={slot.cohort ?? ""} name="cohort">
+                          <option value="">All eligible cohorts</option>
+                          {cohorts.map((cohort) => (
+                            <option key={cohort.id} value={cohort.id}>
+                              {cohort.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="fieldStack">
+                        <span>Slot start</span>
+                        <input defaultValue={toDateTimeLocalValue(slot.slot_start_at)} name="slot_start_at" required type="datetime-local" />
+                      </label>
+                      <label className="fieldStack">
+                        <span>Slot end</span>
+                        <input defaultValue={toDateTimeLocalValue(slot.slot_end_at)} name="slot_end_at" required type="datetime-local" />
+                      </label>
+                      <label className="fieldStack">
+                        <span>Grace period</span>
+                        <input defaultValue={slot.grace_period_minutes} min="0" name="grace_period_minutes" step="1" type="number" />
+                      </label>
+                      <label className="fieldStack">
+                        <span>Assignment cap</span>
+                        <input defaultValue={slot.assignment_capacity ?? ""} min="1" name="assignment_capacity" placeholder="Optional" type="number" />
+                      </label>
+                      <label className="fieldStack">
+                        <span>Start cap</span>
+                        <input defaultValue={slot.start_capacity ?? ""} min="1" name="start_capacity" placeholder="Optional" type="number" />
+                      </label>
+                      <label className="fieldStack">
+                        <span>Status</span>
+                        <select defaultValue={slot.status} name="status">
+                          {examAccessSlotStatusOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+
+                    <div className="questionBankTagRow">
+                      <span className={`statusPill ${slot.occupancy.occupancy_state === "full" ? "statusDanger" : slot.occupancy.occupancy_state === "near_full" ? "statusWarning" : "statusLive"}`}>
+                        {slot.occupancy.occupancy_state.replaceAll("_", " ")}
+                      </span>
+                      <span className="statusPill statusDemo">
+                        {slot.occupancy.assignment_count}
+                        {slot.occupancy.assignment_capacity !== null ? ` / ${slot.occupancy.assignment_capacity}` : ""} assigned
+                      </span>
+                      <span className="statusPill statusDemo">
+                        {slot.occupancy.active_attempt_count}
+                        {slot.occupancy.start_capacity !== null ? ` / ${slot.occupancy.start_capacity}` : ""} in progress
+                      </span>
+                    </div>
+
+                    <p className="emptyText">
+                      {slot.cohort_name ?? "All eligible cohorts"} · starts {new Date(slot.slot_start_at).toLocaleString("en-IN")} · ends {new Date(slot.slot_end_at).toLocaleString("en-IN")}
+                    </p>
+
+                    <div className="settingsActionRow">
+                      <ActionSubmitButton className="button buttonSecondary" idleLabel="Update Slot" pendingLabel="Updating Slot..." />
+                    </div>
+                  </form>
+                ))
+              ) : (
+                <div className="builderEmptyState">
+                  <strong>No slots configured yet</strong>
+                  <p>This exam can still use broad schedule rules, but slot-managed capacity control starts here.</p>
+                </div>
+              )}
+            </div>
+          </section>
+
+          <section className="builderSectionCard" id="assignment-overrides">
+            <div className="builderPanelHeader">
+              <div>
+                <span className="builderFlowLabel">Step 3</span>
+                <strong>Fine-tune slot routing</strong>
+                <p>Use direct overrides only when a learner needs a different slot from the default cohort routing.</p>
+              </div>
+              <div className="builderPanelMetrics">
+                <article className="builderMetricChip">
+                  <span>Directly assigned</span>
+                  <strong>{activeAssignedStudents.length}</strong>
+                </article>
+              </div>
+            </div>
+
+            {detail.assignment_mode === "selected_students" && activeAssignedStudents.length ? (
+              <>
+                {autoSlotPreview ? (
+                  <div className="builderListCard">
+                    <div className="builderPanelHeader">
+                      <div>
+                        <span className="builderFlowLabel">Dry run</span>
+                        <strong>Automatic Distribution Preview</strong>
+                        <p>
+                          Preview shows how the current selected learner scope would be routed across active slots.
+                        </p>
+                      </div>
+                      <div className="builderPanelMetrics">
+                        <article className="builderMetricChip">
+                          <span>Targeted</span>
+                          <strong>{autoSlotPreview.targeted_count}</strong>
+                        </article>
+                        <article className="builderMetricChip">
+                          <span>Placed</span>
+                          <strong>{autoSlotPreview.updated_count}</strong>
+                        </article>
+                      </div>
+                    </div>
+
+                    <form className="builderForm builderSubform" method="GET">
+                      <input name="tab" type="hidden" value="assignment" />
+                      <div className="builderGrid compact">
+                        <label className="fieldStack">
+                          <span>Preview scope</span>
+                          <select defaultValue={previewScope} name="preview_scope">
+                            <option value="unassigned_selected">Only learners without direct slot</option>
+                            <option value="all_selected">All selected learners</option>
+                          </select>
+                        </label>
+                      </div>
+                      <div className="settingsActionRow">
+                        <button className="button buttonSecondary" type="submit">
+                          Refresh Preview
+                        </button>
+                      </div>
+                    </form>
+
+                    <div className="builderStack">
+                      {autoSlotPreview.assignments.slice(0, 6).map((assignment) => (
+                        <div className="builderListRow" key={`preview-${assignment.student_id}`}>
+                          <div>
+                            <strong>{assignment.student_name}</strong>
+                            <span>{assignment.admission_no} · {assignment.cohort_name || "No cohort"}</span>
+                          </div>
+                          <div className="builderListMeta">
+                            <span>{assignment.planned_slot_label || "Unplaced"}</span>
+                            <span>{assignment.current_slot_label ? `Current: ${assignment.current_slot_label}` : "No current slot"}</span>
+                          </div>
+                        </div>
+                      ))}
+                      {autoSlotPreview.unresolved_students.length ? (
+                        <div className="builderEmptyState">
+                          <strong>{autoSlotPreview.unresolved_students.length} learner(s) still unplaced</strong>
+                          <p>{autoSlotPreview.unresolved_students.slice(0, 3).join(", ")}</p>
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <div className="builderStack">
+                      {autoSlotPreview.slot_summary.map((slot) => (
+                        <div className="builderListRow" key={`preview-slot-${slot.slot_id}`}>
+                          <div>
+                            <strong>{slot.slot_label}</strong>
+                            <span>{slot.cohort_name || "All eligible cohorts"}</span>
+                          </div>
+                          <div className="builderListMeta">
+                            <span>
+                              {slot.current_assigned_count} {"->"} {slot.projected_assigned_count}
+                              {slot.assignment_capacity !== null ? ` / ${slot.assignment_capacity}` : ""}
+                            </span>
+                            <span>
+                              {slot.remaining_after_plan !== null
+                                ? `${slot.remaining_after_plan} remaining`
+                                : "No assignment cap"}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="builderAssignmentActionsGrid">
+                  <form action={autoAssignStudentSlotsAction} className="builderForm builderSubform">
+                    <input name="exam_id" type="hidden" value={detail.id} />
+
+                    <div className="builderGrid compact">
+                      <label className="fieldStack">
+                        <span>Auto distribute</span>
+                        <select defaultValue="unassigned_selected" name="apply_to">
+                          <option value="unassigned_selected">Only learners without direct slot</option>
+                          <option value="all_selected">Rebalance all selected learners</option>
+                        </select>
+                      </label>
+                      <label className="fieldStack">
+                        <span>Notes</span>
+                        <input defaultValue="" name="notes" placeholder="Optional auto-routing note" type="text" />
+                      </label>
+                    </div>
+
+                    <div className="settingsActionRow">
+                      <ActionSubmitButton className="button buttonSecondary" idleLabel="Auto Distribute Slots" pendingLabel="Distributing Slots..." />
+                    </div>
+                  </form>
+
+                  <form action={bulkAssignStudentSlotAction} className="builderForm builderSubform">
+                    <input name="exam_id" type="hidden" value={detail.id} />
+
+                    <div className="builderGrid compact">
+                      <label className="fieldStack">
+                        <span>Bulk target</span>
+                        <select defaultValue="unassigned_selected" name="apply_to">
                           <option value="unassigned_selected">Only learners without direct slot</option>
                           <option value="all_selected">All selected learners</option>
                         </select>
                       </label>
+                      <label className="fieldStack">
+                        <span>Access slot</span>
+                        <select defaultValue="" name="access_slot">
+                          <option value="">Clear direct slot overrides</option>
+                          {detail.access_slots.map((slot) => (
+                            <option key={slot.id} value={slot.id}>
+                              {slot.slot_label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="fieldStack">
+                        <span>Notes</span>
+                        <input defaultValue="" name="notes" placeholder="Optional bulk scheduling note" type="text" />
+                      </label>
                     </div>
+
                     <div className="settingsActionRow">
-                      <button className="button buttonSecondary" type="submit">
-                        Refresh Preview
-                      </button>
+                      <ActionSubmitButton className="button buttonSecondary" idleLabel="Apply Bulk Slot" pendingLabel="Applying Bulk Slot..." />
                     </div>
                   </form>
 
-                  <div className="builderStack">
-                    {autoSlotPreview.assignments.slice(0, 6).map((assignment) => (
-                      <div className="builderListRow" key={`preview-${assignment.student_id}`}>
-                        <div>
-                          <strong>{assignment.student_name}</strong>
-                          <span>{assignment.admission_no} · {assignment.cohort_name || "No cohort"}</span>
-                        </div>
-                        <div className="builderListMeta">
-                          <span>{assignment.planned_slot_label || "Unplaced"}</span>
-                          <span>{assignment.current_slot_label ? `Current: ${assignment.current_slot_label}` : "No current slot"}</span>
-                        </div>
-                      </div>
-                    ))}
-                    {autoSlotPreview.unresolved_students.length ? (
-                      <div className="builderEmptyState">
-                        <strong>{autoSlotPreview.unresolved_students.length} learner(s) still unplaced</strong>
-                        <p>{autoSlotPreview.unresolved_students.slice(0, 3).join(", ")}</p>
-                      </div>
-                    ) : null}
-                  </div>
+                  <form action={updateStudentSlotOverrideAction} className="builderForm builderSubform">
+                    <input name="exam_id" type="hidden" value={detail.id} />
 
-                  <div className="builderStack">
-                    {autoSlotPreview.slot_summary.map((slot) => (
-                      <div className="builderListRow" key={`preview-slot-${slot.slot_id}`}>
-                        <div>
-                          <strong>{slot.slot_label}</strong>
-                          <span>{slot.cohort_name || "All eligible cohorts"}</span>
-                        </div>
-                        <div className="builderListMeta">
-                          <span>
-                            {slot.current_assigned_count} {"->"} {slot.projected_assigned_count}
-                            {slot.assignment_capacity !== null ? ` / ${slot.assignment_capacity}` : ""}
-                          </span>
-                          <span>
-                            {slot.remaining_after_plan !== null
-                              ? `${slot.remaining_after_plan} remaining`
-                              : "No assignment cap"}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                    <div className="builderGrid compact">
+                      <label className="fieldStack">
+                        <span>Student</span>
+                        <select defaultValue={activeAssignedStudents[0]?.student ?? ""} name="student" required>
+                          {activeAssignedStudents.map((student) => (
+                            <option key={student.id} value={student.student}>
+                              {student.full_name} · {student.admission_no}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="fieldStack">
+                        <span>Access slot</span>
+                        <select defaultValue="" name="access_slot">
+                          <option value="">Clear direct slot override</option>
+                          {detail.access_slots.map((slot) => (
+                            <option key={slot.id} value={slot.id}>
+                              {slot.slot_label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="fieldStack">
+                        <span>Notes</span>
+                        <input defaultValue="" name="notes" placeholder="Support note or reason" type="text" />
+                      </label>
+                    </div>
+
+                    <div className="settingsActionRow">
+                      <ActionSubmitButton className="button buttonSecondary" idleLabel="Save Slot Override" pendingLabel="Saving Override..." />
+                    </div>
+                  </form>
                 </div>
-              ) : null}
-
-              <form action={autoAssignStudentSlotsAction} className="builderForm builderSubform">
-                <input name="exam_id" type="hidden" value={detail.id} />
-
-                <div className="builderGrid compact">
-                  <label className="fieldStack">
-                    <span>Auto distribute</span>
-                    <select defaultValue="unassigned_selected" name="apply_to">
-                      <option value="unassigned_selected">Only learners without direct slot</option>
-                      <option value="all_selected">Rebalance all selected learners</option>
-                    </select>
-                  </label>
-                  <label className="fieldStack">
-                    <span>Notes</span>
-                    <input defaultValue="" name="notes" placeholder="Optional auto-routing note" type="text" />
-                  </label>
-                </div>
-
-                <div className="settingsActionRow">
-                  <ActionSubmitButton className="button buttonSecondary" idleLabel="Auto Distribute Slots" pendingLabel="Distributing Slots..." />
-                </div>
-              </form>
-
-              <form action={bulkAssignStudentSlotAction} className="builderForm builderSubform">
-                <input name="exam_id" type="hidden" value={detail.id} />
-
-                <div className="builderGrid compact">
-                  <label className="fieldStack">
-                    <span>Bulk target</span>
-                    <select defaultValue="unassigned_selected" name="apply_to">
-                      <option value="unassigned_selected">Only learners without direct slot</option>
-                      <option value="all_selected">All selected learners</option>
-                    </select>
-                  </label>
-                  <label className="fieldStack">
-                    <span>Access slot</span>
-                    <select defaultValue="" name="access_slot">
-                      <option value="">Clear direct slot overrides</option>
-                      {detail.access_slots.map((slot) => (
-                        <option key={slot.id} value={slot.id}>
-                          {slot.slot_label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="fieldStack">
-                    <span>Notes</span>
-                    <input defaultValue="" name="notes" placeholder="Optional bulk scheduling note" type="text" />
-                  </label>
-                </div>
-
-                <div className="settingsActionRow">
-                  <ActionSubmitButton className="button buttonSecondary" idleLabel="Apply Bulk Slot" pendingLabel="Applying Bulk Slot..." />
-                </div>
-              </form>
-
-              <form action={updateStudentSlotOverrideAction} className="builderForm builderSubform">
-                <input name="exam_id" type="hidden" value={detail.id} />
-
-                <div className="builderGrid compact">
-                  <label className="fieldStack">
-                    <span>Student</span>
-                    <select defaultValue={activeAssignedStudents[0]?.student ?? ""} name="student" required>
-                      {activeAssignedStudents.map((student) => (
-                        <option key={student.id} value={student.student}>
-                          {student.full_name} · {student.admission_no}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="fieldStack">
-                    <span>Access slot</span>
-                    <select defaultValue="" name="access_slot">
-                      <option value="">Clear direct slot override</option>
-                      {detail.access_slots.map((slot) => (
-                        <option key={slot.id} value={slot.id}>
-                          {slot.slot_label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="fieldStack">
-                    <span>Notes</span>
-                    <input defaultValue="" name="notes" placeholder="Support note or reason" type="text" />
-                  </label>
-                </div>
-
-                <div className="settingsActionRow">
-                  <ActionSubmitButton className="button buttonSecondary" idleLabel="Save Slot Override" pendingLabel="Saving Override..." />
-                </div>
-              </form>
-            </>
-          ) : (
-            <div className="builderEmptyState">
-              <strong>Overrides unlock in selected-student mode</strong>
-              <p>Switch assignment mode to selected students and choose learners first if you need per-student slot routing.</p>
-            </div>
-          )}
-
-          <div className="builderStack">
-            {activeAssignedStudents.map((student) => (
-              <div className="builderListRow" key={`slot-assignment-${student.id}`}>
-                <div>
-                  <strong>{student.full_name}</strong>
-                  <span>
-                    {student.admission_no}
-                    {student.notes ? ` · ${student.notes}` : ""}
-                  </span>
-                </div>
-                <div className="builderListMeta">
-                  <span>{student.access_slot_label ?? student.cohort_name ?? "No slot"}</span>
-                  <span>{student.access_slot_label ? "Direct override" : "Default routing"}</span>
-                </div>
+              </>
+            ) : (
+              <div className="builderEmptyState">
+                <strong>Overrides unlock in selected-student mode</strong>
+                <p>Switch assignment mode to selected students and choose learners first if you need per-student slot routing.</p>
               </div>
-            ))}
-          </div>
+            )}
 
-          <div className="builderDivider" />
-
-          <div className="builderPanelHeader">
-            <div>
-              <span className="builderFlowLabel">Scheduling audit</span>
-              <strong>Recent Slot Operations</strong>
-              <p>Review the latest slot creations, updates, overrides, and bulk assignments for this exam.</p>
-            </div>
-            <div className="builderPanelMetrics">
-              <article className="builderMetricChip">
-                <span>Visible events</span>
-                <strong>{slotAuditLogs.length}</strong>
-              </article>
-            </div>
-          </div>
-
-          <div className="builderStack">
-            {slotAuditLogs.length ? (
-              slotAuditLogs.slice(0, 8).map((audit) => (
-                <div className="builderListRow" key={audit.id}>
+            <div className="builderStack">
+              {activeAssignedStudents.map((student) => (
+                <div className="builderListRow" key={`slot-assignment-${student.id}`}>
                   <div>
-                    <strong>{audit.message || audit.action.replaceAll("_", " ")}</strong>
+                    <strong>{student.full_name}</strong>
                     <span>
-                      {audit.user_label} · {new Date(audit.created_at).toLocaleString("en-IN")}
+                      {student.admission_no}
+                      {student.notes ? ` · ${student.notes}` : ""}
                     </span>
                   </div>
                   <div className="builderListMeta">
-                    <span>
-                      {String(audit.metadata.slot_label ?? audit.metadata.slot_id ?? "Exam scope")}
-                    </span>
-                    <span>{audit.action.replaceAll("_", " ")}</span>
+                    <span>{student.access_slot_label ?? student.cohort_name ?? "No slot"}</span>
+                    <span>{student.access_slot_label ? "Direct override" : "Default routing"}</span>
                   </div>
                 </div>
-              ))
-            ) : (
-              <div className="builderEmptyState">
-                <strong>No slot operations yet</strong>
-                <p>Slot audit history will appear here once scheduling changes are made for this exam.</p>
+              ))}
+            </div>
+          </section>
+
+          <section className="builderSectionCard" id="assignment-audit">
+            <div className="builderPanelHeader">
+              <div>
+                <span className="builderFlowLabel">Step 4</span>
+                <strong>Review recent slot operations</strong>
+                <p>Review the latest slot creations, updates, overrides, and bulk assignments for this exam.</p>
               </div>
-            )}
-          </div>
-
-          <div className="builderDivider" />
-
-          <div className="builderPanelHeader">
-            <div>
-              <span className="builderFlowLabel">Accessibility</span>
-              <strong>Student Accommodation Support</strong>
-              <p>
-                Configure approved runtime support for visible students. These values
-                will be snapshotted into new attempts when the learner starts the exam.
-              </p>
+              <div className="builderPanelMetrics">
+                <article className="builderMetricChip">
+                  <span>Visible events</span>
+                  <strong>{slotAuditLogs.length}</strong>
+                </article>
+              </div>
             </div>
-            <div className="builderPanelMetrics">
-              <article className="builderMetricChip">
-                <span>Support profiles</span>
-                <strong>
-                  {students.filter((student) => {
-                    const profile = student.accommodation_profile ?? {};
-                    return Boolean(
-                      Number(profile.extra_time_minutes ?? 0) > 0 ||
-                        Number(profile.extra_time_percentage ?? 0) > 0 ||
-                        profile.simplified_warning_copy ||
-                        profile.alternative_instructions ||
-                        profile.notes,
-                    );
-                  }).length}
-                </strong>
-              </article>
+
+            <div className="builderStack">
+              {slotAuditLogs.length ? (
+                slotAuditLogs.slice(0, 8).map((audit) => (
+                  <div className="builderListRow" key={audit.id}>
+                    <div>
+                      <strong>{audit.message || audit.action.replaceAll("_", " ")}</strong>
+                      <span>
+                        {audit.user_label} · {new Date(audit.created_at).toLocaleString("en-IN")}
+                      </span>
+                    </div>
+                    <div className="builderListMeta">
+                      <span>
+                        {String(audit.metadata.slot_label ?? audit.metadata.slot_id ?? "Exam scope")}
+                      </span>
+                      <span>{audit.action.replaceAll("_", " ")}</span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="builderEmptyState">
+                  <strong>No slot operations yet</strong>
+                  <p>Slot audit history will appear here once scheduling changes are made for this exam.</p>
+                </div>
+              )}
             </div>
-          </div>
+          </section>
 
-          <div className="builderAccommodationGrid">
-            {students.map((student) => {
-              const profile = student.accommodation_profile ?? {};
-              return (
-                <form
-                  action={updateStudentAccommodationAction}
-                  className="builderAccommodationCard"
-                  key={`accommodation-${student.id}`}
-                >
-                  <input name="exam_id" type="hidden" value={detail.id} />
-                  <input name="student_id" type="hidden" value={student.id} />
-
-                  <div className="resultCardTop">
-                    <div>
-                      <strong>{student.full_name}</strong>
-                      <span>{student.admission_no}</span>
-                    </div>
-                    <span className="statusPill statusDemo">
-                      {Number(profile.extra_time_minutes ?? 0) > 0
-                        ? `+${profile.extra_time_minutes} min`
-                        : profile.simplified_warning_copy
-                          ? "Guidance support"
-                          : "Standard"}
-                    </span>
-                  </div>
-
-                  <div className="builderComposerGrid">
-                    <label className="fieldStack">
-                      <span>Extra time (minutes)</span>
-                      <input
-                        defaultValue={String(profile.extra_time_minutes ?? 0)}
-                        min={0}
-                        name="extra_time_minutes"
-                        type="number"
-                      />
-                    </label>
-
-                    <label className="fieldStack">
-                      <span>Extra time (%)</span>
-                      <input
-                        defaultValue={String(profile.extra_time_percentage ?? 0)}
-                        min={0}
-                        name="extra_time_percentage"
-                        type="number"
-                      />
-                    </label>
-                  </div>
-
-                  <label className="fieldStack">
-                    <span>Extra warning allowance</span>
-                    <input
-                      defaultValue={String(profile.additional_violation_allowance ?? 0)}
-                      max={2}
-                      min={0}
-                      name="additional_violation_allowance"
-                      type="number"
-                    />
-                  </label>
-
-                  <label className="selectionRow builderToggleRow">
-                    <input
-                      defaultChecked={Boolean(profile.simplified_warning_copy)}
-                      name="simplified_warning_copy"
-                      type="checkbox"
-                    />
-                    <div>
-                      <strong>Simplified warning copy</strong>
-                      <span>Use plainer runtime guidance for this student.</span>
-                    </div>
-                  </label>
-
-                  <label className="fieldStack">
-                    <span>Alternative instructions</span>
-                    <textarea
-                      className="builderTextarea"
-                      defaultValue={String(profile.alternative_instructions ?? "")}
-                      name="alternative_instructions"
-                      rows={3}
-                    />
-                  </label>
-
-                  <label className="fieldStack">
-                    <span>Support notes</span>
-                    <textarea
-                      className="builderTextarea"
-                      defaultValue={String(profile.notes ?? "")}
-                      name="notes"
-                      rows={2}
-                    />
-                  </label>
-
-                  <div className="settingsActionRow">
-                    <ActionSubmitButton
-                      className="button buttonSecondary"
-                      idleLabel="Save Accommodation"
-                      pendingLabel="Saving Support..."
-                    />
-                  </div>
-                </form>
-              );
-            })}
-
-            {!students.length ? (
-              <div className="builderEmptyState">
-                <strong>No students available for accommodation setup</strong>
+          <section className="builderSectionCard" id="assignment-support">
+            <div className="builderPanelHeader">
+              <div>
+                <span className="builderFlowLabel">Step 5</span>
+                <strong>Student accommodation support</strong>
                 <p>
-                  Once learners are visible in this academic scope, you can define their
-                  approved runtime support here.
+                  Configure approved runtime support for visible students. These values
+                  will be snapshotted into new attempts when the learner starts the exam.
                 </p>
               </div>
-            ) : null}
-          </div>
+              <div className="builderPanelMetrics">
+                <article className="builderMetricChip">
+                  <span>Support profiles</span>
+                  <strong>
+                    {students.filter((student) => {
+                      const profile = student.accommodation_profile ?? {};
+                      return Boolean(
+                        Number(profile.extra_time_minutes ?? 0) > 0 ||
+                          Number(profile.extra_time_percentage ?? 0) > 0 ||
+                          profile.simplified_warning_copy ||
+                          profile.alternative_instructions ||
+                          profile.notes,
+                      );
+                    }).length}
+                  </strong>
+                </article>
+              </div>
+            </div>
+
+            <div className="builderAccommodationGrid">
+              {students.map((student) => {
+                const profile = student.accommodation_profile ?? {};
+                return (
+                  <form
+                    action={updateStudentAccommodationAction}
+                    className="builderAccommodationCard"
+                    key={`accommodation-${student.id}`}
+                  >
+                    <input name="exam_id" type="hidden" value={detail.id} />
+                    <input name="student_id" type="hidden" value={student.id} />
+
+                    <div className="resultCardTop">
+                      <div>
+                        <strong>{student.full_name}</strong>
+                        <span>{student.admission_no}</span>
+                      </div>
+                      <span className="statusPill statusDemo">
+                        {Number(profile.extra_time_minutes ?? 0) > 0
+                          ? `+${profile.extra_time_minutes} min`
+                          : profile.simplified_warning_copy
+                            ? "Guidance support"
+                            : "Standard"}
+                      </span>
+                    </div>
+
+                    <div className="builderComposerGrid">
+                      <label className="fieldStack">
+                        <span>Extra time (minutes)</span>
+                        <input
+                          defaultValue={String(profile.extra_time_minutes ?? 0)}
+                          min={0}
+                          name="extra_time_minutes"
+                          type="number"
+                        />
+                      </label>
+
+                      <label className="fieldStack">
+                        <span>Extra time (%)</span>
+                        <input
+                          defaultValue={String(profile.extra_time_percentage ?? 0)}
+                          min={0}
+                          name="extra_time_percentage"
+                          type="number"
+                        />
+                      </label>
+                    </div>
+
+                    <label className="fieldStack">
+                      <span>Extra warning allowance</span>
+                      <input
+                        defaultValue={String(profile.additional_violation_allowance ?? 0)}
+                        max={2}
+                        min={0}
+                        name="additional_violation_allowance"
+                        type="number"
+                      />
+                    </label>
+
+                    <label className="selectionRow builderToggleRow">
+                      <input
+                        defaultChecked={Boolean(profile.simplified_warning_copy)}
+                        name="simplified_warning_copy"
+                        type="checkbox"
+                      />
+                      <div>
+                        <strong>Simplified warning copy</strong>
+                        <span>Use plainer runtime guidance for this student.</span>
+                      </div>
+                    </label>
+
+                    <label className="fieldStack">
+                      <span>Alternative instructions</span>
+                      <textarea
+                        className="builderTextarea"
+                        defaultValue={String(profile.alternative_instructions ?? "")}
+                        name="alternative_instructions"
+                        rows={3}
+                      />
+                    </label>
+
+                    <label className="fieldStack">
+                      <span>Support notes</span>
+                      <textarea
+                        className="builderTextarea"
+                        defaultValue={String(profile.notes ?? "")}
+                        name="notes"
+                        rows={2}
+                      />
+                    </label>
+
+                    <div className="settingsActionRow">
+                      <ActionSubmitButton
+                        className="button buttonSecondary"
+                        idleLabel="Save Accommodation"
+                        pendingLabel="Saving Support..."
+                      />
+                    </div>
+                  </form>
+                );
+              })}
+
+              {!students.length ? (
+                <div className="builderEmptyState">
+                  <strong>No students available for accommodation setup</strong>
+                  <p>
+                    Once learners are visible in this academic scope, you can define their
+                    approved runtime support here.
+                  </p>
+                </div>
+              ) : null}
+            </div>
+          </section>
         </article>
       ),
     },

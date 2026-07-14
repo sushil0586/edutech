@@ -29,6 +29,26 @@ type BrowserCreatedInstitute = {
   onboarding_run_status?: string | null;
 };
 
+type OnboardingRunRecord = {
+  id: string;
+  profile_code?: string;
+  status?: string;
+};
+
+type OnboardingRunDetailRecord = {
+  profile_code?: string;
+  status?: string;
+  source?: string;
+  resolved_config_json?: {
+    profile_code?: string;
+  } | null;
+};
+
+type OnboardingTaskRecord = {
+  task_code?: string;
+  status?: string;
+};
+
 async function createInstituteFromBrowser(
   page: Page,
   profileCode: "BLANK_INSTITUTE" | "SCHOOL_STARTER" | "TRIAL_FULL_ACCESS",
@@ -107,19 +127,29 @@ test.describe("Admin onboarding profiles", () => {
       expect(await countSubjects(page, institute.id)).toBe(0);
       expect(await countTopics(page, institute.id)).toBe(0);
 
-      const runs = await fetchInstituteOnboardingRuns(page, accessToken, institute.id);
+      const runs = (await fetchInstituteOnboardingRuns(page, accessToken, institute.id)) as OnboardingRunRecord[];
       expect(runs).toHaveLength(1);
       expect(runs[0]?.profile_code).toBe("BLANK_INSTITUTE");
       expect(runs[0]?.status).toBe("pending");
 
       const runId = institute.onboarding_run_id!;
-      const runDetail = await fetchInstituteOnboardingRunDetail(page, accessToken, institute.id, runId);
+      const runDetail = (await fetchInstituteOnboardingRunDetail(
+        page,
+        accessToken,
+        institute.id,
+        runId,
+      )) as OnboardingRunDetailRecord;
       expect(runDetail.profile_code).toBe("BLANK_INSTITUTE");
       expect(runDetail.status).toBe("pending");
       expect(runDetail.source).toBe("institute_create");
       expect(runDetail.resolved_config_json?.profile_code).toBe("BLANK_INSTITUTE");
 
-      const tasks = await fetchInstituteOnboardingTasks(page, accessToken, institute.id, runId);
+      const tasks = (await fetchInstituteOnboardingTasks(
+        page,
+        accessToken,
+        institute.id,
+        runId,
+      )) as OnboardingTaskRecord[];
       expect(tasks).toHaveLength(0);
 
       const questionEntitlements = await fetchQuestionEntitlements(page, accessToken);
@@ -173,13 +203,23 @@ test.describe("Admin onboarding profiles", () => {
       expect(featureEntitlements.some((row) => row.institute_code === institute.code)).toBe(false);
 
       const runId = institute.onboarding_run_id!;
-      const runDetail = await fetchInstituteOnboardingRunDetail(page, accessToken, institute.id, runId);
+      const runDetail = (await fetchInstituteOnboardingRunDetail(
+        page,
+        accessToken,
+        institute.id,
+        runId,
+      )) as OnboardingRunDetailRecord;
       expect(runDetail.profile_code).toBe("SCHOOL_STARTER");
       expect(runDetail.status).toBe("completed");
 
-      const tasks = await fetchInstituteOnboardingTasks(page, accessToken, institute.id, runId);
+      const tasks = (await fetchInstituteOnboardingTasks(
+        page,
+        accessToken,
+        institute.id,
+        runId,
+      )) as OnboardingTaskRecord[];
       expect(tasks.length).toBeGreaterThanOrEqual(1);
-      expect(tasks.some((task: { task_code?: string; status?: string }) => task.task_code === "academic_preset_apply")).toBe(true);
+      expect(tasks.some((task) => task.task_code === "academic_preset_apply")).toBe(true);
     } finally {
       await deleteDisposableInstitute(page, instituteId);
     }
@@ -234,13 +274,23 @@ test.describe("Admin onboarding profiles", () => {
       ).toBe(true);
 
       const runId = institute.onboarding_run_id!;
-      const runDetail = await fetchInstituteOnboardingRunDetail(page, accessToken, institute.id, runId);
+      const runDetail = (await fetchInstituteOnboardingRunDetail(
+        page,
+        accessToken,
+        institute.id,
+        runId,
+      )) as OnboardingRunDetailRecord;
       expect(runDetail.profile_code).toBe("TRIAL_FULL_ACCESS");
       expect(runDetail.status).toBe("completed");
 
-      const tasks = await fetchInstituteOnboardingTasks(page, accessToken, institute.id, runId);
+      const tasks = (await fetchInstituteOnboardingTasks(
+        page,
+        accessToken,
+        institute.id,
+        runId,
+      )) as OnboardingTaskRecord[];
       expect(tasks.length).toBeGreaterThanOrEqual(1);
-      expect(tasks.some((task: { task_code?: string; status?: string }) => task.status === "completed")).toBe(true);
+      expect(tasks.some((task) => task.status === "completed")).toBe(true);
     } finally {
       await deleteDisposableInstitute(page, instituteId);
     }

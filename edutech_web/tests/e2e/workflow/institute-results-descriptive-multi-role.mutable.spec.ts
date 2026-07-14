@@ -382,7 +382,7 @@ test.describe("Institute mutable descriptive multi-role moderation actions", () 
       await manualAttachForm.getByRole("button", { name: /^attach question$/i }).click();
       await expect(page).toHaveURL(/tab=questions&message=/);
 
-      await assignStudentToExam(page, examId, studentProfileId!);
+      await assignStudentToExam(page, examId!, studentProfileId!);
 
       await page.goto(`/institute/exams/${examId}/builder`);
       await page.locator('input[name="start_at"]').fill(toDateTimeLocalValue(startAt));

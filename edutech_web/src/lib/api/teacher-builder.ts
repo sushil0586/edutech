@@ -69,6 +69,12 @@ export type LookupSubject = {
   program: string;
   name: string;
   code: string;
+  active_question_count?: number;
+  difficulty_inventory?: {
+    foundation: number;
+    intermediate: number;
+    advanced: number;
+  };
   is_active: boolean;
 };
 
@@ -81,6 +87,12 @@ export type LookupTopic = {
   code: string;
   difficulty_level: string;
   sort_order: number;
+  active_question_count?: number;
+  difficulty_inventory?: {
+    foundation: number;
+    intermediate: number;
+    advanced: number;
+  };
   is_active: boolean;
 };
 

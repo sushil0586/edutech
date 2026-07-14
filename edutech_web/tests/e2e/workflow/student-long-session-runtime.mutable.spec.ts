@@ -226,10 +226,8 @@ async function expectCurrentSection(page: Page, sectionName: string) {
       const toolbarSection = (await currentToolbarValue(page, /^current section$/i).catch(() => "")).toLowerCase();
       const currentSectionCardVisible = await page
         .locator(".attemptSectionCard")
-        .filter({
-          has: page.getByText(new RegExp(escapeRegExp(sectionName), "i")),
-          has: page.getByRole("button", { name: /current section/i }),
-        })
+        .filter({ has: page.getByText(new RegExp(escapeRegExp(sectionName), "i")) })
+        .filter({ has: page.getByRole("button", { name: /current section/i }) })
         .first()
         .isVisible()
         .catch(() => false);

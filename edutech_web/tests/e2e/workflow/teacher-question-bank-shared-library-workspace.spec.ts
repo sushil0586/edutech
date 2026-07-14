@@ -1,6 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectTeacherWorkspace } from "../helpers/navigation";
+import { expectQuestionBankAcademicDependencyChain } from "../helpers/question-bank-academics";
+import { gotoWithRuntimeRecovery } from "../helpers/runtime";
 
 async function expectSharedLibrarySection(page: Page) {
   await expect(page.getByRole("heading", { name: /shared platform library/i })).toBeVisible();
@@ -9,6 +11,12 @@ async function expectSharedLibrarySection(page: Page) {
     has: page.getByRole("heading", { name: /shared platform library/i }),
   }).first();
   await expect(section).toBeVisible();
+  await section.scrollIntoViewIfNeeded();
+
+  const loadingLane = section.getByText(/loading current lane/i).first();
+  await expect
+    .poll(async () => loadingLane.isVisible().catch(() => false), { timeout: 30000 })
+    .toBe(false);
 
   const sharedLibraryLocked = await section
     .getByText(/shared platform library is not enabled for your institute subscription yet/i)
@@ -25,7 +33,13 @@ async function expectSharedLibrarySection(page: Page) {
 
   const cards = section.locator(".questionBankCard");
   const emptyState = section.getByText(/no shared library questions match this scope/i).first();
-  await expect(cards.first().or(emptyState)).toBeVisible();
+  await expect
+    .poll(async () => {
+      const firstCardVisible = await cards.first().isVisible().catch(() => false);
+      const emptyStateVisible = await emptyState.isVisible().catch(() => false);
+      return firstCardVisible || emptyStateVisible;
+    })
+    .toBe(true);
 
   if (await cards.first().isVisible().catch(() => false)) {
     await expect(cards.first()).toBeVisible();
@@ -48,8 +62,8 @@ test.describe("Teacher question bank shared library workspace", () => {
   }) => {
     await loginAsRole(page, "teacher");
     await expectTeacherWorkspace(page);
-
-    await page.goto("/teacher/question-bank");
+    await gotoWithRuntimeRecovery(page, "/teacher/question-bank");
+    await expect(page.getByTestId("question-bank-filter-form")).toBeVisible();
     await expect(page.getByRole("heading", { name: /question bank/i }).first()).toBeVisible();
     await expect(page.getByText(/find questions faster/i)).toBeVisible();
     await expect(page.getByText(/how licensed platform questions work here/i).first()).toBeVisible();
@@ -79,7 +93,7 @@ test.describe("Teacher question bank shared library workspace", () => {
 
     await expectSharedLibrarySection(page);
 
-    const searchField = page.getByRole("textbox", { name: /search question text/i });
+    const searchField = page.getByTestId("question-bank-search-input");
     await searchField.fill("algebra");
     await page.getByRole("button", { name: /apply filters/i }).click();
 
@@ -87,5 +101,16 @@ test.describe("Teacher question bank shared library workspace", () => {
     await expect(searchField).toHaveValue("algebra");
     await expect(page.getByText(/search: active/i)).toBeVisible();
     await expect(page.getByRole("heading", { name: /shared platform library/i })).toBeVisible();
+  });
+
+  test("@workflow teacher question bank hydrates academic filters without waiting for apply", async ({
+    page,
+  }) => {
+    await loginAsRole(page, "teacher");
+    await expectTeacherWorkspace(page);
+    await gotoWithRuntimeRecovery(page, "/teacher/question-bank", 8);
+    await expect(page.getByTestId("question-bank-filter-form")).toBeVisible();
+    await expect(page.getByRole("heading", { name: /question bank/i }).first()).toBeVisible();
+    await expectQuestionBankAcademicDependencyChain(page);
   });
 });

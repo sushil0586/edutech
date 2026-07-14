@@ -126,7 +126,7 @@ test.describe("Teacher mutable exam detail actions", () => {
         await page.goto(examDetailBaseUrl);
       }
 
-      await page.getByRole("link", { name: /^open builder$/i }).first().click();
+      await page.getByRole("link", { name: /continue setup|open builder/i }).first().click();
       await expect(page).toHaveURL(new RegExp(`/teacher/exams/${examId}/builder(?:\\?.*)?$`));
       await expect(page.getByRole("button", { name: /save exam settings/i })).toBeVisible();
       await page.goto(examDetailBaseUrl);

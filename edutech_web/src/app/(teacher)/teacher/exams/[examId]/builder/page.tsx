@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import { BuilderQuestionMapping } from "@/components/ui/builder-question-mapping";
+import { BuilderStudentAssignmentSelector } from "@/components/ui/builder-student-assignment-selector";
 import { BuilderTabs } from "@/components/ui/builder-tabs";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { TeacherPageHeader } from "@/components/ui/teacher-page-header";
@@ -1007,61 +1008,23 @@ export default async function TeacherExamBuilderPage({
             </div>
           </div>
 
-          <form action={updateAssignmentsAction} className="builderForm">
-            <input name="exam_id" type="hidden" value={detail.id} />
+          <div className="builderHintPanel assignmentWorkflowGuide">
+            <strong>Use this tab in order</strong>
+            <p>
+              Start with learner targeting, then move into slot routing, overrides, and accommodations.
+              This keeps delivery setup easier to scan during day-to-day teaching workflows.
+            </p>
+          </div>
 
-            <div className="builderComposerGrid">
-              <label className="fieldStack">
-                <span>Assignment mode</span>
-                <select defaultValue={detail.assignment_mode} name="assignment_mode">
-                  {assignmentModeOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <div className="builderMiniBanner">
-                <div>
-                  <strong>Current targeting</strong>
-                  <span>{titleCase(detail.assignment_mode)} · {detail.cohort_name ?? "All eligible cohorts in scope"}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="selectionList">
-              {students.map((student) => (
-                <label className="selectionRow" key={student.id}>
-                  <input
-                    defaultChecked={selectedStudentIds.has(student.id)}
-                    name="student_ids"
-                    type="checkbox"
-                    value={student.id}
-                  />
-                  <div>
-                    <strong>{student.full_name}</strong>
-                    <span>{student.admission_no}</span>
-                  </div>
-                </label>
-              ))}
-
-              {!students.length ? (
-                <div className="builderEmptyState">
-                  <strong>No assignable students found</strong>
-                  <p>The current academic year, program, and cohort scope did not return any learners yet.</p>
-                </div>
-              ) : null}
-            </div>
-
-            <div className="settingsActionRow">
-              <ActionSubmitButton
-                className="button buttonPrimary"
-                idleLabel="Save Assignment"
-                pendingLabel="Saving Assignment..."
-              />
-            </div>
-          </form>
+          <BuilderStudentAssignmentSelector
+            action={updateAssignmentsAction}
+            assignmentMode={detail.assignment_mode}
+            assignmentModeOptions={assignmentModeOptions}
+            cohortName={detail.cohort_name ?? null}
+            examId={detail.id}
+            initialSelectedStudentIds={Array.from(selectedStudentIds)}
+            students={students}
+          />
 
           <div className="builderDivider" />
 

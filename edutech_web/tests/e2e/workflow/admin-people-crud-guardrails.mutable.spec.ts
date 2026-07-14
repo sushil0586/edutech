@@ -1,4 +1,4 @@
-import { expect, test, type Locator } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
 import { expectAdminWorkspace } from "../helpers/navigation";
@@ -34,7 +34,7 @@ function buildPeopleViewHref(view: "students" | "teachers", instituteId?: string
 }
 
 async function openTeacherRow(
-  page: Parameters<typeof test>[0]["page"],
+  page: Page,
   employeeCode: string,
   instituteId?: string | null,
 ) {
@@ -47,7 +47,7 @@ async function openTeacherRow(
 }
 
 async function openStudentRow(
-  page: Parameters<typeof test>[0]["page"],
+  page: Page,
   admissionNo: string,
   instituteId?: string | null,
 ) {
@@ -60,7 +60,7 @@ async function openStudentRow(
 }
 
 async function openFirstTeacherRow(
-  page: Parameters<typeof test>[0]["page"],
+  page: Page,
   instituteId?: string | null,
 ) {
   await page.goto(buildPeopleViewHref("teachers", instituteId));
@@ -74,7 +74,7 @@ async function openFirstTeacherRow(
 }
 
 async function openFirstStudentRow(
-  page: Parameters<typeof test>[0]["page"],
+  page: Page,
   instituteId?: string | null,
 ) {
   await page.goto(buildPeopleViewHref("students", instituteId));
@@ -87,28 +87,28 @@ async function openFirstStudentRow(
   return row;
 }
 
-function teacherCreateDialog(page: Parameters<typeof test>[0]["page"]) {
+function teacherCreateDialog(page: Page) {
   return page
     .locator('[role="dialog"]')
     .filter({ has: page.getByRole("heading", { name: /new teacher profile/i }) })
     .last();
 }
 
-function studentCreateDialog(page: Parameters<typeof test>[0]["page"]) {
+function studentCreateDialog(page: Page) {
   return page
     .locator('[role="dialog"]')
     .filter({ has: page.getByRole("heading", { name: /new student profile/i }) })
     .last();
 }
 
-function teacherEditDialog(page: Parameters<typeof test>[0]["page"]) {
+function teacherEditDialog(page: Page) {
   return page
     .locator('[role="dialog"]')
     .filter({ has: page.getByText(/edit teacher/i) })
     .last();
 }
 
-function studentEditDialog(page: Parameters<typeof test>[0]["page"]) {
+function studentEditDialog(page: Page) {
   return page
     .locator('[role="dialog"]')
     .filter({ has: page.getByText(/edit student/i) })

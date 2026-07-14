@@ -31,6 +31,7 @@ type MasterLibraryRow = {
   source_institute_code?: string;
   source_program_code?: string;
   source_subject_code?: string;
+  source_topic_code?: string;
   question_text: string;
   has_access: boolean;
   access_availability: string;
@@ -316,9 +317,11 @@ test.describe("Teacher shared-library mutable request flow", () => {
     await expect(page).toHaveURL(/search=/);
 
     const requestableCard = await findTeacherRequestableCard(sharedLibrarySection, requestedQuestionText);
-    await expect(requestableCard).toBeVisible();
-    await expect(requestableCard!.getByText(/matching packages:/i).first()).toBeVisible();
-    const requestButton = requestableCard!.getByRole("button", { name: /request access/i });
+    expect(requestableCard).not.toBeNull();
+    const requestableCardSnapshot = requestableCard!;
+    await expect(requestableCardSnapshot).toBeVisible();
+    await expect(requestableCardSnapshot.getByText(/matching packages:/i).first()).toBeVisible();
+    const requestButton = requestableCardSnapshot.getByRole("button", { name: /request access/i });
     await expect(requestButton).toBeVisible();
 
     const requestResponsePromise = page.waitForResponse(

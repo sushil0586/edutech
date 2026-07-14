@@ -1381,6 +1381,13 @@ button {
   top: 112px;
 }
 
+.advancedBuilderSectionCardActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .advancedBuilderSummaryPanel {
   gap: 16px;
 }
@@ -1389,6 +1396,34 @@ button {
   display: grid;
   gap: 12px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.advancedBuilderStatusChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.advancedBuilderStatusChipReady {
+  background: rgba(240, 253, 244, 0.95);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  color: rgba(21, 128, 61, 0.95);
+}
+
+.advancedBuilderStatusChipRisk {
+  background: rgba(255, 251, 235, 0.95);
+  border: 1px solid rgba(245, 158, 11, 0.22);
+  color: rgba(180, 83, 9, 0.96);
+}
+
+.advancedBuilderStatusChipBlocked {
+  background: rgba(254, 242, 242, 0.96);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: rgba(153, 27, 27, 0.96);
 }
 
 .advancedBuilderSummaryBlock {
@@ -1433,11 +1468,130 @@ button {
   font-size: 0.95rem;
 }
 
+.advancedBuilderFieldNote {
+  margin: 4px 0 0;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.advancedBuilderFieldNoteSuccess {
+  color: rgba(20, 122, 74, 0.92);
+}
+
+.advancedBuilderFieldNoteWarning {
+  color: rgba(180, 83, 9, 0.95);
+}
+
+.advancedBuilderFieldNoteMuted {
+  color: rgba(86, 100, 136, 0.88);
+}
+
+.advancedBuilderInventoryMeta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.advancedBuilderInventoryMetaTopic {
+  margin-top: 6px;
+  padding-left: 4px;
+}
+
+.advancedBuilderInventorySummary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(59, 130, 246, 0.16);
+  background: rgba(239, 246, 255, 0.92);
+  color: rgba(30, 64, 175, 0.95);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.advancedBuilderInlineAlert {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(199, 207, 228, 0.34);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.advancedBuilderInlineAlert ul {
+  display: grid;
+  gap: 6px;
+  padding-left: 18px;
+  margin: 0;
+}
+
+.advancedBuilderInlineAlertActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.advancedBuilderInlineAlertDanger {
+  border-color: rgba(239, 68, 68, 0.22);
+  background: rgba(254, 242, 242, 0.96);
+  color: rgba(153, 27, 27, 0.96);
+}
+
 .advancedBuilderQualityChips,
 .advancedBuilderInlineQuality {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.advancedBuilderTopicRowStack {
+  display: grid;
+  gap: 2px;
+}
+
+.advancedBuilderGuidanceStack {
+  display: grid;
+  gap: 10px;
+}
+
+.advancedBuilderGuidanceCard {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(199, 207, 228, 0.34);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.advancedBuilderGuidanceCard p {
+  margin: 0;
+  color: rgba(86, 100, 136, 0.88);
+  font-size: 0.94rem;
+}
+
+.advancedBuilderGuidanceCardSuccess {
+  border-color: rgba(34, 197, 94, 0.18);
+  background: rgba(240, 253, 244, 0.92);
+}
+
+.advancedBuilderGuidanceCardWarning {
+  border-color: rgba(245, 158, 11, 0.2);
+  background: rgba(255, 251, 235, 0.92);
+}
+
+.advancedBuilderGuidanceCardBlocker {
+  border-color: rgba(239, 68, 68, 0.18);
+  background: rgba(254, 242, 242, 0.94);
+}
+
+.advancedBuilderGuidanceCardNeutral {
+  border-color: rgba(59, 130, 246, 0.16);
+  background: rgba(239, 246, 255, 0.92);
 }
 
 .advancedBuilderTopicQualityList {
@@ -1502,6 +1656,80 @@ button {
   border-radius: 18px;
   border: 1px dashed rgba(188, 197, 221, 0.6);
   background: rgba(248, 250, 255, 0.78);
+}
+
+.advancedBuilderSummaryEmpty ul {
+  display: grid;
+  gap: 8px;
+  padding-left: 18px;
+  color: rgba(86, 100, 136, 0.9);
+}
+
+.advancedBuilderInventoryOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(10px);
+}
+
+.advancedBuilderInventoryDialog {
+  width: min(920px, 100%);
+  max-height: min(85vh, 900px);
+  overflow: auto;
+  display: grid;
+  gap: 16px;
+  padding: 22px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(199, 207, 228, 0.4);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.22);
+}
+
+.advancedBuilderInventoryDialogHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.advancedBuilderInventoryDialogHeader h3,
+.advancedBuilderInventoryDialogHeader p {
+  margin: 0;
+}
+
+.advancedBuilderInventoryDialogHeader > div {
+  display: grid;
+  gap: 8px;
+}
+
+.advancedBuilderInventoryDialogBody {
+  display: grid;
+  gap: 16px;
+}
+
+.advancedBuilderInventoryTopicList {
+  display: grid;
+  gap: 12px;
+}
+
+.advancedBuilderInventoryTopicCard {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(199, 207, 228, 0.34);
+  background: rgba(247, 249, 255, 0.92);
+}
+
+.advancedBuilderInventoryTopicCardTop {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 @media (max-width: 1100px) {
@@ -6816,6 +7044,48 @@ button {
   gap: var(--space-3);
 }
 
+.examLifecycleGuideCard {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.examLifecycleGuideGrid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.examLifecycleGuideStep {
+  display: grid;
+  gap: 10px;
+  padding: 18px 18px 16px;
+  border: 1px solid rgba(24, 46, 89, 0.08);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at top right, rgba(86, 153, 255, 0.08), transparent 32%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(245, 248, 255, 0.92));
+  box-shadow: var(--shadow-xs);
+}
+
+.examLifecycleGuideStepTop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.examLifecycleGuideStepTop strong {
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+}
+
+.examLifecycleGuideStep p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}
+
 .examDetailActionLane {
   display: grid;
   gap: var(--space-3);
@@ -6848,6 +7118,7 @@ button {
 }
 
 @media (max-width: 1320px) {
+  .examLifecycleGuideGrid,
   .examDetailActionLanePrimary,
   .examDetailActionLaneUtility {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -6855,6 +7126,7 @@ button {
 }
 
 @media (max-width: 760px) {
+  .examLifecycleGuideGrid,
   .examDetailActionLanePrimary,
   .examDetailActionLaneUtility,
   .buttonClusterGrid {
@@ -10100,6 +10372,47 @@ button {
   display: grid;
   gap: var(--space-4);
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.assignmentWorkflowGuide {
+  margin-bottom: var(--space-5);
+}
+
+.assignmentWorkflowNav {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  margin-top: 6px;
+}
+
+.assignmentWorkflowNav > * {
+  min-width: 0;
+  width: 100%;
+  justify-content: center;
+}
+
+.builderAssignmentActionsGrid {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.assignmentRosterToolbar {
+  align-items: end;
+  margin-bottom: var(--space-4);
+}
+
+.assignmentRosterSearchField {
+  min-width: min(100%, 340px);
+}
+
+.assignmentRosterActions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.assignmentRosterSummaryGrid {
+  margin-bottom: var(--space-4);
 }
 
 .builderAccommodationCard {

@@ -456,7 +456,7 @@ test.describe("Teacher mutable multi-learner results distribution", () => {
         teacherResultsWorkspaceReadinessCard(page, /^result publish readiness$/i),
       ).toContainText(/2 published/i);
 
-      const leaderboard = await fetchTeacherLeaderboard(page, examId);
+      const leaderboard = await fetchTeacherLeaderboard(page, examId!);
       expect(leaderboard.summary.total).toBe(2);
       expect(leaderboard.summary.ranked_count).toBe(2);
       expect(leaderboard.summary.published_count).toBe(2);

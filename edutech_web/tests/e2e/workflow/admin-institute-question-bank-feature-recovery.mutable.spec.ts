@@ -129,7 +129,7 @@ test.describe("Admin to institute question-bank feature recovery", () => {
     expect(featureListResponse.ok()).toBe(true);
 
     const featureRows = (await featureListResponse.json()) as AdminQuestionBankFeatureEntitlement[];
-    let targetFeature =
+    let targetFeature: AdminQuestionBankFeatureEntitlement | undefined =
       featureRows.find(
         (row) =>
           row.feature_code === BULK_IMPORT_FEATURE_CODE &&
@@ -188,12 +188,15 @@ test.describe("Admin to institute question-bank feature recovery", () => {
       };
       expect(createBody.data?.id).toBeTruthy();
       createdFeatureEntitlementId = createBody.data?.id ?? "";
-      targetFeature = createBody.data ?? null;
+      targetFeature = createBody.data;
     }
 
-    if (targetFeature.status !== "active") {
+    expect(targetFeature).toBeDefined();
+    const targetFeatureSnapshot = targetFeature!;
+
+    if (targetFeatureSnapshot.status !== "active") {
       const activateResponse = await page.request.patch(
-        `/api/admin/economy/question-bank-feature-entitlements/${targetFeature.id}`,
+        `/api/admin/economy/question-bank-feature-entitlements/${targetFeatureSnapshot.id}`,
         {
           data: {
             status: "active",
@@ -207,7 +210,7 @@ test.describe("Admin to institute question-bank feature recovery", () => {
     const stableRow = featureRow(
       card,
       BULK_IMPORT_FEATURE_CODE,
-      targetFeature.institute_code ?? targetInstituteCode,
+      targetFeatureSnapshot.institute_code ?? targetInstituteCode,
     );
     await expect(stableRow).toBeVisible();
     await expect(stableRow).toContainText(/status:\s*active/i);
@@ -216,7 +219,7 @@ test.describe("Admin to institute question-bank feature recovery", () => {
     try {
       const pauseResponsePromise = page.waitForResponse(
         (response) =>
-          response.url().includes(`/api/admin/economy/question-bank-feature-entitlements/${targetFeature.id}`) &&
+          response.url().includes(`/api/admin/economy/question-bank-feature-entitlements/${targetFeatureSnapshot.id}`) &&
           response.request().method() === "PATCH",
       );
       await stableRow.getByRole("button", { name: /pause feature/i }).click();
@@ -243,12 +246,16 @@ test.describe("Admin to institute question-bank feature recovery", () => {
       await loginAsRole(page, "admin");
       await expectAdminWorkspace(page);
       const refreshedCard = await gotoFeatureDataset(page, targetInstituteId);
-      const refreshedRow = featureRow(refreshedCard, BULK_IMPORT_FEATURE_CODE, targetFeature.institute_code);
+      const refreshedRow = featureRow(
+        refreshedCard,
+        BULK_IMPORT_FEATURE_CODE,
+        targetFeatureSnapshot.institute_code,
+      );
       await expect(refreshedRow).toBeVisible();
 
       const reactivateResponsePromise = page.waitForResponse(
         (response) =>
-          response.url().includes(`/api/admin/economy/question-bank-feature-entitlements/${targetFeature.id}`) &&
+          response.url().includes(`/api/admin/economy/question-bank-feature-entitlements/${targetFeatureSnapshot.id}`) &&
           response.request().method() === "PATCH",
       );
       await refreshedRow.getByRole("button", { name: /reactivate feature/i }).click();
@@ -272,7 +279,7 @@ test.describe("Admin to institute question-bank feature recovery", () => {
     } finally {
       await loginAsRole(page, "admin");
       await expectAdminWorkspace(page);
-      const cleanupFeatureId = createdFeatureEntitlementId || targetFeature.id;
+      const cleanupFeatureId = createdFeatureEntitlementId || targetFeatureSnapshot.id;
       await page.request.patch(`/api/admin/economy/question-bank-feature-entitlements/${cleanupFeatureId}`, {
         data: {
           status: createdFeatureEntitlementId ? "revoked" : "active",

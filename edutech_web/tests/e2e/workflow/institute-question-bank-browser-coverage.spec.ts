@@ -1,22 +1,13 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectInstituteWorkspace } from "../helpers/navigation";
+import {
+  expectQuestionBankAcademicDependencyChain,
+  findOptionValueByLabelPattern,
+  expectSelectHasOptions,
+  getNonEmptyOptionValues,
+} from "../helpers/question-bank-academics";
 import { gotoWithRuntimeRecovery } from "../helpers/runtime";
-
-async function getNonEmptyOptionValues(locator: Locator) {
-  return locator.locator("option").evaluateAll((options) =>
-    options
-      .map((option) => (option as HTMLOptionElement).value)
-      .filter((value) => value.trim().length > 0),
-  );
-}
-
-async function expectSelectHasOptions(locator: Locator) {
-  await expect(locator).toBeVisible();
-  await expect
-    .poll(async () => locator.locator("option").count())
-    .toBeGreaterThan(0);
-}
 
 async function selectProgramWithSubjectOptions(page: Page) {
   const programs = await getNonEmptyOptionValues(programSelect(page));
@@ -25,12 +16,63 @@ async function selectProgramWithSubjectOptions(page: Page) {
   }
 
   for (const program of programs) {
-    await programSelect(page).selectOption(program);
+    const preferredProgram =
+      (await findOptionValueByLabelPattern(programSelect(page), /class 7/i)) || program;
+    const subjectsResponse = page.waitForResponse((response) => {
+      if (!response.ok()) {
+        return false;
+      }
+
+      const url = new URL(response.url());
+      return (
+        url.pathname.includes("/academics/subjects") &&
+        url.searchParams.get("is_active") === "true" &&
+        url.searchParams.get("program") === preferredProgram &&
+        url.searchParams.get("page_size") === "500"
+      );
+    });
+    await programSelect(page).selectOption(preferredProgram);
+    await subjectsResponse;
     await expect(subjectSelect(page)).toBeEnabled();
+    await expect.poll(async () => getNonEmptyOptionValues(subjectSelect(page)).then((values) => values.length)).toBeGreaterThan(
+      0,
+    );
 
     const subjects = await getNonEmptyOptionValues(subjectSelect(page));
-    if (subjects.length > 0) {
-      return { program, subjects };
+    if (!subjects.length) {
+      continue;
+    }
+
+    for (const subject of subjects) {
+      const preferredSubject =
+        (await findOptionValueByLabelPattern(subjectSelect(page), /math/i)) || subject;
+      const topicsResponse = page.waitForResponse((response) => {
+        if (!response.ok()) {
+          return false;
+        }
+
+        const url = new URL(response.url());
+        return (
+          url.pathname.includes("/academics/topics") &&
+          url.searchParams.get("is_active") === "true" &&
+          url.searchParams.get("subject") === preferredSubject &&
+          url.searchParams.get("page_size") === "500"
+        );
+      });
+      await subjectSelect(page).selectOption(preferredSubject);
+      await topicsResponse;
+      await expect(topicSelect(page)).toBeEnabled();
+      await expect.poll(async () => getNonEmptyOptionValues(topicSelect(page)).then((values) => values.length)).toBeGreaterThan(
+        0,
+      );
+
+      const topics = await getNonEmptyOptionValues(topicSelect(page));
+      if (topics.length > 0) {
+        const selectedTopic = topics[0]!;
+        await topicSelect(page).selectOption(selectedTopic);
+        await expect(topicSelect(page)).toHaveValue(selectedTopic);
+        return { program: preferredProgram, subject: preferredSubject, topic: selectedTopic, subjects, topics };
+      }
     }
   }
 
@@ -38,27 +80,27 @@ async function selectProgramWithSubjectOptions(page: Page) {
 }
 
 function searchField(page: Page) {
-  return page.getByRole("textbox", { name: /search question text/i });
+  return page.getByTestId("question-bank-search-input");
 }
 
 function qualitySelect(page: Page) {
-  return page.getByRole("combobox", { name: /quality signal/i });
+  return page.getByTestId("question-bank-quality-filter");
 }
 
 function revisionSelect(page: Page) {
-  return page.getByRole("combobox", { name: /revision priority/i });
+  return page.getByTestId("question-bank-revision-filter");
 }
 
 function programSelect(page: Page) {
-  return page.getByRole("combobox", { name: /^program$/i });
+  return page.getByTestId("question-bank-program-filter");
 }
 
 function subjectSelect(page: Page) {
-  return page.getByRole("combobox", { name: /^subject$/i });
+  return page.getByTestId("question-bank-subject-filter");
 }
 
 function topicSelect(page: Page) {
-  return page.getByRole("combobox", { name: /^topic$/i });
+  return page.getByTestId("question-bank-topic-filter");
 }
 
 test.describe("Institute question bank browser functionality coverage", () => {
@@ -77,6 +119,7 @@ test.describe("Institute question bank browser functionality coverage", () => {
   }) => {
     await gotoWithRuntimeRecovery(page, "/institute/question-bank");
 
+    await expect(page.getByTestId("question-bank-filter-form")).toBeVisible();
     await expect(page.getByRole("heading", { name: /question bank/i }).first()).toBeVisible();
     await expect(page.getByText(/find questions faster/i).first()).toBeVisible();
 
@@ -94,10 +137,27 @@ test.describe("Institute question bank browser functionality coverage", () => {
     await expect(revisionSelect(page)).toHaveValue("");
   });
 
+  test("@workflow browser coverage hydrates subjects and topics immediately when academic filters change", async ({
+    page,
+  }) => {
+    await gotoWithRuntimeRecovery(page, "/institute/question-bank", 8);
+    await expect(page.getByTestId("question-bank-filter-form")).toBeVisible();
+    await expect(page.getByRole("heading", { name: /question bank/i }).first()).toBeVisible();
+
+    const academicChain = await expectQuestionBankAcademicDependencyChain(page);
+
+    await page.getByRole("button", { name: /apply filters/i }).click();
+    await expect(page).toHaveURL(/\/institute\/question-bank\?/);
+    await expect(programSelect(page)).toHaveValue(academicChain.selectedProgram);
+    await expect(subjectSelect(page)).toHaveValue(academicChain.selectedSubject);
+    await expect(topicSelect(page)).toHaveValue(academicChain.selectedTopic);
+  });
+
   test("@workflow browser coverage proves academic filter dependency and reset truth", async ({
     page,
   }) => {
-    await gotoWithRuntimeRecovery(page, "/institute/question-bank");
+    await gotoWithRuntimeRecovery(page, "/institute/question-bank", 8);
+    await expect(page.getByTestId("question-bank-filter-form")).toBeVisible();
 
     const resolvedAcademicPath = await selectProgramWithSubjectOptions(page);
 
@@ -105,11 +165,17 @@ test.describe("Institute question bank browser functionality coverage", () => {
     let selectedSubject: string | null = null;
 
     if (resolvedAcademicPath) {
-      const { program, subjects } = resolvedAcademicPath;
+      const { program, subject, topic, subjects, topics } = resolvedAcademicPath;
       selectedProgram = program;
-      selectedSubject = subjects[0];
-      await subjectSelect(page).selectOption(subjects[0]);
+      selectedSubject = subject;
+      await subjectSelect(page).selectOption(subject);
       await expect(topicSelect(page)).toBeEnabled();
+      await expect.poll(async () => getNonEmptyOptionValues(topicSelect(page)).then((values) => values.length)).toBeGreaterThan(
+        0,
+      );
+      await expect(topicSelect(page)).toHaveValue("");
+      await topicSelect(page).selectOption(topic);
+      await expect(topicSelect(page)).toHaveValue(topic);
     } else {
       await expect(subjectSelect(page)).toBeDisabled();
       await expect(topicSelect(page)).toBeDisabled();
@@ -150,12 +216,19 @@ test.describe("Institute question bank browser functionality coverage", () => {
   test("@workflow browser coverage proves empty-state diagnosis stays distinct from normal loaded state", async ({
     page,
   }) => {
-    await gotoWithRuntimeRecovery(page, "/institute/question-bank");
+    await gotoWithRuntimeRecovery(page, "/institute/question-bank", 8);
+    await expect(page.getByTestId("question-bank-filter-form")).toBeVisible();
 
     await searchField(page).fill("playwright-no-match-zzqv-1781");
     await qualitySelect(page).selectOption("skip_risk");
+    const missingExplanation = page.getByLabel(/missing explanation/i);
+    if (await missingExplanation.isChecked()) {
+      await missingExplanation.uncheck();
+    }
+    await expect(missingExplanation).not.toBeChecked();
     await page.getByRole("button", { name: /apply filters/i }).click();
 
+    await expect(page).toHaveURL(/playwright-no-match-zzqv-1781/);
     await expect(page.getByText(/no questions match these filters/i).first()).toBeVisible();
     await expect(page.getByText(/active controls are shaping this empty state/i).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /reset filters and show all questions/i }).first()).toBeVisible();
@@ -170,7 +243,9 @@ test.describe("Institute question bank browser functionality coverage", () => {
   test("@workflow browser coverage keeps shared-library intake guidance alive under filtered question-bank views", async ({
     page,
   }) => {
-    await gotoWithRuntimeRecovery(page, "/institute/question-bank?search=algebra&quality_signal=ambiguous");
+    await gotoWithRuntimeRecovery(page, "/institute/question-bank?search=algebra&quality_signal=ambiguous", 8);
+    await expect(page.getByTestId("question-bank-filter-form")).toBeVisible();
+    await page.getByRole("button", { name: /apply filters/i }).click();
 
     await expect(page.getByText(/licensed intake shortcut/i).first()).toBeVisible();
     await expect(

@@ -318,10 +318,11 @@ test.describe("Teacher and institute shared-library role difference", () => {
     if (!teacherCard) {
       test.skip(true, "No teacher-visible shared-library card currently exposes Request Access.");
     }
-    await expect(teacherCard).toBeVisible();
-    await expect(teacherCard!.getByRole("button", { name: /request access/i })).toBeVisible();
-    await expect(teacherCard!.getByRole("button", { name: /link to local bank/i })).toHaveCount(0);
-    await expect(teacherCard!.getByText(/matching packages:/i).first()).toBeVisible();
+    const teacherCardSnapshot = teacherCard as import("@playwright/test").Locator;
+    await expect(teacherCardSnapshot).toBeVisible();
+    await expect(teacherCardSnapshot.getByRole("button", { name: /request access/i })).toBeVisible();
+    await expect(teacherCardSnapshot.getByRole("button", { name: /link to local bank/i })).toHaveCount(0);
+    await expect(teacherCardSnapshot.getByText(/matching packages:/i).first()).toBeVisible();
 
     await loginAsRole(page, "institute");
     await expectInstituteWorkspace(page);

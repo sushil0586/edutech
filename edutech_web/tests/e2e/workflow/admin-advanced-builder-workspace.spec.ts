@@ -191,4 +191,177 @@ test.describe("Admin advanced exam builder workspace", () => {
     await expect(page.getByText(/requested 1 question\(s\) but only 0 could be resolved\./i)).toBeVisible();
     await expect(page.getByRole("button", { name: /create advanced exam/i })).toBeDisabled();
   });
+
+  test("@workflow admin browser coverage exercises advanced-builder button actions", async ({
+    page,
+  }) => {
+    await loginAsRole(page, "admin");
+    await expectAdminWorkspace(page);
+
+    await page.goto("/admin/exams/advanced");
+    await expect(page.getByRole("heading", { name: /advanced exam builder/i }).first()).toBeVisible();
+
+    const instituteSelect = page.getByLabel(/select template institute/i);
+    await instituteSelect.selectOption("Demo Learning Institute (DLI001)");
+    await page.getByRole("button", { name: /^apply$/i }).click();
+    await expect(page.getByText(/Demo Learning Institute template scope/i)).toBeVisible();
+
+    const instituteId = await instituteSelect.inputValue();
+    expect(instituteId).not.toBe("");
+
+    const academicYearSelect = page
+      .locator(".advancedBuilderField")
+      .filter({ has: page.getByText(/^Academic year$/i) })
+      .locator("select");
+    const programSelect = page
+      .locator(".advancedBuilderField")
+      .filter({ has: page.getByText(/^Program$/i) })
+      .locator("select");
+    const subjectSelect = page
+      .locator(".advancedBuilderField")
+      .filter({ has: page.getByText(/^Primary subject$/i) })
+      .locator("select");
+
+    const hasCanonicalFamilyAcademicYear = await academicYearSelect.evaluate((element) => {
+      const select = element as HTMLSelectElement;
+      return Array.from(select.options).some((option) => option.label.trim() === "2026-2027");
+    });
+    if (hasCanonicalFamilyAcademicYear) {
+      await academicYearSelect.selectOption({ label: "2026-2027" });
+      await expect(academicYearSelect).toHaveValue(/\S+/);
+    }
+
+    const resolvedScope = await resolveScopeWithTopics(page, instituteId);
+    expect(resolvedScope).not.toBeNull();
+    await programSelect.selectOption(resolvedScope!.programId);
+    await expect
+      .poll(async () => subjectSelect.locator("option").count(), {
+        timeout: 30000,
+        message: "Expected the admin advanced builder subject selector to load real subject options.",
+      })
+      .toBeGreaterThan(1);
+    await subjectSelect.selectOption(resolvedScope!.subjectId);
+    await expect(subjectSelect).toHaveValue(/\S+/);
+
+    await page.getByRole("button", { name: /auto fill basics/i }).click();
+    await expect(page.getByLabel(/exam title/i)).not.toHaveValue("");
+
+    await page.getByRole("button", { name: /quick practice/i }).click();
+    await expect(page.getByText(/quick practice template applied/i)).toBeVisible();
+
+    await page.getByRole("button", { name: /back/i }).click();
+    await expect(page.getByText(/choose the academic lane and exam identity/i).first()).toBeVisible();
+    await page.getByRole("button", { name: /next/i }).click();
+    await expect(page.getByText(/sections, topics, and counts/i).first()).toBeVisible();
+
+    await page.getByRole("button", { name: /chapter test/i }).click();
+    await expect(page.getByText(/chapter test template applied/i)).toBeVisible();
+    await page.getByRole("button", { name: /premium mock/i }).click();
+    await expect(page.getByText(/premium mock template applied/i)).toBeVisible();
+
+    const sectionCards = page.locator(".advancedBuilderSectionCard");
+    const baselineSectionCount = await sectionCards.count();
+    await page.getByRole("button", { name: /^add section$/i }).click();
+    await expect(sectionCards).toHaveCount(baselineSectionCount + 1);
+    await sectionCards
+      .last()
+      .getByRole("button", { name: /^remove$/i })
+      .click();
+    await expect(sectionCards).toHaveCount(baselineSectionCount);
+
+    const firstSectionCard = sectionCards.first();
+    const topicRows = firstSectionCard.locator(".advancedBuilderTopicRow");
+    const baselineTopicCount = await topicRows.count();
+    await page.getByRole("button", { name: /^add topic$/i }).first().click();
+    await expect(topicRows).toHaveCount(baselineTopicCount + 1);
+    await topicRows
+      .last()
+      .getByRole("button", { name: /^remove$/i })
+      .click();
+    await expect(topicRows).toHaveCount(baselineTopicCount);
+
+    await page.getByRole("button", { name: /fill from current builder/i }).click();
+    await expect(page.getByLabel(/preset label/i)).not.toHaveValue("");
+    await expect(page.getByLabel(/preset code/i)).not.toHaveValue("");
+
+    let savedManagedPackRequest: Record<string, unknown> | null = null;
+    let savedTemplateRequest: Record<string, unknown> | null = null;
+    await page.route("**/api/exams/preset-packs*", async (route) => {
+      const request = route.request();
+      if (request.method() === "POST") {
+        savedManagedPackRequest = JSON.parse(request.postData() ?? "{}") as Record<string, unknown>;
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ id: "admin-managed-pack-browser-coverage" }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          results: [
+            {
+              id: "admin-managed-pack-browser-coverage",
+              label: "Admin Managed Pack Browser Coverage",
+              family: "Custom",
+              note: "Admin managed pack browser coverage fixture",
+              chip: "Managed",
+              scope_type: "platform",
+              can_manage: true,
+              resourceId: "admin-managed-pack-browser-coverage-resource",
+            },
+          ],
+        }),
+      });
+    });
+    await page.route("**/api/exams/advanced-templates*", async (route) => {
+      const request = route.request();
+      if (request.method() === "POST") {
+        savedTemplateRequest = JSON.parse(request.postData() ?? "{}") as Record<string, unknown>;
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            id: "admin-template-browser-coverage",
+            name:
+              typeof savedTemplateRequest?.name === "string"
+                ? savedTemplateRequest.name
+                : "Admin Template Browser Coverage",
+            description: "Admin template browser coverage fixture",
+            audience_context:
+              typeof savedTemplateRequest?.audience_context === "string"
+                ? savedTemplateRequest.audience_context
+                : "institute",
+            blueprint:
+              savedTemplateRequest?.blueprint && typeof savedTemplateRequest.blueprint === "object"
+                ? savedTemplateRequest.blueprint
+                : { sections: [] },
+            can_manage: true,
+          }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ results: [] }),
+      });
+    });
+
+    await page.getByRole("button", { name: /save as managed pack/i }).click();
+    await expect(page.getByText(/saved ".*" as a managed preset pack/i)).toBeVisible();
+    const savedManagedPackSnapshot = savedManagedPackRequest as Record<string, unknown> | null;
+    expect(savedManagedPackSnapshot).toBeTruthy();
+    expect(savedManagedPackSnapshot?.config).toBeTruthy();
+
+    await page.getByRole("button", { name: /save template/i }).click();
+    await expect(page.getByText(/saved ".*" as a reusable .* template/i)).toBeVisible();
+    const savedTemplateSnapshot = savedTemplateRequest as Record<string, unknown> | null;
+    expect(savedTemplateSnapshot).toBeTruthy();
+    expect(savedTemplateSnapshot?.blueprint).toBeTruthy();
+  });
 });

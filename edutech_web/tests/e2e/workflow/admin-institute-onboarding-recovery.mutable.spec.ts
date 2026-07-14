@@ -27,6 +27,21 @@ type BrowserCreatedInstitute = {
   onboarding_run_id: string | null;
 };
 
+type OnboardingRunRecord = {
+  id: string;
+  profile_code?: string;
+  status?: string;
+};
+
+type OnboardingRunDetailRecord = {
+  profile_code?: string;
+  status?: string;
+};
+
+type OnboardingTaskRecord = {
+  status?: string;
+};
+
 async function createInstituteFromBrowser(
   page: Page,
   profileCode: "SCHOOL_STARTER" | "TRIAL_FULL_ACCESS",
@@ -116,19 +131,29 @@ test.describe("Admin onboarding recovery", () => {
       await runCard.getByText(/view result payload/i).first().click();
       await expect(runCard.locator("pre.adminInstituteTaskResultPre").first()).toBeVisible();
 
-      const runs = await fetchInstituteOnboardingRuns(page, accessToken, institute.id);
+      const runs = (await fetchInstituteOnboardingRuns(page, accessToken, institute.id)) as OnboardingRunRecord[];
       expect(runs).toHaveLength(1);
       expect(runs[0]?.status).toBe("completed");
       expect(runs[0]?.profile_code).toBe("SCHOOL_STARTER");
 
       const runId = institute.onboarding_run_id!;
-      const runDetail = await fetchInstituteOnboardingRunDetail(page, accessToken, institute.id, runId);
+      const runDetail = (await fetchInstituteOnboardingRunDetail(
+        page,
+        accessToken,
+        institute.id,
+        runId,
+      )) as OnboardingRunDetailRecord;
       expect(runDetail.status).toBe("completed");
       expect(runDetail.profile_code).toBe("SCHOOL_STARTER");
 
-      const tasks = await fetchInstituteOnboardingTasks(page, accessToken, institute.id, runId);
+      const tasks = (await fetchInstituteOnboardingTasks(
+        page,
+        accessToken,
+        institute.id,
+        runId,
+      )) as OnboardingTaskRecord[];
       expect(tasks.length).toBeGreaterThan(0);
-      expect(tasks.some((task: { status?: string }) => task.status === "completed")).toBe(true);
+      expect(tasks.some((task) => task.status === "completed")).toBe(true);
     } finally {
       await deleteDisposableInstitute(page, instituteId);
     }
@@ -197,13 +222,18 @@ test.describe("Admin onboarding recovery", () => {
       await expect(page.locator(".adminInstituteRunCard").nth(0).getByText(/trial full access|school starter/i).first()).toBeVisible();
       await expect(page.locator(".adminInstituteRunCard").nth(1).getByText(/trial full access|school starter/i).first()).toBeVisible();
 
-      const runs = await fetchInstituteOnboardingRuns(page, accessToken, institute.id);
+      const runs = (await fetchInstituteOnboardingRuns(page, accessToken, institute.id)) as OnboardingRunRecord[];
       expect(runs).toHaveLength(2);
-      expect(runs.every((run: { status?: string }) => run.status === "completed")).toBe(true);
-      expect(new Set(runs.map((run: { id: string }) => run.id)).size).toBe(2);
+      expect(runs.every((run) => run.status === "completed")).toBe(true);
+      expect(new Set(runs.map((run) => run.id)).size).toBe(2);
 
-      const latestRunId = runs[0].id;
-      const latestTasks = await fetchInstituteOnboardingTasks(page, accessToken, institute.id, latestRunId);
+      const latestRunId = runs[0]!.id;
+      const latestTasks = (await fetchInstituteOnboardingTasks(
+        page,
+        accessToken,
+        institute.id,
+        latestRunId,
+      )) as OnboardingTaskRecord[];
       expect(latestTasks.length).toBeGreaterThan(0);
     } finally {
       await deleteDisposableInstitute(page, instituteId);

@@ -488,9 +488,11 @@ test.describe("Institute shared-library mutable link flow", () => {
 
       await loginAsRole(page, "institute");
       await expectInstituteWorkspace(page);
+      expect(blockedRow!.source_program_code).toBeTruthy();
+      expect(blockedRow!.source_subject_code).toBeTruthy();
       const blockedScopeIds = await resolveAcademicScopeIds(page, instituteAccessToken, {
-        programCode: blockedRow!.source_program_code,
-        subjectCode: blockedRow!.source_subject_code,
+        programCode: blockedRow!.source_program_code!,
+        subjectCode: blockedRow!.source_subject_code!,
         topicCode: blockedRow!.source_topic_code,
       });
 

@@ -222,6 +222,40 @@ function buildExamReadinessSnapshot(args: {
   return { blockers, pending, ready };
 }
 
+function buildLifecycleChecklist(detail: {
+  active_questions_count: number;
+  assigned_student_count: number;
+  start_at: string | null;
+  end_at: string | null;
+}) {
+  return [
+    {
+      label: "Link questions",
+      done: detail.active_questions_count > 0,
+      description:
+        detail.active_questions_count > 0
+          ? `${detail.active_questions_count} active question${detail.active_questions_count === 1 ? "" : "s"} linked.`
+          : "No active questions linked yet.",
+    },
+    {
+      label: "Assign learners",
+      done: detail.assigned_student_count > 0,
+      description:
+        detail.assigned_student_count > 0
+          ? `${detail.assigned_student_count} learner${detail.assigned_student_count === 1 ? "" : "s"} assigned.`
+          : "No learners assigned yet.",
+    },
+    {
+      label: "Confirm schedule",
+      done: Boolean(detail.start_at && detail.end_at),
+      description:
+        detail.start_at && detail.end_at
+          ? `Delivery window is set from ${new Date(detail.start_at).toLocaleString("en-IN")} to ${new Date(detail.end_at).toLocaleString("en-IN")}.`
+          : "Start and end time are still pending.",
+    },
+  ];
+}
+
 async function instituteExamAction(formData: FormData) {
   "use server";
 
@@ -505,14 +539,14 @@ export default async function InstituteExamDetailPage({
 
   const actionButtons =
     detail.status === "draft"
-      ? [{ action: "publish", idleLabel: "Publish Exam", pendingLabel: "Publishing..." }]
+      ? [{ action: "publish", idleLabel: "Make Exam Available", pendingLabel: "Making Available..." }]
       : detail.status === "scheduled"
         ? [
-            { action: "mark-live", idleLabel: "Mark Live", pendingLabel: "Marking Live..." },
+            { action: "mark-live", idleLabel: "Start Exam Now", pendingLabel: "Starting Now..." },
             { action: "cancel", idleLabel: "Cancel Exam", pendingLabel: "Cancelling..." },
           ]
         : detail.status === "live"
-          ? [{ action: "mark-completed", idleLabel: "Mark Completed", pendingLabel: "Completing..." }]
+          ? [{ action: "mark-completed", idleLabel: "Finish Exam Delivery", pendingLabel: "Finishing Delivery..." }]
           : [];
   const readinessSnapshot = buildExamReadinessSnapshot({
     examStatus: detail.status,
@@ -521,6 +555,28 @@ export default async function InstituteExamDetailPage({
     resultSummary,
   });
   const runtimeOps = summarizeRuntimeOps(detail);
+  const lifecycleChecklist = buildLifecycleChecklist(detail);
+  const completedChecklistCount = lifecycleChecklist.filter((item) => item.done).length;
+  const heroTitle =
+    detail.status === "draft"
+      ? "Continue setup before learners can enter"
+      : detail.status === "scheduled"
+        ? "Delivery is scheduled and ready for final checks"
+        : detail.status === "live"
+          ? "Learners can access this exam right now"
+          : resultSummary?.results_published
+            ? "Delivery is complete and results are already published"
+            : "Review delivery, readiness, and results from one place";
+  const heroDescription =
+    detail.status === "draft"
+      ? `${completedChecklistCount} of ${lifecycleChecklist.length} core setup steps are complete. Continue from the builder to finish the learner-ready setup.`
+      : detail.status === "scheduled"
+        ? "Review timing, learner targeting, and publication blockers before the delivery window opens."
+        : detail.status === "live"
+          ? "Watch attempt activity, confirm access rules, and prepare the results workflow after submissions begin."
+          : resultSummary?.results_published
+            ? "Use this view to confirm the final exam configuration and support learners after release."
+            : "Use this page to move between setup, delivery, review, and results decisions without losing context.";
 
   return (
     <div className="studentPage studentDashboardModern instituteConsolePage instituteExamsPageVivid">
@@ -545,21 +601,12 @@ export default async function InstituteExamDetailPage({
       <section className="studentInsightHeroCard studentInsightHeroCardCompact">
         <div className="studentInsightHeroCopy">
           <span className="studentDashboardTag">Delivery Control</span>
-          <strong>Exam delivery and access</strong>
-          <small>
-            {detail.active_questions_count} active questions · {detail.assigned_student_count} assigned learners
-            {resultSummary?.review_blocked
-              ? ` · ${resultSummary.pending_review_tasks_count} review blocker${resultSummary.pending_review_tasks_count === 1 ? "" : "s"}`
-              : resultSummary?.results_published
-                ? " · results published"
-                : resultSummary
-                  ? " · results in progress"
-                  : " · no result summary yet"}
-          </small>
+          <strong>{heroTitle}</strong>
+          <small>{heroDescription}</small>
         </div>
         <div className="studentInsightHeroActions">
           <Link className="button buttonPrimary" href={`/institute/exams/${detail.id}/builder`}>
-            Open Builder
+            {detail.status === "draft" ? "Continue Setup" : "Open Builder"}
           </Link>
           <Link className="button buttonSecondary" href={`/institute/results?exam=${detail.id}`}>
             Open Results
@@ -572,6 +619,44 @@ export default async function InstituteExamDetailPage({
           </Link>
         </div>
       </section>
+
+      {detail.status === "draft" ? (
+        <section className="contentCard examLifecycleGuideCard">
+          <div className="sectionHeading">
+            <strong>Next steps before learner release</strong>
+            <span>
+              Keep this draft simple: finish setup, confirm timing, then make the exam available when the paper is ready.
+            </span>
+          </div>
+          <div className="examLifecycleGuideGrid">
+            {lifecycleChecklist.map((item) => (
+              <article className="examLifecycleGuideStep" key={item.label}>
+                <div className="examLifecycleGuideStepTop">
+                  <span className={`statusPill ${item.done ? "statusLive" : "statusWarning"}`}>
+                    {item.done ? "Done" : "Pending"}
+                  </span>
+                  <strong>{item.label}</strong>
+                </div>
+                <p>{item.description}</p>
+              </article>
+            ))}
+          </div>
+          <div className="workspaceFilterActions">
+            <Link className="button buttonPrimary" href={`/institute/exams/${detail.id}/builder`}>
+              Continue Setup
+            </Link>
+            <Link className="button buttonSecondary" href={`/institute/exams/${detail.id}/builder?tab=questions`}>
+              Link Questions
+            </Link>
+            <Link className="button buttonSecondary" href={`/institute/exams/${detail.id}/builder?tab=assignment`}>
+              Assign Learners
+            </Link>
+            <Link className="button buttonGhost" href="#exam-actions">
+              Review Delivery Actions
+            </Link>
+          </div>
+        </section>
+      ) : null}
 
       <section className="resultsSummaryGrid">
         <article className="metricCard metricCardPrimary dashboardHeroCard">
@@ -869,14 +954,14 @@ export default async function InstituteExamDetailPage({
         </article>
       </section>
 
-      <section className="dashboardGrid">
+      <section className="dashboardGrid" id="exam-actions">
         <article className="dashboardPanel insightPanel">
           <div className="sectionHeading">
-            <strong>Exam Actions</strong>
+            <strong>Delivery Actions</strong>
             <Link href="/institute/exams">Back to Exams</Link>
           </div>
           <p className="emptyText">
-            Use these live actions to move the exam through its backend-controlled delivery lifecycle.
+            Use these actions to move the exam through delivery safely after setup, assignment, and schedule checks are complete.
           </p>
           <div className="resultCardActions examDetailActionGrid">
             <div className="examDetailActionLane examDetailActionLanePrimary">
@@ -884,7 +969,7 @@ export default async function InstituteExamDetailPage({
                 Link Questions
               </Link>
               <Link className="button buttonSecondary" href={`/institute/exams/${detail.id}/builder`}>
-                Open Builder
+                {detail.status === "draft" ? "Continue Setup" : "Open Builder"}
               </Link>
 
               {actionButtons.map((item) => (

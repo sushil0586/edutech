@@ -100,7 +100,13 @@ export const familyRuntimeScenarios = [
   },
 ] as const;
 
-export type FamilyRuntimeScenario = (typeof familyRuntimeScenarios)[number];
+export type FamilyRuntimeScenario = {
+  presetId: (typeof familyRuntimeScenarios)[number]["presetId"];
+  familyLabel: string;
+  programLabel: string;
+  subjectLabel: string;
+  studentCredentials: DirectLoginCredentials;
+};
 
 export type StudentAttemptTarget = {
   displayName: string;

@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type TestInfo } from "@playwright/test";
+import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectInstituteWorkspace } from "../helpers/navigation";
 
@@ -18,7 +18,7 @@ async function selectFirstNonEmptyOption(locator: Locator) {
   await locator.selectOption(firstValue!);
 }
 
-async function expectQuestionBankLanding(page: Parameters<typeof test>[0]["page"]) {
+async function expectQuestionBankLanding(page: Page) {
   await expect(page.getByRole("heading", { name: /question bank/i }).first()).toBeVisible();
   await expect(page.getByText(/find questions faster/i).first()).toBeVisible();
 }

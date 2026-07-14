@@ -297,7 +297,7 @@ export async function InstituteQuestionBankPageView({
 
   const bootstrapResults = await Promise.allSettled([
     fetchTeacherOptionCatalog(),
-    fetchTeacherPrograms(),
+    fetchTeacherPrograms({ institute: profile.institute || undefined }),
     fetchTeacherQuestionTags(),
     shouldBootstrapTeachers
       ? fetchPortalList<TeacherOption>(
@@ -1009,6 +1009,7 @@ export async function InstituteQuestionBankPageView({
         difficultyOptions={optionCatalog.selectOptions("question_difficulty")}
         defaultCompactView={true}
         featureEntitlements={featureEntitlements}
+        instituteId={profile.institute || undefined}
         filters={{
           search,
           teacher: validTeacher,

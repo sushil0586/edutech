@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, useTransition, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { formatTopicOptionLabel, sortTopicOptions } from "@/lib/academics/topic-options";
 import { buildQuestionTypePresentationProfile } from "@/lib/assessment/question-type-presentation";
@@ -582,6 +582,7 @@ function readStoredArray(key: string) {
 
 export function TeacherQuestionBankWorkspace({
   academicsApiBasePath = "/api/teacher/academics",
+  instituteId,
   attachmentTypeLabelMap,
   bulkAction,
   basePath = "/teacher/question-bank",
@@ -644,6 +645,7 @@ export function TeacherQuestionBankWorkspace({
   emptyStateActionLabel,
 }: {
   academicsApiBasePath?: string;
+  instituteId?: string;
   attachmentTypeLabelMap: Record<string, string>;
   bulkAction: (formData: FormData) => void | Promise<void>;
   basePath?: string;
@@ -720,10 +722,11 @@ export function TeacherQuestionBankWorkspace({
   const [currentHasPreviousPage, setCurrentHasPreviousPage] = useState(hasPreviousPage);
   const [currentHasNextPage, setCurrentHasNextPage] = useState(hasNextPage);
   const activeQuestionRequestRef = useRef(0);
-  const activeQuestionAbortRef = useRef<AbortController | null>(null);
   const activeQuestionRefreshTimerRef = useRef<number | null>(null);
-  const activeTopicInventoryAbortRef = useRef<AbortController | null>(null);
-  const activeMasterLibraryAbortRef = useRef<AbortController | null>(null);
+  const activeSubjectInventoryRequestRef = useRef(0);
+  const activeTopicInventoryRequestRef = useRef(0);
+  const activeMasterLibraryRequestRef = useRef(0);
+  const [loadedSubjectInventory, setLoadedSubjectInventory] = useState<LookupSubject[] | null>(null);
   const [loadedTopicInventory, setLoadedTopicInventory] = useState<LookupTopic[] | null>(null);
   const [recentTopicIds, setRecentTopicIds] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -875,11 +878,18 @@ export function TeacherQuestionBankWorkspace({
     };
   }, []);
 
-  useEffect(() => {
-    return () => {
-      cancelActiveBackgroundRequests();
-    };
-  }, [cancelActiveBackgroundRequests]);
+  const cancelActiveQuestionPageRequest = useCallback(() => {
+    if (activeQuestionRefreshTimerRef.current !== null && typeof window !== "undefined") {
+      window.clearTimeout(activeQuestionRefreshTimerRef.current);
+      activeQuestionRefreshTimerRef.current = null;
+    }
+    activeQuestionRequestRef.current += 1;
+  }, []);
+
+  const cancelActiveBackgroundRequests = useCallback(() => {
+    cancelActiveQuestionPageRequest();
+    activeMasterLibraryRequestRef.current += 1;
+  }, [cancelActiveQuestionPageRequest]);
 
   useEffect(() => {
     if (!isBrowser) {
@@ -1015,13 +1025,19 @@ export function TeacherQuestionBankWorkspace({
     window.localStorage.setItem(`${storageKeyPrefix}-shared-library`, sharedLibraryFilter);
   }, [hasLoadedPreferences, isBrowser, sharedLibraryFilter, storageKeyPrefix]);
 
+  const subjectInventory = loadedSubjectInventory ?? subjects;
   const subjectOptions = useMemo(() => {
     if (!programFilter) {
-      return subjects;
+      return subjectInventory;
     }
 
-    return subjects.filter((subject) => subject.program === programFilter);
-  }, [programFilter, subjects]);
+    return subjectInventory.filter(
+      (subject) =>
+        normalizeLookupRelationId(
+          subject.program as string | { id?: string | null } | null | undefined,
+        ) === programFilter,
+    );
+  }, [programFilter, subjectInventory]);
   const selectedProgramRecord = useMemo(
     () => programs.find((program) => program.id === programFilter) ?? null,
     [programFilter, programs],
@@ -1043,13 +1059,71 @@ export function TeacherQuestionBankWorkspace({
       : "";
 
   useEffect(() => {
-    if (!selectedSubjectFilter) {
+    if (!programFilter) {
+      activeSubjectInventoryRequestRef.current += 1;
+      setLoadedSubjectInventory(null);
       return;
     }
 
-    const controller = new AbortController();
-    activeTopicInventoryAbortRef.current?.abort();
-    activeTopicInventoryAbortRef.current = controller;
+    const requestId = activeSubjectInventoryRequestRef.current + 1;
+    activeSubjectInventoryRequestRef.current = requestId;
+
+    async function loadSubjectsForProgram() {
+      const query = new URLSearchParams({
+        is_active: "true",
+        program: programFilter,
+        page_size: "500",
+      });
+      if (instituteId) {
+        query.set("institute", instituteId);
+      }
+
+      try {
+        const response = await fetch(
+          `${academicsApiBasePath}/subjects?${query.toString()}`,
+          {
+            method: "GET",
+            cache: "no-store",
+          },
+        );
+
+        if (!response.ok) {
+          throw new Error(`Unable to load subjects for program ${programFilter}.`);
+        }
+
+        const payload = (await response.json()) as { results?: LookupSubject[] };
+        if (activeSubjectInventoryRequestRef.current === requestId) {
+          setLoadedSubjectInventory(Array.isArray(payload.results) ? payload.results : []);
+        }
+      } catch {
+        if (activeSubjectInventoryRequestRef.current === requestId) {
+          setLoadedSubjectInventory(
+            subjects.filter(
+              (subject) =>
+                normalizeLookupRelationId(
+                  subject.program as string | { id?: string | null } | null | undefined,
+                ) === programFilter,
+            ),
+          );
+        }
+      }
+    }
+
+    void loadSubjectsForProgram();
+
+    return () => {
+      activeSubjectInventoryRequestRef.current += 1;
+    };
+  }, [academicsApiBasePath, instituteId, programFilter, subjects]);
+
+  useEffect(() => {
+    if (!selectedSubjectFilter) {
+      activeTopicInventoryRequestRef.current += 1;
+      return;
+    }
+
+    const requestId = activeTopicInventoryRequestRef.current + 1;
+    activeTopicInventoryRequestRef.current = requestId;
 
     async function loadTopicsForSubject() {
       const query = new URLSearchParams({
@@ -1057,6 +1131,9 @@ export function TeacherQuestionBankWorkspace({
         subject: selectedSubjectFilter,
         page_size: "500",
       });
+      if (instituteId) {
+        query.set("institute", instituteId);
+      }
 
       try {
         const response = await fetch(
@@ -1064,7 +1141,6 @@ export function TeacherQuestionBankWorkspace({
           {
             method: "GET",
             cache: "no-store",
-            signal: controller.signal,
           },
         );
 
@@ -1073,26 +1149,18 @@ export function TeacherQuestionBankWorkspace({
         }
 
         const payload = (await response.json()) as { results?: LookupTopic[] };
-        if (!controller.signal.aborted) {
+        if (activeTopicInventoryRequestRef.current === requestId) {
           setLoadedTopicInventory(Array.isArray(payload.results) ? payload.results : []);
-          if (activeTopicInventoryAbortRef.current === controller) {
-            activeTopicInventoryAbortRef.current = null;
-          }
         }
       } catch {
-        if (controller.signal.aborted) {
-          return;
-        }
-
-        const fallbackTopics = topics.filter(
-          (topic) =>
-            normalizeLookupRelationId(
-              topic.subject as string | { id?: string | null } | null | undefined,
-            ) === selectedSubjectFilter,
-        );
-        setLoadedTopicInventory(fallbackTopics);
-        if (activeTopicInventoryAbortRef.current === controller) {
-          activeTopicInventoryAbortRef.current = null;
+        if (activeTopicInventoryRequestRef.current === requestId) {
+          const fallbackTopics = topics.filter(
+            (topic) =>
+              normalizeLookupRelationId(
+                topic.subject as string | { id?: string | null } | null | undefined,
+              ) === selectedSubjectFilter,
+          );
+          setLoadedTopicInventory(fallbackTopics);
         }
       }
     }
@@ -1100,12 +1168,9 @@ export function TeacherQuestionBankWorkspace({
     void loadTopicsForSubject();
 
     return () => {
-      controller.abort();
-      if (activeTopicInventoryAbortRef.current === controller) {
-        activeTopicInventoryAbortRef.current = null;
-      }
+      activeTopicInventoryRequestRef.current += 1;
     };
-  }, [academicsApiBasePath, selectedSubjectFilter, topics]);
+  }, [academicsApiBasePath, instituteId, selectedSubjectFilter, topics]);
 
   const topicsBySubject = useMemo(() => {
     const groupedTopics = new Map<string, LookupTopic[]>();
@@ -1171,9 +1236,8 @@ export function TeacherQuestionBankWorkspace({
     setIsDeferredMasterLibraryLoading(true);
 
     const bootstrapTimer = window.setTimeout(() => {
-    const controller = new AbortController();
-    activeMasterLibraryAbortRef.current?.abort();
-    activeMasterLibraryAbortRef.current = controller;
+    const requestId = activeMasterLibraryRequestRef.current + 1;
+    activeMasterLibraryRequestRef.current = requestId;
     const selectedSubject = subjects.find((entry) => entry.id === activeFilters.subject) ?? null;
     const selectedTopic = topicInventory.find((entry) => entry.id === activeFilters.topic) ?? null;
     const query = new URLSearchParams();
@@ -1206,7 +1270,6 @@ export function TeacherQuestionBankWorkspace({
         const response = await fetch(`/api/teacher/question-bank/master-library?${query.toString()}`, {
           method: "GET",
           cache: "no-store",
-          signal: controller.signal,
         });
 
         if (!response.ok) {
@@ -1215,7 +1278,7 @@ export function TeacherQuestionBankWorkspace({
         }
 
         const payload = (await response.json()) as MasterQuestionLibraryPage;
-        if (controller.signal.aborted) {
+        if (activeMasterLibraryRequestRef.current !== requestId) {
           return;
         }
 
@@ -1223,11 +1286,8 @@ export function TeacherQuestionBankWorkspace({
         setDeferredMasterLibraryTotalCount(Number(payload.count ?? 0));
         setDeferredMasterLibraryHasPreviousPage(Boolean(payload.previous));
         setDeferredMasterLibraryHasNextPage(Boolean(payload.next));
-        if (activeMasterLibraryAbortRef.current === controller) {
-          activeMasterLibraryAbortRef.current = null;
-        }
       } catch (error) {
-        if (controller.signal.aborted) {
+        if (activeMasterLibraryRequestRef.current !== requestId) {
           return;
         }
 
@@ -1240,13 +1300,8 @@ export function TeacherQuestionBankWorkspace({
             ? error.message.trim()
             : "Shared platform library could not be loaded right now.",
         );
-        if (activeMasterLibraryAbortRef.current === controller) {
-          activeMasterLibraryAbortRef.current = null;
-        }
       } finally {
-        if (!controller.signal.aborted) {
-          setIsDeferredMasterLibraryLoading(false);
-        }
+        setIsDeferredMasterLibraryLoading(false);
       }
     }
 
@@ -1255,8 +1310,7 @@ export function TeacherQuestionBankWorkspace({
 
     return () => {
       window.clearTimeout(bootstrapTimer);
-      activeMasterLibraryAbortRef.current?.abort();
-      activeMasterLibraryAbortRef.current = null;
+      activeMasterLibraryRequestRef.current += 1;
       setIsDeferredMasterLibraryLoading(false);
     };
   }, [
@@ -1355,23 +1409,11 @@ export function TeacherQuestionBankWorkspace({
     window.history.replaceState({}, "", buildPageHref(nextPage, nextFilters, basePath));
   }
 
-  function cancelActiveQuestionPageRequest() {
-    if (activeQuestionRefreshTimerRef.current !== null && typeof window !== "undefined") {
-      window.clearTimeout(activeQuestionRefreshTimerRef.current);
-      activeQuestionRefreshTimerRef.current = null;
-    }
-    activeQuestionRequestRef.current += 1;
-    activeQuestionAbortRef.current?.abort();
-    activeQuestionAbortRef.current = null;
-  }
-
-  function cancelActiveBackgroundRequests() {
-    cancelActiveQuestionPageRequest();
-    activeTopicInventoryAbortRef.current?.abort();
-    activeTopicInventoryAbortRef.current = null;
-    activeMasterLibraryAbortRef.current?.abort();
-    activeMasterLibraryAbortRef.current = null;
-  }
+  useEffect(() => {
+    return () => {
+      cancelActiveBackgroundRequests();
+    };
+  }, [cancelActiveBackgroundRequests]);
 
   function applyQuestionPagePayload(
     payload: TeacherQuestionPage,
@@ -1394,13 +1436,10 @@ export function TeacherQuestionBankWorkspace({
   ) {
     cancelActiveQuestionPageRequest();
     const requestId = activeQuestionRequestRef.current;
-    const controller = new AbortController();
-    activeQuestionAbortRef.current = controller;
 
     const response = await fetch(buildQuestionListApiHref(nextPage, nextFilters, listApiPath), {
       method: "GET",
       cache: "no-store",
-      signal: controller.signal,
     });
 
     if (!response.ok) {
@@ -1412,9 +1451,6 @@ export function TeacherQuestionBankWorkspace({
       return;
     }
     applyQuestionPagePayload(payload, nextPage, nextFilters);
-    if (activeQuestionAbortRef.current === controller) {
-      activeQuestionAbortRef.current = null;
-    }
   }
 
   function refreshQuestionPage(nextPage: number, nextFilters: Record<string, string | undefined>) {
@@ -1425,29 +1461,12 @@ export function TeacherQuestionBankWorkspace({
     setPreviewQuestionId(null);
     syncWorkspaceUrl(nextPage, nextFilters);
     startQuestionPageTransition(() => {
-      if (typeof window === "undefined") {
-        void loadQuestionPage(nextPage, nextFilters).catch((error) => {
-          if (error instanceof Error && error.name === "AbortError") {
-            return;
-          }
-          router.replace(buildPageHref(nextPage, nextFilters, basePath), { scroll: false });
-        });
-        return;
-      }
-
-      if (activeQuestionRefreshTimerRef.current !== null) {
-        window.clearTimeout(activeQuestionRefreshTimerRef.current);
-      }
-
-      activeQuestionRefreshTimerRef.current = window.setTimeout(() => {
-        activeQuestionRefreshTimerRef.current = null;
-        void loadQuestionPage(nextPage, nextFilters).catch((error) => {
-          if (error instanceof Error && error.name === "AbortError") {
-            return;
-          }
-          router.replace(buildPageHref(nextPage, nextFilters, basePath), { scroll: false });
-        });
-      }, 0);
+      void loadQuestionPage(nextPage, nextFilters).catch((error) => {
+        if (error instanceof Error && error.name === "AbortError") {
+          return;
+        }
+        router.replace(buildPageHref(nextPage, nextFilters, basePath), { scroll: false });
+      });
     });
   }
 
@@ -2142,12 +2161,14 @@ export function TeacherQuestionBankWorkspace({
             activeFilters.missing_explanation ?? "",
           ].join("|")}
           className="questionBankFilterForm"
+          data-testid="question-bank-filter-form"
           method="GET"
           onSubmit={handleFilterSubmit}
         >
           <label className="fieldStack questionBankSearchField">
             <span>Search question text</span>
             <input
+              data-testid="question-bank-search-input"
               defaultValue={activeFilters.search ?? ""}
               name="search"
               placeholder="Search by wording or explanation"
@@ -2158,6 +2179,7 @@ export function TeacherQuestionBankWorkspace({
           <label className="fieldStack">
             <span>Program</span>
             <select
+              data-testid="question-bank-program-filter"
               name="program"
               onChange={(event) => {
                 setProgramFilter(event.target.value);
@@ -2178,6 +2200,7 @@ export function TeacherQuestionBankWorkspace({
           <label className="fieldStack">
             <span>Subject</span>
             <select
+              data-testid="question-bank-subject-filter"
               disabled={!programFilter}
               key={programFilter || "all-programs"}
               name="subject"
@@ -2199,6 +2222,7 @@ export function TeacherQuestionBankWorkspace({
           <label className="fieldStack">
             <span>Topic</span>
             <select
+              data-testid="question-bank-topic-filter"
               disabled={!selectedSubjectFilter}
               key={selectedSubjectFilter || "all-subjects"}
               name="topic"
@@ -2296,7 +2320,12 @@ export function TeacherQuestionBankWorkspace({
           {showQualitySignalFilter ? (
             <label className="fieldStack">
               <span>Quality signal</span>
-              <select name="quality_signal" value={qualitySignalFilter} onChange={(event) => setQualitySignalFilter(event.target.value)}>
+              <select
+                data-testid="question-bank-quality-filter"
+                name="quality_signal"
+                value={qualitySignalFilter}
+                onChange={(event) => setQualitySignalFilter(event.target.value)}
+              >
                 <option value="">All signals</option>
                 <option value="revision_candidate">Revision candidate</option>
                 <option value="ambiguous">Ambiguous</option>
@@ -2312,7 +2341,12 @@ export function TeacherQuestionBankWorkspace({
           {showRevisionPriorityFilter ? (
             <label className="fieldStack">
               <span>Revision priority</span>
-              <select name="revision_priority" value={revisionPriorityFilter} onChange={(event) => setRevisionPriorityFilter(event.target.value)}>
+              <select
+                data-testid="question-bank-revision-filter"
+                name="revision_priority"
+                value={revisionPriorityFilter}
+                onChange={(event) => setRevisionPriorityFilter(event.target.value)}
+              >
                 <option value="">All priorities</option>
                 <option value="urgent">Urgent</option>
                 <option value="high">High</option>

@@ -327,10 +327,8 @@ test.describe("Student family weak-network runtime", () => {
         const switched = await page.getByText(new RegExp(`current section`, "i")).locator("..").textContent().catch(() => "");
         const currentSectionCardVisible = await page
           .locator(".attemptSectionCard")
-          .filter({
-            has: page.getByText(new RegExp(targetSectionName, "i")),
-            has: page.getByRole("button", { name: /current section/i }),
-          })
+          .filter({ has: page.getByText(new RegExp(targetSectionName, "i")) })
+          .filter({ has: page.getByRole("button", { name: /current section/i }) })
           .first()
           .isVisible()
           .catch(() => false);

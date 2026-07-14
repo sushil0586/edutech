@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import { BuilderQuestionPreviewTrigger } from "@/components/ui/builder-question-preview-trigger";
@@ -39,13 +39,6 @@ type BuilderQuestionMappingProps = {
 
 function titleCase(value: string) {
   return value.replaceAll("_", " ");
-}
-
-function qualityTone(signal: LookupQuestion["quality_signal"]) {
-  if (signal === "ambiguous" || signal === "revision_candidate") return "statusDemo";
-  if (signal === "skip_risk" || signal === "hard" || signal === "watch") return "statusWarning";
-  if (signal === "healthy") return "statusLive";
-  return "statusNeutral";
 }
 
 function questionPriorityScore(question: LookupQuestion) {
@@ -164,6 +157,7 @@ export function BuilderQuestionMapping({
   academicSetupHref,
 }: BuilderQuestionMappingProps) {
   const [currentPage, setCurrentPage] = useState(1);
+  const [manualAttachSearch, setManualAttachSearch] = useState("");
   const pageSize = 6;
   const sortedAllQuestions = useMemo(
     () => [...allQuestions].sort((left, right) => questionPriorityScore(left) - questionPriorityScore(right)),
@@ -174,7 +168,10 @@ export function BuilderQuestionMapping({
     [availableQuestions],
   );
   const questionLookupMap = new Map(sortedAllQuestions.map((question) => [question.id, question]));
-  const topicNameMap = new Map(topics.map((topic) => [topic.id, topic.name]));
+  const topicNameMap = useMemo(
+    () => new Map(topics.map((topic) => [topic.id, topic.name])),
+    [topics],
+  );
   const orderedLinkedQuestions = [...activeExamQuestions].sort((left, right) => left.question_order - right.question_order);
   const linkedQuestionDetails = orderedLinkedQuestions.map((question) => {
     const lookup = questionLookupMap.get(question.question);
@@ -248,6 +245,37 @@ export function BuilderQuestionMapping({
     () => new Map(linkedQuestionFamilyAlerts.map((entry) => [entry.questionId, entry.alerts])),
     [linkedQuestionFamilyAlerts],
   );
+  const filteredManualAttachQuestions = useMemo(() => {
+    const normalizedSearch = manualAttachSearch.trim().toLowerCase();
+    if (!normalizedSearch) {
+      return sortedAvailableQuestions;
+    }
+
+    return sortedAvailableQuestions.filter((question) => {
+      const topicLabel = question.topic ? topicNameMap.get(question.topic) ?? "Unmapped topic" : "No topic";
+      const typeLabel = questionTypeLabelMap[question.question_type] ?? titleCase(question.question_type);
+      const difficultyLabel = difficultyLabelMap[question.difficulty_level] ?? titleCase(question.difficulty_level);
+      const haystack = [
+        topicLabel,
+        typeLabel,
+        difficultyLabel,
+        question.question_text,
+        question.passage_title,
+        question.quality_signal,
+        question.revision_priority,
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return haystack.includes(normalizedSearch);
+    });
+  }, [
+    difficultyLabelMap,
+    manualAttachSearch,
+    questionTypeLabelMap,
+    sortedAvailableQuestions,
+    topicNameMap,
+  ]);
 
   function handleExportPdf() {
     if (typeof window === "undefined" || !linkedQuestionDetails.length) {
@@ -830,12 +858,42 @@ export function BuilderQuestionMapping({
           </Link>
         </div>
 
+        <div className="builderQuickAttachTopbar assignmentRosterToolbar">
+          <label className="fieldStack assignmentRosterSearchField">
+            <span>Find a question</span>
+            <input
+              onChange={(event) => setManualAttachSearch(event.target.value)}
+              placeholder="Search by topic, difficulty, type, or wording"
+              type="search"
+              value={manualAttachSearch}
+            />
+          </label>
+        </div>
+
+        <div className="builderQuestionOverviewGrid assignmentRosterSummaryGrid">
+          <article className="builderQuestionOverviewCard">
+            <span>Available</span>
+            <strong>{sortedAvailableQuestions.length}</strong>
+            <p>Total scoped questions still available for manual attach.</p>
+          </article>
+          <article className="builderQuestionOverviewCard">
+            <span>Visible</span>
+            <strong>{filteredManualAttachQuestions.length}</strong>
+            <p>{manualAttachSearch.trim() ? "Filtered shortlist based on your current search." : "Showing the full shortlist."}</p>
+          </article>
+          <article className="builderQuestionOverviewCard">
+            <span>Search state</span>
+            <strong>{manualAttachSearch.trim() ? "Filtered" : "Ready"}</strong>
+            <p>{manualAttachSearch.trim() ? `Matching "${manualAttachSearch}".` : "Use search to narrow the dropdown before attaching."}</p>
+          </article>
+        </div>
+
         <div className="builderGrid compact">
           <label className="fieldStack fieldStackFull">
             <span>Question</span>
             <select name="question" required>
               <option value="">Select a question</option>
-              {sortedAvailableQuestions.map((question) => {
+              {filteredManualAttachQuestions.map((question) => {
                 const topicLabel = question.topic ? topicNameMap.get(question.topic) ?? "Unmapped topic" : "No topic";
                 const typeLabel = questionTypeLabelMap[question.question_type] ?? titleCase(question.question_type);
                 const difficultyLabel = difficultyLabelMap[question.difficulty_level] ?? titleCase(question.difficulty_level);
@@ -848,6 +906,11 @@ export function BuilderQuestionMapping({
                 );
               })}
             </select>
+            {filteredManualAttachQuestions.length === 0 ? (
+              <small className="builderQuickAttachHint">
+                No questions match the current search. Clear the search to restore the full manual-attach list.
+              </small>
+            ) : null}
           </label>
 
           <label className="fieldStack">

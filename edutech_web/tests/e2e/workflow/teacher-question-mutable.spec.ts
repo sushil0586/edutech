@@ -766,7 +766,7 @@ test.describe("Teacher mutable question-bank actions", () => {
 
         const createdTopic = await createDisposableTeacherTopic(page, {
           instituteId: profile.institute!,
-          subjectId: createdQuestion.selectedSubjectId,
+          subjectId: createdQuestion.selectedSubjectId!,
           uniqueSeed,
           accessToken: instituteAccessToken,
         });
@@ -777,8 +777,8 @@ test.describe("Teacher mutable question-bank actions", () => {
 
       await page.goto(
         `/teacher/question-bank?search=${encodeURIComponent(questionText)}&program=${encodeURIComponent(
-          createdQuestion.selectedProgramId,
-        )}&subject=${encodeURIComponent(createdQuestion.selectedSubjectId)}`,
+          createdQuestion.selectedProgramId!,
+        )}&subject=${encodeURIComponent(createdQuestion.selectedSubjectId!)}`,
       );
       await expect(
         page.getByText(new RegExp(questionText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i")).first(),

@@ -354,6 +354,7 @@ test.describe("Admin onboarding types", () => {
       if (!eligiblePackage) {
         test.skip(true, "No active platform-managed question-bank package is available for master-default onboarding.");
       }
+      const eligiblePackageSnapshot = eligiblePackage!;
 
       await onboardingPage.gotoMasterDefaults(institute.id);
       await onboardingPage.assertLoaded(institute.id);
@@ -363,7 +364,7 @@ test.describe("Admin onboarding types", () => {
       await onboardingPage.setQuestionBankAccess("enabled");
       await expect
         .poll(async () => page.getByLabel(/default question-bank package/i).inputValue())
-        .toBe(eligiblePackage.code);
+        .toBe(eligiblePackageSnapshot.code);
       await onboardingPage.setQuestionLinkingMode("access_only");
       await onboardingPage.setAdvancedBuilderAccess("enabled");
 
