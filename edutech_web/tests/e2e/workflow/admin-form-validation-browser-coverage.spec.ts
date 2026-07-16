@@ -35,6 +35,13 @@ type QuestionBankPackageCreatePayload = {
   };
 };
 
+type SubscriptionPlanCreatePayload = {
+  data?: {
+    id?: string;
+  };
+};
+
+
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -107,12 +114,12 @@ async function createQuestionBankPackageSeed(
   page: Page,
   {
     instituteId,
-    subjectId,
+    subjectId = null,
     packageName,
     packageCode,
   }: {
     instituteId: string;
-    subjectId: string;
+    subjectId?: string | null;
     packageName: string;
     packageCode: string;
   },
@@ -153,6 +160,70 @@ async function createQuestionBankPackageSeed(
   });
   expect(response.ok(), await response.text()).toBe(true);
   return (await response.json()) as QuestionBankPackageCreatePayload;
+}
+
+async function createSubscriptionPlanSeed(
+  page: Page,
+  {
+    instituteId,
+    planName,
+    planCode,
+    questionBankPackageLinks = [],
+  }: {
+    instituteId: string;
+    planName: string;
+    planCode: string;
+    questionBankPackageLinks?: Array<{
+      question_bank_package: string;
+      grant_mode: "included" | "trial" | "optional_addon";
+      is_default: boolean;
+    }>;
+  },
+) {
+  const response = await page.request.post("/api/admin/economy/subscription-plans", {
+    data: {
+      institute: instituteId,
+      name: planName,
+      code: planCode,
+      description: "Playwright seed subscription plan for duplicate-code browser validation coverage.",
+      metadata: {
+        source: "playwright-admin-form-validation",
+      },
+      is_active: true,
+      cycles: [
+        {
+          billing_interval: "monthly",
+          interval_count: 1,
+          price_amount: "199.00",
+          currency: "INR",
+          metadata: {
+            source: "playwright-admin-form-validation",
+          },
+          is_active: true,
+          star_credit_rules: [
+            {
+              stars_credited: 25,
+              credit_on_activation: true,
+              credit_on_renewal: false,
+              metadata: {
+                source: "playwright-admin-form-validation",
+              },
+              is_active: true,
+            },
+          ],
+          exam_allowance_config: null,
+        },
+      ],
+      question_bank_package_links: questionBankPackageLinks,
+    },
+  });
+  expect(response.ok(), await response.text()).toBe(true);
+  return (await response.json()) as SubscriptionPlanCreatePayload;
+}
+
+async function getAccessToken(page: Page) {
+  const cookies = await page.context().cookies();
+  return cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
 }
 
 test.describe("Admin form validation browser coverage", () => {
@@ -394,6 +465,483 @@ test.describe("Admin form validation browser coverage", () => {
         expect(deactivateResponse.ok(), await deactivateResponse.text()).toBe(true);
       }
     }
+  });
+
+  test("@workflow admin subscription plan editor keeps backend duplicate-code rejection visible", async ({ page }) => {
+    test.setTimeout(180000);
+
+    await loginAsRole(page, "admin");
+    await expectAdminWorkspace(page);
+    await gotoWithRuntimeRecovery(page, "/admin/economy?tab=question-bank&focus=plans");
+    await expect(
+      page.getByRole("heading", { name: /create and edit recurring plans, cycles, and credit rules/i }),
+    ).toBeVisible();
+
+    const workspaceView = page.getByLabel(/subscription plan workspace view/i);
+    await expect(workspaceView).toBeVisible();
+    await workspaceView.selectOption("all");
+    await expect(page.getByText(/plan identity/i).first()).toBeVisible();
+
+    const instituteSelect = page.locator(".economySubscriptionPlanGridPrimary select").first();
+    const instituteOptions = await instituteSelect.locator("option").evaluateAll((options) =>
+      options.map((option) => ({
+        value: (option as HTMLOptionElement).value,
+        label: (option as HTMLOptionElement).label,
+      })),
+    );
+    const instituteId = instituteOptions.find((option) => option.value && option.value !== "all")?.value ?? "";
+    if (!instituteId) {
+      test.skip(true, "No concrete institute option is available for subscription-plan validation coverage.");
+    }
+    await instituteSelect.selectOption(instituteId);
+    expect(instituteId).toBeTruthy();
+
+    const uniqueSeed = Date.now();
+    const duplicateCode = `PW-SUB-DUP-${String(uniqueSeed).slice(-6)}`;
+    const seededPlan = await createSubscriptionPlanSeed(page, {
+      instituteId,
+      planName: `PW Seed Subscription ${uniqueSeed}`,
+      planCode: duplicateCode,
+    });
+    const seededPlanId = seededPlan.data?.id ?? null;
+    expect(seededPlanId).toBeTruthy();
+
+    try {
+      await page.getByLabel(/plan name/i).fill(`PW Browser Duplicate Subscription ${uniqueSeed}`);
+      await page.getByLabel(/plan code/i).fill(duplicateCode);
+      await page.getByLabel(/^description$/i).fill(
+        "Browser coverage subscription plan that should fail on duplicate code at save time.",
+      );
+
+      const firstCycle = page.locator(".economySubscriptionCycleCard").first();
+      await expect(firstCycle).toBeVisible();
+      await firstCycle.getByLabel(/billing interval/i).selectOption("monthly");
+      await firstCycle.getByLabel(/interval count/i).fill("1");
+      await firstCycle.getByLabel(/price amount/i).fill("299.00");
+      await firstCycle.getByLabel(/currency/i).fill("INR");
+      await firstCycle.getByLabel(/cycle status/i).selectOption("yes");
+
+      const firstRuleRow = firstCycle.locator(".economySubscriptionRuleRow").first();
+      await firstRuleRow.getByLabel(/stars credited/i).fill("40");
+      await firstRuleRow.getByLabel(/credit on activation/i).selectOption("yes");
+      await firstRuleRow.getByLabel(/credit on renewal/i).selectOption("no");
+      await firstRuleRow.getByLabel(/rule status/i).selectOption("yes");
+
+      const createResponsePromise = page.waitForResponse(
+        (response) =>
+          response.url().includes("/api/admin/economy/subscription-plans") &&
+          response.request().method() === "POST",
+      );
+      await page.getByRole("button", { name: /create subscription plan/i }).click();
+      const createResponse = await createResponsePromise;
+      expect(createResponse.ok(), await createResponse.text()).toBe(false);
+
+      await expect(page.getByText(/plan identity/i).first()).toBeVisible();
+      await expect(
+        page.getByText(/already exists|must be unique|subscription plan save failed/i).first(),
+      ).toBeVisible();
+      await expect(page.getByText(/subscription plan created successfully\./i)).toHaveCount(0);
+      await expect(page.getByLabel(/plan code/i)).toHaveValue(duplicateCode);
+    } finally {
+      if (seededPlanId) {
+        const deactivateResponse = await page.request.patch(`/api/admin/economy/subscription-plans/${seededPlanId}`, {
+          data: {
+            is_active: false,
+          },
+        });
+        expect(deactivateResponse.ok(), await deactivateResponse.text()).toBe(true);
+      }
+    }
+  });
+
+  test("@workflow admin subscription plan apply keeps missing-target backend rejection visible", async ({ page }) => {
+    test.setTimeout(180000);
+
+    await loginAsRole(page, "admin");
+    await expectAdminWorkspace(page);
+    await gotoWithRuntimeRecovery(page, "/admin/economy?tab=question-bank&focus=plans");
+    await expect(
+      page.getByRole("heading", { name: /create and edit recurring plans, cycles, and credit rules/i }),
+    ).toBeVisible();
+
+    const workspaceView = page.getByLabel(/subscription plan workspace view/i);
+    await expect(workspaceView).toBeVisible();
+    await workspaceView.selectOption("all");
+    await expect(page.getByText(/current subscription plan catalog/i).first()).toBeVisible();
+
+    const instituteSelect = page.locator(".economySubscriptionPlanGridPrimary select").first();
+    const instituteOptions = await instituteSelect.locator("option").evaluateAll((options) =>
+      options.map((option) => ({
+        value: (option as HTMLOptionElement).value,
+        label: (option as HTMLOptionElement).label,
+      })),
+    );
+    const concreteActiveInstitutes = instituteOptions.filter(
+      (option) =>
+        option.value &&
+        option.value !== "all" &&
+        !/inactive/i.test(option.label),
+    );
+    const sourceInstitute = concreteActiveInstitutes[0] ?? null;
+    if (!sourceInstitute) {
+      test.skip(true, "A concrete active institute is required for subscription-plan apply validation coverage.");
+    }
+
+    await instituteSelect.selectOption(sourceInstitute!.value);
+
+    const uniqueSeed = Date.now();
+    const packageCode = `PW-APPLY-PKG-${String(uniqueSeed).slice(-6)}`;
+    const packageSeed = await createQuestionBankPackageSeed(page, {
+      instituteId: sourceInstitute!.value,
+      packageName: `PW Apply Package ${uniqueSeed}`,
+      packageCode,
+    });
+    const seededPackageId = packageSeed.data?.id ?? null;
+    expect(seededPackageId).toBeTruthy();
+
+    const planCode = `PW-APPLY-PLAN-${String(uniqueSeed).slice(-6)}`;
+    const planSeed = await createSubscriptionPlanSeed(page, {
+      instituteId: sourceInstitute!.value,
+      planName: `PW Apply Plan ${uniqueSeed}`,
+      planCode,
+      questionBankPackageLinks: [
+        {
+          question_bank_package: seededPackageId!,
+          grant_mode: "included",
+          is_default: true,
+        },
+      ],
+    });
+    const seededPlanId = planSeed.data?.id ?? null;
+    expect(seededPlanId).toBeTruthy();
+
+    try {
+      await page.reload();
+      await expectAdminWorkspace(page);
+      await gotoWithRuntimeRecovery(page, "/admin/economy?tab=question-bank&focus=plans");
+      await expect(
+        page.getByRole("heading", { name: /create and edit recurring plans, cycles, and credit rules/i }),
+      ).toBeVisible();
+      await page.getByLabel(/subscription plan workspace view/i).selectOption("all");
+      await page.getByLabel(/subscription plan institute filter/i).selectOption(sourceInstitute!.value);
+      await page.getByLabel(/subscription plan rows to show/i).selectOption("12");
+
+      const createdRow = page
+        .locator(".economySubscriptionCatalogRow")
+        .filter({ hasText: new RegExp(planCode, "i") })
+        .first();
+      await expect(createdRow).toBeVisible();
+
+      const applyTargetSelect = createdRow.getByLabel(/apply .* to institute/i);
+      const missingInstituteId = "00000000-0000-0000-0000-000000000404";
+      await applyTargetSelect.evaluate(
+        (select, payload) => {
+          if (!(select instanceof HTMLSelectElement)) return;
+          const option = document.createElement("option");
+          option.value = payload.value;
+          option.text = payload.label;
+          select.appendChild(option);
+          select.value = payload.value;
+          select.dispatchEvent(new Event("change", { bubbles: true }));
+        },
+        { value: missingInstituteId, label: "Missing Institute (MISS404)" },
+      );
+      await expect(applyTargetSelect).toHaveValue(missingInstituteId);
+
+      const applyResponsePromise = page.waitForResponse(
+        (response) =>
+          response.url().includes(`/api/admin/economy/subscription-plans/${seededPlanId}/apply-to-institute`) &&
+          response.request().method() === "POST",
+      );
+      await createdRow.getByRole("button", { name: /apply access/i }).click();
+      const applyResponse = await applyResponsePromise;
+      expect(applyResponse.ok(), await applyResponse.text()).toBe(false);
+
+      await expect(
+        page.getByText(/institute not found|subscription plan apply failed with status 404|subscription plan apply failed with status 400/i).first(),
+      ).toBeVisible();
+      await expect(page.getByText(/subscription plan question-bank links applied successfully\./i)).toHaveCount(0);
+      await expect(page.getByText(/last apply result/i)).toHaveCount(0);
+    } finally {
+      if (seededPlanId) {
+        const deactivatePlanResponse = await page.request.patch(`/api/admin/economy/subscription-plans/${seededPlanId}`, {
+          data: {
+            is_active: false,
+          },
+        });
+        expect(deactivatePlanResponse.ok(), await deactivatePlanResponse.text()).toBe(true);
+      }
+      if (seededPackageId) {
+        const deactivatePackageResponse = await page.request.patch(`/api/admin/economy/question-bank-packages/${seededPackageId}`, {
+          data: {
+            is_active: false,
+          },
+        });
+        expect(deactivatePackageResponse.ok(), await deactivatePackageResponse.text()).toBe(true);
+      }
+    }
+  });
+
+  test("@workflow admin support grant keeps missing-student backend rejection visible", async ({ page }) => {
+    test.setTimeout(180000);
+
+    await loginAsRole(page, "admin");
+    await expectAdminWorkspace(page);
+    await gotoWithRuntimeRecovery(page, "/admin/economy?tab=support-ops");
+    await expect(
+      page.getByRole("heading", { name: /inspect wallet state and perform controlled admin actions/i }),
+    ).toBeVisible();
+
+    const supportCard = page
+      .locator("article.dashboardPanel")
+      .filter({
+        has: page.getByRole("heading", {
+          name: /inspect wallet state and perform controlled admin actions/i,
+        }),
+      })
+      .first();
+    await expect(supportCard).toBeVisible();
+
+    await supportCard.getByLabel(/institute economy workspace view/i).selectOption("actions");
+    await supportCard.getByLabel(/support view/i).selectOption("wallet");
+
+    const studentSelect = supportCard.getByLabel(/^student$/i);
+    await expect(studentSelect).toBeVisible();
+
+    const missingStudentId = "00000000-0000-0000-0000-000000000405";
+    const selectedStudentId = await studentSelect.inputValue();
+    expect(selectedStudentId).toBeTruthy();
+
+    await page.addInitScript(() => {});
+    await page.evaluate((staleStudentId) => {
+      const originalFetch = window.fetch.bind(window);
+      window.fetch = async (input, init) => {
+        const url = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
+        if (url.includes("/api/admin/economy/grant-stars") && init?.body && typeof init.body === "string") {
+          try {
+            const payload = JSON.parse(init.body) as Record<string, unknown>;
+            payload.student = staleStudentId;
+            return originalFetch(input, {
+              ...init,
+              body: JSON.stringify(payload),
+            });
+          } catch {
+            return originalFetch(input, init);
+          }
+        }
+        return originalFetch(input, init);
+      };
+    }, missingStudentId);
+
+    await supportCard.getByLabel(/stars to grant/i).fill("15");
+    await supportCard.getByLabel(/reason/i).fill("Playwright stale student grant validation.");
+    await supportCard.getByLabel(/reference/i).fill("PW-MISS-STUDENT");
+
+    const grantResponsePromise = page.waitForResponse(
+      (response) =>
+        response.url().includes("/api/admin/economy/grant-stars") &&
+        response.request().method() === "POST",
+    );
+    await supportCard.getByRole("button", { name: /grant stars/i }).click();
+    const grantResponse = await grantResponsePromise;
+    expect(grantResponse.ok(), await grantResponse.text()).toBe(false);
+
+    await expect(
+      supportCard.getByText(/student not found in your scope|grant request failed with status 404|grant request failed with status 400/i).first(),
+    ).toBeVisible();
+    await expect(supportCard.getByText(/stars granted successfully\./i)).toHaveCount(0);
+  });
+
+  test("@workflow admin support unlock refresh keeps missing-student backend rejection visible", async ({ page }) => {
+    test.setTimeout(180000);
+
+    await loginAsRole(page, "admin");
+    await expectAdminWorkspace(page);
+    await gotoWithRuntimeRecovery(page, "/admin/economy?tab=support-ops");
+    await expect(
+      page.getByRole("heading", { name: /inspect wallet state and perform controlled admin actions/i }),
+    ).toBeVisible();
+
+    const supportCard = page
+      .locator("article.dashboardPanel")
+      .filter({
+        has: page.getByRole("heading", {
+          name: /inspect wallet state and perform controlled admin actions/i,
+        }),
+      })
+      .first();
+    await expect(supportCard).toBeVisible();
+
+    await supportCard.getByLabel(/institute economy workspace view/i).selectOption("actions");
+    await supportCard.getByLabel(/support view/i).selectOption("unlocks");
+
+    const studentSelect = supportCard.getByLabel(/^student$/i);
+    await expect(studentSelect).toBeVisible();
+    const selectedStudentId = await studentSelect.inputValue();
+    expect(selectedStudentId).toBeTruthy();
+
+    const missingStudentId = "00000000-0000-0000-0000-000000000406";
+    await page.evaluate((staleStudentId) => {
+      const originalFetch = window.fetch.bind(window);
+      window.fetch = async (input, init) => {
+        const url = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
+        if (/\/api\/admin\/economy\/student\/[^/]+\/refresh-unlocks/.test(url)) {
+          const nextUrl = url.replace(
+            /\/api\/admin\/economy\/student\/[^/]+\/refresh-unlocks/,
+            `/api/admin/economy/student/${staleStudentId}/refresh-unlocks`,
+          );
+          if (typeof input === "string") {
+            return originalFetch(nextUrl, init);
+          }
+          if (input instanceof Request) {
+            return originalFetch(new Request(nextUrl, input), init);
+          }
+          return originalFetch(nextUrl, init);
+        }
+        return originalFetch(input, init);
+      };
+    }, missingStudentId);
+
+    const refreshResponsePromise = page.waitForResponse(
+      (response) =>
+        response.url().includes(`/api/admin/economy/student/${missingStudentId}/refresh-unlocks`) &&
+        response.request().method() === "POST",
+    );
+    await supportCard.getByRole("button", { name: /refresh unlocks/i }).click();
+    const refreshResponse = await refreshResponsePromise;
+    expect(refreshResponse.ok(), await refreshResponse.text()).toBe(false);
+
+    await expect(
+      supportCard.getByText(/student not found in your scope|refresh request failed with status 404|refresh request failed with status 400/i).first(),
+    ).toBeVisible();
+    await expect(supportCard.getByText(/unlock states refreshed successfully\./i)).toHaveCount(0);
+  });
+
+  test("@workflow admin subscription request review keeps missing-request backend rejection visible", async ({ page }) => {
+    test.setTimeout(180000);
+    await loginAsRole(page, "admin");
+    await expectAdminWorkspace(page);
+    await gotoWithRuntimeRecovery(page, "/admin/economy?tab=support-ops");
+    await expect(page.getByRole("heading", { name: /institute subscription request queue/i })).toBeVisible();
+
+    const queueCard = page
+      .locator("article.dashboardPanel")
+      .filter({
+        has: page.getByRole("heading", { name: /institute subscription request queue/i }),
+      })
+      .first();
+    await expect(queueCard).toBeVisible();
+    await queueCard.getByLabel(/institute subscription request queue view/i).selectOption("pending");
+    await queueCard.getByLabel(/institute subscription request rows to show/i).selectOption("12");
+
+    const requestRow = queueCard
+      .locator(".weakTopicRow")
+      .filter({ has: queueCard.getByRole("button", { name: /approve|reject/i }).first() })
+      .first();
+    if (!(await requestRow.count())) {
+      test.skip(true, "No pending institute subscription request is currently visible in the admin queue.");
+    }
+    await expect(requestRow).toBeVisible();
+
+    const missingRequestId = "00000000-0000-0000-0000-000000000407";
+    await page.evaluate((staleRequestId) => {
+      const originalFetch = window.fetch.bind(window);
+      window.fetch = async (input, init) => {
+        const url = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
+        if (/\/api\/admin\/economy\/institute-subscription-requests\/[^/]+\/review/.test(url)) {
+          const nextUrl = url.replace(
+            /\/api\/admin\/economy\/institute-subscription-requests\/[^/]+\/review/,
+            `/api/admin/economy/institute-subscription-requests/${staleRequestId}/review`,
+          );
+          if (typeof input === "string") {
+            return originalFetch(nextUrl, init);
+          }
+          if (input instanceof Request) {
+            return originalFetch(new Request(nextUrl, input), init);
+          }
+          return originalFetch(nextUrl, init);
+        }
+        return originalFetch(input, init);
+      };
+    }, missingRequestId);
+
+    const reviewResponsePromise = page.waitForResponse(
+      (response) =>
+        response.url().includes(`/api/admin/economy/institute-subscription-requests/${missingRequestId}/review`) &&
+        response.request().method() === "POST",
+    );
+    await requestRow.getByRole("button", { name: /reject/i }).click();
+    const reviewResponse = await reviewResponsePromise;
+    expect(reviewResponse.ok(), await reviewResponse.text()).toBe(false);
+
+    await expect(
+      queueCard.getByText(/request not found|request failed with status 404|request failed with status 400/i).first(),
+    ).toBeVisible();
+    await expect(queueCard.getByText(/subscription request reviewed successfully/i)).toHaveCount(0);
+    await expect(requestRow.locator(".weakTopicMeta strong")).toHaveText(/pending/i);
+  });
+
+  test("@workflow admin catalog governance keeps missing-item backend rejection visible", async ({ page }) => {
+    test.setTimeout(180000);
+
+    await loginAsRole(page, "admin");
+    await expectAdminWorkspace(page);
+    await gotoWithRuntimeRecovery(page, "/admin/economy?tab=catalog");
+    await expect(
+      page.getByRole("heading", { name: /activate or pause live wallet, referral, and subscription catalog lanes/i }),
+    ).toBeVisible();
+
+    const catalogCard = page
+      .locator("article.dashboardPanel")
+      .filter({
+        has: page.getByRole("heading", {
+          name: /activate or pause live wallet, referral, and subscription catalog lanes/i,
+        }),
+      })
+      .first();
+    await expect(catalogCard).toBeVisible();
+
+    const firstCatalogRow = catalogCard.locator(".economyCommerceCatalogRow").first();
+    await expect(firstCatalogRow).toBeVisible();
+    const toggleButton = firstCatalogRow.getByRole("button", { name: /activate|deactivate/i });
+    await expect(toggleButton).toBeVisible();
+
+    const missingItemId = "00000000-0000-0000-0000-000000000408";
+    await page.evaluate((staleItemId) => {
+      const originalFetch = window.fetch.bind(window);
+      window.fetch = async (input, init) => {
+        const url = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
+        if (/\/api\/admin\/economy\/catalog-items\/[^/]+\/[^/]+\/status/.test(url)) {
+          const nextUrl = url.replace(
+            /\/api\/admin\/economy\/catalog-items\/([^/]+)\/[^/]+\/status/,
+            `/api/admin/economy/catalog-items/$1/${staleItemId}/status`,
+          );
+          if (typeof input === "string") {
+            return originalFetch(nextUrl, init);
+          }
+          if (input instanceof Request) {
+            return originalFetch(new Request(nextUrl, input), init);
+          }
+          return originalFetch(nextUrl, init);
+        }
+        return originalFetch(input, init);
+      };
+    }, missingItemId);
+
+    const toggleResponsePromise = page.waitForResponse(
+      (response) =>
+        response.url().includes(`/api/admin/economy/catalog-items/`) &&
+        response.url().includes(`/${missingItemId}/status`) &&
+        response.request().method() === "PATCH",
+    );
+    await toggleButton.click();
+    const toggleResponse = await toggleResponsePromise;
+    expect(toggleResponse.ok(), await toggleResponse.text()).toBe(false);
+
+    await expect(
+      catalogCard.getByText(/economy catalog item not found|catalog update failed with status 404|catalog update failed with status 400/i).first(),
+    ).toBeVisible();
+    await expect(catalogCard.getByText(/economy catalog item updated successfully\./i)).toHaveCount(0);
   });
 
   test("@workflow admin people teacher create blocks duplicate employee code safely", async ({ page }) => {
