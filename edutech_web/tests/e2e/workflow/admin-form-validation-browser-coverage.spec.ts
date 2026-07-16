@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectAdminWorkspace } from "../helpers/navigation";
+import { gotoWithRuntimeRecovery } from "../helpers/runtime";
 
 type InstituteCreatePayload = {
   id?: string;
@@ -26,6 +27,12 @@ type EconomyPolicyConfig = {
   institute_admin_max_confirm_order_amount: string;
   institute_admin_can_grant_stars: boolean;
   institute_admin_max_grant_stars: number;
+};
+
+type QuestionBankPackageCreatePayload = {
+  data?: {
+    id?: string;
+  };
 };
 
 function escapeRegExp(value: string) {
@@ -94,6 +101,58 @@ async function selectFirstNonEmptyOption(select: Locator) {
   expect(optionValue).toBeTruthy();
   await select.selectOption(optionValue);
   return optionValue;
+}
+
+async function createQuestionBankPackageSeed(
+  page: Page,
+  {
+    instituteId,
+    subjectId,
+    packageName,
+    packageCode,
+  }: {
+    instituteId: string;
+    subjectId: string;
+    packageName: string;
+    packageCode: string;
+  },
+) {
+  const response = await page.request.post("/api/admin/economy/question-bank-packages", {
+    data: {
+      institute: instituteId,
+      name: packageName,
+      code: packageCode,
+      description: "Playwright seed package for duplicate-code browser validation coverage.",
+      package_type: "subject_library",
+      ownership_type: "institute",
+      access_mode: "link_on_demand",
+      is_public_catalog: true,
+      sort_order: 25,
+      metadata: {
+        source: "playwright-admin-form-validation",
+      },
+      is_active: true,
+      scopes: [
+        {
+          program: null,
+          subject: subjectId,
+          topic: null,
+          question_source_type: "platform_only",
+          difficulty_level: "",
+          question_type: "",
+          master_visibility: "",
+          max_questions_total: null,
+          max_questions_per_topic: null,
+          metadata: {
+            source: "playwright-admin-form-validation",
+          },
+          is_active: true,
+        },
+      ],
+    },
+  });
+  expect(response.ok(), await response.text()).toBe(true);
+  return (await response.json()) as QuestionBankPackageCreatePayload;
 }
 
 test.describe("Admin form validation browser coverage", () => {
@@ -254,6 +313,87 @@ test.describe("Admin form validation browser coverage", () => {
     expect(latestConfig.institute_admin_max_confirm_order_amount).toBe(
       originalConfig.institute_admin_max_confirm_order_amount,
     );
+  });
+
+  test("@workflow admin package editor keeps backend duplicate-code rejection visible", async ({ page }) => {
+    test.setTimeout(180000);
+
+    await loginAsRole(page, "admin");
+    await expectAdminWorkspace(page);
+    await gotoWithRuntimeRecovery(page, "/admin/economy?tab=question-bank&focus=packages");
+    await expect(
+      page.getByRole("heading", { name: /create and edit question-bank packages and scope coverage/i }),
+    ).toBeVisible();
+    const workspaceView = page.getByLabel(/question bank package workspace view/i);
+    await expect(workspaceView).toBeVisible();
+    await workspaceView.selectOption("editor");
+    await expect(page.getByText(/package identity/i).first()).toBeVisible();
+
+    const instituteSelect = page.locator(".economyPackageFormGridPrimary select").first();
+    const instituteOptions = await instituteSelect.locator("option").evaluateAll((options) =>
+      options.map((option) => ({
+        value: (option as HTMLOptionElement).value,
+        label: (option as HTMLOptionElement).label,
+      })),
+    );
+    const instituteId = instituteOptions.find((option) => option.value && option.value !== "all")?.value ?? "";
+    if (!instituteId) {
+      test.skip(true, "No concrete institute option is available for question-bank package validation coverage.");
+    }
+    await instituteSelect.selectOption(instituteId);
+    expect(instituteId).toBeTruthy();
+
+    const firstScopeRow = page.locator(".economyPackageScopeCard").first();
+    await expect(firstScopeRow).toBeVisible();
+    const subjectId = await selectFirstNonEmptyOption(firstScopeRow.getByLabel(/subject 1/i));
+
+    const uniqueSeed = Date.now();
+    const duplicateCode = `PW-PKG-DUP-${String(uniqueSeed).slice(-6)}`;
+    const seededPackage = await createQuestionBankPackageSeed(page, {
+      instituteId,
+      subjectId,
+      packageName: `PW Seed Package ${uniqueSeed}`,
+      packageCode: duplicateCode,
+    });
+    const seededPackageId = seededPackage.data?.id ?? null;
+    expect(seededPackageId).toBeTruthy();
+
+    try {
+      const packageIdentityInputs = page.locator(".economyPackageFormGridPrimary input");
+      await packageIdentityInputs.nth(0).fill(`PW Browser Duplicate Package ${uniqueSeed}`);
+      await packageIdentityInputs.nth(1).fill(duplicateCode);
+      await page.getByLabel(/description/i).fill(
+        "Browser coverage package that should fail on duplicate code at save time.",
+      );
+
+      const saveButton = page.getByRole("button", { name: /create question-bank package/i });
+      await expect(saveButton).toBeEnabled();
+
+      const createResponsePromise = page.waitForResponse(
+        (response) =>
+          response.url().includes("/api/admin/economy/question-bank-packages") &&
+          response.request().method() === "POST",
+      );
+      await saveButton.click();
+      const createResponse = await createResponsePromise;
+      expect(createResponse.ok(), await createResponse.text()).toBe(false);
+
+      await expect(page.getByText(/package identity/i).first()).toBeVisible();
+      await expect(
+        page.getByText(/package could not be saved|already exists|must be unique|one or more fields are invalid/i).first(),
+      ).toBeVisible();
+      await expect(page.getByText(/question bank package created successfully\./i)).toHaveCount(0);
+      await expect(packageIdentityInputs.nth(1)).toHaveValue(duplicateCode);
+    } finally {
+      if (seededPackageId) {
+        const deactivateResponse = await page.request.patch(`/api/admin/economy/question-bank-packages/${seededPackageId}`, {
+          data: {
+            is_active: false,
+          },
+        });
+        expect(deactivateResponse.ok(), await deactivateResponse.text()).toBe(true);
+      }
+    }
   });
 
   test("@workflow admin people teacher create blocks duplicate employee code safely", async ({ page }) => {

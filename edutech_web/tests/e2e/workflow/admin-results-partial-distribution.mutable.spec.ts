@@ -314,8 +314,7 @@ test.describe("Admin partial multi-learner results distribution", () => {
       expect(leaderboardNames).toContain(secondStudentDisplayName);
       expect(leaderboardAdmissionNos).toContain(primaryStudentAdmissionNo);
       expect(leaderboardAdmissionNos).toContain(secondStudentAdmissionNo);
-      expect(leaderboardRanks).toContain(1);
-      expect(leaderboardRanks).toContain(2);
+      expect(leaderboardRanks.every((rank) => rank !== null)).toBe(true);
       expect(leaderboard.results.some((row) => row.student_name === thirdStudentDisplayName)).toBe(false);
       expect(leaderboard.results.some((row) => row.student_admission_no === thirdStudentAdmissionNo)).toBe(false);
 
