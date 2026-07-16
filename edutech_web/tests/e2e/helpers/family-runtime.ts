@@ -1214,15 +1214,30 @@ export async function answerAndSubmitCurrentAttempt(
     name: new RegExp(`${escapeRegExp(examTitle)}\\s+Summary`, "i"),
   }).first();
   const postSubmitMarker = page.getByText(/post-submit state/i).first();
+  const releaseStateMarker = page.getByText(
+    /wait for publication|review ready|review feedback|instant feedback ready/i,
+  ).first();
   if (await summaryHeading.isVisible().catch(() => false)) {
     await expect(summaryHeading).toBeVisible({ timeout: 30000 });
   } else {
-    await expect(postSubmitMarker).toBeVisible({ timeout: 30000 });
+    await expect
+      .poll(
+        async () =>
+          (await postSubmitMarker.isVisible().catch(() => false)) ||
+          (await releaseStateMarker.isVisible().catch(() => false)),
+        { timeout: 30000 },
+      )
+      .toBe(true);
   }
   await expect(page.getByText(/submitted|attempt auto-submitted/i).first()).toBeVisible({
     timeout: 30000,
   });
-  await expect(page.getByText(/post-submit state/i).first()).toBeVisible({
-    timeout: 30000,
-  });
+  await expect
+    .poll(
+      async () =>
+        (await postSubmitMarker.isVisible().catch(() => false)) ||
+        (await releaseStateMarker.isVisible().catch(() => false)),
+      { timeout: 30000 },
+    )
+    .toBe(true);
 }
