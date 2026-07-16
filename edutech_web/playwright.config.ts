@@ -3,6 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 const baseURL = process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000";
 const isCI = Boolean(process.env.CI);
 const enableCrossBrowser = process.env.PLAYWRIGHT_ENABLE_CROSS_BROWSER === "1";
+const enableMobile = process.env.PLAYWRIGHT_ENABLE_MOBILE === "1";
 const configuredWorkers = Number(process.env.PLAYWRIGHT_WORKERS ?? "1");
 const workers =
   Number.isFinite(configuredWorkers) && configuredWorkers > 0 ? configuredWorkers : 1;
@@ -28,6 +29,23 @@ if (enableCrossBrowser) {
       name: "webkit",
       use: {
         ...devices["Desktop Safari"],
+      },
+    },
+  );
+}
+
+if (enableMobile) {
+  projects.push(
+    {
+      name: "mobile-chrome",
+      use: {
+        ...devices["Pixel 7"],
+      },
+    },
+    {
+      name: "mobile-safari",
+      use: {
+        ...devices["iPhone 13"],
       },
     },
   );

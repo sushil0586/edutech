@@ -102,7 +102,7 @@ export default async function EnterExamKeyPage({
           </div>
           <div className="studentInsightHeroActions">
             <Link className="button buttonSecondary" href="/app/exams">
-              Open Mock Tests
+              Open Tests
             </Link>
             <Link className="button buttonGhost" href="/app/dashboard">
               Back to Dashboard

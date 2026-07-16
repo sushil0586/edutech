@@ -52,12 +52,12 @@ export default async function StudentAnalyticsActionsPage({
       <div className="studentPage studentDashboardModern">
         <StudentStatePanel
           eyebrow="Setup required"
-          title="Action center is waiting for backend data"
-          description="This page uses live analytics and question-level insights to recommend the next best study action."
-          bullets={["Student analytics bundle", "Question analytics endpoint", "Practice inventory"]}
+          title="Action center is not available yet"
+          description="Sign in with your student account to load analytics and recommended next steps."
+          bullets={["Student sign-in", "Analytics summary", "Practice inventory"]}
           ctaHref="/app/analytics"
           ctaLabel="Back to Analytics"
-          statusLabel="Configuration required"
+          statusLabel="Sign in to continue"
         />
       </div>
     );
@@ -74,11 +74,11 @@ export default async function StudentAnalyticsActionsPage({
         <StudentStatePanel
           eyebrow="Load issue"
           title="Action center could not be loaded"
-          description="We need both the analytics summary and question-level evidence to recommend the next best move."
-          bullets={["Student analytics bundle", "Question analytics endpoint", "Published results"]}
+          description="We couldn't load enough analytics data to recommend the next best move."
+          bullets={["Analytics summary", "Question analytics", "Published results"]}
           ctaHref="/app/analytics"
           ctaLabel="Back to Analytics"
-          statusLabel="Retry after backend check"
+          statusLabel="Try again soon"
         />
       </div>
     );
@@ -104,7 +104,7 @@ export default async function StudentAnalyticsActionsPage({
       <StudentPageHeader
         eyebrow="Analytics action center"
         title="Next Best Moves"
-        description="Move from passive analytics into targeted practice, question review, and fast recovery actions."
+        description="Turn analytics into targeted practice and fast recovery actions."
         statusLabel={`${questionData.questions.length} questions evaluated`}
         statusTone="live"
         action={<Link className="button buttonGhost" href="/app/analytics">Back to Analytics</Link>}
@@ -119,8 +119,8 @@ export default async function StudentAnalyticsActionsPage({
         }
         description={
           weakestTopic
-            ? `${weakestTopic.label} is your weakest tracked topic right now at ${percentageLabel(weakestTopic.accuracy)}. Start with the weakest concept, then reinforce it with exact question review.`
-            : "Your action center combines weak topics, risky question types, and costly question patterns so you can choose what to fix next."
+            ? `${weakestTopic.label} is your weakest tracked topic right now at ${percentageLabel(weakestTopic.accuracy)}. Start there, then reinforce it with question review.`
+            : "Use weak topics, risky formats, and slow questions to choose the next fix."
         }
         badges={[
           subjectFocusName ?? "Overall view",
@@ -185,7 +185,7 @@ export default async function StudentAnalyticsActionsPage({
             <span className="studentDashboardTagWarm">Topic recovery</span>
             <strong>{weakestTopic.label}</strong>
             <p>
-              Focus your next study block on the topic with the lowest scored performance and then review the exact questions behind it.
+              Start with the lowest-scoring topic, then review the exact questions behind it.
             </p>
             <div className="studentInsightHeroActions">
               <Link
@@ -225,7 +225,7 @@ export default async function StudentAnalyticsActionsPage({
             <span className="studentDashboardTagWarm">Format repair</span>
             <strong>{questionTypeLabel(weakestQuestionType.label)}</strong>
             <p>
-              You are losing the most marks in this format right now. Review the pattern before it compounds across more exams.
+              You are losing the most marks in this format right now. Review it before it repeats.
             </p>
             <div className="studentInsightHeroActions">
               <Link
@@ -258,7 +258,7 @@ export default async function StudentAnalyticsActionsPage({
           <span className="studentDashboardTagWarm">Subject focus</span>
           <strong>{subjectFocusName ?? "Choose a subject"}</strong>
           <p>
-            Subject pages combine your topic, difficulty, and question-type signals so you can decide what to revise in one place.
+            Subject pages combine topic, difficulty, and format signals in one place.
           </p>
           <div className="studentInsightHeroActions">
             <Link
@@ -322,7 +322,7 @@ export default async function StudentAnalyticsActionsPage({
               href={buildAnalyticsTimelineHref({ subject, source, teacher })}
             >
               <strong>Check your timeline</strong>
-              <span>Validate whether this is a trend or a one-off dip.</span>
+              <span>Check whether this is a trend or a one-off dip.</span>
             </Link>
             {subjectFocusName ? (
               <Link
@@ -330,7 +330,7 @@ export default async function StudentAnalyticsActionsPage({
                 href={buildAnalyticsSubjectHref(subjectFocusName, { source, teacher })}
               >
                 <strong>Open subject deep dive</strong>
-                <span>See whether the weakness is topic, format, or difficulty driven.</span>
+                <span>See whether the weakness comes from topic, format, or difficulty.</span>
               </Link>
             ) : null}
             {weakestQuestionType ? (
@@ -344,7 +344,7 @@ export default async function StudentAnalyticsActionsPage({
                 })}
               >
                 <strong>Fix your riskiest format</strong>
-                <span>Use the question-type lab to review recurring answer behavior.</span>
+                <span>Open the question-type view to review repeated mistakes.</span>
               </Link>
             ) : null}
           </div>

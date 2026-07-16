@@ -10,7 +10,7 @@ async function expectSharedLibrarySection(page: Page) {
   const section = page.locator("section.contentCard").filter({
     has: page.getByRole("heading", { name: /shared platform library/i }),
   }).first();
-  await expect(section).toBeVisible();
+  await expect(section).toBeVisible();  
   await section.scrollIntoViewIfNeeded();
 
   const loadingLane = section.getByText(/loading current lane/i).first();

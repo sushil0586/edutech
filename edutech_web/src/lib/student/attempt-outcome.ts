@@ -48,11 +48,11 @@ export function attemptOutcomeReviewLabel(state: AttemptOutcomeState) {
 export function attemptOutcomeProgressLabel(state: AttemptOutcomeState) {
   switch (state) {
     case "awaiting_publication":
-      return "Step 1 complete: submitted. Step 2 pending: evaluation and result publication. Step 3 pending: answer review remains locked.";
+      return "Submitted successfully. Results will appear after evaluation is complete.";
     case "published_summary_only":
-      return "Step 1 complete: submitted. Step 2 complete: result published. Step 3 pending: answer review is still locked.";
+      return "Result published. Answer review is not available yet.";
     case "review_ready":
-      return "All release steps complete: submission confirmed, result published, and answer review is now available.";
+      return "Result and answer review are both available now.";
   }
 }
 
@@ -77,11 +77,11 @@ export function attemptOutcomeHelper(state: AttemptOutcomeState, examType: strin
 
   switch (state) {
     case "awaiting_publication":
-      return `This ${experience} has been submitted, but learner-visible results are still waiting for evaluation and backend publication rules to complete.`;
+      return `This ${experience} has been submitted and is waiting for evaluation.`;
     case "published_summary_only":
-      return `This ${experience} result is now visible, but answer review is still locked by backend policy.`;
+      return `This ${experience} result is visible now, but answer review is still locked.`;
     case "review_ready":
-      return `This ${experience} is fully released for the learner: result summary is visible and answer review is currently available.`;
+      return `This ${experience} is ready to review, with score details and answer review available.`;
   }
 }
 
@@ -107,27 +107,27 @@ export function attemptOutcomeJourney(state: AttemptOutcomeState) {
   switch (state) {
     case "awaiting_publication":
       return {
-        laneLabel: "Summary -> Results",
+        laneLabel: "Summary and results",
         laneHelper:
-          "Use summary to confirm submission, then check results until evaluation and publication are complete.",
+          "Your submission is saved. Check results again once evaluation is complete.",
         summaryCta: "Check attempt status",
         resultsCta: "Check Result Status",
         reviewCta: "Open Answer Review",
       };
     case "published_summary_only":
       return {
-        laneLabel: "Summary -> Results",
+        laneLabel: "Results available",
         laneHelper:
-          "Use summary for release state and results for published score details while answer review remains locked.",
+          "Your score is available now. Review answers will appear only if this exam allows them.",
         summaryCta: "Open Summary",
         resultsCta: "Open Results",
         reviewCta: "Open Answer Review",
       };
     case "review_ready":
       return {
-        laneLabel: "Summary -> Results -> Review",
+        laneLabel: "Review ready",
         laneHelper:
-          "Use summary for release state, results for score reporting, and answer review for question-level learning.",
+          "Your score and answer review are ready. Use this attempt to learn from mistakes and try the next practice step.",
         summaryCta: "Open Summary",
         resultsCta: "Open Results",
         reviewCta: "Open Answer Review",

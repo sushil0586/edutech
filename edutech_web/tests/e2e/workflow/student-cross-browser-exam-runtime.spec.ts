@@ -30,7 +30,7 @@ async function resolveExamDetailHref(page: Page) {
 
   await gotoWithRuntimeRecovery(page, "/app/dashboard");
   await expect(page).toHaveURL(/\/app\/dashboard(?:\?.*)?$/);
-  await expect(page.getByText(/recommended for you/i).first()).toBeVisible();
+  await expect(page.getByText(/next best step|recommended for you/i).first()).toBeVisible();
 
   const dashboardLink = page.getByRole("link", { name: /view details/i }).first();
   await expect(dashboardLink).toBeVisible();
@@ -49,7 +49,7 @@ async function resolveAttemptRuntimeHref(page: Page) {
 
   await gotoWithRuntimeRecovery(page, "/app/dashboard");
   await expect(page).toHaveURL(/\/app\/dashboard(?:\?.*)?$/);
-  await expect(page.getByText(/action queue/i).first()).toBeVisible();
+  await expect(page.getByText(/study queue|action queue/i).first()).toBeVisible();
 
   const resumeFromDashboard = page.getByRole("link", { name: /resume attempt/i }).first();
   if (await resumeFromDashboard.isVisible().catch(() => false)) {

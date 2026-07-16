@@ -41,6 +41,12 @@ type ExamAvailabilityFilter =
   | "locked";
 type ExamSortOption = "recommended" | "start_soon" | "duration_short" | "duration_long" | "title";
 type ExamGroupOption = "none" | "availability" | "source" | "security";
+const EXAM_PAGE_SIZE_VALUES = [6, 12, 18] as const;
+
+function parsePositiveInt(value: string | undefined, fallback: number) {
+  const parsed = Number.parseInt(value ?? "", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
 
 function formatExamState(state: string) {
   switch (state) {
@@ -70,12 +76,12 @@ function actionLabel(args: {
   canUnlockWithStars: boolean;
   starCost: number;
 }) {
-  if (args.canResume) return "Resume";
-  if (args.canStart) return "Start";
-  if (args.isLocked && args.canUnlockWithStars) return `Unlock with ${args.starCost} stars`;
-  if (args.reviewAvailable && args.hasAttemptHistory) return "Open review";
-  if (args.hasAttemptHistory) return "Open summary";
-  return "View detail";
+  if (args.canResume) return "Resume Test";
+  if (args.canStart) return "Start Test";
+  if (args.isLocked && args.canUnlockWithStars) return `Unlock with ${args.starCost} Stars`;
+  if (args.reviewAvailable && args.hasAttemptHistory) return "Open Review";
+  if (args.hasAttemptHistory) return "Open Summary";
+  return "View Details";
 }
 
 function actionHref(
@@ -162,7 +168,7 @@ function examAvailabilityGuidance(exam: {
   };
 }) {
   if (exam.can_resume && exam.active_attempt) {
-    return "Your latest active attempt is still live. Re-enter and continue where you left off.";
+    return "Your latest active attempt is still live. Continue where you left off.";
   }
 
   if (exam.economy_access.subscription_resolution?.is_applicable) {
@@ -170,27 +176,27 @@ function examAvailabilityGuidance(exam: {
       return `Subscription-covered. ${exam.economy_access.subscription_resolution.remaining_allowance} of ${exam.economy_access.subscription_resolution.included_allowance} allowance attempts remain in this billing cycle.`;
     }
     if (exam.economy_access.can_unlock_with_stars) {
-      return `Subscription allowance is exhausted for this billing cycle, but this exam can still be unlocked with ${exam.economy_access.star_cost} stars.`;
+      return `Subscription allowance is exhausted, but this exam can still be unlocked with ${exam.economy_access.star_cost} stars.`;
     }
   }
 
   if (exam.economy_access.is_locked && exam.economy_access.can_unlock_with_stars) {
-    return `${exam.economy_access.star_cost} stars are required before this mock test can be started. Unlock it first, then return here to begin.`;
+    return `${exam.economy_access.star_cost} stars are required before this mock test can start.`;
   }
 
   if (exam.economy_access.is_locked) {
     return (
       exam.economy_access.lock_reason_message ||
-      "This mock test is currently locked by access policy."
+      "This mock test is currently locked."
     );
   }
 
   if (exam.can_start) {
-    return "You can start this mock test now. Starting creates a live backend attempt immediately and sends you into the timed workspace.";
+    return "This mock test is ready to start now.";
   }
 
   if (exam.review_available) {
-    return "Attempt history is available here. Open the latest attempt to see the summary or review experience that is currently allowed by policy.";
+    return "Attempt history is available here. Open the latest attempt for summary or review.";
   }
 
   if (exam.remaining_attempts === 0) {
@@ -198,14 +204,14 @@ function examAvailabilityGuidance(exam: {
   }
 
   if (exam.availability_state === "upcoming") {
-    return "This mock test is assigned, but not open yet. Check the availability window before starting.";
+    return "This mock test is assigned, but not open yet.";
   }
 
   if (exam.availability_state === "completed") {
-    return "This mock test window is closed. You can only revisit history if the backend allows it.";
+    return "This mock test window is closed. You can still open past attempt history if it is available.";
   }
 
-  return "Open the detail page to review rules, visibility policy, and your next valid action.";
+  return "Open the detail page to review availability and the next action you can take.";
 }
 
 function subscriptionAllowanceBadge(exam: StudentAvailableExam) {
@@ -217,6 +223,27 @@ function subscriptionAllowanceBadge(exam: StudentAvailableExam) {
     return `${summary.remaining_allowance}/${summary.included_allowance} allowance left`;
   }
   return "Allowance exhausted";
+}
+
+function compactExamHeadline(args: {
+  canResume: boolean;
+  canStart: boolean;
+  hasAttemptHistory: boolean;
+  reviewAvailable: boolean;
+  isLocked: boolean;
+  canUnlockWithStars: boolean;
+}) {
+  if (args.canResume) return "Resume available";
+  if (args.canStart) return "Ready to start";
+  if (args.isLocked && args.canUnlockWithStars) return "Unlock required";
+  if (args.reviewAvailable && args.hasAttemptHistory) return "Review available";
+  if (args.hasAttemptHistory) return "Summary available";
+  if (args.isLocked) return "Access controlled";
+  return "View details";
+}
+
+function detailCtaLabel() {
+  return "View Details";
 }
 
 function resolveExamAvailabilityFilter(value?: string): ExamAvailabilityFilter {
@@ -337,11 +364,15 @@ function buildExamFilterHref(args: {
   availability?: ExamAvailabilityFilter;
   sort?: ExamSortOption;
   group?: ExamGroupOption;
+  page?: number;
+  pageSize?: number;
 }) {
   return buildFilterHref("/app/exams", [
     ["exam_availability", args.availability, "all"],
     ["exam_sort", args.sort, "recommended"],
     ["exam_group", args.group, "none"],
+    ["exam_page", args.page ? String(args.page) : undefined, "1"],
+    ["exam_page_size", args.pageSize ? String(args.pageSize) : undefined, "12"],
   ]);
 }
 
@@ -450,6 +481,8 @@ export default async function ExamsPage({
     exam_availability?: string;
     exam_sort?: string;
     exam_group?: string;
+    exam_page?: string;
+    exam_page_size?: string;
   }>;
 }) {
   const {
@@ -461,6 +494,8 @@ export default async function ExamsPage({
     exam_availability,
     exam_sort,
     exam_group,
+    exam_page,
+    exam_page_size,
   } =
     await searchParams;
   const profile = await fetchCurrentAccountProfile();
@@ -500,15 +535,32 @@ export default async function ExamsPage({
     applyExamAvailabilityFilter(mockExams, availabilityFilter),
     sortOption,
   );
-  const groupedMockExams = groupExams(visibleMockExams, groupOption);
+  const pageSizeCandidate = parsePositiveInt(exam_page_size, 12);
+  const pageSize = EXAM_PAGE_SIZE_VALUES.includes(
+    pageSizeCandidate as (typeof EXAM_PAGE_SIZE_VALUES)[number],
+  )
+    ? pageSizeCandidate
+    : 12;
+  const totalExamPages = Math.max(1, Math.ceil(visibleMockExams.length / pageSize));
+  const currentPage = Math.min(parsePositiveInt(exam_page, 1), totalExamPages);
+  const pagedMockExams = visibleMockExams.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
+  const showingStart = visibleMockExams.length ? (currentPage - 1) * pageSize + 1 : 0;
+  const showingEnd = Math.min(currentPage * pageSize, visibleMockExams.length);
+  const groupedMockExams = groupExams(pagedMockExams, groupOption);
   const readyCount = visibleMockExams.filter((exam) => exam.can_start).length;
   const resumeCount = visibleMockExams.filter((exam) => exam.can_resume).length;
+  const lockedCount = visibleMockExams.filter(
+    (exam) => exam.economy_access.is_locked || exam.availability_state === "locked",
+  ).length;
   const publishedCount = visibleMockExams.filter((exam) => exam.result_published).length;
   const featuredExam =
-    visibleMockExams.find((exam) => exam.can_resume) ??
-    visibleMockExams.find((exam) => exam.can_start) ??
-    visibleMockExams.find((exam) => exam.availability_state === "upcoming") ??
-    visibleMockExams[0] ??
+    pagedMockExams.find((exam) => exam.can_resume) ??
+    pagedMockExams.find((exam) => exam.can_start) ??
+    pagedMockExams.find((exam) => exam.availability_state === "upcoming") ??
+    pagedMockExams[0] ??
     null;
   const featuredExamSubjectLabel = featuredExam
     ? getExamSubjectDisplayLabel(featuredExam)
@@ -536,8 +588,8 @@ export default async function ExamsPage({
         }
         description={
           selectedSubject === ALL_SUBJECTS_CONTEXT
-            ? "A guided mock test workspace with live availability, premium access visibility, and clear next-step actions."
-            : `A guided mock test workspace focused on ${selectedSubjectLabel}, showing only matching backend subject records.`
+            ? "Open mock tests, continue live attempts, and see the next valid action at a glance."
+            : `Open mock tests and continue live attempts for ${selectedSubjectLabel}.`
         }
         statusLabel={
           source === "live"
@@ -572,13 +624,13 @@ export default async function ExamsPage({
           }
           description={
             source === "unconfigured"
-              ? "This page only renders real exam data. Configure the API base URL and sign in with an active student account to load assigned exams from the backend."
-              : "The exam list is connected to the student availability endpoint, but the current request did not complete successfully."
+              ? "Sign in with your student account to load assigned mock tests."
+              : "We couldn't load your mock tests right now. Please try again shortly."
           }
           bullets={
             source === "unconfigured"
-              ? ["Student availability endpoint", "Active student web session"]
-              : ["Backend connectivity", "Exam availability endpoint"]
+              ? ["Student sign-in", "Assigned mock tests"]
+              : ["Connection check", "Mock test availability"]
           }
           ctaHref="/app/dashboard"
           ctaLabel="Back to Dashboard"
@@ -596,8 +648,8 @@ export default async function ExamsPage({
           }
           description={
             selectedSource === "all"
-              ? "No non-practice exams were returned for the authenticated student. You can still open Practice to keep improving between assigned mock tests."
-              : "Try switching source, teacher, or subject filters to return to the merged exam list."
+              ? "No mock tests are available right now. Practice is still available between assigned tests."
+              : "Try changing source, teacher, or subject filters."
           }
           ctaHref="/app/practice"
           ctaLabel="Open Practice"
@@ -609,67 +661,34 @@ export default async function ExamsPage({
         />
       ) : (
         <>
-          <section className="studentInsightHeroCard studentInsightHeroCardCompact">
-            <div className="studentInsightHeroCopy">
-              <span className="studentDashboardTag">Mock Test Entry</span>
-              <strong>{featuredExam?.title ?? "Mock test workspace"}</strong>
-              <p>
-                {featuredExam
-                  ? examAvailabilityGuidance(featuredExam)
-                  : "Use this workspace to move into assigned mock tests, continue active attempts, and revisit exam history when policy allows it."}
-              </p>
-              <small>
-                {featuredExam
-                  ? `${featuredExam.code} · ${examSourceDescriptor(featuredExam)}${
-                      featuredExamSubjectLabel ? ` · ${featuredExamSubjectLabel}` : ""
-                    } · ${formatExamState(featuredExam.availability_state)}`
-                  : "Live catalog connected to student availability"}
-              </small>
-            </div>
-            <div className="studentInsightHeroActions">
-              <Link className="button buttonPrimary" href="/app/exams/enter-key">
-                Enter Exam Key
-              </Link>
-              <Link className="button buttonSecondary" href="/app/dashboard">
-                Back to Dashboard
-              </Link>
-            </div>
-          </section>
-
           <StudentKpiGrid
+            className="resultsSummaryGrid studentAttemptsKpiGrid"
             items={[
               {
                 label: "Ready Now",
                 value: readyCount,
-                note: "Mock tests that can be started immediately",
+                note: "Start immediately",
                 tone: "primary",
               },
               {
                 label: "Resume Active",
                 value: resumeCount,
-                note: "Attempts still in progress and ready to continue",
+                note: "Continue live attempts",
               },
               {
-                label: "Published Results",
-                value: publishedCount,
-                note: "Mock tests with visible result records",
+                label: "Locked / Gated",
+                value: lockedCount,
+                note: `${publishedCount} results visible`,
               },
               {
                 label: "Wallet Stars",
                 value: wallet ? wallet.available_stars.toLocaleString("en-IN") : "--",
-                note: "Current premium unlock balance",
+                note: "Current unlock balance",
               },
             ]}
           />
 
-          <section className="contentCard studentWorkspaceFiltersCard">
-            <div className="sectionHeading">
-              <strong>Mock Test Controls</strong>
-              <span>
-                {visibleMockExams.length} shown
-                {visibleMockExams.length !== mockExams.length ? ` of ${mockExams.length}` : ""}
-              </span>
-            </div>
+          <section className="contentCard studentWorkspaceFiltersCard studentAttemptsFiltersCard">
             <form className="studentWorkspaceFiltersForm" method="GET">
               <label className="studentWorkspaceFilterField">
                 <span>Availability</span>
@@ -701,6 +720,16 @@ export default async function ExamsPage({
                   <option value="security">Security mode</option>
                 </select>
               </label>
+              <label className="studentWorkspaceFilterField">
+                <span>Page size</span>
+                <select defaultValue={String(pageSize)} name="exam_page_size">
+                  {EXAM_PAGE_SIZE_VALUES.map((value) => (
+                    <option key={value} value={value}>
+                      {value} per page
+                    </option>
+                  ))}
+                </select>
+              </label>
               <div className="studentWorkspaceFilterActions">
                 <button className="button buttonPrimary" type="submit">
                   Apply filters
@@ -715,49 +744,49 @@ export default async function ExamsPage({
               <div className="studentWorkspaceFilterQuickChips">
                 <Link
                   className={`studentWorkspaceQuickChip ${availabilityFilter === "all" ? "studentWorkspaceQuickChipActive" : ""}`}
-                  href={buildExamFilterHref({ sort: sortOption, group: groupOption })}
+                  href={buildExamFilterHref({ sort: sortOption, group: groupOption, pageSize })}
                   prefetch={false}
                 >
                   All
                 </Link>
                 <Link
                   className={`studentWorkspaceQuickChip ${availabilityFilter === "ready" ? "studentWorkspaceQuickChipActive" : ""}`}
-                  href={buildExamFilterHref({ availability: "ready", sort: sortOption, group: groupOption })}
+                  href={buildExamFilterHref({ availability: "ready", sort: sortOption, group: groupOption, pageSize })}
                   prefetch={false}
                 >
                   Ready Now
                 </Link>
                 <Link
                   className={`studentWorkspaceQuickChip ${availabilityFilter === "resume" ? "studentWorkspaceQuickChipActive" : ""}`}
-                  href={buildExamFilterHref({ availability: "resume", sort: sortOption, group: groupOption })}
+                  href={buildExamFilterHref({ availability: "resume", sort: sortOption, group: groupOption, pageSize })}
                   prefetch={false}
                 >
                   Resume
                 </Link>
                 <Link
                   className={`studentWorkspaceQuickChip ${availabilityFilter === "locked" ? "studentWorkspaceQuickChipActive" : ""}`}
-                  href={buildExamFilterHref({ availability: "locked", sort: sortOption, group: groupOption })}
+                  href={buildExamFilterHref({ availability: "locked", sort: sortOption, group: groupOption, pageSize })}
                   prefetch={false}
                 >
                   Locked
                 </Link>
                 <Link
                   className={`studentWorkspaceQuickChip ${sortOption === "start_soon" ? "studentWorkspaceQuickChipActive" : ""}`}
-                  href={buildExamFilterHref({ availability: availabilityFilter, sort: "start_soon", group: groupOption })}
+                  href={buildExamFilterHref({ availability: availabilityFilter, sort: "start_soon", group: groupOption, pageSize })}
                   prefetch={false}
                 >
                   Starts Soon
                 </Link>
                 <Link
                   className={`studentWorkspaceQuickChip ${sortOption === "duration_short" ? "studentWorkspaceQuickChipActive" : ""}`}
-                  href={buildExamFilterHref({ availability: availabilityFilter, sort: "duration_short", group: groupOption })}
+                  href={buildExamFilterHref({ availability: availabilityFilter, sort: "duration_short", group: groupOption, pageSize })}
                   prefetch={false}
                 >
                   Shortest
                 </Link>
                 <Link
                   className={`studentWorkspaceQuickChip ${groupOption === "availability" ? "studentWorkspaceQuickChipActive" : ""}`}
-                  href={buildExamFilterHref({ availability: availabilityFilter, sort: sortOption, group: "availability" })}
+                  href={buildExamFilterHref({ availability: availabilityFilter, sort: sortOption, group: "availability", pageSize })}
                   prefetch={false}
                 >
                   Group by Availability
@@ -770,15 +799,54 @@ export default async function ExamsPage({
                 { label: "Availability", value: formatFilterValue(availabilityFilter) },
                 { label: "Sort", value: formatFilterValue(sortOption) },
                 { label: "Group", value: formatFilterValue(groupOption) },
+                { label: "Page size", value: pageSize !== 12 ? String(pageSize) : null },
               ]}
             />
+          </section>
+
+          <section className="studentAttemptsQuickBar">
+            {[
+              {
+                label: "All",
+                count: visibleMockExams.length,
+                href: buildExamFilterHref({ sort: sortOption, group: groupOption, pageSize }),
+                active: availabilityFilter === "all",
+              },
+              {
+                label: "Ready Now",
+                count: readyCount,
+                href: buildExamFilterHref({ availability: "ready", sort: sortOption, group: groupOption, pageSize }),
+                active: availabilityFilter === "ready",
+              },
+              {
+                label: "Resume",
+                count: resumeCount,
+                href: buildExamFilterHref({ availability: "resume", sort: sortOption, group: groupOption, pageSize }),
+                active: availabilityFilter === "resume",
+              },
+              {
+                label: "Locked",
+                count: lockedCount,
+                href: buildExamFilterHref({ availability: "locked", sort: sortOption, group: groupOption, pageSize }),
+                active: availabilityFilter === "locked",
+              },
+            ].map((tab) => (
+              <Link
+                key={tab.label}
+                className={`studentAttemptsQuickTab${tab.active ? " studentAttemptsQuickTabActive" : ""}`}
+                href={tab.href}
+              >
+                <span>{tab.label}</span>
+                <strong>{tab.count}</strong>
+              </Link>
+            ))}
           </section>
 
           {visibleMockExams.length === 0 ? (
             <StudentStatePanel
               eyebrow="No matching mock tests"
               title="No mock tests match these controls"
-              description="Broaden the availability filter, change the grouping, or reset the controls to return to the full mock-test list."
+              description="Broaden the filters or reset the controls to return to the full mock-test list."
               ctaHref="/app/exams"
               ctaLabel="Reset mock-test filters"
               statusLabel="Filter returned zero mock tests"
@@ -786,71 +854,78 @@ export default async function ExamsPage({
           ) : null}
 
           {featuredExam ? (
-            <section className="studentInsightsTwoColumn">
-              <article className="contentCard">
-                <div className="sectionHeading">
-                  <strong>Featured Mock Test</strong>
-                  <StatusPill tone={examStateTone(featuredExam.availability_state)}>
-                    {formatExamState(featuredExam.availability_state)}
-                  </StatusPill>
+            <section className="studentResultsGroupedSection">
+              <div className="sectionHeading">
+                <strong>Recommended Test</strong>
+                <span>
+                  {featuredExam.code}
+                  {featuredExamSubjectLabel ? ` · ${featuredExamSubjectLabel}` : ""}
+                </span>
+              </div>
+              <article className="contentCard studentExamCompactCard">
+                <div className="studentAttemptsCardHead">
+                  <div className="studentAttemptsCardTitle">
+                    <strong>{featuredExam.title}</strong>
+                    <span className="studentAttemptsCardMeta">
+                      {featuredExam.code}
+                      {featuredExamSubjectLabel ? ` · ${featuredExamSubjectLabel}` : ""}
+                    </span>
+                  </div>
+                  <div className="studentAttemptsCardStatus">
+                    <StatusPill tone={examStateTone(featuredExam.availability_state)}>
+                      {formatExamState(featuredExam.availability_state)}
+                    </StatusPill>
+                  </div>
                 </div>
 
-                <div className="studentResultStatGrid">
-                  <div className="studentResultStat">
-                    <span>Exam code</span>
-                    <strong>{featuredExam.code}</strong>
-                  </div>
-                  <div className="studentResultStat">
+                <div className="studentAttemptsCardSourceRow">
+                  <span>
+                    {examSourceDescriptor(featuredExam)} · {securityModeLabel(featuredExam)}
+                  </span>
+                </div>
+
+                <div className="studentExamMetrics">
+                  <div className="studentAttemptsMetric">
                     <span>Duration</span>
-                    <strong>{featuredExam.duration_minutes} min</strong>
+                    <strong>{featuredExam.duration_minutes}m</strong>
                   </div>
-                  <div className="studentResultStat">
-                    <span>Attempts left</span>
+                  <div className="studentAttemptsMetric">
+                    <span>Attempts</span>
                     <strong>{featuredExam.remaining_attempts}</strong>
                   </div>
-                  <div className="studentResultStat">
-                    <span>Security</span>
-                    <strong>{securityModeLabel(featuredExam)}</strong>
+                  <div className="studentAttemptsMetric">
+                    <span>Marks</span>
+                    <strong>{featuredExam.total_marks}</strong>
                   </div>
-                  <div className="studentResultStat">
-                    <span>Allowance</span>
-                    <strong>{subscriptionAllowanceBadge(featuredExam) ?? "Not managed here"}</strong>
+                  <div className="studentAttemptsMetric">
+                    <span>Access</span>
+                    <strong>{subscriptionAllowanceBadge(featuredExam) ?? "Open"}</strong>
                   </div>
                 </div>
 
-                <div className="studentInsightHeroActions">
-                  <StatusPill tone="default">{examSourceDescriptor(featuredExam)}</StatusPill>
-                  {featuredExamSubjectLabel ? (
-                    <StatusPill tone="demo">{featuredExamSubjectLabel}</StatusPill>
-                  ) : null}
-                  {subscriptionAllowanceBadge(featuredExam) ? (
-                    <StatusPill
-                      tone={
-                        featuredExam.economy_access.subscription_resolution?.is_covered ? "live" : "warning"
-                      }
-                    >
-                      {subscriptionAllowanceBadge(featuredExam)}
-                    </StatusPill>
-                  ) : null}
-                </div>
-
-                <div className="studentResultFooter">
-                  <div className="studentResultHelper">
-                    <span>Next action</span>
-                    <strong>
-                    {actionLabel({
+                <div className="studentAttemptsNotice">
+                  <strong>
+                    {compactExamHeadline({
                       canResume: featuredExam.can_resume,
                       canStart: featuredExam.can_start,
                       hasAttemptHistory: attempts.some((attempt) => attempt.exam === featuredExam.id),
                       reviewAvailable: featuredExam.review_available,
                       isLocked: featuredExam.economy_access.is_locked,
                       canUnlockWithStars: featuredExam.economy_access.can_unlock_with_stars,
-                      starCost: featuredExam.economy_access.star_cost,
                     })}
-                    </strong>
-                    <small>{examAvailabilityGuidance(featuredExam)}</small>
+                  </strong>
+                  <span>{examAvailabilityGuidance(featuredExam)}</span>
+                </div>
+
+                <div className="studentAttemptsFooter">
+                  <div className="studentAttemptsUpdateRow">
+                    <span>
+                      {featuredExam.start_at
+                        ? `Starts ${studentDateTimeLabel(featuredExam.start_at)}`
+                        : "Check details for timing, history, and access rules."}
+                    </span>
                   </div>
-                  <div className="studentInsightHeroActions">
+                  <div className="studentAttemptsActions studentExamActions">
                     {featuredExam.economy_access.is_locked && featuredExam.economy_access.can_unlock_with_stars ? (
                       <>
                         <form action={unlockExamAction}>
@@ -891,34 +966,16 @@ export default async function ExamsPage({
                       </Link>
                     )}
                     <Link className="button buttonSecondary" href={`/app/exams/${featuredExam.id}`}>
-                      View Full Detail
+                      {detailCtaLabel()}
                     </Link>
                   </div>
-                </div>
-              </article>
-
-              <article className="contentCard">
-                <div className="sectionHeading">
-                  <strong>What to expect</strong>
-                  <span>Student flow</span>
-                </div>
-                <div className="studentInsightMessageStack">
-                  <div className="studentInsightMessage">
-                    <span className="placeholderDot" aria-hidden="true" />
-                    <p>Open rules before starting so attempts left, review policy, and visibility are clear.</p>
-                  </div>
-                  <div className="studentInsightMessage">
-                    <span className="placeholderDot" aria-hidden="true" />
-                    <p>Resume always takes priority over starting fresh when the backend already has a live attempt.</p>
-                  </div>
-                  <div className="studentInsightMessage">
-                    <span className="placeholderDot" aria-hidden="true" />
-                    <p>After submission, summary, result visibility, and answer review still depend on backend lifecycle rules.</p>
-                  </div>
-                  <div className="studentInsightMessage">
-                    <span className="placeholderDot" aria-hidden="true" />
-                    <p>If a mock test is premium, the screen will show whether stars can unlock it immediately or whether another access rule is in place.</p>
-                  </div>
+                  {featuredExam.access_key_enabled ? (
+                    <div className="studentExamUtilityLinkRow">
+                      <Link className="studentDashboardTextLink" href="/app/exams/enter-key">
+                        Use Exam Key
+                      </Link>
+                    </div>
+                  ) : null}
                 </div>
               </article>
             </section>
@@ -954,100 +1011,68 @@ export default async function ExamsPage({
               );
 
               return (
-                <article className="contentCard studentResultSurface" key={exam.id}>
-                  <div className="studentResultSurfaceHead">
-                    <div>
+                <article className="contentCard studentExamCompactCard" key={exam.id}>
+                  <div className="studentAttemptsCardHead">
+                    <div className="studentAttemptsCardTitle">
                       <strong>{exam.title}</strong>
-                      <span>
+                      <span className="studentAttemptsCardMeta">
                         {exam.code} · {examSourceDescriptor(exam)}
                         {examSubjectLabel ? ` · ${examSubjectLabel}` : ""}
                       </span>
                     </div>
-                    <StatusPill tone={examStateTone(exam.availability_state)}>
-                      {formatExamState(exam.availability_state)}
-                    </StatusPill>
+                    <div className="studentAttemptsCardStatus">
+                      <StatusPill tone={examStateTone(exam.availability_state)}>
+                        {formatExamState(exam.availability_state)}
+                      </StatusPill>
+                    </div>
                   </div>
 
-                  <div className="studentResultStatGrid">
-                    <div className="studentResultStat">
+                  <div className="studentAttemptsCardSourceRow">
+                    <span>{securityModeLabel(exam)}</span>
+                  </div>
+
+                  <div className="studentExamMetrics">
+                    <div className="studentAttemptsMetric">
                       <span>Duration</span>
-                      <strong>{exam.duration_minutes} min</strong>
+                      <strong>{exam.duration_minutes}m</strong>
                     </div>
-                    <div className="studentResultStat">
-                      <span>Attempts left</span>
+                    <div className="studentAttemptsMetric">
+                      <span>Attempts</span>
                       <strong>{exam.remaining_attempts}</strong>
                     </div>
-                    <div className="studentResultStat">
-                      <span>Total marks</span>
+                    <div className="studentAttemptsMetric">
+                      <span>Marks</span>
                       <strong>{exam.total_marks}</strong>
                     </div>
-                    <div className="studentResultStat">
-                      <span>Passing marks</span>
+                    <div className="studentAttemptsMetric">
+                      <span>Passing</span>
                       <strong>{exam.passing_marks}</strong>
                     </div>
                   </div>
 
-                  <div className="studentInsightHeroActions">
-                    <StatusPill tone="default">{exam.source_label}</StatusPill>
-                    {exam.source_type === "teacher" && exam.source_teacher_name ? (
-                      <StatusPill tone="demo">{exam.source_teacher_name}</StatusPill>
-                    ) : null}
-                    <StatusPill tone={exam.result_published ? "live" : "demo"}>
-                      {exam.result_published ? "Result visible" : "Result pending"}
-                    </StatusPill>
-                    {exam.economy_access.requires_unlock ? (
-                      <StatusPill tone={exam.economy_access.is_unlocked ? "live" : "warning"}>
-                        {exam.economy_access.is_unlocked
-                          ? "Unlocked"
-                          : exam.economy_access.can_unlock_with_stars
-                            ? `${exam.economy_access.star_cost} stars`
-                            : "Access controlled"}
-                      </StatusPill>
-                    ) : null}
-                    {subscriptionAllowanceBadge(exam) ? (
-                      <StatusPill
-                        tone={
-                          exam.economy_access.subscription_resolution?.is_covered ? "live" : "warning"
-                        }
-                      >
-                        {subscriptionAllowanceBadge(exam)}
-                      </StatusPill>
-                    ) : null}
-                    <StatusPill tone={exam.review_available ? "live" : "warning"}>
-                      {exam.review_available ? "Review available" : "Review locked"}
-                    </StatusPill>
-                    <StatusPill
-                      tone={
-                        exam.security_mode === "normal"
-                          ? "default"
-                          : exam.security_mode === "focus"
-                            ? "warning"
-                            : "danger"
-                      }
-                    >
-                      {securityModeLabel(exam)}
-                    </StatusPill>
+                  <div className="studentAttemptsNotice">
+                    <strong>
+                      {compactExamHeadline({
+                        canResume: exam.can_resume,
+                        canStart: exam.can_start,
+                        hasAttemptHistory: Boolean(latestAttempt),
+                        reviewAvailable: exam.review_available,
+                        isLocked: exam.economy_access.is_locked,
+                        canUnlockWithStars: exam.economy_access.can_unlock_with_stars,
+                      })}
+                    </strong>
+                    <span>{examAvailabilityGuidance(exam)}</span>
                   </div>
 
-                  <div className="studentResultFooter">
-                    <div className="studentResultHelper">
-                      <span>Next step</span>
-                      <strong>{primaryLabel}</strong>
-                      <small>
-                        {exam.economy_access.subscription_resolution?.is_applicable
-                          ? exam.economy_access.subscription_resolution.is_covered
-                            ? `Uses subscription allowance on a fresh start · ${securityModeLabel(exam)}`
-                            : exam.economy_access.can_unlock_with_stars
-                              ? `Subscription allowance exhausted · fallback to ${exam.economy_access.star_cost} stars · ${securityModeLabel(exam)}`
-                              : `${exam.economy_access.subscription_resolution.reason_message || "Subscription allowance exhausted"} · ${securityModeLabel(exam)}`
-                          : exam.economy_access.is_locked && exam.economy_access.can_unlock_with_stars
-                          ? `Needs ${exam.economy_access.star_cost} stars before start · ${securityModeLabel(exam)}`
-                          : exam.start_at
-                            ? `Starts ${studentDateTimeLabel(exam.start_at)} · ${securityModeLabel(exam)}`
-                            : `Window controlled by backend runtime policy · ${securityModeLabel(exam)}`}
-                      </small>
+                  <div className="studentAttemptsFooter">
+                    <div className="studentAttemptsUpdateRow">
+                      <span>
+                        {exam.start_at
+                          ? `Starts ${studentDateTimeLabel(exam.start_at)}`
+                          : "Availability follows the current policy."}
+                      </span>
                     </div>
-                    <div className="studentInsightHeroActions">
+                    <div className="studentAttemptsActions studentExamActions">
                       {exam.economy_access.is_locked && exam.economy_access.can_unlock_with_stars ? (
                         <>
                           <form action={unlockExamAction}>
@@ -1073,17 +1098,17 @@ export default async function ExamsPage({
                               pendingLabel="Unlocking..."
                             />
                           </form>
-                          <Link className="button buttonGhost" href="/app/wallet">
+                          <Link className="button buttonSecondary" href="/app/wallet">
                             Open Wallet
                           </Link>
                         </>
                       ) : (
-                        <Link className="button buttonSecondary" href={primaryHref}>
+                        <Link className="button buttonPrimary" href={primaryHref}>
                           {primaryLabel}
                         </Link>
                       )}
-                      <Link className="button buttonGhost" href={`/app/exams/${exam.id}`}>
-                        Detail
+                      <Link className="button buttonSecondary" href={`/app/exams/${exam.id}`}>
+                        {detailCtaLabel()}
                       </Link>
                     </div>
                   </div>
@@ -1093,6 +1118,41 @@ export default async function ExamsPage({
               </div>
             </section>
           )) : null}
+
+          {visibleMockExams.length > 0 ? (
+            <section className="contentCard studentCatalogPaginationCard">
+              <div className="studentCatalogPaginationSummary">
+                <span>{`Page ${currentPage} of ${totalExamPages}`}</span>
+                <strong>{`Showing ${showingStart}-${showingEnd} of ${visibleMockExams.length} mock tests`}</strong>
+              </div>
+              <div className="studentCatalogPaginationActions">
+                <Link
+                  className="button buttonSecondary"
+                  href={buildExamFilterHref({
+                    availability: availabilityFilter,
+                    sort: sortOption,
+                    group: groupOption,
+                    page: Math.max(1, currentPage - 1),
+                    pageSize,
+                  })}
+                >
+                  Previous page
+                </Link>
+                <Link
+                  className="button buttonPrimary"
+                  href={buildExamFilterHref({
+                    availability: availabilityFilter,
+                    sort: sortOption,
+                    group: groupOption,
+                    page: Math.min(totalExamPages, currentPage + 1),
+                    pageSize,
+                  })}
+                >
+                  Next page
+                </Link>
+              </div>
+            </section>
+          ) : null}
         </>
       )}
     </div>

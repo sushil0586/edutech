@@ -102,7 +102,7 @@ test.describe("Student analytics scope persistence workspace", () => {
     expectSearchParam(landedTimelineUrl, "teacher", expectedTeacher);
     await expect(page.getByRole("heading", { name: /momentum over time/i }).first()).toBeVisible();
 
-    const actionCenterLink = page.getByRole("link", { name: /open action center/i }).first();
+    const actionCenterLink = page.getByRole("link", { name: /open action center|action center/i }).first();
     await expect(actionCenterLink).toBeVisible();
     const actionHref = await actionCenterLink.getAttribute("href");
     expect(actionHref).not.toBeNull();
@@ -140,7 +140,7 @@ test.describe("Student analytics scope persistence workspace", () => {
       const landedSubjectUrl = new URL(page.url());
       expectSearchParam(landedSubjectUrl, "source", expectedSource);
       expectSearchParam(landedSubjectUrl, "teacher", expectedTeacher);
-      const subjectActionCenterLink = page.getByRole("link", { name: /open action center/i }).first();
+      const subjectActionCenterLink = page.getByRole("link", { name: /open action center|action center/i }).first();
       await expect(subjectActionCenterLink).toBeVisible();
       const subjectActionHref = await subjectActionCenterLink.getAttribute("href");
       expect(subjectActionHref).not.toBeNull();

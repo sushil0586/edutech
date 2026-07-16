@@ -23,7 +23,7 @@ async function gotoWithRetry(page: Page, url: string, attempts = 3) {
 async function expectStudentAnalyticsHome(page: Page) {
   await expect(page).toHaveURL(/\/app\/analytics(?:\?.*)?$/);
   await expect(page.getByRole("heading", { name: /analytics/i }).first()).toBeVisible();
-  await expect(page.getByRole("link", { name: /open action center/i }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: /open action center|action center/i }).first()).toBeVisible();
   await expect(page.getByRole("link", { name: /open weak areas/i }).first()).toBeVisible();
 }
 
@@ -96,7 +96,7 @@ test.describe("Student analytics deep drills", () => {
       expect(subjectHref).not.toBeNull();
       await subjectDrillLink.click();
       await expect(page).toHaveURL(/\/app\/analytics\/subjects\/[^/?#]+(?:\?.*)?$/);
-      await expect(page.getByRole("link", { name: /open action center/i }).first()).toBeVisible();
+      await expect(page.getByRole("link", { name: /open action center|action center/i }).first()).toBeVisible();
       const practiceSubjectLink = page.getByRole("link", { name: /practice /i }).first();
       await expect(practiceSubjectLink).toBeVisible();
       const practiceHref = await practiceSubjectLink.getAttribute("href");
@@ -105,7 +105,7 @@ test.describe("Student analytics deep drills", () => {
       await expectStudentAnalyticsHome(page);
     }
 
-    await page.getByRole("link", { name: /open action center/i }).first().click();
+    await page.getByRole("link", { name: /open action center|action center/i }).first().click();
     await expect(page).toHaveURL(/\/app\/analytics\/actions(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /next best moves/i }).first()).toBeVisible();
 
@@ -115,7 +115,7 @@ test.describe("Student analytics deep drills", () => {
     await expect(page).toHaveURL(/\/app\/analytics\/timeline(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /momentum over time/i }).first()).toBeVisible();
 
-    await expect(page.getByRole("link", { name: /open action center/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /open action center|action center/i }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /open results/i }).first()).toBeVisible();
 
     await page.getByRole("link", { name: /open results/i }).first().click();

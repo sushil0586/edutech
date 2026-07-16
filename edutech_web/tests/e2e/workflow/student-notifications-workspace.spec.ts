@@ -76,9 +76,9 @@ test.describe("Student notifications workspace", () => {
     await expect(page.getByText(/inbox overview/i).first()).toBeVisible();
     await expect(page.getByText(/how to use this inbox/i).first()).toBeVisible();
     await expect(page.getByText(/best next checks/i).first()).toBeVisible();
-    await expect(page.getByText(/truthful notification flow/i).first()).toBeVisible();
-    await expect(page.getByText(/a strong sequence is: open the linked learner route/i).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /check result status/i }).first()).toBeVisible();
+    await expect(page.getByText(/signal first/i).first()).toBeVisible();
+    await expect(page.getByText(/open attempts for active work and results when you expect a score or review release/i).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /open results/i }).first()).toBeVisible();
 
     const filtersCard = page.locator("section.studentNotificationFiltersCard").first();
     await expect(filtersCard).toBeVisible();

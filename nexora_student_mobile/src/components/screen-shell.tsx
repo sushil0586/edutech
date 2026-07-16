@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { ScrollView, View } from "react-native";
+import { KeyboardAvoidingView, Platform, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { appStyles } from "@/theme/styles";
 
@@ -18,7 +18,13 @@ export function ScreenShell({
           <View style={appStyles.backgroundOrbMiddle} />
           <View style={appStyles.backgroundOrbBottom} />
         </View>
-        <View style={[appStyles.scrollContent, { flex: 1 }]}>{children}</View>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 12 : 0}
+          style={{ flex: 1 }}
+        >
+          <View style={[appStyles.scrollContent, { flex: 1 }]}>{children}</View>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     );
   }
@@ -30,7 +36,20 @@ export function ScreenShell({
         <View style={appStyles.backgroundOrbMiddle} />
         <View style={appStyles.backgroundOrbBottom} />
       </View>
-      <ScrollView contentContainerStyle={appStyles.scrollContent}>{children}</ScrollView>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 12 : 0}
+        style={{ flex: 1 }}
+      >
+        <ScrollView
+          contentContainerStyle={appStyles.scrollContent}
+          contentInsetAdjustmentBehavior="automatic"
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {children}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

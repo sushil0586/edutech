@@ -218,7 +218,7 @@ export default async function TeacherDashboardPage({
     <div className="studentPage studentDashboardModern teacherConsolePage teacherDashboardPageVivid">
       <TeacherPageHeader
         title="Delivery Dashboard"
-        description="Track the current exam pipeline, student attempt activity, and weak learning signals from your scoped backend data."
+        description="Track learner attempts, delivery movement, and weak-topic signals from one teacher view."
         statusLabel={
           source === "live"
             ? `${summary?.overview.tracked_exams ?? 0} exams in scope`
@@ -240,22 +240,22 @@ export default async function TeacherDashboardPage({
           eyebrow={source === "unconfigured" ? "Setup required" : "Load issue"}
           title={
             source === "unconfigured"
-              ? "Waiting for teacher insights"
+              ? "Teacher insights are not available yet"
               : "Teacher workspace could not be loaded"
           }
           description={
             source === "unconfigured"
-              ? "Configure the API base URL and sign in with an active teacher account to load exam delivery and analytics data."
-              : "The teacher dashboard depends on live exam and insight endpoints, and the current request did not complete successfully."
+              ? "Sign in with your teacher account to load the dashboard."
+              : "We couldn't load the teacher dashboard right now."
           }
           bullets={
             source === "unconfigured"
-              ? ["Teacher insights summary endpoint", "Teacher exams endpoint"]
-              : ["Backend connectivity", "Teacher-scoped exam endpoints"]
+              ? ["Teacher sign-in", "Insights summary", "Exam activity"]
+              : ["Teacher dashboard", "Exam activity"]
           }
           ctaHref="/login"
           ctaLabel="Back to Login"
-          statusLabel={source === "unconfigured" ? "Configuration required" : "Retry after backend check"}
+          statusLabel={source === "unconfigured" ? "Sign in to continue" : "Try again soon"}
         />
       ) : (
         <>
@@ -264,8 +264,7 @@ export default async function TeacherDashboardPage({
               <span className="studentDashboardTag">Teaching Overview</span>
               <strong>Keep delivery, outcomes, and intervention signals in one workspace</strong>
               <p>
-                This dashboard stays connected to your teacher-scoped backend data so exam movement,
-                weak learning patterns, and performance trends remain visible without switching tools.
+                Review the current exam pipeline, weak learning signals, and learner performance without switching routes.
               </p>
               <small>
                 {summary.overview.tracked_exams} tracked exams · {summary.overview.total_attempts} learner attempts · {summary.overview.pending_review_tasks} review tasks waiting
@@ -313,7 +312,7 @@ export default async function TeacherDashboardPage({
               <span>Pending Reviews</span>
               <strong>{summary.review_summary.pending_tasks}</strong>
               <small>
-                {summary.review_summary.blocked_exams} blocked exam(s) · {summary.review_summary.recheck_requested_tasks} recheck task(s) are back in the queue
+                {summary.review_summary.blocked_exams} blocked exam(s) · {summary.review_summary.recheck_requested_tasks} recheck task(s)
               </small>
             </article>
 

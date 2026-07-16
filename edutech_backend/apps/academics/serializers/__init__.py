@@ -183,6 +183,16 @@ class SubjectSerializer(serializers.ModelSerializer):
 
 
 class SubjectListSerializer(serializers.ModelSerializer):
+    active_question_count = serializers.IntegerField(read_only=True)
+    difficulty_inventory = serializers.SerializerMethodField()
+
+    def get_difficulty_inventory(self, obj):
+        return {
+            "foundation": int(getattr(obj, "foundation_question_count", 0) or 0),
+            "intermediate": int(getattr(obj, "intermediate_question_count", 0) or 0),
+            "advanced": int(getattr(obj, "advanced_question_count", 0) or 0),
+        }
+
     class Meta:
         model = Subject
         fields = (
@@ -193,6 +203,8 @@ class SubjectListSerializer(serializers.ModelSerializer):
             "code",
             "description",
             "sort_order",
+            "active_question_count",
+            "difficulty_inventory",
             "is_active",
         )
         read_only_fields = fields
@@ -205,6 +217,16 @@ class TopicSerializer(serializers.ModelSerializer):
 
 
 class TopicListSerializer(serializers.ModelSerializer):
+    active_question_count = serializers.IntegerField(read_only=True)
+    difficulty_inventory = serializers.SerializerMethodField()
+
+    def get_difficulty_inventory(self, obj):
+        return {
+            "foundation": int(getattr(obj, "foundation_question_count", 0) or 0),
+            "intermediate": int(getattr(obj, "intermediate_question_count", 0) or 0),
+            "advanced": int(getattr(obj, "advanced_question_count", 0) or 0),
+        }
+
     class Meta:
         model = Topic
         fields = (
@@ -216,6 +238,8 @@ class TopicListSerializer(serializers.ModelSerializer):
             "code",
             "difficulty_level",
             "sort_order",
+            "active_question_count",
+            "difficulty_inventory",
             "is_active",
         )
         read_only_fields = fields

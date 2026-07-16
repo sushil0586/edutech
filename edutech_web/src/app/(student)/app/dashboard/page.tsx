@@ -163,8 +163,8 @@ function dashboardActionForExam(
 ) {
   if (!exam) {
     return {
-      title: "Your next recommended test will appear here",
-      reason: "As backend attempt and result data grows, the dashboard will prioritize the best next academic action.",
+      title: "Your next study step will appear here",
+      reason: "As soon as tests, results, and practice signals are available, this dashboard will highlight the best next move.",
       primaryHref: "/app/exams",
       primaryLabel: "Browse Tests",
       secondaryHref: "/app/practice",
@@ -176,7 +176,7 @@ function dashboardActionForExam(
     const subjectLabel = dashboardExamSubjectLabel(exam);
     return {
       title: exam.title,
-      reason: `You already have an active ${examSourceDescriptor(exam)} ${subjectLabel} attempt in progress.`,
+      reason: `You already started this ${examSourceDescriptor(exam)} ${subjectLabel} test, so the next best move is to continue it.`,
       primaryHref: `/app/attempts/${exam.active_attempt.id}`,
       primaryLabel: "Resume Test",
       secondaryHref: `/app/exams/${exam.id}`,
@@ -188,7 +188,7 @@ function dashboardActionForExam(
     const subjectLabel = dashboardExamSubjectLabel(exam);
     return {
       title: exam.title,
-      reason: `A ${examSourceDescriptor(exam)} ${subjectLabel} test is ready right now, so you can start immediately from this dashboard.`,
+      reason: `This ${examSourceDescriptor(exam)} ${subjectLabel} test is ready to start now.`,
       primaryHref: `/app/exams/${exam.id}`,
       primaryLabel: "Start Test",
       secondaryHref: "/app/exams",
@@ -200,7 +200,7 @@ function dashboardActionForExam(
     const subjectLabel = dashboardExamSubjectLabel(exam);
     return {
       title: exam.title,
-      reason: `This ${examSourceDescriptor(exam)} ${subjectLabel} test needs ${exam.economy_access.star_cost} stars before it can be started.`,
+      reason: `This ${examSourceDescriptor(exam)} ${subjectLabel} test can be unlocked with ${exam.economy_access.star_cost} stars.`,
       primaryHref: `/app/exams/${exam.id}`,
       primaryLabel: "Review Unlock",
       secondaryHref: "/app/wallet",
@@ -209,8 +209,8 @@ function dashboardActionForExam(
   }
 
   return {
-    title: exam.title,
-    reason: `This ${examSourceDescriptor(exam)} ${dashboardExamSubjectLabel(exam)} test is currently ${friendlyAvailabilityLabel(exam.availability_state)}.`,
+      title: exam.title,
+      reason: `This ${examSourceDescriptor(exam)} ${dashboardExamSubjectLabel(exam)} test is currently ${friendlyAvailabilityLabel(exam.availability_state)}.`,
     primaryHref: `/app/exams/${exam.id}`,
     primaryLabel: "View Details",
     secondaryHref: "/app/exams",
@@ -302,32 +302,28 @@ function buildDashboardActionQueue(args: {
   if (activeAttempt) {
     items.push({
       key: "resume-attempt",
-      eyebrow: "Do now",
+      eyebrow: "Live now",
       title: activeAttempt.exam_title,
-      description:
-        "You already have an active attempt. Returning there is the most direct next move because the backend is still tracking the live session.",
+      description: "You already have a live attempt in progress. Continue it before starting something new.",
       href: `/app/attempts/${activeAttempt.id}`,
       label: "Resume Attempt",
       tone: "warning",
       meta: activeAttempt.section_runtime.current_section_name || "Active attempt in progress",
-      nextStep:
-        "After you finish or save more progress, come back to attempts history or results to track what unlocks next.",
+      nextStep: "After you submit, come back here for results, review, or practice follow-up.",
       secondaryHref: "/app/attempts",
       secondaryLabel: "Open Attempt Timeline",
     });
   } else if (latestSubmittedAttempt) {
     items.push({
       key: "check-attempt-status",
-      eyebrow: "Check status",
+      eyebrow: "Submitted",
       title: latestSubmittedAttempt.exam_title,
-      description:
-        "Your latest submission may still be moving through result publication or review rules. Open the summary first to see the real learner-visible state.",
+      description: "Your latest test is submitted. Open the summary to check whether results or review are ready yet.",
       href: `/app/attempts/${latestSubmittedAttempt.id}/summary`,
       label: "Check Attempt Status",
       tone: "demo",
       meta: `Submitted attempt · Updated ${studentDateTimeLabel(latestSubmittedAttempt.updated_at)}`,
-      nextStep:
-        "If the summary still shows evaluation pending, check results later. If review opens, continue from the summary into answer review.",
+      nextStep: "If evaluation is still pending, check again later. If review opens, continue into answer review.",
       secondaryHref: "/app/results",
       secondaryLabel: "Open Results",
     });
@@ -338,18 +334,18 @@ function buildDashboardActionQueue(args: {
       eyebrow: args.recommendedExam.can_start ? "Ready now" : "Recommended",
       title: args.recommendedExam.title,
       description: args.recommendedExam.can_start
-        ? `This ${examSourceDescriptor(args.recommendedExam)} ${subjectLabel} test is available immediately, so it is the strongest next action from the dashboard.`
-        : `This ${examSourceDescriptor(args.recommendedExam)} ${subjectLabel} test is the best available follow-up in the current student scope.`,
+        ? `This ${examSourceDescriptor(args.recommendedExam)} ${subjectLabel} test is ready right now.`
+        : `This ${examSourceDescriptor(args.recommendedExam)} ${subjectLabel} test is the best next option in your current scope.`,
       href: args.recommendedExam.can_resume && args.recommendedExam.active_attempt?.id
         ? `/app/attempts/${args.recommendedExam.active_attempt.id}`
         : `/app/exams/${args.recommendedExam.id}`,
-      label: args.recommendedExam.can_resume ? "Resume Test" : args.recommendedExam.can_start ? "Start Test" : "Open Test Detail",
+      label: args.recommendedExam.can_resume ? "Resume Test" : args.recommendedExam.can_start ? "Start Test" : "View Details",
       tone: args.recommendedExam.can_start ? "live" : "default",
       meta: `${subjectLabel} · ${args.recommendedExam.duration_minutes} min`,
       nextStep:
         args.recommendedExam.can_start || args.recommendedExam.can_resume
-          ? "Once this test is complete, return here for result, review, and focused practice follow-ups."
-          : "Open the detail page first, confirm readiness, then decide whether to start now or keep it for later.",
+          ? "After this test, return for results, review, and focused practice suggestions."
+          : "Open the details first, confirm the timing, and decide whether to start now or later.",
       secondaryHref: "/app/exams",
       secondaryLabel: "View All Tests",
     });
@@ -359,18 +355,17 @@ function buildDashboardActionQueue(args: {
     const latestResultSubjectLabel = dashboardExamSubjectLabel(latestResult);
     items.push({
       key: "open-latest-result",
-      eyebrow: "Review result",
+      eyebrow: "Result ready",
       title: latestResult.exam_title,
-      description:
-        "Your latest published result is ready. Use it to confirm score visibility, then decide whether to review answers or move into another practice pass.",
+      description: "Your latest published result is ready. Check your score, then decide whether to review answers or practice next.",
       href: "/app/results",
       label: "Open Results",
       tone: latestResult.result_status === "fail" ? "warning" : "live",
       meta: `${percentageLabel(latestResult.percentage)} · ${latestResultSubjectLabel}`,
       nextStep:
         latestResult.result_status === "fail"
-          ? "After checking this result, move into weak-area recovery before another full test."
-          : "After checking this result, decide whether answer review or targeted practice is the stronger follow-up.",
+          ? "Use weak-area practice before taking another full test."
+          : "Choose between answer review and targeted practice as your follow-up.",
       secondaryHref: "/app/weak-areas",
       secondaryLabel: "Open Weak Areas",
     });
@@ -379,10 +374,9 @@ function buildDashboardActionQueue(args: {
   if (topWeakTopic) {
     items.push({
       key: "practice-weak-topic",
-      eyebrow: "Practice next",
+      eyebrow: "Focus topic",
       title: topWeakTopic.topic_name,
-      description:
-        "This topic is currently one of your weakest scored areas. Move into targeted practice here before taking another broad test.",
+      description: "This topic needs the most attention right now. Practice it before your next broad test.",
       href: buildPracticeHref({
         subjectName: topWeakTopic.subject_name,
         topicName: topWeakTopic.topic_name,
@@ -390,8 +384,7 @@ function buildDashboardActionQueue(args: {
       label: `Practice ${topWeakTopic.topic_name}`,
       tone: "warning",
       meta: `${topWeakTopic.subject_name} · ${percentageLabel(topWeakTopic.average_percentage)}`,
-      nextStep:
-        "Use this focused recovery path before another broad mock so the next attempt has a better chance to improve.",
+      nextStep: "A short focused recovery here should improve your next attempt.",
       secondaryHref: "/app/analytics",
       secondaryLabel: "Open Analytics",
     });
@@ -401,20 +394,20 @@ function buildDashboardActionQueue(args: {
     const subjectLabel = dashboardExamSubjectLabel(lockedExam);
     items.push({
       key: "locked-follow-up",
-      eyebrow: "Locked path",
+      eyebrow: "Optional unlock",
       title: lockedExam.title,
       description: lockedExam.economy_access.can_unlock_with_stars
-        ? `A premium follow-up is available when you spend ${lockedExam.economy_access.star_cost} stars.`
+        ? `This premium follow-up can be unlocked with ${lockedExam.economy_access.star_cost} stars.`
         : lockedExam.economy_access.lock_reason_message ||
-          "This follow-up item is currently restricted by live access policy.",
+          "This item is currently restricted.",
       href: lockedExam.economy_access.can_unlock_with_stars ? "/app/wallet" : `/app/exams/${lockedExam.id}`,
-      label: lockedExam.economy_access.can_unlock_with_stars ? "Open Wallet" : "View Access Detail",
+      label: lockedExam.economy_access.can_unlock_with_stars ? "Open Wallet" : "View Details",
       tone: "demo",
       meta: subjectLabel,
       nextStep:
         lockedExam.economy_access.can_unlock_with_stars
-          ? "Unlock only after the currently available free or active actions are handled."
-          : "Check the live access detail before treating this as your next academic move.",
+          ? "Treat this as optional after your ready or active work is done."
+          : "Check the access details before planning around it.",
       secondaryHref: `/app/exams/${lockedExam.id}`,
       secondaryLabel: "View Details",
     });
@@ -424,10 +417,10 @@ function buildDashboardActionQueue(args: {
 }
 
 function dashboardPriorityLabel(index: number) {
-  if (index === 0) return "Do this now";
-  if (index === 1) return "Then next";
-  if (index === 2) return "Keep warm";
-  return "Later option";
+  if (index === 0) return "Next best step";
+  if (index === 1) return "Strong follow-up";
+  if (index === 2) return "Keep ready";
+  return "Optional later";
 }
 
 async function unlockDashboardContentAction(formData: FormData) {
@@ -583,6 +576,12 @@ export default async function DashboardPage({
     topicName: topWeakTopic?.topic_name ?? null,
   });
   const topAction = actionQueue[0] ?? null;
+  const readyExamCount = scopedExams.filter((exam) => exam.can_start).length;
+  const resumableExamCount = scopedExams.filter((exam) => exam.can_resume).length;
+  const totalAttemptCount = scopedSummary.attempt_behavior.attempt_count;
+  const attemptedQuestionsCount = scopedSummary.attempt_behavior.attempted_questions;
+  const averageScoreLabel = percentageLabel(scopedSummary.average_percentage);
+  const trendLabel = trendDirectionLabel(scopedSummary.improvement_trend.direction);
 
   return (
     <div className="studentPage studentDashboardPage studentDashboardModern studentLearnerPage studentLearnerDashboardPage">
@@ -609,7 +608,7 @@ export default async function DashboardPage({
                 : ""}
               {recommendedExam
                 ? "Your next recommended test is ready."
-                : "Your dashboard will start recommending tests as soon as live content is available."}
+                : "Recommendations will appear as content becomes available."}
             </small>
           </div>
           <div className="studentDashboardIllustration" aria-hidden="true">
@@ -623,38 +622,34 @@ export default async function DashboardPage({
       <section className="studentDashboardPrimaryGrid studentDashboardPrimaryGridCompact">
         <article className="studentDashboardCard studentDashboardCardCompact studentDashboardRecommendation">
           <div className="studentDashboardCardHead">
-            <span className="studentDashboardTag">Recommended for you</span>
+            <span className="studentDashboardTag">Next best step</span>
           </div>
           <div className="studentDashboardRecommendationLead">
-            <span className="studentDashboardMiniBadge">Do this now</span>
+            <span className="studentDashboardMiniBadge">{topAction?.eyebrow ?? "Recommended"}</span>
             <small>
-              Treat this as your strongest immediate action unless you already know you need the fallback path below.
+              Start here, then use the queue below for follow-up options.
             </small>
           </div>
           <strong>{topAction?.title ?? heroAction.title}</strong>
           <p>{topAction?.description ?? heroAction.reason}</p>
-          {topAction ? (
-            <div className="studentInsightMessageStack">
-              <div className="studentInsightMessage">
-                <span className="placeholderDot" aria-hidden="true" />
-                <p>Do this now: {topAction.label}. {topAction.meta}.</p>
-              </div>
-              <div className="studentInsightMessage">
-                <span className="placeholderDot" aria-hidden="true" />
-                <p>Then next: {topAction.nextStep}</p>
-              </div>
+          <div className="studentDashboardSnapshotGrid">
+            <div className="studentDashboardSnapshotCard">
+              <span>Average score</span>
+              <strong>{averageScoreLabel}</strong>
+              <small>{trendLabel}</small>
             </div>
-          ) : null}
-          <div className="studentDashboardRecommendationChecklist">
-            <span>
-              Immediate route: {topAction?.label ?? heroAction.primaryLabel}
-            </span>
-            <span>
-              Fallback route: {heroAction.secondaryLabel}
-            </span>
-            <span>
-              Premium and locked items stay separate below so they do not interrupt the main next step.
-            </span>
+            <div className="studentDashboardSnapshotCard">
+              <span>Attempts tracked</span>
+              <strong>{totalAttemptCount}</strong>
+              <small>{attemptedQuestionsCount} questions solved</small>
+            </div>
+            <div className="studentDashboardSnapshotCard">
+              <span>Ready now</span>
+              <strong>{readyExamCount + resumableExamCount}</strong>
+              <small>
+                {resumableExamCount > 0 ? `${resumableExamCount} to resume` : `${readyExamCount} ready to start`}
+              </small>
+            </div>
           </div>
           {recommendedExam ? (
             <>
@@ -680,12 +675,13 @@ export default async function DashboardPage({
                 <span>{recommendedExam.duration_minutes} min</span>
                 <span>{examBadge(recommendedExam)}</span>
               </div>
-              {subscriptionAllowanceGuidance(recommendedExam) ? (
-                <small className="emptyText">
-                  {subscriptionAllowanceGuidance(recommendedExam)}
-                </small>
-              ) : null}
             </>
+          ) : null}
+          {topAction?.nextStep ? (
+            <div className="studentDashboardRecommendationChecklist">
+              <span>Now: {topAction.label}</span>
+              <span>Then: {topAction.nextStep}</span>
+            </div>
           ) : null}
           <div className="studentDashboardActionRow">
             <Link
@@ -702,17 +698,42 @@ export default async function DashboardPage({
 
         <article className="studentDashboardCard studentDashboardCardCompact studentDashboardWalletCard">
           <div className="studentDashboardCardHead">
-            <span className="studentDashboardTag studentDashboardTagWarm">Star Wallet</span>
+            <span className="studentDashboardTag studentDashboardTagWarm">Wallet and access</span>
           </div>
           <strong>
             {walletResult ? walletResult.available_stars.toLocaleString("en-IN") : "--"}
           </strong>
           <p>
-            Use your available stars to unlock premium tests, practice sets, and follow-up learning paths.
+            Keep your premium access ready for the right moment.
           </p>
+          <div className="studentDashboardWalletStats">
+            <div className="studentDashboardWalletStat">
+              <span>Earned</span>
+              <strong>
+                {walletResult ? walletResult.lifetime_earned_stars.toLocaleString("en-IN") : "--"}
+              </strong>
+            </div>
+            <div className="studentDashboardWalletStat">
+              <span>Spent</span>
+              <strong>
+                {walletResult ? walletResult.lifetime_spent_stars.toLocaleString("en-IN") : "--"}
+              </strong>
+            </div>
+            <div className="studentDashboardWalletStat">
+              <span>Locked items</span>
+              <strong>{lockedExams.length}</strong>
+            </div>
+          </div>
+          <div className="studentDashboardRecommendationChecklist studentDashboardWalletChecklist">
+            <span>Use stars for premium tests and focused follow-up sets.</span>
+            <span>Keep free and ready actions ahead of locked content.</span>
+          </div>
           <div className="studentDashboardActionRow">
             <Link className="button buttonSecondary" href="/app/wallet">
               Open Wallet
+            </Link>
+            <Link className="studentDashboardTextLink" href="/app/subscriptions">
+              Compare Plans
             </Link>
           </div>
         </article>
@@ -735,11 +756,11 @@ export default async function DashboardPage({
 
       <section className="contentCard">
         <div className="sectionHeading">
-          <strong>Action Queue</strong>
+          <strong>Study Queue</strong>
           <Link href="/app/attempts">Open Attempt Timeline</Link>
         </div>
         <p className="sectionDescription">
-          These actions are ordered from immediate work to follow-up learning, so the first card should usually be treated as the strongest next move.
+          Your next moves are ordered from immediate work to optional follow-up.
         </p>
         <div className="studentDashboardExamGrid">
           {actionQueue.map((item, index) => (
@@ -753,7 +774,7 @@ export default async function DashboardPage({
               <strong>{item.title}</strong>
               <small className="emptyText">{item.eyebrow}</small>
               <p>{item.description}</p>
-              <small className="emptyText">{item.nextStep}</small>
+              <small className="emptyText">Next: {item.nextStep}</small>
               <div className="studentDashboardActionRow">
                 <Link className="button buttonSecondary" href={item.href}>
                   {item.label}
@@ -772,32 +793,32 @@ export default async function DashboardPage({
       <section className="studentInsightsTwoColumn">
         <article className="contentCard">
           <div className="sectionHeading">
-            <strong>Why This Is Next</strong>
-            <span>Current student priority</span>
+            <strong>Why This Works</strong>
+            <span>Current focus</span>
           </div>
           <div className="studentInsightMessageStack">
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
               <p>
                 {topAction
-                  ? `${topAction.title} is first in the queue because it is the most immediate state the backend is currently exposing for you.`
-                  : "Your next action will appear here once live attempts, results, or practice opportunities are available."}
+                  ? `${topAction.title} is first because it is the clearest move available right now.`
+                  : "Your next action will appear here once attempts, results, or practice opportunities are available."}
               </p>
             </div>
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
               <p>
                 {topWeakTopic
-                  ? `${topWeakTopic.topic_name} in ${topWeakTopic.subject_name} is your weakest current topic signal, so the dashboard keeps a focused recovery path close by before another broad mock.`
-                  : "When topic-performance data becomes stronger, the dashboard will keep one focused recovery path near your main next-step action."}
+                  ? `${topWeakTopic.topic_name} in ${topWeakTopic.subject_name} is your weakest visible topic, so focused practice stays close by.`
+                  : "As topic data strengthens, the dashboard will keep one focused recovery path near your main next step."}
               </p>
             </div>
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
               <p>
                 {actionQueue[1]
-                  ? `${actionQueue[1].title} is the next fallback if the first move is blocked, pending, or something you intentionally want to postpone.`
-                  : "As more live states appear, the dashboard will keep a clear fallback action close to your main next-step recommendation."}
+                  ? `${actionQueue[1].title} is the best follow-up if you finish, postpone, or cannot use the first option.`
+                  : "As more live states appear, the dashboard will keep a clear fallback close to your main recommendation."}
               </p>
             </div>
           </div>
@@ -805,7 +826,7 @@ export default async function DashboardPage({
 
         <article className="contentCard">
           <div className="sectionHeading">
-            <strong>Focused Recovery</strong>
+            <strong>Recovery Lane</strong>
             <span>{practiceFocus.laneLabel}</span>
           </div>
           <div className="studentInsightMessageStack">
@@ -903,21 +924,20 @@ export default async function DashboardPage({
 
       <section className="contentCard studentDashboardPremiumSection">
         <div className="sectionHeading">
-          <strong>Locked Content and Premium Access</strong>
+          <strong>Premium Access</strong>
           <Link href="/app/wallet">How it works</Link>
         </div>
-        <div className="studentDashboardPremiumCallout">
-          <span className="studentDashboardMiniBadge">Later or optional</span>
-          <p>
-            Treat this lane as follow-up work only after your currently available attempt, result, or practice action is handled.
-          </p>
-        </div>
+          <div className="studentDashboardPremiumCallout">
+            <span className="studentDashboardMiniBadge">Later or optional</span>
+            <p>
+              Treat this lane as follow-up work after your currently available attempt, result, or practice action is handled.
+            </p>
+          </div>
         <div className="studentDashboardPremiumGrid">
           <div className="studentDashboardPremiumInfo">
             <strong>Premium access follows backend rules</strong>
             <p>
-              Locked content shown here is driven by live access policy rules. If stars can unlock it,
-              you will see the exact cost. If not, the next action will point you to the right detail or plan path.
+              Locked content shown here is driven by live access rules. If stars can unlock it, you will see the exact cost. If not, the next action will point you to the right detail or plan path.
             </p>
           </div>
           <div className="studentDashboardPremiumStats">
@@ -992,11 +1012,11 @@ export default async function DashboardPage({
                     </form>
                   ) : (
                     <Link className="button buttonSecondary" href={`/app/exams/${exam.id}`}>
-                      View Access Detail
+                      View Details
                     </Link>
                   )}
                   <Link className="studentDashboardTextLink" href="/app/subscriptions">
-                    View Plans
+                    Compare Plans
                   </Link>
                 </div>
               </article>
@@ -1034,7 +1054,7 @@ export default async function DashboardPage({
                 <p className="emptyText">Weak topics will appear as more scored attempts are completed.</p>
               )}
               <Link className="button buttonGhost" href="/app/weak-areas">
-                Improve Weak Areas
+                Open Weak Areas
               </Link>
             </div>
           </div>

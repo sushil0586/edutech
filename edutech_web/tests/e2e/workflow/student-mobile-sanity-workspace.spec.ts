@@ -46,7 +46,7 @@ test.describe("Student mobile workspace sanity", () => {
 
     await gotoWithRetry(page, "/app/dashboard");
     await expect(page.getByRole("button", { name: /menu/i })).toBeVisible();
-    await expect(page.getByText(/action queue/i).first()).toBeVisible();
+    await expect(page.getByText(/study queue|action queue/i).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /open attempt timeline/i }).first()).toBeVisible();
 
     const mobileNavToggle = page.getByRole("button", { name: /menu/i });
@@ -72,7 +72,7 @@ test.describe("Student mobile workspace sanity", () => {
     await mobileNav.getByRole("link", { name: /^analytics$/i }).click();
     await expect(page).toHaveURL(/\/app\/analytics(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /analytics/i }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /open action center/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /open action center|action center/i }).first()).toBeVisible();
 
     await page.getByRole("button", { name: /menu/i }).click();
     await mobileNav.getByRole("link", { name: /^profile$/i }).click();

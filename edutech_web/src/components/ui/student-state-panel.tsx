@@ -22,8 +22,8 @@ export function StudentStatePanel({
   ctaLabel,
   secondaryCtaHref,
   secondaryCtaLabel,
-  statusLabel = "Live data only",
-  footnote = "Returned from the current live app flow and ready once configuration is restored.",
+  statusLabel = "Live workspace",
+  footnote = "Return here once your session or data is available again.",
 }: StudentStatePanelProps) {
   return (
     <section className="featurePlaceholder statePanel">
@@ -44,7 +44,7 @@ export function StudentStatePanel({
               <article className="placeholderCard" key={bullet}>
                 <span className="placeholderDot" aria-hidden="true" />
                 <strong>{bullet}</strong>
-                <small>Returned and rendered directly from the current app state.</small>
+                <small>Shown from the current student workspace state.</small>
               </article>
             ))}
           </div>

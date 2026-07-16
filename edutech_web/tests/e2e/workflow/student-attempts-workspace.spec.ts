@@ -48,29 +48,18 @@ test.describe("Student attempts workspace", () => {
     await expectAttemptsWorkspace(page);
 
     const filtersCard = page.locator("section.studentWorkspaceFiltersCard").first();
-    if (!(await filtersCard.isVisible().catch(() => false))) {
+  if (!(await filtersCard.isVisible().catch(() => false))) {
       await expect(page.getByText(/your attempt history is empty right now/i).first()).toBeVisible();
       await page.getByRole("link", { name: /open exams/i }).first().click();
       await expect(page).toHaveURL(/\/app\/exams(?:\?.*)?$/);
       return;
     }
 
-    await expect(page.getByText(/attempt continuity loop/i).first()).toBeVisible();
-    await expect(page.getByText(/do this first/i).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /open results/i }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /open practice/i }).first()).toBeVisible();
-
-    await page.getByRole("link", { name: /open results/i }).first().click();
-    await expect(page).toHaveURL(/\/app\/results(?:\?.*)?$/);
-    await gotoWithRetry(page, "/app/attempts");
-    await expectAttemptsWorkspace(page);
-
-    const practiceHandoff = page.getByRole("link", { name: /open practice/i }).first();
-    await expect(practiceHandoff).toHaveAttribute("href", /\/app\/practice$/);
-    await gotoWithRetry(page, "/app/practice");
-    await expect(page).toHaveURL(/\/app\/practice(?:\?.*)?$/);
-    await gotoWithRetry(page, "/app/attempts");
-    await expectAttemptsWorkspace(page);
+    const quickTabs = page.locator(".studentAttemptsQuickBar").first();
+    await expect(quickTabs).toBeVisible();
+    await expect(quickTabs.getByRole("link", { name: /all/i }).first()).toBeVisible();
+    await expect(quickTabs.getByRole("link", { name: /in progress/i }).first()).toBeVisible();
+    await expect(quickTabs.getByRole("link", { name: /evaluation pending/i }).first()).toBeVisible();
 
     const attemptsForm = filtersCard.locator("form.studentWorkspaceFiltersForm").first();
     await attemptsForm.locator('select[name="attempt_filter"]').selectOption("submitted");
@@ -98,12 +87,15 @@ test.describe("Student attempts workspace", () => {
     await page.getByRole("link", { name: /reset filters/i }).first().click();
     await expectAttemptsWorkspace(page);
 
-    const attemptCard = page.locator("article.studentResultSurface").first();
+    const attemptCard = page.locator("article.studentAttemptsCard").first();
     await expect(attemptCard).toBeVisible();
+    await expect(attemptCard.locator(".studentAttemptsCardTitle strong").first()).toBeVisible();
+    await expect(attemptCard.locator(".studentAttemptsMetrics").first()).toBeVisible();
+    await expect(attemptCard.locator(".studentAttemptsFooter").first()).toBeVisible();
 
     const primaryAction = await firstVisible([
       attemptCard.getByRole("link", { name: /resume attempt/i }).first(),
-      attemptCard.getByRole("link", { name: /open summary|attempt summary|check attempt/i }).first(),
+      attemptCard.getByRole("link", { name: /open summary|attempt summary|check attempt|view status/i }).first(),
     ]);
     const primaryLabel = (await primaryAction.textContent()) ?? "";
     const primaryHref = await primaryAction.getAttribute("href");
@@ -114,7 +106,7 @@ test.describe("Student attempts workspace", () => {
     } else {
       expect(primaryHref).toMatch(/\/app\/attempts\/[^/?#]+\/summary(?:\?.*)?$/);
       await expect(
-        attemptCard.getByRole("link", { name: /check result status|view results|open results/i }).first(),
+        attemptCard.getByRole("link", { name: /check result status|view results|open results|attempt summary/i }).first(),
       ).toBeVisible();
     }
   });

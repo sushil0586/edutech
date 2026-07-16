@@ -287,6 +287,9 @@ export default function RegisterScreen() {
           <View style={appStyles.fieldStack}>
             <Text style={appStyles.label}>First name</Text>
             <TextInput
+              autoCorrect={false}
+              returnKeyType="next"
+              textContentType="givenName"
               placeholder="Enter first name"
               style={[appStyles.input, fieldErrors.first_name ? appStyles.inputError : null]}
               testID="register-first-name-input"
@@ -297,13 +300,25 @@ export default function RegisterScreen() {
           </View>
           <View style={appStyles.fieldStack}>
             <Text style={appStyles.label}>Last name</Text>
-            <TextInput placeholder="Enter last name" style={appStyles.input} value={lastName} onChangeText={setLastName} />
+            <TextInput
+              autoCorrect={false}
+              returnKeyType="next"
+              textContentType="familyName"
+              placeholder="Enter last name"
+              style={appStyles.input}
+              value={lastName}
+              onChangeText={setLastName}
+            />
           </View>
           <View style={appStyles.fieldStack}>
             <Text style={appStyles.label}>Email</Text>
             <TextInput
               autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="email"
               keyboardType="email-address"
+              returnKeyType="next"
+              textContentType="emailAddress"
               placeholder="Enter email"
               style={[appStyles.input, fieldErrors.email ? appStyles.inputError : null]}
               testID="register-email-input"
@@ -316,6 +331,9 @@ export default function RegisterScreen() {
             <Text style={appStyles.label}>School code</Text>
             <TextInput
               autoCapitalize="characters"
+              autoCorrect={false}
+              autoComplete="off"
+              returnKeyType="next"
               placeholder="Enter school code"
               style={[appStyles.input, fieldErrors.school_code ? appStyles.inputError : null]}
               testID="register-school-code-input"
@@ -374,8 +392,13 @@ export default function RegisterScreen() {
           <View style={appStyles.fieldStack}>
             <Text style={appStyles.label}>Password</Text>
             <TextInput
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="new-password"
               placeholder="Create password"
               secureTextEntry
+              returnKeyType="next"
+              textContentType="newPassword"
               style={[appStyles.input, fieldErrors.password ? appStyles.inputError : null]}
               testID="register-password-input"
               value={password}
@@ -387,8 +410,13 @@ export default function RegisterScreen() {
           <View style={appStyles.fieldStack}>
             <Text style={appStyles.label}>Confirm password</Text>
             <TextInput
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="new-password"
               placeholder="Confirm password"
               secureTextEntry
+              returnKeyType="done"
+              textContentType="password"
               style={[appStyles.input, fieldErrors.confirm_password ? appStyles.inputError : null]}
               testID="register-confirm-password-input"
               value={confirmPassword}

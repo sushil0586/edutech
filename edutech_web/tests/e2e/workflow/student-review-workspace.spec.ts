@@ -66,7 +66,7 @@ async function expectStudentReviewRoute(page: Page) {
   }).first();
   if (await unavailableHeading.isVisible().catch(() => false)) {
     await expect(page.getByText(/review unavailable/i).first()).toBeVisible();
-    await expect(page.getByText(/attempt review endpoint/i).first()).toBeVisible();
+    await expect(page.getByText(/answer review isn't available for this attempt right now/i).first()).toBeVisible();
     return "unavailable" as const;
   }
 
@@ -97,9 +97,11 @@ test.describe("Student review workspace", () => {
     const reviewState = await expectStudentReviewRoute(page);
 
     if (reviewState === "available") {
-      await expect(page.locator(".contentCard").filter({ hasText: /recommended actions/i }).first()).toBeVisible();
-      await expect(page.locator(".contentCard").filter({ hasText: /review recovery loop/i }).first()).toBeVisible();
+      await expect(page.locator(".contentCard").filter({ hasText: /how to use this review/i }).first()).toBeVisible();
+      await expect(page.locator(".contentCard").filter({ hasText: /next learning step/i }).first()).toBeVisible();
+      await expect(page.locator(".contentCard").filter({ hasText: /before the next attempt/i }).first()).toBeVisible();
       await expect(page.getByText(/do this first/i).first()).toBeVisible();
+      await expect(page.getByText(/review questions/i).first()).toBeVisible();
     }
 
     const analyticsLink = page.getByRole("link", { name: /view analytics/i }).first();

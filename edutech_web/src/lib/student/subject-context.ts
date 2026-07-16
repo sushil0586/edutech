@@ -596,14 +596,26 @@ export function getMetadataSubjectDisplayLabel(metadata: Record<string, unknown>
 }
 
 export function filterStudentRecordsByMetadataSubject<
-  T extends { metadata: Record<string, unknown> },
+  T extends {
+    metadata: Record<string, unknown>;
+    subject_name?: string | null;
+    primary_subject_name?: string | null;
+    section_subjects?: Array<{ name?: string | null }> | null;
+    subject_summary?: {
+      display_label?: string | null;
+      subjects?: Array<{ name?: string | null }> | null;
+    } | null;
+  },
 >(records: T[], selectedSubject: string) {
   if (isOverallSubjectContext(selectedSubject)) {
     return records;
   }
 
   return records.filter((record) => {
-    const subjectNames = getMetadataSubjectNames(record.metadata);
+    const subjectNames =
+      getExamSubjectNames(record).length > 0
+        ? getExamSubjectNames(record)
+        : getMetadataSubjectNames(record.metadata);
     return subjectNames.some((subjectName) =>
       matchesSelectedSubject(subjectName, selectedSubject),
     );

@@ -34,17 +34,17 @@ test.describe("Student analytics timeline and compare workspace", () => {
     await expect(page.getByRole("heading", { name: /momentum over time/i }).first()).toBeVisible();
     await expect(page.getByText(/trend snapshot/i).first()).toBeVisible();
     await expect(page.getByText(/recent result timeline/i).first()).toBeVisible();
-    await expect(page.getByText(/benchmark pulse/i).first()).toBeVisible();
+    await expect(page.getByText(/benchmark pulse|performance pulse|readiness pulse/i).first()).toBeVisible();
     await expect(page.getByText(/subject momentum/i).first()).toBeVisible();
     await expect(page.getByText(/what to test next/i).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /open action center/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /open action center|action center/i }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /open results/i }).first()).toBeVisible();
 
     const subjectMomentumLink = page.locator('a[href^="/app/analytics/subjects/"]').first();
     if (await subjectMomentumLink.isVisible().catch(() => false)) {
       await subjectMomentumLink.click();
       await expect(page).toHaveURL(/\/app\/analytics\/subjects\/[^/?#]+(?:\?.*)?$/);
-      await expect(page.getByRole("link", { name: /open action center/i }).first()).toBeVisible();
+      await expect(page.getByRole("link", { name: /open action center|action center/i }).first()).toBeVisible();
       await gotoWithRetry(page, "/app/analytics/timeline");
       await expect(page.getByRole("heading", { name: /momentum over time/i }).first()).toBeVisible();
     }

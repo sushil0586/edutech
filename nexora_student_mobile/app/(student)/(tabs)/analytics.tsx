@@ -77,7 +77,9 @@ export default function AnalyticsScreen() {
   const accessToken = useSessionStore((state) => state.accessToken);
   const profile = useSessionStore((state) => state.profile);
   const selectedSubject = useSessionStore((state) => state.selectedSubject);
+  const setSelectedSubject = useSessionStore((state) => state.setSelectedSubject);
   const studentId = profile?.student_profile ?? null;
+  const subjectOptions = profile?.student_context?.subject_options ?? [];
 
   const query = useQuery({
     queryKey: ["student.analytics.bundle", accessToken, studentId],
@@ -176,6 +178,28 @@ export default function AnalyticsScreen() {
           helper="Topic performance entries in scope"
         />
       </View>
+      {subjectOptions.length ? (
+        <SectionBlock
+          title="Subject scope"
+          subtitle="Keep analytics aligned with the same learner lane used in dashboard, exams, and results"
+        >
+          <View style={appStyles.rowWrap}>
+            <ActionButton
+              label="Overall"
+              tone={normalize(selectedSubject) === "overall" ? "primary" : "secondary"}
+              onPress={() => setSelectedSubject("overall")}
+            />
+            {subjectOptions.map((option) => (
+              <ActionButton
+                key={option.value}
+                label={option.label}
+                tone={selectedSubject === option.value ? "primary" : "secondary"}
+                onPress={() => setSelectedSubject(option.value)}
+              />
+            ))}
+          </View>
+        </SectionBlock>
+      ) : null}
       <SectionBlock
         title="Next action"
         subtitle="Turn analytics into a practical study move"

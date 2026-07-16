@@ -196,7 +196,7 @@ export default async function AdminDashboardPage({
     <section className="studentPage studentPageTight studentDashboardModern adminDashboardPage instituteConsolePage">
       <PlatformAdminPageHeader
         title={`Platform Control for ${profile.display_name || profile.username}`}
-        description="Track institute readiness, academic backbone health, people provisioning, and assessment coverage from one shared governance workspace."
+        description="Track institute readiness, academic coverage, people provisioning, and assessment depth from one governance workspace."
         statusLabel={instituteCount > 0 ? `${instituteCount} institutes in scope` : "No institutes available"}
         statusTone={instituteCount > 0 ? "live" : "warning"}
       />
@@ -204,11 +204,9 @@ export default async function AdminDashboardPage({
       <section className="adminCommandDeck">
         <div className="adminCommandDeckHero">
           <span className="studentDashboardTag">Global governance</span>
-          <h2>Use the full workspace to monitor platform coverage, not just browse routes</h2>
+          <h2>Monitor platform coverage from one governance workspace</h2>
           <p>
-            This page now works as a compact control layer for platform-admin decisions:
-            footprint, people, academic backbone, and assessment visibility are all surfaced here
-            before you move into deeper workflows.
+            Footprint, people, academic backbone, and assessment visibility are surfaced here before you move into deeper workflows.
           </p>
           <div className="adminHeroMetaRow">
             <span>{activePeopleCount} people in scope</span>
@@ -221,20 +219,20 @@ export default async function AdminDashboardPage({
           <article className="adminExecutiveStat adminExecutiveStatPrimary">
             <span>Coverage score</span>
             <strong>{coverageScore}%</strong>
-            <small>{activeCoverageSignals} of 5 core governance signals currently reporting non-zero data.</small>
+            <small>{activeCoverageSignals} of 5 core governance signals are active.</small>
           </article>
           <article className="adminExecutiveStat">
             <span>Institutes</span>
             <strong>{instituteCount}</strong>
-            <small>Global scope currently visible to this workspace.</small>
+            <small>Institutes currently visible in this workspace.</small>
           </article>
           <article className="adminExecutiveStat">
             <span>Results depth</span>
             <strong>{resultCount}</strong>
             <small>
               {examDataPressure
-                ? "Assessment records exist but results have not matured yet."
-                : "Result rows available for downstream reporting."}
+                ? "Assessments exist, but result depth has not matured yet."
+                : "Result rows are available for reporting."}
             </small>
           </article>
         </div>

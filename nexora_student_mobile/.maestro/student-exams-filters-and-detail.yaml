@@ -1,0 +1,79 @@
+appId: com.anonymous.nexorastudentmobile
+---
+# Set these before running:
+# STUDENT_USERNAME
+# STUDENT_PASSWORD
+#
+# Seed expectation:
+# - the student account can log in successfully
+# - at least one exam is visible in the exams lane
+# - at least one exam detail route opens from the current scope
+
+- launchApp:
+    clearState: true
+
+- extendedWaitUntil:
+    visible: "Login"
+    timeout: 30000
+
+- tapOn: "Login"
+- tapOn:
+    text: "Username"
+- inputText: ${STUDENT_USERNAME}
+
+- tapOn:
+    text: "Enter password"
+- inputText: ${STUDENT_PASSWORD}
+
+- hideKeyboard
+- tapOn: "Login"
+
+- extendedWaitUntil:
+    visible: "Student Dashboard"
+    timeout: 30000
+
+- tapOn: "Open Exams"
+
+- assertVisible: "Student Exams"
+- assertVisible: "Find the right exam"
+
+- scrollUntilVisible:
+    element: "Ready to start"
+    direction: DOWN
+
+- tapOn:
+    id: "exams-filter-resume-button"
+
+- scrollUntilVisible:
+    element: "Resume now"
+    direction: UP
+
+- tapOn:
+    id: "exams-filter-startable-button"
+
+- assertVisible: "Ready to start"
+
+- tapOn:
+    id: "exams-filter-locked-button"
+
+- tapOn:
+    id: "exams-filter-reset-button"
+
+- tapOn:
+    id: "exams-search-input"
+- inputText: "math"
+- hideKeyboard
+
+- tapOn:
+    id: "exams-filter-reset-button"
+
+- tapOn:
+    id: "exams-open-top-exam-button"
+
+- assertVisible: "Exam Readiness"
+- assertVisible: "Readiness overview"
+
+- tapOn:
+    id: "exam-detail-open-exams-button"
+
+- assertVisible: "Student Exams"

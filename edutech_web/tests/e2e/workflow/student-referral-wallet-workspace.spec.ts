@@ -26,15 +26,15 @@ test.describe("Student referral and wallet workspace", () => {
       page.locator(".detailCard").filter({ has: page.getByText(/^referral channel$/i) }).first(),
     ).toBeVisible();
     await expect(
-      page.getByText(/the resulting reward credit, if any, is best verified from wallet after onboarding is complete/i).first(),
+      page.getByText(/if you joined with a referral code, verify the reward in wallet after onboarding completes/i).first(),
     ).toBeVisible();
     await expect(page.getByRole("link", { name: /open wallet/i }).first()).toBeVisible();
 
     await page.goto("/app/wallet");
     await expect(page.getByRole("heading", { name: /wallet/i }).first()).toBeVisible();
     await expect(page.getByText(/wallet state/i).first()).toBeVisible();
-    await expect(page.getByText(/what this page can and cannot do/i).first()).toBeVisible();
-    await expect(page.getByText(/does not promise instant settlement/i).first()).toBeVisible();
+    await expect(page.getByText(/what this page covers/i).first()).toBeVisible();
+    await expect(page.getByText(/instant settlement/i).first()).toBeVisible();
     await expect(page.getByText(/balance summary/i).first()).toBeVisible();
     await expect(page.getByText(/rewards and referral/i).first()).toBeVisible();
     await expect(page.getByText(/your referral code/i).first()).toBeVisible();
@@ -61,8 +61,8 @@ test.describe("Student referral and wallet workspace", () => {
     await expect(page.getByText(/subscription state/i).first()).toBeVisible();
     await expect(page.getByLabel(/student subscription section/i)).toBeVisible();
     await expect(page.getByLabel(/student subscription rows to show/i)).toBeVisible();
-    await expect(page.getByText(/what this page can and cannot do/i).first()).toBeVisible();
-    await expect(page.getByText(/does not promise instant subscription activation or instant wallet credit/i).first()).toBeVisible();
+    await expect(page.getByText(/what this page covers/i).first()).toBeVisible();
+    await expect(page.getByText(/immediate activation/i).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /open wallet/i }).first()).toBeVisible();
     await expectAnyVisible(page, [
       /available plans/i,
@@ -74,9 +74,9 @@ test.describe("Student referral and wallet workspace", () => {
     await page.getByRole("button", { name: /apply filters/i }).click();
     await expect(page).toHaveURL(/\/app\/subscriptions\?[^#]*section=plans/);
     await expect(
-      page.getByText(/review the available cycles and choose the plan that matches how often you expect to unlock premium content/i).first(),
+      page.getByText(/review the available cycles and choose the plan that matches how often you unlock premium content/i).first(),
     ).toBeVisible();
-    await expect(page.getByText(/what this page can and cannot do/i).first()).toHaveCount(0);
+    await expect(page.getByText(/what this page covers/i).first()).toHaveCount(0);
 
     await page.getByRole("link", { name: /open wallet/i }).first().click();
     await expect(page).toHaveURL(/\/app\/wallet(?:\?.*)?$/);

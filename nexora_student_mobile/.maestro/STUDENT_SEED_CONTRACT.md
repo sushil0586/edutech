@@ -24,6 +24,7 @@ Use separate seeded student accounts when possible instead of trying to make one
 Use for:
 
 - `student-login-and-exams.yaml`
+- `student-exams-filters-and-detail.yaml`
 
 Required state:
 
@@ -37,6 +38,7 @@ Required state:
 Use for:
 
 - `student-results-and-summary.yaml`
+- `student-results-timeline-summary.yaml`
 
 Required state:
 
@@ -58,6 +60,20 @@ Required state:
 - the result appears in the mobile results lane
 - the review route loads successfully
 
+### `student_review_navigation_ready`
+
+Use for:
+
+- `student-review-filters-and-pagination.yaml`
+
+Required state:
+
+- can log in successfully
+- has at least one result with `review_available = true`
+- that review exposes at least 9 review questions so page navigation is testable
+- that review includes at least one non-trivial slice such as incorrect, skipped, or marked-for-review items
+- the review route loads successfully and question pagination can advance to page 2
+
 ### `student_active_attempt`
 
 Use for:
@@ -76,6 +92,21 @@ Future dedicated runtime state:
 - has at least one in-progress attempt
 - that attempt appears in the mobile attempts lane
 - opening it lands in the live runtime screen
+
+## Suggested Suite Mapping
+
+- `student_exam_ready`
+  - `student-login-and-exams.yaml`
+  - `student-exams-filters-and-detail.yaml`
+- `student_result_ready`
+  - `student-results-and-summary.yaml`
+  - `student-results-timeline-summary.yaml`
+- `student_review_ready`
+  - `student-review-journey.yaml`
+- `student_review_navigation_ready`
+  - `student-review-filters-and-pagination.yaml`
+- `student_active_attempt`
+  - `student-active-attempt.yaml`
 
 Current note:
 

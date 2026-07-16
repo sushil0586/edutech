@@ -40,17 +40,21 @@ export default async function StudentAnalyticsResultsComparePage({
           eyebrow={bundle.source === "unconfigured" ? "Setup required" : "Load issue"}
           title={
             bundle.source === "unconfigured"
-              ? "Result comparison is waiting for backend data"
+              ? "Result comparison is not available yet"
               : "Result comparison could not be loaded"
           }
-          description="This page compares live published results without using any synthetic benchmark or mock result data."
-          bullets={["Student analytics bundle", "Published results", "Student session"]}
+          description={
+            bundle.source === "unconfigured"
+              ? "Sign in with your student account to compare published results."
+              : "We couldn't load result comparison right now."
+          }
+          bullets={["Student sign-in", "Published results", "Analytics summary"]}
           ctaHref="/app/analytics"
           ctaLabel="Back to Analytics"
           statusLabel={
             bundle.source === "unconfigured"
-              ? "Configuration required"
-              : "Retry after backend check"
+              ? "Sign in to continue"
+              : "Try again soon"
           }
         />
       </div>
@@ -97,7 +101,7 @@ export default async function StudentAnalyticsResultsComparePage({
       <StudentPageHeader
         eyebrow="Result comparison"
         title={subject ? `${subject} Result Comparison` : "Result Comparison"}
-        description="Compare real published results across time, source, and exam outcomes so students can see whether they are getting better or just getting different exams."
+        description="Compare published results across time, source, and exam type."
         statusLabel={`${publishedResults.length} published results`}
         statusTone="live"
         action={<Link className="button buttonGhost" href="/app/analytics">Back to Analytics</Link>}
@@ -108,7 +112,7 @@ export default async function StudentAnalyticsResultsComparePage({
         title={latest ? latest.exam_title : "Awaiting published results"}
         description={
           latest
-            ? `The latest published result is ${percentageLabel(latest.percentage)} in ${latest.exam_title}. Use this page to compare it against your best result, your lowest result, and the broader pattern across published attempts.`
+            ? `The latest published result is ${percentageLabel(latest.percentage)} in ${latest.exam_title}. Compare it against your best, lowest, and recent published attempts.`
             : "Published results are required before comparison analytics can say anything meaningful."
         }
         badges={[
@@ -173,12 +177,13 @@ export default async function StudentAnalyticsResultsComparePage({
           {
             label: "Rank Available",
             value: String(resultsWithRank),
-            note: "Rank appears only when backend has calculated and exposed it",
+            note: "Rank appears only when it is available for that result",
           },
           {
             label: "Pending Publish",
             value: String(pendingCount),
             note: "Submitted or scored results not yet student-visible",
+            
           },
         ]}
       />

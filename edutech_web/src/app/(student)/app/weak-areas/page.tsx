@@ -337,25 +337,25 @@ export default async function WeakAreasPage({
         },
         {
           label: "Then next",
-          detail: "Unlock the matching focused practice set only if it directly covers the same weak concept cluster.",
+          detail: "Unlock the matching focused practice set only if it covers the same weak concept cluster.",
         },
         {
           label: "If blocked",
-          detail: "Use analytics drill-down and question evidence first, then return to practice when you are ready.",
+          detail: "Use analytics drill-down and question evidence first, then return to practice.",
         },
       ]
     : [
         {
           label: "Do this first",
-          detail: "Inspect the top weak topic and start the matching focused practice pass right away.",
+          detail: "Inspect the top weak topic and start the matching focused practice pass.",
         },
         {
           label: "Then next",
-          detail: "Reopen analytics or results after that practice run to see whether skips or wrong answers improved.",
+          detail: "Reopen analytics or results after that practice run to see whether the pattern improved.",
         },
         {
           label: "If blocked",
-          detail: "If one pass is not enough, review question evidence before attempting another full mock test.",
+          detail: "If one pass is not enough, review the question evidence before another full mock.",
         },
       ];
   const criticalTopics = weakTopics.filter((topic) => Number(topic.percentage) < 35).length;
@@ -412,8 +412,8 @@ export default async function WeakAreasPage({
         }
         description={
           selectedSubject === ALL_SUBJECTS_CONTEXT
-            ? "A live improvement workspace ranking weak topics and guiding the next best practice action from backend analytics."
-            : `A live improvement workspace focused on ${selectedSubjectLabel}, ranking only matching backend subject records.`
+            ? "Rank your weakest topics and move into the next best recovery practice."
+            : `Rank the weakest ${selectedSubjectLabel} topics and move into targeted recovery practice.`
         }
         statusLabel={
           source === "live"
@@ -445,13 +445,13 @@ export default async function WeakAreasPage({
           }
           description={
             source === "unconfigured"
-              ? "This page only renders real student topic-performance data. Configure the API base URL and sign in with an active student account to identify weak topics from backend results."
-              : "The weak-area workspace depends on live insight and topic-performance endpoints, and the current request did not complete successfully."
+              ? "Sign in with your student account to identify weak topics from backend results."
+              : "We couldn't load weak-area analytics right now. Please try again shortly."
           }
           bullets={
             source === "unconfigured"
-              ? ["Student insight summary endpoint", "Topic performance endpoint"]
-              : ["Backend connectivity", "Weak-area analytics endpoints"]
+              ? ["Student sign-in", "Topic performance"]
+              : ["Connection check", "Weak-area analytics"]
           }
           ctaHref="/app/analytics"
           ctaLabel="Open Analytics"
@@ -465,7 +465,7 @@ export default async function WeakAreasPage({
         <StudentStatePanel
           eyebrow="No weak topics yet"
           title="Your topic analytics are not available right now"
-          description="No topic-level performance records were returned. Once completed exams have generated student topic performance, weak areas will be ranked here automatically."
+          description="No topic-level performance records are available yet. Weak areas will be ranked here automatically once more scored data exists."
           ctaHref="/app/exams"
           ctaLabel="Start an Exam"
           statusLabel="Waiting for topic performance data"
@@ -556,13 +556,13 @@ export default async function WeakAreasPage({
                 <div className="studentInsightMessage">
                   <span className="placeholderDot" aria-hidden="true" />
                   <p>
-                    This page ranks what is weakest first so the student can repair one concept cluster before jumping back into a full mock.
+                    Fix the weakest concept first before returning to a full mock.
                   </p>
                 </div>
                 <div className="studentInsightMessage">
                   <span className="placeholderDot" aria-hidden="true" />
                   <p>
-                    A strong sequence is: inspect the top weak topic, run the focused practice pass, then reopen analytics or results before taking another broad test.
+                    Inspect the topic, complete the focused practice, then recheck analytics or results.
                   </p>
                 </div>
               </div>
@@ -591,15 +591,15 @@ export default async function WeakAreasPage({
               <div className="studentInsightMessageStack">
                 <div className="studentInsightMessage">
                   <span className="placeholderDot" aria-hidden="true" />
-                  <p>The recommendation starts with the lowest-scoring topic in the current weak-area ranking.</p>
+                  <p>The recommendation starts with the lowest-scoring topic in this view.</p>
                 </div>
                 <div className="studentInsightMessage">
                   <span className="placeholderDot" aria-hidden="true" />
-                  <p>The matching practice CTA then stays state-aware: resume first, then start, unlock, or detail view depending on live backend access.</p>
+                  <p>The practice action stays state-aware: resume, start, unlock, or open details.</p>
                 </div>
                 <div className="studentInsightMessage">
                   <span className="placeholderDot" aria-hidden="true" />
-                  <p>If the topic still feels unclear after one focused practice pass, open the analytics drill-down first and compare the exact skipped and incorrect patterns before attempting another mock.</p>
+                  <p>If the topic is still unclear after one pass, inspect the evidence before another mock.</p>
                 </div>
               </div>
               <div className="studentInsightHeroActions">
@@ -948,18 +948,17 @@ export default async function WeakAreasPage({
                 </div>
                 <div className="studentInsightHeroActions">
                   <Link className="button buttonPrimary" href={practiceFocus.focusHref}>
-                    Open Practice Workspace
+                    Open Practice
                   </Link>
                   <Link className="button buttonSecondary" href="/app/exams">
                     Take Another Mock Test
                   </Link>
                   <Link className="button buttonGhost" href="/app/results">
-                    Check Result Status
+                    Open Results
                   </Link>
                 </div>
                 <p className="sectionDescription">
-                  If the recommended practice set is premium, the action above will show whether you can
-                  start immediately or need to unlock it first with stars.
+                  Premium practice will show whether it is ready now or needs stars to unlock.
                 </p>
               </article>
 

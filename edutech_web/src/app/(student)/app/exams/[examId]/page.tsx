@@ -151,32 +151,32 @@ function detailActionGuidance(args: {
     return `An active attempt already exists for this ${experience}. Re-enter it instead of starting another run.`;
   }
   if (args.canStart) {
-    return `This ${experience} is live and ready. Starting it will create a new backend attempt under your student account immediately.`;
+    return `This ${experience} is live and ready. Starting now will open your attempt immediately.`;
   }
   if (args.isLocked && args.canUnlockWithStars) {
     return `${args.starCost} stars are required before this ${experience} can be started. Unlock it once and the start action will become available right away.`;
   }
   if (args.isLocked) {
     return (
-      args.lockReasonMessage || `This ${experience} is currently locked by backend access policy.`
+      args.lockReasonMessage || `This ${experience} is currently locked.`
     );
   }
   if (args.canOpenReview) {
-    return "Your most recent attempt is complete and the backend currently allows answer review.";
+    return "Your most recent attempt is complete and answer review is available.";
   }
   if (args.canOpenSummary) {
-    return "Your latest attempt is available in summary form, but answer review is still locked by policy.";
+    return "Your latest attempt summary is available, but answer review is still locked.";
   }
   if (args.availabilityState === "upcoming") {
     return `This ${experience} is assigned to you, but its scheduled start window has not opened yet.`;
   }
   if (args.remainingAttempts === 0) {
-    return "No additional attempts remain under the current attempt policy.";
+    return "No additional attempts remain for this exam.";
   }
   if (args.availabilityState === "completed") {
-    return `The active window for this ${experience} is over. You can only revisit history if the backend still exposes it.`;
+    return `The active window for this ${experience} is over. You can still revisit history if it is available.`;
   }
-  return `Open the exam list again after the backend state changes, or review the availability and policy details below.`;
+  return `Open the exam list again later, or review the availability details below.`;
 }
 
 function detailNextStepBullets(args: {
@@ -201,8 +201,9 @@ function detailNextStepBullets(args: {
   if (args.canStart) {
     return [
       `You still have ${args.remainingAttempts} attempt${args.remainingAttempts === 1 ? "" : "s"} available under the current policy.`,
+      `You still have ${args.remainingAttempts} attempt${args.remainingAttempts === 1 ? "" : "s"} available.`,
       "Starting now opens the timed attempt workspace immediately.",
-      "After submission, score and review still depend on result visibility policy.",
+      "After submission, your result and review will appear when they are available.",
     ];
   }
 
@@ -218,17 +219,17 @@ function detailNextStepBullets(args: {
     return [
       "Open summary first when you need the clearest post-submit status view.",
       args.reviewAvailable
-        ? "Answer review is currently open by backend policy."
-        : "Review is still blocked until backend visibility policy changes.",
+        ? "Answer review is currently open."
+        : "Answer review is not available yet.",
       args.resultPublished
         ? "Published results are already visible in the results workspace."
-        : "Results are still hidden until publication rules are met.",
+        : "Results are not visible yet.",
     ];
   }
 
   return [
     "Check the availability window before trying again.",
-    "Blocked or completed states are controlled by backend assignment and lifecycle rules.",
+    "Some exams may be locked, completed, or not open yet.",
     "Use the exams list to compare which mock tests are ready, upcoming, or locked.",
   ];
 }
@@ -242,10 +243,10 @@ function detailStartFlowGuidance(args: {
 }) {
   const experience = examExperienceLabel(args.examType);
   if (args.canResume) {
-    return `Resuming takes you back into the live ${experience} workspace immediately, with your saved attempt state and current timer policy restored from the backend.`;
+    return `Resuming takes you back into the live ${experience} workspace with your saved progress restored.`;
   }
   if (args.canStart) {
-    return `Starting creates a fresh backend attempt right away. You will land in the timed workspace, follow the current section policy, and then return to summary after submission. You still have ${args.remainingAttempts} attempt${args.remainingAttempts === 1 ? "" : "s"} available under the current rule set.`;
+    return `Starting opens a fresh attempt right away. You will enter the timed workspace and return to the summary after submission. You still have ${args.remainingAttempts} attempt${args.remainingAttempts === 1 ? "" : "s"} available.`;
   }
   return args.allowSectionSwitching
     ? "When this exam becomes available, you will be able to move between sections during the attempt."
@@ -580,12 +581,12 @@ export default async function ExamDetailPage({
   if (!detail) {
     return (
       <div className="studentPage">
-        <StudentPageHeader
-          title="Exam Detail"
-          description="This route only renders real exam readiness data from the backend."
+      <StudentPageHeader
+        title="Exam Details"
+        description="View exam availability, access details, and your next action."
           statusLabel={
             source === "unconfigured"
-              ? "Backend not configured"
+              ? "Sign in required"
               : source === "blocked"
                 ? "Not available to this student"
                 : "Unable to load exam detail"
@@ -602,33 +603,33 @@ export default async function ExamDetailPage({
           }
           title={
             source === "unconfigured"
-              ? "Waiting for live exam detail"
+              ? "Exam detail is not available yet"
               : source === "blocked"
                 ? "This exam is not available in your workspace"
                 : "Exam detail could not be loaded"
           }
           description={
             source === "unconfigured"
-              ? "This route only renders real exam readiness data from the backend. Configure the API base URL and sign in with an active student account to load the selected exam."
+              ? "Sign in with your student account to load this exam."
               : source === "blocked"
-                ? "This exam is either not assigned to your student account, belongs to a different access scope, or is no longer visible under the current exam policy."
-                : "The exam detail workspace is connected to the backend, but the current request did not complete successfully."
+                ? "This exam may not be assigned to you or may no longer be visible in your workspace."
+                : "We couldn't load this exam right now."
           }
           bullets={
             source === "unconfigured"
-              ? ["Exam detail endpoint", "Active student web session"]
+              ? ["Student sign-in", "Exam detail"]
               : source === "blocked"
-                ? ["Student assignment scope", "Exam visibility policy"]
-              : ["Backend connectivity", "Exam detail endpoint"]
+                ? ["Student assignment", "Exam visibility"]
+              : ["Connection check", "Exam detail"]
           }
           ctaHref="/app/exams"
           ctaLabel="Back to Exams"
           statusLabel={
             source === "unconfigured"
-              ? "Configuration required"
+              ? "Sign in to continue"
               : source === "blocked"
                 ? "Check assigned exams"
-              : "Retry after backend check"
+              : "Try again soon"
           }
         />
       </div>
@@ -736,7 +737,7 @@ export default async function ExamDetailPage({
     <div className="studentPage studentDashboardModern studentLearnerPage studentLearnerExamDetailPage">
       <StudentPageHeader
         title={detail.title}
-        description={`${titleCaseState(detail.exam_type)} detail backed by the student exam detail endpoint, with runtime rules and next actions surfaced clearly.`}
+        description={`${titleCaseState(detail.exam_type)} details, availability, and next action.`}
         action={
           <div className="studentInsightHeroActions">
             <StatusPill
@@ -771,7 +772,7 @@ export default async function ExamDetailPage({
           <strong>{actionHeadline}</strong>
           <small>
             {detail.code} · {examSourceDescriptor(detail)} · {detailSubjectLabel} ·{" "}
-            {detail.start_at ? studentDateTimeLabel(detail.start_at) : "Backend scheduled"}
+            {detail.start_at ? studentDateTimeLabel(detail.start_at) : "Scheduled"}
           </small>
         </div>
         <div className="studentInsightHeroActions">
@@ -796,7 +797,7 @@ export default async function ExamDetailPage({
           {
             label: "Source",
             value: detail.source_label,
-            note: detail.source_teacher_name || detail.source_name || "Backend source metadata",
+            note: detail.source_teacher_name || detail.source_name || "Source details",
           },
           {
             label: "Questions",
@@ -826,7 +827,7 @@ export default async function ExamDetailPage({
               detail.economy_access.lock_reason_message ||
               (subscriptionResolution?.is_applicable
                 ? `Allowance ${subscriptionAllowanceLabel}`
-                : "Economy policy synced from backend"),
+                : "Access details available here"),
           },
           {
             label: "Allowance",
@@ -853,7 +854,7 @@ export default async function ExamDetailPage({
               <strong>
                 {detail.start_at
                   ? studentDateTimeLabel(detail.start_at)
-                  : "Backend scheduled"}
+                  : "Scheduled"}
               </strong>
             </div>
             <div className="studentResultStat">
@@ -861,7 +862,7 @@ export default async function ExamDetailPage({
               <strong>
                 {detail.end_at
                   ? studentDateTimeLabel(detail.end_at)
-                  : "Per backend policy"}
+                  : "Shown when available"}
               </strong>
             </div>
             <div className="studentResultStat">
@@ -872,7 +873,7 @@ export default async function ExamDetailPage({
             </div>
             <div className="studentResultStat">
               <span>Review state</span>
-              <strong>{detail.review_available ? "Open" : "Policy-based"}</strong>
+              <strong>{detail.review_available ? "Open" : "Not available yet"}</strong>
             </div>
             <div className="studentResultStat">
               <span>Star access</span>
@@ -893,14 +894,14 @@ export default async function ExamDetailPage({
               <span className="placeholderDot" aria-hidden="true" />
               <p>
                 {detail.instructions ||
-                  "No additional exam instructions were provided by the backend."}
+                  "No additional exam instructions were provided."}
               </p>
             </div>
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
               <p>
                 Results are {detail.result_published ? "already published" : "not published yet"}, and review is{" "}
-                {detail.review_available ? "currently open" : "still locked by policy"}.
+                {detail.review_available ? "currently open" : "not available yet"}.
               </p>
             </div>
             {detail.economy_access.requires_unlock ? (

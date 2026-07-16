@@ -1,4 +1,5 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db.models import Count, Q
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
@@ -359,6 +360,29 @@ class SubjectViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
                 "description",
                 "sort_order",
                 "is_active",
+            ).annotate(
+                active_question_count=Count("questions", filter=Q(questions__is_active=True)),
+                foundation_question_count=Count(
+                    "questions",
+                    filter=Q(
+                        questions__is_active=True,
+                        questions__difficulty_level="foundation",
+                    ),
+                ),
+                intermediate_question_count=Count(
+                    "questions",
+                    filter=Q(
+                        questions__is_active=True,
+                        questions__difficulty_level="intermediate",
+                    ),
+                ),
+                advanced_question_count=Count(
+                    "questions",
+                    filter=Q(
+                        questions__is_active=True,
+                        questions__difficulty_level="advanced",
+                    ),
+                ),
             )
         return scope_teacher_academic_queryset(queryset, self.request.user)
 
@@ -394,6 +418,29 @@ class TopicViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
                 "difficulty_level",
                 "sort_order",
                 "is_active",
+            ).annotate(
+                active_question_count=Count("questions", filter=Q(questions__is_active=True)),
+                foundation_question_count=Count(
+                    "questions",
+                    filter=Q(
+                        questions__is_active=True,
+                        questions__difficulty_level="foundation",
+                    ),
+                ),
+                intermediate_question_count=Count(
+                    "questions",
+                    filter=Q(
+                        questions__is_active=True,
+                        questions__difficulty_level="intermediate",
+                    ),
+                ),
+                advanced_question_count=Count(
+                    "questions",
+                    filter=Q(
+                        questions__is_active=True,
+                        questions__difficulty_level="advanced",
+                    ),
+                ),
             )
         return scope_teacher_academic_queryset(queryset, self.request.user)
 

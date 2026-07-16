@@ -29,7 +29,7 @@ async function resolveAttemptEntry(page: Page) {
 
   await gotoWithRuntimeRecovery(page, "/app/dashboard");
   await expect(page).toHaveURL(/\/app\/dashboard(?:\?.*)?$/);
-  await expect(page.getByText(/action queue/i).first()).toBeVisible();
+  await expect(page.getByText(/study queue|action queue/i).first()).toBeVisible();
 
   const resumeFromDashboard = page.getByRole("link", { name: /resume attempt/i }).first();
   if (await resumeFromDashboard.isVisible().catch(() => false)) {

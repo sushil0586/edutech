@@ -42,8 +42,8 @@ test.describe("Student utility workspace coverage", () => {
 
     await gotoWithRetry(page, "/app/dashboard");
     await expect(page).toHaveURL(/\/app\/dashboard(?:\?.*)?$/);
-    await expect(page.getByText(/recommended for you/i).first()).toBeVisible();
-    await expect(page.getByText(/action queue/i).first()).toBeVisible();
+    await expect(page.getByText(/next best step|recommended for you/i).first()).toBeVisible();
+    await expect(page.getByText(/study queue|action queue/i).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /open wallet|open attempt timeline/i }).first()).toBeVisible();
 
     await gotoWithRetry(page, "/app/profile");
@@ -51,7 +51,7 @@ test.describe("Student utility workspace coverage", () => {
     await expect(page.getByRole("heading", { name: /profile/i }).first()).toBeVisible();
     await expect(page.getByText(/student identity/i).first()).toBeVisible();
     await expect(page.getByText(/academic context/i).first()).toBeVisible();
-    await expect(page.getByText(/orientation|what to check next/i).first()).toBeVisible();
+    await expect(page.getByText(/orientation|recommended checks/i).first()).toBeVisible();
     await expect(page.getByText(/identity trust checks/i).first()).toBeVisible();
     await expect(page.getByText(/student support flow/i).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /open settings/i }).first()).toBeVisible();
@@ -62,12 +62,9 @@ test.describe("Student utility workspace coverage", () => {
     await expect(page.getByText(/account controls/i).first()).toBeVisible();
     await expect(page.getByText(/what you can do here/i).first()).toBeVisible();
     await expect(page.getByText(/session and access/i).first()).toBeVisible();
-    await expect(page.getByText(/account management handoff/i).first()).toBeVisible();
+    await expect(page.getByText(/support handoff/i).first()).toBeVisible();
     await expect(
-      page.getByText(/does not pretend to offer profile editing/i).first(),
-    ).toBeVisible();
-    await expect(
-      page.getByText(/password resets, institute corrections, and administrative identity changes remain outside this learner shell today/i).first(),
+      page.getByText(/password resets, institute corrections, and administrative identity changes still happen outside this learner shell/i).first(),
     ).toBeVisible();
     await expect(page.getByRole("button", { name: /logout from this device/i }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /profile/i }).first()).toBeVisible();
@@ -83,8 +80,8 @@ test.describe("Student utility workspace coverage", () => {
       await expect(page.getByText(/inbox overview/i).first()).toBeVisible();
       await expect(page.getByText(/how to use this inbox/i).first()).toBeVisible();
       await expect(page.getByText(/best next checks/i).first()).toBeVisible();
-      await expect(page.getByText(/a strong sequence is: open the linked learner route/i).first()).toBeVisible();
-      await expect(page.getByRole("link", { name: /check result status/i }).first()).toBeVisible();
+      await expect(page.getByText(/open attempts for active work and results when you expect a score or review release/i).first()).toBeVisible();
+      await expect(page.getByRole("link", { name: /open results/i }).first()).toBeVisible();
 
       const markReadButton = page.getByRole("button", { name: /^mark read$/i }).first();
       if (await markReadButton.isVisible().catch(() => false)) {
@@ -134,12 +131,9 @@ test.describe("Student utility workspace coverage", () => {
     await expect(page).toHaveURL(/\/app\/wallet(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /wallet/i }).first()).toBeVisible();
     await expect(page.getByText(/wallet state/i).first()).toBeVisible();
-    await expect(page.getByText(/what this page can and cannot do/i).first()).toBeVisible();
-    await expect(page.getByText(/a safe order is: check balance and request state here/i).first()).toBeVisible();
+    await expect(page.getByText(/what this page covers/i).first()).toBeVisible();
+    await expect(page.getByText(/check your balance here, compare plans if needed/i).first()).toBeVisible();
     await expect(page.getByText(/instant settlement/i).first()).toBeVisible();
-    await expect(
-      page.getByText(/does not promise instant settlement/i).first(),
-    ).toBeVisible();
     await expect(page.getByRole("link", { name: /compare plans/i }).first()).toBeVisible();
     await expectAnyVisible(page, [/star packs/i, /subscription plans/i]);
     await expectAnyVisible(page, [
@@ -165,12 +159,9 @@ test.describe("Student utility workspace coverage", () => {
     await expect(page.getByText(/subscription state/i).first()).toBeVisible();
     await expect(page.getByLabel(/student subscription section/i)).toBeVisible();
     await expect(page.getByLabel(/student subscription rows to show/i)).toBeVisible();
-    await expect(page.getByText(/what this page can and cannot do/i).first()).toBeVisible();
-    await expect(page.getByText(/a safe order is: compare cycles here/i).first()).toBeVisible();
+    await expect(page.getByText(/what this page covers/i).first()).toBeVisible();
+    await expect(page.getByText(/compare cycles here, confirm whether a request is still pending or already credited/i).first()).toBeVisible();
     await expect(page.getByText(/immediate activation/i).first()).toBeVisible();
-    await expect(
-      page.getByText(/does not promise instant subscription activation or instant wallet credit/i).first(),
-    ).toBeVisible();
     await expect(page.getByRole("link", { name: /open wallet/i }).first()).toBeVisible();
     await expectAnyVisible(page, [/available plans/i, /active student subscriptions/i, /waiting for live subscription data/i]);
     await expectAnyVisible(page, [
@@ -193,18 +184,18 @@ test.describe("Student utility workspace coverage", () => {
     await expect(page).toHaveURL(/\/app\/subscriptions\?[^#]*section=orders/);
     await expect(page).toHaveURL(/\/app\/subscriptions\?[^#]*rows=3/);
     await expect(
-      page.getByText(/this section shows whether your chosen plan is still only requested, already processed, or fully linked to wallet credit activity/i).first(),
+      page.getByText(/this section shows whether your chosen plan is requested, processed, or fully linked to wallet credit activity/i).first(),
     ).toBeVisible();
     await expect(
-      page.getByText(/review the available cycles and choose the plan that matches how often you expect to unlock premium content/i).first(),
+      page.getByText(/review the available cycles and choose the plan that matches how often you unlock premium content/i).first(),
     ).toHaveCount(0);
-    await expect(page.getByRole("heading", { name: /what this page can and cannot do/i })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: /what this page covers/i })).toHaveCount(0);
 
     await gotoWithRetry(page, "/app/search");
     await expect(page).toHaveURL(/\/app\/search(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /search/i }).first()).toBeVisible();
     await expect(page.getByText(/what student search covers/i).first()).toBeVisible();
-    await expect(page.getByText(/a strong sequence is: use search to find the right learner route quickly/i).first()).toBeVisible();
+    await expect(page.getByText(/search is for discovery, not execution/i).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /back to workspace/i }).first()).toBeVisible();
 
     const searchForm = page.locator("form.workspaceFiltersForm").first();

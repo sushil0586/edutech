@@ -20,7 +20,7 @@ export function SectionBlock({
           <Text style={appStyles.sectionTitle}>{title}</Text>
           {subtitle ? <Text style={appStyles.sectionSubtitle}>{subtitle}</Text> : null}
         </View>
-        {action}
+        {action ? <View style={appStyles.rowWrap}>{action}</View> : null}
       </View>
       {children}
     </View>

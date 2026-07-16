@@ -59,6 +59,12 @@ type PracticeAvailabilityFilter =
   | "locked";
 type PracticeSortOption = "recommended" | "shortest" | "longest" | "title";
 type PracticeGroupOption = "none" | "availability" | "subject" | "access";
+const PRACTICE_PAGE_SIZE_VALUES = [6, 12, 18] as const;
+
+function parsePositiveInt(value: string | undefined, fallback: number) {
+  const parsed = Number.parseInt(value ?? "", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
 
 function isPracticeAttemptInProgress(status: string | null | undefined) {
   return status === "in_progress";
@@ -120,6 +126,55 @@ function practiceActionLabel(args: {
   return "View Details";
 }
 
+function practiceDetailCtaLabel() {
+  return "View Details";
+}
+
+function compactPracticeDateTime(value: string | null) {
+  if (!value) return "Ready now";
+
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+function practiceAvailabilityValue(exam: StudentAvailableExam) {
+  if (exam.availability_state === "available_now") return "Ready now";
+  if (exam.availability_state === "completed") return "Completed";
+  if (exam.availability_state === "missed") return "Missed";
+  if (exam.availability_state === "locked") return "Locked";
+  if (exam.start_at) return compactPracticeDateTime(exam.start_at);
+  return titleCaseState(exam.availability_state);
+}
+
+function practiceSupportNote(exam: StudentAvailableExam, uiState: ReturnType<typeof resolvePracticeUiState>) {
+  if (uiState.canResume) {
+    return "Continue your latest in-progress practice attempt.";
+  }
+  if (uiState.canStart) {
+    return exam.attempt_policy === "unlimited_practice"
+      ? "Start another focused run whenever you are ready."
+      : "Start now for a fresh practice run.";
+  }
+  if (exam.review_available && uiState.hasAttemptHistory) {
+    return "Open the latest attempt while feedback is still fresh.";
+  }
+  if (uiState.hasAttemptHistory) {
+    return "Open the latest summary to check the most recent outcome.";
+  }
+  if (exam.availability_state === "upcoming") {
+    return "Check back when the practice window opens.";
+  }
+  if (exam.availability_state === "missed") {
+    return "This practice window has passed. Open details to review what is still available.";
+  }
+  return "Open details to review availability and next steps.";
+}
+
 function practiceActionHref(args: {
   examId: string;
   canResume: boolean;
@@ -163,32 +218,48 @@ function practiceGuidance(exam: {
   };
 }) {
   if (exam.can_resume) {
-    return "A live practice attempt is already in progress. Jump back in and continue learning from the same session.";
+    return "A live practice attempt is already in progress.";
   }
   if (exam.economy_access.is_locked && exam.economy_access.can_unlock_with_stars) {
-    return `${exam.economy_access.star_cost} stars are required before this practice set can be started. Unlock it once, then keep using it according to its practice policy.`;
+    return `${exam.economy_access.star_cost} stars are required before this practice set can start.`;
   }
   if (exam.economy_access.is_locked) {
     return (
       exam.economy_access.lock_reason_message ||
-      "This practice set is currently locked by access policy."
+      "This practice set is currently locked."
     );
   }
   if (exam.can_start) {
     return exam.attempt_policy === "unlimited_practice"
-      ? "This practice set is ready now and supports repeat work. Start it whenever you want another focused run."
-      : "This practice set is ready now. Start it to get quick feedback and a fresh readiness signal.";
+      ? "This practice set is ready now and supports repeat work."
+      : "This practice set is ready now for a fresh attempt.";
   }
   if (exam.review_available) {
-    return "Your latest practice run is complete and feedback is ready for review.";
+    return "Your latest practice run is complete and feedback is ready.";
   }
   if (exam.remaining_attempts === 0) {
-    return "All configured attempts for this practice set have been used.";
+    return "All attempts for this practice set have been used.";
   }
   if (exam.availability_state === "upcoming") {
-    return "This practice set exists, but its start window has not opened yet.";
+    return "This practice set is assigned, but not open yet.";
   }
-  return "Open the detail page to review rules, availability, and your next valid practice action.";
+  if (exam.availability_state === "missed") {
+    return "This practice window has passed.";
+  }
+  return "Open the detail page to review availability and the next action.";
+}
+
+function compactPracticeHeadline(args: {
+  canResume: boolean;
+  canStart: boolean;
+  hasAttemptHistory: boolean;
+  reviewAvailable: boolean;
+}) {
+  if (args.canResume) return "Resume available";
+  if (args.canStart) return "Ready to start";
+  if (args.reviewAvailable && args.hasAttemptHistory) return "Review available";
+  if (args.hasAttemptHistory) return "Summary available";
+  return "View details";
 }
 
 function resolvePracticeAvailabilityFilter(value?: string): PracticeAvailabilityFilter {
@@ -312,6 +383,8 @@ function buildPracticeFilterHref(args: {
   availability?: PracticeAvailabilityFilter;
   sort?: PracticeSortOption;
   group?: PracticeGroupOption;
+  page?: number;
+  pageSize?: number;
   subject?: string;
   topic?: string;
   source?: string;
@@ -325,6 +398,8 @@ function buildPracticeFilterHref(args: {
     ["practice_filter", args.availability, "all"],
     ["practice_sort", args.sort, "recommended"],
     ["practice_group", args.group, "none"],
+    ["practice_page", args.page ? String(args.page) : undefined, "1"],
+    ["practice_page_size", args.pageSize ? String(args.pageSize) : undefined, "12"],
   ]);
 }
 
@@ -434,6 +509,8 @@ export default async function PracticePage({
     practice_filter?: string;
     practice_sort?: string;
     practice_group?: string;
+    practice_page?: string;
+    practice_page_size?: string;
   }>;
 }) {
   const {
@@ -445,6 +522,8 @@ export default async function PracticePage({
     practice_filter,
     practice_sort,
     practice_group,
+    practice_page,
+    practice_page_size,
   } = await searchParams;
   const profile = await fetchCurrentAccountProfile();
   const registrationContext = profile?.registration_context ?? {};
@@ -512,15 +591,29 @@ export default async function PracticePage({
     applyPracticeAvailabilityFilter(practiceExams, availabilityFilter),
     sortOption,
   );
+  const pageSizeCandidate = parsePositiveInt(practice_page_size, 12);
+  const pageSize = PRACTICE_PAGE_SIZE_VALUES.includes(
+    pageSizeCandidate as (typeof PRACTICE_PAGE_SIZE_VALUES)[number],
+  )
+    ? pageSizeCandidate
+    : 12;
+  const totalPracticePages = Math.max(1, Math.ceil(filteredPracticeExams.length / pageSize));
+  const currentPage = Math.min(parsePositiveInt(practice_page, 1), totalPracticePages);
+  const pagedPracticeExams = filteredPracticeExams.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
+  const showingStart = filteredPracticeExams.length ? (currentPage - 1) * pageSize + 1 : 0;
+  const showingEnd = Math.min(currentPage * pageSize, filteredPracticeExams.length);
 
-  const featuredPractice = filteredPracticeExams[0] ?? null;
+  const featuredPractice = pagedPracticeExams[0] ?? null;
   const featuredPracticeSubjectLabel = featuredPractice
     ? getExamSubjectDisplayLabel(featuredPractice)
     : null;
   const additionalPracticeGroups = groupPracticeExams(
     featuredPractice
-      ? filteredPracticeExams.filter((exam) => exam.id !== featuredPractice.id)
-      : filteredPracticeExams,
+      ? pagedPracticeExams.filter((exam) => exam.id !== featuredPractice.id)
+      : pagedPracticeExams,
     groupOption,
   );
   const focusedWeakTopic = scopedSummary?.weak_topics.find(
@@ -569,6 +662,11 @@ export default async function PracticePage({
             detail: "Return to weak areas or analytics to confirm whether the same topic still needs repair.",
           },
         ];
+  const readyNowCount = filteredPracticeExams.filter(
+    (exam) => exam.can_start && !exam.can_resume,
+  ).length;
+  const resumeCount = filteredPracticeExams.filter((exam) => exam.can_resume).length;
+  const reviewReadyCount = filteredPracticeExams.filter((exam) => exam.review_available).length;
 
   return (
     <div className="studentPage studentDashboardModern studentLearnerPage studentLearnerPracticePage">
@@ -590,14 +688,16 @@ export default async function PracticePage({
             .filter(Boolean)
             .join(" · ") || undefined
         }
-        description={`A dedicated student practice workspace${
-          selectedSubject === ALL_SUBJECTS_CONTEXT ? "" : ` for ${selectedSubjectLabel}`
-        }. Repeat improvement, focused revision, and faster feedback loops stay centered on the selected subject mode.`}
+        description={
+          selectedSubject === ALL_SUBJECTS_CONTEXT
+            ? "Focused revision, repeat work, and quick feedback live here."
+            : `Focused revision and repeat work for ${selectedSubjectLabel} live here.`
+        }
         statusLabel={
           source === "live"
             ? `${filteredPracticeExams.length} practice sets ready`
             : source === "unconfigured"
-              ? "Backend not configured"
+              ? "Sign in required"
               : "Unable to load practice"
         }
         statusTone={
@@ -618,43 +718,39 @@ export default async function PracticePage({
           eyebrow={source === "unconfigured" ? "Setup required" : "Load issue"}
           title={
             source === "unconfigured"
-              ? "Waiting for live practice data"
+              ? "Practice is not available yet"
               : "Practice workspace could not be loaded"
           }
           description={
             source === "unconfigured"
-              ? "This page only renders real practice sets from the backend. Configure the API base URL and sign in with an active student account to continue."
-              : "The practice workspace depends on live exam availability and student insight data, and the current request did not complete successfully."
+              ? "Sign in with your student account to load your practice sets."
+              : "We couldn't load your practice workspace right now. Please try again shortly."
           }
           bullets={
             source === "unconfigured"
-              ? ["Student availability endpoint", "Student insight summary endpoint"]
-              : ["Backend connectivity", "Practice availability data"]
+              ? ["Student sign-in", "Practice sets"]
+              : ["Connection check", "Practice availability"]
           }
           ctaHref="/app/exams"
           ctaLabel="Open Exams"
           statusLabel={
             source === "unconfigured"
-              ? "Configuration required"
-              : "Retry after backend check"
+              ? "Sign in to continue"
+              : "Try again soon"
           }
         />
       ) : practiceExams.length === 0 ? (
         <StudentStatePanel
           eyebrow="No practice sets yet"
           title="Your practice workspace is empty right now"
-          description="No exam records with practice mode were returned for this student. Add or publish practice-type exams to activate repeat practice flows."
+          description="No practice sets are available for this student right now."
           ctaHref="/app/weak-areas"
           ctaLabel="Open Weak Areas"
           statusLabel="Waiting for practice content"
         />
       ) : (
         <>
-          <section className="contentCard studentWorkspaceFiltersCard">
-            <div className="sectionHeading">
-              <strong>Practice Controls</strong>
-              <span>Refine repeat practice lanes</span>
-            </div>
+          <section className="contentCard studentWorkspaceFiltersCard studentAttemptsFiltersCard">
             <form className="studentWorkspaceFiltersForm" method="GET">
               {focusSubject ? <input name="subject" type="hidden" value={focusSubject} /> : null}
               {focusTopic ? <input name="topic" type="hidden" value={focusTopic} /> : null}
@@ -687,6 +783,16 @@ export default async function PracticePage({
                   <option value="access">Access type</option>
                 </select>
               </label>
+              <label className="studentWorkspaceFilterField">
+                <span>Page size</span>
+                <select defaultValue={String(pageSize)} name="practice_page_size">
+                  {PRACTICE_PAGE_SIZE_VALUES.map((value) => (
+                    <option key={value} value={value}>
+                      {value} per page
+                    </option>
+                  ))}
+                </select>
+              </label>
               <div className="studentWorkspaceFilterActions">
                 <button className="button buttonPrimary" type="submit">
                   Apply filters
@@ -708,13 +814,13 @@ export default async function PracticePage({
               <span className="studentWorkspaceFilterQuickLabel">Quick filters</span>
               <div className="studentWorkspaceFilterQuickChips">
                 {[
-                  { label: "All", href: buildPracticeFilterHref({ subject: focusSubject || undefined, topic: focusTopic || undefined, source: scopedSourceParam, teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined }), active: availabilityFilter === "all" && sortOption === "recommended" && groupOption === "none" },
-                  { label: "Ready Now", href: buildPracticeFilterHref({ availability: "ready", sort: sortOption, group: groupOption, subject: focusSubject || undefined, topic: focusTopic || undefined, source: scopedSourceParam, teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined }), active: availabilityFilter === "ready" },
-                  { label: "Resume", href: buildPracticeFilterHref({ availability: "resume", sort: sortOption, group: groupOption, subject: focusSubject || undefined, topic: focusTopic || undefined, source: scopedSourceParam, teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined }), active: availabilityFilter === "resume" },
-                  { label: "Review Ready", href: buildPracticeFilterHref({ availability: "review", sort: sortOption, group: groupOption, subject: focusSubject || undefined, topic: focusTopic || undefined, source: scopedSourceParam, teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined }), active: availabilityFilter === "review" },
-                  { label: "Locked", href: buildPracticeFilterHref({ availability: "locked", sort: sortOption, group: groupOption, subject: focusSubject || undefined, topic: focusTopic || undefined, source: scopedSourceParam, teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined }), active: availabilityFilter === "locked" },
-                  { label: "Shortest", href: buildPracticeFilterHref({ availability: availabilityFilter, sort: "shortest", group: groupOption, subject: focusSubject || undefined, topic: focusTopic || undefined, source: scopedSourceParam, teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined }), active: sortOption === "shortest" },
-                  { label: "Group by Subject", href: buildPracticeFilterHref({ availability: availabilityFilter, sort: sortOption, group: "subject", subject: focusSubject || undefined, topic: focusTopic || undefined, source: scopedSourceParam, teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined }), active: groupOption === "subject" },
+                  { label: "All", href: buildPracticeFilterHref({ pageSize, subject: focusSubject || undefined, topic: focusTopic || undefined, source: scopedSourceParam, teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined }), active: availabilityFilter === "all" && sortOption === "recommended" && groupOption === "none" },
+                  { label: "Ready Now", href: buildPracticeFilterHref({ availability: "ready", sort: sortOption, group: groupOption, pageSize, subject: focusSubject || undefined, topic: focusTopic || undefined, source: scopedSourceParam, teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined }), active: availabilityFilter === "ready" },
+                  { label: "Resume", href: buildPracticeFilterHref({ availability: "resume", sort: sortOption, group: groupOption, pageSize, subject: focusSubject || undefined, topic: focusTopic || undefined, source: scopedSourceParam, teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined }), active: availabilityFilter === "resume" },
+                  { label: "Review Ready", href: buildPracticeFilterHref({ availability: "review", sort: sortOption, group: groupOption, pageSize, subject: focusSubject || undefined, topic: focusTopic || undefined, source: scopedSourceParam, teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined }), active: availabilityFilter === "review" },
+                  { label: "Locked", href: buildPracticeFilterHref({ availability: "locked", sort: sortOption, group: groupOption, pageSize, subject: focusSubject || undefined, topic: focusTopic || undefined, source: scopedSourceParam, teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined }), active: availabilityFilter === "locked" },
+                  { label: "Shortest", href: buildPracticeFilterHref({ availability: availabilityFilter, sort: "shortest", group: groupOption, pageSize, subject: focusSubject || undefined, topic: focusTopic || undefined, source: scopedSourceParam, teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined }), active: sortOption === "shortest" },
+                  { label: "Group by Subject", href: buildPracticeFilterHref({ availability: availabilityFilter, sort: sortOption, group: "subject", pageSize, subject: focusSubject || undefined, topic: focusTopic || undefined, source: scopedSourceParam, teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined }), active: groupOption === "subject" },
                 ].map((chip) => (
                   <Link
                     key={chip.label}
@@ -734,6 +840,7 @@ export default async function PracticePage({
                 { label: "Availability", value: formatFilterValue(availabilityFilter) },
                 { label: "Sort", value: formatFilterValue(sortOption) },
                 { label: "Group", value: formatFilterValue(groupOption) },
+                { label: "Page size", value: pageSize !== 12 ? String(pageSize) : null },
               ]}
             />
           </section>
@@ -742,7 +849,7 @@ export default async function PracticePage({
             <StudentStatePanel
               eyebrow="No matching practice sets"
               title="No practice sets match these controls"
-              description="Broaden the availability filter, change the grouping, or reset the controls to return to the full practice list."
+              description="Broaden the filters or reset the controls to return to the full practice list."
               ctaHref={buildPracticeFilterHref({
                 subject: focusSubject || undefined,
                 topic: focusTopic || undefined,
@@ -756,51 +863,24 @@ export default async function PracticePage({
 
           {filteredPracticeExams.length > 0 ? (
             <>
-          <section className="studentInsightHeroCard studentInsightHeroCardWarm">
-            <div className="studentInsightHeroCopy">
-              <span className="studentDashboardTag studentDashboardTagWarm">
-                Practice Focus
-              </span>
-              <strong>
-                {focusedWeakTopic
-                  ? `Practice ${focusedWeakTopic.topic_name} next`
-                  : featuredPractice?.title ?? "Start your next practice set"}
-              </strong>
-              <small>
-                {focusedWeakTopic
-                  ? `${percentageLabel(focusedWeakTopic.average_percentage)} in ${focusedWeakTopic.subject_name}`
-                  : practiceFocus.helper}
-              </small>
-            </div>
-            <div className="studentInsightHeroActions">
-              {featuredPractice ? (
-                <Link
-                  className="button buttonPrimary"
-                  href="#recommended-practice"
-                >
-                  View Recommended Practice
-                </Link>
-              ) : null}
-              <Link className="button buttonSecondary" href="/app/weak-areas">
-                Back to Weak Areas
-              </Link>
-            </div>
-          </section>
-
           <StudentKpiGrid
+            className="resultsSummaryGrid studentAttemptsKpiGrid"
             items={[
               {
                 label: "Practice Sets",
                 value: filteredPracticeExams.length,
-                note: "Repeatable sets available for self-improvement",
+                note: "Visible in the current scope",
                 tone: "primary",
               },
               {
-                label: "Focused Topic",
-                value: focusedTopicLabel || "General revision",
-                note: focusedWeakTopic
-                  ? `${percentageLabel(focusedWeakTopic.average_percentage)} in ${focusedWeakTopic.subject_name}`
-                  : focusSubject || "Use weak-topic signals to choose what to revise next",
+                label: "Ready Now",
+                value: readyNowCount,
+                note: `${resumeCount} resumable`,
+              },
+              {
+                label: "Review Ready",
+                value: reviewReadyCount,
+                note: focusedTopicLabel || "General revision",
               },
               {
                 label: "Trend Signal",
@@ -814,43 +894,123 @@ export default async function PracticePage({
             ]}
           />
 
+          <section className="studentAttemptsQuickBar">
+            {[
+              {
+                label: "All",
+                count: filteredPracticeExams.length,
+                href: buildPracticeFilterHref({
+                  subject: focusSubject || undefined,
+                  topic: focusTopic || undefined,
+                  source: scopedSourceParam,
+                  teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
+                }),
+                active: availabilityFilter === "all",
+              },
+              {
+                label: "Ready Now",
+                count: readyNowCount,
+                href: buildPracticeFilterHref({
+                  availability: "ready",
+                  sort: sortOption,
+                  group: groupOption,
+                  subject: focusSubject || undefined,
+                  topic: focusTopic || undefined,
+                  source: scopedSourceParam,
+                  teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
+                }),
+                active: availabilityFilter === "ready",
+              },
+              {
+                label: "Resume",
+                count: resumeCount,
+                href: buildPracticeFilterHref({
+                  availability: "resume",
+                  sort: sortOption,
+                  group: groupOption,
+                  subject: focusSubject || undefined,
+                  topic: focusTopic || undefined,
+                  source: scopedSourceParam,
+                  teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
+                }),
+                active: availabilityFilter === "resume",
+              },
+              {
+                label: "Review Ready",
+                count: reviewReadyCount,
+                href: buildPracticeFilterHref({
+                  availability: "review",
+                  sort: sortOption,
+                  group: groupOption,
+                  subject: focusSubject || undefined,
+                  topic: focusTopic || undefined,
+                  source: scopedSourceParam,
+                  teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
+                }),
+                active: availabilityFilter === "review",
+              },
+            ].map((tab) => (
+              <Link
+                key={tab.label}
+                className={`studentAttemptsQuickTab${tab.active ? " studentAttemptsQuickTabActive" : ""}`}
+                href={tab.href}
+              >
+                <span>{tab.label}</span>
+                <strong>{tab.count}</strong>
+              </Link>
+            ))}
+          </section>
+
           {featuredPractice ? (
-            <section className="studentInsightsTwoColumn">
-              <article className="contentCard" id="recommended-practice">
-                <div className="sectionHeading">
-                  <strong>Recommended Practice Set</strong>
-                  <StatusPill tone={practiceStateTone(featuredPractice.availability_state)}>
-                    {titleCaseState(featuredPractice.availability_state)}
-                  </StatusPill>
+            <section className="studentResultsGroupedSection">
+              <div className="sectionHeading">
+                <strong id="recommended-practice">Recommended Practice</strong>
+                <span>
+                  {focusedWeakTopic
+                    ? `${percentageLabel(focusedWeakTopic.average_percentage)} in ${focusedWeakTopic.subject_name}`
+                    : practiceFocus.helper}
+                </span>
+              </div>
+              <article className="contentCard studentPracticeCompactCard">
+                <div className="studentAttemptsCardHead">
+                  <div className="studentAttemptsCardTitle">
+                    <strong>{featuredPractice.title}</strong>
+                    <span className="studentAttemptsCardMeta">
+                      {featuredPractice.code} · {featuredPracticeSubjectLabel || "General"}
+                    </span>
+                  </div>
+                  <div className="studentAttemptsCardStatus">
+                    <StatusPill tone={practiceStateTone(featuredPractice.availability_state)}>
+                      {titleCaseState(featuredPractice.availability_state)}
+                    </StatusPill>
+                  </div>
                 </div>
 
-                <div className="studentResultStatGrid">
-                  <div className="studentResultStat">
-                    <span>Subject</span>
-                    <strong>{featuredPracticeSubjectLabel || "General"}</strong>
-                  </div>
-                  <div className="studentResultStat">
+                <div className="studentAttemptsCardSourceRow">
+                  <span>{practiceFocus.helper}</span>
+                </div>
+
+                <div className="studentPracticeMetrics">
+                  <div className="studentAttemptsMetric">
                     <span>Duration</span>
-                    <strong>{featuredPractice.duration_minutes} min</strong>
+                    <strong>{featuredPractice.duration_minutes}m</strong>
                   </div>
-                  <div className="studentResultStat">
-                    <span>Attempts left</span>
+                  <div className="studentAttemptsMetric">
+                    <span>Attempts</span>
                     <strong>
                       {featuredPractice.attempt_policy === "unlimited_practice"
                         ? "Unlimited"
-                        : featuredPractice.remaining_attempts}
+                        : `${featuredPractice.remaining_attempts}`}
                     </strong>
                   </div>
-                  <div className="studentResultStat">
-                    <span>Feedback</span>
-                    <strong>
-                      {featuredPractice.result_published || featuredPractice.review_available
-                        ? "Immediate-ready"
-                        : "Policy-based"}
+                  <div className="studentAttemptsMetric">
+                    <span>Availability</span>
+                    <strong className="studentAttemptsMetricValueCompact">
+                      {practiceAvailabilityValue(featuredPractice)}
                     </strong>
                   </div>
-                  <div className="studentResultStat">
-                    <span>Star Access</span>
+                  <div className="studentAttemptsMetric">
+                    <span>Access</span>
                     <strong>
                       {featuredPractice.economy_access.requires_unlock
                         ? featuredPractice.economy_access.is_unlocked
@@ -863,32 +1023,35 @@ export default async function PracticePage({
                   </div>
                 </div>
 
-                <div className="studentResultFooter">
-                  <div className="studentResultHelper">
-                    <span>Next step</span>
-                    <strong>
-                      {practiceActionLabel({
-                        canResume: featuredPracticeState?.canResume ?? false,
-                        canStart: featuredPracticeState?.canStart ?? false,
-                        hasAttemptHistory: featuredPracticeState?.hasAttemptHistory ?? false,
-                        reviewAvailable: featuredPractice.review_available,
-                      })}
-                    </strong>
-                    <small>
-                      {practiceGuidance({
-                        ...featuredPractice,
-                        can_resume: featuredPracticeState?.canResume ?? false,
-                        can_start: featuredPracticeState?.canStart ?? false,
-                      })}
-                    </small>
+                <div className="studentAttemptsNotice">
+                  <strong>
+                    {compactPracticeHeadline({
+                      canResume: featuredPracticeState?.canResume ?? false,
+                      canStart: featuredPracticeState?.canStart ?? false,
+                      hasAttemptHistory: featuredPracticeState?.hasAttemptHistory ?? false,
+                      reviewAvailable: featuredPractice.review_available,
+                    })}
+                  </strong>
+                  <span>
+                    {practiceGuidance({
+                      ...featuredPractice,
+                      can_resume: featuredPracticeState?.canResume ?? false,
+                      can_start: featuredPracticeState?.canStart ?? false,
+                    })}
+                  </span>
+                </div>
+
+                <div className="studentAttemptsFooter">
+                  <div className="studentAttemptsUpdateRow">
+                    <span>{practiceSupportNote(featuredPractice, featuredPracticeState ?? resolvePracticeUiState(featuredPractice, latestFocusedAttemptId))}</span>
                   </div>
-                  <div className="studentInsightHeroActions">
+                  <div className="studentAttemptsActions">
                     {featuredPracticeState?.canStart ? (
                       <form action={startPracticeAction}>
                         <input name="exam_id" type="hidden" value={featuredPractice.id} />
                         <ActionSubmitButton
                           className="button buttonPrimary"
-                          idleLabel="Start Practice Now"
+                          idleLabel="Start Practice"
                           pendingLabel="Starting..."
                         />
                       </form>
@@ -937,53 +1100,9 @@ export default async function PracticePage({
                       </Link>
                     )}
                     <Link className="button buttonSecondary" href={`/app/exams/${featuredPractice.id}`}>
-                      View Practice Detail
+                      {practiceDetailCtaLabel()}
                     </Link>
                   </div>
-                </div>
-              </article>
-
-              <article className="contentCard">
-                <div className="sectionHeading">
-                  <strong>Practice Loop</strong>
-                  <span>Recommended flow</span>
-                </div>
-                <div className="studentInsightMessageStack">
-                  <div className="studentInsightMessage">
-                    <span className="placeholderDot" aria-hidden="true" />
-                    <p>Use weak-topic and analytics signals to decide what to revise next instead of waiting for the next assigned mock test.</p>
-                  </div>
-                  <div className="studentInsightMessage">
-                    <span className="placeholderDot" aria-hidden="true" />
-                    <p>Practice sets are lighter-weight than high-stakes assessments and are meant for repeat use.</p>
-                  </div>
-                  <div className="studentInsightMessage">
-                    <span className="placeholderDot" aria-hidden="true" />
-                    <p>When the exam policy allows it, results and answer review become your immediate improvement loop.</p>
-                  </div>
-                </div>
-                <div className="studentActionSequence" aria-label="Practice continuity order">
-                  {practiceLoopSequence.map((step) => (
-                    <div className="studentActionSequenceCard" key={step.label}>
-                      <span>{step.label}</span>
-                      <strong>{step.detail}</strong>
-                    </div>
-                  ))}
-                </div>
-                <div className="studentInsightHeroActions">
-                  <Link className="button buttonSecondary" href="/app/analytics">
-                    Open Analytics
-                  </Link>
-                  <Link
-                    className="button buttonGhost"
-                    href={buildFilterHref("/app/results", [
-                      ["subject", focusSubject || undefined],
-                      ["source", scopedSourceParam],
-                      ["teacher", selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined],
-                    ])}
-                  >
-                    Check Results
-                  </Link>
                 </div>
               </article>
             </section>
@@ -1006,23 +1125,31 @@ export default async function PracticePage({
               const examUiState = resolvePracticeUiState(exam, latestAttemptId);
 
               return (
-                <article className="contentCard studentResultSurface" key={exam.id}>
-                  <div className="studentResultSurfaceHead">
-                    <div>
+                <article className="contentCard studentPracticeCompactCard" key={exam.id}>
+                  <div className="studentAttemptsCardHead">
+                    <div className="studentAttemptsCardTitle">
                       <strong>{exam.title}</strong>
-                      <span>{exam.code} · {getExamSubjectDisplayLabel(exam)}</span>
+                      <span className="studentAttemptsCardMeta">
+                        {exam.code} · {getExamSubjectDisplayLabel(exam)}
+                      </span>
                     </div>
-                    <StatusPill tone={practiceStateTone(exam.availability_state)}>
-                      {titleCaseState(exam.availability_state)}
-                    </StatusPill>
+                    <div className="studentAttemptsCardStatus">
+                      <StatusPill tone={practiceStateTone(exam.availability_state)}>
+                        {titleCaseState(exam.availability_state)}
+                      </StatusPill>
+                    </div>
                   </div>
 
-                  <div className="studentResultStatGrid">
-                    <div className="studentResultStat">
+                  <div className="studentAttemptsCardSourceRow">
+                    <span>{exam.security_policy.student_label}</span>
+                  </div>
+
+                  <div className="studentPracticeMetrics">
+                    <div className="studentAttemptsMetric">
                       <span>Duration</span>
-                      <strong>{exam.duration_minutes} min</strong>
+                      <strong>{exam.duration_minutes}m</strong>
                     </div>
-                    <div className="studentResultStat">
+                    <div className="studentAttemptsMetric">
                       <span>Attempts</span>
                       <strong>
                         {exam.attempt_policy === "unlimited_practice"
@@ -1030,18 +1157,14 @@ export default async function PracticePage({
                           : `${exam.remaining_attempts} left`}
                       </strong>
                     </div>
-                    <div className="studentResultStat">
+                    <div className="studentAttemptsMetric">
                       <span>Availability</span>
-                      <strong>
-                        {exam.start_at ? studentDateTimeLabel(exam.start_at) : "Ready by policy"}
+                      <strong className="studentAttemptsMetricValueCompact">
+                        {practiceAvailabilityValue(exam)}
                       </strong>
                     </div>
-                    <div className="studentResultStat">
-                      <span>Security</span>
-                      <strong>{exam.security_policy.student_label}</strong>
-                    </div>
-                    <div className="studentResultStat">
-                      <span>Star Access</span>
+                    <div className="studentAttemptsMetric">
+                      <span>Access</span>
                       <strong>
                         {exam.economy_access.requires_unlock
                           ? exam.economy_access.is_unlocked
@@ -1054,26 +1177,29 @@ export default async function PracticePage({
                     </div>
                   </div>
 
-                  <div className="studentResultFooter">
-                    <div className="studentResultHelper">
-                      <span>Next step</span>
-                      <strong>
-                        {practiceActionLabel({
-                          canResume: examUiState.canResume,
-                          canStart: examUiState.canStart,
-                          hasAttemptHistory: examUiState.hasAttemptHistory,
-                          reviewAvailable: exam.review_available,
-                        })}
-                      </strong>
-                      <small>
-                        {practiceGuidance({
-                          ...exam,
-                          can_resume: examUiState.canResume,
-                          can_start: examUiState.canStart,
-                        })}
-                      </small>
+                  <div className="studentAttemptsNotice">
+                    <strong>
+                      {compactPracticeHeadline({
+                        canResume: examUiState.canResume,
+                        canStart: examUiState.canStart,
+                        hasAttemptHistory: examUiState.hasAttemptHistory,
+                        reviewAvailable: exam.review_available,
+                      })}
+                    </strong>
+                    <span>
+                      {practiceGuidance({
+                        ...exam,
+                        can_resume: examUiState.canResume,
+                        can_start: examUiState.canStart,
+                      })}
+                    </span>
+                  </div>
+
+                  <div className="studentAttemptsFooter">
+                    <div className="studentAttemptsUpdateRow">
+                      <span>{practiceSupportNote(exam, examUiState)}</span>
                     </div>
-                    <div className="studentInsightHeroActions">
+                    <div className="studentAttemptsActions">
                       {examUiState.canStart ? (
                         <form action={startPracticeAction}>
                           <input name="exam_id" type="hidden" value={exam.id} />
@@ -1128,7 +1254,7 @@ export default async function PracticePage({
                         </Link>
                       )}
                       <Link className="button buttonSecondary" href={`/app/exams/${exam.id}`}>
-                        View Detail
+                        {practiceDetailCtaLabel()}
                       </Link>
                     </div>
                   </div>
@@ -1141,7 +1267,50 @@ export default async function PracticePage({
               )}
             </>
           ) : null}
-            </>
+
+          {filteredPracticeExams.length > 0 ? (
+            <section className="contentCard studentCatalogPaginationCard">
+              <div className="studentCatalogPaginationSummary">
+                <span>{`Page ${currentPage} of ${totalPracticePages}`}</span>
+                <strong>{`Showing ${showingStart}-${showingEnd} of ${filteredPracticeExams.length} practice sets`}</strong>
+              </div>
+              <div className="studentCatalogPaginationActions">
+                <Link
+                  className="button buttonSecondary"
+                  href={buildPracticeFilterHref({
+                    availability: availabilityFilter,
+                    sort: sortOption,
+                    group: groupOption,
+                    page: Math.max(1, currentPage - 1),
+                    pageSize,
+                    subject: focusSubject || undefined,
+                    topic: focusTopic || undefined,
+                    source: scopedSourceParam,
+                    teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
+                  })}
+                >
+                  Previous page
+                </Link>
+                <Link
+                  className="button buttonPrimary"
+                  href={buildPracticeFilterHref({
+                    availability: availabilityFilter,
+                    sort: sortOption,
+                    group: groupOption,
+                    page: Math.min(totalPracticePages, currentPage + 1),
+                    pageSize,
+                    subject: focusSubject || undefined,
+                    topic: focusTopic || undefined,
+                    source: scopedSourceParam,
+                    teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
+                  })}
+                >
+                  Next page
+                </Link>
+              </div>
+            </section>
+          ) : null}
+          </>
           ) : null}
         </>
       )}

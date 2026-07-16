@@ -35,7 +35,7 @@ export default async function ProfilePage() {
     <div className="studentPage studentDashboardModern studentLearnerPage studentLearnerAccountPage studentLearnerProfilePage">
       <StudentPageHeader
         title="Profile"
-        description="Review the current student account identity and the academic context captured in the live registration and account profile."
+        description="Review the identity and academic context attached to this account."
         statusLabel={profile.is_active ? "Active profile" : "Inactive profile"}
         statusTone={profile.is_active ? "live" : "warning"}
       />
@@ -48,7 +48,7 @@ export default async function ProfilePage() {
             {profile.email || "Email not available"} · {instituteName}
           </small>
           <p className="sectionDescription">
-            This page shows the live identity, academic placement, and onboarding context currently attached to the authenticated student account.
+            Confirm identity, class context, and onboarding details before relying on dashboards.
           </p>
         </div>
         <div className="studentInsightHeroActions">
@@ -209,24 +209,20 @@ export default async function ProfilePage() {
 
         <section className="contentCard">
           <div className="sectionHeading">
-            <strong>What To Check Next</strong>
+            <strong>Recommended checks</strong>
           </div>
           <div className="studentInsightMessageStack">
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
-              <p>Use this page to confirm that your student identity and academic placement are correct before relying on subject-scoped dashboards, practice, or results.</p>
+              <p>Confirm identity and academic placement here before reading dashboards, practice, or results.</p>
             </div>
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
-              <p>If you joined using a referral code, the code you entered appears here first. The resulting reward credit, if any, is best verified from Wallet after onboarding is complete.</p>
+              <p>If you joined with a referral code, verify the reward in Wallet after onboarding.</p>
             </div>
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
-              <p>If account details look wrong, this page is informational only. Use settings and your institute support flow instead of assuming student progress data is incorrect.</p>
-            </div>
-            <div className="studentInsightMessage">
-              <span className="placeholderDot" aria-hidden="true" />
-              <p>A good order is: confirm identity here, check settings for session or account guidance, then use notifications, attempts, or results to verify learner-facing state.</p>
+              <p>If something looks wrong, check Settings and follow the support process.</p>
             </div>
           </div>
           <div className="studentInsightHeroActions">
@@ -246,16 +242,16 @@ export default async function ProfilePage() {
       <section className="studentInsightsTwoColumn">
         <section className="contentCard">
           <div className="sectionHeading">
-            <strong>Identity Trust Checks</strong>
+            <strong>Identity trust checks</strong>
           </div>
           <div className="studentInsightMessageStack">
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
-              <p>Check class, board, institute, and program context here before reading subject-scoped analytics or weak-area recommendations too literally.</p>
+              <p>Check class, board, institute, and program context here before interpreting analytics or weak-area signals.</p>
             </div>
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
-              <p>If identity context is wrong, downstream dashboards can still be technically correct but misleading for the wrong learner profile.</p>
+              <p>If this context is wrong, downstream dashboards can look correct but still guide the wrong learner path.</p>
             </div>
           </div>
           <div className="studentInsightHeroActions">
@@ -279,12 +275,12 @@ export default async function ProfilePage() {
             </div>
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
-              <p>When a student-facing route looks wrong, verify profile context first, then check settings, notifications, attempts, or results before escalating the issue.</p>
+              <p>When a learner route looks wrong, verify profile context first, then check settings, notifications, attempts, or results before escalating.</p>
             </div>
           </div>
           <div className="studentInsightHeroActions">
             <Link className="button buttonSecondary" href="/app/results">
-              Check Result Status
+              Open Results
             </Link>
             <Link className="button buttonGhost" href="/app/attempts">
               Open Attempt Timeline

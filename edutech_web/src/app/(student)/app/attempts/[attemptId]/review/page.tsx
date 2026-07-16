@@ -1,5 +1,6 @@
 import { redirect, unstable_rethrow } from "next/navigation";
 import { ActionSubmitButton } from "@/components/ui/action-submit-button";
+import { FilterSummaryPills } from "@/components/ui/filter-summary-pills";
 import { StudentKpiGrid } from "@/components/ui/student-kpi-grid";
 import { StudentPassiveNavLink } from "@/components/ui/student-passive-nav-link";
 import { StudentPageHeader } from "@/components/ui/student-page-header";
@@ -39,6 +40,25 @@ import {
 } from "@/lib/student/practice";
 import { buildFilterHref } from "@/lib/workspace/filter-utils";
 
+type ReviewOutcomeFilter = "all" | "wrong" | "skipped" | "correct";
+const REVIEW_PAGE_SIZE_VALUES = [5, 10, 20] as const;
+
+function parsePositiveInt(value: string | undefined, fallback: number) {
+  const parsed = Number.parseInt(value ?? "", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function resolveReviewOutcomeFilter(value?: string): ReviewOutcomeFilter {
+  switch (value) {
+    case "wrong":
+    case "skipped":
+    case "correct":
+      return value;
+    default:
+      return "all";
+  }
+}
+
 function reviewStateCopy(review: {
   show_explanations: boolean;
   show_correct_answers: boolean;
@@ -54,7 +74,7 @@ function reviewStateCopy(review: {
     return {
       nextStep: "Learn from explanations",
       helper:
-        `This review mode includes correctness and explanation visibility, so the student can use it as a learning pass after submission. ${journey.laneHelper}`,
+        "Correct answers and explanations are visible. Use this review to understand mistakes before the next practice round.",
       progress: attemptOutcomeProgressLabel(outcomeState),
       summaryCta: journey.summaryCta,
       resultsCta: journey.resultsCta,
@@ -66,7 +86,7 @@ function reviewStateCopy(review: {
     return {
       nextStep: "Inspect answer outcomes",
       helper:
-        `Correctness is visible here, but detailed explanations are hidden by the current review policy. ${journey.laneHelper}`,
+        "Correct answers are visible here, but detailed explanations are not.",
       progress: attemptOutcomeProgressLabel(outcomeState),
       summaryCta: journey.summaryCta,
       resultsCta: journey.resultsCta,
@@ -74,19 +94,41 @@ function reviewStateCopy(review: {
     };
   }
 
-    return {
-      nextStep: "Review structure only",
-      helper:
-        `This review mode is limited. The student can revisit the attempt structure, but full solution visibility is not enabled. ${journey.laneHelper}`,
-      progress: attemptOutcomeProgressLabel(outcomeState),
-      summaryCta: journey.summaryCta,
-      resultsCta: journey.resultsCta,
-      laneLabel: journey.laneLabel,
+  return {
+    nextStep: "Review structure only",
+    helper: "This review is limited. Full answer guidance is not available here.",
+    progress: attemptOutcomeProgressLabel(outcomeState),
+    summaryCta: journey.summaryCta,
+    resultsCta: journey.resultsCta,
+    laneLabel: journey.laneLabel,
   };
 }
 
 function reviewOptionText(value: string) {
   return value.replace(/\s*\n+\s*/g, " ").replace(/\s{2,}/g, " ").trim();
+}
+
+function buildReviewFilterHref(args: {
+  attemptId: string;
+  subject?: string;
+  source?: string;
+  teacher?: string;
+  outcome?: ReviewOutcomeFilter;
+  questionType?: string;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}) {
+  return buildFilterHref(`/app/attempts/${args.attemptId}/review`, [
+    ["subject", args.subject],
+    ["source", args.source],
+    ["teacher", args.teacher],
+    ["review_filter", args.outcome, "all"],
+    ["review_question_type", args.questionType],
+    ["review_search", args.search?.trim() || undefined],
+    ["review_page", args.page ? String(args.page) : undefined, "1"],
+    ["review_page_size", args.pageSize ? String(args.pageSize) : undefined, "10"],
+  ]);
 }
 
 async function loadAttemptReview(attemptId: string) {
@@ -168,10 +210,30 @@ export default async function AttemptReviewPage({
   searchParams,
 }: {
   params: Promise<{ attemptId: string }>;
-  searchParams: Promise<{ error?: string; subject?: string; source?: string; teacher?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    subject?: string;
+    source?: string;
+    teacher?: string;
+    review_filter?: string;
+    review_question_type?: string;
+    review_search?: string;
+    review_page?: string;
+    review_page_size?: string;
+  }>;
 }) {
   const { attemptId } = await params;
-  const { error, subject, source: sourceParam, teacher } = await searchParams;
+  const {
+    error,
+    subject,
+    source: sourceParam,
+    teacher,
+    review_filter,
+    review_question_type,
+    review_search,
+    review_page,
+    review_page_size,
+  } = await searchParams;
   const { source: reviewSource, review, practiceExams } = await loadAttemptReview(attemptId);
   const scopedSubjectQueryParam = subject?.trim() || undefined;
   const scopedSourceQueryParam = sourceParam?.trim() || undefined;
@@ -182,10 +244,10 @@ export default async function AttemptReviewPage({
       <div className="studentPage">
         <StudentPageHeader
           title="Attempt Review"
-          description="Review content is only available when the backend allows it for the submitted attempt."
+          description="Open answer review when this attempt allows it."
           statusLabel={
             reviewSource === "unconfigured"
-              ? "Backend not configured"
+              ? "Sign in required"
               : "Review not available"
           }
           statusTone={reviewSource === "unconfigured" ? "warning" : "demo"}
@@ -194,29 +256,29 @@ export default async function AttemptReviewPage({
           eyebrow={reviewSource === "unconfigured" ? "Setup required" : "Review unavailable"}
           title={
             reviewSource === "unconfigured"
-              ? "Waiting for review access"
+              ? "Review is not available yet"
               : "Attempt review is not available right now"
           }
           description={
             reviewSource === "unconfigured"
-              ? "Review content is only available when the backend allows it for the submitted attempt and the app has a valid student session."
-              : "The backend did not return review content for this attempt. Review availability may depend on result visibility or exam policy."
+              ? "Sign in with your student account to open answer review for this attempt."
+              : "Answer review isn't available for this attempt right now."
           }
           bullets={
             reviewSource === "unconfigured"
-              ? ["Attempt review endpoint", "Active student web session"]
-              : ["Review availability rules", "Attempt review endpoint"]
+              ? ["Student sign-in", "Answer review"]
+              : ["Review access", "Attempt review"]
           }
           ctaHref={buildFilterHref("/app/results", [
             ["subject", scopedSubjectQueryParam],
             ["source", scopedSourceQueryParam],
             ["teacher", scopedTeacherQueryParam],
           ])}
-          ctaLabel="Check Result Status"
+          ctaLabel="Open Results"
           statusLabel={
             reviewSource === "unconfigured"
-              ? "Configuration required"
-              : "Check result visibility"
+              ? "Sign in to continue"
+              : "Open results"
           }
         />
       </div>
@@ -233,6 +295,60 @@ export default async function AttemptReviewPage({
     exams: practiceExams,
     subjectName: practiceFocus.subjectName,
   });
+  const outcomeFilter = resolveReviewOutcomeFilter(review_filter);
+  const questionTypeFilter = (review_question_type ?? "").trim();
+  const searchQuery = (review_search ?? "").trim();
+  const pageSizeCandidate = parsePositiveInt(review_page_size, 10);
+  const pageSize = REVIEW_PAGE_SIZE_VALUES.includes(
+    pageSizeCandidate as (typeof REVIEW_PAGE_SIZE_VALUES)[number],
+  )
+    ? pageSizeCandidate
+    : 10;
+  const questionTypeOptions = Array.from(
+    new Map(
+      review.review_questions.map((question) => [
+        question.question_type,
+        questionTypeLabel(question.question_type, question.question_type_definition),
+      ]),
+    ).entries(),
+  ).map(([value, label]) => ({ value, label }));
+  const filteredReviewQuestions = review.review_questions.filter((question) => {
+    if (outcomeFilter !== "all" && question.result_status !== outcomeFilter) {
+      return false;
+    }
+
+    if (questionTypeFilter && question.question_type !== questionTypeFilter) {
+      return false;
+    }
+
+    if (!searchQuery) {
+      return true;
+    }
+
+    const searchable = [
+      getStudentQuestionPromptTitle(question),
+      question.section_title,
+      question.explanation,
+      ...question.options.map((option) => option.option_text),
+      ...question.accepted_answers,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    return searchable.includes(searchQuery.toLowerCase());
+  });
+  const totalReviewPages = Math.max(1, Math.ceil(filteredReviewQuestions.length / pageSize));
+  const currentPage = Math.min(parsePositiveInt(review_page, 1), totalReviewPages);
+  const pagedQuestions = filteredReviewQuestions.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
+  const wrongCount = review.review_questions.filter((question) => question.result_status === "wrong").length;
+  const skippedCount = review.review_questions.filter((question) => question.result_status === "skipped").length;
+  const correctCount = review.review_questions.filter((question) => question.result_status === "correct").length;
+  const showingStart = filteredReviewQuestions.length ? (currentPage - 1) * pageSize + 1 : 0;
+  const showingEnd = Math.min(currentPage * pageSize, filteredReviewQuestions.length);
   const scopedSubjectParam =
     scopedSubjectQueryParam || practiceFocus.subjectName?.trim() || undefined;
   const scopedPracticeHref = buildPracticeHref({
@@ -246,29 +362,29 @@ export default async function AttemptReviewPage({
       ? [
           {
             label: "Do this first",
-            detail: "Use review to confirm the exact wrong or skipped pattern before spending stars on the next practice lane.",
+            detail: "Use review to confirm the wrong or skipped pattern before spending stars.",
           },
           {
             label: "Then next",
-            detail: "Unlock the matched practice set only if it covers the same subject or topic cluster surfaced in this review.",
+            detail: "Unlock the matched practice set only if it covers the same subject or topic cluster.",
           },
           {
             label: "After that",
-            detail: "Return to analytics or results to compare whether the same gap still appears after the repair pass.",
+            detail: "Return to analytics or results to see whether the same gap still appears.",
           },
         ]
       : [
           {
             label: "Do this first",
-            detail: "Use review to confirm the exact wrong or skipped pattern while the attempt is still fresh.",
+            detail: "Use review to confirm the wrong or skipped pattern while the attempt is still fresh.",
           },
           {
             label: "Then next",
-            detail: "Move straight into the matched practice lane for the topic or subject most exposed by this review.",
+            detail: "Move into the matched practice lane for the topic or subject most exposed by this review.",
           },
           {
             label: "After that",
-            detail: "Return to analytics, results, or summary to verify whether the same error pattern still needs work.",
+            detail: "Return to analytics, results, or summary to verify whether the same pattern still needs work.",
           },
         ];
 
@@ -276,7 +392,7 @@ export default async function AttemptReviewPage({
     <div className="studentPage studentDashboardModern studentLearnerPage studentLearnerAttemptReviewPage">
       <StudentPageHeader
         title={`${review.exam_title} Review`}
-        description="Post-attempt review powered by the backend review endpoint."
+        description="Review answers, explanations, and the next learning step."
         action={<StatusPill tone="live">{titleCaseState(review.review_mode)}</StatusPill>}
       />
 
@@ -295,10 +411,10 @@ export default async function AttemptReviewPage({
               showExplanations: review.show_explanations,
               showCorrectAnswers: review.show_correct_answers,
             })}{" "}
-            · Returned by backend review policy · {stateCopy.laneLabel}
+            · {stateCopy.laneLabel}
           </small>
         </div>
-        <div className="studentInsightHeroActions">
+        <div className="studentInsightHeroActions studentSummaryHeroActions">
           <Link
             className="button buttonPrimary"
             href={buildFilterHref(`/app/attempts/${review.id}/summary`, [
@@ -319,18 +435,21 @@ export default async function AttemptReviewPage({
           >
             {stateCopy.resultsCta}
           </StudentPassiveNavLink>
-          <StudentPassiveNavLink
-            className="button buttonGhost"
-            href={buildFilterHref("/app/attempts", [
-              ["subject", scopedSubjectParam],
-              ["source", scopedSourceQueryParam],
-              ["teacher", scopedTeacherQueryParam],
-            ])}
-          >
-            Open Attempts
-          </StudentPassiveNavLink>
         </div>
       </section>
+
+      <div className="studentSummaryUtilityRow">
+        <StudentPassiveNavLink
+          className="studentDashboardTextLink"
+          href={buildFilterHref("/app/attempts", [
+            ["subject", scopedSubjectParam],
+            ["source", scopedSourceQueryParam],
+            ["teacher", scopedTeacherQueryParam],
+          ])}
+        >
+          Open Attempts
+        </StudentPassiveNavLink>
+      </div>
 
       <StudentKpiGrid
         items={[
@@ -395,7 +514,7 @@ export default async function AttemptReviewPage({
 
         <article className="contentCard">
           <div className="sectionHeading">
-            <strong>Recommended Actions</strong>
+            <strong>How To Use This Review</strong>
             <span>{titleCaseState(review.review_mode)}</span>
           </div>
           <div className="studentInsightMessageStack">
@@ -406,14 +525,6 @@ export default async function AttemptReviewPage({
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
               <p>{stateCopy.progress}</p>
-            </div>
-            <div className="studentInsightMessage">
-              <span className="placeholderDot" aria-hidden="true" />
-              <p>This route is the final student-release stage: the attempt was submitted, the result was published, and review is now available under backend policy.</p>
-            </div>
-            <div className="studentInsightMessage">
-              <span className="placeholderDot" aria-hidden="true" />
-              <p>Use summary to confirm release state, results to compare score reporting, and attempts history to reopen this journey from the broader timeline later.</p>
             </div>
           </div>
           <div className="studentInsightHeroActions">
@@ -475,22 +586,22 @@ export default async function AttemptReviewPage({
       <section className="studentInsightsTwoColumn">
         <article className="contentCard">
           <div className="sectionHeading">
-            <strong>Review Recovery Loop</strong>
+            <strong>Next Learning Step</strong>
             <span>{practiceFocus.label}</span>
           </div>
           <div className="studentInsightMessageStack">
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
-              <p>
-                Answer review is most useful when it turns visible mistakes into one immediate correction lane instead of ending at inspection alone.
-              </p>
-            </div>
-            <div className="studentInsightMessage">
-              <span className="placeholderDot" aria-hidden="true" />
-              <p>
-                The matched practice label is derived from wrong and skipped questions, so the next step stays anchored to what this review actually exposed.
-              </p>
-            </div>
+                  <p>
+                Turn this review into action by practicing the topic most exposed in this attempt.
+                  </p>
+                </div>
+                <div className="studentInsightMessage">
+                  <span className="placeholderDot" aria-hidden="true" />
+                  <p>
+                The suggested practice is based on the wrong or skipped questions in this review.
+                  </p>
+                </div>
           </div>
           <div className="studentActionSequence" aria-label="Review recovery order">
             {reviewRecoverySequence.map((step) => (
@@ -518,21 +629,17 @@ export default async function AttemptReviewPage({
         </article>
         <article className="contentCard">
           <div className="sectionHeading">
-            <strong>What To Repair</strong>
-            <span>Before another mock</span>
+            <strong>Before The Next Attempt</strong>
+            <span>Focus areas</span>
           </div>
           <div className="studentInsightMessageStack">
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
-              <p>Wrong answers usually indicate concept repair. Skips usually indicate confidence, pacing, or decision friction.</p>
+              <p>Wrong answers usually point to concept gaps. Skipped questions often point to pacing or confidence issues.</p>
             </div>
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
-              <p>If explanations are visible, treat this screen as the learning pass. If not, use the visible correctness pattern plus summary/results to decide the next practice lane.</p>
-            </div>
-            <div className="studentInsightMessage">
-              <span className="placeholderDot" aria-hidden="true" />
-              <p>Another broad mock should usually come after the targeted practice follow-up, not before it.</p>
+              <p>Finish the targeted practice first, then return to a full mock or test.</p>
             </div>
           </div>
           <div className="studentInsightHeroActions">
@@ -550,9 +657,148 @@ export default async function AttemptReviewPage({
         </article>
       </section>
 
+      <section className="contentCard studentWorkspaceFiltersCard studentAttemptsFiltersCard">
+        <form className="studentWorkspaceFiltersForm" method="GET">
+          {scopedSubjectQueryParam ? <input name="subject" type="hidden" value={scopedSubjectQueryParam} /> : null}
+          {scopedSourceQueryParam ? <input name="source" type="hidden" value={scopedSourceQueryParam} /> : null}
+          {scopedTeacherQueryParam ? <input name="teacher" type="hidden" value={scopedTeacherQueryParam} /> : null}
+          <label className="studentWorkspaceFilterField">
+            <span>Outcome</span>
+            <select defaultValue={outcomeFilter} name="review_filter">
+              <option value="all">All questions</option>
+              <option value="wrong">Wrong only</option>
+              <option value="skipped">Skipped only</option>
+              <option value="correct">Correct only</option>
+            </select>
+          </label>
+          <label className="studentWorkspaceFilterField">
+            <span>Question type</span>
+            <select defaultValue={questionTypeFilter} name="review_question_type">
+              <option value="">All types</option>
+              {questionTypeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="studentWorkspaceFilterField studentWorkspaceFilterFieldWide">
+            <span>Search</span>
+            <input
+              defaultValue={searchQuery}
+              name="review_search"
+              placeholder="Search question wording, options, or explanation"
+              type="search"
+            />
+          </label>
+          <label className="studentWorkspaceFilterField">
+            <span>Page size</span>
+            <select defaultValue={String(pageSize)} name="review_page_size">
+              {REVIEW_PAGE_SIZE_VALUES.map((value) => (
+                <option key={value} value={value}>
+                  {value} per page
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="studentWorkspaceFilterActions">
+            <button className="button buttonPrimary" type="submit">
+              Apply filters
+            </button>
+            <Link
+              className="button buttonSecondary"
+              href={buildReviewFilterHref({
+                attemptId: review.id,
+                subject: scopedSubjectQueryParam,
+                source: scopedSourceQueryParam,
+                teacher: scopedTeacherQueryParam,
+              })}
+            >
+              Reset filters
+            </Link>
+          </div>
+        </form>
+
+        <div className="studentWorkspaceFilterQuickRow">
+          <span className="studentWorkspaceFilterQuickLabel">Quick review</span>
+          <div className="studentWorkspaceFilterQuickChips">
+            {[
+              { label: `All (${review.review_questions.length})`, outcome: "all" as const, active: outcomeFilter === "all" },
+              { label: `Wrong (${wrongCount})`, outcome: "wrong" as const, active: outcomeFilter === "wrong" },
+              { label: `Skipped (${skippedCount})`, outcome: "skipped" as const, active: outcomeFilter === "skipped" },
+              { label: `Correct (${correctCount})`, outcome: "correct" as const, active: outcomeFilter === "correct" },
+            ].map((chip) => (
+              <Link
+                key={chip.label}
+                className={`studentWorkspaceQuickChip${chip.active ? " studentWorkspaceQuickChipActive" : ""}`}
+                href={buildReviewFilterHref({
+                  attemptId: review.id,
+                  subject: scopedSubjectQueryParam,
+                  source: scopedSourceQueryParam,
+                  teacher: scopedTeacherQueryParam,
+                  outcome: chip.outcome,
+                  questionType: questionTypeFilter || undefined,
+                  search: searchQuery || undefined,
+                  page: 1,
+                  pageSize,
+                })}
+              >
+                {chip.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        <FilterSummaryPills
+          className="studentWorkspaceFilterChips"
+          items={[
+            { label: "Outcome", value: outcomeFilter !== "all" ? titleCaseState(outcomeFilter) : null },
+            {
+              label: "Question type",
+              value: questionTypeFilter
+                ? questionTypeOptions.find((option) => option.value === questionTypeFilter)?.label ?? questionTypeFilter
+                : null,
+            },
+            { label: "Search", value: searchQuery || null },
+            { label: "Page size", value: pageSize !== 10 ? String(pageSize) : null },
+          ]}
+        />
+      </section>
+
+      <section className="contentCard">
+        <div className="sectionHeading">
+          <strong>Review Questions</strong>
+          <span>
+            Showing {showingStart}-{showingEnd} of {filteredReviewQuestions.length}
+          </span>
+        </div>
+        {totalReviewPages > 1 ? (
+          <div className="studentReviewPageStateRow">
+            <StatusPill tone="default">
+              Page {currentPage} of {totalReviewPages}
+            </StatusPill>
+          </div>
+        ) : null}
+      </section>
+
       <section className="attemptQuestionStack">
-        {review.review_questions.map((question, index) => {
-          const previousQuestion = review.review_questions[index - 1];
+        {pagedQuestions.length === 0 ? (
+          <StudentStatePanel
+            eyebrow="No matching questions"
+            title="No questions match these review filters"
+            description="Try a broader outcome filter, remove the search text, or reset the review controls."
+            ctaHref={buildReviewFilterHref({
+              attemptId: review.id,
+              subject: scopedSubjectQueryParam,
+              source: scopedSourceQueryParam,
+              teacher: scopedTeacherQueryParam,
+            })}
+            ctaLabel="Reset review filters"
+            statusLabel="Filter returned zero questions"
+          />
+        ) : null}
+        {pagedQuestions.map((question, index) => {
+          const previousQuestion = pagedQuestions[index - 1];
           const shouldShowPassageTrigger =
             Boolean(question.passage && question.passage_detail?.passage_text) &&
             previousQuestion?.passage !== question.passage;
@@ -661,6 +907,56 @@ export default async function AttemptReviewPage({
         );
         })}
       </section>
+
+      {pagedQuestions.length > 0 && totalReviewPages > 1 ? (
+        <section className="contentCard studentReviewPaginationCard">
+          <div className="studentReviewPaginationBar">
+            <div className="studentReviewPaginationSummary">
+              <span>
+                Page {currentPage} of {totalReviewPages} · Showing {showingStart}-{showingEnd} of {filteredReviewQuestions.length} questions
+              </span>
+            </div>
+            <div className="studentReviewPaginationActions">
+              {currentPage > 1 ? (
+                <Link
+                  className="button buttonGhost"
+                  href={buildReviewFilterHref({
+                    attemptId: review.id,
+                    subject: scopedSubjectQueryParam,
+                    source: scopedSourceQueryParam,
+                    teacher: scopedTeacherQueryParam,
+                    outcome: outcomeFilter,
+                    questionType: questionTypeFilter || undefined,
+                    search: searchQuery || undefined,
+                    page: currentPage - 1,
+                    pageSize,
+                  })}
+                >
+                  Previous page
+                </Link>
+              ) : null}
+              {currentPage < totalReviewPages ? (
+                <Link
+                  className="button buttonPrimary"
+                  href={buildReviewFilterHref({
+                    attemptId: review.id,
+                    subject: scopedSubjectQueryParam,
+                    source: scopedSourceQueryParam,
+                    teacher: scopedTeacherQueryParam,
+                    outcome: outcomeFilter,
+                    questionType: questionTypeFilter || undefined,
+                    search: searchQuery || undefined,
+                    page: currentPage + 1,
+                    pageSize,
+                  })}
+                >
+                  Next page
+                </Link>
+              ) : null}
+            </div>
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

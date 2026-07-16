@@ -5,7 +5,7 @@ export function StudentAppFooter() {
     <footer className="studentAppFooter">
       <div className="studentAppFooterInner">
         <p className="studentAppFooterTrust">
-          Nexora keeps your student workspace calm, consistent, and aligned with real backend learning data.
+          Nexora keeps your student workspace clear, steady, and focused on your next learning step.
         </p>
         <div className="studentAppFooterLinks">
           <Link href="/app/notifications" prefetch={false}>Notifications</Link>

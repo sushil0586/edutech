@@ -60,8 +60,8 @@ async function waitForVisualReady(page: Page, entry: VisualPassEntry) {
   }
 }
 
-async function captureScreen(page: Page, entry: VisualPassEntry) {
-  if (mobilePassEnabled) {
+async function captureScreen(page: Page, entry: VisualPassEntry, useProjectMobileViewport: boolean) {
+  if (mobilePassEnabled && !useProjectMobileViewport) {
     await page.setViewportSize({ width: 390, height: 844 });
   }
   if (entry.role !== "anonymous") {
@@ -83,17 +83,18 @@ test.describe("Route visual pass", () => {
   test.skip(!visualPassEnabled, "Enable PLAYWRIGHT_ENABLE_VISUAL_PASS=1 to run visual screenshot capture.");
 
   for (const [role, entries] of groupedManifest()) {
-    test(`captures ${role} screen inventory`, async ({ page }) => {
+    test(`captures ${role} screen inventory`, async ({ page }, testInfo) => {
       test.setTimeout(180_000);
       if (role !== "anonymous") {
         test.skip(testRequiresRole(role as PlaywrightRole), `Playwright credentials for ${role} are not configured.`);
       }
 
       await fs.mkdir(outputRoot, { recursive: true });
+      const useProjectMobileViewport = Boolean(testInfo.project.use?.isMobile);
 
       for (const entry of entries) {
         await test.step(`${entry.role}:${entry.id}`, async () => {
-          await captureScreen(page, entry);
+          await captureScreen(page, entry, useProjectMobileViewport);
         });
       }
     });

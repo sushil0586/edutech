@@ -29,15 +29,21 @@
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
+    "install:android": "bash ./scripts/install-android.sh",
+    "install:ios": "bash ./scripts/install-ios.sh",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "maestro:student:exams": "maestro test .maestro/student-login-and-exams.yaml",
+    "maestro:student:exams-detail": "maestro test .maestro/student-exams-filters-and-detail.yaml",
     "maestro:student:results": "maestro test .maestro/student-results-and-summary.yaml",
+    "maestro:student:results-timeline": "maestro test .maestro/student-results-timeline-summary.yaml",
     "maestro:student:review": "maestro test .maestro/student-review-journey.yaml",
+    "maestro:student:review-pagination": "maestro test .maestro/student-review-filters-and-pagination.yaml",
     "maestro:student:attempt": "maestro test .maestro/student-active-attempt.yaml",
     "maestro:student:analytics": "maestro test .maestro/student-analytics-and-logout.yaml",
     "maestro:student:offline-login": "maestro test .maestro/student-login-offline-error.yaml",
-    "maestro:student:offline-register": "maestro test .maestro/student-register-offline-setup-error.yaml"
+    "maestro:student:offline-register": "maestro test .maestro/student-register-offline-setup-error.yaml",
+    "maestro:student:all": "npm run maestro:student:exams && npm run maestro:student:exams-detail && npm run maestro:student:results && npm run maestro:student:results-timeline && npm run maestro:student:review && npm run maestro:student:review-pagination && npm run maestro:student:attempt && npm run maestro:student:analytics"
   },
   "private": true
 }

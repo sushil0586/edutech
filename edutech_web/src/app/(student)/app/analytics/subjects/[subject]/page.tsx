@@ -46,12 +46,12 @@ export default async function StudentAnalyticsSubjectPage({
       <div className="studentPage studentDashboardModern">
         <StudentStatePanel
           eyebrow="Setup required"
-          title="Subject analytics are waiting for backend data"
-          description="This page combines the summary bundle with question-level data for a single subject."
-          bullets={["Student analytics bundle", "Question analytics endpoint", "Subject records"]}
+          title="Subject analytics are not available yet"
+          description="Sign in with your student account to load subject analytics."
+          bullets={["Student sign-in", "Subject analytics", "Question data"]}
           ctaHref="/app/analytics"
           ctaLabel="Back to Analytics"
-          statusLabel="Configuration required"
+          statusLabel="Sign in to continue"
         />
       </div>
     );
@@ -72,11 +72,11 @@ export default async function StudentAnalyticsSubjectPage({
         <StudentStatePanel
           eyebrow="Load issue"
           title="Subject analytics could not be loaded"
-          description="We need both subject-filtered questions and the broader analytics bundle to render this page truthfully."
-          bullets={["Student analytics bundle", "Question analytics endpoint", "Published results"]}
+          description="We couldn't load this subject view right now."
+          bullets={["Subject analytics", "Question data", "Published results"]}
           ctaHref="/app/analytics"
           ctaLabel="Back to Analytics"
-          statusLabel="Retry after backend check"
+          statusLabel="Try again soon"
         />
       </div>
     );
@@ -114,7 +114,7 @@ export default async function StudentAnalyticsSubjectPage({
       <StudentPageHeader
         eyebrow="Subject deep dive"
         title={`${subject} Analytics`}
-        description="Inspect one subject through topic health, difficulty mix, question formats, and real question evidence."
+        description="Inspect one subject through topic health, difficulty mix, and question evidence."
         statusLabel={`${questionData.questions.length} questions analyzed`}
         statusTone="live"
         action={<Link className="button buttonGhost" href="/app/analytics">Back to Analytics</Link>}
@@ -123,7 +123,7 @@ export default async function StudentAnalyticsSubjectPage({
       <StudentAnalyticsDetailHero
         eyebrow="Subject focus"
         title={subject}
-        description={`This page isolates ${subject} so the student can understand whether the problem sits in specific chapters, certain formats, or the difficulty ladder.`}
+        description={`This page isolates ${subject} so you can see whether the issue sits in chapters, formats, or difficulty.`}
         badges={[
           `${subjectTopics.length} tracked topics`,
           `${subjectResults.length} published results`,

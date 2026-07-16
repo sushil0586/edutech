@@ -76,12 +76,12 @@ export default async function StudentAnalyticsSourcePage({
       <div className="studentPage studentDashboardModern">
         <StudentStatePanel
           eyebrow="Setup required"
-          title="Source analytics are waiting for backend data"
-          description="This page combines source-filtered summary, result, and question analytics from live APIs."
-          bullets={["Student analytics bundle", "Question analytics endpoint", "Source filters"]}
+          title="Source analytics are not available yet"
+          description="Sign in with your student account to load source analytics."
+          bullets={["Student sign-in", "Source analytics", "Question data"]}
           ctaHref="/app/analytics"
           ctaLabel="Back to Analytics"
-          statusLabel="Configuration required"
+          statusLabel="Sign in to continue"
         />
       </div>
     );
@@ -102,11 +102,11 @@ export default async function StudentAnalyticsSourcePage({
         <StudentStatePanel
           eyebrow="Load issue"
           title="Source analytics could not be loaded"
-          description="We need the live analytics bundle and source-filtered question data to render this page truthfully."
-          bullets={["Student analytics bundle", "Question analytics endpoint", "Published results"]}
+          description="We couldn't load this source view right now."
+          bullets={["Source analytics", "Question data", "Published results"]}
           ctaHref="/app/analytics"
           ctaLabel="Back to Analytics"
-          statusLabel="Retry after backend check"
+          statusLabel="Try again soon"
         />
       </div>
     );
@@ -146,7 +146,7 @@ export default async function StudentAnalyticsSourcePage({
         title={
           subject ? `${sourceTitle} · ${subject}` : `${sourceTitle} Analytics`
         }
-        description="Review one learning source in isolation so students can see whether a weakness is source-specific or consistent everywhere."
+        description="Review one learning source in isolation and see whether a weakness is source-specific."
         statusLabel={`${questionData.questions.length} source-filtered questions`}
         statusTone="live"
         action={<Link className="button buttonGhost" href="/app/analytics">Back to Analytics</Link>}
@@ -157,8 +157,8 @@ export default async function StudentAnalyticsSourcePage({
         title={sourceTitle}
         description={
           subject
-            ? `This view isolates ${sourceTitle} for ${subject}, making it easier to confirm whether the weakness is tied to this source or appears across the full student profile.`
-            : `This view isolates ${sourceTitle}, showing how this source contributes to recent results, subject outcomes, and question behavior.`
+            ? `This view isolates ${sourceTitle} for ${subject} so you can confirm whether the weakness is tied to this source.`
+            : `This view isolates ${sourceTitle} across recent results, subject outcomes, and question behavior.`
         }
         badges={[
           subject ?? "All tracked subjects",

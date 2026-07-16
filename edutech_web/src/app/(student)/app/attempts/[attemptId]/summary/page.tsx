@@ -78,8 +78,7 @@ function summaryStateCopy(summary: {
     const journey = attemptOutcomeJourney(outcomeState);
     return {
       nextStep: "Review feedback",
-      helper:
-        `This practice set is designed for immediate learning. ${journey.laneHelper}`,
+      helper: "This practice set is ready for feedback.",
       progress: attemptOutcomeProgressLabel(outcomeState),
       resultsCta: journey.resultsCta,
       reviewCta: journey.reviewCta,
@@ -95,7 +94,7 @@ function summaryStateCopy(summary: {
     const journey = attemptOutcomeJourney(outcomeState);
     return {
       nextStep: "Review answers",
-      helper: `${attemptOutcomeHelper(outcomeState, summary.exam_type)} ${journey.laneHelper}`,
+      helper: "Your result is ready and answer review is available.",
       progress: attemptOutcomeProgressLabel(outcomeState),
       resultsCta: journey.resultsCta,
       reviewCta: journey.reviewCta,
@@ -111,7 +110,7 @@ function summaryStateCopy(summary: {
     const journey = attemptOutcomeJourney(outcomeState);
     return {
       nextStep: "Open results",
-      helper: `${attemptOutcomeHelper(outcomeState, summary.exam_type)} ${journey.laneHelper}`,
+      helper: "Your result is available now. Answer review is still locked.",
       progress: attemptOutcomeProgressLabel(outcomeState),
       resultsCta: journey.resultsCta,
       reviewCta: journey.reviewCta,
@@ -126,7 +125,7 @@ function summaryStateCopy(summary: {
   const journey = attemptOutcomeJourney(outcomeState);
   return {
     nextStep: "Wait for publication",
-    helper: `${attemptOutcomeHelper(outcomeState, summary.exam_type)} ${journey.laneHelper}`,
+    helper: "Your attempt was submitted successfully. Results will appear after evaluation.",
     progress: attemptOutcomeProgressLabel(outcomeState),
     resultsCta: journey.resultsCta,
     reviewCta: journey.reviewCta,
@@ -227,11 +226,11 @@ export default async function AttemptSummaryPage({
     return (
       <div className="studentPage">
         <StudentPageHeader
-          title="Attempt Summary"
-          description="This route only renders real post-submit summary data from the backend."
+      title="Attempt Summary"
+      description="View the latest summary for this submitted attempt."
           statusLabel={
             summarySource === "unconfigured"
-              ? "Backend not configured"
+              ? "Sign in required"
               : "Unable to load summary"
           }
           statusTone={summarySource === "unconfigured" ? "warning" : "demo"}
@@ -240,25 +239,25 @@ export default async function AttemptSummaryPage({
           eyebrow={summarySource === "unconfigured" ? "Setup required" : "Load issue"}
           title={
             summarySource === "unconfigured"
-              ? "Waiting for post-submit summary data"
+              ? "Summary is not available yet"
               : "Attempt summary could not be loaded"
           }
           description={
             summarySource === "unconfigured"
-              ? "This route only renders real post-submit summary data from the backend. Configure the API base URL and sign in with an active student account to load the selected attempt summary."
-              : "The post-submit summary view is connected to the backend, but the current request did not complete successfully."
+              ? "Sign in with your student account to load the summary for this attempt."
+              : "We couldn't load this attempt summary right now."
           }
           bullets={
             summarySource === "unconfigured"
-              ? ["Attempt summary endpoint", "Active student web session"]
-              : ["Backend connectivity", "Attempt summary endpoint"]
+              ? ["Student sign-in", "Attempt summary"]
+              : ["Connection check", "Attempt summary"]
           }
           ctaHref="/app/results"
           ctaLabel="Open Results"
           statusLabel={
             summarySource === "unconfigured"
-              ? "Configuration required"
-              : "Retry after backend check"
+              ? "Sign in to continue"
+              : "Try again soon"
           }
         />
       </div>
@@ -284,7 +283,7 @@ export default async function AttemptSummaryPage({
     <div className="studentPage studentDashboardModern studentLearnerPage studentLearnerAttemptSummaryPage">
       <StudentPageHeader
         title={`${summary.exam_title} Summary`}
-        description={`Post-submit ${attemptExperienceLabel(summary.exam_type)} summary powered by the backend attempt summary endpoint.`}
+        description={`Review your ${attemptExperienceLabel(summary.exam_type)} status, score, and next step.`}
         action={<StatusPill tone="live">{titleCaseState(summary.status)}</StatusPill>}
       />
 
@@ -294,19 +293,21 @@ export default async function AttemptSummaryPage({
 
       <section className="studentInsightHeroCard studentInsightHeroCardCompact">
         <div className="studentInsightHeroCopy">
-          <span className="studentDashboardTag">Post-Submit State</span>
+          <span className="studentDashboardTag">Attempt Summary</span>
           <strong>{stateCopy.nextStep}</strong>
           <small>
             {examSourceDescriptor(summary)} · {attemptOutcomeResultsLabel(outcomeState)} ·{" "}
             {attemptOutcomeReviewLabel(outcomeState)} ·{" "}
             {stateCopy.laneLabel}
           </small>
+          <div className="studentInsightHeroActions studentSummaryHeroMeta">
+            <StatusPill tone="default">{summary.source_label}</StatusPill>
+            {summary.source_type === "teacher" && summary.source_teacher_name ? (
+              <StatusPill tone="demo">{summary.source_teacher_name}</StatusPill>
+            ) : null}
+          </div>
         </div>
-        <div className="studentInsightHeroActions">
-          <StatusPill tone="default">{summary.source_label}</StatusPill>
-          {summary.source_type === "teacher" && summary.source_teacher_name ? (
-            <StatusPill tone="demo">{summary.source_teacher_name}</StatusPill>
-          ) : null}
+        <div className="studentInsightHeroActions studentSummaryHeroActions">
           {summary.review_available ? (
             <Link
               className="button buttonPrimary"
@@ -329,18 +330,21 @@ export default async function AttemptSummaryPage({
           >
             {stateCopy.resultsCta}
           </StudentPassiveNavLink>
-          <StudentPassiveNavLink
-            className="button buttonGhost"
-            href={buildFilterHref("/app/attempts", [
-              ["subject", scopedSubjectParam],
-              ["source", sourceParam?.trim()],
-              ["teacher", teacher?.trim()],
-            ])}
-          >
-            Open Attempts
-          </StudentPassiveNavLink>
         </div>
       </section>
+
+      <div className="studentSummaryUtilityRow">
+        <StudentPassiveNavLink
+          className="studentDashboardTextLink"
+          href={buildFilterHref("/app/attempts", [
+            ["subject", scopedSubjectParam],
+            ["source", sourceParam?.trim()],
+            ["teacher", teacher?.trim()],
+          ])}
+        >
+          Open Attempts
+        </StudentPassiveNavLink>
+      </div>
 
       <StudentKpiGrid
         items={[
@@ -353,7 +357,7 @@ export default async function AttemptSummaryPage({
           {
             label: "Source",
             value: summary.source_label,
-            note: summary.source_teacher_name || summary.source_name || "Backend source metadata",
+            note: summary.source_teacher_name || summary.source_name || "Source details",
           },
           {
             label: "Attempted Questions",
@@ -365,7 +369,7 @@ export default async function AttemptSummaryPage({
             value: percentage(summary.percentage),
             note: summary.result_visible
               ? "Scoring details are now visible."
-              : "Scoring is hidden until result visibility rules are met.",
+              : "Scoring will appear once the result is released.",
           },
           {
             label: "Time Taken",
@@ -401,32 +405,24 @@ export default async function AttemptSummaryPage({
             <div className="studentResultHelper">
               <span>Next step</span>
               <strong>{stateCopy.nextStep}</strong>
-              <small>{stateCopy.helper} {stateCopy.progress}</small>
+              <small>{stateCopy.helper}</small>
             </div>
           </div>
         </article>
 
         <article className="contentCard">
           <div className="sectionHeading">
-            <strong>Recommended Actions</strong>
+            <strong>What To Do Now</strong>
             <span>{attemptExperienceLabel(summary.exam_type)}</span>
           </div>
           <div className="studentInsightMessageStack">
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
-              <p>{stateCopy.laneHelper}</p>
-            </div>
-            <div className="studentInsightMessage">
-              <span className="placeholderDot" aria-hidden="true" />
-              <p>{stateCopy.progress}</p>
-            </div>
-            <div className="studentInsightMessage">
-              <span className="placeholderDot" aria-hidden="true" />
-              <p>Student visibility always moves in the same policy order: submitted, evaluation pending, result published, then review available when allowed.</p>
-            </div>
-            <div className="studentInsightMessage">
-              <span className="placeholderDot" aria-hidden="true" />
-              <p>Use attempts history to revisit this summary later, results for score visibility, and answer review only when this attempt reaches the final release stage.</p>
+              <p>{stateCopy.helper}</p>
+              </div>
+              <div className="studentInsightMessage">
+                <span className="placeholderDot" aria-hidden="true" />
+                <p>{stateCopy.progress}</p>
             </div>
           </div>
           <div className="studentInsightHeroActions">

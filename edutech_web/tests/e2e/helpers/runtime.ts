@@ -46,7 +46,9 @@ export async function gotoWithRuntimeRecovery(page: Page, url: string, attempts 
       const message = error instanceof Error ? error.message : String(error);
       const retriable =
         message.includes("ERR_CONNECTION_REFUSED") ||
-        message.includes("ERR_ABORTED");
+        message.includes("ERR_ABORTED") ||
+        message.includes("NS_BINDING_ABORTED") ||
+        message.includes("interrupted by another navigation");
 
       if (!retriable || attempt === attempts) {
         throw error;

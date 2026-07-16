@@ -43,12 +43,12 @@ export default async function StudentAnalyticsQuestionTypePage({
       <div className="studentPage studentDashboardModern">
         <StudentStatePanel
           eyebrow="Setup required"
-          title="Question-type analytics are waiting for backend data"
-          description="This page uses question-level records to explain whether a format is hurting performance."
-          bullets={["Question analytics endpoint", "Student session", "Published results"]}
+          title="Question-type analytics are not available yet"
+          description="Sign in with your student account to load format analytics."
+          bullets={["Student sign-in", "Question analytics", "Published results"]}
           ctaHref="/app/analytics"
           ctaLabel="Back to Analytics"
-          statusLabel="Configuration required"
+          statusLabel="Sign in to continue"
         />
       </div>
     );
@@ -67,11 +67,11 @@ export default async function StudentAnalyticsQuestionTypePage({
         <StudentStatePanel
           eyebrow="Load issue"
           title="Question-type analytics could not be loaded"
-          description="We need live question-level records to diagnose format-driven losses."
-          bullets={["Question analytics endpoint", "Published results", "Question-type metadata"]}
+          description="We couldn't load this format view right now."
+          bullets={["Question analytics", "Published results", "Question-type metadata"]}
           ctaHref="/app/analytics"
           ctaLabel="Back to Analytics"
-          statusLabel="Retry after backend check"
+          statusLabel="Try again soon"
         />
       </div>
     );
@@ -99,7 +99,7 @@ export default async function StudentAnalyticsQuestionTypePage({
       <StudentPageHeader
         eyebrow="Question-type lab"
         title={questionTypeLabel(questionType)}
-        description="Study one format in isolation to see whether a recurring answer pattern is costing marks."
+        description="Study one format in isolation to see whether it is costing marks."
         statusLabel={`${questionData.questions.length} questions analyzed`}
         statusTone="live"
         action={<Link className="button buttonGhost" href="/app/analytics">Back to Analytics</Link>}
@@ -108,7 +108,7 @@ export default async function StudentAnalyticsQuestionTypePage({
       <StudentAnalyticsDetailHero
         eyebrow="Format behavior"
         title={questionTypeLabel(questionType)}
-        description={`This page isolates ${questionTypeLabel(questionType).toLowerCase()} questions so the student can see whether the format itself is creating wrong answers, skips, or slow completion.`}
+        description={`This page isolates ${questionTypeLabel(questionType).toLowerCase()} questions so you can see whether the format itself is causing wrong answers, skips, or slow completion.`}
         badges={[
           subject ?? "Overall subject view",
           `${questionData.benchmark_overview.length} benchmark scopes`,

@@ -30,7 +30,7 @@ test.describe("Student cross-browser shell sanity", () => {
     await expectStudentWorkspace(page);
 
     await gotoWithRetry(page, "/app/dashboard");
-    await expect(page.getByText(/action queue/i).first()).toBeVisible();
+    await expect(page.getByText(/study queue|action queue/i).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /dashboard/i }).first()).toHaveAttribute(
       "aria-current",
       "page",
@@ -43,7 +43,7 @@ test.describe("Student cross-browser shell sanity", () => {
     await page.getByRole("link", { name: /^analytics$/i }).first().click();
     await expect(page).toHaveURL(/\/app\/analytics(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /analytics/i }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /open action center/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /open action center|action center/i }).first()).toBeVisible();
 
     await page.getByRole("link", { name: /^results$/i }).first().click();
     await expect(page).toHaveURL(/\/app\/results(?:\?.*)?$/);

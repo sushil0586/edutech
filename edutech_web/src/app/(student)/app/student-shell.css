@@ -80,7 +80,7 @@
 .studentAppMain .studentResultBreakdown span,
 .studentAppMain .studentWorkspaceFilterField span,
 .studentAppMain .studentWorkspaceFilterQuickLabel {
-  color: #617393;
+  color: #5d6f8e;
 }
 
 .studentAppShell .appSearch,
@@ -231,6 +231,19 @@
   gap: 3px;
 }
 
+.studentAppMain .pageHeaderCopy p {
+  max-width: 60ch;
+  line-height: 1.55;
+}
+
+.studentAppMain .sectionDescription,
+.studentAppMain .studentInsightMessage p,
+.studentAppMain .studentResultHelper small,
+.studentAppMain .studentResultHelper p {
+  max-width: 62ch;
+  line-height: 1.55;
+}
+
 .studentAppMain .contentCard,
 .studentAppMain .metricCard {
   border: 1px solid var(--student-border);
@@ -282,6 +295,10 @@
   align-items: stretch;
 }
 
+.studentLearnerDashboardPage .studentDashboardPrimaryGrid {
+  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.95fr);
+}
+
 .studentLearnerDashboardPage .studentDashboardRecommendation,
 .studentLearnerDashboardPage .studentDashboardWalletCard {
   min-height: 220px;
@@ -323,6 +340,10 @@
 .studentLearnerDashboardPage .studentDashboardRecommendation strong {
   font-size: clamp(1.8rem, 1.45rem + 1.1vw, 2.45rem);
   line-height: 0.98;
+}
+
+.studentLearnerDashboardPage .studentDashboardWalletCard {
+  gap: 14px;
 }
 
 .studentLearnerDashboardPage .studentDashboardChipRow {
@@ -386,12 +407,59 @@
   align-items: start;
 }
 
+.studentLearnerResultsPage .studentResultsGrid,
+.studentLearnerPracticePage .studentResultsGrid,
+.studentLearnerExamsPage .studentResultsGrid {
+  grid-template-columns: repeat(auto-fit, minmax(390px, 1fr));
+}
+
 .studentLearnerExamsPage .contentCard,
 .studentLearnerResultsPage .contentCard,
 .studentLearnerExamDetailPage .contentCard,
 .studentLearnerAttemptSummaryPage .contentCard,
 .studentLearnerAttemptReviewPage .contentCard {
   overflow: hidden;
+}
+
+.studentSummaryHeroMeta {
+  justify-content: flex-start;
+  margin-top: 4px;
+}
+
+.studentSummaryHeroActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  justify-content: stretch;
+  gap: 10px;
+  flex: 0 1 420px;
+}
+
+.studentSummaryHeroActions > .button,
+.studentSummaryHeroActions > form {
+  min-width: 0;
+  width: 100%;
+}
+
+.studentSummaryHeroActions > .button,
+.studentSummaryHeroActions > form .button {
+  width: 100%;
+  min-height: 48px;
+  justify-content: center;
+}
+
+.studentSummaryUtilityRow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: -6px;
+}
+
+.studentReviewPageStateRow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-top: 6px;
 }
 
 .studentLearnerResultsPage .studentResultSurface,
@@ -437,6 +505,64 @@
   background:
     radial-gradient(circle at top right, rgba(191, 219, 254, 0.12), transparent 22%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.965), rgba(245, 249, 255, 0.92));
+}
+
+.studentLearnerAttemptPage .attemptConsoleLayout {
+  gap: 18px;
+}
+
+.studentLearnerAttemptPage .attemptConsoleMain {
+  gap: 16px;
+}
+
+.studentLearnerAttemptPage .attemptConsoleRail {
+  gap: 12px;
+  opacity: 0.92;
+}
+
+.studentLearnerAttemptPage .attemptConsoleSummaryCard,
+.studentLearnerAttemptPage .attemptRailPanel {
+  background:
+    linear-gradient(180deg, rgba(252, 253, 255, 0.9), rgba(247, 250, 255, 0.82));
+}
+
+.studentLearnerAttemptPage .attemptQuestionPrompt,
+.studentLearnerAttemptPage .attemptLiveCheckpoint,
+.studentLearnerAttemptPage .attemptResponseWorkflow {
+  border-color: rgba(188, 211, 245, 0.42);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92);
+}
+
+.studentLearnerAttemptPage .attemptQuestionPrompt {
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.9), transparent 28%),
+    linear-gradient(180deg, rgba(252, 253, 255, 0.98), rgba(246, 249, 255, 0.94));
+}
+
+.studentLearnerAttemptPage .attemptResponseWorkflow {
+  background:
+    radial-gradient(circle at top right, rgba(191, 219, 254, 0.18), transparent 30%),
+    linear-gradient(180deg, rgba(248, 251, 255, 0.98), rgba(242, 247, 255, 0.94));
+}
+
+.studentLearnerAttemptPage .attemptPaletteLegendCard,
+.studentLearnerAttemptPage .attemptQuestionNavChip,
+.studentLearnerAttemptPage .attemptStatusTile,
+.studentLearnerAttemptPage .attemptQuestionStateCard {
+  border-color: rgba(197, 209, 238, 0.4);
+}
+
+.studentLearnerAttemptPage .attemptQuestionNavigator,
+.studentLearnerAttemptPage .attemptConsoleSummaryCard {
+  box-shadow:
+    0 8px 18px rgba(86, 113, 173, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.88);
+}
+
+.studentLearnerAttemptPage .attemptQuestionCard {
+  box-shadow:
+    0 22px 40px rgba(86, 113, 173, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92);
 }
 
 .studentLearnerAttemptPage .attemptQuestionHeader strong,
@@ -614,13 +740,47 @@
 .studentLearnerAccountPage .dashboardOfferCard span,
 .studentLearnerAccountPage .dashboardOfferCard small,
 .studentLearnerAccountPage .dashboardRailRow span {
-  color: #617393;
+  color: #5e708f;
 }
 
 .studentLearnerAccountPage .detailCard strong,
 .studentLearnerAccountPage .dashboardOfferCard strong,
 .studentLearnerAccountPage .dashboardRailRow strong {
   color: #15223d;
+}
+
+.studentLearnerAccountPage .sectionDescription,
+.studentLearnerAccountPage .dashboardOfferCard small,
+.studentLearnerAccountPage .studentInsightMessage p,
+.studentLearnerAccountPage .dashboardRailRow span {
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.studentLearnerAccountPage .studentInsightMessageStack {
+  gap: 10px;
+}
+
+.studentLearnerAccountPage .studentInsightHeroActions,
+.studentLearnerAccountPage .buttonRow,
+.studentLearnerAccountPage .settingsActionRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  align-items: stretch;
+}
+
+.studentLearnerAccountPage .studentInsightHeroActions > .button,
+.studentLearnerAccountPage .buttonRow > .button,
+.studentLearnerAccountPage .buttonRow > form,
+.studentLearnerAccountPage .settingsActionRow > .button,
+.studentLearnerAccountPage .settingsActionRow > form {
+  width: 100%;
+  min-width: 0;
+}
+
+.studentLearnerAccountPage .buttonRow > form .button,
+.studentLearnerAccountPage .settingsActionRow > form .button {
+  width: 100%;
 }
 
 .studentLearnerAccountPage .dashboardOfferCard,
@@ -858,7 +1018,8 @@
 .studentDashboardPremiumCallout p {
   margin: 0;
   color: var(--color-text-secondary);
-  line-height: 1.6;
+  font-size: 0.9rem;
+  line-height: 1.5;
 }
 
 .studentDashboardRecommendationChecklist {
@@ -874,6 +1035,7 @@
 .studentDashboardRecommendationChecklist span {
   position: relative;
   padding-left: 18px;
+  line-height: 1.45;
 }
 
 .studentDashboardRecommendationChecklist span::before {
@@ -885,6 +1047,11 @@
   height: 8px;
   border-radius: 999px;
   background: var(--color-brand-primary-500);
+}
+
+.studentDashboardWalletChecklist {
+  background: linear-gradient(180deg, rgba(255, 252, 245, 0.98), rgba(255, 247, 236, 0.94));
+  border-color: rgba(229, 200, 152, 0.22);
 }
 
 .studentDashboardActionRow,
@@ -899,14 +1066,54 @@
   flex-wrap: wrap;
 }
 
+.studentDashboardSnapshotGrid,
+.studentDashboardWalletStats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.studentDashboardSnapshotCard,
+.studentDashboardWalletStat {
+  display: grid;
+  gap: 4px;
+  padding: 14px 15px;
+  border-radius: 18px;
+  border: 1px solid rgba(190, 206, 238, 0.5);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.studentDashboardSnapshotCard span,
+.studentDashboardWalletStat span {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.studentDashboardSnapshotCard strong,
+.studentDashboardWalletStat strong {
+  font-size: clamp(1.05rem, 1rem + 0.5vw, 1.4rem);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.studentDashboardSnapshotCard small,
+.studentDashboardWalletStat small {
+  color: var(--color-text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
 .studentDashboardTextLink {
   color: var(--color-brand-primary-600);
   font-weight: 700;
+  font-size: 0.92rem;
 }
 
 .studentDashboardMetaRow span {
   color: var(--color-text-muted);
-  font-size: 0.88rem;
+  font-size: 0.84rem;
 }
 
 .studentDashboardBadgeRow {
@@ -941,8 +1148,9 @@
 
 .studentDashboardExamCard strong,
 .dashboardOfferCard strong {
-  font-size: 1.08rem;
-  line-height: 1.35;
+  font-size: 1.06rem;
+  line-height: 1.28;
+  text-wrap: balance;
 }
 
 .studentDashboardExamCardTop {
@@ -1043,6 +1251,24 @@
 .dashboardRailRow strong {
   display: block;
   font-size: 0.96rem;
+}
+
+@media (max-width: 1080px) {
+  .studentLearnerDashboardPage .studentDashboardPrimaryGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .studentDashboardSnapshotGrid,
+  .studentDashboardWalletStats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .studentDashboardSnapshotGrid,
+  .studentDashboardWalletStats {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .dashboardRailTone {
@@ -1167,6 +1393,34 @@
 
 .studentResultsGrid {
   grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+}
+
+.studentCatalogPaginationCard {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+}
+
+.studentCatalogPaginationSummary {
+  display: grid;
+  gap: 4px;
+}
+
+.studentCatalogPaginationSummary span {
+  color: #5e708f;
+  font-size: 0.92rem;
+}
+
+.studentCatalogPaginationSummary strong {
+  color: #15223d;
+  font-size: 1rem;
+}
+
+.studentCatalogPaginationActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(160px, 1fr));
+  gap: 10px;
 }
 
 .studentInsightsTwoColumn,
@@ -1480,7 +1734,7 @@
 
 .studentWorkspaceFiltersForm {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 14px;
   align-items: end;
   min-width: 0;
@@ -1517,10 +1771,13 @@
   gap: 10px;
   flex-wrap: wrap;
   justify-content: flex-end;
+  align-self: stretch;
 }
 
 .studentWorkspaceFilterActions > .button {
-  flex: 0 0 auto;
+  flex: 1 1 160px;
+  min-width: 0;
+  justify-content: center;
 }
 
 .studentWorkspaceFilterChips {
@@ -1551,6 +1808,460 @@
   gap: 8px;
   flex-wrap: wrap;
   min-width: 0;
+}
+
+.studentAttemptsFiltersCard {
+  gap: 14px;
+}
+
+.studentAttemptsKpiGrid {
+  margin-top: 2px;
+}
+
+.studentAttemptsQuickBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-bottom: 2px;
+}
+
+.studentAttemptsQuickTab {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 0 10px;
+  border-bottom: 2px solid transparent;
+  color: #5b6f91;
+  transition:
+    color 180ms ease,
+    border-color 180ms ease;
+}
+
+.studentAttemptsQuickTab span {
+  font-size: 0.98rem;
+  font-weight: var(--weight-medium);
+}
+
+.studentAttemptsQuickTab strong {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(220, 228, 246, 0.72);
+  color: #485d82;
+  font-size: 0.88rem;
+  line-height: 1;
+}
+
+.studentAttemptsQuickTab:hover,
+.studentAttemptsQuickTabActive {
+  color: #4d52ff;
+  border-color: rgba(90, 104, 255, 0.92);
+}
+
+.studentAttemptsQuickTabActive strong {
+  background: rgba(105, 113, 255, 0.12);
+  color: #4d52ff;
+}
+
+.studentAttemptsCard {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 18px 18px 16px;
+  border: 1px solid rgba(208, 219, 243, 0.8);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 249, 255, 0.94));
+  box-shadow:
+    0 16px 34px rgba(98, 118, 173, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.78);
+}
+
+.studentAttemptsCardLive {
+  border-color: rgba(255, 207, 137, 0.72);
+}
+
+.studentAttemptsCardHead,
+.studentAttemptsFooter {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.studentAttemptsCardTitle {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.studentAttemptsCardTitle strong {
+  display: block;
+  color: #1a2544;
+  font-size: clamp(1.02rem, 0.98rem + 0.34vw, 1.15rem);
+  line-height: 1.24;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.studentAttemptsCardMeta,
+.studentAttemptsCardSourceRow span,
+.studentAttemptsNotice span,
+.studentAttemptsContextRow span,
+.studentAttemptsUpdateRow span {
+  color: #667998;
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.studentAttemptsCardStatus {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+}
+
+.studentAttemptsCardSourceRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 20px;
+}
+
+.studentAttemptsMetrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding-top: 2px;
+  border-top: 1px solid rgba(222, 229, 244, 0.78);
+  border-bottom: 1px solid rgba(222, 229, 244, 0.78);
+}
+
+.studentAttemptsMetric {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 12px 8px 12px 0;
+}
+
+.studentAttemptsMetric:not(:last-child) {
+  border-right: 1px solid rgba(225, 231, 245, 0.92);
+}
+
+.studentAttemptsMetric span {
+  color: #7082a0;
+  font-size: 0.76rem;
+  font-weight: var(--weight-medium);
+  line-height: 1.3;
+}
+
+.studentAttemptsMetric strong {
+  color: #1b2947;
+  font-size: clamp(1rem, 0.94rem + 0.5vw, 1.28rem);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+.studentAttemptsMetricValueCompact {
+  font-size: 0.96rem;
+  line-height: 1.18;
+  letter-spacing: -0.01em;
+}
+
+.studentAttemptsNotice {
+  display: grid;
+  gap: 5px;
+  padding: 11px 13px;
+  border: 1px solid rgba(210, 221, 255, 0.78);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(244, 247, 255, 0.95), rgba(238, 243, 255, 0.92));
+}
+
+.studentAttemptsNotice strong {
+  color: #3450dd;
+  font-size: 0.9rem;
+  line-height: 1.3;
+}
+
+.studentAttemptsContextRow,
+.studentAttemptsUpdateRow {
+  min-width: 0;
+  flex: 1 1 220px;
+}
+
+.studentAttemptsActions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
+  align-items: stretch;
+  justify-content: stretch;
+  gap: 8px;
+  flex: 1 1 360px;
+  width: min(100%, 520px);
+  margin-left: auto;
+}
+
+.studentAttemptsActions > .button,
+.studentAttemptsActions > form {
+  min-width: 0;
+  width: 100%;
+}
+
+.studentAttemptsActions > form .button {
+  width: 100%;
+}
+
+.studentReviewPaginationCard {
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+
+.studentReviewPaginationBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.studentReviewPaginationSummary {
+  min-width: 0;
+  flex: 1 1 240px;
+}
+
+.studentReviewPaginationSummary span {
+  display: block;
+  color: #7082a0;
+  font-size: 0.96rem;
+  line-height: 1.45;
+}
+
+.studentReviewPaginationActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  flex: 0 1 auto;
+}
+
+.studentReviewPaginationActions > .button {
+  flex: 0 0 auto;
+  min-width: 170px;
+  justify-content: center;
+}
+
+.studentResultsCompactCard {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  height: 100%;
+  align-content: start;
+  padding: 18px 18px 16px;
+  border: 1px solid rgba(208, 219, 243, 0.8);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 249, 255, 0.94));
+  box-shadow:
+    0 16px 34px rgba(98, 118, 173, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.78);
+}
+
+.studentResultsMetrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding-top: 2px;
+  border-top: 1px solid rgba(222, 229, 244, 0.78);
+}
+
+.studentResultsBreakdownStrip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(218, 226, 244, 0.76);
+  background: linear-gradient(180deg, rgba(249, 251, 255, 0.95), rgba(242, 246, 255, 0.92));
+}
+
+.studentResultsBreakdownStrip > div {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.studentResultsBreakdownStrip span {
+  color: #7082a0;
+  font-size: 0.8rem;
+  font-weight: var(--weight-medium);
+  line-height: 1.3;
+}
+
+.studentResultsBreakdownStrip strong {
+  color: #1b2947;
+  font-size: 1rem;
+  line-height: 1.1;
+}
+
+.studentPracticeCompactCard {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  height: 100%;
+  align-content: start;
+  padding: 18px 18px 16px;
+  border: 1px solid rgba(208, 219, 243, 0.8);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 255, 0.94));
+  box-shadow:
+    0 16px 34px rgba(98, 118, 173, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.78);
+}
+
+.studentPracticeMetrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  padding-top: 2px;
+  border-top: 1px solid rgba(222, 229, 244, 0.78);
+  border-bottom: 1px solid rgba(222, 229, 244, 0.78);
+}
+
+.studentLearnerPracticePage .studentPracticeMetrics .studentAttemptsMetric {
+  min-width: 0;
+  align-content: start;
+}
+
+.studentLearnerPracticePage .studentPracticeMetrics .studentAttemptsMetric strong {
+  font-size: clamp(0.86rem, 0.82rem + 0.14vw, 0.95rem);
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  overflow-wrap: normal;
+  word-break: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+.studentLearnerPracticePage .studentPracticeMetrics .studentAttemptsMetricValueCompact {
+  font-size: 0.86rem;
+}
+
+.studentLearnerPracticePage .studentAttemptsNotice {
+  min-height: 96px;
+  align-content: start;
+}
+
+.studentLearnerPracticePage .studentAttemptsFooter {
+  margin-top: auto;
+}
+
+.studentLearnerPracticePage .studentAttemptsUpdateRow span {
+  display: block;
+  min-height: 40px;
+}
+
+.studentLearnerPracticePage .studentAttemptsActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  justify-content: stretch;
+  width: 100%;
+  gap: 10px;
+}
+
+.studentLearnerPracticePage .studentAttemptsActions > .button,
+.studentLearnerPracticePage .studentAttemptsActions > form {
+  flex: 1 1 180px;
+  min-width: 0;
+  width: 100%;
+}
+
+.studentLearnerPracticePage .studentAttemptsActions > .button,
+.studentLearnerPracticePage .studentAttemptsActions > form .button {
+  width: 100%;
+  min-height: 48px;
+  justify-content: center;
+}
+
+.studentExamCompactCard {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  height: 100%;
+  align-content: start;
+  padding: 18px 18px 16px;
+  border: 1px solid rgba(208, 219, 243, 0.8);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 255, 0.94));
+  box-shadow:
+    0 16px 34px rgba(98, 118, 173, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.78);
+}
+
+.studentExamMetrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  padding-top: 2px;
+  border-top: 1px solid rgba(222, 229, 244, 0.78);
+}
+
+.studentLearnerExamsPage .studentExamMetrics .studentAttemptsMetric {
+  min-width: 0;
+}
+
+.studentLearnerExamsPage .studentExamMetrics .studentAttemptsMetric strong {
+  font-size: clamp(0.86rem, 0.82rem + 0.14vw, 0.95rem);
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  overflow-wrap: normal;
+  word-break: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+.studentLearnerExamsPage .studentExamActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  justify-content: stretch;
+  width: 100%;
+  gap: 10px;
+}
+
+.studentLearnerExamsPage .studentExamActions > .button,
+.studentLearnerExamsPage .studentExamActions > form {
+  min-width: 0;
+  width: 100%;
+}
+
+.studentLearnerExamsPage .studentExamActions > .button,
+.studentLearnerExamsPage .studentExamActions > form .button {
+  width: 100%;
+  min-height: 48px;
+  justify-content: center;
+}
+
+.studentExamUtilityLinkRow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  margin-top: -2px;
 }
 
 .studentWorkspaceQuickChip {
@@ -1597,6 +2308,12 @@
 }
 
 @media (max-width: 900px) {
+  .studentLearnerResultsPage .studentResultsGrid,
+  .studentLearnerPracticePage .studentResultsGrid,
+  .studentLearnerExamsPage .studentResultsGrid {
+    grid-template-columns: 1fr;
+  }
+
   .studentWorkspaceFilterActions {
     justify-content: stretch;
   }
@@ -1608,6 +2325,26 @@
 
   .studentWeakAreaRow {
     grid-template-columns: 1fr;
+  }
+
+  .studentAttemptsMetrics {
+    grid-template-columns: 1fr;
+  }
+
+  .studentResultsMetrics,
+  .studentResultsBreakdownStrip,
+  .studentPracticeMetrics,
+  .studentExamMetrics {
+    grid-template-columns: 1fr;
+  }
+
+  .studentAttemptsMetric {
+    padding-right: 0;
+  }
+
+  .studentAttemptsMetric:not(:last-child) {
+    border-right: 0;
+    border-bottom: 1px solid rgba(225, 231, 245, 0.92);
   }
 
   .studentTopicRowMeta,
@@ -2138,7 +2875,8 @@
 
 .analyticsLandingHeroCopy p {
   max-width: 56ch;
-  font-size: 0.97rem;
+  font-size: 0.93rem;
+  line-height: 1.55;
 }
 
 .analyticsHeroSketch {
@@ -2195,13 +2933,32 @@
 
 .analyticsHeroMetaCard span {
   color: var(--color-text-secondary);
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   font-weight: 700;
 }
 
 .analyticsHeroMetaCard strong {
-  font-size: 1.35rem;
+  font-size: 1.25rem;
   line-height: 1;
+}
+
+.analyticsPanel .sectionHeading span,
+.analyticsPanel .emptyText,
+.analyticsPanel .studentInsightMessage p,
+.analyticsPanel .studentTopicRow span,
+.analyticsPanel .dashboardRailRow span {
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.analyticsPanel .studentTopicRow strong,
+.analyticsPanel .dashboardRailRow strong,
+.analyticsPanel .studentInsightColumnHeading strong {
+  line-height: 1.28;
+}
+
+.analyticsPanelInsights .studentInsightMessageStack {
+  gap: 10px;
 }
 
 .analyticsHeroMetaIcon {
@@ -3209,6 +3966,11 @@
   .studentInsightHeroActions {
     justify-content: flex-start;
   }
+
+  .studentSummaryUtilityRow,
+  .studentReviewPageStateRow {
+    justify-content: flex-start;
+  }
 }
 
 @media (max-width: 1200px) {
@@ -3324,6 +4086,8 @@
   .studentInsightHeroCard,
   .studentResultSurfaceHead,
   .studentResultFooter,
+  .studentAttemptsCardHead,
+  .studentAttemptsFooter,
   .studentTopicRow,
   .analyticsTimelineHeader,
   .analyticsQuestionSummary {
@@ -3351,13 +4115,60 @@
     grid-template-columns: 1fr;
   }
 
+  .studentCatalogPaginationCard {
+    grid-template-columns: 1fr;
+  }
+
+  .studentCatalogPaginationActions {
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
   .studentResultFooter .studentInsightHeroActions {
+    width: 100%;
+  }
+
+  .studentAttemptsActions {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .studentAttemptsActions > .button,
+  .studentAttemptsActions > form {
+    min-width: 0;
+  }
+
+  .studentLearnerPracticePage .studentAttemptsActions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .studentLearnerExamsPage .studentExamActions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .studentSummaryHeroActions {
+    grid-template-columns: minmax(0, 1fr);
     width: 100%;
   }
 
   .studentResultFooter .studentInsightHeroActions > .button,
   .studentResultFooter .studentInsightHeroActions > form {
     flex-basis: 100%;
+  }
+
+  .studentReviewPaginationBar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .studentReviewPaginationActions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .studentReviewPaginationActions > .button {
+    flex: 1 1 100%;
+    min-width: 0;
   }
 
   .studentTopicRowMeta,

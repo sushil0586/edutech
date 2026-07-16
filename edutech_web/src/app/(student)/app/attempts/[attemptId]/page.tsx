@@ -23,6 +23,8 @@ import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { StatusPill } from "@/components/ui/status-pill";
 import {
   StudentSecurityPolicy,
+  StudentAttemptAnswer,
+  StudentExamQuestionDetail,
 } from "@/features/dashboard/types";
 import {
   fetchStudentAttemptDetail,
@@ -197,6 +199,14 @@ function hasSavedResponse(answer: {
   );
 }
 
+function resolveAttemptAnswer(
+  answerMap: Map<string, StudentAttemptAnswer>,
+  question: Pick<StudentExamQuestionDetail, "id" | "question"> | null | undefined,
+) {
+  if (!question) return undefined;
+  return answerMap.get(question.question) ?? answerMap.get(question.id);
+}
+
 async function loadAttemptDetail(attemptId: string) {
   const state = getStudentApiState();
 
@@ -326,7 +336,7 @@ export default async function AttemptDetailPage({
   );
   const activeQuestion = visibleQuestions[activeQuestionIndex] ?? null;
   const answeredCount = safeQuestions.reduce((count, question) => {
-    return count + (hasSavedResponse(answerMap.get(question.question)) ? 1 : 0);
+    return count + (hasSavedResponse(resolveAttemptAnswer(answerMap, question)) ? 1 : 0);
   }, 0);
   const markedCount = detail.answers.filter((answer) => answer.is_marked_for_review).length;
   const unansweredCount = Math.max(detail.total_questions - answeredCount, 0);
@@ -346,10 +356,10 @@ export default async function AttemptDetailPage({
     detail.status !== "in_progress" ||
     decodedError.toLowerCase().includes("expired");
   const answeredCountInSection = visibleQuestions.reduce((count, question) => {
-    return count + (hasSavedResponse(answerMap.get(question.question)) ? 1 : 0);
+    return count + (hasSavedResponse(resolveAttemptAnswer(answerMap, question)) ? 1 : 0);
   }, 0);
   const markedCountInSection = visibleQuestions.reduce((count, question) => {
-    return count + (answerMap.get(question.question)?.is_marked_for_review ? 1 : 0);
+    return count + (resolveAttemptAnswer(answerMap, question)?.is_marked_for_review ? 1 : 0);
   }, 0);
   const completionPercent =
     detail.total_questions > 0
@@ -739,24 +749,28 @@ export default async function AttemptDetailPage({
               </div>
               <div className="attemptMobileRuntimeGrid">
                 <div className="attemptStatusTile attemptStatusTileSaved">
-                  <span>{attemptCopy.saveConfidence}</span>
+                  <span>Save check</span>
                   <strong>{activeSaveStateLabel}</strong>
                 </div>
                 <div className="attemptStatusTile attemptStatusTileMarked">
-                  <span>{attemptCopy.currentSection}</span>
+                  <span>Answered here</span>
                   <strong>
                     {currentSectionName
-                      ? `${answeredCountInSection}/${questionCountInSection} saved`
+                      ? `${answeredCountInSection}/${questionCountInSection} done`
                       : "Single-flow attempt"}
                   </strong>
                 </div>
                 <div className="attemptStatusTile attemptStatusTileOpen">
-                  <span>{attemptCopy.finalReview}</span>
-                  <strong>{attemptCopy.finalReviewReady}</strong>
+                  <span>Still needs attention</span>
+                  <strong>
+                    {unresolvedCount > 0
+                      ? `${unresolvedCount} left`
+                      : "All clear"}
+                  </strong>
                 </div>
               </div>
               <p className="attemptSupportText">
-                {attemptCopy.supportText.replace("{latestSavedLabel}", latestSavedLabel)}
+                Latest confirmed save: {latestSavedLabel}. Save first, then jump or switch sections.
               </p>
             </section>
 
@@ -895,7 +909,7 @@ export default async function AttemptDetailPage({
                 {completionPercent}% complete
               </strong>
               <small>
-                {answeredCount} saved · {markedCount} marked · {unansweredCount} open
+                {answeredCount} answered · {markedCount} review later · {unansweredCount} to do
               </small>
             </div>
             {currentSectionName ? (
@@ -944,7 +958,7 @@ export default async function AttemptDetailPage({
         {activeQuestion ? (() => {
           const question = activeQuestion;
           const index = activeQuestionIndex;
-          const answer = answerMap.get(question.question);
+          const answer = resolveAttemptAnswer(answerMap, question);
           const isMarked = answer?.is_marked_for_review ?? false;
           const isAnswered = hasSavedResponse(answer);
           const questionStatusTone = isMarked
@@ -1000,11 +1014,11 @@ export default async function AttemptDetailPage({
             : -1;
           const reviewQuestion =
             visibleQuestions.find((candidate) => {
-              const candidateAnswer = answerMap.get(candidate.question);
+              const candidateAnswer = resolveAttemptAnswer(answerMap, candidate);
               return candidateAnswer?.is_marked_for_review ?? false;
             })?.question ??
             visibleQuestions.find((candidate) => {
-              const candidateAnswer = answerMap.get(candidate.question);
+              const candidateAnswer = resolveAttemptAnswer(answerMap, candidate);
               return !hasSavedResponse(candidateAnswer);
             })?.question ??
             visibleQuestions[0]?.question ??
@@ -1306,60 +1320,94 @@ export default async function AttemptDetailPage({
                     name="is_marked_for_review"
                     type="checkbox"
                   />
-                  <span>Mark for review</span>
+                  <span>
+                    <strong>Mark for review</strong>
+                    <small>
+                      {isMarked
+                        ? "This question stays in your final review count until you revisit it."
+                        : "Use this only when you want to return before submitting."}
+                    </small>
+                  </span>
                 </label>
 
-                <div className="attemptActions">
-                  <ActionSubmitButton
-                    actionLabel={`Save answer for question ${question.question_order}`}
-                    className="button buttonSecondary"
-                    idleLabel="Save Answer"
-                    name="action_intent"
-                    pendingLabel="Saving..."
-                    value="save"
-                  />
-                  <ActionSubmitButton
-                    actionLabel={saveNextActionLabel}
-                    className="button buttonPrimary"
-                    idleLabel={saveNextLabel}
-                    name="action_intent"
-                    pendingLabel="Saving..."
-                    value="save-next"
-                  />
-                  <ActionSubmitButton
-                    actionLabel={`Clear response for question ${question.question_order}`}
-                    className="button buttonGhost"
-                    idleLabel="Clear Response"
-                    name="action_intent"
-                    pendingLabel="Clearing..."
-                    value="clear"
-                  />
-                  <ActionSubmitButton
-                    actionLabel={`Skip question ${question.question_order}`}
-                    className="button buttonGhost"
-                    idleLabel="Skip"
-                    name="action_intent"
-                    pendingLabel="Skipping..."
-                    value="skip"
-                  />
-                  <button
-                    aria-hidden="true"
-                    data-auto-submit-expired="true"
-                    name="action_intent"
-                    tabIndex={-1}
-                    type="submit"
-                    value="time-expired-submit"
-                    hidden
-                  >
-                    Save and submit on expiry
-                  </button>
-                </div>
+                <section className="attemptResponseWorkflow" aria-label="Answer workflow">
+                  <div className="attemptResponseWorkflowHeader">
+                    <div>
+                      <span className="studentDashboardTag">Answer workflow</span>
+                      <strong>Save before you move. Review only when you truly want to come back.</strong>
+                    </div>
+                    <small>
+                      {isAnswered && isMarked
+                        ? "This answer is saved, but it will still appear in final review because it is marked."
+                        : isAnswered
+                          ? "This answer is already saved. Use Save Answer again only if you changed it."
+                          : "Choose an answer first, then save and continue."}
+                    </small>
+                  </div>
+
+                  <div className="attemptActions attemptActionsPrimary">
+                    <ActionSubmitButton
+                      actionLabel={saveNextActionLabel}
+                      className="button buttonPrimary"
+                      idleLabel={saveNextLabel}
+                      name="action_intent"
+                      pendingLabel="Saving..."
+                      value="save-next"
+                    />
+                    <ActionSubmitButton
+                      actionLabel={`Save answer for question ${question.question_order}`}
+                      className="button buttonSecondary"
+                      idleLabel="Save Answer"
+                      name="action_intent"
+                      pendingLabel="Saving..."
+                      value="save"
+                    />
+                  </div>
+
+                  <div className="attemptActions attemptActionsSecondary">
+                    <ActionSubmitButton
+                      actionLabel={`Clear response for question ${question.question_order}`}
+                      className="button buttonGhost"
+                      idleLabel="Clear Response"
+                      name="action_intent"
+                      pendingLabel="Clearing..."
+                      value="clear"
+                    />
+                    <ActionSubmitButton
+                      actionLabel={`Skip question ${question.question_order}`}
+                      className="button buttonGhost"
+                      idleLabel="Skip"
+                      name="action_intent"
+                      pendingLabel="Skipping..."
+                      value="skip"
+                    />
+                    <button
+                      aria-hidden="true"
+                      data-auto-submit-expired="true"
+                      name="action_intent"
+                      tabIndex={-1}
+                      type="submit"
+                      value="time-expired-submit"
+                      hidden
+                    >
+                      Save and submit on expiry
+                    </button>
+                  </div>
+                </section>
                 <div className="attemptQuestionStateStrip">
                   <div className="attemptQuestionStateCard">
                     <span>Save state for this question</span>
-                    <strong>{isAnswered ? "Already saved" : "Needs a saved response"}</strong>
+                    <strong>
+                      {isAnswered
+                        ? isMarked
+                      ? "Saved and still marked for review"
+                          : "Already saved"
+                        : "Needs a saved response"}
+                    </strong>
                     <small>
-                      Use `Save Answer` if you want to stay here, or `{saveNextLabel}` if you are ready to move forward.
+                      {isAnswered && isMarked
+                        ? "Your answer is safe, but it still counts in final review until you unmark or revisit it."
+                        : `Use \`Save Answer\` to stay here, or \`${saveNextLabel}\` to keep moving.`}
                     </small>
                   </div>
                   <div className="attemptQuestionStateCard">
@@ -1383,6 +1431,9 @@ export default async function AttemptDetailPage({
                       {isAnswered ? "Saved" : "Not saved"} ·{" "}
                       {isMarked ? "Marked for review" : "Not marked for review"}
                     </span>
+                    {isAnswered && isMarked ? (
+                      <span>Saved answers can still stay in final review when marked.</span>
+                    ) : null}
                     <span>
                       Section: {answeredCountInSection}/{questionCountInSection} saved · {markedCountInSection} marked
                     </span>
@@ -1445,18 +1496,18 @@ export default async function AttemptDetailPage({
             </div>
             <div className="attemptConsoleSummaryGrid">
               <div className="attemptStatusTile attemptStatusTileSaved">
-                <span>Saved</span>
+                <span>Answered</span>
                 <strong>{answeredCount}</strong>
                 <div className="attemptProgressBar" aria-hidden="true">
                   <span style={{ width: `${completionPercent}%` }} />
                 </div>
               </div>
               <div className="attemptStatusTile attemptStatusTileMarked">
-                <span>Marked</span>
+                <span>Review later</span>
                 <strong>{markedCount}</strong>
               </div>
               <div className="attemptStatusTile attemptStatusTileOpen">
-                <span>Not answered</span>
+                <span>To do</span>
                 <strong>{unansweredCount}</strong>
               </div>
             </div>
@@ -1468,15 +1519,15 @@ export default async function AttemptDetailPage({
               </span>
               <span>
                 {unresolvedCount > 0
-                  ? `${unresolvedCount} question${unresolvedCount === 1 ? "" : "s"} still need a final look across marked and unanswered states.`
-                  : "No marked or unanswered questions remain in this attempt summary."}
+                  ? `${unresolvedCount} question${unresolvedCount === 1 ? "" : "s"} still need attention before you finish.`
+                  : "Everything is answered and nothing is left for review."}
               </span>
               <span>
-                Submit opens the attempt summary first, where result and review visibility are explained by policy.
+                Submit opens your summary first.
               </span>
             </div>
             <p className="attemptSupportText">
-              Review marked and unanswered questions before you submit. After submit, the next stop is the attempt summary where result and review visibility are explained by policy.
+              Take one last look at anything marked for review or still unanswered before you submit.
             </p>
             <AttemptActionForm
               action={submitAttemptAction}
@@ -1506,7 +1557,7 @@ export default async function AttemptDetailPage({
           <section className="contentCard attemptQuestionNavigator attemptRailPanel">
             <div className="sectionHeading">
               <strong>Question Palette</strong>
-              <span>Jump to a question</span>
+              <span>Jump only when needed</span>
             </div>
             <div className="attemptPaletteLegend">
               <div className="attemptPaletteLegendCard">
@@ -1519,26 +1570,26 @@ export default async function AttemptDetailPage({
                 </small>
               </div>
               <div className="attemptPaletteLegendCard">
-                <span>Saved in this section</span>
+                <span>Answered here</span>
                 <strong>{answeredCountInSection}</strong>
                 <small>
-                  {questionCountInSection - answeredCountInSection} still need a saved response in this section.
+                  {questionCountInSection - answeredCountInSection} still to do in this section.
                 </small>
               </div>
               <div className="attemptPaletteLegendCard">
-                <span>Marked for review</span>
+                <span>Review later</span>
                 <strong>{markedCountInSection}</strong>
                 <small>
-                  Marked questions stay unresolved until you revisit them before submit.
+                  These stay in your final check until you revisit them.
                 </small>
               </div>
             </div>
             <p className="attemptSupportText">
-              Palette jumps help you move quickly, but they are navigation only. Unsaved changes stay local to the current question until you save them.
+              Use the palette when you need to jump. It does not save the answer you are editing now.
             </p>
             <div className="attemptQuestionNavGrid attemptQuestionNavGridCompact">
-              {visibleQuestions.map((question) => {
-                const answer = answerMap.get(question.question);
+                {visibleQuestions.map((question) => {
+                const answer = resolveAttemptAnswer(answerMap, question);
                 const isMarked = answer?.is_marked_for_review ?? false;
                 const isAnswered = hasSavedResponse(answer);
                 const isCurrent = activeQuestion?.question === question.question;
@@ -1614,7 +1665,7 @@ export default async function AttemptDetailPage({
                   ).length;
                   const savedInSection = safeQuestions.reduce((count, question) => {
                     if (question.section !== section.id) return count;
-                    return count + (hasSavedResponse(answerMap.get(question.question)) ? 1 : 0);
+                    return count + (hasSavedResponse(resolveAttemptAnswer(answerMap, question)) ? 1 : 0);
                   }, 0);
 
                   return (

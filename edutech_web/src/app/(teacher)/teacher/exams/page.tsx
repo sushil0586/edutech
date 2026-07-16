@@ -157,7 +157,7 @@ export default async function TeacherExamsPage({
     <div className="studentPage studentDashboardModern teacherConsolePage teacherExamsPageVivid">
       <TeacherPageHeader
         title="Exam Management"
-        description="Review the exams in your scope, inspect sections and assigned learners, and open each exam to manage its current delivery state."
+        description="Track exam readiness, learner coverage, and delivery state from one workspace."
         action={
           <div className="pageHeaderActionGroup">
             <Link className="button buttonSecondary" href="/teacher/exams/new">
@@ -183,7 +183,7 @@ export default async function TeacherExamsPage({
           {source === "live"
             ? `${totalExams} exams loaded`
             : source === "unconfigured"
-              ? "Backend not configured"
+              ? "Sign in required"
               : "Unable to load exams"}
         </span>
       </div>
@@ -193,31 +193,31 @@ export default async function TeacherExamsPage({
           eyebrow={source === "unconfigured" ? "Setup required" : "Load issue"}
           title={
             source === "unconfigured"
-              ? "Waiting for teacher exams"
+              ? "Teacher exams are not available yet"
               : "Teacher exams could not be loaded"
           }
           description={
             source === "unconfigured"
-              ? "Configure the API base URL and sign in with an active teacher account to load exams from the backend."
-              : "The teacher exam page is wired to live teacher-scoped exam endpoints, but the current request did not complete successfully."
+              ? "Sign in with your teacher account to load exams."
+              : "We couldn't load teacher exams right now."
           }
           bullets={
             source === "unconfigured"
-              ? ["Teacher exams endpoint", "Active teacher web session"]
-              : ["Backend connectivity", "Teacher exam access"]
+              ? ["Teacher sign-in", "Exam activity", "Delivery state"]
+              : ["Teacher exams", "Delivery state"]
           }
           ctaHref="/teacher/dashboard"
           ctaLabel="Back to Dashboard"
-          statusLabel={source === "unconfigured" ? "Configuration required" : "Retry after backend check"}
+          statusLabel={source === "unconfigured" ? "Sign in to continue" : "Try again soon"}
         />
       ) : totalExams === 0 ? (
         <StudentStatePanel
           eyebrow="No exams in scope"
           title="Your teacher exam list is empty right now"
-          description="No active exams were returned for this teacher account. Once exams are created or assigned within your institute scope, they will appear here automatically."
+          description="No exams are currently assigned to this teacher scope."
           ctaHref="/teacher/dashboard"
           ctaLabel="Back to Dashboard"
-          statusLabel="Waiting for exams"
+          statusLabel="Waiting for assigned exams"
         />
       ) : (
         <>
@@ -246,7 +246,7 @@ export default async function TeacherExamsPage({
             <article className="metricCard metricCardPrimary dashboardHeroCard">
               <span>Total Exams</span>
               <strong>{visibleExams.length}</strong>
-              <small>{draftCount} draft and {scheduledCount} scheduled</small>
+              <small>{draftCount} draft · {scheduledCount} scheduled</small>
             </article>
 
             <article className="metricCard dashboardHeroCard">
@@ -363,7 +363,7 @@ export default async function TeacherExamsPage({
             <StudentStatePanel
               eyebrow="No matching exams"
               title="No teacher exams match these controls"
-              description="Try a broader status filter, change the grouping, or reset the controls to return to the full exam list."
+              description="Try a broader status, a different sort, or reset the controls."
               ctaHref="/teacher/exams"
               ctaLabel="Reset exam filters"
               statusLabel="Filter returned zero exams"
@@ -448,7 +448,7 @@ export default async function TeacherExamsPage({
                         <p className="examInstructions">
                           {exam.description ||
                             exam.instructions ||
-                            "No additional teacher-facing exam notes were provided."}
+                            "No additional notes were added for this exam."}
                         </p>
 
                         <div className="examCardFooter">

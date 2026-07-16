@@ -1,0 +1,76 @@
+appId: com.anonymous.nexorastudentmobile
+---
+# Set these before running:
+# STUDENT_USERNAME
+# STUDENT_PASSWORD
+#
+# Seed expectation:
+# - the student account has at least one review-ready result
+# - that review exposes at least 9 review questions
+# - the review includes at least one incorrect, skipped, or marked item
+
+- launchApp:
+    clearState: true
+
+- tapOn: "Login"
+- tapOn:
+    text: "Username"
+- inputText: ${STUDENT_USERNAME}
+
+- tapOn:
+    text: "Enter password"
+- inputText: ${STUDENT_PASSWORD}
+
+- hideKeyboard
+- tapOn: "Login"
+
+- assertVisible: "Student Dashboard"
+
+- tapOn: "Results"
+
+- assertVisible: "Student Results"
+
+- tapOn:
+    id: "results-review-button"
+
+- assertVisible: "Attempt Review"
+- assertVisible: "Question review"
+
+- tapOn:
+    id: "attempt-review-filter-incorrect-button"
+
+- tapOn:
+    id: "attempt-review-filter-skipped-button"
+
+- tapOn:
+    id: "attempt-review-filter-marked-button"
+
+- tapOn:
+    id: "attempt-review-filter-all-button"
+
+- scrollUntilVisible:
+    element:
+      id: "attempt-review-next-page-button"
+    direction: DOWN
+
+- assertVisible: "Page 1 of"
+
+- tapOn:
+    id: "attempt-review-next-page-button"
+
+- assertVisible: "Page 2 of"
+
+- tapOn:
+    id: "attempt-review-previous-page-button"
+
+- assertVisible: "Page 1 of"
+
+- tapOn:
+    id: "attempt-review-back-summary-button"
+
+- assertVisible: "Attempt Summary"
+
+- tapOn:
+    id: "attempt-summary-open-results-button"
+
+- assertVisible: "Student Results"

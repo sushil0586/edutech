@@ -2144,6 +2144,16 @@ class StudentExamAvailabilitySerializer(serializers.ModelSerializer):
         )
         return attempts[0] if attempts else None
 
+    def _latest_attempt_with_result(self, obj):
+        for attempt in sorted(
+            self._student_attempts(obj),
+            key=lambda attempt: (attempt.attempt_no, attempt.created_at),
+            reverse=True,
+        ):
+            if getattr(attempt, "result", None) is not None:
+                return attempt
+        return None
+
     def _active_attempt(self, obj):
         for attempt in self._student_attempts(obj):
             if attempt.status == "in_progress" and attempt.is_active:
@@ -2296,19 +2306,19 @@ class StudentExamAvailabilitySerializer(serializers.ModelSerializer):
         return self._active_attempt(obj) is not None
 
     def get_review_available(self, obj):
-        latest_attempt = self._latest_attempt(obj)
+        latest_attempt = self._latest_attempt_with_result(obj) or self._latest_attempt(obj)
         if latest_attempt is None:
             return False
         result = getattr(latest_attempt, "result", None)
         return is_review_available_for_attempt(obj, latest_attempt, result=result)
 
     def get_result_published(self, obj):
-        latest_attempt = self._latest_attempt(obj)
+        latest_attempt = self._latest_attempt_with_result(obj)
         result = getattr(latest_attempt, "result", None) if latest_attempt else None
         return bool(result and result.is_published)
 
     def get_result_status(self, obj):
-        latest_attempt = self._latest_attempt(obj)
+        latest_attempt = self._latest_attempt_with_result(obj)
         result = getattr(latest_attempt, "result", None) if latest_attempt else None
         return getattr(result, "result_status", None)
 

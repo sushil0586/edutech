@@ -691,7 +691,13 @@ button {
 .pageHeaderActionGroup {
   display: flex;
   flex-wrap: wrap;
+  align-items: stretch;
   gap: 12px;
+}
+
+.pageHeaderActionGroup > * {
+  display: flex;
+  min-width: 0;
 }
 
 .advancedBuilderShell {
@@ -2398,6 +2404,7 @@ button {
 .metricCard {
   display: flex;
   flex-direction: column;
+  justify-content: flex-start;
   gap: var(--space-2);
   padding: 16px 18px;
   background: var(--gradient-surface);
@@ -2406,6 +2413,7 @@ button {
   box-shadow: var(--shadow-xs);
   overflow: hidden;
   position: relative;
+  min-width: 0;
 }
 
 .metricCard::after {
@@ -4781,6 +4789,13 @@ button {
     gap: 10px;
   }
 
+  .appTopbarIntro,
+  .appSearch,
+  .appTopbarActions {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+
   .appTopbarActions,
   .appTopbarFiltersRail {
     justify-content: flex-start;
@@ -4810,18 +4825,20 @@ button {
   }
 
   .mobileWorkspaceNavBar {
-    align-items: flex-start;
-    flex-direction: column;
+    align-items: center;
+    flex-wrap: wrap;
   }
 
   .mobileWorkspaceNavToggle {
-    width: 100%;
+    margin-left: auto;
+    min-width: 120px;
     justify-content: center;
   }
 
   .appTopbar {
     padding: 12px;
     border-radius: 18px;
+    gap: 12px;
   }
 
   .appTopbarIntro strong {
@@ -4851,7 +4868,21 @@ button {
     gap: 8px;
   }
 
+  .appTopbarActions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    justify-content: stretch;
+  }
+
+  .appTopbarFiltersRail {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .appTopbarSubjectSelector {
+    min-width: 0;
     flex: 1 1 100%;
     width: 100%;
   }
@@ -4862,14 +4893,24 @@ button {
     justify-content: center;
   }
 
+  .appTopbarWalletPill,
+  .appTopbarIconButton,
+  .appTopbarAction {
+    min-height: 48px;
+  }
+
+  .appTopbarWalletPill {
+    grid-column: span 1;
+  }
+
   .appTopbarProfile {
-    width: 100%;
-    justify-content: flex-start;
+    display: none;
   }
 
   .appTopbarIconButton {
-    width: 48px;
-    flex: 0 0 48px;
+    width: 100%;
+    min-width: 0;
+    flex: 1 1 auto;
   }
 
   .studentDashboardWelcome,
@@ -4883,6 +4924,31 @@ button {
   .studentDashboardCard {
     padding: 18px;
     border-radius: 22px;
+  }
+
+  .pageHeader {
+    gap: 10px;
+    padding: 14px 16px 13px;
+  }
+
+  .pageHeaderCopy {
+    max-width: none;
+  }
+
+  .pageHeaderCopy h1 {
+    font-size: clamp(1.72rem, 7.8vw, 2.18rem);
+    line-height: 1.08;
+    text-wrap: balance;
+  }
+
+  .pageHeaderCopy p,
+  .sectionDescription,
+  .studentInsightMessage p,
+  .studentResultHelper small,
+  .studentResultHelper p {
+    max-width: none;
+    font-size: 0.92rem;
+    line-height: 1.52;
   }
 }
 
@@ -5672,6 +5738,9 @@ button {
 .pageUtilityRow {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .dashboardSummaryGrid .metricCard strong,
@@ -7014,6 +7083,7 @@ button {
 
 .resultCardActions > * {
   display: flex;
+  min-width: 0;
 }
 
 .resultCardActions > a,
@@ -7153,6 +7223,10 @@ button {
 }
 
 .sectionHeading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
   gap: 10px;
   padding-bottom: 10px;
   border-bottom: 1px solid rgba(148, 163, 184, 0.14);
@@ -7304,6 +7378,7 @@ button {
 .attemptConsoleRail {
   align-content: start;
   gap: 14px;
+  opacity: 0.94;
 }
 
 .attemptConsoleSummaryCard,
@@ -7312,6 +7387,11 @@ button {
   gap: var(--space-4);
   padding: 18px;
   border-radius: 22px;
+}
+
+.attemptRailPanel {
+  border: 1px solid rgba(31, 95, 214, 0.08);
+  background: linear-gradient(180deg, rgba(252, 253, 255, 0.94), rgba(247, 250, 255, 0.88));
 }
 
 .attemptWorkspaceHeader {
@@ -7414,6 +7494,8 @@ button {
   position: sticky;
   top: 20px;
   z-index: 2;
+  border: 1px solid rgba(31, 95, 214, 0.1);
+  background: linear-gradient(180deg, rgba(252, 253, 255, 0.98), rgba(246, 249, 255, 0.9));
 }
 
 .attemptControlGrid {
@@ -7723,7 +7805,7 @@ button {
   gap: var(--space-2);
   padding: 12px 14px;
   border-radius: 16px;
-  background: #f8fafd;
+  background: rgba(248, 250, 253, 0.78);
   border: 1px solid var(--color-border-default);
 }
 
@@ -7759,8 +7841,8 @@ button {
   color: var(--color-text-secondary);
   padding: 14px 16px;
   border-radius: 18px;
-  border: 1px solid rgba(31, 95, 214, 0.12);
-  background: linear-gradient(180deg, rgba(247, 250, 255, 0.98), rgba(241, 246, 255, 0.92));
+  border: 1px solid rgba(31, 95, 214, 0.08);
+  background: linear-gradient(180deg, rgba(249, 251, 255, 0.92), rgba(244, 247, 255, 0.84));
 }
 
 .attemptSubmitChecklist span {
@@ -8158,17 +8240,91 @@ button {
 }
 
 .attemptReviewToggle {
-  display: inline-flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
   gap: var(--space-3);
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(245, 158, 11, 0.14);
+  background: linear-gradient(180deg, rgba(255, 251, 235, 0.8), rgba(255, 255, 255, 0.92));
   color: var(--color-text-secondary);
   font-weight: 600;
+}
+
+.attemptReviewToggle input {
+  margin-top: 2px;
+}
+
+.attemptReviewToggle span {
+  display: grid;
+  gap: 4px;
+}
+
+.attemptReviewToggle span strong {
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+}
+
+.attemptReviewToggle span small {
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  line-height: var(--leading-relaxed);
+}
+
+.attemptResponseWorkflow {
+  display: grid;
+  gap: var(--space-3);
+  padding: 18px 20px;
+  border-radius: 22px;
+  border: 1px solid rgba(31, 95, 214, 0.12);
+  background:
+    radial-gradient(circle at top right, rgba(214, 231, 255, 0.44), transparent 30%),
+    linear-gradient(180deg, rgba(248, 251, 255, 0.96), rgba(243, 247, 255, 0.92));
+}
+
+.attemptResponseWorkflowHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.attemptResponseWorkflowHeader > div {
+  display: grid;
+  gap: 6px;
+}
+
+.attemptResponseWorkflowHeader strong {
+  font-size: var(--text-lg);
+  line-height: var(--leading-snug);
+}
+
+.attemptResponseWorkflowHeader > small {
+  max-width: 34ch;
+  color: var(--color-text-secondary);
+  line-height: var(--leading-relaxed);
 }
 
 .attemptActions {
   display: flex;
   gap: var(--space-3);
   flex-wrap: wrap;
+}
+
+.attemptActionsPrimary .buttonPrimary {
+  min-width: 220px;
+}
+
+.attemptActionsPrimary .buttonSecondary {
+  min-width: 160px;
+}
+
+.attemptActionsSecondary {
+  padding-top: 4px;
 }
 
 .attemptActions .buttonPrimary {
@@ -8227,8 +8383,8 @@ button {
   gap: 6px;
   padding: 14px 16px;
   border-radius: 16px;
-  border: 1px solid rgba(31, 95, 214, 0.1);
-  background: linear-gradient(180deg, rgba(248, 251, 255, 0.98), rgba(243, 247, 255, 0.92));
+  border: 1px solid rgba(31, 95, 214, 0.08);
+  background: linear-gradient(180deg, rgba(250, 252, 255, 0.92), rgba(245, 248, 255, 0.84));
 }
 
 .attemptPaletteLegendCard span,
@@ -8272,8 +8428,8 @@ button {
   padding: 12px 14px;
   border-radius: 16px;
   border: 1px solid var(--color-border-default);
-  background: #ffffff;
-  box-shadow: var(--shadow-xs);
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 6px 14px rgba(23, 32, 51, 0.04);
   transition:
     transform 180ms ease,
     border-color 180ms ease,
@@ -13806,6 +13962,20 @@ button {
     padding: 16px;
   }
 
+  .attemptMobileRuntimeStrip {
+    gap: var(--space-2);
+    padding: 14px 16px;
+    border-radius: 18px;
+  }
+
+  .attemptMobileRuntimeHeader strong {
+    font-size: var(--text-base);
+  }
+
+  .attemptQuestionStateStrip {
+    grid-template-columns: 1fr;
+  }
+
   .attemptQuestionCard,
   .attemptControlCard,
   .attemptConsoleSummaryCard,
@@ -13818,8 +13988,18 @@ button {
     padding: 16px;
   }
 
+  .attemptReviewToggle,
+  .attemptResponseWorkflow {
+    padding: 16px;
+  }
+
   .attemptActions {
     flex-direction: column;
+  }
+
+  .attemptResponseWorkflowHeader {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .attemptActions .button,
@@ -13844,6 +14024,17 @@ button {
 
   .attemptQuestionJumpRow {
     justify-content: stretch;
+  }
+
+  .attemptConsoleRail {
+    gap: 10px;
+    opacity: 0.96;
+  }
+
+  .attemptConsoleSummaryCard,
+  .attemptQuestionNavigator,
+  .attemptSectionPanel {
+    border-radius: 18px;
   }
 
   .attemptQuestionNavChip {
@@ -14357,7 +14548,8 @@ body::after {
 
 .instituteConsolePage:not(.adminDashboardPage) .pageHeaderCopy p {
   color: #4b5a77;
-  max-width: 72ch;
+  max-width: 60ch;
+  line-height: 1.55;
 }
 
 .instituteAppShell .appSidebar {
@@ -14878,6 +15070,14 @@ body::after {
   gap: 10px;
 }
 
+.instituteConsolePage:not(.adminDashboardPage) .pageHeaderActionGroup {
+  justify-content: flex-end;
+}
+
+.instituteConsolePage:not(.adminDashboardPage) .pageHeaderActionGroup > * {
+  flex: 0 0 auto;
+}
+
 .instituteConsolePage:not(.adminDashboardPage) .pageHeaderActionGroup,
 .instituteConsolePage:not(.adminDashboardPage) .pageUtilityRow,
 .instituteConsolePage:not(.adminDashboardPage) .settingsActionRow,
@@ -14899,6 +15099,78 @@ body::after {
 .instituteConsolePage:not(.adminDashboardPage) .builderFlowLayout,
 .instituteConsolePage:not(.adminDashboardPage) .builderComposerGrid {
   gap: 16px;
+}
+
+.instituteConsolePage:not(.adminDashboardPage) .workspaceFiltersCard {
+  gap: 14px;
+}
+
+.instituteConsolePage:not(.adminDashboardPage) .workspaceFiltersCard .sectionHeading {
+  align-items: end;
+  gap: 10px;
+}
+
+.instituteConsolePage:not(.adminDashboardPage) .workspaceFiltersCard .sectionHeading span {
+  max-width: 54ch;
+}
+
+.instituteConsolePage:not(.adminDashboardPage) .workspaceFiltersForm {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px 14px;
+}
+
+.instituteConsolePage:not(.adminDashboardPage) .workspaceFilterField span {
+  font-size: 0.71rem;
+}
+
+.instituteConsolePage:not(.adminDashboardPage) .workspaceFilterActions {
+  padding-top: 2px;
+}
+
+.instituteConsolePage:not(.adminDashboardPage) .workspaceFilterActions > .button,
+.instituteConsolePage:not(.adminDashboardPage) .workspaceFilterActions > a {
+  min-width: 148px;
+  justify-content: center;
+}
+
+.instituteConsolePage:not(.adminDashboardPage) .workspaceResultsGroup {
+  gap: 12px;
+  padding: 14px;
+}
+
+.instituteConsolePage:not(.adminDashboardPage) .metricCard strong,
+.instituteConsolePage:not(.adminDashboardPage) .builderSummaryCard strong,
+.instituteConsolePage:not(.adminDashboardPage) .weakTopicMeta strong,
+.instituteConsolePage:not(.adminDashboardPage) .resultKpiGrid strong {
+  overflow-wrap: anywhere;
+}
+
+.instituteConsolePage:not(.adminDashboardPage) .studentInsightHeroCard p,
+.instituteConsolePage:not(.adminDashboardPage) .examInstructions,
+.instituteConsolePage:not(.adminDashboardPage) .adminInstituteHeroCopy > p,
+.instituteConsolePage:not(.adminDashboardPage) .adminCommandDeckHero p,
+.instituteConsolePage:not(.adminDashboardPage) .teacherWorkflowSummary p {
+  max-width: 60ch;
+}
+
+.instituteConsolePage:not(.adminDashboardPage) .examInstructions {
+  color: #566884;
+  line-height: 1.55;
+}
+
+.instituteConsolePage:not(.adminDashboardPage) .resultCardActions > *,
+.instituteConsolePage:not(.adminDashboardPage) .questionBankButtonRow > * {
+  min-width: 0;
+}
+
+.instituteConsolePage:not(.adminDashboardPage) .resultCardActions > * > .button,
+.instituteConsolePage:not(.adminDashboardPage) .resultCardActions > * > a,
+.instituteConsolePage:not(.adminDashboardPage) .resultCardActions > * > button,
+.instituteConsolePage:not(.adminDashboardPage) .questionBankButtonRow > * > .button,
+.instituteConsolePage:not(.adminDashboardPage) .questionBankButtonRow > * > a,
+.instituteConsolePage:not(.adminDashboardPage) .questionBankButtonRow > * > button {
+  min-width: 132px;
+  justify-content: center;
 }
 
 .instituteConsolePage:not(.adminDashboardPage) .builderSummaryCard,
@@ -16124,6 +16396,11 @@ body::after {
   color: #617393;
 }
 
+.adminAppMain .pageHeaderCopy p {
+  max-width: 60ch;
+  line-height: 1.55;
+}
+
 .adminAppMain .sectionHeading strong,
 .adminAppMain h3,
 .adminAppMain h4,
@@ -16260,6 +16537,88 @@ body::after {
     box-shadow 180ms ease,
     border-color 180ms ease,
     background 180ms ease;
+}
+
+.adminAppMain .pageHeaderActionGroup {
+  justify-content: flex-end;
+}
+
+.adminAppMain .pageHeaderActionGroup > * {
+  flex: 0 0 auto;
+}
+
+.adminAppMain .workspaceFiltersCard {
+  gap: 14px;
+}
+
+.adminAppMain .workspaceFiltersCard .sectionHeading {
+  align-items: end;
+  gap: 10px;
+}
+
+.adminAppMain .workspaceFiltersCard .sectionHeading span {
+  max-width: 54ch;
+}
+
+.adminAppMain .workspaceFiltersForm {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px 14px;
+}
+
+.adminAppMain .workspaceFilterField span {
+  font-size: 0.71rem;
+}
+
+.adminAppMain .workspaceFilterActions {
+  padding-top: 2px;
+}
+
+.adminAppMain .workspaceFilterActions > .button,
+.adminAppMain .workspaceFilterActions > a {
+  min-width: 148px;
+  justify-content: center;
+}
+
+.adminAppMain .workspaceResultsGroup {
+  gap: 12px;
+  padding: 14px;
+}
+
+.adminAppMain .metricCard strong,
+.adminAppMain .builderSummaryCard strong,
+.adminAppMain .weakTopicMeta strong,
+.adminAppMain .adminPriorityCardHeader strong,
+.adminAppMain .adminPriorityCardMetric strong,
+.adminAppMain .adminActionCard strong,
+.adminAppMain .adminExecutiveStat strong,
+.adminAppMain .adminSignalCard strong {
+  overflow-wrap: anywhere;
+}
+
+.adminAppMain .studentInsightHeroCard p,
+.adminAppMain .examInstructions,
+.adminAppMain .adminCommandDeckHero p {
+  max-width: 60ch;
+}
+
+.adminAppMain .examInstructions {
+  color: #566884;
+  line-height: 1.55;
+}
+
+.adminAppMain .resultCardActions > *,
+.adminAppMain .questionBankButtonRow > * {
+  min-width: 0;
+}
+
+.adminAppMain .resultCardActions > * > .button,
+.adminAppMain .resultCardActions > * > a,
+.adminAppMain .resultCardActions > * > button,
+.adminAppMain .questionBankButtonRow > * > .button,
+.adminAppMain .questionBankButtonRow > * > a,
+.adminAppMain .questionBankButtonRow > * > button {
+  min-width: 132px;
+  justify-content: center;
 }
 
 .adminAppMain .buttonPrimary {
@@ -18315,7 +18674,8 @@ body::after {
 
 .teacherConsolePage .pageHeaderCopy p {
   color: #4b5a77;
-  max-width: 72ch;
+  max-width: 60ch;
+  line-height: 1.55;
 }
 
 .teacherConsolePage .contentCard,
@@ -18482,11 +18842,98 @@ body::after {
   gap: 10px;
 }
 
+.teacherConsolePage .pageHeaderActionGroup {
+  justify-content: flex-end;
+}
+
+.teacherConsolePage .pageHeaderActionGroup > * {
+  flex: 0 0 auto;
+}
+
 .teacherConsolePage .builderSummaryGrid,
 .teacherConsolePage .builderFlowContent,
 .teacherConsolePage .builderFlowLayout,
 .teacherConsolePage .builderComposerGrid {
   gap: 16px;
+}
+
+.teacherConsolePage .workspaceFiltersCard {
+  gap: 14px;
+}
+
+.teacherConsolePage .workspaceFiltersCard .sectionHeading {
+  align-items: end;
+  gap: 10px;
+}
+
+.teacherConsolePage .workspaceFiltersCard .sectionHeading span {
+  max-width: 52ch;
+}
+
+.teacherConsolePage .workspaceFiltersForm {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px 14px;
+}
+
+.teacherConsolePage .workspaceFilterField span {
+  font-size: 0.71rem;
+}
+
+.teacherConsolePage .workspaceFilterActions {
+  padding-top: 2px;
+}
+
+.teacherConsolePage .workspaceFilterActions > .button,
+.teacherConsolePage .workspaceFilterActions > a {
+  min-width: 148px;
+  justify-content: center;
+}
+
+.teacherConsolePage .workspaceFilterQuickRow {
+  gap: 8px;
+}
+
+.teacherConsolePage .workspaceResultsGroup {
+  gap: 12px;
+  padding: 14px;
+}
+
+.teacherConsolePage .dashboardHeroCard,
+.teacherConsolePage .examCard,
+.teacherConsolePage .resultCard,
+.teacherConsolePage .weakTopicRow {
+  min-width: 0;
+}
+
+.teacherConsolePage .metricCard strong,
+.teacherConsolePage .builderSummaryCard strong {
+  overflow-wrap: anywhere;
+}
+
+.teacherConsolePage .studentInsightHeroCard p,
+.teacherConsolePage .examInstructions,
+.teacherConsolePage .teacherWorkflowSummary p {
+  max-width: 60ch;
+}
+
+.teacherConsolePage .examInstructions {
+  color: #566884;
+  line-height: 1.55;
+}
+
+.teacherConsolePage .resultCardActions > *,
+.teacherConsolePage .questionBankButtonRow > * {
+  min-width: 0;
+}
+
+.teacherConsolePage .resultCardActions > * > .button,
+.teacherConsolePage .resultCardActions > * > a,
+.teacherConsolePage .resultCardActions > * > button,
+.teacherConsolePage .questionBankButtonRow > * > .button,
+.teacherConsolePage .questionBankButtonRow > * > a,
+.teacherConsolePage .questionBankButtonRow > * > button {
+  min-width: 132px;
+  justify-content: center;
 }
 
 .teacherConsolePage .builderSummaryCard,
@@ -21734,6 +22181,18 @@ body::after {
 }
 
 @media (max-width: 900px) {
+  .teacherConsolePage .pageHeaderActionGroup {
+    justify-content: stretch;
+  }
+
+  .teacherConsolePage .pageHeaderActionGroup > * {
+    flex: 1 1 180px;
+  }
+
+  .teacherConsolePage .workspaceFiltersForm {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .workspaceFilterFieldWide {
     grid-column: auto;
   }

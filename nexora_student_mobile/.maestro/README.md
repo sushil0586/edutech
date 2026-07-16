@@ -34,18 +34,36 @@ For this app, the recommended starting point is **Maestro** because it is lightw
   - open exams lane
   - use search/filter controls
   - open the top exam
+- `student-exams-filters-and-detail.yaml`
+  - login
+  - validate exam search and state filters
+  - open exam detail
+  - return to the exams lane
 - `student-results-and-summary.yaml`
   - login
   - open results lane
   - open attempt summary
   - return to dashboard
   - verify attempts-to-results navigation
+- `student-results-timeline-summary.yaml`
+  - login
+  - open results lane
+  - validate results timeline
+  - open attempt summary
+  - continue into analytics
+  - return safely to results
 - `student-review-journey.yaml`
   - login
   - open results lane
   - open a review-ready result
   - return to summary
   - return to results
+- `student-review-filters-and-pagination.yaml`
+  - login
+  - open a review-ready result
+  - validate review filter controls
+  - validate mobile-friendly page navigation
+  - return safely to summary and results
 - `student-active-attempt.yaml`
   - login
   - open attempts lane
@@ -75,12 +93,21 @@ For this app, the recommended starting point is **Maestro** because it is lightw
 ```bash
 cd nexora_student_mobile
 maestro test .maestro/student-login-and-exams.yaml
+maestro test .maestro/student-exams-filters-and-detail.yaml
 maestro test .maestro/student-results-and-summary.yaml
+maestro test .maestro/student-results-timeline-summary.yaml
 maestro test .maestro/student-review-journey.yaml
+maestro test .maestro/student-review-filters-and-pagination.yaml
 maestro test .maestro/student-active-attempt.yaml
 maestro test .maestro/student-analytics-and-logout.yaml
 maestro test .maestro/student-login-offline-error.yaml
 maestro test .maestro/student-register-offline-setup-error.yaml
+```
+
+When running seeded flows with inline credentials, pass each variable as `-e KEY=VALUE`:
+
+```bash
+maestro test -e STUDENT_USERNAME=a001 -e STUDENT_PASSWORD='Ansh@1789' .maestro/student-analytics-and-logout.yaml
 ```
 
 ## Notes
@@ -91,3 +118,4 @@ maestro test .maestro/student-register-offline-setup-error.yaml
 - Review automation depends on seeded accounts that actually have a review-ready result. Keep that data contract explicit in QA setup.
 - The current `student-active-attempt.yaml` is intentionally a non-destructive attempts-lane smoke flow because the default Android QA seed currently exposes completed history but no active attempt.
 - A true resume-runtime flow still depends on a dedicated seeded account with an in-progress attempt. See [STUDENT_SEED_CONTRACT.md](./STUDENT_SEED_CONTRACT.md).
+- For the native app, Maestro is the correct automation layer. Playwright remains the right tool for the web app, but it does not exercise real React Native runtime behavior on Android or iPhone.

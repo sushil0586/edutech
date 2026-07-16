@@ -272,12 +272,12 @@ export default async function WalletPage({
     <div className="studentPage studentDashboardModern studentWalletPage studentLearnerPage studentLearnerAccountPage studentLearnerWalletPage">
       <StudentPageHeader
         title="Wallet"
-        description="Track real star balance and unlock history, and create economy requests where your institute or platform has enabled them."
+        description="Track star balance, unlock history, and available purchase options."
         statusLabel={
           data.source === "live"
             ? `${data.wallet?.available_stars ?? 0} stars available`
             : data.source === "unconfigured"
-              ? "Backend not configured"
+              ? "Sign in required"
               : "Unable to load wallet"
         }
         statusTone={
@@ -301,13 +301,13 @@ export default async function WalletPage({
           eyebrow={data.source === "unconfigured" ? "Setup required" : "Load issue"}
           title={
             data.source === "unconfigured"
-              ? "Waiting for live wallet data"
+              ? "Wallet is not available yet"
               : "Wallet data could not be loaded"
           }
           description={
             data.source === "unconfigured"
-              ? "The wallet screen only uses the economy APIs. Configure the backend and sign in with a valid student account to load real star balances, packs, subscriptions, and unlock history."
-              : "The wallet screen is connected to live backend economy endpoints, but the current request did not complete successfully."
+              ? "Sign in with your student account to load your star balance, packs, subscriptions, and unlock history."
+              : "We couldn't load your wallet right now. Please try again shortly."
           }
           bullets={[
             "Wallet summary",
@@ -318,8 +318,8 @@ export default async function WalletPage({
           ctaLabel="Back to Dashboard"
           statusLabel={
             data.source === "unconfigured"
-              ? "Configuration required"
-              : "Retry after backend check"
+              ? "Sign in to continue"
+              : "Try again soon"
           }
         />
       ) : (
@@ -338,7 +338,7 @@ export default async function WalletPage({
                   : "No pending wallet requests right now"}
               </small>
               <p className="sectionDescription">
-                This page is a truthful economy workspace. It shows live balance, order requests, unlock history, and subscription-linked value, but purchase settlement still depends on the configured operator flow.
+                See what you can unlock now, what is already unlocked, and what still needs a pack or plan.
               </p>
             </div>
             <div className="studentInsightHeroActions">
@@ -349,7 +349,7 @@ export default async function WalletPage({
                 Browse Premium Exams
               </Link>
               <Link className="button buttonGhost" href="/app/practice">
-                Open Practice
+                Open Practice Catalog
               </Link>
             </div>
           </section>
@@ -387,9 +387,7 @@ export default async function WalletPage({
                   <strong>How your stars work</strong>
                 </div>
                 <p className="sectionDescription">
-                  Stars can be earned through rewards, added through star packs, or credited
-                  through subscription plans. You can then use them to unlock premium practice,
-                  tests, and guided follow-up content.
+                  Stars come from rewards, packs, or subscriptions, then get used to unlock premium content.
                 </p>
                 <div className="detailGrid">
                   <article className="detailCard">
@@ -405,41 +403,41 @@ export default async function WalletPage({
                   <article className="detailCard">
                     <span>Use stars</span>
                     <strong>Unlock premium content</strong>
-                    <small>Only backend-configured premium items can consume stars.</small>
+                    <small>Use stars to unlock eligible premium practice, exams, or follow-up content.</small>
                   </article>
                 </div>
               </section>
 
               <section className="contentCard">
                 <div className="sectionHeading">
-                  <strong>What This Page Can And Cannot Do</strong>
+                  <strong>What This Page Covers</strong>
                 </div>
                 <div className="detailGrid">
                   <article className="detailCard">
                     <span>Visible here</span>
                     <strong>Balance and history</strong>
-                    <small>See real wallet credits, debits, rewards, and unlock outcomes from the backend economy records.</small>
+                    <small>See your star credits, spending, rewards, and unlock activity.</small>
                   </article>
                   <article className="detailCard">
                     <span>Visible here</span>
                     <strong>Request creation</strong>
-                    <small>Requesting a star pack records a real order request, but it may still wait for manual or provider-side confirmation.</small>
+                    <small>Requesting a star pack creates a real order, but it may still wait for confirmation.</small>
                   </article>
                   <article className="detailCard">
                     <span>Not guaranteed here</span>
                     <strong>Instant settlement</strong>
-                    <small>Payment capture and final wallet credit do not happen optimistically on this page.</small>
+                    <small>Some requests may take time before the stars appear in your wallet.</small>
                   </article>
                   <article className="detailCard">
                     <span>Best next route</span>
                     <strong>Subscriptions or premium content</strong>
-                    <small>Use subscriptions for recurring value, or return to exams and practice when you are ready to spend stars.</small>
+                    <small>Use subscriptions for recurring value, or return to exams and practice when you are ready to spend.</small>
                   </article>
                 </div>
                 <div className="studentInsightMessageStack">
                   <div className="studentInsightMessage">
                     <span className="placeholderDot" aria-hidden="true" />
-                    <p>A safe order is: check balance and request state here, compare plans only if you need recurring value, then return to exams or practice when you are ready to spend stars.</p>
+                    <p>Check your balance here, compare plans if needed, then return to exams or practice when you are ready to spend.</p>
                   </div>
                 </div>
               </section>
@@ -474,8 +472,7 @@ export default async function WalletPage({
                   {referralCode ? <StatusPill tone="live">Referral ready</StatusPill> : null}
                 </div>
                 <p className="sectionDescription">
-                  This section shows how your stars were earned. If referral rewards are enabled
-                  for your institute, your referral code can help you earn more as new students join.
+                  This section shows how your stars were earned and whether referral rewards are already active.
                 </p>
                 <div className="detailGrid">
                   <article className="detailCard">
@@ -516,8 +513,7 @@ export default async function WalletPage({
                       </span>
                       {latestReferralCode ? <small>Applied code: {latestReferralCode}</small> : null}
                       <small>
-                        Referral rewards appear here after a valid learner joins through your active
-                        code and backend policy credits the wallet.
+                        Referral rewards appear here after a valid learner joins through your code and the reward is credited.
                       </small>
                     </div>
                   ) : null}
@@ -548,8 +544,7 @@ export default async function WalletPage({
                   <strong>Recent Ledger Activity</strong>
                 </div>
                 <p className="sectionDescription">
-                  Every balance change appears here, so you can always see whether stars were earned,
-                  spent, purchased, or credited through a plan.
+                  Every balance change appears here, so you can see whether stars were earned, spent, purchased, or credited.
                 </p>
                 <div className="dashboardRailStack">
                   {data.ledger.slice(0, 6).map((entry) => (
@@ -579,7 +574,7 @@ export default async function WalletPage({
                   <strong>Content Access History</strong>
                 </div>
                 <p className="sectionDescription">
-                  As you unlock or attempt premium content, the current access outcome is reflected here.
+                  As you unlock or attempt premium content, the current access outcome appears here.
                 </p>
                 <div className="dashboardRailStack">
                   {data.unlocks.slice(0, 5).map((unlock) => (
@@ -589,7 +584,7 @@ export default async function WalletPage({
                         <span>
                           {titleCaseState(unlock.content_type)} ·{" "}
                           {unlock.lock_reason_message ||
-                            `${titleCaseState(unlock.status)} by backend policy`}
+                            `${titleCaseState(unlock.status)} access`}
                         </span>
                       </div>
                       <StatusPill tone={unlockTone(unlock.status)}>
@@ -610,7 +605,7 @@ export default async function WalletPage({
             <aside className="dashboardWorkspaceRail">
               <section className="contentCard">
                 <div className="sectionHeading">
-                  <strong>What should you do next?</strong>
+                  <strong>Recommended next step</strong>
                 </div>
                 <div className="dashboardRailStack">
                   <div className="dashboardOfferCard">
@@ -625,15 +620,12 @@ export default async function WalletPage({
                     <small>
                       Use the wallet for one-time packs or open subscriptions for recurring value.
                     </small>
-                    <small>
-                      This page does not promise instant settlement. Treat it as balance truth plus request tracking.
-                    </small>
                     <div className="buttonRow">
                       <Link className="button buttonSecondary" href="/app/exams">
                         Browse Premium Exams
                       </Link>
                       <Link className="button buttonPrimary" href="/app/subscriptions">
-                        View Plans
+                        Compare Plans
                       </Link>
                     </div>
                   </div>
@@ -646,8 +638,7 @@ export default async function WalletPage({
                   <Link href="/app/subscriptions">Subscriptions</Link>
                 </div>
                 <p className="sectionDescription">
-                  These are one-time top-up options. Right now, choosing a pack creates a tracked
-                  request that is later confirmed by the institute or platform operator.
+                  These are one-time top-up options. Choosing a pack creates a tracked request.
                 </p>
                 <div className="dashboardRailStack">
                   {data.starPacks.map((pack) => (
@@ -678,7 +669,7 @@ export default async function WalletPage({
                   <strong>Subscription Plans</strong>
                 </div>
                 <p className="sectionDescription">
-                  Choose a subscription when you want recurring value instead of buying stars every time.
+                  Choose a subscription when you want recurring value instead of buying stars each time.
                 </p>
                 <div className="dashboardRailStack">
                   {data.subscriptionPlans.map((plan) => (
@@ -692,7 +683,7 @@ export default async function WalletPage({
                       <small>
                         {plan.cycles[0]?.star_credit_rules[0]
                           ? `${plan.cycles[0].star_credit_rules[0].stars_credited.toLocaleString("en-IN")} stars on the first configured credit rule`
-                          : "Plan values are configured from the backend"}
+                          : "Plan values will appear here when available"}
                       </small>
                       <small>{plan.cycles[0] ? cycleAllowanceLabel(plan.cycles[0]) : "Allowance details appear when configured."}</small>
                       <Link className="button buttonSecondary" href="/app/subscriptions">
@@ -713,7 +704,7 @@ export default async function WalletPage({
                   <strong>Recent Requests</strong>
                 </div>
                 <p className="sectionDescription">
-                  This is the quick view of the most recent star-pack and subscription requests.
+                  Quick view of recent star-pack and subscription requests.
                 </p>
                 <div className="dashboardRailStack">
                   {data.orders.slice(0, 4).map((order) => (
@@ -745,11 +736,10 @@ export default async function WalletPage({
 
               <section className="contentCard">
                 <div className="sectionHeading">
-                  <strong>Order Lifecycle Detail</strong>
+                  <strong>Order Progress</strong>
                 </div>
                 <p className="sectionDescription">
-                  Use this section when you want to understand whether a request is only created,
-                  already processed, or fully credited into your wallet.
+                  Check whether a request is created, processed, or fully credited into your wallet.
                 </p>
                 <div className="dashboardRailStack">
                   {data.orders.slice(0, 5).map((order) => {

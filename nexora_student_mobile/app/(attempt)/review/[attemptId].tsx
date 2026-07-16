@@ -1,5 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
 import { Text, View } from "react-native";
 import { ScreenShell } from "@/components/screen-shell";
 import { HeroCard } from "@/components/hero-card";
@@ -50,10 +51,16 @@ function improvementPrompt(review: {
   return "The attempt has a useful base. Focus on the incorrect and review-marked questions first before moving on.";
 }
 
+const REVIEW_PAGE_SIZE = 8;
+
+type ReviewFilter = "all" | "incorrect" | "skipped" | "marked";
+
 export default function AttemptReviewScreen() {
   const router = useRouter();
   const { attemptId } = useLocalSearchParams<{ attemptId: string }>();
   const accessToken = useSessionStore((state) => state.accessToken);
+  const [reviewFilter, setReviewFilter] = useState<ReviewFilter>("all");
+  const [reviewPage, setReviewPage] = useState(1);
 
   const query = useQuery({
     queryKey: ["student.attempt.review", attemptId, accessToken],
@@ -62,6 +69,39 @@ export default function AttemptReviewScreen() {
   });
 
   const review = query.data ?? null;
+  const canShowExplanations = review?.show_explanations ?? false;
+  const filteredQuestions = useMemo(() => {
+    if (!review) {
+      return [];
+    }
+
+    switch (reviewFilter) {
+      case "incorrect":
+        return review.review_questions.filter((question) => question.result_status === "incorrect");
+      case "skipped":
+        return review.review_questions.filter((question) => question.result_status === "skipped");
+      case "marked":
+        return review.review_questions.filter((question) => question.is_marked_for_review);
+      case "all":
+      default:
+        return review.review_questions;
+    }
+  }, [review, reviewFilter]);
+  const totalPages = Math.max(1, Math.ceil(filteredQuestions.length / REVIEW_PAGE_SIZE));
+  const pagedQuestions = useMemo(() => {
+    const startIndex = (reviewPage - 1) * REVIEW_PAGE_SIZE;
+    return filteredQuestions.slice(startIndex, startIndex + REVIEW_PAGE_SIZE);
+  }, [filteredQuestions, reviewPage]);
+
+  useEffect(() => {
+    setReviewPage(1);
+  }, [reviewFilter, review?.id]);
+
+  useEffect(() => {
+    if (reviewPage > totalPages) {
+      setReviewPage(totalPages);
+    }
+  }, [reviewPage, totalPages]);
 
   return (
     <ScreenShell>
@@ -168,10 +208,42 @@ export default function AttemptReviewScreen() {
 
       <SectionBlock
         title="Question review"
-        subtitle="Inspect how each reviewed question was handled"
+        subtitle="Inspect reviewed questions in smaller phone-friendly batches"
       >
-        {review?.review_questions.length ? (
-          review.review_questions.map((question) => {
+        {review ? (
+          <View style={appStyles.rowWrap}>
+            <ActionButton
+              label={`All (${review.review_questions.length})`}
+              tone={reviewFilter === "all" ? "primary" : "secondary"}
+              compact
+              testID="attempt-review-filter-all-button"
+              onPress={() => setReviewFilter("all")}
+            />
+            <ActionButton
+              label={`Incorrect (${review.incorrect_answers})`}
+              tone={reviewFilter === "incorrect" ? "primary" : "secondary"}
+              compact
+              testID="attempt-review-filter-incorrect-button"
+              onPress={() => setReviewFilter("incorrect")}
+            />
+            <ActionButton
+              label={`Skipped (${review.skipped_questions})`}
+              tone={reviewFilter === "skipped" ? "primary" : "secondary"}
+              compact
+              testID="attempt-review-filter-skipped-button"
+              onPress={() => setReviewFilter("skipped")}
+            />
+            <ActionButton
+              label={`Marked (${review.review_questions.filter((question) => question.is_marked_for_review).length})`}
+              tone={reviewFilter === "marked" ? "primary" : "secondary"}
+              compact
+              testID="attempt-review-filter-marked-button"
+              onPress={() => setReviewFilter("marked")}
+            />
+          </View>
+        ) : null}
+        {pagedQuestions.length ? (
+          pagedQuestions.map((question) => {
             const tone = resultChip(question);
             return (
               <View key={question.exam_question_id} style={appStyles.productCard}>
@@ -246,7 +318,7 @@ export default function AttemptReviewScreen() {
                     </Text>
                   </View>
                 ) : null}
-                {review.show_explanations && question.explanation ? (
+                {canShowExplanations && question.explanation ? (
                   <View style={appStyles.emphasisPanel}>
                     <Text style={appStyles.body}>{question.explanation}</Text>
                   </View>
@@ -256,10 +328,40 @@ export default function AttemptReviewScreen() {
           })
         ) : (
           <StatePanel
-            title="No review items returned"
-            body="No review questions were returned for this attempt. Review availability may still be limited by backend policy."
+            title={review ? "No questions in this filter" : "No review items returned"}
+            body={
+              review
+                ? "Try a different review filter to inspect another slice of this attempt."
+                : "No review questions were returned for this attempt. Review availability may still be limited by backend policy."
+            }
           />
         )}
+        {review && filteredQuestions.length ? (
+          <View style={appStyles.rowBetween}>
+            <Text style={appStyles.helper}>
+              Page {reviewPage} of {totalPages} · Showing{" "}
+              {Math.min((reviewPage - 1) * REVIEW_PAGE_SIZE + 1, filteredQuestions.length)}-
+              {Math.min(reviewPage * REVIEW_PAGE_SIZE, filteredQuestions.length)} of {filteredQuestions.length}
+            </Text>
+            <View style={appStyles.rowWrap}>
+              <ActionButton
+                label="Previous"
+                tone="secondary"
+                compact
+                testID="attempt-review-previous-page-button"
+                disabled={reviewPage === 1}
+                onPress={() => setReviewPage((currentPage) => Math.max(1, currentPage - 1))}
+              />
+              <ActionButton
+                label="Next"
+                compact
+                testID="attempt-review-next-page-button"
+                disabled={reviewPage === totalPages}
+                onPress={() => setReviewPage((currentPage) => Math.min(totalPages, currentPage + 1))}
+              />
+            </View>
+          </View>
+        ) : null}
       </SectionBlock>
     </ScreenShell>
   );

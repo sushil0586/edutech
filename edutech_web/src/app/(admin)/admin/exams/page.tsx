@@ -226,7 +226,7 @@ export default async function PlatformAdminExamsPage({
     <div className="studentPage studentDashboardModern instituteConsolePage instituteExamsPageVivid">
       <PlatformAdminPageHeader
         title="Exam Management"
-        description="Review platform-wide exam coverage and create platform-owned or institute-owned exam shells from one governance workspace."
+        description="Review exam coverage and create exam shells from one governance workspace."
         action={
           <div className="pageHeaderActionGroup">
             <Link className="button buttonGhost" href="/admin/exams/preset-packs">
@@ -252,11 +252,11 @@ export default async function PlatformAdminExamsPage({
         <StudentStatePanel
           eyebrow="Load issue"
           title="Platform exams could not be loaded"
-          description="This platform-admin route is connected to the live exam endpoints, but the current request did not complete successfully."
-          bullets={["Backend connectivity", "Platform-admin exam access"]}
+          description="We couldn't load platform exams right now."
+          bullets={["Platform exams", "Governance access"]}
           ctaHref="/admin"
           ctaLabel="Back to Dashboard"
-          statusLabel="Retry after backend check"
+          statusLabel="Try again soon"
         />
       ) : (
         <>
@@ -446,7 +446,7 @@ export default async function PlatformAdminExamsPage({
             <StudentStatePanel
               eyebrow="No exams in scope"
               title="No exams are visible to platform governance yet"
-              description="Once exam shells are created through platform, institute, or teacher lanes, they will appear here with source ownership metadata."
+              description="Exam shells will appear here with source ownership metadata once they are created."
               ctaHref="/admin/exams/new"
               ctaLabel="Create First Exam"
               statusLabel="Waiting for exams"
@@ -455,7 +455,7 @@ export default async function PlatformAdminExamsPage({
             <StudentStatePanel
               eyebrow="No matching exams"
               title="No exams match these platform controls"
-              description="Try a broader source or status filter, change the grouping, or reset the controls to return to the full governance list."
+              description="Try a broader source or status filter, change the grouping, or reset the controls."
               ctaHref={selectedInstituteId ? "/admin/exams" : "/admin/exams"}
               ctaLabel="Reset exam filters"
               statusLabel="Filter returned zero exams"
@@ -517,7 +517,7 @@ export default async function PlatformAdminExamsPage({
                       <p className="examInstructions">
                         {exam.description ||
                           exam.instructions ||
-                          "No additional platform-facing exam notes were provided."}
+                          "No additional notes were added for this exam."}
                       </p>
 
                       <div className="examCardFooter">

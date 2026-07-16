@@ -32,7 +32,7 @@ appId: com.anonymous.nexorastudentmobile
     visible: "Student Dashboard"
     timeout: 30000
 
-- tapOn: "⏷, Attempts"
+- tapOn: "Attempts"
 
 - assertVisible: "Student Attempts"
 - assertVisible: "Return to live work or inspect completed attempts"

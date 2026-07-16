@@ -220,10 +220,9 @@ export default async function InstituteDashboardPage({
       <section className="adminInstituteHero">
         <div className="adminInstituteHeroCopy">
           <span className="studentDashboardTag">Institute control</span>
-          <strong>Run daily institute operations from one clearer command surface</strong>
+          <strong>Run daily institute operations from one clear command surface</strong>
           <p>
-            Keep people setup, academic structure, assessments, and policy defaults visible in one place so
-            the team can see what is ready and what still needs attention.
+            Keep people setup, academic structure, assessments, and policy defaults visible in one place.
           </p>
           <div className="adminInstituteHeroMeta">
             <span>{peopleCount} people in scope</span>
@@ -254,7 +253,7 @@ export default async function InstituteDashboardPage({
             <article className="adminInstituteHeroAsideCard adminInstituteHeroAsideCardPrimary">
               <span>Readiness score</span>
               <strong>{readinessScore}%</strong>
-              <small>{activeCoverageSignals} of 5 core institute signals currently reporting non-zero data.</small>
+              <small>{activeCoverageSignals} of 5 core institute signals are active.</small>
             </article>
             <article className="adminInstituteHeroAsideCard">
               <span>Institute status</span>

@@ -106,9 +106,9 @@ export default async function NotificationsPage({
   if (source !== "live" || !notificationsPage) {
     return (
       <div className="studentPage studentDashboardModern studentLearnerPage studentLearnerNotificationsPage">
-        <StudentPageHeader
-          title="Notifications"
-          description="A live notification center backed by the in-app notifications API, including inbox filters and mark-read actions."
+      <StudentPageHeader
+        title="Notifications"
+        description="Review learner alerts from one inbox."
           statusLabel={
             source === "unconfigured"
               ? "Backend not configured"
@@ -121,29 +121,25 @@ export default async function NotificationsPage({
           eyebrow={source === "unconfigured" ? "Setup required" : "Load issue"}
           title={
             source === "unconfigured"
-              ? "Waiting for student notifications"
+              ? "Notifications are not available yet"
               : "Student notifications could not be loaded"
           }
           description={
             source === "unconfigured"
-              ? "This page depends on the live inbox API contract for filtering, sorting, and grouping."
-              : "The notification center is connected to live backend APIs, but the current request did not complete successfully."
+              ? "Sign in with your student account to load notifications."
+              : "We couldn't load notifications right now."
           }
           bullets={
             source === "unconfigured"
-              ? [
-                  "Notifications list endpoint",
-                  "Notification unread count summary",
-                  "Active student web session",
-                ]
-              : ["Backend connectivity", "Notification inbox endpoints"]
+              ? ["Student sign-in", "Notifications", "Unread summary"]
+              : ["Notifications", "Inbox filters"]
           }
           ctaHref="/app/dashboard"
           ctaLabel="Back to Dashboard"
           statusLabel={
             source === "unconfigured"
-              ? "Configuration required"
-              : "Retry after backend check"
+              ? "Sign in to continue"
+              : "Try again soon"
           }
         />
       </div>
@@ -156,7 +152,7 @@ export default async function NotificationsPage({
     <div className="studentPage studentDashboardModern studentLearnerPage studentLearnerNotificationsPage">
       <StudentPageHeader
         title="Notifications"
-        description="Search, sort, group, and review student alerts from one lighter-weight inbox backed by a paged API feed."
+        description="Search, sort, and review learner alerts from one inbox."
         statusLabel={`${summary.unread} unread`}
         statusTone="live"
       />
@@ -165,7 +161,7 @@ export default async function NotificationsPage({
         <StudentStatePanel
           eyebrow="No notifications yet"
           title="Your notification center is empty right now"
-          description="No in-app notifications were returned for the authenticated student. Once exams are published, go live, or results are released, updates will appear here automatically."
+          description="No learner alerts are available right now."
           ctaHref="/app/exams"
           ctaLabel="Open Exams"
           statusLabel="Waiting for learner updates"
@@ -183,7 +179,7 @@ export default async function NotificationsPage({
             </div>
             <div className="studentInsightHeroActions">
               <Link className="button buttonPrimary" href="/app/results">
-                Check Result Status
+                Open Results
               </Link>
               <Link className="button buttonSecondary" href="/app/dashboard">
                 Back to Dashboard
@@ -197,33 +193,33 @@ export default async function NotificationsPage({
           <section className="studentInsightsTwoColumn">
             <article className="contentCard">
               <div className="sectionHeading">
-                <strong>How To Use This Inbox</strong>
-                <span>Truthful notification flow</span>
+                <strong>How to use this inbox</strong>
+                <span>Signal first</span>
               </div>
               <div className="studentInsightMessageStack">
                 <div className="studentInsightMessage">
                   <span className="placeholderDot" aria-hidden="true" />
-                  <p>Unread notifications are prompts to check a real learner surface such as an exam, result, or attempt summary.</p>
+                  <p>Unread notifications usually mean there is a newer exam, attempt, or result state to review.</p>
                 </div>
                 <div className="studentInsightMessage">
                   <span className="placeholderDot" aria-hidden="true" />
-                  <p>Use Mark Read only after you have reviewed the linked state. The inbox does not replace the underlying learner workflow.</p>
+                  <p>Mark a notification as read after you confirm the linked learner state.</p>
                 </div>
                 <div className="studentInsightMessage">
                   <span className="placeholderDot" aria-hidden="true" />
-                  <p>A strong sequence is: open the linked learner route, confirm the current backend state, then mark the notification as read only after that check is complete.</p>
+                  <p>Use the inbox as a signal layer, then open the underlying exam, attempt, or result page.</p>
                 </div>
               </div>
             </article>
             <article className="contentCard">
               <div className="sectionHeading">
-                <strong>Best Next Checks</strong>
-                <span>Fastest learner follow-up</span>
+                <strong>Best next checks</strong>
+                <span>Fast follow-up</span>
               </div>
               <div className="studentInsightMessageStack">
                 <div className="studentInsightMessage">
                   <span className="placeholderDot" aria-hidden="true" />
-                  <p>Attempt timeline is safest for active or just-submitted work, while results is stronger when a score, publication, or review update is expected.</p>
+                  <p>Open Attempts for active work and Results for score or review updates.</p>
                 </div>
               </div>
               <div className="studentInsightHeroActions">

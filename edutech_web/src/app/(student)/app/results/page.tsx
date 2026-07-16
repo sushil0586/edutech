@@ -61,6 +61,12 @@ type ResultStatusFilter =
   | "review_ready";
 type ResultSortOption = "latest" | "highest" | "lowest" | "fastest" | "rank";
 type ResultGroupOption = "none" | "source" | "outcome" | "review";
+const RESULT_PAGE_SIZE_VALUES = [6, 12, 18] as const;
+
+function parsePositiveInt(value: string | undefined, fallback: number) {
+  const parsed = Number.parseInt(value ?? "", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
 
 function resultTone(result: StudentResult) {
   if (!result.is_published) return "statusDemo";
@@ -136,6 +142,18 @@ function resultStateCopy(result: StudentResult) {
     practiceCta:
       result.result_status === "fail" ? "Practice Weak Areas" : "Practice Again",
   };
+}
+
+function compactResultHeadline(result: StudentResult, outcomeState: ReturnType<typeof resolveAttemptOutcomeState>) {
+  if (!result.is_published) {
+    return `${attemptOutcomeResultsLabel(outcomeState)} · ${attemptOutcomeReviewLabel(outcomeState)}`;
+  }
+
+  if (result.result_status === "pass") {
+    return result.review_available ? "Passed · Review available" : "Passed · Result published";
+  }
+
+  return result.review_available ? "Needs work · Review available" : "Needs work · Result published";
 }
 
 function resolveResultStatusFilter(value?: string): ResultStatusFilter {
@@ -250,6 +268,8 @@ function buildResultsFilterHref(args: {
   status?: ResultStatusFilter;
   sort?: ResultSortOption;
   group?: ResultGroupOption;
+  page?: number;
+  pageSize?: number;
   subject?: string;
   source?: string;
   teacher?: string;
@@ -261,6 +281,8 @@ function buildResultsFilterHref(args: {
     ["result_status", args.status, "all"],
     ["result_sort", args.sort, "latest"],
     ["result_group", args.group, "none"],
+    ["result_page", args.page ? String(args.page) : undefined, "1"],
+    ["result_page_size", args.pageSize ? String(args.pageSize) : undefined, "12"],
   ]);
 }
 
@@ -356,6 +378,8 @@ export default async function ResultsPage({
     result_status?: string;
     result_sort?: string;
     result_group?: string;
+    result_page?: string;
+    result_page_size?: string;
   }>;
 }) {
   const {
@@ -366,6 +390,8 @@ export default async function ResultsPage({
     result_status,
     result_sort,
     result_group,
+    result_page,
+    result_page_size,
   } = await searchParams;
   const profile = await fetchCurrentAccountProfile();
   const registrationContext = profile?.registration_context ?? {};
@@ -411,12 +437,32 @@ export default async function ResultsPage({
   const statusFilter = resolveResultStatusFilter(result_status);
   const sortOption = resolveResultSortOption(result_sort);
   const groupOption = resolveResultGroupOption(result_group);
-  const visibleResults = sortResults(
+  const filteredResults = sortResults(
     applyResultStatusFilter(scopedResults, statusFilter),
     sortOption,
   );
+  const pageSizeCandidate = parsePositiveInt(result_page_size, 12);
+  const pageSize = RESULT_PAGE_SIZE_VALUES.includes(
+    pageSizeCandidate as (typeof RESULT_PAGE_SIZE_VALUES)[number],
+  )
+    ? pageSizeCandidate
+    : 12;
+  const totalResultPages = Math.max(1, Math.ceil(filteredResults.length / pageSize));
+  const currentPage = Math.min(parsePositiveInt(result_page, 1), totalResultPages);
+  const visibleResults = filteredResults.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
+  const showingStart = filteredResults.length ? (currentPage - 1) * pageSize + 1 : 0;
+  const showingEnd = Math.min(currentPage * pageSize, filteredResults.length);
   const groupedResults = groupResults(visibleResults, groupOption);
-  const publishedResults = visibleResults.filter((result) => result.is_published);
+  const publishedResults = filteredResults.filter((result) => result.is_published);
+  const reviewReadyCount = filteredResults.filter(
+    (result) => result.is_published && result.review_available,
+  ).length;
+  const passCount = filteredResults.filter(
+    (result) => result.is_published && result.result_status === "pass",
+  ).length;
   const averagePercentage =
     publishedResults.length > 0
       ? Math.round(
@@ -432,47 +478,12 @@ export default async function ResultsPage({
           Number(result.percentage) > Number(best.percentage) ? result : best,
         )
       : null;
-  const latestResult = visibleResults[0] ?? scopedResults[0] ?? null;
-  const pendingResults = visibleResults.filter((result) => !result.is_published).length;
+  const latestResult = filteredResults[0] ?? scopedResults[0] ?? null;
+  const pendingResults = filteredResults.filter((result) => !result.is_published).length;
   const practiceFollowUp = resolvePracticeFollowUpAction({
     exams: scopedPracticeExams,
     subjectName: selectedSubject === ALL_SUBJECTS_CONTEXT ? null : selectedSubject,
   });
-  const practiceLaneHref = buildPracticeHref({
-    subjectName: selectedSubject === ALL_SUBJECTS_CONTEXT ? null : selectedSubject,
-    source: scopedSourceParam ?? null,
-    teacher: selectedSource === "teacher" ? selectedTeacherId : null,
-  });
-  const resultsRecoverySequence =
-    practiceFollowUp.exam && practiceFollowUp.action.mode === "unlock"
-      ? [
-          {
-            label: "Do this first",
-            detail: "Open the attempt summary or review for the latest visible result and confirm what actually went wrong.",
-          },
-          {
-            label: "Then next",
-            detail: "Unlock the matched practice lane only after you confirm it covers the same weak subject or concept.",
-          },
-          {
-            label: "After that",
-            detail: "Return to analytics or weak areas before scheduling another broad mock test.",
-          },
-        ]
-      : [
-          {
-            label: "Do this first",
-            detail: "Open the latest summary or review surface and identify the mistakes you want to repair next.",
-          },
-          {
-            label: "Then next",
-            detail: "Move straight into the matched practice lane while that error pattern is still fresh.",
-          },
-          {
-            label: "After that",
-            detail: "Return to analytics, weak areas, or results to verify whether the same gap still appears.",
-          },
-        ];
   const neetLane =
     looksLikeNeetValue(selectedSubjectLabel) ||
     scopedResults.some(
@@ -493,8 +504,8 @@ export default async function ResultsPage({
     ? {
         description:
           selectedSubject === ALL_SUBJECTS_CONTEXT
-            ? "A live NEET mock-result workspace showing score visibility, review release, and the next exam-day repair lane from real student result data."
-            : `A live NEET mock-result workspace focused on ${selectedSubjectLabel}, using matching backend subject records where available.`,
+            ? "Track mock scores, review readiness, and the next practice step."
+            : `Track mock scores and review readiness for ${selectedSubjectLabel}.`,
         heroTag: "Mock result overview",
         analyticsLabel: "View Readiness Analytics",
         averageLabel: "Average Mock Result",
@@ -503,20 +514,20 @@ export default async function ResultsPage({
         pendingLabel: "Pending Mock Release",
         controlsTitle: "Mock Result Controls",
         needsWorkChip: "Needs Repair",
-        premiumTitle: "Premium mock follow-up guidance",
+        premiumTitle: "Practice follow-up",
         premiumDescription:
-          "After a mock result is visible, the next recommended practice may be free, directly startable, or protected by premium access rules. When stars can unlock it, the exact repair action is shown here.",
-        recoveryTitle: "Mock Recovery Loop",
+          "Your next suggested practice may be ready to start, available to unlock, or already open in the library.",
+        recoveryTitle: "Next best step",
         recoveryLead:
-          "Mock history is most useful when it pushes the learner into the next repair action instead of becoming a passive score archive.",
+          "Use each mock result to decide the next topic or practice step.",
         recoverySecond:
-          "Use the summary or answer review to confirm the error pattern first, then continue into the matched practice lane.",
+          "Check the summary or answer review first, then continue into the matched practice lane.",
       }
     : {
         description:
           selectedSubject === ALL_SUBJECTS_CONTEXT
-            ? "A live result workspace showing scores, review visibility, and next-step practice opportunities from real student result data."
-            : `A live result workspace focused on ${selectedSubjectLabel}, using matching backend subject records where available.`,
+            ? "Track scores, review availability, and the next learning step after each result."
+            : `Track scores and review availability for ${selectedSubjectLabel}.`,
         heroTag: "Result Overview",
         analyticsLabel: "View Analytics",
         averageLabel: "Average Result",
@@ -525,14 +536,14 @@ export default async function ResultsPage({
         pendingLabel: "Pending Publication",
         controlsTitle: "Result Controls",
         needsWorkChip: "Needs Work",
-        premiumTitle: "Premium follow-up guidance",
+        premiumTitle: "Practice follow-up",
         premiumDescription:
-          "After a result is visible, the next recommended practice may be free, directly startable, or protected by premium access rules. When stars can unlock it, the exact action is shown here.",
-        recoveryTitle: "Results Recovery Loop",
+          "Your next suggested practice may be ready to start, available to unlock, or already open in the library.",
+        recoveryTitle: "Next best step",
         recoveryLead:
-          "Result history is most useful when it sends the learner into the next repair action instead of becoming a passive score archive.",
+          "Use each result to decide the next topic or practice step.",
         recoverySecond:
-          "Use the summary or answer review to confirm the mistake pattern first, then continue into the matched practice lane.",
+          "Check the summary or answer review first, then continue into the matched practice lane.",
       };
 
   return (
@@ -556,13 +567,15 @@ export default async function ResultsPage({
             .join(" · ") || undefined
         }
         description={
-          resultsCopy.description
+          selectedSubject === ALL_SUBJECTS_CONTEXT
+            ? "Track published scores, pending releases, and the next learning action."
+            : `Track scores, pending releases, and review availability for ${selectedSubjectLabel}.`
         }
         statusLabel={
           source === "live"
             ? `${scopedResults.length} results loaded`
             : source === "unconfigured"
-              ? "Backend not configured"
+              ? "Sign in required"
               : "Unable to load results"
         }
         statusTone={
@@ -583,81 +596,49 @@ export default async function ResultsPage({
           eyebrow={source === "unconfigured" ? "Setup required" : "Load issue"}
           title={
             source === "unconfigured"
-              ? "Waiting for authenticated result data"
+              ? "Results are not available yet"
               : "Result history could not be loaded"
           }
           description={
             source === "unconfigured"
-              ? "This page only renders real exam results. Configure the API base URL and sign in with an active student account to load published and in-progress result records from the backend."
-              : "The results workspace is wired to live backend data, but the current request did not complete successfully."
+              ? "Sign in with your student account to load your result history."
+              : "We couldn't load your results right now. Please try again shortly."
           }
           bullets={
             source === "unconfigured"
-              ? ["Student results endpoint", "Active student web session"]
-              : ["Backend connectivity", "Student results endpoint"]
+              ? ["Student sign-in", "Results history"]
+              : ["Connection check", "Results history"]
           }
           ctaHref="/app/dashboard"
           ctaLabel="Back to Dashboard"
           statusLabel={
             source === "unconfigured"
-              ? "Configuration required"
-              : "Retry after backend check"
+              ? "Sign in to continue"
+              : "Try again soon"
           }
         />
       ) : scopedResults.length === 0 ? (
         <StudentStatePanel
           eyebrow="No results yet"
           title="Your result history is empty right now"
-          description="No student result records were returned. Once submitted attempts are processed and visible to the learner, they will appear here automatically."
+          description="Results will appear here after your submitted attempts are evaluated and released."
           ctaHref="/app/exams"
           ctaLabel="Open Exams"
           statusLabel="Waiting for published results"
         />
       ) : (
         <>
-          <section className="studentInsightHeroCard studentInsightHeroCardCompact">
-            <div className="studentInsightHeroCopy">
-              <span className="studentDashboardTag">{resultsCopy.heroTag}</span>
-              <strong>
-                {latestResult?.exam_title ?? "Latest result"}
-              </strong>
-              <small>
-                {latestResult
-                  ? `${latestResult.exam_code} · ${resultSourceDescriptor(latestResult)} · ${
-                      latestResult.published_at
-                        ? studentDateTimeLabel(latestResult.published_at)
-                        : "Awaiting publish"
-                    }`
-                  : "No recent result available"}
-              </small>
-            </div>
-            <div className="studentInsightHeroActions">
-              <Link className="button buttonPrimary" href="/app/analytics">
-                {resultsCopy.analyticsLabel}
-              </Link>
-              <Link
-                className="button buttonSecondary"
-                href={buildFilterHref("/app/attempts", [
-                  ["subject", scopedSubjectParam],
-                  ["source", scopedSourceParam],
-                  ["teacher", selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined],
-                ])}
-              >
-                Open Attempts
-              </Link>
-            </div>
-          </section>
-
           <StudentKpiGrid
+            className="resultsSummaryGrid studentAttemptsKpiGrid"
             items={[
               {
-                label: resultsCopy.averageLabel,
+                label: "Average Result",
                 value: averagePercentage !== null ? `${averagePercentage}%` : "Pending",
                 note: `Based on ${publishedResults.length} published${publishedResults.length === 1 ? " result" : " results"}`,
                 tone: "primary",
               },
               {
-                label: resultsCopy.latestLabel,
+                label: "Latest Visible Result",
                 value:
                   latestResult && latestResult.is_published
                     ? percentageLabel(latestResult.percentage)
@@ -667,28 +648,19 @@ export default async function ResultsPage({
                   : "No latest result available",
               },
               {
-                label: resultsCopy.highestLabel,
-                value: highestScore ? percentageLabel(highestScore.percentage) : "Pending",
-                note: highestScore
-                  ? highestScore.exam_title
-                  : "No published scores to compare",
+                label: "Review Ready",
+                value: reviewReadyCount,
+                note: `${passCount} passed${passCount === 1 ? "" : " results"}`,
               },
               {
-                label: resultsCopy.pendingLabel,
+                label: "Pending Publication",
                 value: pendingResults,
-                note: "Submitted attempts not yet released to the learner",
+                note: "Submitted attempts waiting for published results",
               },
             ]}
           />
 
-          <section className="contentCard studentWorkspaceFiltersCard">
-            <div className="sectionHeading">
-              <strong>{resultsCopy.controlsTitle}</strong>
-              <span>
-                {visibleResults.length} shown
-                {visibleResults.length !== scopedResults.length ? ` of ${scopedResults.length}` : ""}
-              </span>
-            </div>
+          <section className="contentCard studentWorkspaceFiltersCard studentAttemptsFiltersCard">
             <form className="studentWorkspaceFiltersForm" method="GET">
               <label className="studentWorkspaceFilterField">
                 <span>Status filter</span>
@@ -720,6 +692,16 @@ export default async function ResultsPage({
                   <option value="review">Review access</option>
                 </select>
               </label>
+              <label className="studentWorkspaceFilterField">
+                <span>Page size</span>
+                <select defaultValue={String(pageSize)} name="result_page_size">
+                  {RESULT_PAGE_SIZE_VALUES.map((value) => (
+                    <option key={value} value={value}>
+                      {value} per page
+                    </option>
+                  ))}
+                </select>
+              </label>
               <div className="studentWorkspaceFilterActions">
                 <button className="button buttonPrimary" type="submit">
                   Apply filters
@@ -744,6 +726,7 @@ export default async function ResultsPage({
                   href={buildResultsFilterHref({
                     sort: sortOption,
                     group: groupOption,
+                    pageSize,
                     subject: scopedSubjectParam,
                     source: scopedSourceParam,
                     teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
@@ -758,6 +741,7 @@ export default async function ResultsPage({
                     status: "published",
                     sort: sortOption,
                     group: groupOption,
+                    pageSize,
                     subject: scopedSubjectParam,
                     source: scopedSourceParam,
                     teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
@@ -772,6 +756,7 @@ export default async function ResultsPage({
                     status: "review_ready",
                     sort: sortOption,
                     group: groupOption,
+                    pageSize,
                     subject: scopedSubjectParam,
                     source: scopedSourceParam,
                     teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
@@ -786,6 +771,7 @@ export default async function ResultsPage({
                     status: "fail",
                     sort: sortOption,
                     group: groupOption,
+                    pageSize,
                     subject: scopedSubjectParam,
                     source: scopedSourceParam,
                     teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
@@ -800,6 +786,7 @@ export default async function ResultsPage({
                     status: statusFilter,
                     sort: "highest",
                     group: groupOption,
+                    pageSize,
                     subject: scopedSubjectParam,
                     source: scopedSourceParam,
                     teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
@@ -814,6 +801,7 @@ export default async function ResultsPage({
                     status: statusFilter,
                     sort: "fastest",
                     group: groupOption,
+                    pageSize,
                     subject: scopedSubjectParam,
                     source: scopedSourceParam,
                     teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
@@ -828,6 +816,7 @@ export default async function ResultsPage({
                     status: statusFilter,
                     sort: sortOption,
                     group: "source",
+                    pageSize,
                     subject: scopedSubjectParam,
                     source: scopedSourceParam,
                     teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
@@ -844,15 +833,85 @@ export default async function ResultsPage({
                 { label: "Status", value: formatFilterValue(statusFilter) },
                 { label: "Sort", value: formatFilterValue(sortOption) },
                 { label: "Group", value: formatFilterValue(groupOption) },
+                { label: "Page size", value: pageSize !== 12 ? String(pageSize) : null },
               ]}
             />
+          </section>
+
+          <section className="studentAttemptsQuickBar">
+            {[
+              {
+                label: "All",
+                count: visibleResults.length,
+                href: buildResultsFilterHref({
+                  sort: sortOption,
+                  group: groupOption,
+                  pageSize,
+                  subject: scopedSubjectParam,
+                  source: scopedSourceParam,
+                  teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
+                }),
+                active: statusFilter === "all",
+              },
+              {
+                label: "Published",
+                count: publishedResults.length,
+                href: buildResultsFilterHref({
+                  status: "published",
+                  sort: sortOption,
+                  group: groupOption,
+                  pageSize,
+                  subject: scopedSubjectParam,
+                  source: scopedSourceParam,
+                  teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
+                }),
+                active: statusFilter === "published",
+              },
+              {
+                label: "Pending",
+                count: pendingResults,
+                href: buildResultsFilterHref({
+                  status: "pending",
+                  sort: sortOption,
+                  group: groupOption,
+                  pageSize,
+                  subject: scopedSubjectParam,
+                  source: scopedSourceParam,
+                  teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
+                }),
+                active: statusFilter === "pending",
+              },
+              {
+                label: "Review Ready",
+                count: reviewReadyCount,
+                href: buildResultsFilterHref({
+                  status: "review_ready",
+                  sort: sortOption,
+                  group: groupOption,
+                  pageSize,
+                  subject: scopedSubjectParam,
+                  source: scopedSourceParam,
+                  teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
+                }),
+                active: statusFilter === "review_ready",
+              },
+            ].map((tab) => (
+              <Link
+                key={tab.label}
+                className={`studentAttemptsQuickTab${tab.active ? " studentAttemptsQuickTabActive" : ""}`}
+                href={tab.href}
+              >
+                <span>{tab.label}</span>
+                <strong>{tab.count}</strong>
+              </Link>
+            ))}
           </section>
 
           {visibleResults.length === 0 ? (
             <StudentStatePanel
               eyebrow="No matching results"
               title="No results match these filters"
-              description="Try a broader status filter, a different sort order, or reset the current result controls."
+              description="Try broader filters or reset the current result controls."
               ctaHref={buildResultsFilterHref({
                 subject: scopedSubjectParam,
                 source: scopedSourceParam,
@@ -879,83 +938,97 @@ export default async function ResultsPage({
                 reviewAvailable: result.review_available,
               });
               const resultSubjectLabel = getMetadataSubjectDisplayLabel(result.metadata);
+              const attemptedCount =
+                result.correct_answers + result.incorrect_answers + result.skipped_questions;
 
               return (
-                <article className="contentCard studentResultSurface" key={result.id}>
-                  <div className="studentResultSurfaceHead">
-                    <div>
+                <article className="contentCard studentResultsCompactCard" key={result.id}>
+                  <div className="studentAttemptsCardHead">
+                    <div className="studentAttemptsCardTitle">
                       <strong>{result.exam_title}</strong>
-                      <span>
+                      <span className="studentAttemptsCardMeta">
                         {result.exam_code}
                         {resultSubjectLabel !== "Subject pending"
                           ? ` · ${resultSubjectLabel}`
                           : ""}
                       </span>
                     </div>
-                    <div className="studentResultSurfaceStatus">
-                      <span className="statusPill statusDefault">{result.source_label}</span>
-                      {result.source_type === "teacher" && result.source_teacher_name ? (
-                        <span className="statusPill statusDemo">{result.source_teacher_name}</span>
-                      ) : null}
+                    <div className="studentAttemptsCardStatus">
                       <span className={`statusPill ${resultTone(result)}`}>
                         {stateCopy.badge}
                       </span>
                     </div>
                   </div>
 
-                  <div className="studentResultStatGrid">
-                    <div className="studentResultStat">
-                      <span>Source</span>
-                      <strong>{result.source_label}</strong>
-                    </div>
-                    <div className="studentResultStat">
+                  <div className="studentAttemptsCardSourceRow">
+                    <span>{resultSourceDescriptor(result)}</span>
+                  </div>
+
+                  <div className="studentResultsMetrics">
+                    <div className="studentAttemptsMetric">
                       <span>Score</span>
                       <strong>
                         {result.is_published ? percentageLabel(result.percentage) : "Pending"}
                       </strong>
                     </div>
-                    <div className="studentResultStat">
-                      <span>Final Score</span>
-                      <strong>{result.is_published ? result.final_score : "Pending"}</strong>
+                    <div className="studentAttemptsMetric">
+                      <span>Attempted</span>
+                      <strong>
+                        {result.is_published ? `${attemptedCount}` : "Pending"}
+                      </strong>
                     </div>
-                    <div className="studentResultStat">
-                      <span>Rank</span>
-                      <strong>{result.is_published ? (result.rank ?? "N/A") : "Pending"}</strong>
-                    </div>
-                    <div className="studentResultStat">
+                    <div className="studentAttemptsMetric">
                       <span>Time Taken</span>
                       <strong>{durationLabel(result.time_taken_seconds)}</strong>
                     </div>
                   </div>
 
-                  <div className="studentResultBreakdown">
-                    <div>
-                      <span>Correct</span>
-                      <strong>{result.is_published ? result.correct_answers : "Pending"}</strong>
+                  {result.is_published ? (
+                    <div className="studentResultsBreakdownStrip">
+                      <div>
+                        <span>Correct</span>
+                        <strong>{result.correct_answers}</strong>
+                      </div>
+                      <div>
+                        <span>Incorrect</span>
+                        <strong>{result.incorrect_answers}</strong>
+                      </div>
+                      <div>
+                        <span>Skipped</span>
+                        <strong>{result.skipped_questions}</strong>
+                      </div>
+                      <div>
+                        <span>Rank</span>
+                        <strong>{result.rank ?? "N/A"}</strong>
+                      </div>
                     </div>
-                    <div>
-                      <span>Incorrect</span>
-                      <strong>{result.is_published ? result.incorrect_answers : "Pending"}</strong>
+                  ) : (
+                    <div className="studentAttemptsNotice">
+                      <strong>{compactResultHeadline(result, outcomeState)}</strong>
+                      <span>{stateCopy.progress}</span>
                     </div>
-                    <div>
-                      <span>Skipped</span>
-                      <strong>{result.is_published ? result.skipped_questions : "Pending"}</strong>
-                    </div>
-                  </div>
+                  )}
 
-                  <div className="studentResultFooter">
-                    <div className="studentResultHelper">
-                      <span>Visibility state</span>
-                      <strong>
-                        {result.published_at
-                          ? studentDateTimeLabel(result.published_at)
-                          : attemptOutcomeResultsLabel(outcomeState)}
-                      </strong>
-                      <small>
-                        {resultSourceDescriptor(result)}. {stateCopy.helper} {stateCopy.progress}
-                      </small>
+                  {result.is_published ? (
+                    <div className="studentAttemptsNotice">
+                      <strong>{compactResultHeadline(result, outcomeState)}</strong>
+                      <span>
+                        {result.review_available
+                          ? "Answer review is available for deeper correction."
+                          : stateCopy.progress}
+                      </span>
                     </div>
-                    <div className="studentInsightHeroActions">
+                  ) : null}
+
+                  <div className="studentAttemptsFooter">
+                    <div className="studentAttemptsUpdateRow">
+                      <span>
+                        {result.published_at
+                          ? `Published ${studentDateTimeLabel(result.published_at)}`
+                          : `Updated ${studentDateTimeLabel(result.created_at)}`}
+                      </span>
+                    </div>
+                    <div className="studentAttemptsActions">
                       <Link
                         className="button buttonPrimary"
                         href={buildFilterHref(`/app/attempts/${result.attempt}/summary`, [
@@ -1030,76 +1103,53 @@ export default async function ResultsPage({
               </div>
             </section>
           )) : null}
-
-          <section className="contentCard">
-            <div className="sectionHeading">
-              <strong>{resultsCopy.premiumTitle}</strong>
-              <StudentPassiveNavLink href="/app/wallet">Wallet</StudentPassiveNavLink>
-            </div>
-            <p className="sectionDescription">
-              {resultsCopy.premiumDescription}
-            </p>
-          </section>
-
-          <section className="studentInsightsTwoColumn">
-            <article className="contentCard">
-              <div className="sectionHeading">
-                <strong>{resultsCopy.recoveryTitle}</strong>
-                <span>{practiceFollowUp.action.label}</span>
-              </div>
-              <div className="studentInsightMessageStack">
-                <div className="studentInsightMessage">
-                  <span className="placeholderDot" aria-hidden="true" />
-                  <p>{resultsCopy.recoveryLead}</p>
+          {filteredResults.length > 0 && totalResultPages > 1 ? (
+            <section className="contentCard studentReviewPaginationCard">
+              <div className="studentReviewPaginationBar">
+                <div className="studentReviewPaginationSummary">
+                  <span>
+                    Page {currentPage} of {totalResultPages} · Showing {showingStart}-{showingEnd} of {filteredResults.length} results
+                  </span>
                 </div>
-                <div className="studentInsightMessage">
-                  <span className="placeholderDot" aria-hidden="true" />
-                  <p>{resultsCopy.recoverySecond}</p>
-                </div>
-              </div>
-              <div className="studentActionSequence" aria-label="Results recovery order">
-                {resultsRecoverySequence.map((step) => (
-                  <div className="studentActionSequenceCard" key={step.label}>
-                    <span>{step.label}</span>
-                    <strong>{step.detail}</strong>
-                  </div>
-                ))}
-              </div>
-              <div className="studentInsightHeroActions">
-                <Link className="button buttonSecondary" href={practiceLaneHref}>
-                  Open Practice Lane
-                </Link>
-                <StudentPassiveNavLink className="button buttonGhost" href="/app/weak-areas">
-                  Open Weak Areas
-                </StudentPassiveNavLink>
-              </div>
-            </article>
-            <article className="contentCard">
-              <div className="sectionHeading">
-                <strong>What To Check</strong>
-                <span>Before the next mock</span>
-              </div>
-              <div className="studentInsightMessageStack">
-                <div className="studentInsightMessage">
-                  <span className="placeholderDot" aria-hidden="true" />
-                  <p>Wrong answers usually need concept repair. Skips usually need confidence or pacing repair.</p>
-                </div>
-                <div className="studentInsightMessage">
-                  <span className="placeholderDot" aria-hidden="true" />
-                  <p>If review is already open, clear those errors before another broad test. If review is locked, use summary plus practice as the immediate loop.</p>
-                </div>
-                <div className="studentInsightMessage">
-                  <span className="placeholderDot" aria-hidden="true" />
-                  <p>Compare results only after the targeted practice follow-up, so the next trend reflects a real correction attempt.</p>
+                <div className="studentReviewPaginationActions">
+                  {currentPage > 1 ? (
+                    <Link
+                      className="button buttonGhost"
+                      href={buildResultsFilterHref({
+                        status: statusFilter,
+                        sort: sortOption,
+                        group: groupOption,
+                        page: currentPage - 1,
+                        pageSize,
+                        subject: scopedSubjectParam,
+                        source: scopedSourceParam,
+                        teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
+                      })}
+                    >
+                      Previous page
+                    </Link>
+                  ) : null}
+                  {currentPage < totalResultPages ? (
+                    <Link
+                      className="button buttonPrimary"
+                      href={buildResultsFilterHref({
+                        status: statusFilter,
+                        sort: sortOption,
+                        group: groupOption,
+                        page: currentPage + 1,
+                        pageSize,
+                        subject: scopedSubjectParam,
+                        source: scopedSourceParam,
+                        teacher: selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined,
+                      })}
+                    >
+                      Next page
+                    </Link>
+                  ) : null}
                 </div>
               </div>
-              <div className="studentInsightHeroActions">
-                <StudentPassiveNavLink className="button buttonSecondary" href="/app/analytics">
-                  View Analytics
-                </StudentPassiveNavLink>
-              </div>
-            </article>
-          </section>
+            </section>
+          ) : null}
         </>
       )}
     </div>

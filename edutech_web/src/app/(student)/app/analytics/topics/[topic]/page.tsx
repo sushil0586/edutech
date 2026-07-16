@@ -47,12 +47,12 @@ export default async function StudentAnalyticsTopicPage({
       <div className="studentPage studentDashboardModern">
         <StudentStatePanel
           eyebrow="Setup required"
-          title="Topic analytics are waiting for backend data"
-          description="This page needs topic-filtered question analytics and the broader summary bundle."
-          bullets={["Student analytics bundle", "Question analytics endpoint", "Tagged topic records"]}
+          title="Topic analytics are not available yet"
+          description="Sign in with your student account to load topic analytics."
+          bullets={["Student sign-in", "Topic analytics", "Question data"]}
           ctaHref="/app/analytics"
           ctaLabel="Back to Analytics"
-          statusLabel="Configuration required"
+          statusLabel="Sign in to continue"
         />
       </div>
     );
@@ -74,11 +74,11 @@ export default async function StudentAnalyticsTopicPage({
         <StudentStatePanel
           eyebrow="Load issue"
           title="Topic analytics could not be loaded"
-          description="We need both topic-filtered question evidence and the analytics summary to render this page truthfully."
-          bullets={["Student analytics bundle", "Question analytics endpoint", "Topic tags"]}
+          description="We couldn't load this topic view right now."
+          bullets={["Topic analytics", "Question data", "Topic tags"]}
           ctaHref="/app/analytics"
           ctaLabel="Back to Analytics"
-          statusLabel="Retry after backend check"
+          statusLabel="Try again soon"
         />
       </div>
     );

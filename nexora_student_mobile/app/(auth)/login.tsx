@@ -107,6 +107,10 @@ export default function LoginScreen() {
             <Text style={appStyles.label}>Username</Text>
             <TextInput
               autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="username"
+              returnKeyType="next"
+              textContentType="username"
               placeholder="Enter username"
               style={[appStyles.input, fieldErrors.username ? appStyles.inputError : null]}
               testID="login-username-input"
@@ -118,8 +122,13 @@ export default function LoginScreen() {
           <View style={appStyles.fieldStack}>
             <Text style={appStyles.label}>Password</Text>
             <TextInput
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="password"
               placeholder="Enter password"
               secureTextEntry
+              returnKeyType="done"
+              textContentType="password"
               style={[appStyles.input, fieldErrors.password ? appStyles.inputError : null]}
               testID="login-password-input"
               value={password}

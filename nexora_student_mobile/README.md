@@ -99,8 +99,38 @@ For example, setting it to `3000` makes timeout and retry states easier to valid
 npm run start
 npm run ios
 npm run android
+npm run install:ios
+npm run install:android
 npm run web
 npm run typecheck
+```
+
+## Platform Installers
+
+For a cleaner first-time local setup, use the installer wrappers:
+
+```bash
+npm run install:ios
+npm run install:android
+```
+
+What they do:
+
+- ensure `.env` exists
+- install npm dependencies
+- start the native Expo build for the selected platform
+- use platform-safe default API URLs
+
+Default API base URLs used by the installers:
+
+- iPhone simulator: `http://localhost:8000`
+- Android emulator: `http://10.0.2.2:8000`
+
+You can override them at runtime:
+
+```bash
+EXPO_PUBLIC_API_BASE_URL=http://192.168.1.20:8000 npm run install:ios
+EXPO_PUBLIC_API_BASE_URL=http://192.168.1.20:8000 npm run install:android
 ```
 
 ## Notes

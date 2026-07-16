@@ -705,6 +705,10 @@ class StudentExamAttemptSerializer(serializers.ModelSerializer):
     exam_title = serializers.CharField(source="exam.title", read_only=True)
     exam_code = serializers.CharField(source="exam.code", read_only=True)
     exam_type = serializers.CharField(source="exam.exam_type", read_only=True)
+    subject_name = serializers.SerializerMethodField()
+    primary_subject_name = serializers.SerializerMethodField()
+    section_subjects = serializers.SerializerMethodField()
+    subject_summary = serializers.SerializerMethodField()
     source_type = serializers.SerializerMethodField()
     source_label = serializers.SerializerMethodField()
     source_name = serializers.SerializerMethodField()
@@ -729,6 +733,39 @@ class StudentExamAttemptSerializer(serializers.ModelSerializer):
         from django.utils import timezone
 
         return timezone.now()
+
+    def get_subject_name(self, obj):
+        return getattr(getattr(obj.exam, "subject", None), "name", None)
+
+    def get_primary_subject_name(self, obj):
+        return getattr(getattr(obj.exam, "subject", None), "name", None)
+
+    def get_section_subjects(self, obj):
+        seen = set()
+        subjects = []
+        for section in obj.exam.sections.filter(is_active=True).select_related("subject"):
+            subject = getattr(section, "subject", None)
+            subject_name = getattr(subject, "name", None)
+            if not subject_name or subject_name in seen:
+                continue
+            seen.add(subject_name)
+            subjects.append({"name": subject_name})
+        return subjects
+
+    def get_subject_summary(self, obj):
+        section_subjects = self.get_section_subjects(obj)
+        if section_subjects:
+            return {
+                "display_label": " + ".join(subject["name"] for subject in section_subjects),
+                "subjects": section_subjects,
+            }
+        subject_name = self.get_subject_name(obj)
+        if subject_name:
+            return {
+                "display_label": subject_name,
+                "subjects": [{"name": subject_name}],
+            }
+        return {"display_label": None, "subjects": []}
 
     def get_source_type(self, obj):
         return resolve_exam_source_metadata(obj.exam)["source_type"]

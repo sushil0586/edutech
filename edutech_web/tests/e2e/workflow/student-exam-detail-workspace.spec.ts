@@ -37,7 +37,7 @@ async function resolveExamDetailEntry(page: Page) {
 
   await gotoWithRuntimeRecovery(page, "/app/dashboard");
   await expect(page).toHaveURL(/\/app\/dashboard(?:\?.*)?$/);
-  await expect(page.getByText(/recommended for you/i).first()).toBeVisible();
+  await expect(page.getByText(/next best step|recommended for you/i).first()).toBeVisible();
 
   const dashboardEntry = page.getByRole("link", { name: /view details/i }).first();
   await expect(dashboardEntry).toBeVisible();

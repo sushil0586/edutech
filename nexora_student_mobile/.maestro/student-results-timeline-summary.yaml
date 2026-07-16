@@ -1,0 +1,54 @@
+appId: com.anonymous.nexorastudentmobile
+---
+# Set these before running:
+# STUDENT_USERNAME
+# STUDENT_PASSWORD
+#
+# Seed expectation:
+# - the student account can log in successfully
+# - at least one completed attempt exists
+# - at least one summary route opens from the results lane
+
+- launchApp:
+    clearState: true
+
+- extendedWaitUntil:
+    visible: "Login"
+    timeout: 30000
+
+- tapOn: "Login"
+- tapOn:
+    text: "Username"
+- inputText: ${STUDENT_USERNAME}
+
+- tapOn:
+    text: "Enter password"
+- inputText: ${STUDENT_PASSWORD}
+
+- hideKeyboard
+- tapOn: "Login"
+
+- extendedWaitUntil:
+    visible: "Student Dashboard"
+    timeout: 30000
+
+- tapOn: "Results"
+
+- assertVisible: "Student Results"
+- assertVisible: "Results timeline"
+
+- tapOn:
+    id: "results-timeline-summary-button"
+
+- assertVisible: "Attempt Summary"
+- assertVisible: "Submission state"
+- assertVisible: "What happens next"
+
+- tapOn:
+    id: "attempt-summary-open-analytics-button"
+
+- assertVisible: "Student Analytics"
+
+- tapOn: "Results"
+
+- assertVisible: "Student Results"

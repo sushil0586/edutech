@@ -39,12 +39,12 @@ export default async function StudentQuestionAnalyticsPage({
       <div className="studentPage studentDashboardModern">
         <StudentStatePanel
           eyebrow="Setup required"
-          title="Question analytics are waiting for backend data"
-          description="This drill-down page only works with the live student analytics API."
-          bullets={["Student question analytics endpoint", "Active student session", "Published results"]}
+          title="Question analytics are not available yet"
+          description="Sign in with your student account to load question-level analytics."
+          bullets={["Student sign-in", "Question analytics", "Published results"]}
           ctaHref="/app/analytics"
           ctaLabel="Back to Analytics"
-          statusLabel="Configuration required"
+          statusLabel="Sign in to continue"
         />
       </div>
     );
@@ -91,7 +91,7 @@ export default async function StudentQuestionAnalyticsPage({
       <StudentPageHeader
         eyebrow="Question drill-down"
         title={title}
-        description="Review real question-level outcomes, understand where marks are being lost, and move directly into a narrower analytics view when needed."
+        description="Review question-level outcomes and see exactly where marks are being lost."
         statusLabel={data ? `${data.questions.length} questions analyzed` : "Unable to load question analytics"}
         statusTone={data ? "live" : "demo"}
         action={<Link className="button buttonGhost" href="/app/analytics">Back to Analytics</Link>}
@@ -101,11 +101,11 @@ export default async function StudentQuestionAnalyticsPage({
         <StudentStatePanel
           eyebrow="Load issue"
           title="Question analytics could not be loaded"
-          description="The drill-down page depends on the question analytics contract and available scored answers."
-          bullets={["Question analytics endpoint", "Published student results", "Backend connectivity"]}
+          description="We couldn't load question-level analytics right now."
+          bullets={["Question analytics", "Published results", "Connection check"]}
           ctaHref="/app/analytics"
           ctaLabel="Back to Analytics"
-          statusLabel="Retry after backend check"
+          statusLabel="Try again soon"
         />
       ) : (
         <>
@@ -114,8 +114,8 @@ export default async function StudentQuestionAnalyticsPage({
             title={params.question_type ? questionTypeLabel(params.question_type) : "All tracked questions"}
             description={
               params.topic
-                ? "This view is scoped to a topic and optionally a question type, so students can validate whether a specific pattern is repeatedly causing losses."
-                : "This view shows the actual question-level evidence behind the analytics summary, including outcomes, time spent, and anonymous peer benchmarks."
+                ? "This view is scoped to a topic and optional question type so you can confirm whether one pattern keeps costing marks."
+                : "This view shows the question-level evidence behind the analytics summary, including outcomes, time spent, and peer benchmarks."
             }
             badges={[
               params.subject ?? "All subjects",
@@ -268,16 +268,16 @@ export default async function StudentQuestionAnalyticsPage({
               </div>
               <div className="analyticsChecklist">
                 <div className="analyticsChecklistItem">
-                  <strong>Question truthfulness</strong>
-                  <span>Expand any item and confirm the summary, full text, explanation, and benchmark rows all describe the same question.</span>
+                  <strong>Question accuracy</strong>
+                  <span>Expand any item and make sure the summary, prompt, explanation, and benchmark rows match.</span>
                 </div>
                 <div className="analyticsChecklistItem">
                   <strong>Filter continuity</strong>
-                  <span>Open subject, topic, and type views from an expanded question and make sure the next page stays aligned with the current context.</span>
+                  <span>Open subject, topic, and type views from a question and confirm the next page keeps the same context.</span>
                 </div>
                 <div className="analyticsChecklistItem">
-                  <strong>Public-facing quality</strong>
-                  <span>Check that the first screen reads cleanly before opening any detail card, with no broken alignment or empty dead space.</span>
+                  <strong>First-screen quality</strong>
+                  <span>Check that the first screen reads cleanly before opening any detail card.</span>
                 </div>
               </div>
             </article>

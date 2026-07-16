@@ -329,15 +329,15 @@ export default async function TeacherReviewsPage({
       <div className="teacherConsolePage">
         <StudentStatePanel
           eyebrow="Reviewer workflow"
-          title="Review queue is waiting on live API data"
-          description="The teacher review queue depends on the new review-task endpoints and a valid teacher session."
+          title="Review queue is not available yet"
+          description="Sign in with your teacher account to load review tasks."
           bullets={[
-            "Review task summary endpoint",
-            "Review task list endpoint",
-            "Teacher-scoped review access",
+            "Teacher sign-in",
+            "Review task summary",
+            "Review task list",
           ]}
           ctaHref="/teacher/results"
-          ctaLabel="Open Results Workspace"
+          ctaLabel="Open Results"
         />
       </div>
     );
@@ -378,7 +378,7 @@ export default async function TeacherReviewsPage({
     <div className="teacherConsolePage">
       <TeacherPageHeader
         title="Review Queue"
-        description="Score descriptive and essay responses from one place before result publication is blocked."
+        description="Score descriptive and essay responses before publication is delayed."
         contextLabel="Teacher review workspace"
         statusLabel={`${summary.pending} pending`}
         statusTone={summary.pending > 0 ? "warning" : "live"}
@@ -407,7 +407,7 @@ export default async function TeacherReviewsPage({
         <section className="contentCard workspaceFiltersCard">
           <div className="sectionHeading">
             <strong>Exam-scoped review queue</strong>
-            <span>Stay in the same publication workflow</span>
+            <span>Stay inside the same release workflow</span>
           </div>
           <div className="resultCardActions">
             <Link className="button buttonPrimary" href={`/teacher/exams/${encodeURIComponent(exam)}`}>
@@ -429,7 +429,7 @@ export default async function TeacherReviewsPage({
             <strong>Pending</strong>
             <span className="statusPill statusWarning">{summary.pending}</span>
           </div>
-          <p>Answers waiting for a reviewer to grade them.</p>
+          <p>Answers still waiting for grading.</p>
           <div className="resultCardActions">
             <Link
               className="button buttonGhost"
@@ -444,7 +444,7 @@ export default async function TeacherReviewsPage({
             <strong>Reviewed</strong>
             <span className="statusPill statusLive">{summary.reviewed}</span>
           </div>
-          <p>Queue items already resolved and synced into scoring.</p>
+          <p>Tasks already resolved and synced into scoring.</p>
           <div className="resultCardActions">
             <Link
               className="button buttonGhost"
@@ -459,7 +459,7 @@ export default async function TeacherReviewsPage({
             <strong>Unassigned</strong>
             <span className="statusPill statusDemo">{summary.unassigned}</span>
           </div>
-          <p>Tasks without an assigned reviewer yet.</p>
+          <p>Tasks that still need an owner.</p>
           <div className="resultCardActions">
             <form action={runClaimNextAction}>
               <input name="status" type="hidden" value={status} />
@@ -478,21 +478,21 @@ export default async function TeacherReviewsPage({
             <strong>Recheck</strong>
             <span className="statusPill statusWarning">{summary.recheck_requested}</span>
           </div>
-          <p>Tasks sent back for another pass or moderation closure.</p>
+          <p>Tasks returned for another scoring pass.</p>
         </article>
         <article className="contentCard teacherResultsOverviewCard">
           <div className="sectionHeading">
             <strong>Avg turnaround</strong>
             <span className="statusPill statusLive">{formatHoursCompact(summary.average_turnaround_hours)}</span>
           </div>
-          <p>Average time from review-task creation to completed grading.</p>
+          <p>Average time from task creation to completed grading.</p>
         </article>
         <article className="contentCard teacherResultsOverviewCard">
           <div className="sectionHeading">
             <strong>Oldest open</strong>
             <span className="statusPill statusDemo">{formatHoursCompact(summary.oldest_open_hours)}</span>
           </div>
-          <p>Longest unresolved task still visible in your current review queue.</p>
+          <p>Longest unresolved task still in the queue.</p>
         </article>
         <article className="contentCard teacherResultsOverviewCard">
           <div className="sectionHeading">

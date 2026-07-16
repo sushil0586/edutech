@@ -112,7 +112,7 @@ test.describe("Student mutable analytics drill-down continuity", () => {
     expectSearchParamIfPresent(currentUrl, "source", expectedSource);
     expectSearchParamIfPresent(currentUrl, "teacher", expectedTeacher);
 
-    await page.getByRole("link", { name: /open action center/i }).first().click();
+    await page.getByRole("link", { name: /open action center|action center/i }).first().click();
     await expect(page).toHaveURL(/\/app\/analytics\/actions(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /next best moves/i }).first()).toBeVisible();
     await expect(page.getByText(/action shortlist/i).first()).toBeVisible();
@@ -141,7 +141,7 @@ test.describe("Student mutable analytics drill-down continuity", () => {
       expectSearchParamIfPresent(currentUrl, "source", expectedSource);
       expectSearchParamIfPresent(currentUrl, "teacher", expectedTeacher);
 
-      await page.getByRole("link", { name: /open action center/i }).first().click();
+      await page.getByRole("link", { name: /open action center|action center/i }).first().click();
       await expect(page).toHaveURL(/\/app\/analytics\/actions(?:\?.*)?$/);
       currentUrl = new URL(page.url());
       expectSearchParamIfPresent(currentUrl, "subject", expectedSubject);

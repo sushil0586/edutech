@@ -175,7 +175,7 @@ export default async function SubscriptionsPage({
     <div className="studentPage studentDashboardModern studentLearnerPage studentLearnerAccountPage studentLearnerSubscriptionsPage">
       <StudentPageHeader
         title="Subscriptions"
-        description="Compare recurring plans, track visible subscription records, and create subscription requests where the configured settlement flow supports them."
+        description="Compare recurring plans, track subscriptions, and create plan requests."
         statusLabel={
           data.source === "live"
             ? `${data.subscriptions.length} active records visible`
@@ -204,13 +204,18 @@ export default async function SubscriptionsPage({
           eyebrow={data.source === "unconfigured" ? "Setup required" : "Load issue"}
           title={
             data.source === "unconfigured"
-              ? "Waiting for live subscription data"
+              ? "Subscriptions are not available yet"
               : "Subscription data could not be loaded"
           }
-          description="This screen depends on the economy subscription plan and student subscription endpoints."
-          bullets={["Subscription plans", "Student subscriptions", "Star credit rules"]}
+          description={
+            data.source === "unconfigured"
+              ? "Sign in with your student account to load subscriptions."
+              : "We couldn't load subscriptions right now."
+          }
+          bullets={["Subscription plans", "Student subscriptions", "Wallet access"]}
           ctaHref="/app/wallet"
           ctaLabel="Open Wallet"
+          statusLabel={data.source === "unconfigured" ? "Sign in to continue" : "Try again soon"}
         />
       ) : (
         <>
@@ -229,7 +234,7 @@ export default async function SubscriptionsPage({
                 {data.plans.reduce((count, plan) => count + plan.cycles.length, 0) === 1 ? "" : "s"}
               </small>
               <p className="sectionDescription">
-                This page is a truthful plan-selection and tracking surface. It can create real subscription order requests and show live subscription records, but final activation and credit timing still depend on the configured settlement flow.
+                Compare plans, create requests, and track whether activation or credit is still pending.
               </p>
             </div>
             <div className="studentInsightHeroActions">
@@ -240,7 +245,7 @@ export default async function SubscriptionsPage({
                 Browse Premium Exams
               </Link>
               <Link className="button buttonGhost" href="/app/practice">
-                Open Practice
+                Open Practice Catalog
               </Link>
             </div>
           </section>
@@ -276,7 +281,7 @@ export default async function SubscriptionsPage({
               <strong>Subscription workspace filters</strong>
             </div>
             <p className="sectionDescription">
-              Focus on one subscription area at a time so the page stays smaller and easier to scan.
+              Focus on one area at a time so the page stays easier to scan.
             </p>
             <form action="/app/subscriptions" className="workspaceFiltersForm" method="get">
               <div className="detailGrid">
@@ -318,8 +323,7 @@ export default async function SubscriptionsPage({
                   <strong>When should you choose a subscription?</strong>
                 </div>
                 <p className="sectionDescription">
-                  Choose a subscription when you expect to unlock premium content regularly and want
-                  recurring star credits instead of buying one-time packs again and again.
+                  Choose a subscription when you unlock premium content regularly and want recurring credits instead of repeated one-time purchases.
                 </p>
                 <div className="detailGrid">
                   <article className="detailCard">
@@ -344,7 +348,7 @@ export default async function SubscriptionsPage({
               {showGuidance ? (
               <section className="contentCard">
                 <div className="sectionHeading">
-                  <strong>What This Page Can And Cannot Do</strong>
+                  <strong>What this page covers</strong>
                 </div>
                 <div className="detailGrid">
                   <article className="detailCard">
@@ -355,7 +359,7 @@ export default async function SubscriptionsPage({
                   <article className="detailCard">
                     <span>Visible here</span>
                     <strong>Request tracking</strong>
-                    <small>See whether a chosen plan is still only requested, already processed, or linked to wallet credit activity.</small>
+                    <small>See whether a chosen plan is still requested, already processed, or linked to wallet credit activity.</small>
                   </article>
                   <article className="detailCard">
                     <span>Not guaranteed here</span>
@@ -365,13 +369,13 @@ export default async function SubscriptionsPage({
                   <article className="detailCard">
                     <span>Best next route</span>
                     <strong>Wallet or premium content</strong>
-                    <small>Use wallet to compare one-time value, then return to exams or practice when you are ready to spend stars.</small>
+                    <small>Use Wallet to compare one-time value, then return to exams or practice when you are ready to spend stars.</small>
                   </article>
                 </div>
                 <div className="studentInsightMessageStack">
                   <div className="studentInsightMessage">
                     <span className="placeholderDot" aria-hidden="true" />
-                    <p>A safe order is: compare cycles here, confirm whether a request is still pending or already credited, then go back to wallet, exams, or practice to use the resulting value.</p>
+                    <p>Compare cycles here, confirm whether a request is still pending or already credited, then return to wallet, exams, or practice.</p>
                   </div>
                 </div>
               </section>
@@ -388,8 +392,7 @@ export default async function SubscriptionsPage({
                 ) : null}
               </div>
               <p className="sectionDescription">
-                Once a plan is confirmed, it can credit stars through the configured billing rules.
-                Those stars then flow into the same wallet used for premium unlocks across the student app.
+                Once confirmed, a plan can credit stars through the configured billing rules and feed the same wallet used for premium unlocks.
               </p>
               <div className="dashboardRailStack">
                 {data.subscriptions.length ? (
@@ -490,8 +493,7 @@ export default async function SubscriptionsPage({
                   <strong>Subscription Orders</strong>
                 </div>
                 <p className="sectionDescription">
-                  This section shows whether your chosen plan is still only requested, already processed,
-                  or fully linked to wallet credit activity.
+                  This section shows whether your chosen plan is requested, processed, or fully linked to wallet credit activity.
                 </p>
                 <div className="dashboardRailStack">
                 {subscriptionOrders.length ? (
@@ -553,13 +555,12 @@ export default async function SubscriptionsPage({
                   <Link href="/app/wallet">Wallet</Link>
                 </div>
                 <p className="sectionDescription">
-                  Review the available cycles and choose the plan that matches how often you expect
-                  to unlock premium content.
+                  Review the available cycles and choose the plan that matches how often you unlock premium content.
                 </p>
                 <div className="studentInsightMessageStack">
                   <div className="studentInsightMessage">
                     <span className="placeholderDot" aria-hidden="true" />
-                    <p>Choosing a plan here creates a real request, but activation and wallet credit still depend on the configured settlement flow.</p>
+                    <p>Choosing a plan creates a real request, but activation and wallet credit still depend on the configured settlement flow.</p>
                   </div>
                 </div>
                 <div className="dashboardRailStack">

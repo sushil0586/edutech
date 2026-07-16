@@ -199,7 +199,7 @@ function TeacherQuestionBankLoadingShell() {
     <div className="studentPage studentPageTight studentDashboardModern teacherConsolePage questionBankPageVivid">
       <TeacherPageHeader
         title="Question Bank"
-        description="Search, filter, curate, and improve reusable assessment questions from one teacher-scoped workspace."
+        description="Search, filter, and curate reusable questions from one teacher workspace."
         statusLabel="Loading question scope"
         statusTone="live"
       />
@@ -207,7 +207,7 @@ function TeacherQuestionBankLoadingShell() {
       <section className="contentCard">
         <div className="sectionHeading">
           <strong>Find questions faster</strong>
-          <span>The question-bank shell is ready while filters, inventory, and access data finish loading.</span>
+          <span>Filters, inventory, and access details are loading now.</span>
         </div>
       </section>
     </div>

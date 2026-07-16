@@ -228,12 +228,12 @@ function buildResultsEmptyStateContent(
         ...base,
         title: `Overview becomes useful after exams and attempts exist in your ${roleNounLower} scope`,
         description:
-          "This route combines exam readiness, publication state, and outcome visibility in one place. It becomes useful only after at least one exam exists and students begin attempting it.",
+          "This route combines readiness, publication state, and outcome visibility in one place.",
         statusLabel: "Waiting for exam and attempt data",
         bullets: [
-          "Use this page as the main summary for exam health, results readiness, and outcome visibility.",
-          "Start by creating your first exam, then publish it and collect a few student attempts.",
-          "Once attempt data exists, readiness cards, grouped exam lists, and navigation into deeper result lanes will appear here automatically.",
+          "Use this page as the main summary for exam health and result readiness.",
+          "Create and publish an exam, then collect a few attempts.",
+          "Grouped exam cards and deeper result lanes appear once data is available.",
         ],
       };
   }
@@ -3019,7 +3019,7 @@ function renderOverviewView(context: WorkspaceContext) {
             <p>
               {recommendedWorkflowStep
                 ? recommendedWorkflowStep.detail
-                : "This exam already has completed lifecycle, generated summary, ranking readiness, and published results."}
+                : "Lifecycle, summary generation, ranking, and publication are complete."}
             </p>
           </div>
           <div className="resultStatusGroup">
@@ -3067,11 +3067,11 @@ function renderOverviewView(context: WorkspaceContext) {
                     ))}
                 </ul>
               ) : (
-                <p>No backend exam-publish blocker remains for this selected exam.</p>
+                <p>No exam-publish blocker remains for this exam.</p>
               )}
               {examReadinessPanel.warnings.length ? (
                 <p>
-                  Warning: {examReadinessPanel.warnings[0].code.replaceAll("_", " ")}. {examReadinessPanel.warnings[0].message}
+                  Watch: {examReadinessPanel.warnings[0].code.replaceAll("_", " ")}. {examReadinessPanel.warnings[0].message}
                 </p>
               ) : null}
             </article>
@@ -3102,11 +3102,11 @@ function renderOverviewView(context: WorkspaceContext) {
                     ))}
                 </ul>
               ) : (
-                <p>No backend result-publication blocker remains for this selected exam.</p>
+                <p>No result-publication blocker remains for this exam.</p>
               )}
               {resultReadinessPanel.warnings.length ? (
                 <p>
-                  Warning: {resultReadinessPanel.warnings[0].code.replaceAll("_", " ")}. {resultReadinessPanel.warnings[0].message}
+                  Watch: {resultReadinessPanel.warnings[0].code.replaceAll("_", " ")}. {resultReadinessPanel.warnings[0].message}
                 </p>
               ) : null}
             </article>
@@ -3128,7 +3128,7 @@ function renderOverviewView(context: WorkspaceContext) {
 
           <article className="teacherResultsReadinessCard">
             <div className="teacherResultsReadinessCardTop">
-              <strong>Read the data through</strong>
+              <strong>Read it through</strong>
               <span className={`statusPill ${assessmentFamilyTone(assessmentLens.familyCode)}`}>
                 {assessmentLens.focusAreas.length}
               </span>
@@ -3162,12 +3162,11 @@ function renderOverviewView(context: WorkspaceContext) {
             <span className="studentDashboardTag">Score distribution</span>
             <strong>
               {scoreDistribution.length
-                ? "See how learners are spread across score bands, not just average score."
+                ? "See how learners spread across score bands, not just average score."
                 : "Distribution will appear once results are generated for this exam."}
             </strong>
             <p>
-              Distribution is the first Phase 6 analytics lens. It helps identify whether a low average means broad weakness,
-              a polarized cohort, or just a handful of struggling learners.
+              Use distribution to tell whether the exam shows broad weakness, a polarized cohort, or a smaller struggling group.
             </p>
           </article>
 
@@ -3270,8 +3269,7 @@ function renderOverviewView(context: WorkspaceContext) {
               Compare readiness, release pressure, and average performance across every assessment family in scope.
             </strong>
             <p>
-              This expands the family lens beyond one exam. Use it to decide which family needs the next builder cleanup,
-              review attention, or coaching intervention first.
+              Use this to decide which family needs the next builder cleanup, review attention, or coaching intervention.
             </p>
           </article>
 
@@ -3475,7 +3473,7 @@ function renderOverviewView(context: WorkspaceContext) {
           <small>
             {selectedPendingCount > 0
               ? "Submissions still need evaluation or publication work"
-              : "No pending result work for this exam"}
+              : "No pending result work"}
           </small>
         </article>
         <article className="metricCard">
@@ -3495,7 +3493,7 @@ function renderOverviewView(context: WorkspaceContext) {
           <small>
             {reviewReleaseRisk?.level && reviewReleaseRisk.level !== "none"
               ? `${formatHoursCompact(reviewReleaseRisk.oldest_open_hours)} oldest unresolved review age`
-              : "No review backlog is threatening publication right now"}
+              : "No review backlog is threatening publication"}
           </small>
         </article>
         <article className="metricCard">
@@ -3513,14 +3511,14 @@ function renderOverviewView(context: WorkspaceContext) {
 
       <section className="contentCard teacherResultsActionLane">
         <div className="sectionHeading">
-          <strong>Use the detail pages</strong>
-          <span>Each page keeps the current exam context</span>
+          <strong>Open detail pages</strong>
+          <span>Each route keeps the current exam context</span>
         </div>
         <div className="teacherResultsActionGrid">
           <article className="teacherResultsActionCard">
             <strong>Live monitoring</strong>
             <p>
-              Follow active alerts, threshold pressure, and intervention decisions without scrolling through result analytics.
+              Follow active alerts, threshold pressure, and intervention decisions in a dedicated live lane.
             </p>
             <Link
               className="button buttonSecondary"
@@ -3532,7 +3530,7 @@ function renderOverviewView(context: WorkspaceContext) {
           <article className="teacherResultsActionCard">
             <strong>Assessment analytics</strong>
             <p>
-              Review topic performance and hard questions on a separate page built for post-exam improvement work.
+              Review topic performance and hard questions in a page built for post-exam improvement work.
             </p>
             <Link
               className="button buttonSecondary"
@@ -6096,12 +6094,12 @@ export async function ResultsWorkspacePage({
       <div className="studentPage">
         <Header
           title="Results"
-          description={`This route depends on the live ${config.roleNounLower} results summary and analytics endpoints.`}
+          description={`This workspace depends on live ${config.roleNounLower} results and analytics endpoints.`}
         />
         <StudentStatePanel
           eyebrow="Load issue"
           title={`${config.roleNoun} results workspace could not be loaded`}
-          description={`The ${config.roleNounLower} results area depends on live summary, leaderboard, attempts, and monitoring endpoints, and the current request did not complete successfully.`}
+          description={`The ${config.roleNounLower} results feed did not complete successfully.`}
           bullets={[
             `${config.roleNoun} results summary endpoint`,
             "Exam leaderboard and attempts endpoints",
@@ -6121,7 +6119,7 @@ export async function ResultsWorkspacePage({
       <div className="studentPage">
         <Header
           title="Results"
-          description={`Track exam outcome readiness, live attempt behavior, and result publication from one ${config.roleNounLower}-scoped workspace.`}
+          description={`Track readiness, attempt behavior, and result publication from one ${config.roleNounLower} workspace.`}
         />
         <StudentStatePanel
           eyebrow={emptyState.eyebrow}

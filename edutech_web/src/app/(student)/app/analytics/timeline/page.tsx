@@ -91,17 +91,21 @@ export default async function StudentAnalyticsTimelinePage({
           eyebrow={bundle.source === "unconfigured" ? "Setup required" : "Load issue"}
           title={
             bundle.source === "unconfigured"
-              ? "Performance timeline is waiting for backend data"
+              ? "Performance timeline is not available yet"
               : "Performance timeline could not be loaded"
           }
-          description="This page turns summary metrics into a real story across your recent published results."
-          bullets={["Student analytics bundle", "Published result records", "Topic performance"]}
+          description={
+            bundle.source === "unconfigured"
+              ? "Sign in with your student account to load your performance timeline."
+              : "We couldn't load your performance timeline right now."
+          }
+          bullets={["Student sign-in", "Published results", "Topic performance"]}
           ctaHref="/app/analytics"
           ctaLabel="Back to Analytics"
           statusLabel={
             bundle.source === "unconfigured"
-              ? "Configuration required"
-              : "Retry after backend check"
+              ? "Sign in to continue"
+              : "Try again soon"
           }
         />
       </div>
@@ -128,7 +132,7 @@ export default async function StudentAnalyticsTimelinePage({
       <StudentPageHeader
         eyebrow="Performance timeline"
         title="Momentum Over Time"
-        description="See whether your scores, accuracy, and study behavior are genuinely improving across real published results."
+        description="Track whether scores, accuracy, and study behavior are improving over time."
         statusLabel={`${publishedResults.length} published results`}
         statusTone="live"
         action={<Link className="button buttonGhost" href="/app/analytics">Back to Analytics</Link>}
@@ -141,7 +145,7 @@ export default async function StudentAnalyticsTimelinePage({
           bundle.summary.improvement_trend.direction,
         ).toLowerCase()} with a ${signedPercentageLabel(
           bundle.summary.improvement_trend.change_percentage,
-        )} shift across recent exams.`}
+        )} change across recent exams.`}
         badges={[
           `${percentageLabel(bundle.summary.average_percentage)} average`,
           `${percentageLabel(bundle.summary.accuracy_percentage)} accuracy`,

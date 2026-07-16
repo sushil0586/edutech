@@ -80,6 +80,9 @@ function latestResultForAttempt(results: StudentResult[], attemptId: string) {
 export default function AttemptsScreen() {
   const router = useRouter();
   const accessToken = useSessionStore((state) => state.accessToken);
+  const profile = useSessionStore((state) => state.profile);
+  const selectedSubject = useSessionStore((state) => state.selectedSubject);
+  const setSelectedSubject = useSessionStore((state) => state.setSelectedSubject);
 
   const query = useQuery({
     queryKey: ["student.attempts.bundle", accessToken],
@@ -91,21 +94,44 @@ export default function AttemptsScreen() {
 
       return {
         attempts: dashboardBundle.attempts,
+        exams: dashboardBundle.exams,
         results,
       };
     },
     enabled: Boolean(accessToken),
   });
 
+  const subjectOptions = profile?.student_context?.subject_options ?? [];
   const attempts = query.data?.attempts ?? [];
+  const exams = query.data?.exams ?? [];
   const results = query.data?.results ?? [];
+  const filteredAttempts = useMemo(() => {
+    if (normalize(selectedSubject) === "overall") {
+      return attempts;
+    }
+
+    const examSubjectMap = new Map(exams.map((exam) => [exam.id, exam.subject_name]));
+    const resultSubjectMap = new Map(
+      results.map((result) => [
+        result.attempt,
+        typeof result.metadata.subject_name === "string" ? result.metadata.subject_name.trim() : "",
+      ]),
+    );
+
+    return attempts.filter((attempt) => {
+      const examSubject = examSubjectMap.get(attempt.exam) ?? "";
+      const resultSubject = resultSubjectMap.get(attempt.id) ?? "";
+      const resolvedSubject = examSubject || resultSubject;
+      return resolvedSubject ? normalize(resolvedSubject) === normalize(selectedSubject) : false;
+    });
+  }, [attempts, exams, results, selectedSubject]);
   const activeAttempts = useMemo(
-    () => attempts.filter((attempt) => isActiveAttempt(attempt.status)),
-    [attempts],
+    () => filteredAttempts.filter((attempt) => isActiveAttempt(attempt.status)),
+    [filteredAttempts],
   );
   const completedAttempts = useMemo(
-    () => attempts.filter((attempt) => !isActiveAttempt(attempt.status)),
-    [attempts],
+    () => filteredAttempts.filter((attempt) => !isActiveAttempt(attempt.status)),
+    [filteredAttempts],
   );
   const reviewReadyCount = completedAttempts.filter((attempt) =>
     latestResultForAttempt(results, attempt.id)?.review_available,
@@ -130,7 +156,13 @@ export default function AttemptsScreen() {
     <ScreenShell>
       <HeroCard
         eyebrow="Student Attempts"
-        badge={activeAttempts.length ? `${activeAttempts.length} active` : "History"}
+        badge={
+          normalize(selectedSubject) === "overall"
+            ? activeAttempts.length
+              ? `${activeAttempts.length} active`
+              : "History"
+            : selectedSubject
+        }
         title="Return to live work or inspect completed attempts"
         description="This mobile lane keeps the exam workflow continuous: active attempts reopen runtime, and completed attempts move into summary or review."
         helper={
@@ -141,10 +173,10 @@ export default function AttemptsScreen() {
                 ? query.error.message
                 : "Unable to load attempts right now."
               : activeAttempts.length
-                ? `${activeAttempts.length} attempt${activeAttempts.length === 1 ? "" : "s"} can resume immediately.`
+                ? `${activeAttempts.length} attempt${activeAttempts.length === 1 ? "" : "s"} can resume immediately${normalize(selectedSubject) === "overall" ? "" : ` in ${selectedSubject}`}.`
                 : completedAttempts.length
-                  ? "No active attempts are waiting, but completed attempt history is available below."
-                  : "No learner attempt history was returned yet."
+                  ? `No active attempts are waiting${normalize(selectedSubject) === "overall" ? "" : ` in ${selectedSubject}`}, but completed history is available below.`
+                  : `No learner attempt history was returned${normalize(selectedSubject) === "overall" ? "" : ` for ${selectedSubject}`}.`
         }
         actions={
           <View style={appStyles.rowWrap}>
@@ -197,6 +229,29 @@ export default function AttemptsScreen() {
         />
       </View>
 
+      {subjectOptions.length ? (
+        <SectionBlock
+          title="Subject scope"
+          subtitle="Keep attempts aligned with the same learner lane used across dashboard, exams, results, and analytics"
+        >
+          <View style={appStyles.rowWrap}>
+            <ActionButton
+              label="Overall"
+              tone={normalize(selectedSubject) === "overall" ? "primary" : "secondary"}
+              onPress={() => setSelectedSubject("overall")}
+            />
+            {subjectOptions.map((option) => (
+              <ActionButton
+                key={option.value}
+                label={option.label}
+                tone={selectedSubject === option.value ? "primary" : "secondary"}
+                onPress={() => setSelectedSubject(option.value)}
+              />
+            ))}
+          </View>
+        </SectionBlock>
+      ) : null}
+
       <SectionBlock
         title="Resume now"
         subtitle="The fastest path back into active exam work"
@@ -227,7 +282,7 @@ export default function AttemptsScreen() {
           <StatePanel
             tone="success"
             title="No active attempts waiting"
-            body="There is no in-progress learner attempt to resume right now."
+            body={`There is no in-progress learner attempt to resume${normalize(selectedSubject) === "overall" ? "" : ` in ${selectedSubject}`} right now.`}
             action={{ label: "Open Exams", onPress: () => router.push("./exams"), tone: "secondary" }}
           />
         )}
@@ -277,7 +332,7 @@ export default function AttemptsScreen() {
         ) : (
           <StatePanel
             title="No completed attempts yet"
-            body="Completed learner attempts will appear here after the student submits their first exam."
+            body={`Completed learner attempts will appear here after the student submits their first exam${normalize(selectedSubject) === "overall" ? "" : ` in ${selectedSubject}`}.`}
             action={{ label: "Open Exams", onPress: () => router.push("./exams"), tone: "secondary" }}
           />
         )}

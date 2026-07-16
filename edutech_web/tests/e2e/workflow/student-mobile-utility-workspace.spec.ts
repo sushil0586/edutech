@@ -31,9 +31,9 @@ test.describe("Student mobile utility workspace coverage", () => {
     await expect(page).toHaveURL(/\/app\/dashboard(?:\?.*)?$/);
     await expect(page.getByText(/student workspace/i).first()).toBeVisible();
     await expectAnyVisible(page, [
-      /recommended for you/i,
+      /next best step|recommended for you/i,
       /your next recommended test/i,
-      /action queue/i,
+      /study queue|action queue/i,
       /do this now/i,
     ]);
 

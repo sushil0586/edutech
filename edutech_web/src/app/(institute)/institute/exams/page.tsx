@@ -293,7 +293,7 @@ export default async function InstituteExamsPage({
     <div className="studentPage studentDashboardModern instituteConsolePage instituteExamsPageVivid">
       <InstitutePageHeader
         title="Exam Management"
-        description="Review exams, inspect sections and assigned learners, and open each exam to manage setup and delivery state."
+        description="Track exam readiness, learner coverage, and delivery state from one institute workspace."
         action={
           <div className="pageHeaderActionGroup">
             <Link className="button buttonGhost" href="/institute/exams/preset-packs">
@@ -326,7 +326,7 @@ export default async function InstituteExamsPage({
               ? "Active controls are hiding all exams"
               : `${overallExamCount} exams in this workspace`
             : source === "unconfigured"
-              ? "Backend not configured"
+              ? "Sign in required"
               : "Unable to load exams"}
         </span>
       </div>
@@ -336,32 +336,32 @@ export default async function InstituteExamsPage({
           eyebrow={source === "unconfigured" ? "Setup required" : "Load issue"}
           title={
             source === "unconfigured"
-              ? "Waiting for institute exams"
+              ? "Institute exams are not available yet"
               : "Institute exams could not be loaded"
           }
           description={
             source === "unconfigured"
-              ? "Configure the API base URL and sign in with an active institute admin account to load exams from the backend."
-              : "The institute exam page is connected to live exam data, but the current request did not complete successfully."
+              ? "Sign in with your institute admin account to load exams."
+              : "We couldn't load institute exams right now."
           }
           bullets={
             source === "unconfigured"
-              ? ["Institute exam endpoint", "Active institute web session"]
-              : ["Backend connectivity", "Institute exam access"]
+              ? ["Institute sign-in", "Exam activity", "Teacher scope"]
+              : ["Institute exams", "Teacher scope"]
           }
           ctaHref="/institute/dashboard"
           ctaLabel="Back to Dashboard"
-          statusLabel={source === "unconfigured" ? "Configuration required" : "Retry after backend check"}
+          statusLabel={source === "unconfigured" ? "Sign in to continue" : "Try again soon"}
         />
       ) : isTrueEmptyExamState ? (
         <StudentStatePanel
           eyebrow="No exams in scope"
           title="Your institute exam list is empty right now"
-          description="No institute exams have been created for this account yet. Start with the fastest exam-creation path first, then return here to review schedule, assignments, and results readiness."
+          description="No institute exams have been created for this account yet."
           bullets={[
             "Use Quick Create for the fastest first mock or practice exam.",
-            "Open Academic Setup if class, subject, or topic choices are missing or incomplete.",
-            "Use Advanced Builder only when you want to assemble an exam from licensed shared-library questions.",
+            "Open Academic Setup if class, subject, or topic choices are missing.",
+            "Use Advanced Builder when you want to assemble from licensed shared-library questions.",
           ]}
           ctaHref="/institute/exams/new"
           ctaLabel="Start With Quick Create"
@@ -396,9 +396,9 @@ export default async function InstituteExamsPage({
           {hasExamListControlsApplied ? (
             <section className="contentCard workspaceFiltersCard">
               <div className="sectionHeading">
-                <strong>Active list controls are changing what you see</strong>
+                <strong>Active controls are shaping this list</strong>
                 <span>
-                  These controls only change the current list view. They do not edit, hide, or delete any exam data.
+                  Controls only affect the current list view. They do not change exam data.
                 </span>
               </div>
               <FilterSummaryPills items={activeExamFilterPills} />
@@ -415,19 +415,16 @@ export default async function InstituteExamsPage({
               <div className="sectionHeading">
                 <strong>No exams match the current controls</strong>
                 <span>
-                  Nothing is broken. This institute still has {overallExamCount} exam{overallExamCount === 1 ? "" : "s"},
-                  but the current controls returned zero matches.
+                  This institute still has {overallExamCount} exam{overallExamCount === 1 ? "" : "s"}, but the current controls returned zero matches.
                 </span>
               </div>
               <div className="builderHintPanel">
                 <strong>Why this happened</strong>
                 <p>
                   The current teacher, status, sorting, grouping, or page-size combination narrowed the list too far.
-                  This is a filtered view, not a first-time onboarding state.
                 </p>
                 <small>
-                  Clear all controls to return to the full exam list immediately, or keep the same controls and return to
-                  page 1 if you were only experimenting with list options.
+                  Clear all controls to return to the full exam list, or keep the same controls and return to page 1.
                 </small>
               </div>
               <FilterSummaryPills items={activeExamFilterPills} />
@@ -449,7 +446,7 @@ export default async function InstituteExamsPage({
                   Keep these controls and return to page 1
                 </Link>
                 <Link className="button buttonSecondary" href="/institute/exams/new">
-                  Create a new exam
+                  Create new exam
                 </Link>
               </div>
             </section>
@@ -460,17 +457,16 @@ export default async function InstituteExamsPage({
               <div className="sectionHeading">
                 <strong>You are on a page that no longer has visible exams</strong>
                 <span>
-                  Exams still exist in the current scope, but page {examPage} is beyond the last page that has visible rows.
+                  Exams still exist in the current scope, but page {examPage} is beyond the last visible page.
                 </span>
               </div>
               <div className="builderHintPanel">
                 <strong>Why this happened</strong>
                 <p>
-                  This usually happens after changing status, teacher, or page size controls. The result set became
-                  smaller, but the page number stayed on an older later page.
+                  This usually happens after changing status, teacher, or page size controls. The result set became smaller, but the page number stayed on an older later page.
                 </p>
                 <small>
-                  Nothing is lost. Return to page 1 with the same controls, or reopen the full exam list in one click.
+                  Nothing is lost. Return to page 1 with the same controls, or reopen the full exam list.
                 </small>
               </div>
               <FilterSummaryPills
@@ -512,7 +508,7 @@ export default async function InstituteExamsPage({
               <article className="metricCard dashboardHeroCard">
                 <span>Workspace Total</span>
                 <strong>{overallExamCount}</strong>
-                <small>{draftCount} draft, {scheduledCount} scheduled, and {completedCount} completed in the current page slice</small>
+                <small>{draftCount} draft · {scheduledCount} scheduled · {completedCount} completed in this page slice</small>
               </article>
 
               <article className="metricCard dashboardHeroCard">

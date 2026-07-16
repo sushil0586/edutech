@@ -328,29 +328,29 @@ export default async function AnalyticsPage({
     ? [
         {
           label: "Do this first",
-          detail: "Open weak areas and verify the exact topic causing the latest score drop.",
+          detail: "Open weak areas and confirm the topic driving the latest score drop.",
         },
         {
           label: "Then next",
-          detail: "Unlock the recommended practice set only after you confirm it matches the current weak topic.",
+          detail: "Unlock the recommended practice set only if it matches the current weak topic.",
         },
         {
           label: "If blocked",
-          detail: "If you do not want to spend stars yet, compare recent results first and keep mock attempts for later.",
+          detail: "If you do not want to spend stars yet, compare recent results first.",
         },
       ]
     : [
         {
           label: "Do this first",
-          detail: "Open weak areas for the weakest ranked topic and move straight into the focused practice lane.",
+          detail: "Open weak areas for the weakest ranked topic and move into focused practice.",
         },
         {
           label: "Then next",
-          detail: "Finish that targeted practice pass before booking another broad mock or switching subjects.",
+          detail: "Finish that targeted practice pass before another broad mock.",
         },
         {
           label: "If blocked",
-          detail: "If the topic still feels unclear, compare recent results and review question evidence before retrying.",
+          detail: "If the topic still feels unclear, compare recent results and review the question evidence.",
         },
       ];
   const sourceBreakdown = scopedSummary?.source_breakdown ?? [];
@@ -397,25 +397,25 @@ export default async function AnalyticsPage({
         heroFallbackTitle: "Turn domain evidence into the next action",
         sourceDescription:
           selectedSubject === ALL_SUBJECTS_CONTEXT
-            ? "A live certification-readiness workspace built from backend insights, published results, and domain performance data."
-            : `A live certification-readiness workspace focused on ${selectedSubjectLabel}, using only matching backend subject records in this view.`,
+            ? "Track readiness, domain performance, and your next practice move."
+            : `Track readiness and domain performance for ${selectedSubjectLabel}.`,
         heroMetaAverage: "Average readiness",
         heroMetaAccuracy: "Domain accuracy",
         heroMetaHistory: "Session history",
-        benchmarkTitle: "Readiness benchmark",
+        benchmarkTitle: "Readiness pulse",
         averageCardTitle: "Readiness level",
         averageCardSuffix: "overall readiness",
         accuracyCardTitle: "Answer accuracy",
         topicMapTitle: "Domain coverage map",
         weakBadge: "Needs review",
         strongBadge: "Confident",
-        recoveryLaneTitle: "Recommended Domain Recovery Lane",
+        recoveryLaneTitle: "Domain Recovery Lane",
         recoveryFirst:
-          "Use certification analytics to isolate the weakest visible domain first, then move into focused practice before booking another full readiness pass.",
+          "Use certification analytics to isolate the weakest domain first, then move into focused practice.",
         recoverySecond:
-          "A strong sequence is: review the weakest domain signal, run the targeted practice set, then return to results or comparison views before another broader certification simulation.",
+          "Review the weakest domain, run the targeted practice set, then return to results or comparison views.",
         actionLogicThird:
-          "If the latest result is already visible, compare readiness signals before another full-length attempt. If not, use domain gaps and focused practice as the safer next move.",
+          "If the latest result is visible, compare readiness signals before another full attempt. If not, use domain gaps and focused practice first.",
         focusWorkspaceLabel: "Open Targeted Domain Practice",
         weakAreasLabel: "Open Domain Gaps",
         kpiAverage: "Average Readiness",
@@ -428,25 +428,25 @@ export default async function AnalyticsPage({
         heroFallbackTitle: "Turn analytics into action",
         sourceDescription:
           selectedSubject === ALL_SUBJECTS_CONTEXT
-            ? "A live analytics workspace built from backend insights, published results, and topic performance data."
-            : `A live analytics workspace focused on ${selectedSubjectLabel}, using only matching backend subject records in this view.`,
+            ? "Track performance trends, topic pressure, and the next learning step."
+            : `Track performance trends and topic pressure for ${selectedSubjectLabel}.`,
         heroMetaAverage: "Average score",
         heroMetaAccuracy: "Accuracy",
         heroMetaHistory: "Attempt history",
-        benchmarkTitle: "Benchmark pulse",
+        benchmarkTitle: "Performance pulse",
         averageCardTitle: "Average performance",
         averageCardSuffix: "overall score",
         accuracyCardTitle: "Accuracy pulse",
         topicMapTitle: "Topic pressure map",
         weakBadge: "Needs work",
         strongBadge: "Strong",
-        recoveryLaneTitle: "Recommended Recovery Lane",
+        recoveryLaneTitle: "Recovery Lane",
         recoveryFirst:
-          "Use analytics to choose the weakest visible concept first, then move into practice before checking whether the next result trend improves.",
+          "Use analytics to choose the weakest concept first, then move into practice.",
         recoverySecond:
-          "A strong sequence is: open weak areas for the ranked topic, run the focused practice pass, then return to results or comparison views before scheduling another broad mock.",
+          "Open weak areas for the ranked topic, run the focused practice pass, then return to results or comparison views.",
         actionLogicThird:
-          "If the latest result is already visible, compare recent results before another mock. If not, use weak areas and focused practice as the safer next move.",
+          "If the latest result is visible, compare recent results before another mock. If not, use weak areas and focused practice first.",
         focusWorkspaceLabel: "Open Focused Practice Workspace",
         weakAreasLabel: "Open Weak Areas",
         kpiAverage: "Average Performance",
@@ -482,7 +482,7 @@ export default async function AnalyticsPage({
           source === "live"
             ? `${scopedTopicPerformance.length} topic records loaded`
             : source === "unconfigured"
-              ? "Backend not configured"
+              ? "Sign in required"
               : "Unable to load analytics"
         }
         statusTone={
@@ -503,29 +503,29 @@ export default async function AnalyticsPage({
           eyebrow={source === "unconfigured" ? "Setup required" : "Load issue"}
           title={
             source === "unconfigured"
-              ? "Waiting for student analytics data"
+              ? "Analytics are not available yet"
               : "Student analytics could not be loaded"
           }
           description={
             source === "unconfigured"
-              ? "This screen only renders real insight and topic-performance data. Configure the API base URL and sign in with an active student account to unlock live readiness and analytics."
-              : "The analytics workspace depends on live summary, results, and topic-performance endpoints, and the current request did not complete successfully."
+              ? "Sign in with your student account to load analytics, results, and topic performance."
+              : "We couldn't load analytics right now. Please try again shortly."
           }
           bullets={
             source === "unconfigured"
               ? [
-                  "Student insight summary endpoint",
-                  "Student results endpoint",
-                  "Topic performance endpoint",
+                  "Student sign-in",
+                  "Analytics summary",
+                  "Topic performance",
                 ]
-              : ["Backend connectivity", "Analytics endpoints", "Student session validity"]
+              : ["Connection check", "Analytics summary", "Topic performance"]
           }
           ctaHref="/app/dashboard"
           ctaLabel="Back to Dashboard"
           statusLabel={
             source === "unconfigured"
-              ? "Configuration required"
-              : "Retry after backend check"
+              ? "Sign in to continue"
+              : "Try again soon"
           }
         />
       ) : (
@@ -640,14 +640,14 @@ export default async function AnalyticsPage({
                     Check Results
                   </Link>
                   <Link className="button buttonGhost" href={buildAnalyticsActionsHref()}>
-                    Open Action Center
+                    Action Center
                   </Link>
                 </div>
               </div>
                 <div className="analyticsHeroVisuals analyticsHeroVisualsCompact">
                   <div className="analyticsHeroTrendCard analyticsHeroInsightCard">
                     <div className="sectionHeading sectionHeadingCompact">
-                      <strong>Recent score pulse</strong>
+                      <strong>Recent score trend</strong>
                       <span>{recentTrendBars.length || 0} exams</span>
                     </div>
                   <div className="analyticsLineChartSurface">
@@ -696,7 +696,7 @@ export default async function AnalyticsPage({
                         </div>
                       </>
                     ) : (
-                      <p className="emptyText">Recent scored results will animate this trend strip.</p>
+                      <p className="emptyText">Recent scored results will appear here.</p>
                     )}
                   </div>
                 </div>
@@ -887,17 +887,17 @@ export default async function AnalyticsPage({
             </article>
             <article className="contentCard">
               <div className="sectionHeading">
-                <strong>Action Logic</strong>
+                <strong>Action Path</strong>
                 <span>State-aware handoff</span>
               </div>
               <div className="studentInsightMessageStack">
                 <div className="studentInsightMessage">
                   <span className="placeholderDot" aria-hidden="true" />
-                  <p>The recommendation starts from the weakest topic visible in the current filtered analytics view.</p>
+                  <p>The recommendation starts from the weakest topic in the current filtered view.</p>
                 </div>
                 <div className="studentInsightMessage">
                   <span className="placeholderDot" aria-hidden="true" />
-                  <p>The CTA then prefers resume, start, unlock, and detail states in that order so the action stays truthful to live backend access.</p>
+                  <p>The main action adapts to what you can do next: resume, start, unlock, or open details.</p>
                 </div>
                 <div className="studentInsightMessage">
                   <span className="placeholderDot" aria-hidden="true" />
@@ -1042,7 +1042,7 @@ export default async function AnalyticsPage({
 
             <article className="contentCard analyticsPanel analyticsPanelMatrix">
               <div className="sectionHeading">
-                <strong>Source and Subject Breakdown</strong>
+                <strong>Source + Subject</strong>
                 <span>{sourceSubjectBreakdown.length} combinations</span>
               </div>
               <div className="studentTopicStack">
@@ -1157,10 +1157,10 @@ export default async function AnalyticsPage({
                         </div>
                       );
                     })
-                  ) : (
-                    <p className="emptyText">Weak subject insights will appear after enough completed exams.</p>
-                  )}
-                </div>
+                ) : (
+                  <p className="emptyText">Weak subject insights will appear after enough completed exams.</p>
+                )}
+              </div>
               </div>
             </article>
 
@@ -1240,7 +1240,7 @@ export default async function AnalyticsPage({
           <section className="studentInsightsTwoColumn">
             <article className="contentCard analyticsPanel analyticsPanelTopics">
               <div className="sectionHeading">
-                <strong>Topic Performance</strong>
+                <strong>Topic Map</strong>
                 <span>{weakTopics.length + strongTopics.length} highlighted</span>
               </div>
               <div className="studentInsightDualList">
@@ -1363,13 +1363,13 @@ export default async function AnalyticsPage({
           </section>
 
           <section className="contentCard analyticsPanel analyticsPanelInsights">
-            <div className="sectionHeading">
-              <strong>Insight Messages</strong>
-              <span>{scopedSummary.insight_messages.length} generated</span>
-            </div>
-            <div className="studentInsightMessageStack">
-              {scopedSummary.insight_messages.length ? (
-                scopedSummary.insight_messages.map((message) => (
+              <div className="sectionHeading">
+                <strong>Insight Messages</strong>
+                <span>{scopedSummary.insight_messages.length} generated</span>
+              </div>
+              <div className="studentInsightMessageStack">
+                {scopedSummary.insight_messages.length ? (
+                scopedSummary.insight_messages.slice(0, 4).map((message) => (
                   <div className="studentInsightMessage" key={message}>
                     <span className="placeholderDot" aria-hidden="true" />
                     <p>{message}</p>
@@ -1378,13 +1378,13 @@ export default async function AnalyticsPage({
               ) : (
                 <p className="emptyText">No automated insight messages are available yet.</p>
               )}
-            </div>
+              </div>
             <div className="studentInsightHeroActions">
               <Link className="button buttonSecondary" href="/app/weak-areas">
-                Work On Weak Topics
+                Open Weak Areas
               </Link>
               <Link className="button buttonGhost" href="/app/exams">
-                Open Mock Tests
+                Open Tests
               </Link>
             </div>
           </section>

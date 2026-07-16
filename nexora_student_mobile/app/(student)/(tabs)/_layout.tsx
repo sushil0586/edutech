@@ -8,24 +8,28 @@ export default function StudentTabsLayout() {
         headerShown: false,
         tabBarActiveTintColor: colors.bgPrimary,
         tabBarInactiveTintColor: colors.textMuted,
+        tabBarHideOnKeyboard: true,
         tabBarStyle: {
           backgroundColor: colors.bgSurface,
           borderTopColor: colors.borderDefault,
-          height: 68,
-          paddingTop: 8,
+          height: 64,
+          paddingTop: 6,
           paddingBottom: 8,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: "700",
+        },
+        tabBarItemStyle: {
+          paddingHorizontal: 0,
         },
       }}
     >
-      <Tabs.Screen name="dashboard" options={{ title: "Dashboard" }} />
+      <Tabs.Screen name="dashboard" options={{ title: "Home" }} />
       <Tabs.Screen name="exams" options={{ title: "Exams" }} />
       <Tabs.Screen name="attempts" options={{ title: "Attempts" }} />
       <Tabs.Screen name="results" options={{ title: "Results" }} />
-      <Tabs.Screen name="analytics" options={{ title: "Analytics" }} />
+      <Tabs.Screen name="analytics" options={{ title: "Insights" }} />
       <Tabs.Screen name="profile" options={{ title: "Profile" }} />
     </Tabs>
   );

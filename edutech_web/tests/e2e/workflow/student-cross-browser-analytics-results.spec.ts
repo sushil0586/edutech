@@ -38,7 +38,7 @@ test.describe("Student cross-browser analytics and results sanity", () => {
     await page.getByRole("link", { name: /view analytics/i }).first().click();
     await expect(page).toHaveURL(/\/app\/analytics(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /analytics/i }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /open action center/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /open action center|action center/i }).first()).toBeVisible();
 
     await gotoWithRetry(page, "/app/analytics/results/compare");
     await expect(page).toHaveURL(/\/app\/analytics\/results\/compare(?:\?.*)?$/);
@@ -51,6 +51,6 @@ test.describe("Student cross-browser analytics and results sanity", () => {
     await expect(page).toHaveURL(/\/app\/analytics\/timeline(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /momentum over time/i }).first()).toBeVisible();
     await expect(page.getByText(/recent result timeline/i).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /open action center/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /open action center|action center/i }).first()).toBeVisible();
   });
 });

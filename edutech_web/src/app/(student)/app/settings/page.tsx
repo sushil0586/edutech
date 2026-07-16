@@ -48,7 +48,7 @@ export default async function SettingsPage() {
     <div className="studentPage studentDashboardModern studentLearnerPage studentLearnerAccountPage studentLearnerSettingsPage">
       <StudentPageHeader
         title="Settings"
-        description="Review your active student account, understand how this portal works, and manage your current web session."
+        description="Review account access, session state, and support routes."
       />
 
       <section className="studentInsightHeroCard studentInsightHeroCardCompact">
@@ -60,7 +60,7 @@ export default async function SettingsPage() {
             {instituteName}
           </small>
           <p className="sectionDescription">
-            This page is intentionally a truthful utility surface: session management, account visibility, and guidance only. It does not pretend to offer profile editing that is not backed by the current student APIs.
+            Verify account state and choose the right next route when something needs attention.
           </p>
         </div>
         <div className="studentInsightHeroActions">
@@ -78,7 +78,7 @@ export default async function SettingsPage() {
           {
             label: "Account Status",
             value: profile.is_active ? "Active" : "Inactive",
-            note: "Access is controlled by backend account state",
+            note: "Current sign-in status",
             tone: "primary",
           },
           {
@@ -158,53 +158,53 @@ export default async function SettingsPage() {
           <div className="studentInsightMessageStack">
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
-              <p>Mock tests depend on live availability and attempt state.</p>
+              <p>Tests depend on live availability and attempt state.</p>
             </div>
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
-              <p>Results and review unlock only when backend policy allows them.</p>
+              <p>Results and review open as each attempt progresses.</p>
             </div>
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
-              <p>Profile edits, password governance, and account corrections are currently handled outside this learner workspace unless backend support is added later.</p>
+              <p>Account corrections like password or institute changes may still need support help.</p>
             </div>
           </div>
           <div className="studentInsightHeroActions">
             <Link className="button buttonSecondary" href="/app/exams">
-              Open Mock Tests
+              Open Tests
             </Link>
             <Link className="button buttonGhost" href="/app/results">
-              Check Result Status
+              Open Results
             </Link>
           </div>
         </section>
       </section>
 
       <section className="contentCard">
-        <div className="sectionHeading">
-          <strong>What You Can Do Here</strong>
-        </div>
+          <div className="sectionHeading">
+            <strong>What This Page Covers</strong>
+          </div>
         <div className="detailGrid">
           <article className="detailCard">
             <span>Visible here</span>
             <strong>Account overview</strong>
-            <small>See the linked student account, institute, and academic context currently driving this workspace.</small>
+            <small>See the linked student account, institute, and academic context driving this workspace.</small>
           </article>
           <article className="detailCard">
             <span>Visible here</span>
             <strong>Session control</strong>
-            <small>Log out safely when you finish on a shared device.</small>
+            <small>Sign out safely when you finish on a shared device.</small>
           </article>
           <article className="detailCard">
             <span>Not editable here</span>
-            <strong>Password and governance</strong>
-            <small>Credential changes and administrative corrections remain outside the current student shell.</small>
+            <strong>Password and account changes</strong>
+            <small>Use your school or support route for account corrections and password help.</small>
           </article>
           <article className="detailCard">
             <span>Best next route</span>
             <strong>Profile or notifications</strong>
-            <small>Use profile to verify identity context and notifications to catch learner-facing updates.</small>
-          </article>
+                    <small>Use Profile for identity checks and Notifications for learner updates.</small>
+                  </article>
         </div>
       </section>
 
@@ -233,7 +233,7 @@ export default async function SettingsPage() {
               <small>
                 {profile.profile_completion_completed_at
                   ? "Completion has already been recorded for this account."
-                  : "Completion controls are not exposed here unless backend support requires them."}
+                  : "Complete any remaining profile steps when they appear in your workspace."}
               </small>
             </article>
             <article className="detailCard">
@@ -246,20 +246,16 @@ export default async function SettingsPage() {
 
         <section className="contentCard">
           <div className="sectionHeading">
-            <strong>Account Management Handoff</strong>
+            <strong>Support handoff</strong>
           </div>
           <div className="studentInsightMessageStack">
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
-              <p>Use this page to understand your current account state, not to edit hidden backend settings.</p>
+              <p>Use this page to verify account status and workspace access before escalating.</p>
             </div>
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
-              <p>Password resets, institute corrections, and administrative identity changes remain outside this learner shell today.</p>
-            </div>
-            <div className="studentInsightMessage">
-              <span className="placeholderDot" aria-hidden="true" />
-              <p>If something looks wrong, verify profile context first, then check notifications, attempt summaries, or result visibility before escalating it as a support issue.</p>
+              <p>Password resets, institute corrections, and identity changes still happen outside this learner shell.</p>
             </div>
           </div>
           <div className="studentInsightHeroActions">
@@ -311,11 +307,7 @@ export default async function SettingsPage() {
             </div>
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
-              <p>Use logout when you finish on a shared device.</p>
-            </div>
-            <div className="studentInsightMessage">
-              <span className="placeholderDot" aria-hidden="true" />
-              <p>Password and account-governance changes remain controlled outside this student workspace.</p>
+              <p>Log out when you finish on a shared or public device.</p>
             </div>
           </div>
           <form action={logoutAction}>
@@ -344,7 +336,7 @@ export default async function SettingsPage() {
             </div>
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
-              <p>This page is intentionally informational where backend controls do not yet exist, so every visible action should still map to a real student route.</p>
+              <p>Use notifications for updates, then return to exams, attempts, or results as needed.</p>
             </div>
           </div>
           <div className="studentInsightHeroActions">

@@ -27,15 +27,17 @@ appId: com.anonymous.nexorastudentmobile
     visible: "Student Dashboard"
     timeout: 30000
 
-- tapOn: "⏷, Results"
+- tapOn: "Results"
 
 - assertVisible: "Student Results"
 
 - scrollUntilVisible:
-    element: "Summary"
+    element:
+      id: "results-summary-button"
     direction: DOWN
 
-- tapOn: "Summary"
+- tapOn:
+    id: "results-summary-button"
 
 - assertVisible: "Attempt Summary"
 
@@ -47,6 +49,11 @@ appId: com.anonymous.nexorastudentmobile
 - tapOn: "Attempts"
 
 - assertVisible: "Student Attempts"
+
+- scrollUntilVisible:
+    element:
+      id: "attempts-open-results-button"
+    direction: DOWN
 
 - tapOn:
     id: "attempts-open-results-button"
