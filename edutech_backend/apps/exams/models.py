@@ -191,6 +191,12 @@ class Exam(BaseModel):
     )
     access_key = models.CharField(max_length=16, blank=True)
     access_key_enabled = models.BooleanField(default=True)
+    access_mode = models.CharField(
+        max_length=40,
+        choices=ExamAccessMode.choices,
+        blank=True,
+        null=True,
+    )
     source_type = models.CharField(
         max_length=20,
         choices=ExamSourceType.choices,
@@ -200,12 +206,6 @@ class Exam(BaseModel):
         TeacherProfile,
         on_delete=models.SET_NULL,
         related_name="source_owned_exams",
-        blank=True,
-        null=True,
-    )
-    access_mode = models.CharField(
-        max_length=40,
-        choices=ExamAccessMode.choices,
         blank=True,
         null=True,
     )
@@ -732,10 +732,7 @@ class ExamStudentAssignment(BaseModel):
                 raise ValidationError(
                     {"student": "Assigned student must belong to the same institute."}
                 )
-            selected_student_override = (
-                self.exam.assignment_mode == AssignmentMode.SELECTED_STUDENTS
-            )
-            if not selected_student_override and self.student.program_id != self.exam.program_id:
+            if self.student.program_id != self.exam.program_id:
                 raise ValidationError(
                     {"student": "Assigned student must belong to the same program."}
                 )
@@ -743,11 +740,7 @@ class ExamStudentAssignment(BaseModel):
                 raise ValidationError(
                     {"student": "Assigned student must belong to the same academic year."}
                 )
-            if (
-                not selected_student_override
-                and self.exam.cohort_id
-                and self.student.cohort_id != self.exam.cohort_id
-            ):
+            if self.exam.cohort_id and self.student.cohort_id != self.exam.cohort_id:
                 raise ValidationError(
                     {"student": "Assigned student must belong to the exam cohort."}
                 )
@@ -762,19 +755,6 @@ class ExamStudentAssignment(BaseModel):
             raise ValidationError(
                 {"access_slot": "Assigned student must belong to the slot cohort."}
             )
-        if self.access_slot_id and self.is_active:
-            assignment_capacity = self.access_slot.assignment_capacity
-            if assignment_capacity is not None:
-                slot_assignments = ExamStudentAssignment.objects.filter(
-                    access_slot=self.access_slot,
-                    is_active=True,
-                )
-                if self.pk:
-                    slot_assignments = slot_assignments.exclude(pk=self.pk)
-                if slot_assignments.count() >= assignment_capacity:
-                    raise ValidationError(
-                        {"access_slot": "This slot has reached its assignment capacity."}
-                    )
 
     def save(self, *args, **kwargs):
         self.full_clean()

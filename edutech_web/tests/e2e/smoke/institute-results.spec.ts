@@ -175,13 +175,16 @@ test.describe("Institute smoke journeys", () => {
     await expect(
       page.getByText(/student explorer|student performance|attempt explorer/i).first(),
     ).toBeVisible();
-    await page.getByLabel(/group by/i).selectOption("status");
-    await page.getByRole("button", { name: /apply filters/i }).click();
-    await expect(page.getByText(/group: status/i)).toBeVisible();
+    await page.getByLabel(/student filter/i).selectOption("critical");
+    await page.getByRole("button", { name: /refresh student rail/i }).click();
+    await expect(page).toHaveURL(/attempt_filter=critical/);
+    await expect(
+      page.getByText(/no students matched the current analysis filter/i).first(),
+    ).toBeVisible();
 
     const leaderboardLink = page.getByRole("link", {
-      name: /leaderboard.*ranks, publication state, and top outcomes/i,
-    });
+      name: /leaderboard:\s*\d+\s*ranked/i,
+    }).first();
     await expect(leaderboardLink).toBeVisible();
     const leaderboardHref = await leaderboardLink.getAttribute("href");
     expect(leaderboardHref).toContain("/institute/results/leaderboard");
@@ -189,7 +192,9 @@ test.describe("Institute smoke journeys", () => {
     await expect(page).toHaveURL(/\/institute\/results\/leaderboard/);
     await expect(page.getByText("Leaderboard", { exact: true }).first()).toBeVisible();
     await expect(page.getByText(/publication checklist/i)).toBeVisible();
-    await expect(page.getByText(/waiting for submissions/i)).toBeVisible();
+    await expect(
+      page.getByText(/published|results are already student-visible|use this page to confirm rank posture/i).first(),
+    ).toBeVisible();
 
     const securityLink = page.getByRole("link", { name: /^security$/i }).first();
     const securityHref = await securityLink.getAttribute("href");

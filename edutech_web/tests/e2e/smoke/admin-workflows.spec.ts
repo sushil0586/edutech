@@ -110,7 +110,10 @@ test.describe("Platform admin smoke journeys", () => {
 
     await gotoWithRetry(page, "/admin/economy");
     await expect(page.getByRole("heading", { name: /economy/i }).first()).toBeVisible();
-    await expect(page.getByText(/seed groups/i).first()).toBeVisible();
+    await expectOneOf(
+      page.getByText(/policy-covered exams/i).first(),
+      page.getByText(/platform admin owns cross-institute economy design/i).first(),
+    );
 
     await gotoWithRetry(page, "/admin/settings");
     await expect(page.getByRole("heading", { name: /^settings$/i }).first()).toBeVisible();

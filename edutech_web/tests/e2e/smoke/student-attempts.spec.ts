@@ -49,11 +49,11 @@ test.describe("Student smoke journeys", () => {
     await gotoWithRetry(page, "/app/exams");
     await expect(page.getByRole("heading", { name: /mock tests/i }).first()).toBeVisible();
     await expectOneOf(
-      page.getByText(/your mock-test workspace is empty right now/i),
-      page.getByText(/mock test controls/i),
+      page.getByText(/no mock tests match these controls/i),
+      page.locator('select[name="exam_group"]'),
     );
-    if (await page.getByText(/mock test controls/i).count()) {
-      await expect(page.getByRole("link", { name: /enter exam key/i })).toBeVisible();
+    if (await page.locator('select[name="exam_group"]').count()) {
+      await expect(page.getByRole("link", { name: /use exam key|enter exam key/i })).toBeVisible();
       const groupByAvailabilityLink = page.getByRole("link", { name: /group by availability/i }).first();
       const groupByAvailabilityHref = await groupByAvailabilityLink.getAttribute("href");
       expect(groupByAvailabilityHref).toContain("exam_group=availability");
@@ -65,7 +65,7 @@ test.describe("Student smoke journeys", () => {
       expect(resetExamFiltersHref).toContain("/app/exams");
       await gotoWithRetry(page, resetExamFiltersHref!);
       await expect(page).not.toHaveURL(/exam_group=availability/);
-      await page.getByRole("link", { name: /enter exam key/i }).click();
+      await page.getByRole("link", { name: /use exam key|enter exam key/i }).first().click();
       await expect(page).toHaveURL(/\/app\/exams\/enter-key/);
       await expect(page.getByRole("heading", { name: /enter exam key/i }).first()).toBeVisible();
       await gotoWithRetry(page, "/app/exams");
@@ -80,10 +80,10 @@ test.describe("Student smoke journeys", () => {
     await expect(page).toHaveURL(/\/app\/practice/);
     await expect(page.getByRole("heading", { name: /^practice$/i }).first()).toBeVisible();
     await expectOneOf(
-      page.getByText(/your practice workspace is empty right now/i),
-      page.getByText(/practice controls/i),
+      page.getByText(/no practice sets match these controls|no practice sets are available for this student right now/i),
+      page.locator('select[name="practice_group"]'),
     );
-    if (await page.getByText(/practice controls/i).count()) {
+    if (await page.locator('select[name="practice_group"]').count()) {
       const groupBySubjectLink = page.getByRole("link", { name: /group by subject/i }).first();
       const groupBySubjectHref = await groupBySubjectLink.getAttribute("href");
       expect(groupBySubjectHref).toContain("practice_group=subject");
@@ -98,11 +98,11 @@ test.describe("Student smoke journeys", () => {
     }
     await expectOneOf(
       page.getByRole("link", { name: /open weak areas/i }),
-      page.getByRole("link", { name: /back to weak areas/i }),
+      page.getByRole("link", { name: /^weak areas$/i }),
     );
     const weakAreasLink = (await page.getByRole("link", { name: /open weak areas/i }).count())
       ? page.getByRole("link", { name: /open weak areas/i })
-      : page.getByRole("link", { name: /back to weak areas/i });
+      : page.getByRole("link", { name: /^weak areas$/i });
     await weakAreasLink.click();
 
     await expect(page).toHaveURL(/\/app\/weak-areas/);
@@ -119,7 +119,7 @@ test.describe("Student smoke journeys", () => {
     await gotoWithRetry(page, "/app/analytics");
     await expect(page.getByRole("heading", { name: /analytics/i }).first()).toBeVisible();
     await expect(page.getByText(/analytics focus/i)).toBeVisible();
-    await expect(page.getByRole("link", { name: /open mock tests/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /open tests|view practice detail/i }).first()).toBeVisible();
 
     await gotoWithRetry(page, "/app/analytics/actions");
     await expect(page.getByRole("heading", { name: /next best moves/i }).first()).toBeVisible();
@@ -145,28 +145,28 @@ test.describe("Student smoke journeys", () => {
     await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
     await expectOneOf(
       page.getByText(/your result history is empty right now/i),
-      page.getByText(/result controls/i),
+      page.locator('select[name="result_group"]'),
     );
-    if (await page.getByText(/result controls/i).count()) {
+    if (await page.locator('select[name="result_group"]').count()) {
       await page.getByRole("link", { name: /group by source/i }).click();
       await expect(page).toHaveURL(/result_group=source/);
       await expect(page.getByText(/group: source/i)).toBeVisible();
       await page.getByRole("link", { name: /reset filters/i }).click();
       await expect(page).not.toHaveURL(/result_group=source/);
-      await expect(page.getByRole("link", { name: /view analytics/i }).first()).toBeVisible();
+      await expect(page.getByRole("link", { name: /practice again|open answer review|open summary/i }).first()).toBeVisible();
     }
     await expectOneOf(
-      page.getByRole("link", { name: /open exams|open mock tests/i }),
-      page.getByRole("link", { name: /open attempts/i }),
+      page.getByRole("link", { name: /practice again/i }).first(),
+      page.getByRole("link", { name: /open answer review|open summary/i }).first(),
     );
-    if (await page.getByRole("link", { name: /open exams|open mock tests/i }).count()) {
-      const examsFromResultsLink = page.getByRole("link", { name: /open exams|open mock tests/i }).first();
+    if (await page.getByRole("link", { name: /practice again/i }).count()) {
+      const examsFromResultsLink = page.getByRole("link", { name: /practice again/i }).first();
       const examsFromResultsHref = await examsFromResultsLink.getAttribute("href");
       expect(examsFromResultsHref).toContain("/app/exams");
       await gotoWithRetry(page, examsFromResultsHref!);
       await expect(page).toHaveURL(/\/app\/exams/);
     } else {
-      const attemptsFromResultsLink = page.getByRole("link", { name: /open attempts/i }).first();
+      const attemptsFromResultsLink = page.getByRole("link", { name: /open answer review|open summary/i }).first();
       const attemptsFromResultsHref = await attemptsFromResultsLink.getAttribute("href");
       expect(attemptsFromResultsHref).toContain("/app/attempts");
       await gotoWithRetry(page, attemptsFromResultsHref!);
@@ -185,9 +185,9 @@ test.describe("Student smoke journeys", () => {
     await expect(page.getByRole("heading", { name: /attempt/i }).first()).toBeVisible();
     await expectOneOf(
       page.getByText(/your attempt history is empty right now/i),
-      page.getByText(/attempt controls/i),
+      page.locator('select[name="attempt_group"]'),
     );
-    if (await page.getByText(/attempt controls/i).count()) {
+    if (await page.locator('select[name="attempt_group"]').count()) {
       const groupByStatusLink = page.getByRole("link", { name: /group by status/i }).first();
       const groupByStatusHref = await groupByStatusLink.getAttribute("href");
       expect(groupByStatusHref).toContain("attempt_group=status");
@@ -198,15 +198,17 @@ test.describe("Student smoke journeys", () => {
       const resetAttemptFiltersHref = await resetAttemptFiltersLink.getAttribute("href");
       expect(resetAttemptFiltersHref).toContain("/app/attempts");
       await gotoWithRetry(page, resetAttemptFiltersHref!);
-      await expect(page.getByRole("link", { name: /open practice/i }).first()).toBeVisible();
+      await expect(
+        page.getByRole("link", { name: /review practice|practice again|view details|open summary|open answer review/i }).first(),
+      ).toBeVisible();
     }
     await expectOneOf(
-      page.getByRole("link", { name: /open exams|open mock tests/i }),
-      page.getByRole("link", { name: /open mock tests/i }),
+      page.getByRole("link", { name: /open practice|practice again|review practice/i }),
+      page.getByRole("link", { name: /view details|open answer review|open summary/i }),
     );
-    const examsLink = (await page.getByRole("link", { name: /open exams|open mock tests/i }).count())
-      ? page.getByRole("link", { name: /open exams|open mock tests/i }).first()
-      : page.getByRole("link", { name: /open mock tests/i }).first();
+    const examsLink = (await page.getByRole("link", { name: /open practice|practice again|review practice/i }).count())
+      ? page.getByRole("link", { name: /open practice|practice again|review practice/i }).first()
+      : page.getByRole("link", { name: /view details|open answer review|open summary/i }).first();
     const examsHref = await examsLink.getAttribute("href");
     expect(examsHref).toContain("/app/exams");
     await gotoWithRetry(page, examsHref!);
