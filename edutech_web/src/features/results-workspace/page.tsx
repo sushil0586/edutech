@@ -3434,19 +3434,19 @@ function renderOverviewView(context: WorkspaceContext) {
             </form>
           ) : null}
           <Link className="button buttonGhost" href={`${config.examBasePath}/${selectedExam.id}`}>
-            Open Exam
+            View Exam
           </Link>
           <Link className="button buttonGhost" href={`${config.reviewsBasePath}?exam=${selectedExam.id}`}>
-            Open Reviews
+            View Reviews
           </Link>
           <Link className="button buttonGhost" href={config.questionBankPath}>
-            Inspect Question Bank
+            View Question Bank
           </Link>
           <Link
             className="button buttonSecondary"
             href={buildResultsHref(resultsViewPath(config.basePath, "leaderboard"), baseHrefArgs)}
           >
-            Open Leaderboard
+            View Leaderboard
           </Link>
         </div>
       </section>
@@ -3511,7 +3511,7 @@ function renderOverviewView(context: WorkspaceContext) {
 
       <section className="contentCard teacherResultsActionLane">
         <div className="sectionHeading">
-          <strong>Open detail pages</strong>
+          <strong>Related workspaces</strong>
           <span>Each route keeps the current exam context</span>
         </div>
         <div className="teacherResultsActionGrid">
@@ -3524,7 +3524,7 @@ function renderOverviewView(context: WorkspaceContext) {
               className="button buttonSecondary"
               href={buildResultsHref(resultsViewPath(config.basePath, "live"), baseHrefArgs)}
             >
-              Open Live Monitor
+              View Live Monitor
             </Link>
           </article>
           <article className="teacherResultsActionCard">
@@ -3536,7 +3536,7 @@ function renderOverviewView(context: WorkspaceContext) {
               className="button buttonSecondary"
               href={buildResultsHref(resultsViewPath(config.basePath, "analysis"), baseHrefArgs)}
             >
-              Open Analysis
+              View Analysis
             </Link>
           </article>
         </div>
@@ -6307,7 +6307,7 @@ export async function ResultsWorkspacePage({
     <div className={pageClassName}>
       <Header
         title="Results"
-        description={`Monitor live attempt behavior, generate summaries, publish ranks, and review leaderboard outcomes across ${config.roleNounLower}-scoped exams.`}
+        description={`Monitor attempt behavior, publish results, and review leaderboard outcomes across ${config.roleNounLower}-scoped exams.`}
         statusLabel={`${visibleExamCards.length} exam${visibleExamCards.length === 1 ? "" : "s"} visible`}
         statusTone="live"
       />
@@ -6327,10 +6327,10 @@ export async function ResultsWorkspacePage({
             </div>
             <div className="studentInsightHeroActions">
               <Link className="button buttonPrimary" href={`${config.examBasePath}/${selectedExam.id}`}>
-                Open Exam
+                View Exam
               </Link>
               <Link className="button buttonSecondary" href={`${config.examBasePath}/${selectedExam.id}/builder`}>
-                Open Builder
+                View Builder
               </Link>
             </div>
           </section>
@@ -6440,10 +6440,10 @@ export async function ResultsWorkspacePage({
           </div>
           <div className="studentInsightHeroActions">
             <Link className="button buttonPrimary" href={buildResultsHref(config.basePath, { ...baseHrefArgs })}>
-              Open Overview
+              View Overview
             </Link>
             <Link className="button buttonSecondary" href={`${config.examBasePath}/${selectedExam.id}`}>
-              Open Exam
+              View Exam
             </Link>
           </div>
         </section>
