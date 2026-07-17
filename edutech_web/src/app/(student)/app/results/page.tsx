@@ -568,8 +568,8 @@ export default async function ResultsPage({
         }
         description={
           selectedSubject === ALL_SUBJECTS_CONTEXT
-            ? "Track published scores, pending releases, and the next learning action."
-            : `Track scores, pending releases, and review availability for ${selectedSubjectLabel}.`
+            ? "Track published scores, pending releases, and your next learning action."
+            : `Track scores, pending releases, and review readiness for ${selectedSubjectLabel}.`
         }
         statusLabel={
           source === "live"
@@ -632,13 +632,13 @@ export default async function ResultsPage({
             className="resultsSummaryGrid studentAttemptsKpiGrid"
             items={[
               {
-                label: "Average Result",
+                label: resultsCopy.averageLabel,
                 value: averagePercentage !== null ? `${averagePercentage}%` : "Pending",
                 note: `Based on ${publishedResults.length} published${publishedResults.length === 1 ? " result" : " results"}`,
                 tone: "primary",
               },
               {
-                label: "Latest Visible Result",
+                label: resultsCopy.latestLabel,
                 value:
                   latestResult && latestResult.is_published
                     ? percentageLabel(latestResult.percentage)
@@ -653,7 +653,7 @@ export default async function ResultsPage({
                 note: `${passCount} passed${passCount === 1 ? "" : " results"}`,
               },
               {
-                label: "Pending Publication",
+                label: resultsCopy.pendingLabel,
                 value: pendingResults,
                 note: "Submitted attempts waiting for published results",
               },
@@ -704,7 +704,7 @@ export default async function ResultsPage({
               </label>
               <div className="studentWorkspaceFilterActions">
                 <button className="button buttonPrimary" type="submit">
-                  Apply filters
+                  Update view
                 </button>
                 <Link
                   className="button buttonSecondary"

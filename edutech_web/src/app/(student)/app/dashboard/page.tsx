@@ -311,7 +311,7 @@ function buildDashboardActionQueue(args: {
       meta: activeAttempt.section_runtime.current_section_name || "Active attempt in progress",
       nextStep: "After you submit, come back here for results, review, or practice follow-up.",
       secondaryHref: "/app/attempts",
-      secondaryLabel: "Open Attempt Timeline",
+      secondaryLabel: "View Attempt History",
     });
   } else if (latestSubmittedAttempt) {
     items.push({
@@ -320,7 +320,7 @@ function buildDashboardActionQueue(args: {
       title: latestSubmittedAttempt.exam_title,
       description: "Your latest test is submitted. Open the summary to check whether results or review are ready yet.",
       href: `/app/attempts/${latestSubmittedAttempt.id}/summary`,
-      label: "Check Attempt Status",
+      label: "Open Summary",
       tone: "demo",
       meta: `Submitted attempt · Updated ${studentDateTimeLabel(latestSubmittedAttempt.updated_at)}`,
       nextStep: "If evaluation is still pending, check again later. If review opens, continue into answer review.",
@@ -347,7 +347,7 @@ function buildDashboardActionQueue(args: {
           ? "After this test, return for results, review, and focused practice suggestions."
           : "Open the details first, confirm the timing, and decide whether to start now or later.",
       secondaryHref: "/app/exams",
-      secondaryLabel: "View All Tests",
+      secondaryLabel: "Browse Tests",
     });
   }
 
@@ -359,7 +359,7 @@ function buildDashboardActionQueue(args: {
       title: latestResult.exam_title,
       description: "Your latest published result is ready. Check your score, then decide whether to review answers or practice next.",
       href: "/app/results",
-      label: "Open Results",
+      label: "View Results",
       tone: latestResult.result_status === "fail" ? "warning" : "live",
       meta: `${percentageLabel(latestResult.percentage)} · ${latestResultSubjectLabel}`,
       nextStep:
@@ -367,7 +367,7 @@ function buildDashboardActionQueue(args: {
           ? "Use weak-area practice before taking another full test."
           : "Choose between answer review and targeted practice as your follow-up.",
       secondaryHref: "/app/weak-areas",
-      secondaryLabel: "Open Weak Areas",
+      secondaryLabel: "View Weak Areas",
     });
   }
 
@@ -386,7 +386,7 @@ function buildDashboardActionQueue(args: {
       meta: `${topWeakTopic.subject_name} · ${percentageLabel(topWeakTopic.average_percentage)}`,
       nextStep: "A short focused recovery here should improve your next attempt.",
       secondaryHref: "/app/analytics",
-      secondaryLabel: "Open Analytics",
+      secondaryLabel: "View Analytics",
     });
   }
 
@@ -607,8 +607,8 @@ export default async function DashboardPage({
                 ? `${selectedStudentSourceLabel(selectedSource)} filter is active. `
                 : ""}
               {recommendedExam
-                ? "Your next recommended test is ready."
-                : "Recommendations will appear as content becomes available."}
+                ? "Your next step is ready."
+                : "Your next step will appear here as content becomes available."}
             </small>
           </div>
           <div className="studentDashboardIllustration" aria-hidden="true">

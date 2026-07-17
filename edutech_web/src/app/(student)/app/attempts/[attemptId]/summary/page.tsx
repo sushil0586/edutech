@@ -283,7 +283,7 @@ export default async function AttemptSummaryPage({
     <div className="studentPage studentDashboardModern studentLearnerPage studentLearnerAttemptSummaryPage">
       <StudentPageHeader
         title={`${summary.exam_title} Summary`}
-        description={`Review your ${attemptExperienceLabel(summary.exam_type)} status, score, and next step.`}
+        description={`Check your ${attemptExperienceLabel(summary.exam_type)} status, score, and next step.`}
         action={<StatusPill tone="live">{titleCaseState(summary.status)}</StatusPill>}
       />
 
@@ -342,7 +342,7 @@ export default async function AttemptSummaryPage({
             ["teacher", teacher?.trim()],
           ])}
         >
-          Open Attempts
+          View Attempt History
         </StudentPassiveNavLink>
       </div>
 
@@ -412,7 +412,7 @@ export default async function AttemptSummaryPage({
 
         <article className="contentCard">
           <div className="sectionHeading">
-            <strong>What To Do Now</strong>
+            <strong>What To Do Next</strong>
             <span>{attemptExperienceLabel(summary.exam_type)}</span>
           </div>
           <div className="studentInsightMessageStack">

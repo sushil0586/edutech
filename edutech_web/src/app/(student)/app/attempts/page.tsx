@@ -456,7 +456,7 @@ export default async function AttemptsPage({
         }
         description={
           selectedSubject === ALL_SUBJECTS_CONTEXT
-            ? "Track ongoing tests, submitted attempts, and the next action for each one."
+            ? "Track live tests, submitted attempts, and the next action for each one."
             : `Track ongoing tests and submitted attempts for ${selectedSubjectLabel}.`
         }
         statusLabel={
@@ -559,7 +559,7 @@ export default async function AttemptsPage({
               </label>
               <div className="studentWorkspaceFilterActions">
                 <button className="button buttonPrimary" type="submit">
-                  Apply filters
+                  Update view
                 </button>
                 <Link
                   className="button buttonSecondary"

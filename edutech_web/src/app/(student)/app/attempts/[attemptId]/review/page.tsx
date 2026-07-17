@@ -392,7 +392,7 @@ export default async function AttemptReviewPage({
     <div className="studentPage studentDashboardModern studentLearnerPage studentLearnerAttemptReviewPage">
       <StudentPageHeader
         title={`${review.exam_title} Review`}
-        description="Review answers, explanations, and the next learning step."
+        description="Review answers, explanations, and the best next learning step."
         action={<StatusPill tone="live">{titleCaseState(review.review_mode)}</StatusPill>}
       />
 
@@ -447,7 +447,7 @@ export default async function AttemptReviewPage({
             ["teacher", scopedTeacherQueryParam],
           ])}
         >
-          Open Attempts
+          View Attempt History
         </StudentPassiveNavLink>
       </div>
 
@@ -623,7 +623,7 @@ export default async function AttemptReviewPage({
                 ["teacher", scopedTeacherQueryParam],
               ])}
             >
-              Open Results
+              View Results
             </StudentPassiveNavLink>
           </div>
         </article>
@@ -651,7 +651,7 @@ export default async function AttemptReviewPage({
                 ["teacher", scopedTeacherQueryParam],
               ])}
             >
-              Back To Summary
+              Return To Summary
             </Link>
           </div>
         </article>
@@ -703,7 +703,7 @@ export default async function AttemptReviewPage({
           </label>
           <div className="studentWorkspaceFilterActions">
             <button className="button buttonPrimary" type="submit">
-              Apply filters
+              Update view
             </button>
             <Link
               className="button buttonSecondary"
