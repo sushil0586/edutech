@@ -386,14 +386,14 @@ export function AcademicEntitySection<TItem>({
               <span className="appTopbarActionIcon" aria-hidden="true">
                 +
               </span>
-              Add
+              New
             </button>
           </div>
         </div>
 
         {isDisabled ? (
           <div className="featurePlaceholder">
-            <p>Select an institute to manage academic records.</p>
+            <p>Select an institute to manage academic records here.</p>
           </div>
         ) : null}
 
@@ -480,7 +480,7 @@ export function AcademicEntitySection<TItem>({
             </div>
           ) : (
             <div className="featurePlaceholder">
-              <p>{showArchived ? "No records exist yet for this section." : "No active records are visible in this section."}</p>
+              <p>{showArchived ? "No records exist in this section yet." : "No active records are visible in this section."}</p>
             </div>
           )}
         </div>
@@ -586,7 +586,7 @@ export function AcademicEntitySection<TItem>({
                       <span className="appTopbarActionIcon" aria-hidden="true">
                         ⌘
                       </span>
-                      {saving ? "Saving..." : editingId ? "Update record" : "Create record"}
+                      {saving ? "Saving..." : editingId ? "Update" : "Create"}
                     </button>
                     <button
                       className="appTopbarAction setupSecondaryAction"
