@@ -203,7 +203,7 @@ export function AdminPeopleWorkspace({
     <section className="studentPage studentPageTight studentDashboardModern adminPeoplePage adminPeoplePageCompact instituteConsolePage">
       <PlatformAdminPageHeader
         title="People"
-        description="Browse institute roster records, manage login state, and coordinate controlled student and teacher imports."
+        description="Browse institute roster records, manage login state, and coordinate student and teacher imports from one workspace."
         statusLabel={hasWorkspaceLoadIssue ? "Partial data" : "Live roster"}
         statusTone={hasWorkspaceLoadIssue ? "warning" : "live"}
       />
@@ -275,14 +275,14 @@ export function AdminPeopleWorkspace({
                   ))}
                 </select>
                 <button className="button buttonSecondary" type="submit">
-                  Open
+                  Update View
                 </button>
               </div>
             </form>
             <strong>{currentView === "students" ? "Students" : "Teachers"}</strong>
             <span>
               {selectedInstitute
-                ? `${selectedInstitute.name} · ${currentVisibleCount} records`
+                ? `${selectedInstitute.name} · ${currentVisibleCount} records in view`
                 : "Select an institute to begin."}
             </span>
           </div>
