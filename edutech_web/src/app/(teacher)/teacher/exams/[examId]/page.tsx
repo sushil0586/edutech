@@ -444,7 +444,7 @@ export default async function TeacherExamDetailPage({
       <div className="studentPage teacherConsolePage teacherExamsPageVivid">
         <TeacherPageHeader
           title="Exam Detail"
-          description="This route renders live teacher-scoped exam management data from the backend."
+          description="This page shows live exam management data from the backend."
           statusLabel={source === "unconfigured" ? "Backend not configured" : "Unable to load exam detail"}
           statusTone={source === "unconfigured" ? "warning" : "demo"}
         />
@@ -457,8 +457,8 @@ export default async function TeacherExamDetailPage({
           }
           description={
             source === "unconfigured"
-              ? "Configure the API base URL and sign in with an active teacher account to load exam management data."
-              : "The teacher exam detail route is connected to the backend, but the current request did not complete successfully."
+              ? "Configure the API base URL and sign in with an active teacher account to load exam data."
+              : "This exam detail view is connected to the backend, but the current request did not complete successfully."
           }
           bullets={
             source === "unconfigured"
@@ -494,9 +494,9 @@ export default async function TeacherExamDetailPage({
         ? "Delivery is scheduled and ready for final checks"
         : detail.status === "live"
           ? "Students can access this exam right now"
-          : resultSummary?.results_published
-            ? "Delivery is complete and results are already published"
-            : "Review delivery, readiness, and results from one place";
+        : resultSummary?.results_published
+          ? "Delivery is complete and results are already published"
+          : "Review delivery, readiness, and results from one view";
   const heroDescription =
     detail.status === "draft"
       ? `${completedChecklistCount} of ${lifecycleChecklist.length} core setup steps are complete. Continue from the builder to finish the learner-ready setup.`
@@ -504,15 +504,15 @@ export default async function TeacherExamDetailPage({
         ? "Review timing, learner targeting, and publication blockers before the delivery window opens."
         : detail.status === "live"
           ? "Watch attempt activity, confirm access rules, and prepare the results workflow after submissions begin."
-          : resultSummary?.results_published
-            ? "Use this view to confirm the final exam configuration and support learners after release."
-            : "Use this page to move between setup, delivery, review, and results decisions without losing context.";
+        : resultSummary?.results_published
+          ? "Use this view to confirm the final exam configuration and support learners after release."
+          : "Move between setup, delivery, review, and results decisions without losing context.";
 
   return (
     <div className="studentPage studentDashboardModern teacherConsolePage teacherExamsPageVivid">
       <TeacherPageHeader
         title={detail.title}
-        description="Teacher-side exam setup, assignment, and state management backed by live exam APIs."
+        description="Exam setup, assignment, and state management backed by live exam APIs."
         statusLabel={titleCase(detail.status)}
         statusTone={
           detail.status === "live"
@@ -536,13 +536,13 @@ export default async function TeacherExamDetailPage({
         </div>
         <div className="studentInsightHeroActions">
           <Link className="button buttonPrimary" href={`/teacher/exams/${detail.id}/builder`}>
-            {detail.status === "draft" ? "Continue Setup" : "Open Builder"}
+            {detail.status === "draft" ? "Continue Setup" : "View Builder"}
           </Link>
           <Link className="button buttonSecondary" href={`/teacher/results?exam=${detail.id}`}>
-            Open Results
+            View Results
           </Link>
           <Link className="button buttonGhost" href={`/teacher/reviews?exam=${detail.id}`}>
-            Open Reviews
+            View Reviews
           </Link>
         </div>
       </section>
@@ -579,7 +579,7 @@ export default async function TeacherExamDetailPage({
               Assign Learners
             </Link>
             <Link className="button buttonGhost" href="#exam-actions">
-              Review Delivery Actions
+              View Delivery Actions
             </Link>
           </div>
         </section>
@@ -652,7 +652,7 @@ export default async function TeacherExamDetailPage({
       <section className="dashboardGrid">
         <article className="dashboardPanel insightPanel">
           <div className="sectionHeading">
-            <strong>Runtime Ops Snapshot</strong>
+            <strong>Runtime Snapshot</strong>
             <span>{runtimeOps.pressureLabel}</span>
           </div>
           <div className="questionBankTagRow">
@@ -699,10 +699,10 @@ export default async function TeacherExamDetailPage({
         <article className="dashboardPanel insightPanel" id="exam-actions">
           <div className="sectionHeading">
             <strong>Delivery Actions</strong>
-            <Link href="/teacher/exams">Back to Exams</Link>
+            <Link href="/teacher/exams">View Exams</Link>
           </div>
           <p className="emptyText">
-            Use these actions to move the exam through delivery safely after setup, assignment, and schedule checks are complete.
+            Use these actions to move the exam through delivery after setup, assignment, and schedule checks are complete.
           </p>
           <div className="resultCardActions examDetailActionGrid">
             <div className="examDetailActionLane examDetailActionLanePrimary">
@@ -710,7 +710,7 @@ export default async function TeacherExamDetailPage({
                 Link Questions
               </Link>
               <Link className="button buttonSecondary" href={`/teacher/exams/${detail.id}/builder`}>
-                {detail.status === "draft" ? "Continue Setup" : "Open Builder"}
+                {detail.status === "draft" ? "Continue Setup" : "View Builder"}
               </Link>
 
               {actionButtons.map((item) => (
@@ -732,7 +732,7 @@ export default async function TeacherExamDetailPage({
                 <input name="action" type="hidden" value="refresh-status" />
                 <ActionSubmitButton
                   className="button buttonSecondary"
-                  idleLabel="Refresh Status"
+                  idleLabel="Refresh"
                   pendingLabel="Refreshing..."
                 />
               </form>
@@ -742,7 +742,7 @@ export default async function TeacherExamDetailPage({
                 <input name="action" type="hidden" value="sync-marks" />
                 <ActionSubmitButton
                   className="button buttonGhost"
-                  idleLabel="Sync Marks"
+                  idleLabel="Sync Scores"
                   pendingLabel="Syncing..."
                 />
               </form>
@@ -955,7 +955,7 @@ export default async function TeacherExamDetailPage({
             </>
           ) : (
             <p className="emptyText">
-              Result publish readiness is unavailable right now. Open the results workspace for the live publication view.
+              Result publish readiness is unavailable right now. Open results for the live publication view.
             </p>
           )}
         </article>

@@ -345,7 +345,7 @@ export function TeacherQuestionImportWorkspace({
             <div>
               <strong>Finalize recovery</strong>
               <p>
-                Some questions were created, but a few rows were blocked after the final backend checks.
+                Some questions were created, but a few rows were blocked in the final backend checks.
               </p>
             </div>
           </div>
@@ -355,7 +355,7 @@ export function TeacherQuestionImportWorkspace({
               <strong>What imported vs what is blocked</strong>
               <span>
                 {finalizeRecovery.createdCount} row(s) were created. {finalizeRecovery.failedCount} row(s) stayed blocked.
-                Fix the blocked rows first, then preview the CSV again before retrying final import.
+                Fix the blocked rows first, then preview the CSV again before retrying the final import.
               </span>
             </div>
           </div>
@@ -445,8 +445,7 @@ export function TeacherQuestionImportWorkspace({
           <div>
             <strong>Template and upload</strong>
             <p>
-              Download the live CSV structure, fill it with scoped question rows, then
-              preview the import before committing anything to the backend.
+              Download the live CSV structure, fill it with question rows, then preview the import before committing anything.
             </p>
           </div>
           <div className="questionBankButtonRow">
@@ -454,7 +453,7 @@ export function TeacherQuestionImportWorkspace({
               Download Template
             </button>
             <Link className="button buttonGhost" href={backHref}>
-              Back to Bank
+              View Bank
             </Link>
           </div>
         </div>
@@ -538,7 +537,7 @@ export function TeacherQuestionImportWorkspace({
 
           <div className="questionBankButtonRow">
             <button className="button buttonPrimary" disabled={isPreviewing} type="submit">
-              {isPreviewing ? "Generating Preview..." : "Preview Import"}
+              {isPreviewing ? "Building Preview..." : "Preview Import"}
             </button>
             <button
               className="button buttonGhost"
@@ -567,8 +566,7 @@ export function TeacherQuestionImportWorkspace({
             <div>
               <strong>Preview results</strong>
               <p>
-                Review valid rows, inspect row-level issues, and only finalize once the
-                import looks clean.
+                Review valid rows, inspect row-level issues, and only finalize once the import looks clean.
               </p>
             </div>
             <button
@@ -577,7 +575,7 @@ export function TeacherQuestionImportWorkspace({
               onClick={finalizeImport}
               type="button"
             >
-              {isFinalizing ? "Importing Questions..." : `Finalize Import (${preview.valid_rows})`}
+              {isFinalizing ? "Importing Questions..." : `Import Valid Rows (${preview.valid_rows})`}
             </button>
           </div>
 
@@ -613,7 +611,7 @@ export function TeacherQuestionImportWorkspace({
                 <strong>Duplicate rows need attention first</strong>
                 <span>
                   {duplicateRows.length} row(s) look like repeated or already-existing questions. Review the
-                  question text and academic scope before final import. Any remaining valid rows can still proceed.
+                  question text and academic scope before the final import. Any remaining valid rows can still proceed.
                 </span>
               </div>
             </div>
@@ -738,7 +736,7 @@ export function TeacherQuestionImportWorkspace({
               <div>
                 <strong>{validPreviewRows.length} rows are ready to import</strong>
                 <span>
-                  Finalizing will create backend questions from the current valid preview payloads.
+                  Importing now will create backend questions from the current valid preview payloads.
                 </span>
               </div>
             </div>

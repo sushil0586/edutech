@@ -771,12 +771,12 @@ export default async function TeacherExamBuilderPage({
       <div className="studentPage">
         <TeacherPageHeader
           title="Exam Builder"
-          description="This route depends on live teacher-scoped exam builder data from the backend."
+          description="This page depends on live exam builder data from the backend."
         />
         <StudentStatePanel
           eyebrow="Load issue"
           title="Exam builder could not be loaded"
-          description="The exam builder needs teacher exam detail, academic lookup, question bank, and student scope endpoints, and the current request did not complete successfully."
+          description="The exam builder needs exam detail, academic lookup, question bank, and student scope services, and the current request did not complete successfully."
           bullets={[
             "Teacher exam detail endpoint",
             "Academic scope lookups",
@@ -1700,7 +1700,7 @@ export default async function TeacherExamBuilderPage({
     <div className="studentPage studentDashboardModern teacherConsolePage teacherExamBuilderPageVivid">
       <TeacherPageHeader
         title={`${detail.title} Builder`}
-        description="Edit the exam configuration, shape sections, attach questions, and control the student audience from one teacher workflow."
+        description="Edit exam configuration, shape sections, attach questions, and control the student audience from one workflow."
         statusLabel={titleCase(detail.status)}
         statusTone={
           detail.status === "live"
@@ -1717,7 +1717,7 @@ export default async function TeacherExamBuilderPage({
       <section className="studentInsightHeroCard studentInsightHeroCardCompact">
         <div className="studentInsightHeroCopy">
           <span className="studentDashboardTag">Unified Builder</span>
-          <strong>Exam builder workflow</strong>
+          <strong>Exam builder</strong>
           <small>
             {activeSections.length} sections · {activeExamQuestions.length} linked questions · {activeAssignedStudents.length} learners
             {resultSummary?.review_blocked
@@ -1731,13 +1731,13 @@ export default async function TeacherExamBuilderPage({
         </div>
         <div className="studentInsightHeroActions">
           <Link className="button buttonPrimary" href={`/teacher/exams/${detail.id}`}>
-            Open Delivery View
+            View Delivery
           </Link>
           <Link className="button buttonSecondary" href={`/teacher/results?exam=${detail.id}`}>
-            Open Results
+            View Results
           </Link>
           <Link className="button buttonGhost" href={`/teacher/reviews?exam=${detail.id}`}>
-            Open Reviews
+            View Reviews
           </Link>
         </div>
       </section>
@@ -1790,7 +1790,7 @@ export default async function TeacherExamBuilderPage({
             <span className="builderFlowLabel">Next best step</span>
             <strong>Link questions before publishing this exam</strong>
             <p>
-              This exam shell is ready, but it still has no mapped questions. Open the linked-questions workspace and
+              This exam shell is ready, but it still has no mapped questions. Open the linked-questions view and
               attach items from the teacher question bank.
             </p>
           </div>
@@ -1799,7 +1799,7 @@ export default async function TeacherExamBuilderPage({
               Link Questions
             </Link>
             <Link className="button buttonGhost" href="/teacher/question-bank">
-              Review Question Bank
+              View Question Bank
             </Link>
           </div>
         </section>
@@ -1879,7 +1879,7 @@ export default async function TeacherExamBuilderPage({
                   Link Questions
                 </Link>
                 <Link className="button buttonGhost" href={`/teacher/exams/${detail.id}`}>
-                  Open delivery view
+                  View delivery
                 </Link>
               </div>
             </div>

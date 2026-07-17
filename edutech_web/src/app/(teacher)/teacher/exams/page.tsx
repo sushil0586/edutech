@@ -157,11 +157,11 @@ export default async function TeacherExamsPage({
     <div className="studentPage studentDashboardModern teacherConsolePage teacherExamsPageVivid">
       <TeacherPageHeader
         title="Exam Management"
-        description="Track exam readiness, learner coverage, and delivery state from one workspace."
+        description="Track exam readiness, learner coverage, and delivery state from one view."
         action={
           <div className="pageHeaderActionGroup">
             <Link className="button buttonSecondary" href="/teacher/exams/new">
-              Quick Create
+              New Exam
             </Link>
             <Link className="button buttonPrimary" href="/teacher/exams/advanced">
               Advanced Builder
@@ -231,13 +231,13 @@ export default async function TeacherExamsPage({
             </div>
             <div className="studentInsightHeroActions">
               <Link className="button buttonPrimary" href="/teacher/exams/new">
-                Quick Create
+                New Exam
               </Link>
               <Link className="button buttonSecondary" href="/teacher/exams/advanced">
                 Advanced Builder
               </Link>
               <Link className="button buttonSecondary" href="/teacher/results">
-                Open Results
+                View Results
               </Link>
             </div>
           </section>
@@ -320,10 +320,10 @@ export default async function TeacherExamsPage({
               </label>
               <div className="workspaceFilterActions">
                 <button className="button buttonPrimary" type="submit">
-                  Apply filters
+                  Update View
                 </button>
                 <Link className="button buttonSecondary" href="/teacher/exams">
-                  Reset filters
+                  Reset View
                 </Link>
               </div>
             </form>
@@ -473,7 +473,7 @@ export default async function TeacherExamsPage({
                               Setup
                             </Link>
                             <Link className="button buttonPrimary" href={`/teacher/exams/${exam.id}`}>
-                              Open Exam
+                              View Exam
                             </Link>
                           </div>
                         </div>

@@ -2399,7 +2399,7 @@ export function TeacherQuestionBankWorkspace({
 
             <div className="questionBankButtonRow">
               <button className="button buttonPrimary" type="submit">
-                Apply Filters
+                Update View
               </button>
               <button
                 className="button buttonGhost"
@@ -2823,7 +2823,7 @@ export function TeacherQuestionBankWorkspace({
         ) : (
           <div className="questionBankInlineControls">
             <span className="questionBankInlineHint">
-              Bulk mutation tools are hidden in linked review mode. Open a question preview to inspect it, or create an editable copy when you need local customization.
+              Bulk tools are hidden in linked review mode. Preview a question here, or create an editable copy when you need a local version.
             </span>
           </div>
         )}
@@ -2865,7 +2865,7 @@ export function TeacherQuestionBankWorkspace({
                       refreshQuestionPage(1, {});
                     }}
                   >
-                    {isLinkedReviewMode ? "Reset Linked Filters" : "Reset Filters And Show All Questions"}
+                    {isLinkedReviewMode ? "Reset Linked Filters" : "Reset Filters"}
                   </Link>
                 ) : null}
                 <Link className="button buttonSecondary" href={emptyStateActionHref}>
@@ -2882,7 +2882,7 @@ export function TeacherQuestionBankWorkspace({
                     refreshQuestionPage(1, {});
                   }}
                 >
-                  {isLinkedReviewMode ? "Reset Linked Filters" : "Reset Filters And Show All Questions"}
+                  {isLinkedReviewMode ? "Reset Linked Filters" : "Reset Filters"}
                 </Link>
               </div>
             ) : null}
@@ -3036,7 +3036,7 @@ export function TeacherQuestionBankWorkspace({
                       </Link>
                       {!isLinkedReviewMode ? (
                         <Link className="button buttonGhost" href={`${basePath}/new?duplicate=${question.id}`}>
-                          Duplicate
+                          Create Copy
                         </Link>
                       ) : null}
                     </div>
@@ -3051,7 +3051,7 @@ export function TeacherQuestionBankWorkspace({
                           }
                         }}
                       >
-                        Open full review
+                        View full review
                       </summary>
                       <div className="questionBankDetailsBody">
                         {isLoadingQuestionDetail(question.id) ? (
@@ -3269,7 +3269,7 @@ export function TeacherQuestionBankWorkspace({
                                 rel="noreferrer"
                                 target="_blank"
                               >
-                                Open file
+                                View file
                               </a>
                             </div>
                           </article>
@@ -3295,7 +3295,7 @@ export function TeacherQuestionBankWorkspace({
                     Copy Question Text
                   </button>
                   <Link className="button buttonPrimary" href={getQuestionEditorHref(previewQuestion, basePath)}>
-                    {isReadOnlyLibraryQuestion(previewQuestion) ? "Open as Duplicate" : "Open in Editor"}
+                    {isReadOnlyLibraryQuestion(previewQuestion) ? "Open as Copy" : "Open Editor"}
                   </Link>
                 </div>
               </div>

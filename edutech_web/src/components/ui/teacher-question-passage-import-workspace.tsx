@@ -276,7 +276,7 @@ export function TeacherQuestionPassageImportWorkspace({
               Download Template
             </button>
             <Link className="button buttonGhost" href={backHref}>
-              Back to Bank
+              View Bank
             </Link>
           </div>
         </div>
@@ -342,7 +342,7 @@ export function TeacherQuestionPassageImportWorkspace({
 
           <div className="questionBankButtonRow">
             <button className="button buttonPrimary" disabled={isPreviewing} type="submit">
-              {isPreviewing ? "Generating Preview..." : "Preview Import"}
+              {isPreviewing ? "Building Preview..." : "Preview Import"}
             </button>
             <button
               className="button buttonGhost"
@@ -376,7 +376,7 @@ export function TeacherQuestionPassageImportWorkspace({
               onClick={finalizeImport}
               type="button"
             >
-              {isFinalizing ? "Importing Comprehension Sets..." : `Finalize Import (${preview.valid_rows})`}
+              {isFinalizing ? "Importing Comprehension Sets..." : `Import Valid Rows (${preview.valid_rows})`}
             </button>
           </div>
 
@@ -386,7 +386,7 @@ export function TeacherQuestionPassageImportWorkspace({
                 <strong>Duplicate comprehension titles need attention first</strong>
                 <span>
                   {duplicateRows.length} row(s) look like repeated or already-existing set titles in the same academic
-                  scope. Rename them before final import.
+                  scope. Rename them before the final import.
                 </span>
               </div>
             </div>
@@ -465,7 +465,7 @@ export function TeacherQuestionPassageImportWorkspace({
             <div className="builderMiniBanner">
               <div>
                 <strong>{validPreviewRows.length} comprehension rows are ready to import</strong>
-                <span>Finalizing will create shared passages from the current valid preview payloads.</span>
+                <span>Importing now will create shared passages from the current valid preview payloads.</span>
               </div>
             </div>
           ) : null}

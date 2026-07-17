@@ -199,7 +199,7 @@ function TeacherQuestionBankLoadingShell() {
     <div className="studentPage studentPageTight studentDashboardModern teacherConsolePage questionBankPageVivid">
       <TeacherPageHeader
         title="Question Bank"
-        description="Search, filter, and curate reusable questions from one teacher workspace."
+        description="Search, filter, and improve reusable questions from one teacher view."
         statusLabel="Loading question scope"
         statusTone="live"
       />
@@ -359,14 +359,14 @@ async function TeacherQuestionBankPageContent({
     return (
       <div className="studentPage">
         <TeacherPageHeader
-          title="Question Bank"
-          description="This route depends on the live teacher-scoped question bank, academic lookup, and bulk action endpoints."
-        />
+        title="Question Bank"
+        description="This page needs live question bank, academic lookup, and bulk action services."
+      />
         {loadIssue ? <p className="feedbackBanner feedbackBannerError">{loadIssue}</p> : null}
         <StudentStatePanel
           eyebrow="Load issue"
           title="Question bank could not be loaded"
-          description="The question bank workspace needs live question-bank and academic lookup endpoints, and the current request did not complete successfully."
+          description="The question bank needs live question bank and academic lookup services, and this request did not complete successfully."
           bullets={[
             "Teacher question bank endpoint",
             "Programs, subjects, and topics lookups",
@@ -413,21 +413,21 @@ async function TeacherQuestionBankPageContent({
         action={
           <div className="questionBankButtonRow">
             <Link className="button buttonSecondary" href="/teacher/question-bank/import">
-              Import Questions CSV
+              Import Questions
             </Link>
             <Link className="button buttonSecondary" href="/teacher/question-bank/comprehension/import">
-              Import Comprehension CSV
+              Import Comprehension
             </Link>
             <Link className="button buttonSecondary" href="/teacher/question-bank/comprehension/new">
-              Create Comprehension Set
+              New Comprehension Set
             </Link>
             <Link className="button buttonPrimary" href="/teacher/question-bank/new" prefetch>
-              Create Question
+              New Question
             </Link>
           </div>
         }
         title="Question Bank"
-        description="Search, filter, curate, and improve reusable assessment questions from one teacher-scoped workspace."
+        description="Search, filter, and improve reusable assessment questions from one teacher view."
         statusLabel={`${questionPage.count} questions in current backend scope`}
         statusTone="live"
       />
