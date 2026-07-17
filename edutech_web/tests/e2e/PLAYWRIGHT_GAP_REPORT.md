@@ -1,6 +1,6 @@
 # Playwright Gap Report
 
-Last updated: 2026-07-16
+Last updated: 2026-07-17
 
 ## Purpose
 
@@ -33,6 +33,7 @@ Current status:
 - cross-role release-chain coverage now exists
 - multi-role partial-distribution results coverage now exists for teacher, institute, and admin
 - the highest remaining risk has shifted from basic lifecycle proof to state continuity on dense operator pages
+- admin economy continuity coverage now exists for scoped reload and revisit behavior on the question-bank lane
 
 Missing proof:
 
@@ -48,7 +49,6 @@ Why it matters:
 
 Best next automation:
 
-- admin economy session continuity
 - institute results analysis continuity
 - teacher question-bank and reviews continuity
 

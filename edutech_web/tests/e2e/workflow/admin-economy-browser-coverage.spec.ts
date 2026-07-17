@@ -208,6 +208,78 @@ test.describe("Admin economy browser functionality coverage", () => {
     await expect(page.getByText(/all institutes are currently in scope/i).first()).toBeVisible();
   });
 
+  test("@workflow browser coverage keeps admin economy scope and focus steady across reload and revisit", async ({
+    page,
+  }) => {
+    await gotoEconomyLane(
+      page,
+      "/admin/economy?tab=question-bank&focus=packages",
+      "/admin/economy?tab=question-bank",
+    );
+
+    const instituteScope = page.getByRole("combobox", { name: /institute scope/i });
+    await expectSelectHasOptions(instituteScope);
+    const instituteOptions = await getNonEmptyOptionValues(instituteScope);
+    expect(instituteOptions.length).toBeGreaterThan(0);
+    const selectedInstituteId = instituteOptions[0]!;
+
+    await instituteScope.selectOption(selectedInstituteId);
+    const subsection = page.getByRole("combobox", { name: /economy subsection/i });
+    await subsection.selectOption("plans");
+    await page.getByRole("button", { name: /apply filters/i }).click();
+
+    await expect
+      .poll(() => {
+        const url = new URL(page.url());
+        return {
+          tab: url.searchParams.get("tab"),
+          institute: url.searchParams.get("institute"),
+          focus: url.searchParams.get("focus"),
+        };
+      })
+      .toEqual({
+        tab: "question-bank",
+        institute: selectedInstituteId,
+        focus: "plans",
+      });
+
+    const subscriptionCard = economyCard(page, /create and edit recurring plans, cycles, and credit rules/i);
+    const subscriptionWorkspaceView = subscriptionCard.getByLabel(/subscription plan workspace view/i);
+    const subscriptionRows = subscriptionCard.getByLabel(/subscription plan rows to show/i);
+    const subscriptionRowOptions = await getNonEmptyOptionValues(subscriptionRows);
+    expect(subscriptionRowOptions.length).toBeGreaterThan(0);
+    const selectedRowCount = subscriptionRowOptions.includes("25")
+      ? "25"
+      : subscriptionRowOptions[subscriptionRowOptions.length - 1]!;
+
+    await subscriptionWorkspaceView.selectOption("all");
+    await subscriptionRows.selectOption(selectedRowCount);
+    await expect(subscriptionWorkspaceView).toHaveValue("all");
+    await expect(subscriptionRows).toHaveValue(selectedRowCount);
+    await expect(subscriptionCard.getByText(/question-bank package access/i).first()).toBeVisible();
+
+    await page.reload();
+    await expect(page.getByRole("heading", { name: /^economy$/i }).first()).toBeVisible();
+    await expect(page).toHaveURL(
+      new RegExp(
+        `/admin/economy\\?tab=question-bank(?:&[^#]*)?focus=plans(?:&[^#]*)?institute=${selectedInstituteId}|/admin/economy\\?tab=question-bank(?:&[^#]*)?institute=${selectedInstituteId}(?:&[^#]*)?focus=plans`,
+      ),
+    );
+    await expect(page.getByRole("combobox", { name: /institute scope/i })).toHaveValue(selectedInstituteId);
+    await expectLaneFocusControl(page, "plans");
+    await expect(subscriptionWorkspaceView).toHaveValue("editor");
+    await expect(subscriptionRows).toBeVisible();
+    await expect(subscriptionCard.getByText(/question-bank package access/i).first()).toBeVisible();
+
+    await page.goto(page.url());
+    await expect(page.getByRole("heading", { name: /^economy$/i }).first()).toBeVisible();
+    await expect(page.getByRole("combobox", { name: /institute scope/i })).toHaveValue(selectedInstituteId);
+    await expectLaneFocusControl(page, "plans");
+    await expect(subscriptionWorkspaceView).toHaveValue("editor");
+    await expect(subscriptionRows).toBeVisible();
+    await expect(subscriptionCard.getByText(/question-bank package access/i).first()).toBeVisible();
+  });
+
   test("@workflow browser coverage keeps scoped support and question-bank counts internally consistent", async ({
     page,
   }) => {
