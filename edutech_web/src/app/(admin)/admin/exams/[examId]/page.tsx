@@ -456,7 +456,7 @@ export default async function PlatformAdminExamDetailPage({
     <div className="studentPage studentDashboardModern instituteConsolePage instituteExamsPageVivid">
       <PlatformAdminPageHeader
         title={detail.title}
-        description="Platform-admin exam setup, assignment, source governance, and lifecycle control backed by live exam APIs."
+        description="Exam setup, assignment, source governance, and lifecycle control backed by live exam APIs."
         statusLabel={titleCase(detail.status)}
         statusTone={
           detail.status === "live"
@@ -477,7 +477,7 @@ export default async function PlatformAdminExamDetailPage({
           <span className="studentDashboardTag">Delivery Control</span>
           <strong>Manage lifecycle, access, and assigned learners from one live exam view</strong>
           <p>
-            This screen is the operational control surface for one exam. Use it to move the paper through
+            This screen is the control surface for one exam. Use it to move the paper through
             backend lifecycle states and verify whether questions, students, and access settings are ready.
           </p>
           <small>
@@ -486,7 +486,7 @@ export default async function PlatformAdminExamDetailPage({
         </div>
         <div className="studentInsightHeroActions">
           <Link className="button buttonPrimary" href={`/admin/exams/${detail.id}/builder`}>
-            Open Builder
+            View Builder
           </Link>
           <Link className="button buttonSecondary" href={`/admin/exams/${detail.id}/builder?tab=questions`}>
             Link Questions
@@ -495,7 +495,7 @@ export default async function PlatformAdminExamDetailPage({
             Advanced Builder
           </Link>
           <Link className="button buttonSecondary" href="/admin/reports">
-            Open Reports
+            View Reports
           </Link>
         </div>
       </section>
@@ -567,7 +567,7 @@ export default async function PlatformAdminExamDetailPage({
       <section className="dashboardGrid">
         <article className="dashboardPanel weakTopicsPanel">
           <div className="sectionHeading">
-            <strong>Runtime Ops Snapshot</strong>
+            <strong>Runtime Snapshot</strong>
             <span>{runtimeOps.pressureLabel}</span>
           </div>
           <div className="questionBankTagRow">
@@ -729,7 +729,7 @@ export default async function PlatformAdminExamDetailPage({
             </>
           ) : (
             <p className="emptyText">
-              Result publish readiness is unavailable right now. Open reports or results tooling after backend verification.
+              Result publish readiness is unavailable right now. Open reports or results tools after backend verification.
             </p>
           )}
         </article>
@@ -739,7 +739,7 @@ export default async function PlatformAdminExamDetailPage({
         <article className="dashboardPanel insightPanel">
           <div className="sectionHeading">
             <strong>Exam Build</strong>
-            <Link href="/admin/exams/advanced">Open advanced builder</Link>
+            <Link href="/admin/exams/advanced">View advanced builder</Link>
           </div>
           <p className="emptyText">
             Keep build actions close to delivery control so platform admins can move from governance review into
@@ -747,16 +747,16 @@ export default async function PlatformAdminExamDetailPage({
           </p>
           <div className="resultCardActions examDetailActionGrid">
             <Link className="button buttonPrimary" href={`/admin/exams/${detail.id}/builder`}>
-              Open Setup Workspace
+              View Setup
             </Link>
             <Link className="button buttonSecondary" href={`/admin/exams/${detail.id}/builder?tab=questions`}>
               Link Questions
             </Link>
             <Link className="button buttonGhost" href="/admin/exams/new">
-              Quick Create Another
+              New Exam
             </Link>
             <Link className="button buttonGhost" href="/admin/exams/advanced">
-              Launch Advanced Builder
+              View Advanced Builder
             </Link>
           </div>
           <div className="examMetaGrid">

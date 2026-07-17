@@ -703,7 +703,7 @@ export default async function PlatformAdminExamBuilderPage({
       <div className="studentPage instituteConsolePage instituteExamBuilderPageVivid">
         <PlatformAdminPageHeader
           title="Exam Builder"
-          description="This route depends on live platform-admin exam builder data from the backend."
+          description="This page depends on live exam builder data from the backend."
         />
         <StudentStatePanel
           eyebrow="Load issue"
@@ -1626,7 +1626,7 @@ export default async function PlatformAdminExamBuilderPage({
     <div className="studentPage studentDashboardModern instituteConsolePage instituteExamBuilderPageVivid">
       <PlatformAdminPageHeader
         title={`${detail.title} Builder`}
-        description="Edit the exam configuration, shape sections, attach questions, and control the student audience from one platform-admin workflow."
+        description="Edit exam configuration, shape sections, attach questions, and control the student audience from one workflow."
         statusLabel={titleCase(detail.status)}
         statusTone={
           detail.status === "live"
@@ -1643,17 +1643,17 @@ export default async function PlatformAdminExamBuilderPage({
       <section className="studentInsightHeroCard studentInsightHeroCardCompact">
         <div className="studentInsightHeroCopy">
           <span className="studentDashboardTag">Unified Builder</span>
-          <strong>Exam builder workflow</strong>
+          <strong>Exam builder</strong>
           <small>
             {activeSections.length} sections · {activeExamQuestions.length} linked questions · {activeAssignedStudents.length} learners
           </small>
         </div>
         <div className="studentInsightHeroActions">
           <Link className="button buttonPrimary" href={`/admin/exams/${detail.id}`}>
-            Open Delivery View
+            View Delivery
           </Link>
           <Link className="button buttonSecondary" href="/admin/reports">
-            Open Reports
+            View Reports
           </Link>
         </div>
       </section>
@@ -1687,7 +1687,7 @@ export default async function PlatformAdminExamBuilderPage({
             <span className="builderFlowLabel">Next best step</span>
             <strong>Link questions before publishing this exam</strong>
             <p>
-              This exam shell is ready, but it still has no mapped questions. Open the linked-questions workspace and
+              This exam shell is ready, but it still has no mapped questions. Open the linked-questions view and
               attach items from the scoped question inventory.
             </p>
           </div>
@@ -1696,7 +1696,7 @@ export default async function PlatformAdminExamBuilderPage({
               Link Questions
             </Link>
             <Link className="button buttonGhost" href="/admin/academic-setup">
-              Review Academic Setup
+              View Academic Setup
             </Link>
           </div>
         </section>
@@ -1776,7 +1776,7 @@ export default async function PlatformAdminExamBuilderPage({
                   Link Questions
                 </Link>
                 <Link className="button buttonGhost" href={`/admin/exams/${detail.id}`}>
-                  Open delivery view
+                  View delivery
                 </Link>
               </div>
             </div>

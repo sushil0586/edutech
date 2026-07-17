@@ -226,14 +226,14 @@ export default async function PlatformAdminExamsPage({
     <div className="studentPage studentDashboardModern instituteConsolePage instituteExamsPageVivid">
       <PlatformAdminPageHeader
         title="Exam Management"
-        description="Review exam coverage and create exam shells from one governance workspace."
+        description="Review exam coverage and create exam shells from one governance view."
         action={
           <div className="pageHeaderActionGroup">
             <Link className="button buttonGhost" href="/admin/exams/preset-packs">
               Preset Library
             </Link>
             <Link className="button buttonSecondary" href="/admin/exams/new">
-              Quick Create
+              New Exam
             </Link>
             <Link className="button buttonPrimary" href="/admin/exams/advanced">
               Advanced Builder
@@ -270,13 +270,13 @@ export default async function PlatformAdminExamsPage({
             </div>
             <div className="studentInsightHeroActions">
               <Link className="button buttonPrimary" href="/admin/exams/new">
-                Quick Create
+                New Exam
               </Link>
               <Link className="button buttonSecondary" href="/admin/exams/advanced">
                 Advanced Builder
               </Link>
               <Link className="button buttonSecondary" href="/admin/academic-setup">
-                Open Academic Setup
+                View Academic Setup
               </Link>
             </div>
           </section>
@@ -369,10 +369,10 @@ export default async function PlatformAdminExamsPage({
               </label>
               <div className="workspaceFilterActions workspaceFilterActionsFullRow">
                 <button className="button buttonPrimary" type="submit">
-                  Apply filters
+                  Update View
                 </button>
                 <Link className="button buttonSecondary" href="/admin/exams">
-                  Reset filters
+                  Reset View
                 </Link>
               </div>
             </form>
@@ -530,16 +530,16 @@ export default async function PlatformAdminExamsPage({
                           </span>
                         </div>
 
-                        <div className="resultCardActions">
-                          <Link className="button buttonSecondary" href={`/admin/exams/${exam.id}/builder?tab=questions`}>
-                            Link Questions
-                          </Link>
-                          <Link className="button buttonGhost" href={`/admin/exams/${exam.id}/builder`}>
-                            Setup
-                          </Link>
-                          <Link className="button buttonPrimary" href={`/admin/exams/${exam.id}`}>
-                            Open Exam
-                          </Link>
+                          <div className="resultCardActions">
+                            <Link className="button buttonSecondary" href={`/admin/exams/${exam.id}/builder?tab=questions`}>
+                              Link Questions
+                            </Link>
+                            <Link className="button buttonGhost" href={`/admin/exams/${exam.id}/builder`}>
+                              Setup
+                            </Link>
+                            <Link className="button buttonPrimary" href={`/admin/exams/${exam.id}`}>
+                              View Exam
+                            </Link>
                         </div>
                       </div>
                     </article>

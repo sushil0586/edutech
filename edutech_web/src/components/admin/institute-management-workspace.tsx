@@ -1536,14 +1536,14 @@ export function InstituteManagementWorkspace({
               </article>
             </div>
           </div>
-          <div className="studentInsightHeroActions adminInstituteHeroActions">
-            <Link className="button buttonPrimary" href="/admin/academic-setup">
-              Open Academic Setup
-            </Link>
-            <Link className="button buttonSecondary" href="/admin/settings">
-              Open Settings
-            </Link>
-          </div>
+        <div className="studentInsightHeroActions adminInstituteHeroActions">
+          <Link className="button buttonPrimary" href="/admin/academic-setup">
+            View Academic Setup
+          </Link>
+          <Link className="button buttonSecondary" href="/admin/settings">
+            View Settings
+          </Link>
+        </div>
         </div>
       </section>
 
@@ -1613,7 +1613,7 @@ export function InstituteManagementWorkspace({
       </div>
 
       {isSelectionLoading ? (
-        <p className="feedbackBanner">Loading selected institute workspace...</p>
+        <p className="feedbackBanner">Loading selected institute view...</p>
       ) : null}
 
       <div className="adminInstituteLayout">
@@ -1838,7 +1838,7 @@ export function InstituteManagementWorkspace({
                     }
                     type="button"
                   >
-                    Open Master Defaults
+                    View Master Defaults
                   </button>
                   {mergedInstitute.onboarding_run_status &&
                   mergedInstitute.onboarding_run_status !== "completed" ? (
@@ -1865,7 +1865,7 @@ export function InstituteManagementWorkspace({
                 <div className="weakTopicRow">
                   <div>
                     <strong>Onboarding history</strong>
-                    <span>Recent runs for this institute, including create-time and Master defaults driven onboarding.</span>
+                    <span>Recent runs for this institute, including create-time and Master Defaults onboarding.</span>
                   </div>
                   <div className="weakTopicMeta">
                     <strong>{currentOnboardingRuns.length}</strong>
@@ -1939,7 +1939,7 @@ export function InstituteManagementWorkspace({
                                   </div>
                                   <details>
                                     <summary className="setupFieldMeta" style={{ cursor: "pointer" }}>
-                                      View result payload
+                                      View result
                                     </summary>
                                     <pre
                                       className="adminInstituteTaskResultPre"
@@ -1977,7 +1977,7 @@ export function InstituteManagementWorkspace({
                             }
                             type="button"
                           >
-                            Open This Run
+                            View This Run
                           </button>
                           {run.status !== "completed" ? (
                             <button
@@ -2118,7 +2118,7 @@ export function InstituteManagementWorkspace({
           onSubmit={createInstitute}
           saving={creating}
           selectedOnboardingProfileCode={createOnboardingProfileCode}
-          subtitle="Create a new institute without crowding the main page."
+          subtitle="Create a new institute without crowding the main view."
           title="Add Institute"
           updateField={updateCreateField}
         />
