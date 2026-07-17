@@ -378,7 +378,7 @@ export default async function TeacherReviewsPage({
     <div className="teacherConsolePage">
       <TeacherPageHeader
         title="Review Queue"
-        description="Score descriptive and essay responses before publication is delayed."
+        description="Score descriptive and essay responses before publication slows down."
         contextLabel="Teacher review workspace"
         statusLabel={`${summary.pending} pending`}
         statusTone={summary.pending > 0 ? "warning" : "live"}
@@ -395,7 +395,7 @@ export default async function TeacherReviewsPage({
               </button>
             </form>
             <Link className="button buttonSecondary" href={exam ? `/teacher/results?exam=${encodeURIComponent(exam)}` : "/teacher/results"}>
-              Open Results
+              View Results
             </Link>
           </div>
         }
@@ -411,10 +411,10 @@ export default async function TeacherReviewsPage({
           </div>
           <div className="resultCardActions">
             <Link className="button buttonPrimary" href={`/teacher/exams/${encodeURIComponent(exam)}`}>
-              Back to Exam
+              View Exam
             </Link>
             <Link className="button buttonSecondary" href={`/teacher/results?exam=${encodeURIComponent(exam)}`}>
-              Open Results
+              View Results
             </Link>
             <Link className="button buttonGhost" href={buildTeacherReviewQueueHref({})}>
               Clear Scope
@@ -435,7 +435,7 @@ export default async function TeacherReviewsPage({
               className="button buttonGhost"
               href={buildTeacherReviewQueueHref({ exam, status: "pending", search, pageSize })}
             >
-              Open pending
+              View pending
             </Link>
           </div>
         </article>
@@ -450,7 +450,7 @@ export default async function TeacherReviewsPage({
               className="button buttonGhost"
               href={buildTeacherReviewQueueHref({ exam, status: "reviewed", search, pageSize })}
             >
-              Open reviewed
+              View reviewed
             </Link>
           </div>
         </article>
@@ -803,7 +803,7 @@ export default async function TeacherReviewsPage({
         </div>
         <div className="teacherResultsReadinessCard">
           <div className="teacherResultsReadinessCardTop">
-            <strong>How to use this queue</strong>
+            <strong>How to work this queue</strong>
             <span className="statusPill statusDemo">Reviewer flow</span>
           </div>
           <ul>
@@ -838,7 +838,7 @@ export default async function TeacherReviewsPage({
           </label>
           <div className="resultCardActions">
             <button className="buttonPrimary" type="submit">
-              Apply filters
+              Update view
             </button>
             <Link className="button buttonGhost" href={buildTeacherReviewQueueHref({ exam })}>
               Reset
@@ -935,7 +935,7 @@ export default async function TeacherReviewsPage({
                           task: task.id,
                         })}
                       >
-                        Open task
+                        Review task
                       </Link>
                     </div>
                   </article>
@@ -972,10 +972,10 @@ export default async function TeacherReviewsPage({
               </p>
               <div className="resultCardActions" style={{ marginTop: 12 }}>
                 <Link className="button buttonSecondary" href="/teacher/exams">
-                  Open Exams
+                  View Exams
                 </Link>
                 <Link className="button buttonGhost" href="/teacher/results">
-                  Open Results
+                  View Results
                 </Link>
               </div>
             </div>
