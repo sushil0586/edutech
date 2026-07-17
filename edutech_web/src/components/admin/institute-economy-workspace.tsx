@@ -613,8 +613,8 @@ export function InstituteEconomyWorkspace({
           <span className="studentDashboardTag">Student support actions</span>
           <h3>Inspect wallet state and perform controlled admin actions</h3>
           <p className="academicSectionDescription">
-            This workspace stays tied to live institute-scoped economy endpoints. It supports wallet visibility, reward
-            inspection, star grants, and unlock refresh without hardcoded pricing assumptions.
+            Use this workspace for live wallet visibility, reward inspection, star grants, and unlock refresh inside
+            the current institute scope.
           </p>
 
           {policy ? (
@@ -623,8 +623,8 @@ export function InstituteEconomyWorkspace({
                 Active policy:
                 {" "}
                 {policy.role === "platform_admin"
-                  ? "Platform admin has full support-action scope. Catalog governance remains platform-owned."
-                  : `Institute admin support scope is institute-only. Grant limit: ${grantLimitLabel}. Order confirmation limit: ${orderLimitLabel}. Catalog governance remains platform-owned.`}
+                  ? "Platform admin has full support-action scope. Catalog governance stays platform-owned."
+                  : `Institute admin support scope is institute-only. Grant limit: ${grantLimitLabel}. Order confirmation limit: ${orderLimitLabel}.`}
               </p>
             </div>
           ) : null}

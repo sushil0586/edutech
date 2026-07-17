@@ -1164,7 +1164,7 @@ export default async function AdminEconomyPage({
     <section className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteSupportPageVivid adminEconomyPage">
       <PlatformAdminPageHeader
         title="Economy"
-        description="Review platform-visible economy coverage, operate student support actions, and keep catalog governance tied to platform-owned policy rather than hardcoded pricing assumptions."
+        description="Review platform economy coverage, handle support actions, and manage catalog policy from one operator workspace."
         statusLabel={economyHeaderStatus.label}
         statusTone={economyHeaderStatus.tone}
       />
@@ -1174,8 +1174,8 @@ export default async function AdminEconomyPage({
           <span className="studentDashboardTag">Economy Governance</span>
           <strong>Economy and access overview</strong>
           <p>
-            Platform admin owns cross-institute economy design, seed rollout, and catalog governance. This workspace
-            also remains the highest-scope operator lane for student wallet support and settlement review.
+            Platform admin owns cross-institute economy design, catalog governance, and the highest-scope student
+            support lane.
           </p>
           <small>
             {selectedInstituteId
@@ -1185,10 +1185,10 @@ export default async function AdminEconomyPage({
         </div>
         <div className="studentInsightHeroActions">
           <Link className="button buttonPrimary" href="/admin/institutes">
-            Open Institutes
+            View Institutes
           </Link>
           <Link className="button buttonSecondary" href="/admin/settings">
-            Open Settings
+            View Settings
           </Link>
         </div>
       </section>
@@ -1199,8 +1199,8 @@ export default async function AdminEconomyPage({
             <span className="studentDashboardTag">Workspace filters</span>
             <h3>Scope the page before reviewing data</h3>
             <p>
-              Keep the visible dataset small by choosing one institute and one subsection at a time before scanning
-              package, entitlement, or support records.
+              Choose one institute and one subsection at a time before scanning package, entitlement, or support
+              records.
             </p>
             <form
               key={`${activeTab}:${selectedInstituteId || "all"}:${activeFocus}`}
@@ -1239,7 +1239,7 @@ export default async function AdminEconomyPage({
               <div className="economyVisibilityActions">
                 <div className="buttonRow">
                   <button className="button buttonPrimary" type="submit">
-                    Apply Filters
+                    Update View
                   </button>
                   <Link className="button buttonSecondary" href={`/admin/economy?tab=${activeTab}`}>
                     Reset Scope
@@ -1279,7 +1279,7 @@ export default async function AdminEconomyPage({
             <p>{activeTabMeta.description}</p>
             <div className="studentInsightHeroActions">
               <Link className="button buttonPrimary" href={economyScopedHref(activeTab, activeFocus, selectedInstituteId)}>
-                Reload This Lane
+                Refresh Lane
               </Link>
               <Link
                 className="button buttonSecondary"
@@ -1298,16 +1298,16 @@ export default async function AdminEconomyPage({
                 }
               >
                 {activeTab === "overview"
-                  ? "Open Support Ops"
+                  ? "Go To Support Ops"
                   : activeTab === "catalog"
-                    ? "Open Question Bank Commerce"
+                    ? "Go To Question Bank Commerce"
                     : activeTab === "access-control"
-                      ? "Open Support Ops"
+                      ? "Go To Support Ops"
                       : activeTab === "question-bank"
-                        ? "Open Catalog"
+                        ? "Go To Catalog"
                         : activeTab === "support-ops"
-                          ? "Open Overview"
-                          : "Open Overview"}
+                          ? "Go To Overview"
+                          : "Go To Overview"}
               </Link>
             </div>
           </div>
@@ -1489,7 +1489,7 @@ export default async function AdminEconomyPage({
                       <div className="weakTopicRow">
                         <div>
                           <strong>Exam-level access policy visibility</strong>
-                          <span>Economy policy setup still flows from exam creation and exam detail configuration.</span>
+                          <span>Access policy setup still flows from exam creation and exam detail configuration.</span>
                         </div>
                         <div className="weakTopicMeta">
                           <strong>{gatedExamCount}</strong>
@@ -1499,7 +1499,7 @@ export default async function AdminEconomyPage({
                       <div className="weakTopicRow">
                         <div>
                           <strong>Student support actions</strong>
-                          <span>Wallet inspection, reward review, controlled star grants, unlock recalculation, and pending order confirmation are supported.</span>
+                          <span>Wallet inspection, reward review, star grants, unlock recalculation, and order confirmation are supported here.</span>
                         </div>
                         <div className="weakTopicMeta">
                           <strong>{visibleStudentCount}</strong>
@@ -1509,7 +1509,7 @@ export default async function AdminEconomyPage({
                       <div className="weakTopicRow">
                         <div>
                           <strong>Catalog and policy governance</strong>
-                          <span>Pack, subscription, referral, unlock-rule, and institute-admin support policy controls now live here as platform-owned governance lanes.</span>
+                          <span>Pack, subscription, referral, unlock-rule, and support-policy controls stay platform-owned here.</span>
                         </div>
                         <div className="weakTopicMeta">
                           <strong>Platform-owned</strong>
@@ -1578,7 +1578,7 @@ export default async function AdminEconomyPage({
                       <div className="weakTopicRow">
                         <div>
                           <strong>Institutes with visible usage</strong>
-                          <span>These are the institutes generating package-usage evidence right now.</span>
+                          <span>Institutes currently generating package-usage evidence.</span>
                         </div>
                         <div className="weakTopicMeta">
                           <strong>{Object.keys(usageByInstituteCode).length}</strong>
@@ -1588,7 +1588,7 @@ export default async function AdminEconomyPage({
                       <div className="weakTopicRow">
                         <div>
                           <strong>Packages with visible activity</strong>
-                          <span>Usage is concentrated in packages that have link, entitlement, or other operational entries.</span>
+                          <span>Activity is concentrated in packages with link, entitlement, or other operational entries.</span>
                         </div>
                         <div className="weakTopicMeta">
                           <strong>{Object.keys(questionBankUsageByPackageCode).length}</strong>
@@ -1598,7 +1598,7 @@ export default async function AdminEconomyPage({
                       <div className="weakTopicRow">
                         <div>
                           <strong>Entitlement grants recorded</strong>
-                          <span>Direct entitlement materialization remains visible as a usage/audit trail for support and governance review.</span>
+                          <span>Direct entitlement materialization remains visible as audit evidence for support and governance review.</span>
                         </div>
                         <div className="weakTopicMeta">
                           <strong>{entitlementOverrideCount}</strong>
