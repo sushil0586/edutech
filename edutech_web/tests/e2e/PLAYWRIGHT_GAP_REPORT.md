@@ -26,68 +26,13 @@ This is already a large suite. The remaining work is mostly about risk concentra
 
 ## Top gaps to prioritize
 
-## 1. Full release chain across all four roles
+## 1. Operator long-session and resume behavior
 
-Missing proof:
+Current status:
 
-- one end-to-end scenario that starts with authoring
-- moves through assignment and attempt
-- ends with publish/review/results visibility
-- verifies each role on the same disposable exam in one spec family
-
-Why it matters:
-
-- many current tests prove individual route families well
-- fewer tests prove the whole lifecycle stays coherent across role boundaries
-
-Best next automation:
-
-- disposable teacher-created exam
-- student attempt
-- teacher review or publish step
-- institute or admin oversight confirmation
-- student final result/review visibility assertion
-
-## 2. Multi-learner distribution and ranking depth
-
-Missing proof:
-
-- broader leaderboard and result publication coverage with more than one or two learners
-- ties, sparse submissions, absent learners, and partial completion distributions
-
-Why it matters:
-
-- several current results specs are intentionally conservative and single-ranked
-- regressions often appear only when ranking, pagination, and grouped summaries become non-trivial
-
-Best next automation:
-
-- three-to-five learner seeded disposable result set
-- leaderboard rank ties
-- absent learner handling
-- mixed publish-ready vs waiting states
-
-## 3. Negative-path backend error handling on dense forms
-
-Missing proof:
-
-- UI behavior when the backend rejects valid-looking form submissions
-- conflict, validation, permission, and stale-data responses on heavy operator pages
-
-Why it matters:
-
-- current coverage is strong on happy path and many browser-side validations
-- backend contract shifts often fail here first
-
-Best next automation:
-
-- intercept or disposable backend-driven failures for:
-- admin people
-- admin economy
-- institute exams
-- teacher question create/import
-
-## 4. Long-session and resume behavior for operators
+- cross-role release-chain coverage now exists
+- multi-role partial-distribution results coverage now exists for teacher, institute, and admin
+- the highest remaining risk has shifted from basic lifecycle proof to state continuity on dense operator pages
 
 Missing proof:
 
@@ -98,8 +43,8 @@ Missing proof:
 
 Why it matters:
 
-- student long-session behavior has some attention
-- operator workspaces are dense and stateful, but their long-session reliability is still thinner
+- operator workspaces are dense and stateful
+- a lot of recent coverage now proves the workflows themselves, but not their durability over longer sessions
 
 Best next automation:
 
@@ -107,7 +52,7 @@ Best next automation:
 - institute results analysis continuity
 - teacher question-bank and reviews continuity
 
-## 5. Cross-browser mutation depth beyond a small proof pack
+## 2. Cross-browser mutation depth beyond a small proof pack
 
 Missing proof:
 
@@ -127,7 +72,32 @@ Best next automation:
 - teacher draft-question edit
 - student exam-key or practice preference persistence
 
-## 6. Parent and operator role depth
+## 3. Remaining backend-error negative-path depth outside admin economy
+
+Current status:
+
+- admin dense-form backend rejection coverage is materially stronger now
+- current browser coverage includes admin people duplicate rejection, admin economy package and subscription-plan rejection, subscription-plan apply stale-target rejection, support grant and unlock stale-target rejection, and catalog-governance stale-item rejection
+
+Missing proof:
+
+- backend-error handling on institute-heavy dense forms
+- teacher authoring/import failure surfaces
+- order-confirmation and queue-review failure paths that do not depend on ambient seeded queue data
+
+Why it matters:
+
+- backend contract shifts still tend to fail first on mutation-heavy operator pages
+- admin coverage is much better, but equivalent depth is still thinner elsewhere
+
+Best next automation:
+
+- institute exams negative-path pack
+- teacher question create/import backend rejection pack
+- admin support-ops order-confirmation rejection
+- admin request-queue review rejection with deterministic disposable setup
+
+## 4. Parent and operator role depth
 
 Missing proof:
 
@@ -144,7 +114,7 @@ Best next automation:
 - parent progress/results review flow
 - operator watchlist or support-task flow with one real action and one guarded action
 
-## 7. Download and export contracts
+## 5. Download and export contracts
 
 Missing proof:
 
@@ -161,7 +131,7 @@ Best next automation:
 - results export content smoke
 - question import template/sample download assertions
 
-## 8. Weak-network and recovery coverage outside student flows
+## 6. Weak-network and recovery coverage outside student flows
 
 Missing proof:
 
@@ -178,7 +148,7 @@ Best next automation:
 - institute question-bank slow/filter recovery
 - teacher results analysis delayed-panel recovery
 
-## 9. File import failure matrix
+## 7. File import failure matrix
 
 Missing proof:
 
@@ -196,7 +166,7 @@ Best next automation:
 
 - one focused import error pack shared across admin, institute, and teacher import surfaces
 
-## 10. Repeated-run stability evidence for broader packs
+## 8. Repeated-run stability evidence for broader packs
 
 Missing proof:
 
@@ -229,11 +199,11 @@ These would increase spec count faster than confidence.
 
 If we want the highest confidence return for the next automation round, the best batch is:
 
-1. one full cross-role release-chain spec
-2. one multi-learner results distribution spec
-3. one backend-error negative-path pack for dense forms
-4. one Firefox/WebKit reversible mutation pack
-5. one import-failure matrix pack
+1. one operator long-session continuity pack
+2. one Firefox/WebKit reversible mutation pack
+3. one backend-error pack outside admin economy
+4. one import-failure matrix pack
+5. one download/export contract pack
 
 ## Related docs
 
