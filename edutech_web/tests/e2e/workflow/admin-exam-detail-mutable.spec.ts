@@ -43,6 +43,55 @@ async function deleteAdminExamDirectly(page: Page, examId: string) {
   expect(response.ok()).toBe(true);
 }
 
+async function findAdminExamIdByCode(page: Page, examCode: string) {
+  const accessToken = await backendAccessToken(page);
+
+  function examRowsFromPayload(payload: unknown) {
+    if (Array.isArray(payload)) {
+      return payload as Array<{ id: string; code?: string | null }>;
+    }
+    if (
+      payload &&
+      typeof payload === "object" &&
+      Array.isArray((payload as { results?: unknown }).results)
+    ) {
+      return (payload as { results: Array<{ id: string; code?: string | null }> }).results;
+    }
+    return [] as Array<{ id: string; code?: string | null }>;
+  }
+
+  await expect
+    .poll(
+      async () => {
+        const response = await page.request.get(`${adminApiBaseUrl}/api/v1/exams/?page_size=300`, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+          timeout: 15000,
+        });
+        expect(response.ok()).toBe(true);
+        const payload = await response.json();
+        const examRows = examRowsFromPayload(payload);
+        return examRows.find((exam) => (exam.code ?? "").trim() === examCode)?.id ?? null;
+      },
+      { timeout: 30000 },
+    )
+    .not.toBeNull();
+
+  const response = await page.request.get(`${adminApiBaseUrl}/api/v1/exams/?page_size=300`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    timeout: 15000,
+  });
+  expect(response.ok()).toBe(true);
+  const payload = await response.json();
+  const examRows = examRowsFromPayload(payload);
+  const examId = examRows.find((exam) => (exam.code ?? "").trim() === examCode)?.id ?? null;
+  expect(examId).not.toBeNull();
+  return examId!;
+}
+
 test.describe("Admin mutable exam detail actions", () => {
   test.skip(
     testRequiresRole("admin"),
@@ -85,13 +134,7 @@ test.describe("Admin mutable exam detail actions", () => {
 
       await page.getByRole("button", { name: /create exam shell/i }).click();
       await expect(page).toHaveURL(/\/admin\/exams\?message=/, { timeout: 30000 });
-      const createdExamCard = page.locator("article").filter({
-        has: page.getByText(new RegExp(escapeRegExp(examTitle), "i")).first(),
-      }).first();
-      await expect(createdExamCard).toBeVisible();
-      const openExamHref = await createdExamCard.getByRole("link", { name: /open exam/i }).getAttribute("href");
-      examId = openExamHref?.match(/\/admin\/exams\/([^/?#]+)/)?.[1] ?? null;
-      expect(examId).not.toBeNull();
+      examId = await findAdminExamIdByCode(page, examCode);
 
       await page.goto(`/admin/exams/${examId}`);
       const examDetailBaseUrl = page.url().split("?")[0] ?? page.url();

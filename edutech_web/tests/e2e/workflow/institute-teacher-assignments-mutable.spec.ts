@@ -89,6 +89,11 @@ test.describe("Institute mutable teacher-assignment actions", () => {
       teacherId = teacherPayload.id ?? null;
       expect(teacherId).not.toBeNull();
 
+      await expect(teacherDialog).toBeHidden();
+      await expect(page).toHaveURL(/\/institute\/people\?view=teachers/);
+      await expect(page.getByRole("heading", { name: /teacher roster/i })).toBeVisible();
+      await page.waitForLoadState("networkidle");
+
       await page.goto("/institute/teacher-assignments");
       await expect(page.getByRole("heading", { name: /teacher assignments/i }).first()).toBeVisible();
 

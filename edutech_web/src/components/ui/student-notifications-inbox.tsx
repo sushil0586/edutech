@@ -287,7 +287,7 @@ export function StudentNotificationsInbox({
                   <p className="studentNotificationMessage">{notification.message}</p>
 
                   <div className="studentResultFooter">
-                    <div className="studentResultHelper">
+                    <div className="studentResultHelper studentNotificationMeta">
                       <span>Related object</span>
                       <strong>
                         {notification.related_object_type
@@ -299,11 +299,11 @@ export function StudentNotificationsInbox({
                       </strong>
                       <small>
                         {notification.is_read
-                          ? "Already acknowledged by the learner."
-                          : "Unread and waiting for learner action. Mark it read after you have checked the linked exam, result, or summary state."}
+                          ? "Already acknowledged."
+                          : "Unread. Check the linked learner state, then mark this as read."}
                       </small>
                     </div>
-                    <div className="studentInsightHeroActions">
+                    <div className="studentInsightHeroActions studentNotificationActions">
                       <span
                         className={`statusPill ${
                           notification.is_read ? "statusLive" : "statusWarning"

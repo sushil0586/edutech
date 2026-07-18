@@ -86,10 +86,10 @@ class Command(BaseCommand):
                 subscription_plan_cycle=context["plan_cycle"],
                 status="pending",
                 requested_by=context["institute_admin_user"],
-                grant_modes=[QuestionBankPackageGrantMode.INCLUDED],
                 notes="Disposable rejection profiling.",
                 metadata={"source": "profile_subscription_request_write_path_reject"},
             )
+            reject_request.set_grant_modes([QuestionBankPackageGrantMode.INCLUDED])
             run["reject_subscription_request"] = self._measure(
                 lambda: review_institute_subscription_request(
                     subscription_request=reject_request,

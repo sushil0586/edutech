@@ -86,57 +86,17 @@ INTEGRITY_EVENT_CONFIG = {
 
 
 def normalized_accommodation_profile(student):
-    raw_profile = (
-        student.accommodation_profile
-        if isinstance(getattr(student, "accommodation_profile", {}), dict)
-        else {}
-    )
-
-    def integer_value(key):
-        value = raw_profile.get(key, 0)
-        try:
-            numeric = int(value)
-        except (TypeError, ValueError):
-            return 0
-        return max(numeric, 0)
-
-    def string_value(key):
-        value = raw_profile.get(key, "")
-        return value.strip() if isinstance(value, str) else ""
-
-    extra_time_minutes = min(
-        integer_value("extra_time_minutes"),
-        MAX_ATTEMPT_EXTRA_TIME_MINUTES,
-    )
-    extra_time_percentage = min(integer_value("extra_time_percentage"), 300)
-    additional_violation_allowance = min(
-        integer_value("additional_violation_allowance"),
-        2,
-    )
-    simplified_warning_copy = bool(raw_profile.get("simplified_warning_copy", False))
-    alternative_instructions = string_value("alternative_instructions")
-    notes = string_value("notes")
-
-    has_accommodations = any(
-        [
-            extra_time_minutes > 0,
-            extra_time_percentage > 0,
-            additional_violation_allowance > 0,
-            simplified_warning_copy,
-            bool(alternative_instructions),
-            bool(notes),
-        ]
-    )
-
+    if hasattr(student, "normalized_accommodation_profile"):
+        return student.normalized_accommodation_profile()
     return {
-        "has_accommodations": has_accommodations,
-        "extra_time_minutes": extra_time_minutes,
-        "extra_time_percentage": extra_time_percentage,
-        "additional_violation_allowance": additional_violation_allowance,
-        "simplified_warning_copy": simplified_warning_copy,
-        "alternative_instructions": alternative_instructions,
-        "notes": notes,
-        "source": "student_profile" if has_accommodations else "none",
+        "has_accommodations": False,
+        "extra_time_minutes": 0,
+        "extra_time_percentage": 0,
+        "additional_violation_allowance": 0,
+        "simplified_warning_copy": False,
+        "alternative_instructions": "",
+        "notes": "",
+        "source": "none",
     }
 
 
@@ -1145,6 +1105,14 @@ def _normalized_selected_option_ids(selected_option_ids):
     return [str(option_id) for option_id in selected_option_ids if str(option_id).strip()]
 
 
+def resolved_selected_option_ids(answer):
+    if answer is None:
+        return []
+    if hasattr(answer, "resolved_selected_option_ids"):
+        return answer.resolved_selected_option_ids
+    return _normalized_selected_option_ids(getattr(answer, "selected_option_ids", []))
+
+
 def _normalized_answer_text(answer_text):
     return " ".join(str(answer_text or "").strip().lower().split())
 
@@ -1221,7 +1189,7 @@ def _question_has_response(answer):
         return False
     return bool(
         answer.selected_option_id
-        or _normalized_selected_option_ids(getattr(answer, "selected_option_ids", []))
+        or resolved_selected_option_ids(answer)
         or (answer.answer_text or "").strip()
         or (answer.answer_transcript or "").strip()
         or bool(getattr(answer, "response_artifacts", []) or [])
@@ -1519,7 +1487,6 @@ def _assign_answer_response_fields(
         answer.selected_option = None
     else:
         answer.selected_option = selected_option
-    answer.selected_option_ids = selected_option_ids
     answer.answer_text = answer_text
     if answer_transcript is not None:
         answer.answer_transcript = str(answer_transcript or "").strip()
@@ -1828,12 +1795,14 @@ def save_answer(
     answer.reviewed_by_teacher = None
     answer.reviewed_at = None
     answer.review_notes = ""
+    answer.save()
+    answer.set_selected_option_ids(selected_option_ids)
 
     scoring, evaluation_status = _score_submitted_answer(
         question=question,
         exam_question=exam_question,
         selected_option=selected_option,
-        selected_option_ids=selected_option_ids,
+        selected_option_ids=answer.resolved_selected_option_ids,
         answer_text=answer_text,
     )
     answer.evaluation_status = (
@@ -1845,7 +1814,23 @@ def save_answer(
     answer.marks_awarded = scoring["marks_awarded"]
     answer.negative_marks_applied = scoring["negative_marks_applied"]
 
-    answer.save()
+    answer.save(update_fields=[
+        "selected_option",
+        "answer_text",
+        "answer_transcript",
+        "response_artifacts",
+        "time_spent_seconds",
+        "is_marked_for_review",
+        "answered_at",
+        "reviewed_by_teacher",
+        "reviewed_at",
+        "review_notes",
+        "evaluation_status",
+        "is_correct",
+        "marks_awarded",
+        "negative_marks_applied",
+        "updated_at",
+    ])
     sync_review_task_for_answer(answer)
     bump_student_question_analytics_cache_version(attempt.student)
     return answer

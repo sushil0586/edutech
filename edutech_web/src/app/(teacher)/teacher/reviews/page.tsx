@@ -375,7 +375,7 @@ export default async function TeacherReviewsPage({
   const isFilteredReviewQueueEmpty = taskPage.results.length === 0 && hasActiveQueueControls;
 
   return (
-    <div className="teacherConsolePage">
+    <div className="teacherConsolePage teacherReviewsPageVivid">
       <TeacherPageHeader
         title="Review Queue"
         description="Score descriptive and essay responses before publication slows down."

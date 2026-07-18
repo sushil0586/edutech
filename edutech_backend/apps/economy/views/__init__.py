@@ -2017,7 +2017,7 @@ class InstituteSubscriptionRequestListCreateView(APIView):
                 "created": created,
                 "subscription_plan_cycle_id": str(refreshed.subscription_plan_cycle_id),
                 "subscription_plan_code": refreshed.subscription_plan_cycle.plan.code,
-                "grant_modes": refreshed.grant_modes,
+                "grant_modes": refreshed.resolved_grant_modes,
             },
             request=request,
         )

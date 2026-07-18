@@ -102,7 +102,7 @@ async function requestBackendJson<T>(
   accessToken: string,
   path: string,
   options?: {
-    method?: "GET" | "POST" | "DELETE";
+    method?: "GET" | "POST" | "PATCH" | "DELETE";
     data?: Record<string, unknown>;
   },
 ) {
@@ -117,6 +117,15 @@ async function requestBackendJson<T>(
           data: options.data,
           timeout: 20000,
         })
+      : options?.method === "PATCH"
+        ? await page.request.patch(url, {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+            data: options.data,
+            timeout: 20000,
+          })
       : options?.method === "DELETE"
         ? await page.request.delete(url, {
             headers: {
@@ -372,6 +381,26 @@ async function deleteExamDirectly(page: Page, examId: string) {
   });
 }
 
+async function applyStudentAccommodationProfile(
+  page: Page,
+  accessToken: string,
+  studentProfileId: string,
+) {
+  await requestBackendJson(page, accessToken, `/api/v1/students/${studentProfileId}/`, {
+    method: "PATCH",
+    data: {
+      accommodation_profile: {
+        extra_time_minutes: 10,
+        additional_violation_allowance: 0,
+        simplified_warning_copy: false,
+        alternative_instructions:
+          "Use the standard exam instructions together with this approved support plan.",
+        notes: "Needs extra review time.",
+      },
+    },
+  });
+}
+
 test.describe("Student attempt visual journey", () => {
   test.skip(testRequiresRole("admin"), "Admin Playwright credentials are required.");
 
@@ -401,6 +430,7 @@ test.describe("Student attempt visual journey", () => {
       examId = created.examId;
 
       await assignStudentToExam(page, examId, studentTarget.studentProfileId);
+      await applyStudentAccommodationProfile(page, adminAccessToken, studentTarget.studentProfileId);
       await scheduleAndPublishExam(page, examId);
 
       await loginWithCredentials(page, opbmsStudentCredentials, "student");

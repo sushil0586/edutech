@@ -1,14 +1,18 @@
 from django.contrib import admin
 from django.db.models import Count
 
-from apps.students.models import StudentProfile
-from common.admin import JsonPreviewAdminMixin, RichModelAdmin, build_json_preview
+from apps.students.models import StudentAccommodationProfile, StudentProfile
+from common.admin import RichModelAdmin
+
+
+class StudentAccommodationProfileInline(admin.StackedInline):
+    model = StudentAccommodationProfile
+    extra = 0
+    can_delete = False
 
 
 @admin.register(StudentProfile)
-class StudentProfileAdmin(JsonPreviewAdminMixin, RichModelAdmin):
-    json_preview_fields = ("accommodation_profile",)
-    accommodation_profile_preview = build_json_preview("accommodation_profile", "Accommodation profile")
+class StudentProfileAdmin(RichModelAdmin):
     list_display = (
         "full_name",
         "admission_no",
@@ -34,6 +38,7 @@ class StudentProfileAdmin(JsonPreviewAdminMixin, RichModelAdmin):
     )
     ordering = ("full_name", "admission_no")
     autocomplete_fields = ("institute", "academic_year", "program", "cohort")
+    inlines = (StudentAccommodationProfileInline,)
 
     def get_queryset(self, request):
         return super().get_queryset(request).annotate(
@@ -53,3 +58,20 @@ class StudentProfileAdmin(JsonPreviewAdminMixin, RichModelAdmin):
     @admin.display(ordering="result_total", description="Results")
     def result_count(self, obj):
         return obj.result_total
+
+
+@admin.register(StudentAccommodationProfile)
+class StudentAccommodationProfileAdmin(RichModelAdmin):
+    list_display = (
+        "student",
+        "extra_time_minutes",
+        "extra_time_percentage",
+        "additional_violation_allowance",
+        "simplified_warning_copy",
+        "source",
+        "is_active",
+    )
+    list_filter = ("simplified_warning_copy", "source", "is_active")
+    search_fields = ("student__full_name", "student__admission_no", "notes", "alternative_instructions")
+    ordering = ("student__full_name",)
+    autocomplete_fields = ("student",)

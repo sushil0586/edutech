@@ -1052,7 +1052,6 @@ class InstituteSubscriptionRequest(BaseModel):
         null=True,
     )
     reviewed_at = models.DateTimeField(blank=True, null=True)
-    grant_modes = models.JSONField(default=list, blank=True)
     notes = models.TextField(blank=True)
     operator_notes = models.TextField(blank=True)
     metadata = models.JSONField(default=dict, blank=True)
@@ -1080,7 +1079,7 @@ class InstituteSubscriptionRequest(BaseModel):
             profile = self.requested_by.account_profile
             if getattr(profile, "institute_id", None) not in {None, self.institute_id}:
                 raise ValidationError({"requested_by": "Requesting user must belong to the same institute."})
-        grant_modes = self.grant_modes if isinstance(self.grant_modes, list) else []
+        grant_modes = self.resolved_grant_modes
         allowed_modes = {"included", "trial", "optional_addon"}
         invalid_modes = [mode for mode in grant_modes if str(mode) not in allowed_modes]
         if invalid_modes:
@@ -1089,6 +1088,39 @@ class InstituteSubscriptionRequest(BaseModel):
     def save(self, *args, **kwargs):
         self.full_clean()
         return super().save(*args, **kwargs)
+
+    @property
+    def resolved_grant_modes(self):
+        return list(
+            self.grant_mode_links.order_by("sort_order", "created_at").values_list("grant_mode", flat=True)
+        ) if self.pk else []
+
+    def set_grant_modes(self, grant_modes):
+        if not self.pk:
+            raise ValueError("InstituteSubscriptionRequest must be saved before grant modes can be assigned.")
+        normalized_modes = [str(mode).strip() for mode in (grant_modes or []) if str(mode).strip()]
+        existing = {
+            grant_mode.grant_mode: grant_mode
+            for grant_mode in self.grant_mode_links.all()
+        }
+        keep_ids = []
+        for index, mode in enumerate(normalized_modes):
+            instance = existing.get(mode)
+            if instance is None:
+                instance = InstituteSubscriptionRequestGrantMode.objects.create(
+                    subscription_request=self,
+                    grant_mode=mode,
+                    sort_order=index,
+                )
+            else:
+                if instance.sort_order != index:
+                    instance.sort_order = index
+                    instance.save(update_fields=["sort_order", "updated_at"])
+            keep_ids.append(instance.id)
+        if keep_ids:
+            self.grant_mode_links.exclude(id__in=keep_ids).delete()
+        else:
+            self.grant_mode_links.all().delete()
 
 
 class InstituteQuestionEntitlement(BaseModel):
@@ -1391,6 +1423,39 @@ class InstituteQuestionUsageLedger(BaseModel):
     def save(self, *args, **kwargs):
         self.full_clean()
         return super().save(*args, **kwargs)
+
+
+class InstituteSubscriptionRequestGrantMode(BaseModel):
+    subscription_request = models.ForeignKey(
+        InstituteSubscriptionRequest,
+        on_delete=models.CASCADE,
+        related_name="grant_mode_links",
+    )
+    grant_mode = models.CharField(
+        max_length=30,
+        choices=QuestionBankPackageGrantMode.choices,
+    )
+    sort_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["sort_order", "created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["subscription_request", "grant_mode"],
+                name="unique_subscription_request_grant_mode",
+            ),
+            models.UniqueConstraint(
+                fields=["subscription_request", "sort_order"],
+                name="unique_subscription_request_grant_mode_order",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["subscription_request", "sort_order"]),
+            models.Index(fields=["grant_mode", "is_active"]),
+        ]
+
+    def __str__(self):
+        return f"{self.subscription_request_id} - {self.grant_mode}"
 
 
 class PaymentOrder(BaseModel):

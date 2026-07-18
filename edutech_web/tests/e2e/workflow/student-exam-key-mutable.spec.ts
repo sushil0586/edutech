@@ -3,6 +3,7 @@ import { getRoleCredentials } from "../fixtures/env";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
 import { expectStudentWorkspace, expectTeacherWorkspace } from "../helpers/navigation";
+import { resolveStudentProfileScope, selectOptionByLabelFragment } from "../helpers/student-scope";
 
 const mutableStudentExamKeyActionsEnabled = isMutableLaneEnabled(
   "PLAYWRIGHT_ENABLE_MUTABLE_STUDENT_EXAM_KEY_ACTIONS",
@@ -47,6 +48,8 @@ test.describe("Student mutable exam-key access flow", () => {
     expect(studentCredentials).not.toBeNull();
 
     let studentDisplayName = studentCredentials!.username;
+    let studentAcademicYearName: string | null = null;
+    let studentProgramName: string | null = null;
     let examId: string | null = null;
     let examAccessKey = "";
 
@@ -55,20 +58,12 @@ test.describe("Student mutable exam-key access flow", () => {
     const endAt = new Date(now.getTime() + 90 * 60 * 1000);
 
     try {
-      await loginAsRole(page, "student");
-      await expectStudentWorkspace(page);
-
-      await page.goto("/app/profile");
-      await expect(page.getByRole("heading", { name: /^profile$/i }).first()).toBeVisible();
-      const identityCard = page.locator(".detailCard").filter({
-        has: page.getByText(/^name$/i),
-      }).first();
-      if (await identityCard.count()) {
-        const renderedName = (await identityCard.locator("strong").first().textContent())?.trim();
-        if (renderedName) {
-          studentDisplayName = renderedName;
-        }
-      }
+      const studentScope = await resolveStudentProfileScope(page);
+      studentDisplayName = studentScope.displayName;
+      studentAcademicYearName = studentScope.academicYearName;
+      studentProgramName = studentScope.programName;
+      expect(studentAcademicYearName).not.toBeNull();
+      expect(studentProgramName).not.toBeNull();
 
       await loginAsRole(page, "teacher");
       await expectTeacherWorkspace(page);
@@ -113,6 +108,12 @@ test.describe("Student mutable exam-key access flow", () => {
       await manualAttachForm.getByRole("button", { name: /^attach question$/i }).click();
       await expect(page.getByText(/question linked to exam/i)).toBeVisible();
 
+      await page.goto(`/teacher/exams/${examId}/builder`);
+      await selectOptionByLabelFragment(page.locator('select[name="academic_year"]'), studentAcademicYearName!);
+      await selectOptionByLabelFragment(page.locator('select[name="program"]'), studentProgramName!);
+      await page.getByRole("button", { name: /save exam settings/i }).click();
+      await expect(page.getByText(/exam settings updated\./i)).toBeVisible();
+
       await page.goto(`/teacher/exams/${examId}/builder?tab=assignment`);
       await expect(page.getByText(/student assignment/i).first()).toBeVisible();
 
@@ -121,7 +122,12 @@ test.describe("Student mutable exam-key access flow", () => {
       }).first();
       await assignmentForm.locator('select[name="assignment_mode"]').selectOption("selected_students");
 
-      const studentCheckboxes = assignmentForm.locator('input[name="student_ids"][type="checkbox"]');
+      const studentCheckboxes = assignmentForm.locator('.selectionList input[type="checkbox"]');
+      await expect
+        .poll(async () => await studentCheckboxes.count(), {
+          timeout: 15000,
+        })
+        .toBeGreaterThan(0);
       const studentCount = await studentCheckboxes.count();
       expect(studentCount).toBeGreaterThan(0);
 
@@ -132,7 +138,7 @@ test.describe("Student mutable exam-key access flow", () => {
         for (let index = 0; index < studentCount; index += 1) {
           await studentCheckboxes.nth(index).uncheck().catch(() => null);
         }
-        await matchingStudentRow.locator('input[name="student_ids"]').check();
+        await matchingStudentRow.locator('input[type="checkbox"]').check();
       } else {
         for (let index = 0; index < studentCount; index += 1) {
           await studentCheckboxes.nth(index).check();

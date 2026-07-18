@@ -316,7 +316,7 @@ def _section_performance_summary(exam, *, exam_questions=None, answers=None):
         entry = ensure_entry(key=section_key, label=section_label, order=section_order)
         has_response = bool(
             answer.selected_option_id
-            or (answer.selected_option_ids or [])
+            or (answer.resolved_selected_option_ids or [])
             or (answer.answer_text or "").strip()
         )
         if has_response:
@@ -1239,12 +1239,12 @@ def _answered_filter():
     return (
         Q(selected_option__isnull=False)
         | ~Q(answer_text="")
-        | ~Q(selected_option_ids=[])
+        | Q(selected_option_links__isnull=False)
     )
 
 
 def _response_flags(answer):
-    selected_option_ids = getattr(answer, "selected_option_ids", []) or []
+    selected_option_ids = answer.resolved_selected_option_ids or []
     answer_text = (getattr(answer, "answer_text", "") or "").strip()
     has_response = bool(answer.selected_option_id or selected_option_ids or answer_text)
     if not has_response:
@@ -2341,7 +2341,7 @@ def build_teacher_question_performance_summary(user):
     answered_filter = (
         Q(student_answers__selected_option__isnull=False)
         | ~Q(student_answers__answer_text="")
-        | ~Q(student_answers__selected_option_ids=[])
+        | Q(student_answers__selected_option_links__isnull=False)
     )
     questions = (
         scope_question_queryset(

@@ -233,6 +233,46 @@ class Exam(BaseModel):
                 fields=["institute", "access_key"],
                 name="unique_exam_access_key_per_institute",
             ),
+            models.CheckConstraint(
+                condition=models.Q(total_marks__gte=0),
+                name="exam_total_marks_non_negative",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(passing_marks__gte=0),
+                name="exam_passing_marks_non_negative",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(passing_marks__lte=models.F("total_marks")),
+                name="exam_passing_marks_lte_total_marks",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(end_at__isnull=True)
+                | models.Q(start_at__isnull=True)
+                | models.Q(end_at__gt=models.F("start_at")),
+                name="exam_end_after_start",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(result_publish_at__isnull=True)
+                | models.Q(end_at__isnull=True)
+                | models.Q(result_publish_at__gte=models.F("end_at")),
+                name="exam_result_publish_not_before_end",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(review_available_until__isnull=True)
+                | models.Q(review_available_from__isnull=True)
+                | models.Q(review_available_until__gt=models.F("review_available_from")),
+                name="exam_review_window_valid",
+            ),
+            models.CheckConstraint(
+                condition=~models.Q(source_type=ExamSourceType.TEACHER)
+                | models.Q(source_teacher__isnull=False),
+                name="exam_teacher_source_requires_teacher",
+            ),
+            models.CheckConstraint(
+                condition=~models.Q(attempt_policy=AttemptPolicy.UNLIMITED_PRACTICE)
+                | models.Q(max_attempts=1),
+                name="exam_unlimited_practice_uses_single_attempt_counter",
+            ),
         ]
         indexes = [
             models.Index(fields=["institute", "academic_year"]),
@@ -589,6 +629,13 @@ class ExamQuestion(BaseModel):
 
 
 class ExamPublishLog(models.Model):
+    """
+    Immutable append-only status transition log.
+
+    This intentionally does not inherit BaseModel because it is treated as
+    an event stream rather than a mutable operational record.
+    """
+
     exam = models.ForeignKey(
         Exam,
         on_delete=models.CASCADE,

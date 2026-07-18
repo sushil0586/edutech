@@ -72,7 +72,41 @@ class StudentExamAttempt(BaseModel):
             models.UniqueConstraint(
                 fields=["exam", "student", "attempt_no"],
                 name="unique_exam_student_attempt_number",
-            )
+            ),
+            models.CheckConstraint(
+                condition=models.Q(submitted_at__isnull=True)
+                | models.Q(submitted_at__gte=models.F("started_at")),
+                name="attempt_submitted_not_before_started",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(expires_at__isnull=True)
+                | models.Q(expires_at__gte=models.F("started_at")),
+                name="attempt_expires_not_before_started",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(attempted_questions__lte=models.F("total_questions")),
+                name="attempt_attempted_lte_total_questions",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(correct_answers__lte=models.F("attempted_questions")),
+                name="attempt_correct_lte_attempted_questions",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(incorrect_answers__lte=models.F("attempted_questions")),
+                name="attempt_incorrect_lte_attempted_questions",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(skipped_questions__lte=models.F("total_questions")),
+                name="attempt_skipped_lte_total_questions",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(score__gte=0),
+                name="attempt_score_non_negative",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(negative_score__gte=0),
+                name="attempt_negative_score_non_negative",
+            ),
         ]
         indexes = [
             models.Index(fields=["institute", "exam", "student"]),
@@ -205,7 +239,6 @@ class StudentAnswer(BaseModel):
         blank=True,
         null=True,
     )
-    selected_option_ids = models.JSONField(default=list, blank=True)
     answer_text = models.TextField(blank=True)
     answer_transcript = models.TextField(blank=True)
     response_artifacts = models.JSONField(default=list, blank=True)
@@ -259,30 +292,6 @@ class StudentAnswer(BaseModel):
             raise ValidationError(
                 {"selected_option": "Selected option must belong to the same question."}
             )
-        if self.selected_option_ids:
-            if not isinstance(self.selected_option_ids, list):
-                raise ValidationError(
-                    {"selected_option_ids": "Selected option ids must be stored as a list."}
-                )
-            option_ids = [str(item) for item in self.selected_option_ids if str(item).strip()]
-            active_count = (
-                QuestionOption.objects.filter(
-                    question_id=self.question_id,
-                    id__in=option_ids,
-                    is_active=True,
-                )
-                .values("id")
-                .distinct()
-                .count()
-            )
-            if active_count != len(set(option_ids)):
-                raise ValidationError(
-                    {
-                        "selected_option_ids": (
-                            "All selected options must be active and belong to the same question."
-                        )
-                    }
-                )
         if self.response_artifacts:
             if not isinstance(self.response_artifacts, list):
                 raise ValidationError(
@@ -308,8 +317,96 @@ class StudentAnswer(BaseModel):
         self.full_clean()
         return super().save(*args, **kwargs)
 
+    @property
+    def resolved_selected_option_ids(self):
+        return [
+            str(option_id)
+            for option_id in list(
+            self.selected_option_links.order_by("selected_order", "created_at").values_list(
+                "question_option_id",
+                flat=True,
+            )
+            )
+        ] if self.pk else []
+
+    def set_selected_option_ids(self, selected_option_ids):
+        if not self.pk:
+            raise ValueError("StudentAnswer must be saved before selected options can be assigned.")
+        normalized_ids = [str(item) for item in (selected_option_ids or []) if str(item).strip()]
+        existing = {
+            str(link.question_option_id): link
+            for link in self.selected_option_links.all()
+        }
+        keep_ids = []
+        for index, option_id in enumerate(normalized_ids):
+            instance = existing.get(option_id)
+            if instance is None:
+                instance = StudentAnswerSelectedOption.objects.create(
+                    student_answer=self,
+                    question_option_id=option_id,
+                    selected_order=index,
+                )
+            else:
+                if instance.selected_order != index:
+                    instance.selected_order = index
+                    instance.save(update_fields=["selected_order", "updated_at"])
+            keep_ids.append(instance.id)
+        if keep_ids:
+            self.selected_option_links.exclude(id__in=keep_ids).delete()
+        else:
+            self.selected_option_links.all().delete()
+
     def __str__(self):
         return f"{self.attempt_id} - {self.question_id}"
+
+
+class StudentAnswerSelectedOption(BaseModel):
+    student_answer = models.ForeignKey(
+        StudentAnswer,
+        on_delete=models.CASCADE,
+        related_name="selected_option_links",
+    )
+    question_option = models.ForeignKey(
+        QuestionOption,
+        on_delete=models.CASCADE,
+        related_name="student_answer_links",
+    )
+    selected_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["selected_order", "created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["student_answer", "question_option"],
+                name="unique_student_answer_selected_option",
+            ),
+            models.UniqueConstraint(
+                fields=["student_answer", "selected_order"],
+                name="unique_student_answer_selected_option_order",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["student_answer", "selected_order"]),
+            models.Index(fields=["question_option", "is_active"]),
+        ]
+
+    def clean(self):
+        super().clean()
+        if (
+            self.student_answer_id
+            and self.question_option_id
+            and self.question_option.question_id != self.student_answer.question_id
+        ):
+            raise ValidationError(
+                {"question_option": "Selected option must belong to the same question as the answer."}
+            )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.student_answer_id} - {self.question_option_id}"
 
 
 class ReviewTaskStatus(models.TextChoices):

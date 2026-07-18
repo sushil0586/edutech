@@ -470,7 +470,12 @@ test.describe("Student mutable attempt actions", () => {
       }).first();
       await assignmentForm.locator('select[name="assignment_mode"]').selectOption("selected_students");
 
-      const studentCheckboxes = assignmentForm.locator('input[name="student_ids"][type="checkbox"]');
+      const studentCheckboxes = assignmentForm.locator('.selectionList input[type="checkbox"]');
+      await expect
+        .poll(async () => await studentCheckboxes.count(), {
+          timeout: 15000,
+        })
+        .toBeGreaterThan(0);
       const studentCount = await studentCheckboxes.count();
       expect(studentCount).toBeGreaterThan(0);
 
@@ -482,7 +487,7 @@ test.describe("Student mutable attempt actions", () => {
         for (let index = 0; index < studentCount; index += 1) {
           await studentCheckboxes.nth(index).uncheck().catch(() => null);
         }
-        await matchingStudentRow.locator('input[name="student_ids"]').check();
+        await matchingStudentRow.locator('input[type="checkbox"]').check();
       } else {
         for (let index = 0; index < studentCount; index += 1) {
           await studentCheckboxes.nth(index).check();
@@ -600,7 +605,9 @@ test.describe("Student mutable attempt actions", () => {
       await expect(page.getByText(/attempt submitted successfully/i)).toBeVisible();
       await expect(page.getByText(/attempt status/i)).toBeVisible();
       await expect(page.getByText(/review/i).first()).toBeVisible();
-      await expect(page.getByText(/evaluation pending/i).first()).toBeVisible();
+      await expect(
+        page.getByText(/instant feedback ready|review ready|review feedback/i).first(),
+      ).toBeVisible();
 
       await page.goto(`/app/exams/${examId}`);
       await expect(page.getByRole("heading", { name: new RegExp(examTitle, "i") }).first()).toBeVisible();

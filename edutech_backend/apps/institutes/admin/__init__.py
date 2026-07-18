@@ -94,7 +94,7 @@ class InstituteOnboardingRunAdmin(JsonPreviewAdminMixin, RichModelAdmin):
         "profile_code",
         "source",
         "status",
-        "initiated_by_user_id",
+        "initiated_by",
         "started_at",
         "completed_at",
         "is_active",

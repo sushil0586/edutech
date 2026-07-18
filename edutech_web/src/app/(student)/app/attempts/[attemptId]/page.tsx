@@ -1320,94 +1320,60 @@ export default async function AttemptDetailPage({
                     name="is_marked_for_review"
                     type="checkbox"
                   />
-                  <span>
-                    <strong>Mark for review</strong>
-                    <small>
-                      {isMarked
-                        ? "This question stays in your final review count until you revisit it."
-                        : "Use this only when you want to return before submitting."}
-                    </small>
-                  </span>
+                  <span>Mark for review</span>
                 </label>
 
-                <section className="attemptResponseWorkflow" aria-label="Answer workflow">
-                  <div className="attemptResponseWorkflowHeader">
-                    <div>
-                      <span className="studentDashboardTag">Answer workflow</span>
-                      <strong>Save before you move. Review only when you truly want to come back.</strong>
-                    </div>
-                    <small>
-                      {isAnswered && isMarked
-                        ? "This answer is saved, but it will still appear in final review because it is marked."
-                        : isAnswered
-                          ? "This answer is already saved. Use Save Answer again only if you changed it."
-                          : "Choose an answer first, then save and continue."}
-                    </small>
-                  </div>
-
-                  <div className="attemptActions attemptActionsPrimary">
-                    <ActionSubmitButton
-                      actionLabel={saveNextActionLabel}
-                      className="button buttonPrimary"
-                      idleLabel={saveNextLabel}
-                      name="action_intent"
-                      pendingLabel="Saving..."
-                      value="save-next"
-                    />
-                    <ActionSubmitButton
-                      actionLabel={`Save answer for question ${question.question_order}`}
-                      className="button buttonSecondary"
-                      idleLabel="Save Answer"
-                      name="action_intent"
-                      pendingLabel="Saving..."
-                      value="save"
-                    />
-                  </div>
-
-                  <div className="attemptActions attemptActionsSecondary">
-                    <ActionSubmitButton
-                      actionLabel={`Clear response for question ${question.question_order}`}
-                      className="button buttonGhost"
-                      idleLabel="Clear Response"
-                      name="action_intent"
-                      pendingLabel="Clearing..."
-                      value="clear"
-                    />
-                    <ActionSubmitButton
-                      actionLabel={`Skip question ${question.question_order}`}
-                      className="button buttonGhost"
-                      idleLabel="Skip"
-                      name="action_intent"
-                      pendingLabel="Skipping..."
-                      value="skip"
-                    />
-                    <button
-                      aria-hidden="true"
-                      data-auto-submit-expired="true"
-                      name="action_intent"
-                      tabIndex={-1}
-                      type="submit"
-                      value="time-expired-submit"
-                      hidden
-                    >
-                      Save and submit on expiry
-                    </button>
-                  </div>
-                </section>
+                <div className="attemptActions">
+                  <ActionSubmitButton
+                    actionLabel={`Save answer for question ${question.question_order}`}
+                    className="button buttonSecondary"
+                    idleLabel="Save Answer"
+                    name="action_intent"
+                    pendingLabel="Saving..."
+                    value="save"
+                  />
+                  <ActionSubmitButton
+                    actionLabel={saveNextActionLabel}
+                    className="button buttonPrimary"
+                    idleLabel={saveNextLabel}
+                    name="action_intent"
+                    pendingLabel="Saving..."
+                    value="save-next"
+                  />
+                  <ActionSubmitButton
+                    actionLabel={`Clear response for question ${question.question_order}`}
+                    className="button buttonGhost"
+                    idleLabel="Clear Response"
+                    name="action_intent"
+                    pendingLabel="Clearing..."
+                    value="clear"
+                  />
+                  <ActionSubmitButton
+                    actionLabel={`Skip question ${question.question_order}`}
+                    className="button buttonGhost"
+                    idleLabel="Skip"
+                    name="action_intent"
+                    pendingLabel="Skipping..."
+                    value="skip"
+                  />
+                  <button
+                    aria-hidden="true"
+                    data-auto-submit-expired="true"
+                    name="action_intent"
+                    tabIndex={-1}
+                    type="submit"
+                    value="time-expired-submit"
+                    hidden
+                  >
+                    Save and submit on expiry
+                  </button>
+                </div>
                 <div className="attemptQuestionStateStrip">
                   <div className="attemptQuestionStateCard">
                     <span>Save state for this question</span>
-                    <strong>
-                      {isAnswered
-                        ? isMarked
-                      ? "Saved and still marked for review"
-                          : "Already saved"
-                        : "Needs a saved response"}
-                    </strong>
+                    <strong>{isAnswered ? "Already saved" : "Needs a saved response"}</strong>
                     <small>
-                      {isAnswered && isMarked
-                        ? "Your answer is safe, but it still counts in final review until you unmark or revisit it."
-                        : `Use \`Save Answer\` to stay here, or \`${saveNextLabel}\` to keep moving.`}
+                      Use `Save Answer` if you want to stay here, or `{saveNextLabel}` if you are ready to move forward.
                     </small>
                   </div>
                   <div className="attemptQuestionStateCard">
@@ -1431,9 +1397,6 @@ export default async function AttemptDetailPage({
                       {isAnswered ? "Saved" : "Not saved"} ·{" "}
                       {isMarked ? "Marked for review" : "Not marked for review"}
                     </span>
-                    {isAnswered && isMarked ? (
-                      <span>Saved answers can still stay in final review when marked.</span>
-                    ) : null}
                     <span>
                       Section: {answeredCountInSection}/{questionCountInSection} saved · {markedCountInSection} marked
                     </span>
@@ -1744,67 +1707,72 @@ export default async function AttemptDetailPage({
           initialError={error}
         />
 
-        {detail.accommodation_snapshot.has_accommodations ? (
-          <section className="contentCard attemptAccommodationPanel">
-            <div className="attemptResilienceTop">
-              <div>
-                <strong>Accommodation support active</strong>
-                <p>
-                  This attempt includes approved support settings that were locked in when
-                  the attempt started.
-                </p>
-              </div>
-              <div className="attemptResilienceMeta">
-                {detail.accommodation_snapshot.applied_extra_time_minutes > 0 ? (
-                  <StatusPill tone="live">
-                    +{detail.accommodation_snapshot.applied_extra_time_minutes} min
-                  </StatusPill>
-                ) : null}
-                {detail.accommodation_snapshot.simplified_warning_copy ? (
-                  <StatusPill tone="demo">Simplified guidance</StatusPill>
-                ) : null}
-                {detail.accommodation_snapshot.additional_violation_allowance > 0 ? (
-                  <StatusPill tone="warning">
-                    +{detail.accommodation_snapshot.additional_violation_allowance} warning allowance
-                  </StatusPill>
-                ) : null}
-              </div>
+        <section className="contentCard attemptAccommodationPanel">
+          <div className="attemptResilienceTop">
+            <div>
+              <strong>
+                {detail.accommodation_snapshot.has_accommodations
+                  ? "Accommodation support active"
+                  : "Accommodation support overview"}
+              </strong>
+              <p>
+                {detail.accommodation_snapshot.has_accommodations
+                  ? "This attempt includes approved support settings that were locked in when the attempt started."
+                  : "This workspace shows the support settings that would remain locked for the full attempt if approved accommodations are applied."}
+              </p>
             </div>
+            <div className="attemptResilienceMeta">
+              {detail.accommodation_snapshot.applied_extra_time_minutes > 0 ? (
+                <StatusPill tone="live">
+                  +{detail.accommodation_snapshot.applied_extra_time_minutes} min
+                </StatusPill>
+              ) : (
+                <StatusPill tone="demo">Standard timing</StatusPill>
+              )}
+              {detail.accommodation_snapshot.simplified_warning_copy ? (
+                <StatusPill tone="demo">Simplified guidance</StatusPill>
+              ) : null}
+              {detail.accommodation_snapshot.additional_violation_allowance > 0 ? (
+                <StatusPill tone="warning">
+                  +{detail.accommodation_snapshot.additional_violation_allowance} warning allowance
+                </StatusPill>
+              ) : null}
+            </div>
+          </div>
 
-            <div className="attemptStatusGrid">
-              <div className="attemptStatusTile">
-                <span>Effective duration</span>
-                <strong>
-                  {detail.accommodation_snapshot.effective_duration_minutes > 0
-                    ? `${detail.accommodation_snapshot.effective_duration_minutes} minutes`
-                    : "Standard exam runtime"}
-                </strong>
-              </div>
-              <div className="attemptStatusTile">
-                <span>Support instructions</span>
-                <strong>
-                  {detail.accommodation_snapshot.alternative_instructions ||
-                    "Use the standard exam instructions together with this approved support plan."}
-                </strong>
-              </div>
-              <div className="attemptStatusTile">
-                <span>Support notes</span>
-                <strong>
-                  {detail.accommodation_snapshot.notes ||
-                    "No additional notes were attached to this accommodation snapshot."}
-                </strong>
-              </div>
-              <div className="attemptStatusTile">
-                <span>Integrity allowance</span>
-                <strong>
-                  {detail.accommodation_snapshot.additional_violation_allowance > 0
-                    ? `${detail.accommodation_snapshot.additional_violation_allowance} extra warning before automatic action`
-                    : "Standard integrity threshold applies"}
-                </strong>
-              </div>
+          <div className="attemptStatusGrid">
+            <div className="attemptStatusTile">
+              <span>Effective duration</span>
+              <strong>
+                {detail.accommodation_snapshot.effective_duration_minutes > 0
+                  ? `${detail.accommodation_snapshot.effective_duration_minutes} minutes`
+                  : "Standard exam runtime"}
+              </strong>
             </div>
-          </section>
-        ) : null}
+            <div className="attemptStatusTile">
+              <span>Support instructions</span>
+              <strong>
+                {detail.accommodation_snapshot.alternative_instructions ||
+                  "Use the standard exam instructions together with this approved support plan."}
+              </strong>
+            </div>
+            <div className="attemptStatusTile">
+              <span>Support notes</span>
+              <strong>
+                {detail.accommodation_snapshot.notes ||
+                  "No additional notes were attached to this accommodation snapshot."}
+              </strong>
+            </div>
+            <div className="attemptStatusTile">
+              <span>Integrity allowance</span>
+              <strong>
+                {detail.accommodation_snapshot.additional_violation_allowance > 0
+                  ? `${detail.accommodation_snapshot.additional_violation_allowance} extra warning before automatic action`
+                  : "Standard integrity threshold applies"}
+              </strong>
+            </div>
+          </div>
+        </section>
       </section>
         </>
       )}

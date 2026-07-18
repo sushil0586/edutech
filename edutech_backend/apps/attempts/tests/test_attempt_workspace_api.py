@@ -1256,12 +1256,11 @@ class AttemptWorkspaceApiTestCase(TestCase):
         self.assertFalse(response.data["integrity_summary"]["threshold_reached"])
 
     def test_attempt_start_applies_accommodation_snapshot_and_extra_time(self):
-        self.context["student"].accommodation_profile = {
+        self.context["student"].set_accommodation_profile({
             "extra_time_minutes": 15,
             "simplified_warning_copy": True,
             "alternative_instructions": "Take a moment to read each question twice.",
-        }
-        self.context["student"].save(update_fields=["accommodation_profile", "updated_at"])
+        })
 
         attempt = self._start_attempt()
         snapshot = attempt.metadata.get("accommodation_snapshot", {})
@@ -1280,12 +1279,11 @@ class AttemptWorkspaceApiTestCase(TestCase):
     def test_attempt_detail_includes_accommodation_snapshot_and_simplified_copy(self):
         self.exam.security_mode = "proctored"
         self.exam.save(update_fields=["security_mode", "updated_at"])
-        self.context["student"].accommodation_profile = {
+        self.context["student"].set_accommodation_profile({
             "extra_time_minutes": 10,
             "simplified_warning_copy": True,
             "notes": "Allow additional reading time.",
-        }
-        self.context["student"].save(update_fields=["accommodation_profile", "updated_at"])
+        })
         attempt = self._start_attempt()
 
         response = self.client.get(f"/api/v1/attempts/{attempt.id}/detail/")
@@ -1299,10 +1297,9 @@ class AttemptWorkspaceApiTestCase(TestCase):
     def test_attempt_detail_includes_adjusted_violation_limit_from_accommodation(self):
         self.exam.security_mode = "violation_limited"
         self.exam.save(update_fields=["security_mode", "updated_at"])
-        self.context["student"].accommodation_profile = {
+        self.context["student"].set_accommodation_profile({
             "additional_violation_allowance": 1,
-        }
-        self.context["student"].save(update_fields=["accommodation_profile", "updated_at"])
+        })
         attempt = self._start_attempt()
 
         response = self.client.get(f"/api/v1/attempts/{attempt.id}/detail/")
@@ -1373,10 +1370,9 @@ class AttemptWorkspaceApiTestCase(TestCase):
     def test_integrity_event_threshold_respects_accommodation_allowance(self):
         self.exam.security_mode = "violation_limited"
         self.exam.save(update_fields=["security_mode", "updated_at"])
-        self.context["student"].accommodation_profile = {
+        self.context["student"].set_accommodation_profile({
             "additional_violation_allowance": 1,
-        }
-        self.context["student"].save(update_fields=["accommodation_profile", "updated_at"])
+        })
         attempt = self._start_attempt()
         base_time = timezone.now()
 
@@ -1501,8 +1497,17 @@ class AttemptWorkspaceApiTestCase(TestCase):
         attempt.refresh_from_db()
         saved_answer = attempt.answers.get(question=multi_question)
         self.assertEqual(
-            saved_answer.selected_option_ids,
+            saved_answer.resolved_selected_option_ids,
             [str(multi_options[0].id), str(multi_options[1].id)],
+        )
+        self.assertEqual(
+            list(
+                saved_answer.selected_option_links.order_by("selected_order").values_list(
+                    "question_option_id",
+                    flat=True,
+                )
+            ),
+            [multi_options[0].id, multi_options[1].id],
         )
         self.assertTrue(saved_answer.is_correct)
 

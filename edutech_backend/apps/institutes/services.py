@@ -24,10 +24,6 @@ def start_institute_onboarding_run(
     if normalized_profile_code:
         profile = InstituteOnboardingProfile.objects.filter(code=normalized_profile_code).first()
 
-    initiated_by_user_id = None
-    if initiated_by is not None:
-        initiated_by_user_id = getattr(initiated_by, "id", None)
-
     return InstituteOnboardingRun.objects.create(
         institute=institute,
         profile=profile,
@@ -36,7 +32,7 @@ def start_institute_onboarding_run(
         status=status,
         requested_config_json=requested_config_json or {},
         resolved_config_json=resolved_config_json or {},
-        initiated_by_user_id=initiated_by_user_id,
+        initiated_by=initiated_by,
         started_at=timezone.now(),
     )
 

@@ -659,6 +659,7 @@ class InstituteSubscriptionRequestSerializer(serializers.ModelSerializer):
     requested_by_label = serializers.SerializerMethodField()
     reviewed_by_label = serializers.SerializerMethodField()
     activation_summary = serializers.SerializerMethodField()
+    grant_modes = serializers.SerializerMethodField()
 
     class Meta:
         model = InstituteSubscriptionRequest
@@ -690,6 +691,9 @@ class InstituteSubscriptionRequestSerializer(serializers.ModelSerializer):
     def get_subscription_cycle_label(self, obj):
         cycle = obj.subscription_plan_cycle
         return f"{cycle.billing_interval} x {cycle.interval_count}"
+
+    def get_grant_modes(self, obj):
+        return obj.resolved_grant_modes
 
     def get_requested_by_label(self, obj):
         if not obj.requested_by_id:

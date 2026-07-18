@@ -1017,8 +1017,17 @@ class EconomyApiTestCase(TestCase):
         self.assertEqual(request_response.status_code, 201)
         self.assertEqual(request_response.data["data"]["status"], InstituteSubscriptionRequestStatus.PENDING)
         self.assertEqual(request_response.data["data"]["subscription_plan_code"], "INSTITUTE_CONTENT_PLAN")
+        self.assertEqual(request_response.data["data"]["grant_modes"], ["included"])
         self.assertEqual(request_response.data["data"]["activation_summary"]["requested_package_count"], 1)
         self.assertIn("INSTITUTE_ACCESS_LIBRARY", request_response.data["data"]["activation_summary"]["package_codes"])
+        created_request = InstituteSubscriptionRequest.objects.get(id=request_response.data["data"]["id"])
+        self.assertEqual(created_request.resolved_grant_modes, ["included"])
+        self.assertEqual(
+            list(
+                created_request.grant_mode_links.order_by("sort_order").values_list("grant_mode", flat=True)
+            ),
+            ["included"],
+        )
 
     def test_platform_admin_can_review_subscription_request_and_apply_entitlements(self):
         public_hub = self.builder.create_institute(
@@ -1059,9 +1068,9 @@ class EconomyApiTestCase(TestCase):
             institute=self.context["institute"],
             subscription_plan_cycle=cycle,
             requested_by=self.admin_user,
-            grant_modes=["included"],
             notes="Please activate this package lane.",
         )
+        subscription_request.set_grant_modes(["included"])
 
         self.client.force_authenticate(user=self.platform_admin_user)
         review_response = self.client.post(
@@ -1076,6 +1085,7 @@ class EconomyApiTestCase(TestCase):
         subscription_request.refresh_from_db()
         self.assertEqual(subscription_request.status, InstituteSubscriptionRequestStatus.FULFILLED)
         self.assertEqual(subscription_request.reviewed_by_id, self.platform_admin_user.id)
+        self.assertEqual(subscription_request.resolved_grant_modes, ["included"])
         self.assertEqual(review_response.data["data"]["activation_summary"]["entitlement_count"], 1)
         self.assertIn("REVIEW_ACCESS_LIBRARY", review_response.data["data"]["activation_summary"]["package_codes"])
         self.assertTrue(

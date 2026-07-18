@@ -32,6 +32,44 @@ npm run test:e2e:smoke
 
 If role credentials are missing, the matching smoke tests will be skipped.
 
+## Release UI gate
+
+Use the focused release UI visual pack when shared layout CSS changes, especially around filter bars, buttons, and dense cards:
+
+```bash
+cd edutech_web
+npm run test:e2e:release-ui
+```
+
+The fuller release checklist lives in `tests/e2e/RELEASE_UI_CHECKLIST.md`.
+
+Use the compact-viewport companion pack when the same change can affect mobile layout:
+
+```bash
+cd edutech_web
+PLAYWRIGHT_BASE_URL=http://localhost:3001 \
+PLAYWRIGHT_API_BASE_URL=http://127.0.0.1:9001 \
+npx playwright test tests/e2e/workflow/release-ui-mobile-visual.spec.ts --project=chromium
+```
+
+Use the repeat stability companion when you want proof that the release UI and new continuity pack stay green across repeated runs:
+
+```bash
+cd edutech_web
+npm run test:e2e:release-ui:repeat
+```
+
+Latest local rerun on `2026-07-17`:
+
+- `test:e2e:release-ui:repeat`
+- covered:
+  - `release-ui-alignment-visual.spec.ts`
+  - `release-ui-mobile-visual.spec.ts`
+  - `teacher-reviews-continuity.spec.ts`
+  - `teacher-question-bank-continuity.spec.ts`
+  - `institute-results-analysis-continuity.spec.ts`
+- grouped result with `--repeat-each=2`: `22 passed`
+
 ## Cross-browser lane
 
 The default suite stays on Chromium for speed.

@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 
 from common.models import BaseModel
@@ -103,7 +104,13 @@ class InstituteOnboardingRun(BaseModel):
     )
     requested_config_json = models.JSONField(default=dict, blank=True)
     resolved_config_json = models.JSONField(default=dict, blank=True)
-    initiated_by_user_id = models.IntegerField(blank=True, null=True)
+    initiated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="initiated_institute_onboarding_runs",
+        blank=True,
+        null=True,
+    )
     started_at = models.DateTimeField(blank=True, null=True)
     completed_at = models.DateTimeField(blank=True, null=True)
     error_summary = models.TextField(blank=True)

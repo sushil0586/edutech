@@ -11,6 +11,7 @@ from apps.attempts.models import (
 )
 from apps.attempts.services import (
     attempt_integrity_summary,
+    resolved_selected_option_ids,
     ensure_delivery_snapshot,
     ordered_exam_questions_for_attempt,
     ordered_options_for_attempt,
@@ -404,8 +405,7 @@ class StudentAnswerSerializer(serializers.ModelSerializer):
         return text[:120] + ("..." if len(text) > 120 else "")
 
     def get_selected_option_ids(self, obj):
-        values = getattr(obj, "selected_option_ids", []) or []
-        return [str(item) for item in values if str(item).strip()]
+        return resolved_selected_option_ids(obj)
 
     def get_selected_option_texts(self, obj):
         selected_ids = self.get_selected_option_ids(obj)
@@ -1050,11 +1050,7 @@ class AttemptReviewSerializer(serializers.ModelSerializer):
         for exam_question in ordered_questions:
             question = exam_question.question
             answer = answer_map.get(question.id)
-            selected_option_ids = [
-                str(item)
-                for item in (getattr(answer, "selected_option_ids", []) or [])
-                if str(item).strip()
-            ]
+            selected_option_ids = resolved_selected_option_ids(answer)
             has_response = bool(
                 answer
                 and (

@@ -123,8 +123,7 @@
 .studentAppMain .buttonPrimary,
 .studentAppMain .buttonSecondary,
 .studentAppMain .buttonGhost {
-  border-radius: 16px;
-  box-shadow: var(--student-button-shadow);
+  box-shadow: var(--shadow-xs);
   transition:
     transform 180ms ease,
     box-shadow 180ms ease,
@@ -136,17 +135,17 @@
 .studentAppShell .appTopbarProfile,
 .studentAppMain .buttonSecondary {
   border: 1px solid rgba(185, 199, 245, 0.56);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(241, 246, 255, 0.9));
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .studentAppMain .buttonPrimary {
   border: 1px solid rgba(118, 126, 255, 0.28);
-  background: linear-gradient(135deg, #4d82ff, #6a5df6);
+  background: var(--gradient-hero);
 }
 
 .studentAppMain .buttonGhost {
   border: 1px solid rgba(195, 207, 239, 0.56);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(246, 249, 255, 0.84));
+  background: rgba(255, 255, 255, 0.8);
   color: #385178;
 }
 
@@ -157,7 +156,7 @@
 .studentAppMain .buttonGhost:hover,
 .studentAppMain .studentWorkspaceQuickChip:hover {
   transform: translateY(-1px);
-  box-shadow: var(--student-button-shadow-hover);
+  box-shadow: var(--shadow-sm);
 }
 
 .studentAppFooter {
@@ -519,7 +518,6 @@
 
 .studentLearnerAttemptPage .attemptConsoleRail {
   gap: 12px;
-  opacity: 0.92;
 }
 
 .studentLearnerAttemptPage .attemptConsoleSummaryCard,
@@ -1627,6 +1625,8 @@
 
 .studentNotificationMessage {
   margin: 0;
+  color: var(--color-text-secondary);
+  line-height: 1.65;
 }
 
 .studentNotificationUnread {
@@ -1712,6 +1712,22 @@
   gap: 14px;
 }
 
+.studentNotificationMeta small {
+  max-width: 48ch;
+}
+
+.studentNotificationSurface .studentResultFooter {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 14px;
+}
+
+.studentNotificationActions {
+  justify-content: flex-end;
+  align-self: end;
+}
+
 .studentNotificationGroupHeader {
   padding-inline: 2px;
 }
@@ -1724,6 +1740,17 @@
 
 .studentNotificationPagination {
   padding-top: 6px;
+}
+
+@media (max-width: 1200px) {
+  .studentNotificationSurface .studentResultFooter {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .studentNotificationActions {
+    justify-content: flex-start;
+  }
 }
 
 .studentTopicRowMeta {
@@ -1776,17 +1803,15 @@
 }
 
 .studentWorkspaceFilterActions {
-  display: flex;
-  align-items: center;
+  display: grid;
   gap: 10px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  align-content: end;
   align-self: stretch;
+  min-width: 0;
 }
 
 .studentWorkspaceFilterActions > .button {
-  flex: 1 1 160px;
-  min-width: 0;
+  width: 100%;
   justify-content: center;
 }
 
@@ -2325,7 +2350,7 @@
   }
 
   .studentWorkspaceFilterActions {
-    justify-content: stretch;
+    grid-template-columns: 1fr;
   }
 
   .studentWorkspaceFilterActions > .button {

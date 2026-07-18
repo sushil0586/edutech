@@ -288,9 +288,9 @@ class ResetDemoInstituteSubscriptionWorkflowCommandTestCase(TestCase):
             institute=self.institute,
             subscription_plan_cycle=self.cycle,
             status="fulfilled",
-            grant_modes=["included"],
             notes="Seeded request for reset command test.",
         )
+        request.set_grant_modes(["included"])
 
         stdout = StringIO()
         call_command(

@@ -2805,7 +2805,6 @@ def create_institute_subscription_request(
         subscription_plan_cycle=subscription_plan_cycle,
         status=InstituteSubscriptionRequestStatus.PENDING,
         requested_by=requested_by,
-        grant_modes=normalized_grant_modes,
         notes=notes,
         metadata={
             **(metadata or {}),
@@ -2818,7 +2817,8 @@ def create_institute_subscription_request(
     now = timezone.now()
     request.created_at = now
     request.updated_at = now
-    InstituteSubscriptionRequest.objects.bulk_create([request], batch_size=1)
+    request.save(force_insert=True)
+    request.set_grant_modes(normalized_grant_modes)
     return request, True
 
 
@@ -2859,7 +2859,7 @@ def review_institute_subscription_request(
         entitlements = _apply_subscription_plan_question_bank_links_to_institute(
             subscription_plan=subscription_request.subscription_plan_cycle.plan,
             target_institute=subscription_request.institute,
-            grant_modes=subscription_request.grant_modes or ["included", "trial"],
+            grant_modes=subscription_request.resolved_grant_modes or ["included", "trial"],
             granted_by=reviewed_by,
             notes=operator_notes or (
                 f"Applied from institute request for {subscription_request.subscription_plan_cycle.plan.code}."

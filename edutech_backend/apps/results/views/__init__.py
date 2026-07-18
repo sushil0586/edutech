@@ -1145,7 +1145,7 @@ class ExamResultViewSet(ModelViewSet):
                     "criteria": raw_rubric.get("criteria", []),
                 }
             question_text = (question.question_text or "").strip()
-            selected_option_ids = [str(item) for item in (getattr(answer, "selected_option_ids", []) or []) if str(item).strip()] if answer else []
+            selected_option_ids = answer.resolved_selected_option_ids if answer else []
             option_text_map = {str(option.id): option.option_text for option in question.options.all()}
             selected_option_texts = [option_text_map[item] for item in selected_option_ids if item in option_text_map]
             selected_option_text = answer.selected_option.option_text if answer and answer.selected_option_id else None

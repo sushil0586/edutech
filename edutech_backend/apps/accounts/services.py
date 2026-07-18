@@ -685,8 +685,8 @@ def complete_public_onboarding(account_profile, validated_data):
             student_profile.last_name = user.last_name
             student_profile.email = user.email
             student_profile.phone = phone or student_profile.phone
-            student_profile.accommodation_profile = accommodation_profile
             student_profile.save()
+            student_profile.set_accommodation_profile(accommodation_profile)
         else:
             admission_seed = f"{user.email}-{class_level}-{board}"
             student_profile = StudentProfile.objects.create(
@@ -699,9 +699,9 @@ def complete_public_onboarding(account_profile, validated_data):
                 last_name=user.last_name,
                 email=user.email,
                 phone=phone,
-                accommodation_profile=accommodation_profile,
                 is_active=True,
             )
+            student_profile.set_accommodation_profile(accommodation_profile)
             account_profile.student_profile = student_profile
 
         merge_registration_context(

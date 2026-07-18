@@ -1,5 +1,4 @@
 import { expect, test, type Page } from "@playwright/test";
-import { getRoleCredentials } from "../fixtures/env";
 import { answerCurrentAttemptQuestion } from "../helpers/attempt";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
@@ -7,10 +6,17 @@ import {
   expectStudentWorkspace,
   expectTeacherWorkspace,
 } from "../helpers/navigation";
+import { resolveStudentProfileScope, selectOptionByLabelFragment } from "../helpers/student-scope";
 
 const mutableStudentPracticeActionsEnabled = isMutableLaneEnabled(
   "PLAYWRIGHT_ENABLE_MUTABLE_STUDENT_PRACTICE_ACTIONS",
 );
+const backendBaseUrl = (
+  process.env.API_BASE_URL ??
+  process.env.NEXT_PUBLIC_API_BASE_URL ??
+  process.env.PLAYWRIGHT_API_BASE_URL ??
+  "http://127.0.0.1:9001"
+).replace(/\/$/, "");
 
 function toDateTimeLocalValue(date: Date) {
   const year = date.getFullYear();
@@ -21,29 +27,55 @@ function toDateTimeLocalValue(date: Date) {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
-async function resolveStudentDisplayName(page: Page) {
-  const studentCredentials = getRoleCredentials("student");
-  expect(studentCredentials).not.toBeNull();
-
-  let studentDisplayName = studentCredentials!.username;
-  await page.goto("/app/profile");
-  await expect(page.getByRole("heading", { name: /^profile$/i }).first()).toBeVisible();
-
-  const identityCard = page.locator(".detailCard").filter({
-    has: page.getByText(/^name$/i),
-  }).first();
-  if (await identityCard.count()) {
-    const renderedName = (await identityCard.locator("strong").first().textContent())?.trim();
-    if (renderedName) {
-      studentDisplayName = renderedName;
-    }
-  }
-
-  return studentDisplayName;
-}
-
 async function answerCurrentQuestion(page: Page, answerSeed: number) {
   await answerCurrentAttemptQuestion(page, answerSeed, "Playwright practice answer");
+}
+
+async function backendAccessToken(page: Page) {
+  const cookies = await page.context().cookies();
+  const accessToken = cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
+  expect(accessToken).not.toBe("");
+  return accessToken;
+}
+
+async function runTeacherExamAction(page: Page, examId: string, action: "sync-marks" | "publish" | "mark-live") {
+  const response = await page.request.post(`${backendBaseUrl}/api/v1/exams/${examId}/${action}/`, {
+    headers: {
+      Authorization: `Bearer ${await backendAccessToken(page)}`,
+      "Content-Type": "application/json",
+    },
+    data: {},
+    timeout: 15000,
+  });
+  expect(response.ok(), await response.text()).toBe(true);
+}
+
+async function expectStudentAvailablePractice(page: Page, examId: string, examTitle: string) {
+  await expect
+    .poll(
+      async () => {
+        const response = await page.request.get(`${backendBaseUrl}/api/v1/student/exams/available/`, {
+          headers: {
+            Authorization: `Bearer ${await backendAccessToken(page)}`,
+            "Content-Type": "application/json",
+          },
+          timeout: 15000,
+        });
+        expect(response.ok(), await response.text()).toBe(true);
+        const exams = (await response.json()) as Array<{
+          id: string;
+          title: string;
+          exam_type?: string;
+          can_start?: boolean;
+          availability_state?: string;
+        }>;
+        return (
+          exams.find((exam) => exam.id === examId || exam.title.trim() === examTitle.trim()) ?? null
+        );
+      },
+      { timeout: 30000 },
+    )
+    .not.toBeNull();
 }
 
 async function expectPracticeTitleVisible(
@@ -83,9 +115,10 @@ test.describe("Student mutable practice actions", () => {
     const reviewAt = new Date(now.getTime() - 2 * 60 * 1000);
     const resultPublishAt = new Date(endAt.getTime() + 5 * 60 * 1000);
 
-    await loginAsRole(page, "student");
-    await expectStudentWorkspace(page);
-    const studentDisplayName = await resolveStudentDisplayName(page);
+    const studentScope = await resolveStudentProfileScope(page);
+    const studentDisplayName = studentScope.displayName;
+    expect(studentScope.academicYearName).not.toBeNull();
+    expect(studentScope.programName).not.toBeNull();
 
     await loginAsRole(page, "teacher");
     await expectTeacherWorkspace(page);
@@ -142,6 +175,18 @@ test.describe("Student mutable practice actions", () => {
       await expect(page).toHaveURL(/tab=questions&message=/);
       await expect(page.getByText(/question linked to exam/i)).toBeVisible();
 
+      await page.goto(`/teacher/exams/${examId}/builder`);
+      await selectOptionByLabelFragment(
+        page.locator('select[name="academic_year"]'),
+        studentScope.academicYearName!,
+      );
+      await selectOptionByLabelFragment(
+        page.locator('select[name="program"]'),
+        studentScope.programName!,
+      );
+      await page.getByRole("button", { name: /save exam settings/i }).click();
+      await expect(page).toHaveURL(/message=/);
+
       await page.goto(`/teacher/exams/${examId}/builder?tab=assignment`);
       await expect(page.getByText(/student assignment/i).first()).toBeVisible();
 
@@ -150,7 +195,12 @@ test.describe("Student mutable practice actions", () => {
       }).first();
       await assignmentForm.locator('select[name="assignment_mode"]').selectOption("selected_students");
 
-      const studentCheckboxes = assignmentForm.locator('input[name="student_ids"][type="checkbox"]');
+      const studentCheckboxes = assignmentForm.locator('.selectionList input[type="checkbox"]');
+      await expect
+        .poll(async () => await studentCheckboxes.count(), {
+          timeout: 15000,
+        })
+        .toBeGreaterThan(0);
       const studentCount = await studentCheckboxes.count();
       expect(studentCount).toBeGreaterThan(0);
 
@@ -162,7 +212,7 @@ test.describe("Student mutable practice actions", () => {
         for (let index = 0; index < studentCount; index += 1) {
           await studentCheckboxes.nth(index).uncheck().catch(() => null);
         }
-        await matchingStudentRow.locator('input[name="student_ids"]').check();
+        await matchingStudentRow.locator('input[type="checkbox"]').check();
       } else {
         for (let index = 0; index < studentCount; index += 1) {
           await studentCheckboxes.nth(index).check();
@@ -173,29 +223,31 @@ test.describe("Student mutable practice actions", () => {
       await expect(page).toHaveURL(/tab=assignment&message=/);
       await expect(page.getByText(/student assignment updated\./i)).toBeVisible();
 
+      await page.goto(`/teacher/exams/${examId}/builder`);
+      await page.locator('input[name="start_at"]').fill(toDateTimeLocalValue(startAt));
+      await page.locator('input[name="end_at"]').fill(toDateTimeLocalValue(endAt));
+      await page.locator('input[name="result_publish_at"]').fill(toDateTimeLocalValue(resultPublishAt));
+      await page.locator('input[name="review_available_from"]').fill(toDateTimeLocalValue(reviewAt));
+      await page.locator('input[name="review_available_until"]').fill(toDateTimeLocalValue(endAt));
+      await page.locator('input[name="total_marks"]').fill("2");
+      await page.locator('input[name="passing_marks"]').fill("1");
+      await page.locator('select[name="result_publish_mode"]').selectOption("immediate");
+      await page.locator('select[name="review_mode"]').selectOption("attempted_only");
+      await page.locator('input[name="show_result_immediately"]').setChecked(true);
+      await page.locator('input[name="allow_review_after_submit"]').setChecked(true);
+      await page.getByRole("button", { name: /save exam settings/i }).click();
+      await expect(page).toHaveURL(/message=/);
+
       await page.goto(`/teacher/exams/${examId}`);
       await expect(page.getByRole("heading", { name: new RegExp(examTitle, "i") }).first()).toBeVisible();
 
-      const syncMarksButton = page.getByRole("button", { name: /sync marks/i });
-      if (await syncMarksButton.count()) {
-        await syncMarksButton.click();
-        await expect(page).toHaveURL(/message=/);
-      }
-
-      const publishButton = page.getByRole("button", { name: /publish exam/i });
-      if (await publishButton.count()) {
-        await publishButton.click();
-        await expect(page).toHaveURL(/message=/);
-      }
-
-      const markLiveButton = page.getByRole("button", { name: /mark live/i });
-      if (await markLiveButton.count()) {
-        await markLiveButton.click();
-        await expect(page).toHaveURL(/message=/);
-      }
+      await runTeacherExamAction(page, examId!, "sync-marks");
+      await runTeacherExamAction(page, examId!, "publish");
+      await runTeacherExamAction(page, examId!, "mark-live");
 
       await loginAsRole(page, "student");
       await expectStudentWorkspace(page);
+      await expectStudentAvailablePractice(page, examId!, examTitle);
 
       await page.goto("/app/practice?practice_filter=ready");
       await expect(page.getByRole("heading", { name: /practice/i }).first()).toBeVisible();

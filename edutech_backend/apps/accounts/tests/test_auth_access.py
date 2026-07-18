@@ -1658,15 +1658,16 @@ class CredentialManagementApiTestCase(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.fresh_student.refresh_from_db()
+        profile = self.fresh_student.normalized_accommodation_profile()
         self.assertEqual(
-            self.fresh_student.accommodation_profile["extra_time_minutes"],
+            profile["extra_time_minutes"],
             20,
         )
         self.assertTrue(
-            self.fresh_student.accommodation_profile["simplified_warning_copy"]
+            profile["simplified_warning_copy"]
         )
         self.assertEqual(
-            self.fresh_student.accommodation_profile["additional_violation_allowance"],
+            profile["additional_violation_allowance"],
             1,
         )
         self.assertEqual(

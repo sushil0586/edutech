@@ -7389,11 +7389,6 @@ button {
   border-radius: 22px;
 }
 
-.attemptRailPanel {
-  border: 1px solid rgba(31, 95, 214, 0.08);
-  background: linear-gradient(180deg, rgba(252, 253, 255, 0.94), rgba(247, 250, 255, 0.88));
-}
-
 .attemptWorkspaceHeader {
   display: grid;
   gap: var(--space-3);
@@ -7494,8 +7489,6 @@ button {
   position: sticky;
   top: 20px;
   z-index: 2;
-  border: 1px solid rgba(31, 95, 214, 0.1);
-  background: linear-gradient(180deg, rgba(252, 253, 255, 0.98), rgba(246, 249, 255, 0.9));
 }
 
 .attemptControlGrid {
@@ -7805,7 +7798,7 @@ button {
   gap: var(--space-2);
   padding: 12px 14px;
   border-radius: 16px;
-  background: rgba(248, 250, 253, 0.78);
+  background: #f8fafd;
   border: 1px solid var(--color-border-default);
 }
 
@@ -7841,8 +7834,8 @@ button {
   color: var(--color-text-secondary);
   padding: 14px 16px;
   border-radius: 18px;
-  border: 1px solid rgba(31, 95, 214, 0.08);
-  background: linear-gradient(180deg, rgba(249, 251, 255, 0.92), rgba(244, 247, 255, 0.84));
+  border: 1px solid rgba(31, 95, 214, 0.12);
+  background: linear-gradient(180deg, rgba(247, 250, 255, 0.98), rgba(241, 246, 255, 0.92));
 }
 
 .attemptSubmitChecklist span {
@@ -8240,38 +8233,15 @@ button {
 }
 
 .attemptReviewToggle {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: start;
+  display: inline-flex;
+  align-items: center;
   gap: var(--space-3);
-  padding: 14px 16px;
-  border-radius: 18px;
-  border: 1px solid rgba(245, 158, 11, 0.14);
-  background: linear-gradient(180deg, rgba(255, 251, 235, 0.8), rgba(255, 255, 255, 0.92));
   color: var(--color-text-secondary);
   font-weight: 600;
 }
 
 .attemptReviewToggle input {
-  margin-top: 2px;
-}
-
-.attemptReviewToggle span {
-  display: grid;
-  gap: 4px;
-}
-
-.attemptReviewToggle span strong {
-  color: var(--color-text-primary);
-  font-size: var(--text-sm);
-  line-height: var(--leading-snug);
-}
-
-.attemptReviewToggle span small {
-  color: var(--color-text-secondary);
-  font-size: var(--text-sm);
-  font-weight: 500;
-  line-height: var(--leading-relaxed);
+  margin-top: 0;
 }
 
 .attemptResponseWorkflow {
@@ -8383,8 +8353,8 @@ button {
   gap: 6px;
   padding: 14px 16px;
   border-radius: 16px;
-  border: 1px solid rgba(31, 95, 214, 0.08);
-  background: linear-gradient(180deg, rgba(250, 252, 255, 0.92), rgba(245, 248, 255, 0.84));
+  border: 1px solid rgba(31, 95, 214, 0.1);
+  background: linear-gradient(180deg, rgba(248, 251, 255, 0.98), rgba(243, 247, 255, 0.92));
 }
 
 .attemptPaletteLegendCard span,
@@ -8428,8 +8398,8 @@ button {
   padding: 12px 14px;
   border-radius: 16px;
   border: 1px solid var(--color-border-default);
-  background: rgba(255, 255, 255, 0.86);
-  box-shadow: 0 6px 14px rgba(23, 32, 51, 0.04);
+  background: #ffffff;
+  box-shadow: var(--shadow-xs);
   transition:
     transform 180ms ease,
     border-color 180ms ease,
@@ -14139,62 +14109,6 @@ button {
   }
 }
 
-/* Student shell refresh */
-
-:root {
-  --color-bg-page: #faf8f4;
-  --color-bg-page-alt: #f5f7fb;
-  --color-bg-surface: #ffffff;
-  --color-bg-surface-soft: #f8fafd;
-  --color-bg-surface-muted: #f3f6fb;
-  --color-text-primary: #131b2e;
-  --color-text-secondary: #344055;
-  --color-text-muted: #5f6f89;
-  --color-border-default: #e3e8f2;
-  --color-border-soft: #eef2f7;
-  --color-brand-primary-500: #1f5fd6;
-  --color-brand-primary-600: #174aa8;
-  --color-brand-primary-700: #143d8d;
-  --shadow-xs: 0 4px 16px rgba(23, 32, 51, 0.04);
-  --shadow-sm: 0 10px 30px rgba(23, 32, 51, 0.06);
-  --shadow-md: 0 18px 42px rgba(23, 32, 51, 0.08);
-  --shadow-focus: 0 0 0 4px rgba(31, 95, 214, 0.12);
-}
-
-body {
-  background:
-    radial-gradient(circle at top left, rgba(234, 242, 255, 0.7), transparent 26%),
-    radial-gradient(circle at bottom right, rgba(255, 246, 232, 0.75), transparent 28%),
-    linear-gradient(180deg, #fcfbf8 0%, #f8f8f6 45%, #f5f7fb 100%);
-}
-
-body::before,
-body::after {
-  display: none;
-}
-
-.button {
-  min-height: 46px;
-  border-radius: 16px;
-  box-shadow: none;
-}
-
-.buttonPrimary {
-  background: linear-gradient(180deg, #1f5fd6 0%, #174aa8 100%);
-  box-shadow: 0 10px 24px rgba(31, 95, 214, 0.18);
-}
-
-.buttonSecondary {
-  background: #f5f8ff;
-  border-color: var(--color-border-default);
-  color: var(--color-brand-primary-600);
-}
-
-.buttonGhost {
-  background: #ffffff;
-  border-color: var(--color-border-default);
-}
-
 .studentAppShell {
   grid-template-columns: 260px minmax(0, 1fr);
   gap: 20px;
@@ -14751,8 +14665,7 @@ body::after {
 .instituteConsolePage:not(.adminDashboardPage) .appTopbarAction {
   min-height: 46px;
   padding: 0 16px;
-  border-radius: 16px;
-  box-shadow: var(--institute-button-shadow);
+  box-shadow: var(--shadow-xs);
   transition:
     transform 180ms ease,
     box-shadow 180ms ease,
@@ -14762,19 +14675,19 @@ body::after {
 
 .instituteConsolePage:not(.adminDashboardPage) .buttonPrimary {
   border: 1px solid rgba(118, 126, 255, 0.28);
-  background: linear-gradient(135deg, #4d82ff, #6a5df6);
+  background: var(--gradient-hero);
 }
 
 .instituteConsolePage:not(.adminDashboardPage) .buttonSecondary {
   border: 1px solid rgba(185, 199, 245, 0.56);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(241, 246, 255, 0.9));
+  background: rgba(255, 255, 255, 0.9);
   color: #2850a6;
 }
 
 .instituteConsolePage:not(.adminDashboardPage) .buttonGhost,
 .instituteConsolePage:not(.adminDashboardPage) .appTopbarAction {
   border: 1px solid rgba(195, 207, 239, 0.56);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(246, 249, 255, 0.84));
+  background: rgba(255, 255, 255, 0.82);
   color: #385178;
 }
 
@@ -14787,7 +14700,7 @@ body::after {
 .instituteConsolePage:not(.adminDashboardPage) .adminPeopleViewTab:hover,
 .instituteConsolePage:not(.adminDashboardPage) .statusPill:hover {
   transform: translateY(-1px);
-  box-shadow: var(--institute-button-shadow-hover);
+  box-shadow: var(--shadow-sm);
 }
 
 .instituteConsolePage:not(.adminDashboardPage) input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
@@ -16176,6 +16089,13 @@ body::after {
     align-items: end;
   }
 
+  .instituteReportsPageVivid .workspaceFilterActionsFullRow {
+    grid-column: auto;
+    justify-content: stretch;
+    padding-top: 0;
+    align-self: end;
+  }
+
   .instituteReportsPageVivid .workspaceFilterQuickRow {
     margin-top: 10px;
     gap: 10px;
@@ -16530,8 +16450,7 @@ body::after {
 .adminAppMain .appTopbarAction {
   min-height: 46px;
   padding: 0 16px;
-  border-radius: 16px;
-  box-shadow: var(--institute-button-shadow);
+  box-shadow: var(--shadow-xs);
   transition:
     transform 180ms ease,
     box-shadow 180ms ease,
@@ -16623,7 +16542,7 @@ body::after {
 
 .adminAppMain .buttonPrimary {
   border: 1px solid rgba(118, 126, 255, 0.28);
-  background: linear-gradient(135deg, #4d82ff, #6a5df6);
+  background: var(--gradient-hero);
 }
 
 .adminEconomyPage {
@@ -16983,8 +16902,10 @@ body::after {
   }
 
   .adminReportsPage .workspaceFilterActionsFullRow {
-    justify-content: flex-start;
-    padding-top: 2px;
+    grid-column: auto;
+    justify-content: stretch;
+    padding-top: 0;
+    align-self: end;
   }
 
   .adminReportsPage .workspaceFilterQuickRow {
@@ -18748,25 +18669,24 @@ body::after {
 .teacherConsolePage .appTopbarAction {
   min-height: 46px;
   padding: 0 16px;
-  border-radius: 16px;
-  box-shadow: var(--institute-button-shadow);
+  box-shadow: var(--shadow-xs);
 }
 
 .teacherConsolePage .buttonPrimary {
   border: 1px solid rgba(118, 126, 255, 0.28);
-  background: linear-gradient(135deg, #4d82ff, #6a5df6);
+  background: var(--gradient-hero);
 }
 
 .teacherConsolePage .buttonSecondary {
   border: 1px solid rgba(185, 199, 245, 0.56);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(241, 246, 255, 0.9));
+  background: rgba(255, 255, 255, 0.9);
   color: #2850a6;
 }
 
 .teacherConsolePage .buttonGhost,
 .teacherConsolePage .appTopbarAction {
   border: 1px solid rgba(195, 207, 239, 0.56);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(246, 249, 255, 0.84));
+  background: rgba(255, 255, 255, 0.82);
   color: #385178;
 }
 
@@ -18778,7 +18698,7 @@ body::after {
 .teacherConsolePage .workspaceQuickChip:hover,
 .teacherConsolePage .statusPill:hover {
   transform: translateY(-1px);
-  box-shadow: var(--institute-button-shadow-hover);
+  box-shadow: var(--shadow-sm);
 }
 
 .teacherConsolePage input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
@@ -18948,6 +18868,64 @@ body::after {
   box-shadow:
     0 14px 28px rgba(86, 113, 173, 0.07),
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.teacherReviewsPageVivid .teacherExamFilters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px 14px;
+  align-items: end;
+}
+
+.teacherReviewsPageVivid .dashboardGrid {
+  grid-template-columns: minmax(0, 1.08fr) minmax(340px, 0.92fr);
+  align-items: start;
+}
+
+.teacherReviewsPageVivid .teacherResultsAttemptsCard,
+.teacherReviewsPageVivid .teacherAttemptDetailPanel {
+  gap: 16px;
+}
+
+.teacherReviewsPageVivid .teacherAttemptList {
+  gap: 12px;
+}
+
+.teacherReviewsPageVivid .teacherAttemptListCard {
+  gap: 12px;
+  padding: 16px;
+  border-radius: 18px;
+}
+
+.teacherReviewsPageVivid .teacherAttemptListCard p,
+.teacherReviewsPageVivid .teacherAttemptDetailPanel > p,
+.teacherReviewsPageVivid .builderHintPanel p,
+.teacherReviewsPageVivid .emptyText {
+  color: #51607d;
+  line-height: 1.6;
+}
+
+.teacherReviewsPageVivid .teacherAttemptDetailPanel {
+  position: sticky;
+  top: 16px;
+}
+
+.teacherReviewsPageVivid .analyticsResultReviewForm {
+  gap: 14px 16px;
+}
+
+.teacherReviewsPageVivid .resultCardActions {
+  gap: 10px;
+}
+
+@media (max-width: 1180px) {
+  .teacherReviewsPageVivid .dashboardGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .teacherReviewsPageVivid .teacherAttemptDetailPanel {
+    position: static;
+  }
 }
 
 .teacherConsolePage .builderSummaryCard,
@@ -22103,7 +22081,11 @@ body::after {
 }
 
 .workspaceFilterActions {
-  justify-content: flex-end;
+  display: grid;
+  gap: 10px;
+  justify-content: stretch;
+  align-content: end;
+  min-width: 0;
 }
 
 .workspaceFilterActionsFullRow {
@@ -22113,7 +22095,13 @@ body::after {
 }
 
 .workspaceFilterActions > .button {
-  flex: 0 0 auto;
+  width: 100%;
+}
+
+.workspaceFilterActions > a,
+.workspaceFilterActions > button {
+  width: 100%;
+  justify-content: center;
 }
 
 .workspaceFilterQuickRow {

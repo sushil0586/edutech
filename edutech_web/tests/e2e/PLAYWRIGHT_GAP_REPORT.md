@@ -1,6 +1,6 @@
 # Playwright Gap Report
 
-Last updated: 2026-07-17
+Last updated: 2026-07-18
 
 ## Purpose
 
@@ -67,10 +67,13 @@ Why it matters:
 Best next automation:
 
 - add a small per-role reversible mutation pack for Firefox and WebKit:
-- admin exam-detail policy change
-- institute teacher-assignment edit
-- teacher draft-question edit
-- student exam-key or practice preference persistence
+- admin exam-detail policy change now has direct Firefox and WebKit proof on the disposable detail-and-policy lane
+- institute teacher-assignment edit now has direct Firefox and WebKit proof on the disposable create/edit/archive/restore lane
+- teacher draft-question edit now has direct Firefox and WebKit proof on the disposable create/update/delete lane
+- student topbar source-and-subject persistence now has direct Firefox and WebKit proof across core workspace pages
+- student exam-key assignment and access-key entry now have direct Firefox and WebKit proof on the disposable assigned-exam lane
+- student practice start, resume, submit, and review now have direct Firefox and WebKit proof on the disposable teacher-authored practice lane
+- student attempt start, resume, section-switch, save, and submit now have direct Firefox and WebKit proof on the disposable teacher-assigned runtime lane
 
 ## 3. Remaining backend-error negative-path depth outside admin economy
 
@@ -78,13 +81,20 @@ Current status:
 
 - admin dense-form backend rejection coverage is materially stronger now
 - current browser coverage includes admin people duplicate rejection, admin economy package and subscription-plan rejection, subscription-plan apply stale-target rejection, support grant and unlock stale-target rejection, and catalog-governance stale-item rejection
+- admin support-ops rejection coverage now includes stale-order confirmation recovery in the student support queue
+- admin request-queue rejection coverage now includes deterministic missing-request review recovery after seeding a real institute request
+- teacher backend rejection coverage now includes question-create validation failure recovery, import-preview rejection recovery, and import-finalize backend rejection recovery
+- teacher import browser coverage now also includes mixed valid-plus-duplicate preview guidance without mutable backend setup
+- institute backend rejection coverage now includes create-exam duplicate-code recovery on the guided wizard
+- institute backend rejection coverage now also includes dense teacher-assignment create rejection with field-level retry guidance
+- institute import browser coverage now also includes malformed question-import preview rejection with retry guidance
+- institute import browser coverage now also includes partial-success finalize recovery after a clean preview
+- institute import browser coverage now also includes row-level academic mapping failure guidance after a structurally valid preview
 
 Missing proof:
 
-- backend-error handling on institute-heavy dense forms
-- teacher authoring/import failure surfaces
-- order-confirmation and queue-review failure paths that do not depend on ambient seeded queue data
-
+- broader backend-error handling on institute-heavy dense forms beyond the current exam-create and teacher-assignment-create rejection coverage
+- broader teacher authoring/import failure surfaces beyond the current create plus import preview/finalize rejection checks
 Why it matters:
 
 - backend contract shifts still tend to fail first on mutation-heavy operator pages
@@ -92,10 +102,7 @@ Why it matters:
 
 Best next automation:
 
-- institute exams negative-path pack
 - teacher question create/import backend rejection pack
-- admin support-ops order-confirmation rejection
-- admin request-queue review rejection with deterministic disposable setup
 
 ## 4. Parent and operator role depth
 
@@ -153,14 +160,14 @@ Best next automation:
 Missing proof:
 
 - malformed CSV edge cases
-- duplicate rows
-- partial success summaries
-- oversized payload or wrong-column mapping failures
+- broader duplicate-row coverage beyond the current teacher mixed-preview browser proof
+- broader partial-success summary coverage beyond the current institute question-import finalize recovery proof
+- oversized payload failures beyond the current malformed-column and invalid academic-mapping institute preview coverage
 
 Why it matters:
 
 - import workflows are operationally risky
-- current coverage proves useful happy paths and finalize flows, but failure matrices are thinner
+- current coverage now proves useful happy paths, teacher malformed/mixed preview guidance, institute finalize recovery, and teacher finalize rejection, but the wider failure matrix is still thinner than it should be
 
 Best next automation:
 
@@ -172,6 +179,22 @@ Missing proof:
 
 - formal repeat stability on more than a few focused subsets
 - especially for mutable and compact-viewport workflows
+
+Current status update on 2026-07-18:
+
+- operator long-session continuity now exists for:
+  - teacher reviews
+  - teacher question bank
+  - institute results analysis
+- cross-browser student mutable continuity now also exists for:
+  - exam-key access after selected-student assignment
+  - practice availability, resume, submit, and review on a disposable teacher-authored practice set
+  - multi-step attempt runtime continuity across start, save, reload, resume, section-switch, and submit on a disposable teacher-assigned exam
+- a dedicated repeatable release-and-continuity stability command now exists:
+  - `npm run test:e2e:release-ui:repeat`
+- latest local rerun on `2026-07-18` for that focused pack:
+  - grouped result with `--repeat-each=2`: `22 passed`
+- the remaining repeat-evidence gap is now broader mutable packs and wider operator subsets, not the new focused continuity pack itself
 
 Why it matters:
 
