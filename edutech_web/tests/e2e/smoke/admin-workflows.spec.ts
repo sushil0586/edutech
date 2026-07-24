@@ -78,7 +78,7 @@ test.describe("Platform admin smoke journeys", () => {
 
     await gotoWithRetry(page, "/admin/exams");
     await expect(page.getByRole("heading", { name: /exam management/i }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /quick create/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /new exam/i }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /advanced builder/i }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /preset library/i }).first()).toBeVisible();
     await expectOneOf(
@@ -86,7 +86,7 @@ test.describe("Platform admin smoke journeys", () => {
       page.getByRole("heading", { name: /no exams match these platform controls/i }).first(),
     );
 
-    await page.getByRole("link", { name: /quick create/i }).first().click();
+    await page.getByRole("link", { name: /new exam/i }).first().click();
     await expect(page).toHaveURL(/\/admin\/exams\/new(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /create exam/i }).first()).toBeVisible();
 

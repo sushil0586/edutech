@@ -29,10 +29,10 @@ async function expectOneOf(
 ) {
   const primaryVisible = await primary.isVisible().catch(() => false);
   if (primaryVisible) {
-    await expect(primary).toBeVisible();
+    await expect(primary.first()).toBeVisible();
     return;
   }
-  await expect(secondary).toBeVisible();
+  await expect(secondary.first()).toBeVisible();
 }
 
 test.describe("Student smoke journeys", () => {

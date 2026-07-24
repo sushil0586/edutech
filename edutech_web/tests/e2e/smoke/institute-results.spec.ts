@@ -88,8 +88,8 @@ test.describe("Institute smoke journeys", () => {
 
     await gotoWithRetry(page, "/institute/exams");
     await expect(page.getByRole("heading", { name: /exam management/i }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /quick create/i })).toBeVisible();
-    await expect(page.getByRole("link", { name: /advanced builder/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /quick create/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /advanced builder/i }).first()).toBeVisible();
 
     const openExamLink = page.getByRole("link", { name: /open exam/i }).first();
     await expect(openExamLink).toBeVisible();
@@ -102,7 +102,7 @@ test.describe("Institute smoke journeys", () => {
     await expect(page.getByText("Result Status", { exact: true }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /back to exams/i })).toBeVisible();
     await expect(page.getByRole("link", { name: /link questions/i })).toBeVisible();
-    await expect(page.getByRole("link", { name: /open builder/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /open builder/i }).first()).toBeVisible();
     await page.getByRole("link", { name: /back to exams/i }).click();
     await expect(page).toHaveURL(/\/institute\/exams$/);
     await gotoWithRetry(page, examDetailUrl);
@@ -119,7 +119,7 @@ test.describe("Institute smoke journeys", () => {
     await expect(page.getByRole("link", { name: /open delivery view/i })).toBeVisible();
     await page.getByRole("link", { name: /open delivery view/i }).click();
     await expect(page).toHaveURL(/\/institute\/exams\/.+$/);
-    await page.getByRole("link", { name: /open builder/i }).click();
+    await page.getByRole("link", { name: /open builder/i }).first().click();
     await expect(page).toHaveURL(/\/institute\/exams\/.+\/builder/);
     await expect(page.getByRole("heading", { name: /builder/i }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /open delivery view/i })).toBeVisible();
@@ -137,15 +137,15 @@ test.describe("Institute smoke journeys", () => {
       await expect(page.getByText(/no active teacher assignments are visible|no teacher assignments exist yet/i)).toBeVisible();
     }
     await page.getByRole("button", { name: /^add$/i }).click();
-    await expect(page.getByRole("heading", { name: /add teacher assignment/i })).toBeVisible();
-    await page.getByRole("button", { name: /create assignment/i }).click();
     const assignmentDialog = page.getByRole("dialog");
+    await expect(assignmentDialog.getByRole("heading", { name: /add teacher assignment/i })).toBeVisible();
+    await assignmentDialog.getByRole("button", { name: /create assignment/i }).click();
     await expect(assignmentDialog.getByText(/fill the required fields to continue/i)).toBeVisible();
     await expect(assignmentDialog.getByText(/teacher is required/i)).toBeVisible();
     await expect(assignmentDialog.getByText(/academic year is required/i)).toBeVisible();
     await expect(assignmentDialog.getByText(/program is required/i)).toBeVisible();
     await expect(assignmentDialog.getByText(/subject is required/i)).toBeVisible();
-    await page.getByRole("button", { name: /cancel/i }).click();
+    await assignmentDialog.getByRole("button", { name: /cancel/i }).click();
     const editAssignmentButton = page.getByRole("button", { name: /edit/i }).first();
     if (await editAssignmentButton.count()) {
       await expect(editAssignmentButton).toBeVisible();

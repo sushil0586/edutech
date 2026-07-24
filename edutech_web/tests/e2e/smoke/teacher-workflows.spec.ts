@@ -8,10 +8,10 @@ async function expectOneOf(
 ) {
   const primaryVisible = await primary.isVisible().catch(() => false);
   if (primaryVisible) {
-    await expect(primary).toBeVisible();
+    await expect(primary.first()).toBeVisible();
     return;
   }
-  await expect(secondary).toBeVisible();
+  await expect(secondary.first()).toBeVisible();
 }
 
 test.describe("Teacher smoke journeys", () => {
@@ -26,7 +26,7 @@ test.describe("Teacher smoke journeys", () => {
     await page.goto("/teacher/dashboard");
     await expect(page.getByRole("heading", { name: /delivery dashboard/i }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /new exam/i })).toBeVisible();
-    await expect(page.getByRole("link", { name: /new question/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /new question/i }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /open exams|exams/i }).first()).toBeVisible();
     await page.getByLabel(/focus lane/i).selectOption("questions");
     await page.getByRole("button", { name: /apply filters/i }).click();
@@ -38,7 +38,7 @@ test.describe("Teacher smoke journeys", () => {
     await page.getByRole("link", { name: /^exams$/i }).click();
     await expect(page).toHaveURL(/\/teacher\/exams/);
     await expect(page.getByRole("heading", { name: /exam management/i }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /quick create/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /new exam/i }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /advanced builder/i }).first()).toBeVisible();
     await expectOneOf(
       page.getByText(/your teacher exam list is empty right now/i),
@@ -53,7 +53,7 @@ test.describe("Teacher smoke journeys", () => {
       await expect(page).not.toHaveURL(/exam_group=status/);
     }
 
-    await page.getByRole("link", { name: /quick create/i }).first().click();
+    await page.getByRole("link", { name: /new exam/i }).first().click();
     await expect(page).toHaveURL(/\/teacher\/exams\/new/);
     await expect(page.getByRole("heading", { name: /create exam/i }).first()).toBeVisible();
     await page.goto("/teacher/exams");
@@ -92,28 +92,28 @@ test.describe("Teacher smoke journeys", () => {
 
     await page.goto("/teacher/question-bank");
     await expect(page.getByRole("heading", { name: /question bank/i }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /import questions csv/i })).toBeVisible();
-    await expect(page.getByRole("link", { name: /import comprehension csv/i })).toBeVisible();
-    await expect(page.getByRole("link", { name: /create comprehension set/i })).toBeVisible();
-    await expect(page.getByRole("link", { name: /create question/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /import questions/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /import comprehension/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /new comprehension set/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /new question/i }).first()).toBeVisible();
     await page.getByLabel(/search question text/i).fill("AWS");
-    await page.getByRole("button", { name: /apply filters/i }).click();
+    await page.getByRole("button", { name: /update view/i }).click();
     await expect(page).toHaveURL(/search=AWS/);
     await page.getByRole("button", { name: /^reset$/i }).click();
     await expect(page).not.toHaveURL(/search=AWS/);
-    const importQuestionsHref = await page.getByRole("link", { name: /import questions csv/i }).first().getAttribute("href");
+    const importQuestionsHref = await page.getByRole("link", { name: /import questions/i }).first().getAttribute("href");
     expect(importQuestionsHref).toContain("/teacher/question-bank/import");
     await page.goto(importQuestionsHref!);
     await expect(page).toHaveURL(/\/teacher\/question-bank\/import/);
     await expect(page.getByRole("heading", { name: /import questions/i }).first()).toBeVisible();
     await page.goto("/teacher/question-bank");
-    const importComprehensionHref = await page.getByRole("link", { name: /import comprehension csv/i }).first().getAttribute("href");
+    const importComprehensionHref = await page.getByRole("link", { name: /import comprehension/i }).first().getAttribute("href");
     expect(importComprehensionHref).toContain("/teacher/question-bank/comprehension/import");
     await page.goto(importComprehensionHref!);
     await expect(page).toHaveURL(/\/teacher\/question-bank\/comprehension\/import/);
     await expect(page.getByRole("heading", { name: /import comprehension sets/i }).first()).toBeVisible();
     await page.goto("/teacher/question-bank");
-    const createComprehensionLink = page.getByRole("link", { name: /create comprehension set/i }).last();
+    const createComprehensionLink = page.getByRole("link", { name: /new comprehension set/i }).last();
     await expect(createComprehensionLink).toHaveAttribute("href", /\/teacher\/question-bank\/comprehension\/new/);
     await page.goto("/teacher/question-bank/comprehension/new");
     await expect(page).toHaveURL(/\/teacher\/question-bank\/comprehension\/new/);
@@ -124,10 +124,10 @@ test.describe("Teacher smoke journeys", () => {
 
     await page.getByRole("link", { name: /^reviews$/i }).click();
     await expect(page.getByRole("heading", { name: /review queue/i }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /open results/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /view results/i }).first()).toBeVisible();
     await expect(page.getByRole("button", { name: /claim next task|resume my next task/i }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /open pending/i })).toBeVisible();
-    await page.getByRole("link", { name: /open pending/i }).first().click();
+    await expect(page.getByRole("link", { name: /view pending/i })).toBeVisible();
+    await page.getByRole("link", { name: /view pending/i }).first().click();
     await expect(page).toHaveURL(/status=pending/);
     await page.getByRole("link", { name: /^reset$/i }).click();
     await expect(page).not.toHaveURL(/status=pending/);
