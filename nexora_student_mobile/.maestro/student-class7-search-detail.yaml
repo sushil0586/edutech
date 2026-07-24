@@ -1,0 +1,57 @@
+appId: com.anonymous.nexorastudentmobile
+---
+- launchApp:
+    clearState: true
+
+- extendedWaitUntil:
+    visible: "Login"
+    timeout: 30000
+
+- tapOn: "Login"
+- tapOn:
+    text: "Username"
+- inputText: a001
+
+- tapOn:
+    text: "Enter password"
+- inputText: Ansh@1789
+
+- hideKeyboard
+- tapOn: "Login"
+
+- extendedWaitUntil:
+    visible: "Student Dashboard"
+    timeout: 30000
+
+- tapOn:
+    id: "dashboard-open-exams-button"
+
+- extendedWaitUntil:
+    visible: "Student Exams"
+    timeout: 30000
+
+- scrollUntilVisible:
+    element:
+      id: "exams-search-input"
+    direction: DOWN
+
+- tapOn:
+    id: "exams-search-input"
+
+- inputText: PW Android Visual Class7 Math+Science 45 1784808577646
+
+- hideKeyboard
+
+- scrollUntilVisible:
+    element:
+      id: "exams-open-top-exam-button"
+    direction: UP
+
+- tapOn:
+    id: "exams-open-top-exam-button"
+
+- extendedWaitUntil:
+    visible: "Exam Readiness"
+    timeout: 30000
+
+- assertVisible: "Start Attempt"

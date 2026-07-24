@@ -67,6 +67,12 @@ export function buildAnalyticsTimelineHref(
   return withFilterQuery("/app/analytics/timeline", filters);
 }
 
+export function buildAnalyticsTimeManagementHref(
+  filters?: StudentAnalyticsScopedFilters,
+) {
+  return withFilterQuery("/app/analytics/time-management", filters);
+}
+
 export function buildAnalyticsActionsHref(
   filters?: StudentAnalyticsScopedFilters,
 ) {
@@ -143,10 +149,45 @@ export function buildQuestionAnalyticsHref(filters: {
   return `/app/analytics/questions${queryString ? `?${queryString}` : ""}`;
 }
 
+export function buildWrongQuestionsHref(filters: {
+  subject?: string | null;
+  topic?: string | null;
+  questionType?: string | null;
+  source?: string | null;
+  teacher?: string | null;
+}) {
+  const query = new URLSearchParams();
+  if (filters.subject) query.set("subject", filters.subject);
+  if (filters.topic) query.set("topic", filters.topic);
+  if (filters.questionType) query.set("question_type", filters.questionType);
+  if (filters.source) query.set("source", filters.source);
+  if (filters.teacher) query.set("teacher", filters.teacher);
+  const queryString = query.toString();
+  return `/app/analytics/wrong-questions${queryString ? `?${queryString}` : ""}`;
+}
+
 export function buildAnalyticsResultsCompareHref(
   filters?: StudentAnalyticsScopedFilters,
 ) {
   return withFilterQuery("/app/analytics/results/compare", filters);
+}
+
+export function buildAnalyticsRankHistoryHref(
+  filters?: StudentAnalyticsScopedFilters,
+) {
+  return withFilterQuery("/app/analytics/rank-history", filters);
+}
+
+export function buildAnalyticsStudyRecommendationsHref(
+  filters?: StudentAnalyticsScopedFilters,
+) {
+  return withFilterQuery("/app/analytics/study-recommendations", filters);
+}
+
+export function buildAnalyticsDownloadsHref(
+  filters?: StudentAnalyticsScopedFilters,
+) {
+  return withFilterQuery("/app/analytics/downloads", filters);
 }
 
 export async function loadStudentAnalyticsBundle() {

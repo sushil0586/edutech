@@ -38,18 +38,38 @@ async function openAttemptFromExamDetail(page: Page, examId: string, examTitle: 
   await page.goto(`/app/exams/${examId}`);
   await expect(page.getByRole("heading", { name: new RegExp(escapeRegExp(examTitle), "i") }).first()).toBeVisible();
 
-  const resumeLink = page.getByRole("link", { name: /^resume$/i }).first();
-  const startButton = page.getByRole("button", { name: /^start$/i }).first();
-  if (await resumeLink.isVisible().catch(() => false)) {
+  const openSummaryLink = page.getByRole("link", { name: /open summary/i }).first();
+  const openReviewLink = page.getByRole("link", { name: /open review/i }).first();
+  const resumeLink = page.getByRole("link", { name: /resume/i }).first();
+  const launchAction = page
+    .locator("a,button")
+    .filter({
+      hasText: /^(start|start test|start mock test|start exam|start practice set|resume|resume test|resume attempt)$/i,
+    })
+    .first();
+  let entryState: "runtime" | "summary" | "review" = "runtime";
+  if (await openSummaryLink.isVisible().catch(() => false)) {
+    await openSummaryLink.click();
+    await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/summary(?:\?.*)?$/);
+    entryState = "summary";
+  } else if (await openReviewLink.isVisible().catch(() => false)) {
+    await openReviewLink.click();
+    await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/review(?:\?.*)?$/);
+    entryState = "review";
+  } else if (await resumeLink.isVisible().catch(() => false)) {
     await resumeLink.click();
   } else {
-    await startButton.click();
+    await expect(launchAction).toBeVisible();
+    await launchAction.click();
   }
 
-  await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+(?:\?.*)?$/);
+  await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+(?:\/(summary|review))?(?:\?.*)?$/);
   const attemptId = page.url().match(/\/app\/attempts\/([^/?#]+)/)?.[1] ?? null;
   expect(attemptId).not.toBeNull();
-  return attemptId!;
+  return {
+    attemptId: attemptId!,
+    entryState,
+  };
 }
 
 async function saveAndSubmitAttempt(page: Page, examTitle: string, answerSeed: number, prefix: string) {
@@ -63,7 +83,7 @@ async function saveAndSubmitAttempt(page: Page, examTitle: string, answerSeed: n
   page.once("dialog", async (dialog) => {
     await dialog.accept();
   });
-  await page.getByRole("button", { name: /^submit test$/i }).click();
+  await page.getByRole("button", { name: /^(submit test|end test)$/i }).click();
   await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/summary(?:\?.*)?$/);
   await expect(
     page.getByRole("heading", { name: new RegExp(`${escapeRegExp(examTitle)}\\s+Summary`, "i") }).first(),
@@ -88,10 +108,16 @@ test.describe("Student mobile post-submit visual", () => {
     const awsExam = exams.find((exam) => exam.code === awsExamCode) ?? null;
     expect(awsExam).not.toBeNull();
 
-    const attemptId = await openAttemptFromExamDetail(page, awsExam!.id, awsExamTitle);
-    await saveAndSubmitAttempt(page, awsExamTitle, Date.now(), "student mobile review visual");
+    const entry = await openAttemptFromExamDetail(page, awsExam!.id, awsExamTitle);
+    const attemptId = entry.attemptId;
+    if (entry.entryState === "runtime") {
+      await saveAndSubmitAttempt(page, awsExamTitle, Date.now(), "student mobile review visual");
+    } else if (entry.entryState === "review") {
+      await page.goto(`/app/attempts/${attemptId}/summary`);
+      await expect(page).toHaveURL(new RegExp(`/app/attempts/${attemptId}/summary(?:\\?.*)?$`));
+    }
 
-    await expect(page.locator("main")).toHaveScreenshot("student-mobile-summary-review-ready.png", {
+    await expect(page.locator(".studentAppContent")).toHaveScreenshot("student-mobile-summary-review-ready.png", {
       animations: "disabled",
       caret: "hide",
       maxDiffPixels: 200,
@@ -100,7 +126,7 @@ test.describe("Student mobile post-submit visual", () => {
 
     await page.goto(`/app/attempts/${attemptId}/review`);
     await expect(page).toHaveURL(new RegExp(`/app/attempts/${attemptId}/review(?:\\?.*)?$`));
-    await expect(page.locator("main")).toHaveScreenshot("student-mobile-review-ready.png", {
+    await expect(page.locator(".studentAppContent")).toHaveScreenshot("student-mobile-review-ready.png", {
       animations: "disabled",
       caret: "hide",
       maxDiffPixels: 200,

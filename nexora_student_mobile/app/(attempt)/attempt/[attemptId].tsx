@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Text, TextInput, View } from "react-native";
+import { ScrollView, Text, TextInput, View } from "react-native";
 import { ScreenShell } from "@/components/screen-shell";
 import { HeroCard } from "@/components/hero-card";
 import { ActionButton } from "@/components/action-button";
@@ -44,8 +44,137 @@ function timeLabel(totalSeconds: number | null) {
   return `${seconds}s left`;
 }
 
+function isAttemptExpired(expiresAt: string | null | undefined, serverTimeIso: string | null | undefined) {
+  if (!expiresAt || !serverTimeIso) return false;
+  const expiresAtMs = new Date(expiresAt).getTime();
+  const serverTimeMs = new Date(serverTimeIso).getTime();
+  if (Number.isNaN(expiresAtMs) || Number.isNaN(serverTimeMs)) return false;
+  return serverTimeMs >= expiresAtMs;
+}
+
 function supportsMultiSelect(questionType: string) {
   return ["multiple_correct", "multi_select", "multiple_select"].includes(questionType);
+}
+
+function optionLetter(index: number) {
+  return String.fromCharCode(65 + index);
+}
+
+function normalizedQuestionType(questionType: string | null | undefined) {
+  return String(questionType || "").trim().toLowerCase();
+}
+
+function questionTypeLabel(questionType: string | null | undefined) {
+  switch (normalizedQuestionType(questionType)) {
+    case "mcq_single":
+      return "Single-correct MCQ";
+    case "mcq_multiple":
+    case "multiple_correct":
+    case "multi_select":
+    case "multiple_select":
+      return "Multiple-correct MCQ";
+    case "true_false":
+      return "True / False";
+    case "numeric_answer":
+      return "Numeric answer";
+    case "fill_in_blanks":
+      return "Fill in the blanks";
+    case "short_answer":
+      return "Short answer";
+    case "essay_manual_review":
+      return "Descriptive answer";
+    case "assertion_reason":
+      return "Assertion / Reason";
+    case "matrix_match":
+      return "Matrix match";
+    default:
+      return "Question response";
+  }
+}
+
+function questionResponseGuidance(question: StudentExamQuestionDetail) {
+  const type = normalizedQuestionType(question.question_type);
+  const hasOptions = question.options.length > 0;
+
+  if (type === "true_false") {
+    return "Choose either True or False, then save the response.";
+  }
+
+  if (type === "mcq_multiple" || supportsMultiSelect(type)) {
+    return "Select every correct option, then save the response before moving ahead.";
+  }
+
+  if (type === "mcq_single" || hasOptions) {
+    return "Choose the single best option, then save the response.";
+  }
+
+  if (type === "numeric_answer") {
+    return "Enter the final numeric answer carefully, then save the response.";
+  }
+
+  if (type === "fill_in_blanks") {
+    return "Type the missing answer carefully in the response box, then save it.";
+  }
+
+  if (type === "short_answer") {
+    return "Write a concise answer in the response box, then save the response.";
+  }
+
+  if (type === "essay_manual_review") {
+    return "Write the full descriptive answer in the response box, then save before leaving the question.";
+  }
+
+  if (type === "assertion_reason") {
+    return "Read both the assertion and reason carefully, choose the best matching option, then save the response.";
+  }
+
+  if (type === "matrix_match") {
+    return "Match each part carefully using the provided choices, then save the response.";
+  }
+
+  return "Use the response field below if the backend expects written input.";
+}
+
+function answerFieldLabel(question: StudentExamQuestionDetail) {
+  switch (normalizedQuestionType(question.question_type)) {
+    case "numeric_answer":
+      return "Numeric answer";
+    case "fill_in_blanks":
+      return "Blank answer";
+    case "essay_manual_review":
+      return "Descriptive answer";
+    default:
+      return "Answer text";
+  }
+}
+
+function answerFieldPlaceholder(question: StudentExamQuestionDetail) {
+  switch (normalizedQuestionType(question.question_type)) {
+    case "numeric_answer":
+      return "Type the final numeric answer.";
+    case "fill_in_blanks":
+      return "Type the missing answer for the blank.";
+    case "short_answer":
+      return "Type the short written response.";
+    case "essay_manual_review":
+      return "Type the full descriptive answer.";
+    default:
+      return "Type a response when this question requires written input.";
+  }
+}
+
+function optionPresentation(
+  question: StudentExamQuestionDetail | null,
+  optionId: string | null | undefined,
+) {
+  if (!question || !optionId) return null;
+  const index = question.options.findIndex((option) => option.id === optionId);
+  if (index < 0) return null;
+  const option = question.options[index];
+  return {
+    label: optionLetter(index),
+    text: option.option_text,
+  };
 }
 
 function hasSavedResponse(answer: StudentAttemptAnswer | null | undefined) {
@@ -108,6 +237,8 @@ export default function AttemptScreen() {
   const [feedback, setFeedback] = useState("");
   const [pendingNavigation, setPendingNavigation] = useState<PendingNavigation>(null);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
+  const scrollRef = useRef<ScrollView | null>(null);
+  const shouldRefocusQuestion = useRef(false);
 
   const query = useQuery({
     queryKey: ["student.attempt.detail", attemptId, accessToken],
@@ -177,6 +308,10 @@ export default function AttemptScreen() {
         detail.server_time,
       )
     : null;
+  const attemptExpired = detail
+    ? isAttemptExpired(detail.expires_at, detail.server_time)
+    : false;
+  const attemptEditable = detail?.status === "in_progress" && !attemptExpired;
   const draftState = {
     selectedOption,
     selectedOptionIds,
@@ -188,6 +323,11 @@ export default function AttemptScreen() {
     : false;
   const currentQuestionHasAnyDraft =
     Boolean(selectedOption) || selectedOptionIds.length > 0 || Boolean(answerText.trim()) || markedForReview;
+  const savedOptionPresentation = optionPresentation(
+    currentQuestion,
+    currentAnswer?.selected_option,
+  );
+  const currentDraftOptionPresentation = optionPresentation(currentQuestion, selectedOption);
 
   useEffect(() => {
     if (!selectedQuestionId && visibleQuestions[0]?.question) {
@@ -204,6 +344,26 @@ export default function AttemptScreen() {
     setMarkedForReview(draft.markedForReview);
   }, [currentQuestion, answerMap]);
 
+  useEffect(() => {
+    if (!currentQuestion || !shouldRefocusQuestion.current) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      keepCurrentQuestionInFocus();
+      shouldRefocusQuestion.current = false;
+    }, 80);
+
+    return () => clearTimeout(timer);
+  }, [currentQuestion]);
+
+  function keepCurrentQuestionInFocus() {
+    scrollRef.current?.scrollTo({
+      y: 0,
+      animated: true,
+    });
+  }
+
   function selectQuestion(question: StudentExamQuestionDetail) {
     if (currentQuestionHasDraftChanges && currentQuestion?.question !== question.question) {
       setPendingNavigation({ type: "question", question });
@@ -212,6 +372,7 @@ export default function AttemptScreen() {
     }
 
     setPendingNavigation(null);
+    shouldRefocusQuestion.current = true;
     setSelectedQuestionId(question.question);
     setFeedback("");
   }
@@ -263,12 +424,44 @@ export default function AttemptScreen() {
   }
 
   async function handleSave(clearResponse = false) {
+    if (!clearResponse && !currentQuestionHasDraftChanges) {
+      if (currentAnswer) {
+        const savedOption = optionPresentation(currentQuestion, currentAnswer.selected_option);
+        setFeedback(
+          savedOption
+            ? `Answer already saved: Option ${savedOption.label} - ${savedOption.text}`
+            : "This answer is already saved on the backend.",
+        );
+      } else {
+        setFeedback("Choose or type a response before saving.");
+      }
+      return;
+    }
+
     try {
+      const destinationQuestion = !clearResponse ? nextQuestion : null;
       setPendingAction("save");
       setFeedback("");
       setPendingNavigation(null);
       await persistAnswer(clearResponse);
-      setFeedback(clearResponse ? "Saved with cleared response." : "Answer saved successfully.");
+      if (clearResponse) {
+        setFeedback("Response cleared and saved.");
+      } else {
+        const savedOption = optionPresentation(currentQuestion, selectedOption);
+        setFeedback(
+          destinationQuestion
+            ? "Answer saved. Moving to the next question."
+            : savedOption
+              ? `Answer saved: Option ${savedOption.label} - ${savedOption.text}`
+              : answerText.trim()
+                ? "Written answer saved successfully."
+                : "Answer saved successfully.",
+        );
+        if (destinationQuestion) {
+          shouldRefocusQuestion.current = true;
+          setSelectedQuestionId(destinationQuestion.question);
+        }
+      }
     } catch (error) {
       setFeedback(
         error instanceof MobileApiError ? error.message : "Unable to save this answer right now.",
@@ -377,117 +570,356 @@ export default function AttemptScreen() {
     }
   }
 
-  return (
-    <ScreenShell>
-      <HeroCard
-        eyebrow="Live Attempt"
-        badge={detail ? `Attempt ${detail.attempt_no}` : "Runtime"}
-        title={detail?.exam_title ?? "Loading attempt"}
-        description={
-          detail
-            ? `Attempt ${detail.attempt_no} · ${detail.exam_type} · ${detail.total_questions} questions`
-            : "Loading the backend-owned attempt runtime."
-        }
-        helper={
-          query.isLoading
-            ? "Loading attempt detail..."
-            : query.isError
-              ? query.error instanceof Error
-                ? query.error.message
-                : "Unable to load attempt."
-              : detail
-                ? `${answeredCount} answered · ${unansweredCount} remaining · ${timeLabel(remainingTime)}`
-                : "No attempt detail returned."
-        }
-        actions={
-          detail ? (
-            <View style={appStyles.rowWrap}>
-              <ActionButton
-                label={pendingAction === "submit" ? "Submitting..." : "Submit Attempt"}
-                testID="attempt-runtime-submit-button"
-                onPress={handleSubmitPress}
-                disabled={pendingAction !== null}
-              />
-              <ActionButton
-                label="Open Attempts"
-                tone="secondary"
-                testID="attempt-runtime-open-attempts-button"
-                onPress={() => router.push("../../attempts")}
-                disabled={pendingAction === "submit"}
-              />
+  const currentQuestionSection = (
+    <SectionBlock
+      title="Current question"
+      subtitle="Keep the action hierarchy simple: answer, save, review, then move on"
+    >
+      {currentQuestion ? (
+        <View style={appStyles.column}>
+          <View style={appStyles.rowBetween}>
+            <Text style={appStyles.label}>
+              {currentQuestion.section_name} · Question {currentQuestion.question_order}
+            </Text>
+            <Text style={appStyles.helper}>
+              {currentQuestionIndex + 1} of {visibleQuestions.length} in this section
+            </Text>
+          </View>
+          <View style={appStyles.rowWrap}>
+            <ActionButton
+              label="Previous"
+              tone="secondary"
+              compact
+              testID="attempt-runtime-previous-button"
+              onPress={() => {
+                if (previousQuestion) {
+                  selectQuestion(previousQuestion);
+                }
+              }}
+              disabled={pendingAction !== null || !previousQuestion || !attemptEditable}
+            />
+            <ActionButton
+              label="Next"
+              tone={nextQuestion ? "primary" : "secondary"}
+              compact
+              testID="attempt-runtime-next-button"
+              onPress={() => {
+                if (nextQuestion) {
+                  selectQuestion(nextQuestion);
+                }
+              }}
+              disabled={pendingAction !== null || !nextQuestion || !attemptEditable}
+            />
+          </View>
+          <Text style={appStyles.label}>
+            Fastest flow: answer, save, move next. Use review-mark only when you intend to revisit before submit.
+          </Text>
+          <Text style={appStyles.questionStem}>{currentQuestion.question_text}</Text>
+          <View style={appStyles.rowWrap}>
+            <View style={[appStyles.chip, appStyles.chipPrimary]}>
+              <Text style={[appStyles.chipText, appStyles.chipTextPrimary]}>
+                {questionTypeLabel(currentQuestion.question_type)}
+              </Text>
             </View>
-          ) : undefined
-        }
-      />
-      {query.isError ? (
+            <View style={appStyles.chip}>
+              <Text style={appStyles.chipText}>
+                {currentSelectionCount} option{currentSelectionCount === 1 ? "" : "s"} selected
+              </Text>
+            </View>
+            <View
+              style={[
+                appStyles.chip,
+                currentQuestionHasDraftChanges
+                  ? appStyles.chipWarm
+                  : currentAnswer
+                    ? appStyles.chipSuccess
+                    : null,
+              ]}
+            >
+              <Text
+                style={[
+                  appStyles.chipText,
+                  currentQuestionHasDraftChanges
+                    ? appStyles.chipTextWarm
+                    : currentAnswer
+                      ? appStyles.chipTextSuccess
+                      : null,
+                ]}
+              >
+                {currentQuestionHasDraftChanges
+                  ? "Unsaved draft"
+                  : currentAnswer
+                    ? "Saved on backend"
+                    : currentQuestionHasAnyDraft
+                      ? "Draft in progress"
+                      : "No response yet"}
+              </Text>
+            </View>
+            {markedForReview ? (
+              <View style={[appStyles.chip, appStyles.chipWarm]}>
+                <Text style={[appStyles.chipText, appStyles.chipTextWarm]}>Marked for review</Text>
+              </View>
+            ) : null}
+          </View>
+          <View style={appStyles.emphasisPanel}>
+            <Text style={appStyles.body}>{questionResponseGuidance(currentQuestion)}</Text>
+          </View>
+          {currentQuestion.options.length ? (
+            currentQuestion.options.map((option, index) => {
+              const isSelected = currentQuestionSupportsMultiSelect
+                ? selectedOptionIds.includes(option.id)
+                : selectedOption === option.id;
+              const optionLabel = optionLetter(index);
+
+              return (
+                <View
+                  key={option.id}
+                  style={[
+                    appStyles.optionCard,
+                    isSelected ? appStyles.optionCardSelected : null,
+                  ]}
+                >
+                  <View style={appStyles.optionCardHeader}>
+                    <Text style={appStyles.optionMeta}>
+                      {currentQuestionSupportsMultiSelect ? `Option ${optionLabel} · Multi-select` : `Option ${optionLabel} · Single-select`}
+                    </Text>
+                    {isSelected ? <Text style={appStyles.optionStateText}>Selected</Text> : null}
+                  </View>
+                  <Text style={appStyles.body}>{option.option_text}</Text>
+                  <ActionButton
+                    label={isSelected ? `Selected ${optionLabel}` : `Select ${optionLabel}`}
+                    tone={isSelected ? "primary" : "secondary"}
+                    onPress={() => toggleOption(option.id)}
+                    disabled={pendingAction !== null || !attemptEditable}
+                  />
+                </View>
+              );
+            })
+          ) : (
+            <View style={appStyles.mutedPanel}>
+              <Text style={appStyles.helper}>
+                No answer options were returned for this question. Use the response field below if the backend expects written input.
+              </Text>
+            </View>
+          )}
+          <View style={appStyles.fieldStack}>
+            <Text style={appStyles.label}>{answerFieldLabel(currentQuestion)}</Text>
+            <TextInput
+              multiline
+              numberOfLines={4}
+              onChangeText={setAnswerText}
+              placeholder={answerFieldPlaceholder(currentQuestion)}
+              style={[appStyles.input, { minHeight: 110, paddingVertical: spacing.md, textAlignVertical: "top" }]}
+              testID="attempt-runtime-answer-text-input"
+              value={answerText}
+              editable={attemptEditable}
+            />
+          </View>
+          <View style={appStyles.rowWrap}>
+            <ActionButton
+              label={markedForReview ? "Marked for review" : "Mark for review"}
+              tone={markedForReview ? "primary" : "secondary"}
+              testID="attempt-runtime-mark-review-button"
+              onPress={() => setMarkedForReview((value) => !value)}
+              disabled={pendingAction !== null || !attemptEditable}
+            />
+            <ActionButton
+              label={pendingAction === "save" ? "Saving..." : "Save Answer"}
+              testID="attempt-runtime-save-answer-button"
+              onPress={() => void handleSave(false)}
+              disabled={pendingAction !== null || !attemptEditable}
+            />
+            <ActionButton
+              label="Clear Response"
+              tone="secondary"
+              testID="attempt-runtime-clear-response-button"
+              onPress={() => void handleSave(true)}
+              disabled={pendingAction !== null || !attemptEditable}
+            />
+          </View>
+          {currentAnswer ? (
+            <View style={appStyles.column}>
+              <Text style={appStyles.helper}>
+                Last saved answer detected for this question. Review state:{" "}
+                {currentAnswer.is_marked_for_review ? "marked for review" : "normal"}.
+              </Text>
+              {savedOptionPresentation ? (
+                <Text style={appStyles.helper}>
+                  Saved choice: Option {savedOptionPresentation.label} - {savedOptionPresentation.text}
+                </Text>
+              ) : currentAnswer.answer_text.trim() ? (
+                <Text style={appStyles.helper}>
+                  Saved written response is present for this question.
+                </Text>
+              ) : null}
+              {currentQuestionHasDraftChanges && currentDraftOptionPresentation ? (
+                <Text style={appStyles.warningText}>
+                  Current unsaved choice: Option {currentDraftOptionPresentation.label} -{" "}
+                  {currentDraftOptionPresentation.text}
+                </Text>
+              ) : null}
+            </View>
+          ) : (
+            <View style={appStyles.column}>
+              <Text style={appStyles.helper}>
+                No saved answer exists yet for this question. Save before switching away if you want the backend to persist this response.
+              </Text>
+              {currentDraftOptionPresentation ? (
+                <Text style={appStyles.warningText}>
+                  Current unsaved choice: Option {currentDraftOptionPresentation.label} -{" "}
+                  {currentDraftOptionPresentation.text}
+                </Text>
+              ) : null}
+            </View>
+          )}
+        </View>
+      ) : (
         <StatePanel
-          tone="error"
-          title="Attempt runtime unavailable"
-          body={query.error instanceof Error ? query.error.message : "Unable to load attempt."}
-          action={{ label: "Retry", onPress: () => void query.refetch() }}
+          title="Select a question"
+          body="Choose a question from the navigator to begin the focused attempt flow."
         />
-      ) : null}
-      {detail ? (
-        <View style={appStyles.metricGrid}>
-          <MetricCard
-            label="Answered"
-            value={String(answeredCount)}
-            helper="Saved by backend runtime"
-            soft
-          />
-          <MetricCard
-            label="Remaining"
-            value={String(unansweredCount)}
-            helper="Questions still open"
-          />
-          <MetricCard
-            label="Time Left"
-            value={timeLabel(remainingTime)}
-            helper="Exam or section timer authority"
-            soft
-          />
-          <MetricCard
-            label="Violations"
-            value={String(detail.integrity_summary.violation_count)}
-            helper="Security threshold tracking"
-          />
-          <MetricCard
-            label="Review Marked"
-            value={String(reviewMarkedCount)}
-            helper="Questions flagged for a revisit"
-            soft
-          />
-        </View>
-      ) : null}
+      )}
+    </SectionBlock>
+  );
 
-      {query.isRefetching && !query.isLoading ? (
-        <View style={appStyles.mutedPanel}>
-          <Text style={appStyles.helper}>
-            Refreshing attempt state from the server. Your saved responses remain protected while this sync runs.
-          </Text>
-        </View>
-      ) : null}
-
-      {feedback ? (
-        <View style={appStyles.sectionCard}>
-          <Text
-            style={
-              feedback.toLowerCase().includes("success") ||
-              feedback.toLowerCase().includes("saved") ||
-              feedback.toLowerCase().includes("updated")
-                ? appStyles.successText
-                : appStyles.errorText
-            }
-          >
-            {feedback}
-          </Text>
-        </View>
-      ) : null}
-
-      <SectionBlock
-        title="Section flow"
-        subtitle="Move only through the sections the backend currently allows"
+  return (
+    <ScreenShell scroll={false}>
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={appStyles.pageStack}
+        keyboardShouldPersistTaps="always"
+        showsVerticalScrollIndicator={false}
       >
+        {query.isRefetching && !query.isLoading ? (
+          <View style={appStyles.mutedPanel}>
+            <Text style={appStyles.helper}>
+              Refreshing attempt state from the server. Your saved responses remain protected while this sync runs.
+            </Text>
+          </View>
+        ) : null}
+
+        {feedback ? (
+          <View style={appStyles.sectionCard}>
+            <Text
+              style={
+                feedback.toLowerCase().includes("success") ||
+                feedback.toLowerCase().includes("saved") ||
+                feedback.toLowerCase().includes("updated")
+                  ? appStyles.successText
+                  : appStyles.errorText
+              }
+            >
+              {feedback}
+            </Text>
+          </View>
+        ) : null}
+
+        {currentQuestionSection}
+
+        <HeroCard
+          eyebrow="Live Attempt"
+          badge={detail ? `Attempt ${detail.attempt_no}` : "Runtime"}
+          title={detail?.exam_title ?? "Loading attempt"}
+          description={
+            detail
+              ? `Attempt ${detail.attempt_no} · ${detail.exam_type} · ${detail.total_questions} questions`
+              : "Loading the backend-owned attempt runtime."
+          }
+          helper={
+            query.isLoading
+              ? "Loading attempt detail..."
+              : query.isError
+                ? query.error instanceof Error
+                  ? query.error.message
+                  : "Unable to load attempt."
+                : detail
+                  ? `${answeredCount} answered · ${unansweredCount} remaining · ${timeLabel(remainingTime)}`
+                  : "No attempt detail returned."
+          }
+          actions={
+            detail ? (
+              <View style={appStyles.rowWrap}>
+                <ActionButton
+                  label={pendingAction === "submit" ? "Submitting..." : "Submit Attempt"}
+                  testID="attempt-runtime-submit-button"
+                  onPress={handleSubmitPress}
+                  disabled={pendingAction !== null || !attemptEditable}
+                />
+                <ActionButton
+                  label="Open Attempts"
+                  tone="secondary"
+                  testID="attempt-runtime-open-attempts-button"
+                  onPress={() => router.push("../../attempts")}
+                  disabled={pendingAction === "submit"}
+                />
+              </View>
+            ) : undefined
+          }
+        />
+
+        {query.isError ? (
+          <StatePanel
+            tone="error"
+            title="Attempt runtime unavailable"
+            body={query.error instanceof Error ? query.error.message : "Unable to load attempt."}
+            action={{ label: "Retry", onPress: () => void query.refetch() }}
+          />
+        ) : null}
+
+        {detail && !attemptEditable ? (
+          <StatePanel
+            tone="warning"
+            title={attemptExpired ? "Attempt expired" : "Attempt is no longer editable"}
+            body={
+              attemptExpired
+                ? "This attempt window has already ended. Return to summary, results, or review instead of resuming runtime."
+                : "This attempt is already closed, so answers can no longer be changed from the live runtime."
+            }
+            action={{
+              label: "Open Summary",
+              onPress: () => router.replace(`/(attempt)/summary/${detail?.id}`),
+              tone: "secondary",
+            }}
+          />
+        ) : null}
+
+        {detail ? (
+          <View style={appStyles.metricGrid}>
+            <MetricCard
+              label="Answered"
+              value={String(answeredCount)}
+              helper="Saved by backend runtime"
+              soft
+            />
+            <MetricCard
+              label="Remaining"
+              value={String(unansweredCount)}
+              helper="Questions still open"
+            />
+            <MetricCard
+              label="Time Left"
+              value={timeLabel(remainingTime)}
+              helper="Exam or section timer authority"
+              soft
+            />
+            <MetricCard
+              label="Violations"
+              value={String(detail.integrity_summary.violation_count)}
+              helper="Security threshold tracking"
+            />
+            <MetricCard
+              label="Review Marked"
+              value={String(reviewMarkedCount)}
+              helper="Questions flagged for a revisit"
+              soft
+            />
+          </View>
+        ) : null}
+
+        <SectionBlock
+          title="Section flow"
+          subtitle="Move only through the sections the backend currently allows"
+        >
         {sections.length ? (
           <View style={appStyles.rowWrap}>
             {sections.map((section) => (
@@ -496,7 +928,7 @@ export default function AttemptScreen() {
                 label={section.name || `Section ${section.order + 1}`}
                 tone={section.id === currentSectionId ? "primary" : "secondary"}
                 onPress={() => void handleSectionSwitch(section.id, section.name || `Section ${section.order + 1}`)}
-                disabled={pendingAction !== null}
+                disabled={pendingAction !== null || !attemptEditable}
                 compact
               />
             ))}
@@ -524,7 +956,7 @@ export default function AttemptScreen() {
                   label={`Q${index + 1}${saved ? " *" : ""}`}
                   tone={isActive ? "primary" : "secondary"}
                   onPress={() => selectQuestion(question)}
-                  disabled={pendingAction !== null}
+                  disabled={pendingAction !== null || !attemptEditable}
                   compact
                 />
               );
@@ -578,201 +1010,12 @@ export default function AttemptScreen() {
               />
           </View>
         </SectionBlock>
-      ) : null}
+        ) : null}
 
-      <SectionBlock
-        title="Current question"
-        subtitle="Keep the action hierarchy simple: answer, save, review, then move on"
-      >
-        {currentQuestion ? (
-          <View style={appStyles.column}>
-            <View style={appStyles.rowBetween}>
-              <Text style={appStyles.label}>
-                {currentQuestion.section_name} · Question {currentQuestion.question_order}
-              </Text>
-              <Text style={appStyles.helper}>
-                {currentQuestionIndex + 1} of {visibleQuestions.length} in this section
-              </Text>
-            </View>
-            <View style={appStyles.rowWrap}>
-              <ActionButton
-                label="Previous"
-                tone="secondary"
-                compact
-                testID="attempt-runtime-previous-button"
-                onPress={() => {
-                  if (previousQuestion) {
-                    selectQuestion(previousQuestion);
-                  }
-                }}
-                disabled={pendingAction !== null || !previousQuestion}
-              />
-              <ActionButton
-                label="Next"
-                tone={nextQuestion ? "primary" : "secondary"}
-                compact
-                testID="attempt-runtime-next-button"
-                onPress={() => {
-                  if (nextQuestion) {
-                    selectQuestion(nextQuestion);
-                  }
-                }}
-                disabled={pendingAction !== null || !nextQuestion}
-              />
-            </View>
-            <Text style={appStyles.label}>
-              Fastest flow: answer, save, move next. Use review-mark only when you intend to revisit before submit.
-            </Text>
-            <Text style={appStyles.questionStem}>{currentQuestion.question_text}</Text>
-            <View style={appStyles.rowWrap}>
-              <View style={[appStyles.chip, appStyles.chipPrimary]}>
-                <Text style={[appStyles.chipText, appStyles.chipTextPrimary]}>
-                  {currentQuestionSupportsMultiSelect ? "Multi-select question" : "Single-response question"}
-                </Text>
-              </View>
-              <View style={appStyles.chip}>
-                <Text style={appStyles.chipText}>
-                  {currentSelectionCount} option{currentSelectionCount === 1 ? "" : "s"} selected
-                </Text>
-              </View>
-              <View
-                style={[
-                  appStyles.chip,
-                  currentQuestionHasDraftChanges
-                    ? appStyles.chipWarm
-                    : currentAnswer
-                      ? appStyles.chipSuccess
-                      : null,
-                ]}
-              >
-                <Text
-                  style={[
-                    appStyles.chipText,
-                    currentQuestionHasDraftChanges
-                      ? appStyles.chipTextWarm
-                      : currentAnswer
-                        ? appStyles.chipTextSuccess
-                        : null,
-                  ]}
-                >
-                  {currentQuestionHasDraftChanges
-                    ? "Unsaved draft"
-                    : currentAnswer
-                      ? "Saved on backend"
-                      : currentQuestionHasAnyDraft
-                        ? "Draft in progress"
-                        : "No response yet"}
-                </Text>
-              </View>
-              {markedForReview ? (
-                <View style={[appStyles.chip, appStyles.chipWarm]}>
-                  <Text style={[appStyles.chipText, appStyles.chipTextWarm]}>Marked for review</Text>
-                </View>
-              ) : null}
-            </View>
-            <View style={appStyles.emphasisPanel}>
-              <Text style={appStyles.body}>
-                {currentQuestion.options.length
-                  ? currentQuestionSupportsMultiSelect
-                    ? "Select all options you believe are correct, then save the response."
-                    : "Choose the single best option, then save the response."
-                  : "No options were returned for this question, so the written response box becomes the primary answer area."}
-              </Text>
-            </View>
-            {currentQuestion.options.length ? (
-              currentQuestion.options.map((option) => {
-                const isSelected = currentQuestionSupportsMultiSelect
-                  ? selectedOptionIds.includes(option.id)
-                  : selectedOption === option.id;
-
-                return (
-                  <View
-                    key={option.id}
-                    style={[
-                      appStyles.optionCard,
-                      isSelected ? appStyles.optionCardSelected : null,
-                    ]}
-                  >
-                    <View style={appStyles.optionCardHeader}>
-                      <Text style={appStyles.optionMeta}>
-                        {currentQuestionSupportsMultiSelect ? "Multi-select option" : "Single-select option"}
-                      </Text>
-                      {isSelected ? <Text style={appStyles.optionStateText}>Selected</Text> : null}
-                    </View>
-                    <Text style={appStyles.body}>{option.option_text}</Text>
-                    <ActionButton
-                      label={isSelected ? "Selected" : "Select"}
-                      tone={isSelected ? "primary" : "secondary"}
-                      onPress={() => toggleOption(option.id)}
-                      disabled={pendingAction !== null}
-                    />
-                  </View>
-                );
-              })
-            ) : (
-              <View style={appStyles.mutedPanel}>
-                <Text style={appStyles.helper}>
-                  No answer options were returned for this question. Use the response field below if the backend expects written input.
-                </Text>
-              </View>
-            )}
-            <View style={appStyles.fieldStack}>
-              <Text style={appStyles.label}>Answer text</Text>
-              <TextInput
-                multiline
-                numberOfLines={4}
-                onChangeText={setAnswerText}
-                placeholder="Type a response when this question requires written input."
-                style={[appStyles.input, { minHeight: 110, paddingVertical: spacing.md, textAlignVertical: "top" }]}
-                testID="attempt-runtime-answer-text-input"
-                value={answerText}
-              />
-            </View>
-            <View style={appStyles.rowWrap}>
-              <ActionButton
-                label={markedForReview ? "Marked for review" : "Mark for review"}
-                tone={markedForReview ? "primary" : "secondary"}
-                testID="attempt-runtime-mark-review-button"
-                onPress={() => setMarkedForReview((value) => !value)}
-                disabled={pendingAction !== null}
-              />
-              <ActionButton
-                label={pendingAction === "save" ? "Saving..." : "Save Answer"}
-                testID="attempt-runtime-save-answer-button"
-                onPress={() => void handleSave(false)}
-                disabled={pendingAction !== null}
-              />
-              <ActionButton
-                label="Clear Response"
-                tone="secondary"
-                testID="attempt-runtime-clear-response-button"
-                onPress={() => void handleSave(true)}
-                disabled={pendingAction !== null}
-              />
-            </View>
-            {currentAnswer ? (
-              <Text style={appStyles.helper}>
-                Last saved answer detected for this question. Review state:{" "}
-                {currentAnswer.is_marked_for_review ? "marked for review" : "normal"}.
-              </Text>
-            ) : (
-              <Text style={appStyles.helper}>
-                No saved answer exists yet for this question. Save before switching away if you want the backend to persist this response.
-              </Text>
-            )}
-          </View>
-        ) : (
-          <StatePanel
-            title="Select a question"
-            body="Choose a question from the navigator to begin the focused attempt flow."
-          />
-        )}
-      </SectionBlock>
-
-      <SectionBlock
-        title="Integrity and accommodations"
-        subtitle="Live learner safety and access adjustments"
-      >
+        <SectionBlock
+          title="Integrity and accommodations"
+          subtitle="Live learner safety and access adjustments"
+        >
         {detail ? (
           <View style={appStyles.column}>
             <Text style={appStyles.body}>{detail.security_policy.student_warning_copy}</Text>
@@ -796,13 +1039,13 @@ export default function AttemptScreen() {
             body="Live integrity and accommodation data will render when the attempt runtime loads."
           />
         )}
-      </SectionBlock>
+        </SectionBlock>
 
-      {showSubmitConfirm && detail ? (
-        <SectionBlock
-          title="Ready to submit?"
-          subtitle="Take one final look before closing the attempt"
-        >
+        {showSubmitConfirm && detail ? (
+          <SectionBlock
+            title="Ready to submit?"
+            subtitle="Take one final look before closing the attempt"
+          >
           <View style={unansweredCount > 0 || currentQuestionHasDraftChanges ? appStyles.mutedPanel : appStyles.successPanel}>
             <Text style={appStyles.body}>
               {unansweredCount > 0
@@ -838,8 +1081,9 @@ export default function AttemptScreen() {
               disabled={pendingAction !== null}
             />
           </View>
-        </SectionBlock>
-      ) : null}
+          </SectionBlock>
+        ) : null}
+      </ScrollView>
     </ScreenShell>
   );
 }

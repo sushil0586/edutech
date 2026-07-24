@@ -1,13 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
-import type { StudentAvailableExam, StudentExamDetail } from "@/features/dashboard/types";
-import { loginStudentFamilyAccountOrSkip } from "../helpers/student-family";
-
-const backendBaseUrl = (
-  process.env.API_BASE_URL ??
-  process.env.NEXT_PUBLIC_API_BASE_URL ??
-  process.env.PLAYWRIGHT_API_BASE_URL ??
-  "http://127.0.0.1:9001"
-).replace(/\/$/, "");
+import {
+  fetchStudentExamDetailCatalog,
+  loginStudentFamilyAccountOrSkip,
+  resolveStudentFamilyExamOrSkip,
+} from "../helpers/student-family";
 
 const greStudentCredentials = {
   username: "demo-gre-student",
@@ -17,55 +13,23 @@ const greStudentCredentials = {
 const greExamCode = "DMO-GRE-QUANT-01";
 const expectedSectionNames = ["Quant Section 1", "Quant Section 2"];
 
-async function backendAccessToken(page: Page) {
-  const cookies = await page.context().cookies();
-  const accessToken = cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
-  expect(accessToken).not.toBe("");
-  return accessToken;
-}
-
-async function fetchStudentAvailableExams(page: Page) {
-  const accessToken = await backendAccessToken(page);
-  const response = await page.request.get(`${backendBaseUrl}/api/v1/student/exams/available/`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    timeout: 15000,
-  });
-  expect(response.ok()).toBe(true);
-  return (await response.json()) as StudentAvailableExam[];
-}
-
-async function fetchStudentExamDetail(page: Page, examId: string) {
-  const accessToken = await backendAccessToken(page);
-  const response = await page.request.get(`${backendBaseUrl}/api/v1/student/exams/${examId}/detail/`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    timeout: 15000,
-  });
-  expect(response.ok()).toBe(true);
-  return (await response.json()) as StudentExamDetail;
-}
-
 test.describe("Student GRE quant contract", () => {
   test("@workflow gre student sees the seeded GRE quant drill as a formal sectional competitive exam", async ({
     page,
   }) => {
     await loginStudentFamilyAccountOrSkip(page, greStudentCredentials, "gre");
 
-    const exams = await fetchStudentAvailableExams(page);
-    const greExam = exams.find((exam) => exam.code === greExamCode) ?? null;
-    test.skip(!greExam, "Seeded GRE quant exam is not available in this environment.");
+    const greExam = await resolveStudentFamilyExamOrSkip(page, {
+      familyLabel: "GRE quant",
+      examCode: greExamCode,
+    });
     if (!greExam) {
       return;
     }
     expect(greExam!.is_multi_subject).toBe(false);
     expect(greExam!.subject_summary.subject_count).toBe(1);
 
-    const detail = await fetchStudentExamDetail(page, greExam!.id);
+    const detail = await fetchStudentExamDetailCatalog(page, greExam!.id);
     expect(detail.code).toBe(greExamCode);
     expect(detail.is_multi_subject).toBe(false);
     expect(detail.subject_summary.subject_count).toBe(1);

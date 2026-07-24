@@ -2,14 +2,17 @@
 
 import { ReactNode, MouseEvent, startTransition } from "react";
 import { useRouter } from "next/navigation";
+import { rememberAttemptViewport } from "@/components/ui/attempt-navigation-guard";
 import { confirmAttemptQuestionNavigation } from "@/components/ui/attempt-question-navigation";
 
 export function AttemptQuestionLink({
+  attemptId,
   children,
   className,
   formId,
   href,
 }: {
+  attemptId: string;
   children: ReactNode;
   className?: string;
   formId?: string;
@@ -24,7 +27,8 @@ export function AttemptQuestionLink({
       return;
     }
 
-    startTransition(() => router.push(href));
+    rememberAttemptViewport(attemptId);
+    startTransition(() => router.push(href, { scroll: false }));
   }
 
   return (

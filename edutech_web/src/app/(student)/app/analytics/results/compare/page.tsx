@@ -1,5 +1,8 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
+import { fetchCurrentAccountProfile } from "@/lib/auth/session";
 import { StudentKpiGrid } from "@/components/ui/student-kpi-grid";
+import { StudentReportFilters } from "@/components/ui/student-report-filters";
 import { StudentPageHeader } from "@/components/ui/student-page-header";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { StudentAnalyticsDetailHero } from "@/components/ui/student-analytics-detail";
@@ -17,9 +20,18 @@ import {
 } from "@/lib/student/formatters";
 import { buildFilterHref } from "@/lib/workspace/filter-utils";
 import {
+  ALL_SOURCES_CONTEXT,
   ALL_SUBJECTS_CONTEXT,
   filterStudentRecordsByMetadataSubject,
   filterStudentRecordsBySource,
+  getStudentSourceOptions,
+  getStudentSubjectOptions,
+  resolveSelectedStudentSource,
+  resolveSelectedStudentSourceTeacher,
+  resolveSelectedStudentSubject,
+  STUDENT_SOURCE_CONTEXT_COOKIE,
+  STUDENT_SOURCE_TEACHER_CONTEXT_COOKIE,
+  STUDENT_SUBJECT_CONTEXT_COOKIE,
 } from "@/lib/student/subject-context";
 
 export default async function StudentAnalyticsResultsComparePage({
@@ -28,10 +40,18 @@ export default async function StudentAnalyticsResultsComparePage({
   searchParams: Promise<{ subject?: string; source?: string; teacher?: string }>;
 }) {
   const query = await searchParams;
+  const profile = await fetchCurrentAccountProfile();
+  const registrationContext = profile?.registration_context ?? {};
+  const subjectOptions = getStudentSubjectOptions(profile ?? registrationContext);
+  const cookieStore = await cookies();
+  const selectedSubject = resolveSelectedStudentSubject(
+    subjectOptions,
+    query.subject ?? cookieStore.get(STUDENT_SUBJECT_CONTEXT_COOKIE)?.value ?? ALL_SUBJECTS_CONTEXT,
+  );
+  const selectedSource = resolveSelectedStudentSource(
+    query.source ?? cookieStore.get(STUDENT_SOURCE_CONTEXT_COOKIE)?.value ?? ALL_SOURCES_CONTEXT,
+  );
   const bundle = await loadStudentAnalyticsBundle();
-  const subject = query.subject ?? null;
-  const source = query.source ?? null;
-  const teacher = query.teacher ?? null;
 
   if (!bundle.summary) {
     return (
@@ -61,15 +81,27 @@ export default async function StudentAnalyticsResultsComparePage({
     );
   }
 
+  const { teacherOptions } = getStudentSourceOptions([
+    ...bundle.results,
+    ...bundle.exams,
+    ...(bundle.summary?.source_breakdown ?? []),
+    ...(bundle.summary?.recent_exams ?? []),
+  ]);
+  const selectedTeacherId = resolveSelectedStudentSourceTeacher(
+    teacherOptions,
+    selectedSource,
+    query.teacher ??
+      cookieStore.get(STUDENT_SOURCE_TEACHER_CONTEXT_COOKIE)?.value ??
+      null,
+  );
+
   const filteredResults = filterStudentRecordsByMetadataSubject(
     filterStudentRecordsBySource(
       bundle.results,
-      source === "platform" || source === "institute" || source === "teacher"
-        ? source
-        : "all",
-      source === "teacher" ? teacher : null,
+      selectedSource,
+      selectedSource === "teacher" ? selectedTeacherId : null,
     ),
-    subject ?? ALL_SUBJECTS_CONTEXT,
+    selectedSubject,
   );
   const publishedResults = filteredResults
     .filter((item) => item.is_published)
@@ -100,11 +132,26 @@ export default async function StudentAnalyticsResultsComparePage({
     <div className="studentPage studentDashboardModern">
       <StudentPageHeader
         eyebrow="Result comparison"
-        title={subject ? `${subject} Result Comparison` : "Result Comparison"}
+        title={
+          selectedSubject !== ALL_SUBJECTS_CONTEXT
+            ? `${selectedSubject} Result Comparison`
+            : "Result Comparison"
+        }
         description="Compare published results across time, source, and exam type."
         statusLabel={`${publishedResults.length} published results`}
         statusTone="live"
         action={<Link className="button buttonGhost" href="/app/analytics">Back to Analytics</Link>}
+      />
+
+      <StudentReportFilters
+        basePath="/app/analytics/results/compare"
+        title="Comparison filters"
+        helper="Use the same report scope here before comparing latest, best, lowest, and benchmark performance."
+        selectedSource={selectedSource}
+        selectedSubject={selectedSubject}
+        selectedTeacherId={selectedTeacherId}
+        subjectOptions={subjectOptions}
+        teacherOptions={teacherOptions}
       />
 
       <StudentAnalyticsDetailHero
@@ -116,8 +163,10 @@ export default async function StudentAnalyticsResultsComparePage({
             : "Published results are required before comparison analytics can say anything meaningful."
         }
         badges={[
-          source ? `Source · ${titleCaseState(source)}` : "All sources",
-          subject ?? "All subjects",
+          selectedSource !== ALL_SOURCES_CONTEXT
+            ? `Source · ${titleCaseState(selectedSource)}`
+            : "All sources",
+          selectedSubject !== ALL_SUBJECTS_CONTEXT ? selectedSubject : "All subjects",
         ]}
         stats={[
           {
@@ -142,16 +191,20 @@ export default async function StudentAnalyticsResultsComparePage({
             <Link
               className="button buttonPrimary"
               href={buildFilterHref("/app/results", [
-                ["subject", subject],
-                ["source", source],
-                ["teacher", teacher],
+                ["subject", selectedSubject, ALL_SUBJECTS_CONTEXT],
+                ["source", selectedSource, ALL_SOURCES_CONTEXT],
+                ["teacher", selectedTeacherId],
               ])}
             >
               Open Results
             </Link>
             <Link
               className="button buttonSecondary"
-              href={buildAnalyticsTimelineHref({ subject, source, teacher })}
+              href={buildAnalyticsTimelineHref({
+                subject: selectedSubject === ALL_SUBJECTS_CONTEXT ? null : selectedSubject,
+                source: selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
+                teacher: selectedTeacherId,
+              })}
             >
               Open Timeline
             </Link>
@@ -237,7 +290,10 @@ export default async function StudentAnalyticsResultsComparePage({
                     <strong>{benchmarkLabel(benchmark.label || benchmark.scope)}</strong>
                     <span>
                       {peerRecordLabel(benchmark.participant_count)}
-                      {subject || source ? " · shown as overall snapshot" : ""}
+                      {selectedSubject !== ALL_SUBJECTS_CONTEXT ||
+                      selectedSource !== ALL_SOURCES_CONTEXT
+                        ? " · shown as overall snapshot"
+                        : ""}
                     </span>
                   </div>
                   <div className="studentTopicRowMeta">

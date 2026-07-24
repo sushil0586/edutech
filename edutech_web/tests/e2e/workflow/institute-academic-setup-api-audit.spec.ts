@@ -41,7 +41,7 @@ test.describe("Institute academic setup API audit", () => {
       audit.reset();
       await page.locator('.adminPeopleViewTabs a[href="/institute/academic-setup?section=programs"]').click();
       await expect(page).toHaveURL(/\/institute\/academic-setup\?section=programs/);
-      await expect(page.getByRole("button", { name: /^add$/i })).toBeVisible();
+      await expect(page.getByRole("button", { name: /^(add|new)$/i })).toBeVisible();
       await audit.waitForSettled();
       metrics.push({
         elapsedMs: Date.now() - programsStartedAt,
@@ -57,7 +57,7 @@ test.describe("Institute academic setup API audit", () => {
       audit.reset();
       await page.locator('.adminPeopleViewTabs a[href="/institute/academic-setup?section=topics"]').click();
       await expect(page).toHaveURL(/\/institute\/academic-setup\?section=topics/);
-      await expect(page.getByRole("button", { name: /^add$/i })).toBeVisible();
+      await expect(page.getByRole("button", { name: /^(add|new)$/i })).toBeVisible();
       await audit.waitForSettled();
       metrics.push({
         elapsedMs: Date.now() - topicsStartedAt,
@@ -76,7 +76,7 @@ test.describe("Institute academic setup API audit", () => {
         .click();
       await expect(page).toHaveURL(/\/institute\/academic-setup\?section=teacher-assignments/);
       await expect(page.getByText(/teacher assignments/i).first()).toBeVisible();
-      await expect(page.getByRole("button", { name: /^add$/i })).toBeVisible();
+      await expect(page.getByRole("button", { name: /^(add|new)$/i })).toBeVisible();
       await audit.waitForSettled();
       metrics.push({
         elapsedMs: Date.now() - assignmentsStartedAt,

@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, RefObject } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { appStyles } from "@/theme/styles";
@@ -6,9 +6,11 @@ import { appStyles } from "@/theme/styles";
 export function ScreenShell({
   children,
   scroll = true,
+  scrollRef,
 }: {
   children: ReactNode;
   scroll?: boolean;
+  scrollRef?: RefObject<ScrollView | null>;
 }) {
   if (!scroll) {
     return (
@@ -42,9 +44,10 @@ export function ScreenShell({
         style={{ flex: 1 }}
       >
         <ScrollView
+          ref={scrollRef}
           contentContainerStyle={appStyles.scrollContent}
           contentInsetAdjustmentBehavior="automatic"
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps="always"
           showsVerticalScrollIndicator={false}
         >
           {children}

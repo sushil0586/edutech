@@ -43,7 +43,7 @@ async function createAdminWizardExam(page: Parameters<typeof createNetworkAudit>
   const examTitle = `PW Admin Security Audit ${uniqueSeed}`;
   const examCode = `PW-ASEC-${uniqueSeed}`;
 
-  await page.goto("/admin/exams/new");
+  await page.goto("/admin/exams/new", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("heading", { name: /create exam/i }).first()).toBeVisible();
   await page.getByRole("textbox", { name: /exam title/i }).fill(examTitle);
   await page.getByRole("textbox", { name: /exam code/i }).fill(examCode);
@@ -61,7 +61,7 @@ async function createAdminWizardExam(page: Parameters<typeof createNetworkAudit>
   }).first();
   await expect(createdExamCard).toBeVisible();
 
-  const openExamHref = await createdExamCard.getByRole("link", { name: /open exam/i }).getAttribute("href");
+  const openExamHref = await createdExamCard.getByRole("link", { name: /view exam|open exam/i }).getAttribute("href");
   const examId = openExamHref?.match(/\/admin\/exams\/([^/?#]+)/)?.[1] ?? null;
   expect(examId).not.toBeNull();
 

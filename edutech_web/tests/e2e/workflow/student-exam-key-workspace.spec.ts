@@ -65,7 +65,7 @@ test.describe("Student exam-key workspace", () => {
       page.getByText(/enter the exam key to continue/i).first(),
     ).toBeVisible();
 
-    await page.getByRole("link", { name: /open mock tests/i }).click();
+    await page.getByRole("link", { name: /open mock tests|open tests/i }).click();
     await expect(page).toHaveURL(/\/app\/exams(?:\?.*)?$/);
 
     await gotoWithRetry(page, "/app/exams/enter-key");

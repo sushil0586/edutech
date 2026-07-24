@@ -19,7 +19,6 @@ import {
   titleCaseState,
 } from "@/lib/student/formatters";
 import {
-  attemptOutcomeHelper,
   attemptOutcomeJourney,
   attemptOutcomeLabel,
   attemptOutcomeProgressLabel,
@@ -330,21 +329,18 @@ export default async function AttemptSummaryPage({
           >
             {stateCopy.resultsCta}
           </StudentPassiveNavLink>
+          <StudentPassiveNavLink
+            className="button buttonGhost"
+            href={buildFilterHref("/app/attempts", [
+              ["subject", scopedSubjectParam],
+              ["source", sourceParam?.trim()],
+              ["teacher", teacher?.trim()],
+            ])}
+          >
+            Attempt History
+          </StudentPassiveNavLink>
         </div>
       </section>
-
-      <div className="studentSummaryUtilityRow">
-        <StudentPassiveNavLink
-          className="studentDashboardTextLink"
-          href={buildFilterHref("/app/attempts", [
-            ["subject", scopedSubjectParam],
-            ["source", sourceParam?.trim()],
-            ["teacher", teacher?.trim()],
-          ])}
-        >
-          View Attempt History
-        </StudentPassiveNavLink>
-      </div>
 
       <StudentKpiGrid
         items={[
@@ -412,17 +408,17 @@ export default async function AttemptSummaryPage({
 
         <article className="contentCard">
           <div className="sectionHeading">
-            <strong>What To Do Next</strong>
-            <span>{attemptExperienceLabel(summary.exam_type)}</span>
+            <strong>Next Step</strong>
+            <StatusPill tone="default">{attemptExperienceLabel(summary.exam_type)}</StatusPill>
           </div>
           <div className="studentInsightMessageStack">
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
               <p>{stateCopy.helper}</p>
-              </div>
-              <div className="studentInsightMessage">
-                <span className="placeholderDot" aria-hidden="true" />
-                <p>{stateCopy.progress}</p>
+            </div>
+            <div className="studentInsightMessage">
+              <span className="placeholderDot" aria-hidden="true" />
+              <p>{stateCopy.progress}</p>
             </div>
           </div>
           <div className="studentInsightHeroActions">

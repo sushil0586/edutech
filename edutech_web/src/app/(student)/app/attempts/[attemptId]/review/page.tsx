@@ -435,21 +435,18 @@ export default async function AttemptReviewPage({
           >
             {stateCopy.resultsCta}
           </StudentPassiveNavLink>
+          <StudentPassiveNavLink
+            className="button buttonGhost"
+            href={buildFilterHref("/app/attempts", [
+              ["subject", scopedSubjectParam],
+              ["source", scopedSourceQueryParam],
+              ["teacher", scopedTeacherQueryParam],
+            ])}
+          >
+            Attempt History
+          </StudentPassiveNavLink>
         </div>
       </section>
-
-      <div className="studentSummaryUtilityRow">
-        <StudentPassiveNavLink
-          className="studentDashboardTextLink"
-          href={buildFilterHref("/app/attempts", [
-            ["subject", scopedSubjectParam],
-            ["source", scopedSourceQueryParam],
-            ["teacher", scopedTeacherQueryParam],
-          ])}
-        >
-          View Attempt History
-        </StudentPassiveNavLink>
-      </div>
 
       <StudentKpiGrid
         items={[
@@ -514,8 +511,8 @@ export default async function AttemptReviewPage({
 
         <article className="contentCard">
           <div className="sectionHeading">
-            <strong>How To Use This Review</strong>
-            <span>{titleCaseState(review.review_mode)}</span>
+            <strong>Next Learning Step</strong>
+            <StatusPill tone="default">{practiceFocus.label}</StatusPill>
           </div>
           <div className="studentInsightMessageStack">
             <div className="studentInsightMessage">
@@ -580,29 +577,6 @@ export default async function AttemptReviewPage({
               </Link>
             )}
           </div>
-        </article>
-      </section>
-
-      <section className="studentInsightsTwoColumn">
-        <article className="contentCard">
-          <div className="sectionHeading">
-            <strong>Next Learning Step</strong>
-            <span>{practiceFocus.label}</span>
-          </div>
-          <div className="studentInsightMessageStack">
-            <div className="studentInsightMessage">
-              <span className="placeholderDot" aria-hidden="true" />
-                  <p>
-                Turn this review into action by practicing the topic most exposed in this attempt.
-                  </p>
-                </div>
-                <div className="studentInsightMessage">
-                  <span className="placeholderDot" aria-hidden="true" />
-                  <p>
-                The suggested practice is based on the wrong or skipped questions in this review.
-                  </p>
-                </div>
-          </div>
           <div className="studentActionSequence" aria-label="Review recovery order">
             {reviewRecoverySequence.map((step) => (
               <div className="studentActionSequenceCard" key={step.label}>
@@ -611,50 +585,39 @@ export default async function AttemptReviewPage({
               </div>
             ))}
           </div>
-          <div className="studentInsightHeroActions">
-            <StudentPassiveNavLink className="button buttonSecondary" href="/app/analytics">
-              View Analytics
-            </StudentPassiveNavLink>
-            <StudentPassiveNavLink
-              className="button buttonGhost"
-              href={buildFilterHref("/app/results", [
-                ["subject", scopedSubjectParam],
-                ["source", scopedSourceQueryParam],
-                ["teacher", scopedTeacherQueryParam],
-              ])}
-            >
-              View Results
-            </StudentPassiveNavLink>
-          </div>
         </article>
-        <article className="contentCard">
-          <div className="sectionHeading">
-            <strong>Before The Next Attempt</strong>
-            <span>Focus areas</span>
-          </div>
-          <div className="studentInsightMessageStack">
-            <div className="studentInsightMessage">
-              <span className="placeholderDot" aria-hidden="true" />
-              <p>Wrong answers usually point to concept gaps. Skipped questions often point to pacing or confidence issues.</p>
-            </div>
-            <div className="studentInsightMessage">
-              <span className="placeholderDot" aria-hidden="true" />
-              <p>Finish the targeted practice first, then return to a full mock or test.</p>
-            </div>
-          </div>
-          <div className="studentInsightHeroActions">
-            <Link
-              className="button buttonSecondary"
-              href={buildFilterHref(`/app/attempts/${review.id}/summary`, [
-                ["subject", scopedSubjectParam],
-                ["source", scopedSourceQueryParam],
-                ["teacher", scopedTeacherQueryParam],
-              ])}
-            >
-              Return To Summary
-            </Link>
-          </div>
-        </article>
+      </section>
+
+      <section className="contentCard">
+        <div className="sectionHeading">
+          <strong>Use This Review</strong>
+          <span>{titleCaseState(review.review_mode)}</span>
+        </div>
+        <div className="studentInsightHeroActions">
+          <StudentPassiveNavLink className="button buttonSecondary" href="/app/analytics">
+            View Analytics
+          </StudentPassiveNavLink>
+          <StudentPassiveNavLink
+            className="button buttonGhost"
+            href={buildFilterHref("/app/results", [
+              ["subject", scopedSubjectParam],
+              ["source", scopedSourceQueryParam],
+              ["teacher", scopedTeacherQueryParam],
+            ])}
+          >
+            View Results
+          </StudentPassiveNavLink>
+          <Link
+            className="button buttonGhost"
+            href={buildFilterHref(`/app/attempts/${review.id}/summary`, [
+              ["subject", scopedSubjectParam],
+              ["source", scopedSourceQueryParam],
+              ["teacher", scopedTeacherQueryParam],
+            ])}
+          >
+            Return To Summary
+          </Link>
+        </div>
       </section>
 
       <section className="contentCard studentWorkspaceFiltersCard studentAttemptsFiltersCard">

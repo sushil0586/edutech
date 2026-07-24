@@ -24,8 +24,10 @@ test.describe("Student mobile dashboard and analytics visual", () => {
       maxDiffPixels: 260,
     });
 
-    const queueCard = page.locator(".contentCard").filter({ hasText: /study queue/i }).first();
-    await expect(queueCard).toHaveScreenshot("student-mobile-dashboard-study-queue.png", {
+    const queueCard = page.locator("section.contentCard").filter({
+      has: page.getByRole("link", { name: /open attempt timeline/i }).first(),
+    }).first();
+    await expect(queueCard).toHaveScreenshot("student-mobile-dashboard-academic-action-queue.png", {
       animations: "disabled",
       caret: "hide",
       maxDiffPixels: 300,

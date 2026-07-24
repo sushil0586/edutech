@@ -37,6 +37,20 @@ function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function pickStableStudentSubjectLabel(
+  options: Array<{ label?: string }> | null | undefined,
+) {
+  const labels = (options ?? [])
+    .map((item) => item.label?.trim() ?? "")
+    .filter((label) => label.length > 0);
+
+  const preferredStableLabel =
+    labels.find((label) => !/^PW Sparse Subject\b/i.test(label)) ??
+    null;
+
+  return preferredStableLabel;
+}
+
 function toDateTimeLocalValue(date: Date) {
   const year = date.getFullYear();
   const month = `${date.getMonth() + 1}`.padStart(2, "0");
@@ -48,18 +62,22 @@ function toDateTimeLocalValue(date: Date) {
 
 function attemptCardByTitle(page: Page, title: string) {
   return page.locator("article.studentResultSurface").filter({
-    has: page.locator(".studentResultSurfaceHead strong", { hasText: title }),
+    has: page.locator(".studentAttemptsCardTitle strong", { hasText: title }),
   });
 }
 
-function resultCardByTitle(page: Page, title: string) {
-  return page.locator("article.studentResultSurface").filter({
-    has: page.locator(".studentResultSurfaceHead strong", { hasText: title }),
+function resultRowsByTitle(page: Page, title: string) {
+  return page.locator(".studentResultsTable tbody tr").filter({
+    has: page.locator("td strong", { hasText: title }),
   });
 }
 
 function summaryLink(card: Locator) {
   return card.locator('a[href*="/summary"]').first();
+}
+
+function resultDetailsModal(page: Page) {
+  return page.locator(".studentResultsModalCard").first();
 }
 
 async function selectOptionByLabel(locator: Locator, label: string) {
@@ -130,6 +148,27 @@ async function getCurrentSessionAccessToken(page: Page) {
   return accessToken;
 }
 
+async function getInstituteCleanupAccessToken(page: Page) {
+  const instituteCredentials = getRoleCredentials("institute");
+  expect(instituteCredentials).not.toBeNull();
+
+  const response = await page.request.post(`${backendBaseUrl}/api/v1/auth/login/`, {
+    data: {
+      username: instituteCredentials!.username,
+      password: instituteCredentials!.password,
+    },
+    headers: {
+      "Content-Type": "application/json",
+    },
+    timeout: 15000,
+  });
+  expect(response.ok(), await response.text()).toBe(true);
+  const payload = (await response.json()) as { access?: string | null };
+  const accessToken = payload.access?.trim() ?? "";
+  expect(accessToken).not.toBe("");
+  return accessToken;
+}
+
 async function requestBackendJson<T>(
   page: Page,
   path: string,
@@ -159,6 +198,20 @@ async function requestBackendJson<T>(
       ? (JSON.parse(bodyText) as T)
       : (null as T);
   return { response, payload, bodyText };
+}
+
+async function publishAndMarkExamLive(page: Page, examId: string) {
+  const publishResponse = await requestBackendJson<Record<string, unknown>>(page, `/api/v1/exams/${examId}/publish/`, {
+    method: "POST",
+    data: {},
+  });
+  expect(publishResponse.response.ok(), publishResponse.bodyText).toBe(true);
+
+  const liveResponse = await requestBackendJson<Record<string, unknown>>(page, `/api/v1/exams/${examId}/mark-live/`, {
+    method: "POST",
+    data: {},
+  });
+  expect(liveResponse.response.ok(), liveResponse.bodyText).toBe(true);
 }
 
 async function createTrueFalseQuestion(
@@ -260,7 +313,8 @@ async function answerAttemptWithPattern(page: Page, examTitle: string, optionInd
   await page.getByRole("button", { name: /^submit test$/i }).click();
   await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/summary(?:\?.*)?$/);
   await expect(page.getByText(/attempt submitted successfully/i).first()).toBeVisible();
-  await expect(page.getByText(/post-submit state/i).first()).toBeVisible();
+  await expect(page.getByText(/attempt summary/i).first()).toBeVisible();
+  await expect(page.getByText(/attempt status/i).first()).toBeVisible();
 }
 
 async function startAttemptViaApi(page: Page, examId: string, studentProfileId: string) {
@@ -334,9 +388,7 @@ test.describe("Student mutable multi-attempt history continuity", () => {
       studentProfileId = studentMe.payload?.student_profile?.trim() ?? null;
       studentAcademicYearName = studentMe.payload?.student_context?.academic_year_name?.trim() ?? null;
       studentProgramName = studentMe.payload?.student_context?.program_name?.trim() ?? null;
-      studentSubjectName =
-        studentMe.payload?.student_context?.subject_options?.find((item) => item.label?.trim())?.label?.trim() ??
-        null;
+      studentSubjectName = pickStableStudentSubjectLabel(studentMe.payload?.student_context?.subject_options);
       expect(studentProfileId).not.toBeNull();
       expect(studentAcademicYearName).not.toBeNull();
       expect(studentProgramName).not.toBeNull();
@@ -436,22 +488,7 @@ test.describe("Student mutable multi-attempt history continuity", () => {
       });
       expect(deliveryUpdate.response.ok(), deliveryUpdate.bodyText).toBe(true);
 
-      await page.goto(`/institute/exams/${examId}`);
-      const syncMarksButton = page.getByRole("button", { name: /sync marks/i });
-      if (await syncMarksButton.count()) {
-        await syncMarksButton.click();
-        await expect(page).toHaveURL(/message=/);
-      }
-      const publishButton = page.getByRole("button", { name: /publish exam/i });
-      if (await publishButton.count()) {
-        await publishButton.click();
-        await expect(page).toHaveURL(/message=/);
-      }
-      const markLiveButton = page.getByRole("button", { name: /mark live/i });
-      if (await markLiveButton.count()) {
-        await markLiveButton.click();
-        await expect(page).toHaveURL(/message=/);
-      }
+      await publishAndMarkExamLive(page, examId!);
 
       await loginAsRole(page, "student");
       await expectStudentWorkspace(page);
@@ -557,22 +594,17 @@ test.describe("Student mutable multi-attempt history continuity", () => {
 
       await page.goto("/app/results?result_status=published&result_sort=latest");
       await expect(page).toHaveURL(/\/app\/results\?[^#]*result_sort=latest/);
-      const resultCards = resultCardByTitle(page, examTitle);
-      await expect(resultCards).toHaveCount(3);
-      await expect(summaryLink(resultCards.nth(0))).toHaveAttribute(
-        "href",
-        new RegExp(`/app/attempts/${attemptThreeId}/summary`),
-      );
-      await expect(summaryLink(resultCards.nth(1))).toHaveAttribute(
-        "href",
-        new RegExp(`/app/attempts/${attemptTwoId}/summary`),
-      );
-      await expect(summaryLink(resultCards.nth(2))).toHaveAttribute(
-        "href",
-        new RegExp(`/app/attempts/${attemptOneId}/summary`),
-      );
+      const resultRows = resultRowsByTitle(page, examTitle);
+      await expect(resultRows).toHaveCount(3);
+      await expect(resultRows.nth(0)).toContainText(/50%/i);
+      await expect(resultRows.nth(1)).toContainText(/100%/i);
+      await expect(resultRows.nth(2)).toContainText(/0%/i);
 
-      await summaryLink(resultCards.nth(0)).click();
+      await resultRows.nth(0).click();
+      const resultModal = resultDetailsModal(page);
+      await expect(resultModal).toBeVisible();
+      await expect(resultModal.getByRole("link", { name: /open summary/i })).toBeVisible();
+      await resultModal.getByRole("link", { name: /open summary/i }).click();
       await expect(page).toHaveURL(new RegExp(`/app/attempts/${attemptThreeId}/summary(?:\\?.*)?$`));
       await expect(page.getByText(/attempt number/i).first()).toBeVisible();
       await expect(page.getByText(/^3$/).first()).toBeVisible();
@@ -604,11 +636,10 @@ test.describe("Student mutable multi-attempt history continuity", () => {
       await expect(timelineRows.nth(2)).toContainText(/0%/i);
     } finally {
       if (examId) {
-        await loginAsRole(page, "institute");
-        await expectInstituteWorkspace(page);
+        const accessToken = await getInstituteCleanupAccessToken(page);
         const cleanupResponse = await page.request.delete(`${backendBaseUrl}/api/v1/exams/${examId}/`, {
           headers: {
-            Authorization: `Bearer ${await getCurrentSessionAccessToken(page)}`,
+            Authorization: `Bearer ${accessToken}`,
             "Content-Type": "application/json",
           },
           timeout: 15000,

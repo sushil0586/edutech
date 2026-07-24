@@ -16,6 +16,7 @@ import { appStyles } from "@/theme/styles";
 function availabilityCopy(state: string) {
   switch (state) {
     case "active":
+    case "available_now":
       return "This exam is currently available for the student.";
     case "resume":
       return "A live attempt already exists, so resume takes priority over starting again.";
@@ -33,7 +34,10 @@ function availabilityCopy(state: string) {
 function statusToneLabel(detail: NonNullable<Awaited<ReturnType<typeof fetchStudentExamDetail>>>) {
   if (detail.active_attempt) return "Resume ready";
   if (detail.economy_access.is_locked) return "Locked";
-  if (detail.remaining_attempts <= 0) return "Attempts exhausted";
+  if (detail.remaining_attempts <= 0 || detail.availability_state === "completed") {
+    return "Attempt closed";
+  }
+  if (detail.availability_state === "upcoming") return "Not live yet";
   return "Ready to start";
 }
 
@@ -55,6 +59,22 @@ function blockedStateMessage(detail: NonNullable<Awaited<ReturnType<typeof fetch
   }
 
   return null;
+}
+
+function canStartFromDetail(detail: NonNullable<Awaited<ReturnType<typeof fetchStudentExamDetail>>>) {
+  if (detail.active_attempt) {
+    return true;
+  }
+
+  if (detail.economy_access.is_locked) {
+    return false;
+  }
+
+  if (detail.remaining_attempts <= 0) {
+    return false;
+  }
+
+  return detail.availability_state === "active" || detail.availability_state === "available_now";
 }
 
 export default function ExamDetailScreen() {
@@ -79,6 +99,11 @@ export default function ExamDetailScreen() {
 
     if (detail.active_attempt?.id) {
       router.push(`/(attempt)/attempt/${detail.active_attempt.id}`);
+      return;
+    }
+
+    if (!canStartFromDetail(detail)) {
+      setActionMessage(blockedStateMessage(detail) || "This exam cannot be started right now.");
       return;
     }
 
@@ -111,9 +136,9 @@ export default function ExamDetailScreen() {
       ? "Unlock Required"
       : detail?.availability_state === "upcoming"
         ? "Not Live Yet"
-      : detail && detail.remaining_attempts > 0
+      : detail && canStartFromDetail(detail)
         ? "Start Attempt"
-        : "Attempt Limit Reached";
+        : "Attempt Closed";
   const blockedMessage = detail ? blockedStateMessage(detail) : null;
 
   return (
@@ -125,7 +150,7 @@ export default function ExamDetailScreen() {
         description={
           detail
             ? `${detail.subject_name ?? "General"} · ${detail.duration_minutes} min · ${detail.exam_questions.length} questions`
-            : "Reading the live exam contract, availability state, security policy, and attempt context."
+            : "Loading readiness, policy, and attempt context."
         }
         helper={
           query.isLoading
@@ -144,11 +169,7 @@ export default function ExamDetailScreen() {
               <ActionButton
                 label={starting ? "Working..." : primaryLabel}
                 onPress={() => void handlePrimaryAction()}
-                disabled={
-                  starting ||
-                  detail.economy_access.is_locked ||
-                  (!detail.active_attempt && detail.remaining_attempts <= 0)
-                }
+                disabled={starting || !canStartFromDetail(detail)}
                 testID="exam-detail-primary-action-button"
               />
               <ActionButton

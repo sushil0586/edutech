@@ -1,23 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectStudentWorkspace } from "../helpers/navigation";
+import { gotoWithRuntimeRecovery } from "../helpers/runtime";
 
 async function gotoWithRetry(page: Page, url: string, attempts = 3) {
-  let lastError: unknown = null;
-  for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    try {
-      await page.goto(url, { waitUntil: "domcontentloaded" });
-      return;
-    } catch (error) {
-      lastError = error;
-      const message = error instanceof Error ? error.message : String(error);
-      if (!message.includes("ERR_CONNECTION_REFUSED") || attempt === attempts) {
-        throw error;
-      }
-      await page.waitForTimeout(1500 * attempt);
-    }
-  }
-  throw lastError;
+  await gotoWithRuntimeRecovery(page, url, Math.max(4, attempts));
 }
 
 async function resolveSummaryHref(page: Page) {
@@ -78,7 +65,17 @@ test.describe("Student cross-browser attempts and summary sanity", () => {
 
     const summaryHref = await resolveSummaryHref(page);
     if (!summaryHref) {
-      test.skip(true, "Student seeded account does not currently expose a post-submit summary route.");
+      await gotoWithRetry(page, "/app/results");
+      await expect(page).toHaveURL(/\/app\/results(?:\?.*)?$/);
+      await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
+      await expect(page.getByText(/results loaded|average result|review ready|pending publication/i).first()).toBeVisible();
+
+      await gotoWithRetry(page, "/app/attempts");
+      await expect(page).toHaveURL(/\/app\/attempts(?:\?.*)?$/);
+      await expect(page.getByRole("heading", { name: /attempt/i }).first()).toBeVisible();
+      await expect(
+        page.getByText(/attempt history|attempts loaded|in progress|evaluation pending|your attempt history is empty/i).first(),
+      ).toBeVisible();
       return;
     }
 

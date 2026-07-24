@@ -52,7 +52,7 @@ export default function DashboardScreen() {
         description={
           profile?.student_context
             ? `${profile.student_context.program_name} · ${profile.student_context.academic_year_name}${profile.student_context.cohort_name ? ` · ${profile.student_context.cohort_name}` : ""}`
-            : "Your student dashboard will use live context, stars, and exam availability once the mobile session is active."
+            : "Live dashboard context, wallet balance, and exam availability."
         }
         helper={
           query.isLoading
@@ -63,7 +63,7 @@ export default function DashboardScreen() {
                 : "Unable to load dashboard right now."
               : recommendedExam
                 ? `Next recommended exam${normalize(selectedSubject) === "overall" ? "" : ` in ${selectedSubject}`}: ${recommendedExam.title}`
-                : `No recommended exam is available${normalize(selectedSubject) === "overall" ? "" : ` in ${selectedSubject}`} right now.`
+                : `No recommended exam is available${normalize(selectedSubject) === "overall" ? "" : ` in ${selectedSubject}`}.`
         }
         actions={
           <View style={appStyles.rowWrap}>
@@ -83,11 +83,13 @@ export default function DashboardScreen() {
               label="Open Exams"
               tone="secondary"
               onPress={() => router.push("./exams")}
+              testID="dashboard-open-exams-button"
             />
             <ActionButton
               label="Attempts"
               tone="secondary"
               onPress={() => router.push("./attempts")}
+              testID="dashboard-open-attempts-button"
             />
           </View>
         }

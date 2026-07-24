@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectStudentWorkspace } from "../helpers/navigation";
+import { gotoWithRuntimeRecovery } from "../helpers/runtime";
 
 async function expectStudentPracticeWorkspace(page: Page) {
   await expect(page).toHaveURL(/\/app\/practice(?:\?.*)?$/);
@@ -44,7 +45,7 @@ test.describe("Student practice workspace", () => {
     await loginAsRole(page, "student");
     await expectStudentWorkspace(page);
 
-    await page.goto("/app/practice");
+    await gotoWithRuntimeRecovery(page, "/app/practice");
     await expectStudentPracticeWorkspace(page);
 
     const filtersCard = page.locator("section.studentWorkspaceFiltersCard").first();
@@ -83,16 +84,8 @@ test.describe("Student practice workspace", () => {
     await page.getByRole("link", { name: /reset filters/i }).first().click();
     await expectStudentPracticeWorkspace(page);
 
-    const practiceCard = await Promise.all([
-      page.locator("article.studentPracticeCompactCard").first().isVisible().catch(() => false),
-      page.locator("article.studentResultSurface").first().isVisible().catch(() => false),
-    ]).then((matches) => {
-      if (matches[0]) return page.locator("article.studentPracticeCompactCard").first();
-      if (matches[1]) return page.locator("article.studentResultSurface").first();
-      return null;
-    });
-
-    if (!practiceCard) {
+    const reportHeading = page.getByText(/practice recommendation report/i).first();
+    if (!(await reportHeading.isVisible().catch(() => false))) {
       await expect(
         await firstVisible([
           page.getByText(/no practice sets match these controls/i).first(),
@@ -103,36 +96,34 @@ test.describe("Student practice workspace", () => {
       return;
     }
 
-    await expect(practiceCard).toBeVisible();
-    await expect(
-      await firstVisible([
-        practiceCard.locator(".studentAttemptsCardTitle strong").first(),
-        practiceCard.locator(".studentResultSurfaceHead strong").first(),
-      ]),
-    ).toBeVisible();
+    const firstRow = page
+      .locator(".studentPracticeRecommendationTable tbody")
+      .getByRole("button")
+      .first();
+    await expect(firstRow).toBeVisible();
+    await firstRow.click();
 
-    const primaryActionCandidates = [
-      practiceCard.getByRole("button", { name: /start practice/i }).first(),
-      practiceCard.getByRole("link", { name: /resume practice/i }).first(),
-      practiceCard.getByRole("link", { name: /review practice/i }).first(),
-      practiceCard.getByRole("link", { name: /open summary/i }).first(),
-      practiceCard.getByRole("link", { name: /view practice detail|view detail/i }).first(),
-    ];
-
-    const primaryAction = await Promise.all(
-      primaryActionCandidates.map(async (locator) =>
-        (await locator.isVisible().catch(() => false)) ? locator : null,
-      ),
-    ).then((matches) => matches.find(Boolean));
-
-    if (!primaryAction) {
-      await expect(practiceCard.locator(".studentAttemptsNotice, .studentResultHelper").first()).toBeVisible();
-      return;
+    const practiceDialog = page.getByRole("dialog");
+    if (!(await practiceDialog.isVisible().catch(() => false))) {
+      await firstRow.focus();
+      await firstRow.press("Enter");
     }
 
-    await primaryAction.click();
-    await expect(page).toHaveURL(
-      /\/app\/(attempts\/[^/]+(?:\/review|\/summary)?|exams\/[^/?#]+)(?:\?.*)?$/,
-    );
+    await expect(practiceDialog).toBeVisible();
+    await expect(page.getByText(/practice recommendation/i).first()).toBeVisible();
+    await expect(
+      await firstVisible([
+        page.getByRole("link", { name: /resume practice/i }).first(),
+        page.getByRole("link", { name: /start practice/i }).first(),
+        page.getByRole("link", { name: /review practice/i }).first(),
+        page.getByRole("link", { name: /open summary/i }).first(),
+        page.getByRole("link", { name: /view details/i }).first(),
+      ]),
+    ).toBeVisible();
+    await expect(page.getByRole("link", { name: /open weak areas/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /open results/i }).first()).toBeVisible();
+
+    await page.getByRole("button", { name: /close/i }).first().click();
+    await expect(practiceDialog).toHaveCount(0);
   });
 });

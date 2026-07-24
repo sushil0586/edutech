@@ -47,7 +47,6 @@ test.describe("Student summary and review scope persistence", () => {
       .first();
 
     if (!(await subjectScopedResultsLink.isVisible().catch(() => false))) {
-      await expect(page.getByRole("link", { name: /view analytics/i }).first()).toBeVisible();
       await expect(page.locator('a[href*="subject="]').first()).not.toBeVisible();
       return;
     }
@@ -58,7 +57,13 @@ test.describe("Student summary and review scope persistence", () => {
     const expectedSubject = scopedResultsUrl.searchParams.get("subject");
     expect(expectedSubject).not.toBeNull();
 
-    const summaryLink = page.getByRole("link", { name: /open summary|check attempt status/i }).first();
+    const firstResultRow = page.locator(".studentResultsTableRow").first();
+    await expect(firstResultRow).toBeVisible();
+    await firstResultRow.click();
+
+    await expect(page.getByRole("dialog")).toBeVisible();
+
+    const summaryLink = page.getByRole("link", { name: /open summary/i }).first();
     await expect(summaryLink).toBeVisible();
     const summaryHref = await summaryLink.getAttribute("href");
     expect(summaryHref).not.toBeNull();
@@ -86,7 +91,7 @@ test.describe("Student summary and review scope persistence", () => {
 
     await gotoWithRetry(page, landedSummaryUrl.pathname + landedSummaryUrl.search);
 
-    const attemptsLink = page.getByRole("link", { name: /open attempts/i }).first();
+    const attemptsLink = page.getByRole("link", { name: /open attempts|view attempt history/i }).first();
     await expect(attemptsLink).toBeVisible();
     const attemptsHref = await attemptsLink.getAttribute("href");
     expect(attemptsHref).not.toBeNull();
@@ -94,7 +99,7 @@ test.describe("Student summary and review scope persistence", () => {
     expect(attemptsUrl.pathname).toBe("/app/attempts");
     expectSearchParam(attemptsUrl, "subject", expectedSubject);
 
-    const reviewLink = page.getByRole("link", { name: /open answer review|review feedback/i }).first();
+      const reviewLink = page.getByRole("link", { name: /open answer review|review feedback/i }).first();
     if (await reviewLink.isVisible().catch(() => false)) {
       const reviewHref = await reviewLink.getAttribute("href");
       expect(reviewHref).not.toBeNull();

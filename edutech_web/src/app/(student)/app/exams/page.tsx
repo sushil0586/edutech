@@ -862,7 +862,7 @@ export default async function ExamsPage({
                   {featuredExamSubjectLabel ? ` · ${featuredExamSubjectLabel}` : ""}
                 </span>
               </div>
-              <article className="contentCard studentExamCompactCard">
+              <article className="contentCard studentResultSurface studentExamCompactCard">
                 <div className="studentAttemptsCardHead">
                   <div className="studentAttemptsCardTitle">
                     <strong>{featuredExam.title}</strong>
@@ -1011,7 +1011,7 @@ export default async function ExamsPage({
               );
 
               return (
-                <article className="contentCard studentExamCompactCard" key={exam.id}>
+                <article className="contentCard studentResultSurface studentExamCompactCard" key={exam.id}>
                   <div className="studentAttemptsCardHead">
                     <div className="studentAttemptsCardTitle">
                       <strong>{exam.title}</strong>

@@ -700,6 +700,29 @@ button {
   min-width: 0;
 }
 
+.workspaceSkipLink {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 200;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: #1f3fbf;
+  color: #ffffff;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  transform: translateY(-180%);
+  transition: transform 160ms ease;
+  box-shadow: 0 12px 26px rgba(31, 63, 191, 0.22);
+}
+
+.workspaceSkipLink:focus {
+  transform: translateY(0);
+  outline: 3px solid rgba(147, 197, 253, 0.95);
+  outline-offset: 2px;
+}
+
 .advancedBuilderShell {
   display: grid;
   gap: 24px;
@@ -2394,6 +2417,11 @@ button {
   line-height: var(--leading-snug);
   letter-spacing: var(--tracking-label);
   box-shadow: var(--shadow-xs);
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .metricsGrid {
@@ -2428,17 +2456,33 @@ button {
 .metricCard span,
 .categoryCard small {
   color: var(--color-text-muted);
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .metricCard strong {
   font-size: var(--text-xl);
   line-height: var(--leading-tight);
   letter-spacing: var(--tracking-tight);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .metricCard small {
   font-size: var(--text-xs);
   line-height: var(--leading-normal);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .metricCardPrimary {
@@ -5128,9 +5172,21 @@ button {
   color: var(--color-text-secondary);
 }
 
+.detailCard span {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .detailCard strong {
   font-size: 1rem;
-  word-break: break-word;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .sectionDescription {
@@ -5741,6 +5797,251 @@ button {
   align-items: center;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.studentDashboardTag,
+.studentDashboardMiniBadge,
+.studentDashboardChip {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
+  padding: 7px 12px;
+  overflow: hidden;
+  border: 1px solid rgba(202, 213, 239, 0.74);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(246, 249, 255, 0.98), rgba(238, 244, 255, 0.92));
+  color: #5b6d8b;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.studentDashboardTag {
+  border-color: rgba(168, 191, 242, 0.82);
+  background: linear-gradient(180deg, rgba(239, 246, 255, 0.98), rgba(228, 239, 255, 0.92));
+  color: #2450b3;
+}
+
+.studentDashboardTagWarm {
+  border-color: rgba(237, 205, 146, 0.72);
+  background: linear-gradient(180deg, rgba(255, 248, 232, 0.98), rgba(255, 241, 214, 0.92));
+  color: #9d6f1a;
+}
+
+.studentInsightHeroActions {
+  display: flex;
+  flex: 1 1 280px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.analyticsDetailHero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  gap: 18px;
+  padding: 22px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 26px;
+  background:
+    radial-gradient(circle at top right, rgba(31, 95, 214, 0.14), transparent 36%),
+    linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.06);
+}
+
+.analyticsDetailHeroWarm {
+  border-color: #efd9b1;
+  background:
+    radial-gradient(circle at top right, rgba(220, 165, 74, 0.16), transparent 38%),
+    linear-gradient(180deg, #fffdf9 0%, #fff7ea 100%);
+}
+
+.analyticsDetailHeroCopy,
+.analyticsDetailHeroRail {
+  display: grid;
+  align-content: start;
+  min-width: 0;
+  gap: 12px;
+}
+
+.analyticsDetailHeroCopy strong {
+  font-size: clamp(1.5rem, 3vw, 2.35rem);
+  line-height: 1;
+  letter-spacing: -0.05em;
+}
+
+.analyticsDetailHeroCopy p,
+.analyticsSignalCard span,
+.analyticsSignalCard small,
+.analyticsTimelineMetrics span,
+.analyticsChecklistItem span,
+.analyticsQuestionHeadline span,
+.analyticsQuestionNarrative p {
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+.analyticsSignalGrid,
+.analyticsActionGrid,
+.analyticsChecklist {
+  display: grid;
+  gap: 14px;
+}
+
+.analyticsSignalGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.analyticsActionGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.analyticsSignalCard {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.analyticsSignalCard strong {
+  font-size: 1.3rem;
+  line-height: 1.05;
+}
+
+@media (max-width: 1280px) {
+  .analyticsActionGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .studentInsightHeroActions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 1200px) {
+  .analyticsActionGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1024px) {
+  .analyticsDetailHero,
+  .analyticsActionGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .analyticsDetailHero {
+    gap: 10px;
+    padding: 14px 12px;
+    border-radius: 20px;
+  }
+
+  .analyticsDetailHeroCopy strong {
+    font-size: clamp(1.15rem, 5.8vw, 1.55rem);
+    line-height: 1.04;
+  }
+
+  .analyticsDetailHeroCopy,
+  .analyticsDetailHeroRail {
+    gap: 8px;
+  }
+
+  .analyticsDetailHeroCopy p {
+    font-size: 0.85rem;
+    line-height: 1.45;
+  }
+
+  .analyticsDetailHero .studentDashboardTag,
+  .analyticsDetailHero .studentDashboardMiniBadge {
+    min-height: 28px;
+    padding: 0 10px;
+    font-size: 0.7rem;
+  }
+
+  .analyticsDetailHero .analyticsSignalGrid {
+    gap: 8px;
+  }
+
+  .analyticsDetailHero .analyticsSignalCard {
+    gap: 4px;
+    padding: 10px 12px;
+    border-radius: 14px;
+  }
+
+  .analyticsDetailHero .analyticsSignalCard strong {
+    font-size: 1.05rem;
+  }
+
+  .analyticsDetailHero .analyticsSignalCard span,
+  .analyticsDetailHero .analyticsSignalCard small {
+    font-size: 0.72rem;
+    line-height: 1.35;
+  }
+
+  .analyticsDetailHeroRail {
+    width: 100%;
+  }
+
+  .analyticsDetailHero .analyticsDetailHeroCopy > .studentInsightHeroActions {
+    flex: 0 1 auto;
+    justify-content: flex-start;
+    gap: 6px;
+  }
+
+  .analyticsDetailHero .analyticsDetailHeroCopy > .studentInsightHeroActions > .studentDashboardMiniBadge {
+    flex: 0 1 auto;
+    max-width: 100%;
+  }
+
+  .analyticsDetailHero .studentInsightHeroActions {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 6px;
+  }
+
+  .analyticsDetailHero .studentInsightHeroActions > .button,
+  .analyticsDetailHero .studentInsightHeroActions > form {
+    flex: 1 1 calc(50% - 4px);
+    min-width: 0;
+  }
+
+  .analyticsDetailHero .studentInsightHeroActions > form .button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
+  .analyticsDetailHero {
+    gap: 8px;
+    padding: 12px 10px;
+  }
+
+  .analyticsDetailHero .analyticsSignalGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .analyticsDetailHero .analyticsDetailHeroCopy > .studentInsightHeroActions {
+    row-gap: 4px;
+  }
+
+  .analyticsDetailHero .studentInsightHeroActions > .button,
+  .analyticsDetailHero .studentInsightHeroActions > form {
+    flex: 1 1 calc(50% - 4px);
+  }
+
+  .analyticsDetailHero .studentInsightHeroActions > .button:last-child,
+  .analyticsDetailHero .studentInsightHeroActions > form:last-child {
+    flex-basis: 100%;
+  }
 }
 
 .dashboardSummaryGrid .metricCard strong,
@@ -7375,6 +7676,10 @@ button {
   gap: var(--space-4);
 }
 
+.attemptRailPanelMuted {
+  opacity: 0.92;
+}
+
 .attemptConsoleRail {
   align-content: start;
   gap: 14px;
@@ -7436,6 +7741,10 @@ button {
 .attemptWorkspaceDetails {
   display: grid;
   gap: var(--space-4);
+}
+
+.attemptWorkspaceDetailsMuted {
+  opacity: 0.76;
 }
 
 .attemptLockedStateCard {
@@ -7874,6 +8183,19 @@ button {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
+.attemptQuestionPrompt .studentNotificationMessage,
+.attemptQuestionPrompt .builderEmptyState p {
+  color: var(--color-text-primary);
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.7;
+}
+
+.attemptQuestionPrompt .builderEmptyState strong {
+  color: var(--color-text-primary);
+  font-weight: 800;
+}
+
 .attemptQuestionHeader {
   display: flex;
   align-items: flex-start;
@@ -7898,6 +8220,25 @@ button {
   color: var(--color-text-muted);
   font-size: var(--text-sm);
   line-height: var(--leading-normal);
+}
+
+.attemptQuestionStateInline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  padding: 10px 2px 2px;
+  color: var(--color-text-secondary);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.attemptQuestionStateInline span {
+  white-space: nowrap;
+}
+
+.attemptQuestionStateInline strong {
+  color: var(--color-text-primary);
+  font-weight: 700;
 }
 
 .attemptQuestionStateStrip {
@@ -7980,6 +8321,13 @@ button {
     background-color 180ms ease,
     box-shadow 180ms ease,
     transform 180ms ease;
+}
+
+.attemptOptionRow strong,
+.attemptOptionRow span {
+  color: var(--color-text-primary);
+  font-weight: 700;
+  line-height: 1.65;
 }
 
 .attemptOptionRow:hover {
@@ -8244,6 +8592,15 @@ button {
   margin-top: 0;
 }
 
+.attemptReviewToggleInline {
+  margin-top: -4px;
+  width: fit-content;
+  padding: 8px 12px;
+  border: 1px solid rgba(31, 95, 214, 0.12);
+  border-radius: 14px;
+  background: rgba(248, 251, 255, 0.92);
+}
+
 .attemptResponseWorkflow {
   display: grid;
   gap: var(--space-3);
@@ -8283,6 +8640,28 @@ button {
   display: flex;
   gap: var(--space-3);
   flex-wrap: wrap;
+}
+
+.attemptActionsExamFooter {
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 6px;
+}
+
+.attemptActionsCluster {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.attemptActionsClusterPrimary {
+  margin-left: auto;
+}
+
+.attemptSaveNextPrimary {
+  min-width: 200px;
 }
 
 .attemptActionsPrimary .buttonPrimary {
@@ -8342,10 +8721,37 @@ button {
   padding: 20px;
 }
 
+.attemptRailTabs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(31, 95, 214, 0.1);
+}
+
+.attemptRailTab {
+  border: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-weight: 700;
+  padding: 0 0 10px;
+  cursor: default;
+}
+
+.attemptRailTabActive {
+  color: var(--color-brand-primary-700);
+  box-shadow: inset 0 -2px 0 var(--color-brand-primary-500);
+}
+
 .attemptPaletteLegend {
   display: grid;
   gap: var(--space-3);
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.attemptPaletteLegendCompact {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .attemptPaletteLegendCard {
@@ -8357,9 +8763,15 @@ button {
   background: linear-gradient(180deg, rgba(248, 251, 255, 0.98), rgba(243, 247, 255, 0.92));
 }
 
+.attemptPaletteLegendCardCompact {
+  padding: 12px;
+  justify-items: center;
+  text-align: center;
+}
+
 .attemptPaletteLegendCard span,
 .attemptSectionCardStats span,
-.attemptQuestionNavChipMeta small {
+  .attemptQuestionNavChipMeta small {
   color: var(--color-text-muted);
 }
 
@@ -8381,6 +8793,7 @@ button {
 
 .attemptQuestionNavGridCompact {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .attemptConsoleTimerWrap {
@@ -8404,6 +8817,28 @@ button {
     transform 180ms ease,
     border-color 180ms ease,
     box-shadow 180ms ease;
+}
+
+.attemptQuestionNavChipCompact {
+  padding: 12px 10px;
+}
+
+.attemptQuestionNavChipCompact strong {
+  font-size: 0.98rem;
+}
+
+.attemptRailFooterActions {
+  display: grid;
+  gap: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(31, 95, 214, 0.1);
+}
+
+.attemptRailSubmitDanger {
+  width: 100%;
+  min-width: 0;
+  background: linear-gradient(90deg, #ef4444, #dc2626);
+  border-color: rgba(220, 38, 38, 0.26);
 }
 
 .attemptQuestionNavChip:hover {
@@ -12802,6 +13237,39 @@ button {
 
 .questionEditorShell {
   gap: var(--space-5);
+  min-width: 0;
+  overflow-x: clip;
+}
+
+.questionEditorShell > *,
+.questionEditorShell .builderForm,
+.questionEditorShell .builderWorkspace,
+.questionEditorShell .builderSectionCard,
+.questionEditorShell .builderSectionHeader,
+.questionEditorShell .builderSectionHeader > div,
+.questionEditorShell .builderGrid,
+.questionEditorShell .fieldStack,
+.questionEditorShell .fieldStack > *,
+.questionEditorShell .builderMiniBanner,
+.questionEditorShell .builderMiniBanner > div,
+.questionEditorShell .questionTagAddForm,
+.questionEditorShell .questionAttachmentForm,
+.questionEditorShell .questionAttachmentList,
+.questionEditorShell .questionAttachmentCard,
+.questionEditorShell .questionAttachmentCopy,
+.questionEditorShell .questionBankTagRow,
+.questionEditorShell .questionBankChipRow {
+  min-width: 0;
+}
+
+.questionEditorShell strong,
+.questionEditorShell p,
+.questionEditorShell small,
+.questionEditorShell span,
+.questionEditorShell a,
+.questionEditorShell button,
+.questionEditorShell label {
+  overflow-wrap: anywhere;
 }
 
 .questionEditorOptionList {
@@ -12911,6 +13379,32 @@ button {
 .questionAttachmentCopy p {
   color: var(--color-text-secondary);
   line-height: 1.7;
+}
+
+@media (max-width: 900px) {
+  .questionEditorShell .builderSectionHeader,
+  .questionEditorShell .builderMiniBanner,
+  .questionEditorShell .questionAttachmentCard {
+    align-items: stretch;
+  }
+
+  .questionEditorShell .builderSectionHeader,
+  .questionEditorShell .questionAttachmentCard {
+    grid-template-columns: 1fr;
+  }
+
+  .questionEditorShell .builderSectionHeader > .button,
+  .questionEditorShell .builderSectionHeader > a,
+  .questionEditorShell .builderMiniBanner > .button,
+  .questionEditorShell .builderMiniBanner > a,
+  .questionEditorShell .questionAttachmentCard > form,
+  .questionEditorShell .questionAttachmentCard > form > .button {
+    width: 100%;
+  }
+
+  .questionEditorShell .questionAttachmentCard {
+    flex-direction: column;
+  }
 }
 
 .questionAttachmentPreviewMedia,
@@ -14383,6 +14877,10 @@ button {
 
 .instituteAppMain .studentInsightHeroCardCompact {
   display: none;
+}
+
+.instituteAppMain .instituteExamsPageVivid .studentInsightHeroCardCompact {
+  display: grid;
 }
 
 .instituteAppMain .adminPeoplePage .adminInstituteHero,
@@ -22033,6 +22531,10 @@ button {
   letter-spacing: var(--tracking-label);
   line-height: var(--leading-normal);
   text-transform: uppercase;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .workspaceFilterFieldWide {

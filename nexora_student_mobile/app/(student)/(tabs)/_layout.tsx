@@ -8,16 +8,18 @@ export default function StudentTabsLayout() {
         headerShown: false,
         tabBarActiveTintColor: colors.bgPrimary,
         tabBarInactiveTintColor: colors.textMuted,
-        tabBarHideOnKeyboard: true,
         tabBarStyle: {
           backgroundColor: colors.bgSurface,
           borderTopColor: colors.borderDefault,
-          height: 64,
-          paddingTop: 6,
-          paddingBottom: 8,
+          height: 58,
+          paddingTop: 4,
+          paddingBottom: 6,
+        },
+        tabBarIconStyle: {
+          display: "none",
         },
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: "700",
         },
         tabBarItemStyle: {

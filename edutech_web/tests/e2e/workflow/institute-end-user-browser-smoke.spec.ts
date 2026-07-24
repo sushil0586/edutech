@@ -50,6 +50,6 @@ test.describe("Institute end-user browser smoke via page objects", () => {
     await expect(page.getByRole("link", { name: /open shared library/i }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /open local question bank/i }).first()).toBeVisible();
     await expect(page.getByText(/linked licensed copy|linked licensed copies/i).first()).toBeVisible();
-    await expect(page.getByText(/bulk mutation tools are hidden in linked review mode/i).first()).toBeVisible();
+    await expect(page.getByText(/bulk tools are hidden in linked review mode/i).first()).toBeVisible();
   });
 });

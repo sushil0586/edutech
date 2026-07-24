@@ -1,13 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
-import type { StudentAvailableExam, StudentExamDetail } from "@/features/dashboard/types";
-import { loginStudentFamilyAccountOrSkip } from "../helpers/student-family";
-
-const backendBaseUrl = (
-  process.env.API_BASE_URL ??
-  process.env.NEXT_PUBLIC_API_BASE_URL ??
-  process.env.PLAYWRIGHT_API_BASE_URL ??
-  "http://127.0.0.1:9001"
-).replace(/\/$/, "");
+import {
+  fetchStudentExamDetailCatalog,
+  loginStudentFamilyAccountOrSkip,
+  resolveStudentFamilyExamOrSkip,
+} from "../helpers/student-family";
 
 const jeeStudentCredentials = {
   username: "demo-jee-student",
@@ -29,48 +25,16 @@ const expectedSubjectNames = [
   "Mathematics",
 ];
 
-async function backendAccessToken(page: Page) {
-  const cookies = await page.context().cookies();
-  const accessToken = cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
-  expect(accessToken).not.toBe("");
-  return accessToken;
-}
-
-async function fetchStudentAvailableExams(page: Page) {
-  const accessToken = await backendAccessToken(page);
-  const response = await page.request.get(`${backendBaseUrl}/api/v1/student/exams/available/`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    timeout: 15000,
-  });
-  expect(response.ok()).toBe(true);
-  return (await response.json()) as StudentAvailableExam[];
-}
-
-async function fetchStudentExamDetail(page: Page, examId: string) {
-  const accessToken = await backendAccessToken(page);
-  const response = await page.request.get(`${backendBaseUrl}/api/v1/student/exams/${examId}/detail/`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    timeout: 15000,
-  });
-  expect(response.ok()).toBe(true);
-  return (await response.json()) as StudentExamDetail;
-}
-
 test.describe("Student JEE full mock contract", () => {
   test("@workflow jee student sees the seeded JEE full mock as a hybrid mixed-subject competitive exam", async ({
     page,
   }) => {
     await loginStudentFamilyAccountOrSkip(page, jeeStudentCredentials, "jee");
 
-    const exams = await fetchStudentAvailableExams(page);
-    const jeeExam = exams.find((exam) => exam.code === jeeExamCode) ?? null;
-    test.skip(!jeeExam, "Seeded JEE full mock exam is not available in this environment.");
+    const jeeExam = await resolveStudentFamilyExamOrSkip(page, {
+      familyLabel: "JEE full mock",
+      examCode: jeeExamCode,
+    });
     if (!jeeExam) {
       return;
     }
@@ -80,7 +44,7 @@ test.describe("Student JEE full mock contract", () => {
       [...expectedSubjectNames].sort(),
     );
 
-    const detail = await fetchStudentExamDetail(page, jeeExam!.id);
+    const detail = await fetchStudentExamDetailCatalog(page, jeeExam!.id);
     expect(detail.code).toBe(jeeExamCode);
     expect(detail.is_multi_subject).toBe(true);
     expect(detail.subject_summary.subject_count).toBe(3);

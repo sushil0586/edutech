@@ -78,7 +78,7 @@ test.describe("Admin mobile people workflow", () => {
     await expect(page.getByRole("link", { name: /^students$/i })).toBeVisible();
     await expect(page.getByRole("link", { name: /^teachers$/i })).toBeVisible();
     await expect(page.getByRole("combobox", { name: /select institute/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /^open$/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^update view$/i })).toBeVisible();
 
     await expect(page.getByRole("button", { name: /create student/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /import students/i })).toBeVisible();

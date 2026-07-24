@@ -1,0 +1,15 @@
+appId: com.anonymous.nexorastudentmobile
+---
+- launchApp
+
+- extendedWaitUntil:
+    visible: "Student Dashboard"
+    timeout: 30000
+
+- tapOn: "Resume Attempt"
+
+- extendedWaitUntil:
+    visible: "Live Attempt"
+    timeout: 30000
+
+- assertVisible: "Current question"

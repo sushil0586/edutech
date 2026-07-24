@@ -45,10 +45,16 @@ test.describe("Student cross-browser shell sanity", () => {
     await expect(page.getByRole("heading", { name: /analytics/i }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /open action center|action center/i }).first()).toBeVisible();
 
+    const reportsLink = page.getByRole("link", { name: /^reports$/i }).first();
+    await reportsLink.scrollIntoViewIfNeeded();
+    await reportsLink.click();
+    await expect(page).toHaveURL(/\/app\/reports(?:\?.*)?$/);
+    await expect(page.getByRole("heading", { name: /reports hub|downloadable reports center/i }).first()).toBeVisible();
+
     await page.getByRole("link", { name: /^results$/i }).first().click();
     await expect(page).toHaveURL(/\/app\/results(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /view analytics/i }).first()).toBeVisible();
+    await expect(page.locator(".studentResultsTable, .studentWorkspaceFiltersCard").first()).toBeVisible();
 
     await page.getByRole("link", { name: /^profile$/i }).first().click();
     await expect(page).toHaveURL(/\/app\/profile(?:\?.*)?$/);

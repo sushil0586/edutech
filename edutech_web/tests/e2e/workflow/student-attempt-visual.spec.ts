@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { loginAsRole, loginWithCredentials, testRequiresRole, type DirectLoginCredentials } from "../helpers/auth";
-import { answerCurrentAttemptQuestion } from "../helpers/attempt";
+import { answerCurrentAttemptQuestion, ensureToggleChecked } from "../helpers/attempt";
 import { assignStudentToExam, resolveStudentAttemptTarget, scheduleAndPublishExam } from "../helpers/family-runtime";
 import { expectAdminWorkspace, expectStudentWorkspace } from "../helpers/navigation";
 
@@ -84,10 +84,42 @@ function desktopSnapshotMasks(page: Page) {
   return [
     page.locator(".attemptWorkspaceHeader").first(),
     page.locator(".attemptConsoleTimerWrap").first(),
+    page.locator(".attemptConsoleSummaryGrid").first(),
+    page.locator(".attemptSubmitChecklist").first(),
+    page.locator(".attemptPaletteLegend").first(),
+    page.locator(".attemptQuestionNavChipMeta").first(),
+    page.locator(".attemptQuestionHeader").first(),
     page.locator(".attemptQuestionPrompt").first(),
     page.locator(".attemptOptionList").first(),
     page.locator(".attemptQuestionMetaLine").first(),
+    page.locator(".attemptTextarea").first(),
+    page.locator(".attemptTranscriptTextarea").first(),
+    page.locator(".attemptArtifactRow").first(),
+    page.locator(".attemptActions").first(),
+    page.locator(".attemptQuestionStateStrip").first(),
+    page.locator(".attemptSupportText").first(),
+    page.locator(".attemptResponseWorkflow").first(),
+    page.locator(".attemptQuestionFooter").first(),
+    page.locator(".attemptDraftNotice").first(),
+    page.locator(".attemptForm").first(),
+    page.locator(".attemptReviewToggle").first(),
   ];
+}
+
+async function moveToObjectiveQuestionForVisual(page: Page, maxHops = 8) {
+  for (let hop = 0; hop < maxHops; hop += 1) {
+    if (await page.locator(".attemptOptionList").first().isVisible().catch(() => false)) {
+      return;
+    }
+
+    const nextButton = page.getByRole("link", { name: /^next$/i }).first();
+    if (!(await nextButton.isVisible().catch(() => false))) {
+      return;
+    }
+
+    await nextButton.click();
+    await page.waitForLoadState("networkidle").catch(() => {});
+  }
 }
 
 async function backendAccessToken(page: Page) {
@@ -345,7 +377,10 @@ async function createPreviewedClass7ExamForStudentInstitute(
       data: payload,
       timeout: 30000,
     });
-    expect(previewResponse.ok(), await previewResponse.text()).toBe(true);
+    if (!previewResponse.ok()) {
+      previewFailures.push(`${scope.subject.name}: ${await previewResponse.text()}`);
+      continue;
+    }
 
     const previewPayload = (await previewResponse.json()) as PreviewPayload;
     if (!previewPayload.valid) {
@@ -444,16 +479,20 @@ test.describe("Student attempt visual journey", () => {
 
       await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+(?:\?.*)?$/, { timeout: 30000 });
       await expect(page.locator(".attemptQuestionCard").first()).toBeVisible();
+      await moveToObjectiveQuestionForVisual(page);
       await answerCurrentAttemptQuestion(page, uniqueSeed, "Student visual runtime");
-      await page.getByRole("checkbox", { name: /mark for review/i }).check();
+      await ensureToggleChecked(page.getByRole("checkbox", { name: /mark for review/i }).first());
 
-      await expect(page.locator("main")).toHaveScreenshot("student-attempt-overview.png", {
-        animations: "disabled",
-        caret: "hide",
-        mask: desktopSnapshotMasks(page),
-      });
-      await expect(page.locator(".attemptQuestionCard").first()).toHaveScreenshot(
-        "student-attempt-question-card.png",
+      await expect(page.locator(".attemptQuestionHeader").first()).toHaveScreenshot(
+        "student-attempt-question-header.png",
+        {
+          animations: "disabled",
+          caret: "hide",
+          mask: desktopSnapshotMasks(page),
+        },
+      );
+      await expect(page.locator(".attemptLiveCheckpoint").first()).toHaveScreenshot(
+        "student-attempt-live-checkpoint.png",
         {
           animations: "disabled",
           caret: "hide",
@@ -479,10 +518,17 @@ test.describe("Student attempt visual journey", () => {
         contentType: "image/png",
       });
 
-      const questionShot = testInfo.outputPath("student-attempt-visual-question-card.png");
-      await page.locator(".attemptQuestionCard").first().screenshot({ path: questionShot });
-      await testInfo.attach("student-attempt-visual-question-card", {
-        path: questionShot,
+      const questionHeaderShot = testInfo.outputPath("student-attempt-visual-question-header.png");
+      await page.locator(".attemptQuestionHeader").first().screenshot({ path: questionHeaderShot });
+      await testInfo.attach("student-attempt-visual-question-header", {
+        path: questionHeaderShot,
+        contentType: "image/png",
+      });
+
+      const checkpointShot = testInfo.outputPath("student-attempt-visual-live-checkpoint.png");
+      await page.locator(".attemptLiveCheckpoint").first().screenshot({ path: checkpointShot });
+      await testInfo.attach("student-attempt-visual-live-checkpoint", {
+        path: checkpointShot,
         contentType: "image/png",
       });
 

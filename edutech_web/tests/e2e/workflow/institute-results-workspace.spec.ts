@@ -173,10 +173,10 @@ test.describe("Institute results workspace", () => {
     await page.goto("/institute/results");
     await expectInstituteResultsWorkspace(page);
 
-    await expect(page.getByRole("link", { name: /open exam/i }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /open leaderboard/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /view exam/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /view leaderboard/i }).first()).toBeVisible();
 
-    await page.getByRole("link", { name: /open leaderboard/i }).first().click();
+    await page.getByRole("link", { name: /view leaderboard/i }).first().click();
     await expect(page).toHaveURL(/\/institute\/results\/leaderboard(?:\?.*)?$/);
     await expect(page.getByText(/publication checklist/i).first()).toBeVisible();
     await expectVisiblePaginationControlsToAvoidHashLinks(page);
@@ -184,7 +184,7 @@ test.describe("Institute results workspace", () => {
     await page.goto("/institute/results");
     await expectInstituteResultsWorkspace(page);
 
-    const openExamLink = page.getByRole("link", { name: /^open exam$/i }).first();
+    const openExamLink = page.getByRole("link", { name: /^view exam$/i }).first();
     await expect(openExamLink).toBeVisible();
     const openExamHref = await openExamLink.getAttribute("href");
     const examId = openExamHref?.match(/\/institute\/exams\/([^/?#]+)/)?.[1] ?? null;
@@ -197,7 +197,7 @@ test.describe("Institute results workspace", () => {
     await page.goto("/institute/results");
     await expectInstituteResultsWorkspace(page);
 
-    const openExamForBuilder = page.getByRole("link", { name: /^open exam$/i }).first();
+    const openExamForBuilder = page.getByRole("link", { name: /^view exam$/i }).first();
     await expect(openExamForBuilder).toBeVisible();
     await openExamForBuilder.click();
     await expect(page.getByRole("link", { name: /open builder/i }).first()).toBeVisible();

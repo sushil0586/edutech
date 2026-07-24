@@ -1,5 +1,7 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { StudentKpiGrid } from "@/components/ui/student-kpi-grid";
+import { StudentReportFilters } from "@/components/ui/student-report-filters";
 import { StudentPageHeader } from "@/components/ui/student-page-header";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import {
@@ -32,12 +34,16 @@ import {
   titleCaseState,
 } from "@/lib/student/formatters";
 import {
+  ALL_SOURCES_CONTEXT,
   ALL_SUBJECTS_CONTEXT,
   filterStudentRecordsByMetadataSubject,
   filterStudentRecordsBySource,
   filterStudentSummaryBySource,
   filterStudentSummaryBySubject,
+  getStudentSourceOptions,
   selectedStudentSourceLabel,
+  resolveSelectedStudentSourceTeacher,
+  STUDENT_SOURCE_TEACHER_CONTEXT_COOKIE,
 } from "@/lib/student/subject-context";
 
 export default async function StudentAnalyticsSourcePage({
@@ -51,8 +57,8 @@ export default async function StudentAnalyticsSourcePage({
   const query = await searchParams;
   const sourceKey = decodeAnalyticsParam(route.sourceKey).toLowerCase();
   const subject = query.subject ? decodeAnalyticsParam(query.subject) : null;
-  const teacher = query.teacher ?? null;
   const sourceLabel = query.label ? decodeAnalyticsParam(query.label) : null;
+  const cookieStore = await cookies();
   const state = getStudentApiState();
 
   if (!isStudentAnalyticsSourceKey(sourceKey)) {
@@ -92,11 +98,11 @@ export default async function StudentAnalyticsSourcePage({
     fetchStudentQuestionAnalytics({
       subject,
       source: sourceKey,
-      teacher,
+      teacher: query.teacher ?? null,
     }).catch(() => null),
   ]);
 
-  if (!bundle.summary || !questionData) {
+  if (!bundle.summary) {
     return (
       <div className="studentPage studentDashboardModern">
         <StudentStatePanel
@@ -112,30 +118,56 @@ export default async function StudentAnalyticsSourcePage({
     );
   }
 
-  const sourceSummary = filterStudentSummaryBySource(bundle.summary, sourceKey, teacher);
+  const resolvedQuestionData = questionData ?? {
+    overview: {
+      question_count: 0,
+      attempted_count: 0,
+      correct_count: 0,
+      wrong_count: 0,
+      skipped_count: 0,
+    },
+    benchmark_overview: [],
+    questions: [],
+  };
+
+  const { teacherOptions } = getStudentSourceOptions([
+    ...bundle.results,
+    ...bundle.exams,
+    ...(bundle.summary?.source_breakdown ?? []),
+    ...(bundle.summary?.recent_exams ?? []),
+  ]);
+  const selectedTeacherId = resolveSelectedStudentSourceTeacher(
+    teacherOptions,
+    sourceKey,
+    query.teacher ??
+      cookieStore.get(STUDENT_SOURCE_TEACHER_CONTEXT_COOKIE)?.value ??
+      null,
+  );
+
+  const sourceSummary = filterStudentSummaryBySource(bundle.summary, sourceKey, selectedTeacherId);
   const scopedSummary = filterStudentSummaryBySubject(
     sourceSummary,
     subject ?? ALL_SUBJECTS_CONTEXT,
   );
   const publishedResults = sortResultsByPublishedDate(
     filterStudentRecordsByMetadataSubject(
-      filterStudentRecordsBySource(bundle.results, sourceKey, teacher),
+      filterStudentRecordsBySource(bundle.results, sourceKey, selectedTeacherId),
       subject ?? ALL_SUBJECTS_CONTEXT,
     ).filter((item) => item.is_published),
   );
   const subjectRows = scopedSummary.source_subject_breakdown
     .slice()
     .sort((left, right) => Number(left.average_percentage) - Number(right.average_percentage));
-  const typeRows = aggregateQuestionsByType(questionData.questions).slice(0, 5);
-  const topicRows = aggregateQuestionsByTopic(questionData.questions).slice(0, 5);
-  const difficultyRows = aggregateQuestionsByDifficulty(questionData.questions);
+  const typeRows = aggregateQuestionsByType(resolvedQuestionData.questions).slice(0, 5);
+  const topicRows = aggregateQuestionsByTopic(resolvedQuestionData.questions).slice(0, 5);
+  const difficultyRows = aggregateQuestionsByDifficulty(resolvedQuestionData.questions);
   const averagePercentage =
     publishedResults.reduce((total, item) => total + Number(item.percentage), 0) /
     (publishedResults.length || 1);
   const latestResult = publishedResults[0] ?? null;
   const sourceTitle =
     sourceLabel
-    ?? (sourceKey === "teacher" && teacher && scopedSummary.source_breakdown[0]
+    ?? (sourceKey === "teacher" && selectedTeacherId && scopedSummary.source_breakdown[0]
       ? sourceDescriptor(scopedSummary.source_breakdown[0])
       : selectedStudentSourceLabel(sourceKey));
 
@@ -147,9 +179,23 @@ export default async function StudentAnalyticsSourcePage({
           subject ? `${sourceTitle} · ${subject}` : `${sourceTitle} Analytics`
         }
         description="Review one learning source in isolation and see whether a weakness is source-specific."
-        statusLabel={`${questionData.questions.length} source-filtered questions`}
+        statusLabel={`${resolvedQuestionData.questions.length} source-filtered questions`}
         statusTone="live"
         action={<Link className="button buttonGhost" href="/app/analytics">Back to Analytics</Link>}
+      />
+
+      <StudentReportFilters
+        basePath={`/app/analytics/sources/${encodeURIComponent(sourceKey)}`}
+        title="Source detail filters"
+        helper="Keep the source fixed while refining subject and teacher context for this drilldown."
+        selectedSource={sourceKey}
+        selectedSubject={subject ?? ALL_SUBJECTS_CONTEXT}
+        selectedTeacherId={selectedTeacherId}
+        subjectOptions={[
+          { value: ALL_SUBJECTS_CONTEXT, label: "Overall" },
+          ...subjectRows.map((row) => ({ value: row.subject_name, label: row.subject_name })),
+        ]}
+        teacherOptions={teacherOptions}
       />
 
       <StudentAnalyticsDetailHero
@@ -187,13 +233,21 @@ export default async function StudentAnalyticsSourcePage({
           <>
             <Link
               className="button buttonPrimary"
-              href={buildAnalyticsActionsHref({ subject, source: sourceKey, teacher })}
+              href={buildAnalyticsActionsHref({
+                subject,
+                source: sourceKey,
+                teacher: selectedTeacherId,
+              })}
             >
               Open Action Center
             </Link>
             <Link
               className="button buttonSecondary"
-              href={buildAnalyticsResultsCompareHref({ subject, source: sourceKey, teacher })}
+              href={buildAnalyticsResultsCompareHref({
+                subject,
+                source: sourceKey,
+                teacher: selectedTeacherId,
+              })}
             >
               Compare Results
             </Link>
@@ -205,19 +259,19 @@ export default async function StudentAnalyticsSourcePage({
         items={[
           {
             label: "Tracked Questions",
-            value: String(questionData.overview.question_count),
+            value: String(resolvedQuestionData.overview.question_count),
             note: "Question evidence in this source",
             tone: "primary",
           },
           {
             label: "Attempted",
-            value: String(questionData.overview.attempted_count),
-            note: `${questionData.overview.skipped_count} skipped`,
+            value: String(resolvedQuestionData.overview.attempted_count),
+            note: `${resolvedQuestionData.overview.skipped_count} skipped`,
           },
           {
             label: "Correct",
-            value: String(questionData.overview.correct_count),
-            note: `${questionData.overview.wrong_count} wrong`,
+            value: String(resolvedQuestionData.overview.correct_count),
+            note: `${resolvedQuestionData.overview.wrong_count} wrong`,
           },
           {
             label: "Published Results",
@@ -240,7 +294,7 @@ export default async function StudentAnalyticsSourcePage({
                   className="studentTopicRow"
                   href={buildAnalyticsSubjectHref(row.subject_name, {
                     source: sourceKey,
-                    teacher,
+                    teacher: selectedTeacherId,
                   })}
                   key={`${row.source_type}-${row.subject_name}`}
                 >
@@ -322,7 +376,7 @@ export default async function StudentAnalyticsSourcePage({
                     subject,
                     label: row.label,
                     source: sourceKey,
-                    teacher,
+                    teacher: selectedTeacherId,
                   })}
                   key={row.key}
                 >
@@ -356,7 +410,7 @@ export default async function StudentAnalyticsSourcePage({
                     questionType: row.key,
                     subject,
                     source: sourceKey,
-                    teacher,
+                    teacher: selectedTeacherId,
                   })}
                   key={row.key}
                 >
@@ -412,13 +466,13 @@ export default async function StudentAnalyticsSourcePage({
       <section className="contentCard">
         <div className="sectionHeading">
           <strong>Question evidence from this source</strong>
-          <span>{questionData.questions.length} records</span>
+          <span>{resolvedQuestionData.questions.length} records</span>
         </div>
         <StudentQuestionInsightList
-          questions={questionData.questions.slice(0, 10)}
+          questions={resolvedQuestionData.questions.slice(0, 10)}
           subject={subject}
           source={sourceKey}
-          teacher={teacher}
+          teacher={selectedTeacherId}
           emptyMessage="Question-level evidence will appear here once this source has tracked attempts."
         />
       </section>

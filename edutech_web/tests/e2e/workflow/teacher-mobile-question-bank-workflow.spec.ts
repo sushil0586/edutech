@@ -95,7 +95,7 @@ test.describe("Teacher mobile question bank workflow", () => {
     const searchField = page.getByRole("textbox", { name: /search question text/i });
     await expect(searchField).toBeVisible();
     await searchField.fill(PAUSED_ONLY_PREFIX);
-    await page.getByRole("button", { name: /apply filters/i }).click();
+    await page.getByRole("button", { name: /update view/i }).click();
 
     await expect(page).toHaveURL(/search=/);
     await expect(searchField).toHaveValue(PAUSED_ONLY_PREFIX);
@@ -127,7 +127,9 @@ test.describe("Teacher mobile question bank workflow", () => {
     await expect(
       previewDialog.getByText(/source state:\s*linked source\s*·\s*edit posture:\s*read-only linked row/i).first(),
     ).toBeVisible();
-    await expect(previewDialog.getByRole("link", { name: /open as duplicate|create editable copy/i })).toBeVisible();
+    await expect(
+      previewDialog.getByText(/duplicate it before editing/i).first(),
+    ).toBeVisible();
 
     await previewDialog.getByRole("button", { name: /^close$/i }).click();
     await expect(previewDialog).toHaveCount(0);

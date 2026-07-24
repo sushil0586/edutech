@@ -29,6 +29,37 @@ function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+async function openTeacherExamBuilderReady(page: Page, examId: string, tab?: "questions") {
+  const builderPath = `/teacher/exams/${examId}/builder${tab ? `?tab=${tab}` : ""}`;
+  const loadIssueHeading = page.getByRole("heading", { name: /exam builder could not be loaded/i });
+
+  await expect
+    .poll(
+      async () => {
+        await page.goto(builderPath, { waitUntil: "domcontentloaded" });
+
+        if (await loadIssueHeading.isVisible().catch(() => false)) {
+          return "load-issue";
+        }
+
+        if (tab === "questions") {
+          return (await page.getByText(/attach one question manually/i).first().isVisible().catch(() => false))
+            ? "ready"
+            : "pending";
+        }
+
+        return (await page.getByRole("button", { name: /save exam settings/i }).isVisible().catch(() => false))
+          ? "ready"
+          : "pending";
+      },
+      {
+        timeout: 45000,
+        intervals: [1000, 2000, 3000, 5000],
+      },
+    )
+    .toBe("ready");
+}
+
 async function backendAccessToken(page: Page) {
   const cookies = await page.context().cookies();
   const accessToken = cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
@@ -278,13 +309,16 @@ test.describe("Student descriptive runtime actions", () => {
       await page.locator('input[name="max_attempts"]').fill("1");
       await page.getByRole("button", { name: /^continue$/i }).click();
       await page.getByRole("button", { name: /^continue$/i }).click();
-      await page.getByRole("button", { name: /create exam shell/i }).click();
-      await expect(page).toHaveURL(/\/teacher\/exams\/.+\?message=/);
+      await page.getByRole("button", { name: /create exam shell|creating exam/i }).click();
+      await expect
+        .poll(() => page.url(), { timeout: 30000 })
+        .toMatch(/\/teacher\/exams\/(?!new(?:[/?#]|$))[^/?#]+\/builder(?:\?message=.*)?$/);
 
       examId = page.url().split("?")[0]?.match(/\/teacher\/exams\/([^/?#]+)/)?.[1] ?? null;
+      expect(examId).not.toBe("new");
       expect(examId).not.toBeNull();
 
-      await page.goto(`/teacher/exams/${examId}/builder`);
+      await openTeacherExamBuilderReady(page, examId!);
       const academicYearSelect = page.locator('select[name="academic_year"]');
       const examProgramSelect = page.locator('select[name="program"]');
       const examSubjectSelect = page.locator('select[name="subject"]');
@@ -300,9 +334,9 @@ test.describe("Student descriptive runtime actions", () => {
       await page.locator('input[name="start_at"]').fill(toDateTimeLocalValue(startAt));
       await page.locator('input[name="end_at"]').fill(toDateTimeLocalValue(endAt));
       await page.getByRole("button", { name: /save exam settings/i }).click();
-      await expect(page).toHaveURL(/message=/);
+      await expect(page).toHaveURL(new RegExp(`/teacher/exams/${examId}/builder(?:\\?message=.*)?$`));
 
-      await page.goto(`/teacher/exams/${examId}/builder?tab=questions`);
+      await openTeacherExamBuilderReady(page, examId!, "questions");
       const manualAttachForm = page.locator("form.builderForm.builderSubform").filter({
         has: page.getByText(/attach one question manually/i),
       }).first();
@@ -326,8 +360,8 @@ test.describe("Student descriptive runtime actions", () => {
       await manualAttachForm.getByRole("spinbutton", { name: /^marks$/i }).fill("10");
       await manualAttachForm.getByRole("spinbutton", { name: /negative marks/i }).fill("0");
       await manualAttachForm.getByRole("button", { name: /^attach question$/i }).click();
-      await expect(page).toHaveURL(/tab=questions&message=/);
-      await expect(page.getByText(/question linked to exam/i)).toBeVisible();
+      await expect(page).toHaveURL(/tab=questions(?:&|.*\?)message=|tab=questions.*message=/);
+      await expect(page.getByText(new RegExp(escapeRegExp(questionText), "i")).first()).toBeVisible();
 
       await assignStudentToExam(page, examId!, studentProfileId!);
 

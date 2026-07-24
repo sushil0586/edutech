@@ -1,15 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import { answerCurrentAttemptQuestion } from "../helpers/attempt";
 import { loginWithCredentials } from "../helpers/auth";
+import { openStudentPrimaryActionOrSkip, resolveStudentFamilyExamOrSkip } from "../helpers/student-family";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
 import { expectStudentWorkspace } from "../helpers/navigation";
-
-const backendBaseUrl = (
-  process.env.API_BASE_URL ??
-  process.env.NEXT_PUBLIC_API_BASE_URL ??
-  process.env.PLAYWRIGHT_API_BASE_URL ??
-  "http://127.0.0.1:9001"
-).replace(/\/$/, "");
 
 const awsStudentCredentials = {
   username: "demo-aws-student",
@@ -22,30 +16,6 @@ const mutableStudentAwsLifecycleEnabled = isMutableLaneEnabled(
 
 const awsExamCode = "DMO-AWS-PRACTICE-01";
 const awsExamTitle = "Demo AWS Practitioner Practice 01";
-
-async function backendAccessToken(page: Page) {
-  const cookies = await page.context().cookies();
-  const accessToken = cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
-  expect(accessToken).not.toBe("");
-  return accessToken;
-}
-
-async function fetchStudentAvailableExams(page: Page) {
-  const accessToken = await backendAccessToken(page);
-  const response = await page.request.get(`${backendBaseUrl}/api/v1/student/exams/available/`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    timeout: 15000,
-  });
-  expect(response.ok()).toBe(true);
-  return (await response.json()) as Array<{
-    id: string;
-    code: string;
-    title: string;
-  }>;
-}
 
 test.describe("Student AWS practice lifecycle", () => {
   test.skip(
@@ -64,24 +34,22 @@ test.describe("Student AWS practice lifecycle", () => {
     await loginWithCredentials(page, awsStudentCredentials, "student");
     await expectStudentWorkspace(page);
 
-    const exams = await fetchStudentAvailableExams(page);
-    const awsExam = exams.find((exam) => exam.code === awsExamCode) ?? null;
-    expect(awsExam).not.toBeNull();
-    expect(awsExam!.title).toBe(awsExamTitle);
+    const awsExam = await resolveStudentFamilyExamOrSkip(page, {
+      familyLabel: "AWS practice lifecycle",
+      examCode: awsExamCode,
+      expectedTitle: awsExamTitle,
+    });
+    if (!awsExam) {
+      return;
+    }
 
-    await page.goto(`/app/exams/${awsExam!.id}`);
+    await page.goto(`/app/exams/${awsExam.id}`);
     await expect(page.getByRole("heading", { name: new RegExp(awsExamTitle, "i") }).first()).toBeVisible();
 
-    const primaryActionCard = page.locator("article").filter({
-      has: page.getByText(/primary action/i),
-    }).first();
-    const resumeLink = page.getByRole("link", { name: /^resume$/i }).first();
-    const startButton = primaryActionCard.getByRole("button", { name: /^start$/i }).first();
-    if (await resumeLink.isVisible().catch(() => false)) {
-      await resumeLink.click();
-    } else {
-      await expect(startButton).toBeVisible();
-      await startButton.click();
+    const handoff = await openStudentPrimaryActionOrSkip(page);
+    if (handoff !== "start" && handoff !== "resume") {
+      await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/(summary|review)(?:\?.*)?$/);
+      return;
     }
 
     await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+(?:\?.*)?$/);

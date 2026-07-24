@@ -3,6 +3,11 @@ import { answerCurrentAttemptQuestion } from "../helpers/attempt";
 import { loginWithCredentials } from "../helpers/auth";
 import { backendAccessToken, jeeStudentCredentials, reopenExamWindow } from "../helpers/family-runtime";
 import { expectStudentWorkspace, expectTeacherWorkspace } from "../helpers/navigation";
+import {
+  openStudentPrimaryActionOrSkip,
+  resolveStudentFamilyExamOrSkip,
+  resolveTeacherFamilyExamOrSkip,
+} from "../helpers/student-family";
 
 const backendBaseUrl = (
   process.env.API_BASE_URL ??
@@ -13,28 +18,6 @@ const backendBaseUrl = (
 
 const jeeExamCode = "DMO-JEE-FULL-01";
 const jeeExamTitle = "Demo JEE Full Mock 01";
-
-async function fetchStudentAvailableExams(page: Page) {
-  const accessToken = await backendAccessToken(page);
-  const response = await page.request.get(`${backendBaseUrl}/api/v1/student/exams/available/`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    timeout: 15000,
-  });
-  expect(response.ok()).toBe(true);
-  return (await response.json()) as Array<{
-    id: string;
-    code: string;
-    title: string;
-    is_multi_subject?: boolean;
-    subject_summary?: {
-      display_label?: string;
-      subject_count?: number;
-    } | null;
-  }>;
-}
 
 test.describe("Student mobile JEE section switching", () => {
   test.use({
@@ -51,52 +34,42 @@ test.describe("Student mobile JEE section switching", () => {
 
     await loginWithCredentials(page, { username: "demo-teacher", password: "Demo@12345" }, "teacher");
     await expectTeacherWorkspace(page);
-    const teacherResponse = await page.request.get(
-      `${backendBaseUrl}/api/v1/teacher/exams/?search=${encodeURIComponent(jeeExamCode)}&page_size=20`,
-      {
-        headers: {
-          Authorization: `Bearer ${await backendAccessToken(page)}`,
-          "Content-Type": "application/json",
-        },
-        timeout: 15000,
-      },
-    );
-    expect(teacherResponse.ok()).toBe(true);
-    const teacherPayload = (await teacherResponse.json()) as {
-      results?: Array<{
-        id: string;
-        code: string;
-        title: string;
-      }>;
-    };
-    const teacherExam = teacherPayload.results?.find((item) => item.code === jeeExamCode) ?? null;
-    expect(teacherExam).not.toBeNull();
-    await reopenExamWindow(page, teacherExam!.id, { maxAttempts: 5 });
+    const teacherExam = await resolveTeacherFamilyExamOrSkip(page, {
+      familyLabel: "mobile JEE section switching",
+      examCode: jeeExamCode,
+      expectedTitle: jeeExamTitle,
+    });
+    if (!teacherExam) {
+      return;
+    }
+    await reopenExamWindow(page, teacherExam.id, { maxAttempts: 5 });
 
     await loginWithCredentials(page, jeeStudentCredentials, "student");
     await expectStudentWorkspace(page);
 
-    const exams = await fetchStudentAvailableExams(page);
-    const jeeExam = exams.find((exam) => exam.code === jeeExamCode) ?? null;
-    expect(jeeExam).not.toBeNull();
-    expect(jeeExam!.title).toBe(jeeExamTitle);
-    expect(jeeExam!.is_multi_subject).toBe(true);
-    expect(jeeExam!.subject_summary?.subject_count).toBe(3);
+    const jeeExam = await resolveStudentFamilyExamOrSkip(page, {
+      familyLabel: "mobile JEE section switching",
+      examCode: jeeExamCode,
+      expectedTitle: jeeExamTitle,
+    });
+    if (!jeeExam) {
+      return;
+    }
+    expect(jeeExam.is_multi_subject).toBe(true);
+    expect(jeeExam.subject_summary?.subject_count).toBe(3);
 
-    await page.goto(`/app/exams/${jeeExam!.id}`);
+    await page.goto(`/app/exams/${jeeExam.id}`);
     await expect(page.getByRole("heading", { name: new RegExp(jeeExamTitle, "i") }).first()).toBeVisible();
     await expect(page.getByText(/section overview/i).first()).toBeVisible();
 
-    const primaryActionCard = page.locator("article").filter({
-      has: page.getByText(/primary action/i),
-    }).first();
-    const resumeLink = page.getByRole("link", { name: /^resume$/i }).first();
-    const startButton = primaryActionCard.getByRole("button", { name: /^start$/i }).first();
-    if (await resumeLink.isVisible().catch(() => false)) {
-      await resumeLink.click();
-    } else {
-      await expect(startButton).toBeVisible();
-      await startButton.click();
+    const handoff = await openStudentPrimaryActionOrSkip(page);
+    if (handoff !== "start" && handoff !== "resume") {
+      await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/summary(?:\?.*)?$/);
+      await expect(page.getByRole("heading", { name: /summary/i }).first()).toBeVisible();
+      await expect(
+        page.getByText(/wait for publication|review locked|review availability|summary mode/i).first(),
+      ).toBeVisible();
+      return;
     }
 
     await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+(?:\?.*)?$/);

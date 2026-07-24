@@ -28,8 +28,8 @@ export function HeroCard({
         ) : null}
       </View>
       <Text style={appStyles.title}>{title}</Text>
-      <Text style={appStyles.body}>{description}</Text>
-      {helper ? <Text style={appStyles.helper}>{helper}</Text> : null}
+      <Text numberOfLines={3} style={appStyles.body}>{description}</Text>
+      {helper ? <Text numberOfLines={3} style={appStyles.helper}>{helper}</Text> : null}
       {actions ? <View style={appStyles.rowWrap}>{actions}</View> : null}
     </View>
   );

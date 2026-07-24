@@ -58,7 +58,18 @@ test.describe("Student mobile attempt runtime", () => {
 
     const attemptSource = await resolveAttemptEntry(page);
     if (!attemptSource) {
-      test.skip(true, "Student seeded account does not currently expose an active attempt runtime route.");
+      await gotoWithRuntimeRecovery(page, "/app/attempts");
+      await expect(page).toHaveURL(/\/app\/attempts(?:\?.*)?$/);
+      await expect(page.getByRole("heading", { name: /attempt/i }).first()).toBeVisible();
+      await expect(
+        await firstVisible([
+          page.getByText(/attempt history|attempts loaded|evaluation pending|your attempt history is empty/i).first(),
+          page.getByRole("link", { name: /open summary/i }).first(),
+        ]),
+      ).toBeVisible();
+      await gotoWithRuntimeRecovery(page, "/app/dashboard");
+      await expect(page).toHaveURL(/\/app\/dashboard(?:\?.*)?$/);
+      await expect(page.getByText(/study queue|action queue|recommended for you/i).first()).toBeVisible();
       return;
     }
 
@@ -107,17 +118,33 @@ test.describe("Student mobile attempt runtime", () => {
     expect(activeVisible || lockedVisible).toBe(true);
 
     if (activeVisible) {
-      await expect(page.getByText(/attempt progress/i).first()).toBeVisible();
-      await expect(page.getByText(/section progress/i).first()).toBeVisible();
       await expect(page.getByText(/save & recovery status/i).first()).toBeVisible();
       await expect(page.getByRole("button", { name: /^save answer$/i })).toBeVisible();
-      await expect(page.getByRole("button", { name: /^submit test$/i })).toBeVisible();
-      await expect(page.getByText(/question palette/i).first()).toBeVisible();
+      await expect(
+        await firstVisible([
+          page.getByRole("button", { name: /^submit test$/i }).first(),
+          page.getByRole("button", { name: /^end test$/i }).first(),
+        ]),
+      ).toBeVisible();
+      await expect(page.getByText(/question palette|questions/i).first()).toBeVisible();
+      await expect(page.getByText(/test summary/i).first()).toBeVisible();
+      await expect(page.getByText(/responses saved/i).first()).toBeVisible();
+      await expect(page.getByText(/in this section/i).first()).toBeVisible();
 
       const activeQuestionCard = page.locator(".attemptQuestionCard").first();
       await expect(activeQuestionCard).toBeVisible();
-      await expect(activeQuestionCard.getByText(/save this answer before moving on/i).first()).toBeVisible();
-      await expect(activeQuestionCard.getByText(/submit routes to the attempt summary first/i).first()).toBeVisible();
+      await expect(
+        await firstVisible([
+          activeQuestionCard.getByText(/save this answer before moving on/i).first(),
+          page.getByText(/responses saved|saved/i).first(),
+        ]),
+      ).toBeVisible();
+      await expect(
+        await firstVisible([
+          activeQuestionCard.getByText(/submit routes to the attempt summary first/i).first(),
+          page.getByText(/review before submit|summary opens after submit/i).first(),
+        ]),
+      ).toBeVisible();
 
       const sectionAccessHeading = page.getByText(/section access/i).first();
       if (await sectionAccessHeading.isVisible().catch(() => false)) {

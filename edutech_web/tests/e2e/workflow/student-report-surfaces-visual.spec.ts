@@ -65,8 +65,8 @@ test.describe("Student report surfaces visual", () => {
       maxDiffPixels: 180,
     });
 
-    const firstResultCard = page.locator("article.studentResultsCompactCard").first();
-    await expect(firstResultCard).toHaveScreenshot("student-results-card.png", {
+    const firstResultRow = page.locator(".studentResultsTableRow").first();
+    await expect(firstResultRow).toHaveScreenshot("student-results-card.png", {
       animations: "disabled",
       caret: "hide",
       maxDiffPixels: 220,
@@ -96,8 +96,8 @@ test.describe("Student report surfaces visual", () => {
       maxDiffPixels: 180,
     });
 
-    const firstPracticeCard = page.locator("article.studentPracticeCompactCard").first();
-    await expect(firstPracticeCard).toHaveScreenshot("student-practice-card.png", {
+    const firstPracticeRow = page.locator(".studentPracticeRecommendationTable .studentResultsTableRow").first();
+    await expect(firstPracticeRow).toHaveScreenshot("student-practice-card.png", {
       animations: "disabled",
       caret: "hide",
       maxDiffPixels: 240,
@@ -178,7 +178,7 @@ test.describe("Student report surfaces visual", () => {
       maxDiffPixels: 220,
     });
 
-    const firstWeakTopic = page.locator(".studentWeakAreaRow").first();
+    const firstWeakTopic = page.locator(".studentResultsTableRow").first();
     await expect(firstWeakTopic).toHaveScreenshot("student-weak-topic-row.png", {
       animations: "disabled",
       caret: "hide",

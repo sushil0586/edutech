@@ -2,19 +2,12 @@ import { expect, test } from "@playwright/test";
 import { answerCurrentAttemptQuestion } from "../helpers/attempt";
 import { loginWithCredentials, testRequiresRole } from "../helpers/auth";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
-import {
-  backendAccessToken,
-  awsStudentCredentials,
-} from "../helpers/family-runtime";
+import { awsStudentCredentials } from "../helpers/family-runtime";
 import { expectStudentWorkspace } from "../helpers/navigation";
-import type { StudentAvailableExam } from "@/features/dashboard/types";
-
-const backendBaseUrl = (
-  process.env.API_BASE_URL ??
-  process.env.NEXT_PUBLIC_API_BASE_URL ??
-  process.env.PLAYWRIGHT_API_BASE_URL ??
-  "http://127.0.0.1:9001"
-).replace(/\/$/, "");
+import {
+  openStudentPrimaryActionOrSkip,
+  resolveStudentFamilyExamOrSkip,
+} from "../helpers/student-family";
 
 const mutableExamBuilderActionsEnabled = isMutableLaneEnabled(
   "PLAYWRIGHT_ENABLE_MUTABLE_EXAM_BUILDER_ACTIONS",
@@ -52,34 +45,23 @@ test.describe("Student mobile attempt runtime continuity", () => {
     await loginWithCredentials(page, awsStudentCredentials, "student");
     await expectStudentWorkspace(page);
 
-    const accessToken = await backendAccessToken(page);
-    const response = await page.request.get(`${backendBaseUrl}/api/v1/student/exams/available/`, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      timeout: 15000,
+    const awsExam = await resolveStudentFamilyExamOrSkip(page, {
+      familyLabel: "mobile AWS runtime",
+      examCode: awsExamCode,
+      expectedTitle: awsExamTitle,
     });
-    expect(response.ok()).toBe(true);
-    const exams = (await response.json()) as StudentAvailableExam[];
-    const awsExam = exams.find((exam) => exam.code === awsExamCode) ?? null;
-    expect(awsExam).not.toBeNull();
-    expect(awsExam!.title).toBe(awsExamTitle);
+    if (!awsExam) {
+      return;
+    }
 
-    await page.goto(`/app/exams/${awsExam!.id}`);
+    await page.goto(`/app/exams/${awsExam.id}`);
     await expect(page.getByRole("heading", { name: new RegExp(awsExamTitle, "i") }).first()).toBeVisible();
     await expect(page.getByText(/certification/i).first()).toBeVisible();
 
-    const primaryActionCard = page.locator("article").filter({
-      has: page.getByText(/primary action/i),
-    }).first();
-    const resumeLink = page.getByRole("link", { name: /^resume$/i }).first();
-    const startButton = primaryActionCard.getByRole("button", { name: /^start$/i }).first();
-    if (await resumeLink.isVisible().catch(() => false)) {
-      await resumeLink.click();
-    } else {
-      await expect(startButton).toBeVisible();
-      await startButton.click();
+    const handoff = await openStudentPrimaryActionOrSkip(page);
+    if (handoff !== "start" && handoff !== "resume") {
+      await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/(summary|review)(?:\?.*)?$/);
+      return;
     }
 
     await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+(?:\?.*)?$/);

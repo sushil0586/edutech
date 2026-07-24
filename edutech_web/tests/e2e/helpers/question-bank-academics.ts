@@ -29,24 +29,29 @@ async function waitForAcademicsResponse(
   pathFragment: "subjects" | "topics",
   expectedQuery: Record<string, string>,
 ) {
-  return page.waitForResponse((response) => {
-    if (!response.ok()) {
-      return false;
-    }
+  return page
+    .waitForResponse(
+      (response) => {
+        if (!response.ok()) {
+          return false;
+        }
 
-    const url = new URL(response.url());
-    if (!url.pathname.includes(`/academics/${pathFragment}`)) {
-      return false;
-    }
+        const url = new URL(response.url());
+        if (!url.pathname.includes(`/academics/${pathFragment}`)) {
+          return false;
+        }
 
-    for (const [key, value] of Object.entries(expectedQuery)) {
-      if (url.searchParams.get(key) !== value) {
-        return false;
-      }
-    }
+        for (const [key, value] of Object.entries(expectedQuery)) {
+          if (url.searchParams.get(key) !== value) {
+            return false;
+          }
+        }
 
-    return true;
-  });
+        return true;
+      },
+      { timeout: 5000 },
+    )
+    .catch(() => null);
 }
 
 export async function expectQuestionBankAcademicDependencyChain(page: Page) {

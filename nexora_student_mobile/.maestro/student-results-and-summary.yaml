@@ -1,9 +1,5 @@
 appId: com.anonymous.nexorastudentmobile
 ---
-# Set these before running:
-# STUDENT_USERNAME
-# STUDENT_PASSWORD
-
 - launchApp:
     clearState: true
 
@@ -14,11 +10,11 @@ appId: com.anonymous.nexorastudentmobile
 - tapOn: "Login"
 - tapOn:
     text: "Username"
-- inputText: ${STUDENT_USERNAME}
+- inputText: a001
 
 - tapOn:
     text: "Enter password"
-- inputText: ${STUDENT_PASSWORD}
+- inputText: Ansh@1789
 
 - hideKeyboard
 - tapOn: "Login"
@@ -27,28 +23,12 @@ appId: com.anonymous.nexorastudentmobile
     visible: "Student Dashboard"
     timeout: 30000
 
-- tapOn: "Results"
-
-- assertVisible: "Student Results"
-
-- scrollUntilVisible:
-    element:
-      id: "results-summary-button"
-    direction: DOWN
-
 - tapOn:
-    id: "results-summary-button"
+    id: "dashboard-open-attempts-button"
 
-- assertVisible: "Attempt Summary"
-
-- tapOn:
-    id: "attempt-summary-back-dashboard-button"
-
-- assertVisible: "Student Dashboard"
-
-- tapOn: "Attempts"
-
-- assertVisible: "Student Attempts"
+- extendedWaitUntil:
+    visible: "Student Attempts"
+    timeout: 30000
 
 - scrollUntilVisible:
     element:
@@ -58,4 +38,27 @@ appId: com.anonymous.nexorastudentmobile
 - tapOn:
     id: "attempts-open-results-button"
 
-- assertVisible: "Student Results"
+- extendedWaitUntil:
+    visible: "Student Results"
+    timeout: 30000
+
+- scrollUntilVisible:
+    element:
+      id: "results-summary-button"
+    direction: DOWN
+
+- tapOn:
+    id: "results-summary-button"
+
+- extendedWaitUntil:
+    visible: "Attempt Summary"
+    timeout: 30000
+
+- tapOn:
+    id: "attempt-summary-back-dashboard-button"
+
+- assertVisible: "Student Dashboard"
+
+- tapOn: "Attempts"
+
+- assertVisible: "Student Attempts"

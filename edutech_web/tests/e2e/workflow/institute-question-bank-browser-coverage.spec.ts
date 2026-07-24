@@ -146,7 +146,7 @@ test.describe("Institute question bank browser functionality coverage", () => {
 
     const academicChain = await expectQuestionBankAcademicDependencyChain(page);
 
-    await page.getByRole("button", { name: /apply filters/i }).click();
+    await page.getByRole("button", { name: /update view/i }).click();
     await expect(page).toHaveURL(/\/institute\/question-bank\?/);
     await expect(programSelect(page)).toHaveValue(academicChain.selectedProgram);
     await expect(subjectSelect(page)).toHaveValue(academicChain.selectedSubject);
@@ -190,7 +190,7 @@ test.describe("Institute question bank browser functionality coverage", () => {
     await qualitySelect(page).selectOption("ambiguous");
     await revisionSelect(page).selectOption("high");
     await searchField(page).fill("pythagoras");
-    await page.getByRole("button", { name: /apply filters/i }).click();
+    await page.getByRole("button", { name: /update view/i }).click();
 
     await expect(page).toHaveURL(/\/institute\/question-bank\?/);
     await expect(searchField(page)).toHaveValue("pythagoras");
@@ -226,14 +226,14 @@ test.describe("Institute question bank browser functionality coverage", () => {
       await missingExplanation.uncheck();
     }
     await expect(missingExplanation).not.toBeChecked();
-    await page.getByRole("button", { name: /apply filters/i }).click();
+    await page.getByRole("button", { name: /update view/i }).click();
 
     await expect(page).toHaveURL(/playwright-no-match-zzqv-1781/);
     await expect(page.getByText(/no questions match these filters/i).first()).toBeVisible();
     await expect(page.getByText(/active controls are shaping this empty state/i).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /reset filters and show all questions/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /^reset filters$/i }).first()).toBeVisible();
 
-    await page.getByRole("link", { name: /reset filters and show all questions/i }).first().click();
+    await page.getByRole("link", { name: /^reset filters$/i }).first().click();
     await expect(page).toHaveURL(/\/institute\/question-bank(?:\?page=1)?$/);
     await expect(page.getByRole("heading", { name: /question bank/i }).first()).toBeVisible();
     await expect(searchField(page)).toHaveValue("");
@@ -245,7 +245,7 @@ test.describe("Institute question bank browser functionality coverage", () => {
   }) => {
     await gotoWithRuntimeRecovery(page, "/institute/question-bank?search=algebra&quality_signal=ambiguous", 8);
     await expect(page.getByTestId("question-bank-filter-form")).toBeVisible();
-    await page.getByRole("button", { name: /apply filters/i }).click();
+    await page.getByRole("button", { name: /update view/i }).click();
 
     await expect(page.getByText(/licensed intake shortcut/i).first()).toBeVisible();
     await expect(

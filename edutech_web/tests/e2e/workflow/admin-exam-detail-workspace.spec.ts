@@ -1,6 +1,17 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectAdminWorkspace } from "../helpers/navigation";
+
+async function openAdminExams(page: Page) {
+  if (/^\/admin\/exams\/?$/.test(new URL(page.url()).pathname)) {
+    await expect(page.getByRole("heading", { name: /exam management/i }).first()).toBeVisible();
+    return;
+  }
+
+  await page.goto("/admin/exams", { waitUntil: "commit" });
+  await expect(page).toHaveURL(/\/admin\/exams(?:\?.*)?$/);
+  await expect(page.getByRole("heading", { name: /exam management/i }).first()).toBeVisible();
+}
 
 test.describe("Admin exam detail workspace", () => {
   test.skip(testRequiresRole("admin"), "Admin Playwright credentials are not configured.");
@@ -11,10 +22,9 @@ test.describe("Admin exam detail workspace", () => {
     await loginAsRole(page, "admin");
     await expectAdminWorkspace(page);
 
-    await page.goto("/admin/exams");
-    await expect(page.getByRole("heading", { name: /exam management/i }).first()).toBeVisible();
+    await openAdminExams(page);
 
-    await page.getByRole("link", { name: /open exam/i }).first().click();
+    await page.getByRole("link", { name: /view exam/i }).first().click();
     await expect(page).toHaveURL(/\/admin\/exams\/[^/]+$/);
 
     await expect(page.getByText(/exam build/i).first()).toBeVisible();
@@ -47,30 +57,34 @@ test.describe("Admin exam detail workspace", () => {
     await expect(page).toHaveURL(/\/admin\/exams\/[^/]+\/builder\?tab=questions$/);
     await expect(page.getByRole("heading", { name: /builder/i }).first()).toBeVisible();
 
-    await page.goto(page.url().replace(/\/builder\?tab=questions$/, ""));
+    await page.goto(page.url().replace(/\/builder\?tab=questions$/, ""), {
+      waitUntil: "domcontentloaded",
+    });
     await expect(page).toHaveURL(/\/admin\/exams\/[^/]+$/);
 
-    await page.getByRole("link", { name: /launch advanced builder|advanced builder/i }).first().click();
+    await page.getByRole("link", { name: /view advanced builder|advanced builder/i }).first().click();
     await expect(page).toHaveURL(/\/admin\/exams\/advanced(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /advanced exam builder/i }).first()).toBeVisible();
 
-    await page.goto("/admin/exams");
-    await page.getByRole("link", { name: /open exam/i }).first().click();
+    await openAdminExams(page);
+    await page.getByRole("link", { name: /view exam/i }).first().click();
     await expect(page).toHaveURL(/\/admin\/exams\/[^/]+$/);
 
     await page.locator('a[href="/admin/reports"]').first().click();
     await expect(page).toHaveURL(/\/admin\/reports(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /reports/i }).first()).toBeVisible();
 
-    await page.goto("/admin/exams");
-    await page.getByRole("link", { name: /open exam/i }).first().click();
+    await openAdminExams(page);
+    await page.getByRole("link", { name: /view exam/i }).first().click();
     await expect(page).toHaveURL(/\/admin\/exams\/[^/]+$/);
 
     await page.getByRole("link", { name: /open builder/i }).first().click();
     await expect(page).toHaveURL(/\/admin\/exams\/[^/]+\/builder(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /builder/i }).first()).toBeVisible();
 
-    await page.goto(page.url().replace(/\/builder(?:\?.*)?$/, ""));
+    await page.goto(page.url().replace(/\/builder(?:\?.*)?$/, ""), {
+      waitUntil: "domcontentloaded",
+    });
     await expect(page).toHaveURL(/\/admin\/exams\/[^/]+$/);
   });
 });

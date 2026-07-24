@@ -36,7 +36,7 @@ test.describe("Teacher exams workspace", () => {
 
     await openTeacherExams(page);
 
-    await expect(page.getByRole("link", { name: /quick create/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /new exam/i }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /advanced builder/i }).first()).toBeVisible();
     await expect(page.getByText(/^total exams$/i).first()).toBeVisible();
     await expect(page.getByText(/^live exams$/i).first()).toBeVisible();
@@ -51,15 +51,23 @@ test.describe("Teacher exams workspace", () => {
     await sortSelect(page).selectOption("title");
     await groupSelect(page).selectOption("status");
     await pageSizeSelect(page).selectOption("18");
-    await page.getByRole("button", { name: /apply filters/i }).click();
+    await page.getByRole("button", { name: /update view/i }).click();
 
     await expect(page).toHaveURL(/\/teacher\/exams\?[^#]*exam_status=draft/);
     await expect(page).toHaveURL(/\/teacher\/exams\?[^#]*exam_sort=title/);
     await expect(page).toHaveURL(/\/teacher\/exams\?[^#]*exam_group=status/);
     await expect(page).toHaveURL(/\/teacher\/exams\?[^#]*exam_page_size=18/);
-    await expect(
-      page.getByRole("heading", { name: /your teacher exam list is empty right now/i }).first(),
-    ).toBeVisible();
+    await expect(page.getByText(/status: draft/i).first()).toBeVisible();
+    await expect(page.getByText(/sort: title/i).first()).toBeVisible();
+    await expect(page.getByText(/group: status/i).first()).toBeVisible();
+    const filteredExamCards = await page.locator(".examGrid .examCard").count();
+    if (filteredExamCards === 0) {
+      await expect(
+        page.getByRole("heading", { name: /no teacher exams match these controls/i }).first(),
+      ).toBeVisible();
+    } else {
+      await expect(page.locator(".workspaceResultsGroup").first()).toBeVisible();
+    }
 
     await openTeacherExams(page);
 
@@ -67,7 +75,7 @@ test.describe("Teacher exams workspace", () => {
     await expect(page).toHaveURL(/exam_status=live/);
     await expect(statusSelect(page)).toHaveValue("live");
     await expect(page.getByText(/status: live/i).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /^open exam$/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /^view exam$/i }).first()).toBeVisible();
 
     await openTeacherExams(page);
 
@@ -86,17 +94,17 @@ test.describe("Teacher exams workspace", () => {
     await expect(sortSelect(page)).toHaveValue("recommended");
     await expect(groupSelect(page)).toHaveValue("none");
 
-    await page.getByRole("link", { name: /reset filters/i }).click();
+    await page.getByRole("link", { name: /reset view/i }).click();
     await expect(page).toHaveURL(/\/teacher\/exams$/);
     await expect(statusSelect(page)).toHaveValue("all");
     await expect(sortSelect(page)).toHaveValue("recommended");
     await expect(groupSelect(page)).toHaveValue("none");
 
-    const openExamLink = page.getByRole("link", { name: /^open exam$/i }).first();
+    const openExamLink = page.getByRole("link", { name: /^view exam$/i }).first();
     await expect(openExamLink).toBeVisible();
     await openExamLink.click();
     await expect(page).toHaveURL(/\/teacher\/exams\/[^/?#]+(?:\?.*)?$/);
-    await expect(page.getByText(/exam code/i).first()).toBeVisible();
+    await expect(page.getByText(/delivery actions/i).first()).toBeVisible();
 
     await openTeacherExams(page);
     const setupLink = page.getByRole("link", { name: /^setup$/i }).first();
@@ -111,7 +119,7 @@ test.describe("Teacher exams workspace", () => {
     await expect(page).toHaveURL(/\/teacher\/exams\/[^/?#]+\/builder\?tab=questions/);
 
     await openTeacherExams(page);
-    await page.getByRole("link", { name: /quick create/i }).first().click();
+    await page.getByRole("link", { name: /new exam/i }).first().click();
     await expect(page).toHaveURL(/\/teacher\/exams\/new(?:\?.*)?$/);
 
     await openTeacherExams(page);

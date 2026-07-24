@@ -133,7 +133,7 @@ export default function ResultsScreen() {
         eyebrow="Student Results"
         badge={normalize(selectedSubject) === "overall" ? "Overall" : selectedSubject}
         title="Track what is published and what still needs review"
-        description="This mobile results lane turns submitted attempts into a clearer post-exam workflow without forcing the learner back to the web shell."
+        description="See published results, pending releases, and review-ready attempts in one place."
         helper={
           query.isLoading
             ? "Loading live student results..."
@@ -144,7 +144,7 @@ export default function ResultsScreen() {
               : latestPublishedResult
                 ? `Latest published result: ${latestPublishedResult.exam_title} · ${latestPublishedResult.percentage}%`
                 : scopedResults.length
-                  ? "Attempts exist, but learner-visible result publication is still pending for the current scope."
+                  ? "Attempts exist, but learner-visible publication is still pending in this scope."
                   : "No student result records were returned for the current scope."
         }
         actions={

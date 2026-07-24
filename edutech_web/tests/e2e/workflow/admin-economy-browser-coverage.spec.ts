@@ -181,7 +181,7 @@ test.describe("Admin economy browser functionality coverage", () => {
     const selectedInstituteId = instituteOptions[0];
     await instituteScope.selectOption(selectedInstituteId);
     await subsection.selectOption("boundary");
-    await page.getByRole("button", { name: /apply filters/i }).click();
+    await page.getByRole("button", { name: /update view/i }).click();
 
     await expect
       .poll(() => {
@@ -226,7 +226,7 @@ test.describe("Admin economy browser functionality coverage", () => {
     await instituteScope.selectOption(selectedInstituteId);
     const subsection = page.getByRole("combobox", { name: /economy subsection/i });
     await subsection.selectOption("plans");
-    await page.getByRole("button", { name: /apply filters/i }).click();
+    await page.getByRole("button", { name: /update view/i }).click();
 
     await expect
       .poll(() => {
@@ -246,17 +246,22 @@ test.describe("Admin economy browser functionality coverage", () => {
     const subscriptionCard = economyCard(page, /create and edit recurring plans, cycles, and credit rules/i);
     const subscriptionWorkspaceView = subscriptionCard.getByLabel(/subscription plan workspace view/i);
     const subscriptionRows = subscriptionCard.getByLabel(/subscription plan rows to show/i);
+    await expect(subscriptionWorkspaceView).toHaveValue("editor");
     const subscriptionRowOptions = await getNonEmptyOptionValues(subscriptionRows);
-    expect(subscriptionRowOptions.length).toBeGreaterThan(0);
-    const selectedRowCount = subscriptionRowOptions.includes("25")
-      ? "25"
-      : subscriptionRowOptions[subscriptionRowOptions.length - 1]!;
 
-    await subscriptionWorkspaceView.selectOption("all");
-    await subscriptionRows.selectOption(selectedRowCount);
-    await expect(subscriptionWorkspaceView).toHaveValue("all");
-    await expect(subscriptionRows).toHaveValue(selectedRowCount);
-    await expect(subscriptionCard.getByText(/question-bank package access/i).first()).toBeVisible();
+    if (subscriptionRowOptions.length > 0) {
+      const selectedRowCount = subscriptionRowOptions.includes("25")
+        ? "25"
+        : subscriptionRowOptions[subscriptionRowOptions.length - 1]!;
+
+      await subscriptionRows.selectOption(selectedRowCount);
+      await expect(subscriptionRows).toHaveValue(selectedRowCount);
+      await expect(subscriptionCard.getByText(/question-bank package access/i).first()).toBeVisible();
+    } else {
+      await expect(
+        subscriptionCard.getByText(/no subscription plans match the current catalog filters/i).first(),
+      ).toBeVisible();
+    }
 
     await page.reload();
     await expect(page.getByRole("heading", { name: /^economy$/i }).first()).toBeVisible();
@@ -268,16 +273,28 @@ test.describe("Admin economy browser functionality coverage", () => {
     await expect(page.getByRole("combobox", { name: /institute scope/i })).toHaveValue(selectedInstituteId);
     await expectLaneFocusControl(page, "plans");
     await expect(subscriptionWorkspaceView).toHaveValue("editor");
-    await expect(subscriptionRows).toBeVisible();
-    await expect(subscriptionCard.getByText(/question-bank package access/i).first()).toBeVisible();
+    if (subscriptionRowOptions.length > 0) {
+      await expect(subscriptionRows).toBeVisible();
+      await expect(subscriptionCard.getByText(/question-bank package access/i).first()).toBeVisible();
+    } else {
+      await expect(
+        subscriptionCard.getByText(/no subscription plans match the current catalog filters/i).first(),
+      ).toBeVisible();
+    }
 
     await page.goto(page.url());
     await expect(page.getByRole("heading", { name: /^economy$/i }).first()).toBeVisible();
     await expect(page.getByRole("combobox", { name: /institute scope/i })).toHaveValue(selectedInstituteId);
     await expectLaneFocusControl(page, "plans");
     await expect(subscriptionWorkspaceView).toHaveValue("editor");
-    await expect(subscriptionRows).toBeVisible();
-    await expect(subscriptionCard.getByText(/question-bank package access/i).first()).toBeVisible();
+    if (subscriptionRowOptions.length > 0) {
+      await expect(subscriptionRows).toBeVisible();
+      await expect(subscriptionCard.getByText(/question-bank package access/i).first()).toBeVisible();
+    } else {
+      await expect(
+        subscriptionCard.getByText(/no subscription plans match the current catalog filters/i).first(),
+      ).toBeVisible();
+    }
   });
 
   test("@workflow browser coverage keeps scoped support and question-bank counts internally consistent", async ({
@@ -296,7 +313,7 @@ test.describe("Admin economy browser functionality coverage", () => {
 
     const selectedInstituteId = instituteOptions[0];
     await instituteScope.selectOption(selectedInstituteId);
-    await page.getByRole("button", { name: /apply filters/i }).click();
+    await page.getByRole("button", { name: /update view/i }).click();
 
     await expect
       .poll(() => new URL(page.url()).searchParams.get("institute"))

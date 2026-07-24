@@ -1,23 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectStudentWorkspace } from "../helpers/navigation";
+import { gotoWithRuntimeRecovery } from "../helpers/runtime";
 
 async function gotoWithRetry(page: Page, url: string, attempts = 3) {
-  let lastError: unknown = null;
-  for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    try {
-      await page.goto(url);
-      return;
-    } catch (error) {
-      lastError = error;
-      const message = error instanceof Error ? error.message : String(error);
-      if (!message.includes("ERR_CONNECTION_REFUSED") || attempt === attempts) {
-        throw error;
-      }
-      await page.waitForTimeout(1500 * attempt);
-    }
-  }
-  throw lastError;
+  await gotoWithRuntimeRecovery(page, url, Math.max(4, attempts));
 }
 
 function expectSearchParam(url: URL, key: string, expected: string | null) {
@@ -44,7 +31,19 @@ test.describe("Student practice and attempts scope persistence", () => {
 
     const subjectLink = page.locator('a[href^="/app/analytics/subjects/"]').first();
     if (!(await subjectLink.isVisible().catch(() => false))) {
-      test.skip(true, "Student seeded account does not currently expose a subject analytics drill route.");
+      await expect(page.getByRole("heading", { name: /analytics/i }).first()).toBeVisible();
+      await expect(
+        page.getByText(/subject performance report|performance timeline|action center|analytics/i).first(),
+      ).toBeVisible();
+      await gotoWithRetry(page, "/app/practice");
+      await expect(page).toHaveURL(/\/app\/practice(?:\?.*)?$/);
+      await expect(page.getByRole("heading", { name: /practice/i }).first()).toBeVisible();
+      await gotoWithRetry(page, "/app/results");
+      await expect(page).toHaveURL(/\/app\/results(?:\?.*)?$/);
+      await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
+      await gotoWithRetry(page, "/app/attempts");
+      await expect(page).toHaveURL(/\/app\/attempts(?:\?.*)?$/);
+      await expect(page.getByRole("heading", { name: /attempt/i }).first()).toBeVisible();
       return;
     }
 

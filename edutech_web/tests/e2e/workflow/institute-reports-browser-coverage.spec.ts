@@ -2,6 +2,11 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectInstituteWorkspace } from "../helpers/navigation";
 
+function extractLeadingNumber(value: string) {
+  const match = value.match(/(\d+)/);
+  return match ? Number(match[1]) : null;
+}
+
 function laneSelect(page: Page) {
   return page.getByRole("combobox", { name: /focus lane/i });
 }
@@ -160,5 +165,117 @@ test.describe("Institute reports browser functionality coverage", () => {
     await expect(
       page.getByText(/no weak-topic analytics matched the current subject and sorting controls/i).first(),
     ).toBeVisible();
+  });
+
+  test("@workflow browser coverage normalizes invalid subject filters without breaking mixed institute report lanes", async ({
+    page,
+  }) => {
+    await gotoReports(page, "/institute/reports?lane=all&subject=__no_such_subject__&sort=recommended");
+
+    await expect(laneSelect(page)).toHaveValue("all");
+    await expect(subjectSelect(page)).toHaveValue("all");
+    await expect(sortSelect(page)).toHaveValue("recommended");
+    await expect(page.getByText(/lane: all/i).first()).toBeVisible();
+    await expect(page.getByText(/sort: recommended/i).first()).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /completed or evaluated exams still needing result attention/i }).first(),
+    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: /how institute exams are performing/i }).first()).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /who is currently strongest and who needs support/i }).first(),
+    ).toBeVisible();
+  });
+
+  test("@workflow browser coverage keeps institute reports summary counts internally truthful", async ({
+    page,
+  }) => {
+    await gotoReports(page);
+
+    const statusLabelText =
+      (await page.getByText(/\d+\s+tracked exams/i).first().textContent())?.trim() ?? "";
+    const trackedCardText =
+      (await page
+        .locator(".resultsSummaryGrid .metricCard")
+        .filter({ has: page.getByText(/^Tracked exams$/i) })
+        .locator("strong")
+        .textContent()) ?? "";
+    const pendingPublicationCardText =
+      (await page
+        .locator(".resultsSummaryGrid .metricCard")
+        .filter({ has: page.getByText(/^Pending publication queues$/i) })
+        .locator("strong")
+        .textContent()) ?? "";
+    const heroSummaryText =
+      (await page.locator(".studentInsightHeroCopy small").first().textContent())?.trim() ?? "";
+    const filterSummaryText =
+      (await page.locator(".workspaceFiltersCard .sectionHeading span").first().textContent())?.trim() ?? "";
+
+    const trackedFromStatus = extractLeadingNumber(statusLabelText);
+    const trackedFromCard = extractLeadingNumber(trackedCardText);
+    const resultSummariesFromHero = extractLeadingNumber(heroSummaryText);
+    const pendingFromHero = extractLeadingNumber(heroSummaryText.split("·")[1] ?? "");
+    const pendingFromCard = extractLeadingNumber(pendingPublicationCardText);
+    const backlogFromFilter = extractLeadingNumber(filterSummaryText);
+    const weakTopicsFromFilter = extractLeadingNumber(filterSummaryText.split("·")[1] ?? "");
+
+    expect(trackedFromStatus).not.toBeNull();
+    expect(trackedFromCard).not.toBeNull();
+    expect(resultSummariesFromHero).not.toBeNull();
+    expect(pendingFromHero).not.toBeNull();
+    expect(pendingFromCard).not.toBeNull();
+    expect(backlogFromFilter).not.toBeNull();
+    expect(weakTopicsFromFilter).not.toBeNull();
+
+    expect(trackedFromStatus).toBe(trackedFromCard);
+    expect(pendingFromHero).toBe(pendingFromCard);
+    expect(backlogFromFilter).toBeGreaterThanOrEqual(pendingFromCard ?? 0);
+    expect(resultSummariesFromHero).toBeGreaterThanOrEqual(pendingFromHero ?? 0);
+    expect(weakTopicsFromFilter).toBeGreaterThanOrEqual(0);
+  });
+
+  test("@workflow browser coverage reaches institute dedicated report routes from the workspace", async ({
+    page,
+  }) => {
+    await gotoReports(page);
+
+    await page.getByRole("link", { name: /open subject report/i }).click();
+    await expect(page).toHaveURL(/\/institute\/reports\/subjects(?:\?.*)?$/);
+    await expect(page.getByRole("heading", { name: /subject performance report/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /open analysis/i }).first()).toBeVisible();
+
+    await gotoReports(page);
+
+    await page.getByRole("link", { name: /open weak topics/i }).click();
+    await expect(page).toHaveURL(/\/institute\/reports\/weak-areas(?:\?.*)?$/);
+    await expect(page.getByRole("heading", { name: /topic mastery report/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /open subject report/i }).first()).toBeVisible();
+
+    await gotoReports(page);
+
+    await page.getByRole("link", { name: /open rank history report/i }).click();
+    await expect(page).toHaveURL(/\/institute\/reports\/rank-history(?:\?.*)?$/);
+    await expect(page.getByRole("heading", { name: /rank history report/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /open leaderboard/i }).first()).toBeVisible();
+
+    await gotoReports(page);
+
+    await page.getByRole("link", { name: /open study recommendations report/i }).click();
+    await expect(page).toHaveURL(/\/institute\/reports\/study-recommendations(?:\?.*)?$/);
+    await expect(page.getByRole("heading", { name: /study recommendations report/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /open weak areas/i }).first()).toBeVisible();
+
+    await gotoReports(page);
+
+    await page.getByRole("link", { name: /open wrong questions report/i }).click();
+    await expect(page).toHaveURL(/\/institute\/reports\/wrong-questions(?:\?.*)?$/);
+    await expect(page.getByRole("heading", { name: /wrong questions report/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /open topic mastery/i }).first()).toBeVisible();
+
+    await gotoReports(page);
+
+    await page.getByRole("link", { name: /open time management report/i }).click();
+    await expect(page).toHaveURL(/\/institute\/reports\/time-management(?:\?.*)?$/);
+    await expect(page.getByRole("heading", { name: /time management report/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /open attempt review/i }).first()).toBeVisible();
   });
 });

@@ -1,23 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectStudentWorkspace } from "../helpers/navigation";
+import { gotoWithRuntimeRecovery } from "../helpers/runtime";
 
 async function gotoWithRetry(page: Page, url: string, attempts = 3) {
-  let lastError: unknown = null;
-  for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    try {
-      await page.goto(url);
-      return;
-    } catch (error) {
-      lastError = error;
-      const message = error instanceof Error ? error.message : String(error);
-      if (!message.includes("ERR_CONNECTION_REFUSED") || attempt === attempts) {
-        throw error;
-      }
-      await page.waitForTimeout(1500 * attempt);
-    }
-  }
-  throw lastError;
+  await gotoWithRuntimeRecovery(page, url, Math.max(4, attempts));
 }
 
 function expectSearchParam(url: URL, key: string, expected: string | null) {
@@ -47,7 +34,12 @@ test.describe("Student summary and review source persistence", () => {
       .first();
 
     if (!(await sourceLink.isVisible().catch(() => false))) {
-      test.skip(true, "Student seeded account does not currently expose a teacher-scoped analytics source route.");
+      await expect(page.getByRole("heading", { name: /analytics/i }).first()).toBeVisible();
+      await expect(page.getByText(/source view|subject performance|action center|compare results/i).first()).toBeVisible();
+      await gotoWithRetry(page, "/app/results");
+      await expect(page).toHaveURL(/\/app\/results(?:\?.*)?$/);
+      await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
+      await expect(page.getByText(/results loaded|average result|review ready|pending publication/i).first()).toBeVisible();
       return;
     }
 
@@ -67,7 +59,9 @@ test.describe("Student summary and review source persistence", () => {
 
     const resultsLink = page.getByRole("link", { name: /open results/i }).first();
     if (!(await resultsLink.isVisible().catch(() => false))) {
-      test.skip(true, "Student seeded account does not currently expose a results entry from the scoped analytics comparison route.");
+      await expect(page).toHaveURL(/\/app\/analytics\/results\/compare(?:\?.*)?$/);
+      await expect(page.getByRole("heading", { name: /compare/i }).first()).toBeVisible();
+      await expect(page.getByText(/compare results|performance comparison|attempt comparison/i).first()).toBeVisible();
       return;
     }
 
@@ -78,7 +72,13 @@ test.describe("Student summary and review source persistence", () => {
     expectSearchParam(scopedResultsUrl, "subject", expectedSubject);
     expectSearchParam(scopedResultsUrl, "teacher", expectedTeacher);
 
-    const summaryLink = page.getByRole("link", { name: /open summary|check attempt status/i }).first();
+    const firstResultRow = page.locator(".studentResultsTableRow").first();
+    await expect(firstResultRow).toBeVisible();
+    await firstResultRow.click();
+
+    await expect(page.getByRole("dialog")).toBeVisible();
+
+    const summaryLink = page.getByRole("link", { name: /open summary/i }).first();
     await expect(summaryLink).toBeVisible();
     const summaryHref = await summaryLink.getAttribute("href");
     expect(summaryHref).not.toBeNull();
@@ -95,7 +95,7 @@ test.describe("Student summary and review source persistence", () => {
     expectSearchParam(landedSummaryUrl, "subject", expectedSubject);
     expectSearchParam(landedSummaryUrl, "teacher", expectedTeacher);
 
-    const attemptsLink = page.getByRole("link", { name: /open attempts/i }).first();
+    const attemptsLink = page.getByRole("link", { name: /open attempts|view attempt history/i }).first();
     await expect(attemptsLink).toBeVisible();
     const attemptsHref = await attemptsLink.getAttribute("href");
     expect(attemptsHref).not.toBeNull();

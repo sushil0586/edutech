@@ -40,7 +40,7 @@ test.describe("Teacher comprehension import browser coverage", () => {
     await expect(page.getByText(/^preview valid rows$/i).first()).toBeVisible();
     await expect(page.getByText(/^preview invalid rows$/i).first()).toBeVisible();
     await expect(page.getByRole("button", { name: /download template/i })).toBeVisible();
-    await expect(page.getByRole("link", { name: /back to bank/i })).toHaveAttribute(
+    await expect(page.getByRole("link", { name: /view bank/i })).toHaveAttribute(
       "href",
       "/teacher/question-bank",
     );
@@ -83,7 +83,7 @@ test.describe("Teacher comprehension import browser coverage", () => {
 
     if (await previewResults.isVisible().catch(() => false)) {
       await expect(previewResults).toBeVisible();
-      await expect(page.getByRole("button", { name: /finalize import/i })).toBeVisible();
+      await expect(page.getByRole("button", { name: /import valid rows/i })).toBeVisible();
     } else {
       await expect(backendError).toBeVisible();
     }

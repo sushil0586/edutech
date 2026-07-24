@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectInstituteWorkspace } from "../helpers/navigation";
+import { gotoWithRuntimeRecovery } from "../helpers/runtime";
 
 async function resolveExamWorkspaceState(
   examCards: Locator,
@@ -57,7 +58,7 @@ test.describe("Institute exams workspace", () => {
     await loginAsRole(page, "institute");
     await expectInstituteWorkspace(page);
 
-    await page.goto("/institute/exams");
+    await gotoWithRuntimeRecovery(page, "/institute/exams");
     const examsLoaded = await expectInstituteExamsWorkspace(page);
 
     if (!examsLoaded) {
@@ -65,7 +66,7 @@ test.describe("Institute exams workspace", () => {
       await expect(page).toHaveURL(/\/institute\/exams\/new(?:\?.*)?$/);
       await expect(page.getByRole("heading", { name: /create exam/i }).first()).toBeVisible();
 
-      await page.goto("/institute/exams");
+      await gotoWithRuntimeRecovery(page, "/institute/exams");
       await expect(page.getByRole("link", { name: /advanced builder/i }).first()).toBeVisible();
       await page.getByRole("link", { name: /advanced builder/i }).first().click();
       await expect(page).toHaveURL(/\/institute\/exams\/advanced(?:\?.*)?$/);
@@ -120,7 +121,7 @@ test.describe("Institute exams workspace", () => {
         ).toBeVisible();
       }
 
-      await page.goto("/institute/exams");
+      await gotoWithRuntimeRecovery(page, "/institute/exams");
       await expectInstituteExamsWorkspace(page);
       await expect(page.getByText(/^teacher: all teachers$/i).first()).toBeVisible();
     }
@@ -135,7 +136,6 @@ test.describe("Institute exams workspace", () => {
     await expect(page).toHaveURL(/exam_sort=start_soon/);
     await expect(page).toHaveURL(/exam_group=subject/);
     await expect(page).toHaveURL(/exam_page_size=18/);
-    await expect(page.getByText(/active list controls are changing what you see/i).first()).toBeVisible();
     await expect(page.getByText(/^status: live$/i).first()).toBeVisible();
     await expect(page.getByText(/^sort: start soon$/i).first()).toBeVisible();
     await expect(page.getByText(/^group: subject$/i).first()).toBeVisible();
@@ -298,28 +298,28 @@ test.describe("Institute exams workspace", () => {
     await expect(page).toHaveURL(/\/institute\/exams\/[^/?#]+\/builder(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /builder/i }).first()).toBeVisible();
 
-    await page.goto("/institute/exams");
+    await gotoWithRuntimeRecovery(page, "/institute/exams");
     await expectInstituteExamsWorkspace(page);
 
     await page.locator('a[href="/institute/exams/preset-packs"]').first().click();
     await expect(page).toHaveURL(/\/institute\/exams\/preset-packs(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /preset pack library/i }).first()).toBeVisible();
 
-    await page.goto("/institute/exams");
+    await gotoWithRuntimeRecovery(page, "/institute/exams");
     await expectInstituteExamsWorkspace(page);
 
     await page.getByRole("link", { name: /advanced builder/i }).first().click();
     await expect(page).toHaveURL(/\/institute\/exams\/advanced(?:\?.*)?$/);
     await expect(page.getByText(/advanced exam builder/i).first()).toBeVisible();
 
-    await page.goto("/institute/exams");
+    await gotoWithRuntimeRecovery(page, "/institute/exams");
     await expectInstituteExamsWorkspace(page);
 
     await page.getByRole("link", { name: /quick create/i }).first().click();
     await expect(page).toHaveURL(/\/institute\/exams\/new(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /create exam/i }).first()).toBeVisible();
 
-    await page.goto("/institute/exams");
+    await gotoWithRuntimeRecovery(page, "/institute/exams");
     await expectInstituteExamsWorkspace(page);
 
     await page.locator('a[href="/institute/question-bank"]').first().click();

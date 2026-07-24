@@ -10,6 +10,7 @@ import {
 import { fetchCurrentAccountProfile } from "@/lib/auth/session";
 import { StudentKpiGrid } from "@/components/ui/student-kpi-grid";
 import { StudentPageHeader } from "@/components/ui/student-page-header";
+import { StudentSubjectPerformanceReport, type StudentSubjectPerformanceRow } from "@/components/ui/student-subject-performance-report";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { StatusPill } from "@/components/ui/status-pill";
 import {
@@ -58,6 +59,20 @@ import {
 function numericScore(value: string | number) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function subjectPerformanceTone(value: number) {
+  if (value >= 75) return "statusLive";
+  if (value >= 55) return "statusDemo";
+  if (value >= 40) return "statusWarning";
+  return "statusDanger";
+}
+
+function subjectPerformanceLabel(value: number) {
+  if (value >= 75) return "Strong";
+  if (value >= 55) return "Stable";
+  if (value >= 40) return "Watch";
+  return "Needs Work";
 }
 
 function buildLineChartGeometry(values: number[]) {
@@ -454,6 +469,84 @@ export default async function AnalyticsPage({
         kpiHistory: "Attempt History",
         sourcePanelTitle: "Performance by Source",
       };
+  const subjectWeakTopicCounts = new Map<string, number>();
+  (scopedSummary?.weak_topics ?? []).forEach((topic) => {
+    subjectWeakTopicCounts.set(
+      topic.subject_name,
+      (subjectWeakTopicCounts.get(topic.subject_name) ?? 0) + 1,
+    );
+  });
+  const subjectSourceMap = new Map<string, string>();
+  sourceSubjectBreakdown.forEach((row) => {
+    if (!subjectSourceMap.has(row.subject_name)) {
+      subjectSourceMap.set(row.subject_name, sourceDescriptor(row));
+    }
+  });
+  const subjectRowsMap = new Map<string, StudentSubjectPerformanceRow>();
+  (scopedSummary?.strongest_subjects ?? []).forEach((subject) => {
+    const score = numericScore(subject.average_percentage);
+    subjectRowsMap.set(subject.subject_name, {
+      id: subject.subject_id,
+      subjectName: subject.subject_name,
+      averagePercentageLabel: percentageLabel(subject.average_percentage),
+      trendLabel: trendDirectionLabel(scopedSummary?.improvement_trend.direction ?? "stable"),
+      attemptedQuestionsLabel: String(subject.attempted_questions),
+      skippedQuestionsLabel: String(subject.skipped_questions),
+      weakTopicsLabel: `${subjectWeakTopicCounts.get(subject.subject_name) ?? 0} tracked`,
+      sourceLabel: subjectSourceMap.get(subject.subject_name) ?? "All sources",
+      subjectStrengthLabel: subjectPerformanceLabel(score),
+      toneClass: subjectPerformanceTone(score),
+      overview: `${subject.attempted_questions} attempted and ${subject.skipped_questions} skipped across tracked ${subject.subject_name} work.`,
+      subjectDrilldownHref: buildAnalyticsSubjectHref(subject.subject_name, {
+        source: selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
+        teacher: selectedSource === "teacher" ? selectedTeacherId : null,
+      }),
+      topicMasteryHref:
+        selectedSubject === ALL_SUBJECTS_CONTEXT
+          ? `/app/weak-areas?subject=${encodeURIComponent(subject.subject_name)}`
+          : "/app/weak-areas",
+      resultsHref:
+        selectedSubject === ALL_SUBJECTS_CONTEXT
+          ? `/app/results?subject=${encodeURIComponent(subject.subject_name)}`
+          : "/app/results",
+    });
+  });
+  (scopedSummary?.weakest_subjects ?? []).forEach((subject) => {
+    if (subjectRowsMap.has(subject.subject_name)) {
+      return;
+    }
+    const score = numericScore(subject.average_percentage);
+    subjectRowsMap.set(subject.subject_name, {
+      id: subject.subject_id,
+      subjectName: subject.subject_name,
+      averagePercentageLabel: percentageLabel(subject.average_percentage),
+      trendLabel: trendDirectionLabel(scopedSummary?.improvement_trend.direction ?? "stable"),
+      attemptedQuestionsLabel: String(subject.attempted_questions),
+      skippedQuestionsLabel: String(subject.skipped_questions),
+      weakTopicsLabel: `${subjectWeakTopicCounts.get(subject.subject_name) ?? 0} tracked`,
+      sourceLabel: subjectSourceMap.get(subject.subject_name) ?? "All sources",
+      subjectStrengthLabel: subjectPerformanceLabel(score),
+      toneClass: subjectPerformanceTone(score),
+      overview: `${subject.attempted_questions} attempted and ${subject.skipped_questions} skipped across tracked ${subject.subject_name} work.`,
+      subjectDrilldownHref: buildAnalyticsSubjectHref(subject.subject_name, {
+        source: selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
+        teacher: selectedSource === "teacher" ? selectedTeacherId : null,
+      }),
+      topicMasteryHref:
+        selectedSubject === ALL_SUBJECTS_CONTEXT
+          ? `/app/weak-areas?subject=${encodeURIComponent(subject.subject_name)}`
+          : "/app/weak-areas",
+      resultsHref:
+        selectedSubject === ALL_SUBJECTS_CONTEXT
+          ? `/app/results?subject=${encodeURIComponent(subject.subject_name)}`
+          : "/app/results",
+    });
+  });
+  const subjectPerformanceRows = [...subjectRowsMap.values()].sort((left, right) => {
+    const leftScore = Number(left.averagePercentageLabel.replace("%", ""));
+    const rightScore = Number(right.averagePercentageLabel.replace("%", ""));
+    return rightScore - leftScore || left.subjectName.localeCompare(right.subjectName);
+  });
 
   return (
     <div className="studentPage studentDashboardModern studentLearnerPage studentLearnerAnalyticsPage">
@@ -1090,79 +1183,7 @@ export default async function AnalyticsPage({
           </section>
 
           <section className="studentInsightsTwoColumn">
-            <article className="contentCard analyticsPanel analyticsPanelSubjects">
-              <div className="sectionHeading">
-                <strong>Subject Performance</strong>
-                <Link href="/app/weak-areas">Open weak areas</Link>
-              </div>
-              <div className="studentInsightDualList">
-                <div className="studentInsightColumn">
-                  <div className="studentInsightColumnHeading">
-                    <strong>Strongest subjects</strong>
-                    <span>{scopedSummary.strongest_subjects.length} tracked</span>
-                  </div>
-                  {scopedSummary.strongest_subjects.length ? (
-                    scopedSummary.strongest_subjects.map((subject) => {
-                      const value = Number(subject.average_percentage);
-                      return (
-                        <div className="studentInsightScoreRow" key={subject.subject_id}>
-                          <Link
-                            href={buildAnalyticsSubjectHref(subject.subject_name, {
-                              source:
-                                selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
-                              teacher:
-                                selectedSource === "teacher" ? selectedTeacherId : null,
-                            })}
-                          >
-                            <strong>{subject.subject_name}</strong>
-                            <span>{percentageLabel(subject.average_percentage)}</span>
-                          </Link>
-                          <div
-                            className={`scoreBar scoreBar${scoreTone(value)}`}
-                            style={{ ["--score-width" as string]: `${value}%` }}
-                          />
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <p className="emptyText">No subject-level performance records are available yet.</p>
-                  )}
-                </div>
-
-                <div className="studentInsightColumn">
-                  <div className="studentInsightColumnHeading">
-                    <strong>Weakest subjects</strong>
-                    <span>{scopedSummary.weakest_subjects.length} tracked</span>
-                  </div>
-                  {scopedSummary.weakest_subjects.length ? (
-                    scopedSummary.weakest_subjects.map((subject) => {
-                      const value = Number(subject.average_percentage);
-                      return (
-                        <div className="studentInsightScoreRow" key={subject.subject_id}>
-                          <Link
-                            href={buildAnalyticsSubjectHref(subject.subject_name, {
-                              source:
-                                selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
-                              teacher:
-                                selectedSource === "teacher" ? selectedTeacherId : null,
-                            })}
-                          >
-                            <strong>{subject.subject_name}</strong>
-                            <span>{percentageLabel(subject.average_percentage)}</span>
-                          </Link>
-                          <div
-                            className={`scoreBar scoreBar${scoreTone(value)}`}
-                            style={{ ["--score-width" as string]: `${value}%` }}
-                          />
-                        </div>
-                      );
-                    })
-                ) : (
-                  <p className="emptyText">Weak subject insights will appear after enough completed exams.</p>
-                )}
-              </div>
-              </div>
-            </article>
+            <StudentSubjectPerformanceReport rows={subjectPerformanceRows} />
 
             <article className="contentCard analyticsPanel analyticsPanelResults">
               <div className="sectionHeading">

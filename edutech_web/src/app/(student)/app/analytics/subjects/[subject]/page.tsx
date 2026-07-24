@@ -1,5 +1,8 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
+import { fetchCurrentAccountProfile } from "@/lib/auth/session";
 import { StudentKpiGrid } from "@/components/ui/student-kpi-grid";
+import { StudentReportFilters } from "@/components/ui/student-report-filters";
 import { StudentPageHeader } from "@/components/ui/student-page-header";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import {
@@ -27,7 +30,16 @@ import {
   studentDateTimeLabel,
   titleCaseState,
 } from "@/lib/student/formatters";
-import { filterStudentExamsBySubject, filterStudentRecordsByMetadataSubject } from "@/lib/student/subject-context";
+import {
+  ALL_SOURCES_CONTEXT,
+  filterStudentExamsBySubject,
+  filterStudentRecordsByMetadataSubject,
+  getStudentSourceOptions,
+  resolveSelectedStudentSource,
+  resolveSelectedStudentSourceTeacher,
+  STUDENT_SOURCE_CONTEXT_COOKIE,
+  STUDENT_SOURCE_TEACHER_CONTEXT_COOKIE,
+} from "@/lib/student/subject-context";
 
 export default async function StudentAnalyticsSubjectPage({
   params,
@@ -39,6 +51,10 @@ export default async function StudentAnalyticsSubjectPage({
   const route = await params;
   const query = await searchParams;
   const subject = decodeAnalyticsParam(route.subject);
+  const cookieStore = await cookies();
+  const selectedSource = resolveSelectedStudentSource(
+    query.source ?? cookieStore.get(STUDENT_SOURCE_CONTEXT_COOKIE)?.value ?? ALL_SOURCES_CONTEXT,
+  );
   const state = getStudentApiState();
 
   if (!state.apiConfigured) {
@@ -61,12 +77,12 @@ export default async function StudentAnalyticsSubjectPage({
     loadStudentAnalyticsBundle(),
     fetchStudentQuestionAnalytics({
       subject,
-      source: query.source ?? null,
+      source: selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
       teacher: query.teacher ?? null,
     }).catch(() => null),
   ]);
 
-  if (!bundle.summary || !questionData) {
+  if (!bundle.summary) {
     return (
       <div className="studentPage studentDashboardModern">
         <StudentStatePanel
@@ -81,6 +97,18 @@ export default async function StudentAnalyticsSubjectPage({
       </div>
     );
   }
+
+  const resolvedQuestionData = questionData ?? {
+    overview: {
+      question_count: 0,
+      attempted_count: 0,
+      correct_count: 0,
+      wrong_count: 0,
+      skipped_count: 0,
+    },
+    benchmark_overview: [],
+    questions: [],
+  };
 
   const subjectTopics = bundle.topicPerformance.filter(
     (item) => item.subject_name === subject,
@@ -100,14 +128,27 @@ export default async function StudentAnalyticsSubjectPage({
     bundle.exams.filter((item) => item.exam_type === "practice"),
     subject,
   ).slice(0, 3);
-  const difficultyRows = aggregateQuestionsByDifficulty(questionData.questions);
-  const typeRows = aggregateQuestionsByType(questionData.questions).slice(0, 4);
+  const difficultyRows = aggregateQuestionsByDifficulty(resolvedQuestionData.questions);
+  const typeRows = aggregateQuestionsByType(resolvedQuestionData.questions).slice(0, 4);
   const averageSubjectPercentage =
     subjectTopics.reduce((total, item) => total + Number(item.percentage), 0) /
     (subjectTopics.length || 1);
-  const wrongQuestions = questionData.questions.filter(
+  const wrongQuestions = resolvedQuestionData.questions.filter(
     (item) => item.your_result === "wrong",
   ).length;
+  const { teacherOptions } = getStudentSourceOptions([
+    ...bundle.results,
+    ...bundle.exams,
+    ...(bundle.summary?.source_breakdown ?? []),
+    ...(bundle.summary?.recent_exams ?? []),
+  ]);
+  const selectedTeacherId = resolveSelectedStudentSourceTeacher(
+    teacherOptions,
+    selectedSource,
+    query.teacher ??
+      cookieStore.get(STUDENT_SOURCE_TEACHER_CONTEXT_COOKIE)?.value ??
+      null,
+  );
 
   return (
     <div className="studentPage studentDashboardModern">
@@ -115,9 +156,20 @@ export default async function StudentAnalyticsSubjectPage({
         eyebrow="Subject deep dive"
         title={`${subject} Analytics`}
         description="Inspect one subject through topic health, difficulty mix, and question evidence."
-        statusLabel={`${questionData.questions.length} questions analyzed`}
+        statusLabel={`${resolvedQuestionData.questions.length} questions analyzed`}
         statusTone="live"
         action={<Link className="button buttonGhost" href="/app/analytics">Back to Analytics</Link>}
+      />
+
+      <StudentReportFilters
+        basePath={`/app/analytics/subjects/${encodeURIComponent(subject)}`}
+        title="Subject detail filters"
+        helper="Keep the subject fixed and refine this deep dive by source or teacher context."
+        selectedSource={selectedSource}
+        selectedSubject={subject}
+        selectedTeacherId={selectedTeacherId}
+        subjectOptions={[{ value: subject, label: subject }]}
+        teacherOptions={teacherOptions}
       />
 
       <StudentAnalyticsDetailHero
@@ -152,8 +204,8 @@ export default async function StudentAnalyticsSubjectPage({
               className="button buttonPrimary"
               href={buildAnalyticsActionsHref({
                 subject,
-                source: query.source ?? null,
-                teacher: query.teacher ?? null,
+                source: selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
+                teacher: selectedTeacherId,
               })}
             >
               Open Action Center
@@ -169,19 +221,19 @@ export default async function StudentAnalyticsSubjectPage({
         items={[
           {
             label: "Tracked Questions",
-            value: String(questionData.overview.question_count),
+            value: String(resolvedQuestionData.overview.question_count),
             note: "Question-level evidence in this subject",
             tone: "primary",
           },
           {
             label: "Attempted",
-            value: String(questionData.overview.attempted_count),
-            note: `${questionData.overview.skipped_count} skipped`,
+            value: String(resolvedQuestionData.overview.attempted_count),
+            note: `${resolvedQuestionData.overview.skipped_count} skipped`,
           },
           {
             label: "Correct",
-            value: String(questionData.overview.correct_count),
-            note: `${questionData.overview.wrong_count} wrong`,
+            value: String(resolvedQuestionData.overview.correct_count),
+            note: `${resolvedQuestionData.overview.wrong_count} wrong`,
           },
           {
             label: "Subject Topics",
@@ -206,8 +258,8 @@ export default async function StudentAnalyticsSubjectPage({
                     topicId: topic.topic ?? "untagged",
                     subject,
                     label: topic.topic_name,
-                    source: query.source ?? null,
-                    teacher: query.teacher ?? null,
+                    source: selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
+                    teacher: selectedTeacherId,
                   })}
                   key={topic.id}
                 >
@@ -230,11 +282,11 @@ export default async function StudentAnalyticsSubjectPage({
         <article className="contentCard">
           <div className="sectionHeading">
             <strong>Benchmark view</strong>
-            <span>{questionData.benchmark_overview.length} scopes</span>
+            <span>{resolvedQuestionData.benchmark_overview.length} scopes</span>
           </div>
           <div className="studentTopicStack">
-            {questionData.benchmark_overview.length ? (
-              questionData.benchmark_overview.map((benchmark) => (
+            {resolvedQuestionData.benchmark_overview.length ? (
+              resolvedQuestionData.benchmark_overview.map((benchmark) => (
                 <div className="studentTopicRow" key={benchmark.scope}>
                   <div>
                     <strong>{benchmarkLabel(benchmark.label || benchmark.scope)}</strong>
@@ -344,10 +396,10 @@ export default async function StudentAnalyticsSubjectPage({
       <section className="contentCard">
         <div className="sectionHeading">
           <strong>Question evidence</strong>
-          <span>{questionData.questions.length} tracked questions</span>
+          <span>{resolvedQuestionData.questions.length} tracked questions</span>
         </div>
         <StudentQuestionInsightList
-          questions={questionData.questions.slice(0, 8)}
+          questions={resolvedQuestionData.questions.slice(0, 8)}
           subject={subject}
           source={query.source ?? null}
           teacher={query.teacher ?? null}

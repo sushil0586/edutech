@@ -42,7 +42,7 @@ export default function ProfileScreen() {
         description={
           studentContext
             ? `${studentContext.program_name} · ${studentContext.academic_year_name}${studentContext.cohort_name ? ` · ${studentContext.cohort_name}` : ""}`
-            : "Profile details are restored from the live student session."
+            : "Account details restored from the active student session."
         }
         helper={profile?.email || profile?.username || "No identity details available."}
         actions={
@@ -104,7 +104,7 @@ export default function ProfileScreen() {
             <Text style={appStyles.body}>
               {studentContext
                 ? `${studentContext.program_name} · ${studentContext.academic_year_name}${studentContext.cohort_name ? ` · ${studentContext.cohort_name}` : ""}`
-                : "No student context returned."}
+                : "Program details are not available for this session yet."}
             </Text>
           </View>
         </View>

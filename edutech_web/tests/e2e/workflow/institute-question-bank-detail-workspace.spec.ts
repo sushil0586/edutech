@@ -1,6 +1,20 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectInstituteWorkspace } from "../helpers/navigation";
+import { gotoWithRuntimeRecovery } from "../helpers/runtime";
+
+async function expectPageWithoutHorizontalSpill(page: Page, label: string) {
+  const overflow = await page.evaluate(() => ({
+    viewportWidth: window.innerWidth,
+    documentWidth: document.documentElement.scrollWidth,
+    bodyWidth: document.body.scrollWidth,
+  }));
+
+  expect(
+    Math.max(overflow.documentWidth, overflow.bodyWidth),
+    `${label} should not spill horizontally (viewport=${overflow.viewportWidth}, document=${overflow.documentWidth}, body=${overflow.bodyWidth})`,
+  ).toBeLessThanOrEqual(overflow.viewportWidth + 2);
+}
 
 test.describe("Institute question bank detail routes", () => {
   test.skip(
@@ -14,7 +28,7 @@ test.describe("Institute question bank detail routes", () => {
     await loginAsRole(page, "institute");
     await expectInstituteWorkspace(page);
 
-    await page.goto("/institute/question-bank");
+    await gotoWithRuntimeRecovery(page, "/institute/question-bank");
     await expect(page.getByRole("heading", { name: /question bank/i }).first()).toBeVisible();
 
     const editLink = page.getByRole("link", { name: /edit|duplicate to edit/i }).first();
@@ -26,8 +40,20 @@ test.describe("Institute question bank detail routes", () => {
     await expect(page.getByText(/question identity/i).first()).toBeVisible();
     await expect(page.getByText(/content and scoring/i).first()).toBeVisible();
     await expect(page.getByText(/answer structure/i).first()).toBeVisible();
+    await expect(page.locator('a[href="/institute/question-bank"]').first()).toBeVisible();
+    await expect(page.getByText(/no tags are attached yet|tags attached/i).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: /attach tag/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /upload attachment/i })).toBeVisible();
+    await expect(page.getByLabel(/add tag/i)).toBeVisible();
+    await expect(page.getByLabel(/attachment title/i)).toBeVisible();
+    await expect(page.getByLabel(/attachment type/i)).toBeVisible();
+    await expect(page.getByLabel(/display order/i)).toBeVisible();
+    await expect(page.getByLabel(/alt text or learner note/i)).toBeVisible();
+    await expect(page.getByLabel(/attachment file/i)).toBeVisible();
+    await expect(page.getByLabel(/allow inline usage/i)).toBeVisible();
+    await expectPageWithoutHorizontalSpill(page, "Institute question detail workspace");
 
-    await page.goto("/institute/question-bank");
+    await gotoWithRuntimeRecovery(page, "/institute/question-bank");
 
     const openSetLink = page.getByRole("link", { name: /open set/i }).first();
     if (await openSetLink.isVisible().catch(() => false)) {
@@ -37,6 +63,7 @@ test.describe("Institute question bank detail routes", () => {
       await expect(page.getByText(/next step/i).first()).toBeVisible();
       await expect(page.getByRole("link", { name: /back to question bank|back to bank/i }).first()).toBeVisible();
       await expect(page.getByRole("link", { name: /create linked question/i }).first()).toBeVisible();
+      await expectPageWithoutHorizontalSpill(page, "Institute comprehension detail workspace");
     }
   });
 });

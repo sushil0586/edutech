@@ -1076,10 +1076,22 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 
 | Action | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
-| exams page loads | Covered | Baseline | `tests/e2e/smoke/student-attempts.spec.ts` |
+| exams page loads | Covered | Baseline | `tests/e2e/workflow/student-exams-workspace.spec.ts`, `tests/e2e/smoke/student-attempts.spec.ts` |
 | exams route remains reachable in the cross-browser shell lane | Covered | Baseline | `tests/e2e/workflow/student-cross-browser-shell.spec.ts` |
-| group by availability | Covered | Baseline | `tests/e2e/smoke/student-attempts.spec.ts` |
-| reset filters | Covered | Baseline | `tests/e2e/smoke/student-attempts.spec.ts` |
+| availability filter | Covered | Baseline | `tests/e2e/workflow/student-exams-workspace.spec.ts` |
+| sort by filter | Covered | Baseline | `tests/e2e/workflow/student-exams-workspace.spec.ts` |
+| group by filter | Covered | Baseline | `tests/e2e/workflow/student-exams-workspace.spec.ts` |
+| page size filter | Covered | Baseline | `tests/e2e/workflow/student-exams-workspace.spec.ts` |
+| apply filters | Covered | Baseline | `tests/e2e/workflow/student-exams-workspace.spec.ts` |
+| ready now quick filter | Covered | Baseline | `tests/e2e/workflow/student-exams-workspace.spec.ts` |
+| resume quick filter visibility | Covered | Baseline | `tests/e2e/workflow/student-exams-workspace.spec.ts` |
+| locked quick filter visibility | Covered | Baseline | `tests/e2e/workflow/student-exams-workspace.spec.ts` |
+| group by availability quick filter | Covered | Baseline | `tests/e2e/workflow/student-exams-workspace.spec.ts`, `tests/e2e/smoke/student-attempts.spec.ts` |
+| pagination summary visibility | Covered | Baseline | `tests/e2e/workflow/student-exams-workspace.spec.ts` |
+| grouped availability section visibility | Covered | Baseline | `tests/e2e/workflow/student-exams-workspace.spec.ts` |
+| reset filters | Covered | Baseline | `tests/e2e/workflow/student-exams-workspace.spec.ts`, `tests/e2e/smoke/student-attempts.spec.ts` |
+| primary action branch routes to wallet or attempt/detail path truthfully | Covered | Baseline | `tests/e2e/workflow/student-exams-workspace.spec.ts` |
+| view details CTA handoff | Covered | Baseline | `tests/e2e/workflow/student-exams-workspace.spec.ts` |
 | enter exam key | Covered | Baseline | `tests/e2e/smoke/student-attempts.spec.ts` |
 | open practice from exams | Covered | Baseline | `tests/e2e/smoke/student-attempts.spec.ts` |
 
@@ -1109,6 +1121,11 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | Action | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
 | page handoff from practice | Covered | Baseline | `tests/e2e/smoke/student-attempts.spec.ts`, `tests/e2e/workflow/student-practice-workspace.spec.ts` |
+| weak-areas workspace loads with academic focus state | Covered | Baseline | `tests/e2e/workflow/student-weak-areas-workspace.spec.ts` |
+| choose mock test handoff from the recovery hero | Covered | Baseline | `tests/e2e/workflow/student-weak-areas-recovery-workflow.spec.ts` |
+| topic mastery modal can open the topic drilldown route | Covered | Baseline | `tests/e2e/workflow/student-weak-areas-recovery-workflow.spec.ts` |
+| topic drilldown can hand off into practice | Covered | Baseline | `tests/e2e/workflow/student-weak-areas-recovery-workflow.spec.ts` |
+| topic mastery modal can open question evidence | Covered | Baseline | `tests/e2e/workflow/student-weak-areas-recovery-workflow.spec.ts` |
 
 ### `/app/analytics`
 
@@ -1120,6 +1137,7 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | hero open action center | Covered | Baseline | `tests/e2e/workflow/student-analytics-deep.spec.ts` |
 | source drill opens source analytics detail route when available | Covered | Baseline | `tests/e2e/workflow/student-analytics-deep.spec.ts` |
 | subject drill opens subject analytics detail route when available | Covered | Baseline | `tests/e2e/workflow/student-analytics-deep.spec.ts` |
+| academic report anchor state is verified for subject-performance workflows | Covered | Baseline | `tests/e2e/workflow/student-analytics-subject-report-workspace.spec.ts` |
 
 ### `/app/analytics/sources/:sourceKey`
 
@@ -1137,6 +1155,7 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | action center route opens | Covered | Baseline | `tests/e2e/smoke/student-attempts.spec.ts`, `tests/e2e/workflow/student-analytics-deep.spec.ts` |
 | check your timeline | Covered | Baseline | `tests/e2e/workflow/student-analytics-deep.spec.ts` |
 | action center preserves scoped source, subject, and teacher query context from timeline/source/subject drills | Covered | Baseline | `tests/e2e/workflow/student-analytics-scope-persistence-workspace.spec.ts` |
+| action center question evidence workflow opens and stays academically truthful | Covered | Baseline | `tests/e2e/workflow/student-analytics-actions-questions-workspace.spec.ts` |
 
 ### `/app/analytics/timeline`
 
@@ -1172,12 +1191,93 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | subject practice CTA preserves subject query | Covered | Baseline | `tests/e2e/workflow/student-analytics-deep.spec.ts` |
 | subject drill from source detail preserves source and teacher scope | Covered | Baseline | `tests/e2e/workflow/student-analytics-scope-persistence-workspace.spec.ts` |
 | subject open action center preserves source and teacher scope | Covered | Baseline | `tests/e2e/workflow/student-analytics-scope-persistence-workspace.spec.ts` |
+| subject report workspace surfaces core academic cards and drill actions | Covered | Baseline | `tests/e2e/workflow/student-analytics-subject-report-workspace.spec.ts` |
+
+### `/app/analytics/topics/:topic`
+
+| Action | Coverage | Mode | Spec |
+| --- | --- | --- | --- |
+| topic analytics drill opens when topic evidence is available | Covered | Baseline | `tests/e2e/workflow/student-analytics-deep-dive-workspace.spec.ts` |
+| topic drill remains consistent with scoped analytics continuity | Covered | Baseline | `tests/e2e/workflow/student-analytics-scope-persistence-workspace.spec.ts` |
+
+### `/app/analytics/question-types/:questionType`
+
+| Action | Coverage | Mode | Spec |
+| --- | --- | --- | --- |
+| question-type analytics drill opens when question-type evidence is available | Covered | Baseline | `tests/e2e/workflow/student-analytics-deep-dive-workspace.spec.ts` |
+
+### `/app/analytics/questions`
+
+| Action | Coverage | Mode | Spec |
+| --- | --- | --- | --- |
+| question analytics report page opens | Covered | Baseline | `tests/e2e/workflow/student-analytics-actions-questions-workspace.spec.ts` |
+| question evidence and pattern surfaces stay academically truthful | Covered | Baseline | `tests/e2e/workflow/student-analytics-actions-questions-workspace.spec.ts` |
+
+### `/app/analytics/wrong-questions`
+
+| Action | Coverage | Mode | Spec |
+| --- | --- | --- | --- |
+| wrong-questions report page opens | Covered | Baseline | `tests/e2e/workflow/student-wrong-questions-workspace.spec.ts` |
+| wrong-questions report drill-down contract stays truthful | Covered | Baseline | `tests/e2e/workflow/student-wrong-questions-workspace.spec.ts` |
+
+### `/app/analytics/time-management`
+
+| Action | Coverage | Mode | Spec |
+| --- | --- | --- | --- |
+| time-management report page opens | Covered | Baseline | `tests/e2e/workflow/student-time-management-workspace.spec.ts` |
+| time-distribution and pace surfaces stay academically truthful | Covered | Baseline | `tests/e2e/workflow/student-time-management-workspace.spec.ts` |
+
+### `/app/analytics/study-recommendations`
+
+| Action | Coverage | Mode | Spec |
+| --- | --- | --- | --- |
+| study-recommendations report page opens | Covered | Baseline | `tests/e2e/workflow/student-study-recommendations-workspace.spec.ts` |
+| study recommendation lanes and action cards stay truthful | Covered | Baseline | `tests/e2e/workflow/student-study-recommendations-workspace.spec.ts` |
+
+### `/app/analytics/rank-history`
+
+| Action | Coverage | Mode | Spec |
+| --- | --- | --- | --- |
+| rank-history report page opens | Covered | Baseline | `tests/e2e/workflow/student-rank-history-workspace.spec.ts` |
+| rank and percentile trend surfaces stay truthful | Covered | Baseline | `tests/e2e/workflow/student-rank-history-workspace.spec.ts` |
+
+### `/app/analytics/downloads`
+
+| Action | Coverage | Mode | Spec |
+| --- | --- | --- | --- |
+| downloads report page opens | Covered | Baseline | `tests/e2e/workflow/student-downloads-workspace.spec.ts` |
+| downloadable academic report manifest stays truthful | Covered | Baseline | `tests/e2e/workflow/student-downloads-workspace.spec.ts` |
+| downloads report filters can carry scoped context into linked report routes | Covered | Baseline | `tests/e2e/workflow/student-downloads-report-handoffs.spec.ts` |
+| downloads manifest can hand off into results, subject analytics, wrong questions, time management, rank history, and study recommendations | Covered | Baseline | `tests/e2e/workflow/student-downloads-report-handoffs.spec.ts` |
+| downloads mobile scoped handoffs into linked report routes | Covered | Baseline | `tests/e2e/workflow/student-mobile-report-continuity.spec.ts` |
+
+### `/app/reports`
+
+| Action | Coverage | Mode | Spec |
+| --- | --- | --- | --- |
+| reports hub page opens | Covered | Baseline | `tests/e2e/workflow/student-downloads-workspace.spec.ts` |
+| reports hub keeps direct student report links truthful | Covered | Baseline | `tests/e2e/workflow/student-downloads-workspace.spec.ts`, `tests/e2e/workflow/student-downloads-report-handoffs.spec.ts` |
+| reports hub preserves scoped report handoffs | Covered | Baseline | `tests/e2e/workflow/student-downloads-report-handoffs.spec.ts` |
 
 ### `/app/attempts`
 
 | Action | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
-| attempts page entry | Covered | Baseline | `tests/e2e/smoke/student-attempts.spec.ts` |
+| attempts page entry | Covered | Baseline | `tests/e2e/workflow/student-attempts-workspace.spec.ts`, `tests/e2e/smoke/student-attempts.spec.ts` |
+| status filter | Covered | Baseline | `tests/e2e/workflow/student-attempts-workspace.spec.ts` |
+| sort by filter | Covered | Baseline | `tests/e2e/workflow/student-attempts-workspace.spec.ts` |
+| group by filter | Covered | Baseline | `tests/e2e/workflow/student-attempts-workspace.spec.ts` |
+| page size filter | Covered | Baseline | `tests/e2e/workflow/student-attempts-workspace.spec.ts` |
+| update view / apply filters | Covered | Baseline | `tests/e2e/workflow/student-attempts-workspace.spec.ts` |
+| in progress quick filter | Covered | Baseline | `tests/e2e/workflow/student-attempts-workspace.spec.ts` |
+| evaluation pending quick filter | Covered | Baseline | `tests/e2e/workflow/student-attempts-workspace.spec.ts` |
+| highest score quick filter | Covered | Baseline | `tests/e2e/workflow/student-attempts-workspace.spec.ts` |
+| group by status quick filter | Covered | Baseline | `tests/e2e/workflow/student-attempts-workspace.spec.ts` |
+| grouped ledger section visibility | Covered | Baseline | `tests/e2e/workflow/student-attempts-workspace.spec.ts` |
+| pagination summary visibility | Covered | Baseline | `tests/e2e/workflow/student-attempts-workspace.spec.ts` |
+| reset filters | Covered | Baseline | `tests/e2e/workflow/student-attempts-workspace.spec.ts` |
+| primary action branch for resume vs summary | Covered | Baseline | `tests/e2e/workflow/student-attempts-workspace.spec.ts` |
+| submitted-attempt secondary action branch for results visibility | Covered | Baseline | `tests/e2e/workflow/student-attempts-workspace.spec.ts` |
 | attempt timeline / compare drillthroughs | Covered | Baseline | `tests/e2e/smoke/student-attempts.spec.ts` |
 | attempts route remains reachable in the cross-browser post-submit lane | Covered | Baseline | `tests/e2e/workflow/student-cross-browser-attempts-summary.spec.ts` |
 
@@ -1206,6 +1306,12 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | open attempt summary | Covered | Baseline | `tests/e2e/workflow/student-results-workspace.spec.ts` |
 | review attempt | Covered | Baseline | `tests/e2e/workflow/student-results-workspace.spec.ts` |
 | empty-state open exams | Covered | Baseline | `tests/e2e/workflow/student-results-workspace.spec.ts` |
+| seeded review-ready result can traverse grouped results to summary, review, analytics, compare, and timeline | Covered | Mutable | `tests/e2e/workflow/student-results-storytelling.mutable.spec.ts` |
+| disposable published result can appear in grouped outcome view and hand off into summary | Covered | Mutable | `tests/e2e/workflow/student-results-mutable.spec.ts` |
+| disposable descriptive reviewed result can traverse grouped results to summary, review, compare, question-pattern analytics, and timeline | Covered | Mutable | `tests/e2e/workflow/student-descriptive-analytics-continuity.mutable.spec.ts` |
+| disposable descriptive reviewed result can traverse grouped results to learner-visible summary, review, and analytics storytelling surfaces | Covered | Mutable | `tests/e2e/workflow/student-descriptive-result-storytelling.mutable.spec.ts` |
+| mixed pending, summary-only, review-ready, and descriptive-reviewed states can coexist and hand off coherently from the results workspace | Covered | Mutable | `tests/e2e/workflow/student-mixed-result-history.mutable.spec.ts` |
+| latest, best, and lowest multi-attempt result ordering stays coherent across results and summary handoffs | Covered | Mutable | `tests/e2e/workflow/student-multi-attempt-history.mutable.spec.ts` |
 
 ### `/app/attempts/:id/summary`
 
@@ -1236,6 +1342,13 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | notifications group by type | Covered | Baseline | `tests/e2e/workflow/student-utility-workspace.spec.ts`, `tests/e2e/workflow/student-notifications-workspace.spec.ts` |
 | notifications route handoff opens linked learner surface | Covered | Baseline | `tests/e2e/workflow/student-notifications-workspace.spec.ts` |
 | notifications reset filters | Covered | Baseline | `tests/e2e/workflow/student-utility-workspace.spec.ts`, `tests/e2e/workflow/student-notifications-workspace.spec.ts` |
+| notifications category filter continuity | Covered | Baseline | `tests/e2e/workflow/student-notifications-continuity.spec.ts` |
+| notifications related-object filter continuity | Covered | Baseline | `tests/e2e/workflow/student-notifications-continuity.spec.ts` |
+| notifications page-size continuity | Covered | Baseline | `tests/e2e/workflow/student-notifications-continuity.spec.ts` |
+| notifications group by status continuity | Covered | Baseline | `tests/e2e/workflow/student-notifications-continuity.spec.ts` |
+| notifications pagination links preserve active filter state | Covered | Baseline | `tests/e2e/workflow/student-notifications-continuity.spec.ts` |
+| notifications hero CTAs remain truthful under filtered inbox state | Covered | Baseline | `tests/e2e/workflow/student-notifications-continuity.spec.ts` |
+| notifications mobile filter continuity | Covered | Baseline | `tests/e2e/workflow/student-mobile-report-continuity.spec.ts` |
 
 ### `/app/profile`
 
@@ -1244,6 +1357,128 @@ Use this when you want to know whether a specific CTA or page interaction is alr
 | profile page loads | Covered | Baseline | `tests/e2e/workflow/student-utility-workspace.spec.ts`, `tests/e2e/workflow/student-mobile-sanity-workspace.spec.ts` |
 | profile route is reachable from the mobile drawer | Covered | Baseline | `tests/e2e/workflow/student-mobile-sanity-workspace.spec.ts` |
 | profile route remains reachable in the cross-browser shell lane | Covered | Baseline | `tests/e2e/workflow/student-cross-browser-shell.spec.ts` |
+
+### `/app/settings`
+
+| Action | Coverage | Mode | Spec |
+| --- | --- | --- | --- |
+| settings page loads | Covered | Baseline | `tests/e2e/workflow/student-settings-workspace.spec.ts`, `tests/e2e/workflow/student-utility-workspace.spec.ts` |
+| account controls hero is visible | Covered | Baseline | `tests/e2e/workflow/student-settings-workspace.spec.ts` |
+| open profile hero CTA | Covered | Baseline | `tests/e2e/workflow/student-settings-workspace.spec.ts` |
+| back to dashboard hero CTA | Covered | Baseline | `tests/e2e/workflow/student-settings-workspace.spec.ts` |
+| account-status KPI visibility | Covered | Baseline | `tests/e2e/workflow/student-settings-workspace.spec.ts` |
+| student-access KPI visibility | Covered | Baseline | `tests/e2e/workflow/student-settings-workspace.spec.ts` |
+| academic-context KPI visibility | Covered | Baseline | `tests/e2e/workflow/student-settings-workspace.spec.ts` |
+| profile-completion KPI visibility | Covered | Baseline | `tests/e2e/workflow/student-settings-workspace.spec.ts` |
+| account overview section visibility | Covered | Baseline | `tests/e2e/workflow/student-settings-workspace.spec.ts` |
+| workspace guidance section visibility | Covered | Baseline | `tests/e2e/workflow/student-settings-workspace.spec.ts` |
+| what this page covers section visibility | Covered | Baseline | `tests/e2e/workflow/student-settings-workspace.spec.ts` |
+| session and access section visibility | Covered | Baseline | `tests/e2e/workflow/student-settings-workspace.spec.ts` |
+| support handoff section visibility | Covered | Baseline | `tests/e2e/workflow/student-settings-workspace.spec.ts` |
+| quick access strip visibility | Covered | Baseline | `tests/e2e/workflow/student-settings-workspace.spec.ts` |
+| verify profile context CTA | Covered | Baseline | `tests/e2e/workflow/student-settings-workspace.spec.ts` |
+| check notifications CTA | Covered | Baseline | `tests/e2e/workflow/student-settings-workspace.spec.ts` |
+| quick access dashboard CTA | Covered | Baseline | `tests/e2e/workflow/student-settings-workspace.spec.ts` |
+| quick access profile CTA | Covered | Baseline | `tests/e2e/workflow/student-settings-workspace.spec.ts` |
+| quick access notifications CTA | Covered | Baseline | `tests/e2e/workflow/student-settings-workspace.spec.ts` |
+| quick access results CTA | Covered | Baseline | `tests/e2e/workflow/student-settings-workspace.spec.ts` |
+| quick access analytics CTA | Covered | Baseline | `tests/e2e/workflow/student-settings-workspace.spec.ts` |
+| quick access wallet CTA | Covered | Baseline | `tests/e2e/workflow/student-settings-workspace.spec.ts` |
+| logout button visibility | Covered | Baseline | `tests/e2e/workflow/student-settings-workspace.spec.ts`, `tests/e2e/workflow/student-utility-workspace.spec.ts` |
+| notifications and help CTA handoffs | Covered | Baseline | `tests/e2e/workflow/student-settings-workspace.spec.ts` |
+
+### `/app/wallet`
+
+| Action | Coverage | Mode | Spec |
+| --- | --- | --- | --- |
+| wallet page loads | Covered | Baseline | `tests/e2e/workflow/student-wallet-workspace.spec.ts`, `tests/e2e/workflow/student-utility-workspace.spec.ts` |
+| wallet unavailable-state fallback | Covered | Baseline | `tests/e2e/workflow/student-wallet-workspace.spec.ts` |
+| wallet-state hero visibility | Covered | Baseline | `tests/e2e/workflow/student-wallet-workspace.spec.ts` |
+| compare plans hero CTA | Covered | Baseline | `tests/e2e/workflow/student-wallet-workspace.spec.ts`, `tests/e2e/workflow/student-referral-wallet-workspace.spec.ts` |
+| browse premium exams hero CTA | Covered | Baseline | `tests/e2e/workflow/student-wallet-workspace.spec.ts` |
+| open practice catalog hero CTA | Covered | Baseline | `tests/e2e/workflow/student-wallet-workspace.spec.ts` |
+| available-stars KPI visibility | Covered | Baseline | `tests/e2e/workflow/student-wallet-workspace.spec.ts` |
+| lifetime-earned KPI visibility | Covered | Baseline | `tests/e2e/workflow/student-wallet-workspace.spec.ts` |
+| lifetime-spent KPI visibility | Covered | Baseline | `tests/e2e/workflow/student-wallet-workspace.spec.ts` |
+| pending-orders KPI visibility | Covered | Baseline | `tests/e2e/workflow/student-wallet-workspace.spec.ts` |
+| how-your-stars-work section visibility | Covered | Baseline | `tests/e2e/workflow/student-wallet-workspace.spec.ts` |
+| what this page covers section visibility | Covered | Baseline | `tests/e2e/workflow/student-wallet-workspace.spec.ts`, `tests/e2e/workflow/student-referral-wallet-workspace.spec.ts` |
+| balance summary section visibility | Covered | Baseline | `tests/e2e/workflow/student-wallet-workspace.spec.ts`, `tests/e2e/workflow/student-referral-wallet-workspace.spec.ts` |
+| rewards and referral section visibility | Covered | Baseline | `tests/e2e/workflow/student-wallet-workspace.spec.ts`, `tests/e2e/workflow/student-referral-wallet-workspace.spec.ts` |
+| recent ledger activity visibility | Covered | Baseline | `tests/e2e/workflow/student-wallet-workspace.spec.ts`, `tests/e2e/workflow/student-referral-wallet-workspace.spec.ts` |
+| content access history visibility | Covered | Baseline | `tests/e2e/workflow/student-wallet-workspace.spec.ts` |
+| recommended next step rail visibility | Covered | Baseline | `tests/e2e/workflow/student-wallet-workspace.spec.ts` |
+| star packs section visibility | Covered | Baseline | `tests/e2e/workflow/student-wallet-workspace.spec.ts` |
+| subscription plans section visibility | Covered | Baseline | `tests/e2e/workflow/student-wallet-workspace.spec.ts` |
+| recent requests section visibility | Covered | Baseline | `tests/e2e/workflow/student-wallet-workspace.spec.ts` |
+| order progress section visibility | Covered | Baseline | `tests/e2e/workflow/student-wallet-workspace.spec.ts` |
+| rewards empty-or-live state messaging | Covered | Baseline | `tests/e2e/workflow/student-wallet-workspace.spec.ts`, `tests/e2e/workflow/student-referral-wallet-workspace.spec.ts` |
+| ledger empty-or-live state messaging | Covered | Baseline | `tests/e2e/workflow/student-wallet-workspace.spec.ts`, `tests/e2e/workflow/student-referral-wallet-workspace.spec.ts` |
+| unlock history empty-or-live state messaging | Covered | Baseline | `tests/e2e/workflow/student-wallet-workspace.spec.ts` |
+| star packs empty-or-live state messaging | Covered | Baseline | `tests/e2e/workflow/student-wallet-workspace.spec.ts` |
+| subscription plans empty-or-live state messaging | Covered | Baseline | `tests/e2e/workflow/student-wallet-workspace.spec.ts`, `tests/e2e/workflow/student-referral-wallet-workspace.spec.ts` |
+| order progress empty-or-live state messaging | Covered | Baseline | `tests/e2e/workflow/student-wallet-workspace.spec.ts` |
+| star-pack subscriptions handoff | Covered | Baseline | `tests/e2e/workflow/student-wallet-workspace.spec.ts` |
+
+### `/app/subscriptions`
+
+| Action | Coverage | Mode | Spec |
+| --- | --- | --- | --- |
+| subscriptions page loads | Covered | Baseline | `tests/e2e/workflow/student-subscriptions-workspace.spec.ts`, `tests/e2e/workflow/student-mobile-utility-workspace.spec.ts`, `tests/e2e/workflow/student-referral-wallet-workspace.spec.ts` |
+| subscriptions unavailable-state fallback | Covered | Baseline | `tests/e2e/workflow/student-subscriptions-workspace.spec.ts` |
+| subscription-state hero visibility | Covered | Baseline | `tests/e2e/workflow/student-subscriptions-workspace.spec.ts`, `tests/e2e/workflow/student-referral-wallet-workspace.spec.ts` |
+| open wallet hero CTA | Covered | Baseline | `tests/e2e/workflow/student-subscriptions-workspace.spec.ts`, `tests/e2e/workflow/student-referral-wallet-workspace.spec.ts` |
+| browse premium exams hero CTA | Covered | Baseline | `tests/e2e/workflow/student-subscriptions-workspace.spec.ts` |
+| open practice catalog hero CTA | Covered | Baseline | `tests/e2e/workflow/student-subscriptions-workspace.spec.ts` |
+| available-stars KPI visibility | Covered | Baseline | `tests/e2e/workflow/student-subscriptions-workspace.spec.ts` |
+| active-plans KPI visibility | Covered | Baseline | `tests/e2e/workflow/student-subscriptions-workspace.spec.ts` |
+| pending-orders KPI visibility | Covered | Baseline | `tests/e2e/workflow/student-subscriptions-workspace.spec.ts` |
+| available-cycles KPI visibility | Covered | Baseline | `tests/e2e/workflow/student-subscriptions-workspace.spec.ts` |
+| section filter | Covered | Baseline | `tests/e2e/workflow/student-subscriptions-workspace.spec.ts`, `tests/e2e/workflow/student-referral-wallet-workspace.spec.ts` |
+| rows to show filter | Covered | Baseline | `tests/e2e/workflow/student-subscriptions-workspace.spec.ts`, `tests/e2e/workflow/student-referral-wallet-workspace.spec.ts` |
+| apply filters | Covered | Baseline | `tests/e2e/workflow/student-subscriptions-workspace.spec.ts`, `tests/e2e/workflow/student-referral-wallet-workspace.spec.ts` |
+| reset filters | Covered | Baseline | `tests/e2e/workflow/student-subscriptions-workspace.spec.ts` |
+| guidance section visibility | Covered | Baseline | `tests/e2e/workflow/student-subscriptions-workspace.spec.ts` |
+| what this page covers section visibility | Covered | Baseline | `tests/e2e/workflow/student-subscriptions-workspace.spec.ts`, `tests/e2e/workflow/student-referral-wallet-workspace.spec.ts` |
+| active student subscriptions section visibility | Covered | Baseline | `tests/e2e/workflow/student-subscriptions-workspace.spec.ts` |
+| subscription orders section visibility | Covered | Baseline | `tests/e2e/workflow/student-subscriptions-workspace.spec.ts` |
+| available plans section visibility | Covered | Baseline | `tests/e2e/workflow/student-subscriptions-workspace.spec.ts`, `tests/e2e/workflow/student-referral-wallet-workspace.spec.ts` |
+| plans-only filtered view hides non-plan sections | Covered | Baseline | `tests/e2e/workflow/student-subscriptions-workspace.spec.ts`, `tests/e2e/workflow/student-referral-wallet-workspace.spec.ts` |
+| orders-only filtered view hides guidance sections | Covered | Baseline | `tests/e2e/workflow/student-subscriptions-workspace.spec.ts` |
+| active subscriptions empty-or-live state messaging | Covered | Baseline | `tests/e2e/workflow/student-subscriptions-workspace.spec.ts` |
+| subscription orders empty-or-live state messaging | Covered | Baseline | `tests/e2e/workflow/student-subscriptions-workspace.spec.ts` |
+| available plans empty-or-live state messaging | Covered | Baseline | `tests/e2e/workflow/student-subscriptions-workspace.spec.ts`, `tests/e2e/workflow/student-referral-wallet-workspace.spec.ts` |
+| available plans wallet rail handoff | Covered | Baseline | `tests/e2e/workflow/student-subscriptions-workspace.spec.ts` |
+
+### `/app/search`
+
+| Action | Coverage | Mode | Spec |
+| --- | --- | --- | --- |
+| search page loads | Covered | Baseline | `tests/e2e/workflow/student-search-workspace.spec.ts`, `tests/e2e/workflow/student-mobile-utility-workspace.spec.ts` |
+| search guidance card is visible | Covered | Baseline | `tests/e2e/workflow/student-search-workspace.spec.ts` |
+| back to workspace CTA is visible | Covered | Baseline | `tests/e2e/workflow/student-search-workspace.spec.ts` |
+| open dashboard CTA is visible | Covered | Baseline | `tests/e2e/workflow/student-search-workspace.spec.ts` |
+| open reports hub CTA is visible | Covered | Baseline | `tests/e2e/workflow/student-search-workspace.spec.ts` |
+| open analytics CTA is visible | Covered | Baseline | `tests/e2e/workflow/student-search-workspace.spec.ts` |
+| search query filter | Covered | Baseline | `tests/e2e/workflow/student-search-workspace.spec.ts` |
+| section filter presence | Covered | Baseline | `tests/e2e/workflow/student-search-workspace.spec.ts` |
+| source filter | Covered | Baseline | `tests/e2e/workflow/student-search-workspace.spec.ts`, `tests/e2e/workflow/student-mobile-utility-workspace.spec.ts` |
+| sort by filter | Covered | Baseline | `tests/e2e/workflow/student-search-workspace.spec.ts` |
+| group by filter | Covered | Baseline | `tests/e2e/workflow/student-search-workspace.spec.ts`, `tests/e2e/workflow/student-mobile-utility-workspace.spec.ts` |
+| apply filters | Covered | Baseline | `tests/e2e/workflow/student-search-workspace.spec.ts`, `tests/e2e/workflow/student-mobile-utility-workspace.spec.ts` |
+| workspace pages quick filter | Covered | Baseline | `tests/e2e/workflow/student-search-workspace.spec.ts` |
+| live records quick filter | Covered | Baseline | `tests/e2e/workflow/student-search-workspace.spec.ts` |
+| group by section quick filter active state | Covered | Baseline | `tests/e2e/workflow/student-search-workspace.spec.ts` |
+| grouped results by source or section | Covered | Baseline | `tests/e2e/workflow/student-search-workspace.spec.ts` |
+| open first matching result handoff | Covered | Baseline | `tests/e2e/workflow/student-search-workspace.spec.ts` |
+| zero-result empty state for unmatched query | Covered | Baseline | `tests/e2e/workflow/student-search-workspace.spec.ts` |
+| reset filters | Covered | Baseline | `tests/e2e/workflow/student-search-workspace.spec.ts` |
+| section filter continuity through quick-chip transitions | Covered | Baseline | `tests/e2e/workflow/student-search-continuity.spec.ts` |
+| query continuity through quick-chip transitions | Covered | Baseline | `tests/e2e/workflow/student-search-continuity.spec.ts` |
+| grouped source and section continuity handoff | Covered | Baseline | `tests/e2e/workflow/student-search-continuity.spec.ts` |
+| search shell CTAs remain truthful under active query state | Covered | Baseline | `tests/e2e/workflow/student-search-continuity.spec.ts` |
+| reports hub handoff remains truthful under active query state | Covered | Baseline | `tests/e2e/workflow/student-search-continuity.spec.ts` |
+| search mobile continuity across active query and quick-chip state | Covered | Baseline | `tests/e2e/workflow/student-mobile-report-continuity.spec.ts` |
 
 ### `/app/exams/:id`
 

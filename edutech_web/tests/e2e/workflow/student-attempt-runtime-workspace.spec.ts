@@ -43,6 +43,31 @@ async function resolveAttemptEntry(page: Page) {
   return null;
 }
 
+async function resolveRuntimeState(page: Page) {
+  const activeVisible = await firstVisible([
+    page.getByRole("button", { name: /^save answer$/i }).first(),
+    page.getByRole("button", { name: /^save & next$/i }).first(),
+    page.getByRole("button", { name: /^submit test$/i }).first(),
+    page.getByText(/test in progress|attempt progress|question palette/i).first(),
+  ])
+    .then(() => true)
+    .catch(() => false);
+
+  const lockedVisible = await firstVisible([
+    page.getByRole("link", {
+      name: /refresh attempt state|refresh mock state|view attempt summary|view mock summary/i,
+    }).first(),
+    page.getByText(/this test is no longer editable|this attempt has expired/i).first(),
+  ])
+    .then(() => true)
+    .catch(() => false);
+
+  return {
+    activeVisible,
+    lockedVisible,
+  };
+}
+
 test.describe("Student attempt runtime workspace", () => {
   test.skip(testRequiresRole("student"), "Student Playwright credentials are not configured.");
 
@@ -54,7 +79,15 @@ test.describe("Student attempt runtime workspace", () => {
 
     const attemptSource = await resolveAttemptEntry(page);
     if (!attemptSource) {
-      test.skip(true, "Student seeded account does not currently expose an active attempt runtime route.");
+      await gotoWithRuntimeRecovery(page, "/app/attempts");
+      await expect(page).toHaveURL(/\/app\/attempts(?:\?.*)?$/);
+      await expect(page.getByRole("heading", { name: /attempts/i }).first()).toBeVisible();
+      await expect(
+        await firstVisible([
+          page.getByText(/attempt history|attempts loaded|evaluation pending|your attempt history is empty/i).first(),
+          page.getByRole("link", { name: /open summary/i }).first(),
+        ]),
+      ).toBeVisible();
       return;
     }
     const attemptHref = attemptSource.href;
@@ -66,17 +99,8 @@ test.describe("Student attempt runtime workspace", () => {
     await expect
       .poll(
         async () => {
-          const activeVisible = await page
-            .getByRole("button", { name: /^save answer$/i })
-            .first()
-            .isVisible()
-            .catch(() => false);
-          const lockedVisible = await page
-            .getByRole("link", { name: /refresh attempt state|refresh mock state|view attempt summary|view mock summary/i })
-            .first()
-            .isVisible()
-            .catch(() => false);
-          return activeVisible || lockedVisible;
+          const runtimeState = await resolveRuntimeState(page);
+          return runtimeState.activeVisible || runtimeState.lockedVisible;
         },
         {
           timeout: 10000,
@@ -84,16 +108,7 @@ test.describe("Student attempt runtime workspace", () => {
       )
       .toBe(true);
 
-    const activeVisible = await page
-      .getByRole("button", { name: /^save answer$/i })
-      .first()
-      .isVisible()
-      .catch(() => false);
-    const lockedVisible = await page
-      .getByRole("link", { name: /refresh attempt state|refresh mock state|view attempt summary|view mock summary/i })
-      .first()
-      .isVisible()
-      .catch(() => false);
+    const { activeVisible, lockedVisible } = await resolveRuntimeState(page);
 
     expect(activeVisible || lockedVisible).toBe(true);
 

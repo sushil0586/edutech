@@ -320,6 +320,44 @@ cd edutech_web
 npm run test:e2e:mutable
 ```
 
+Student mutable release buckets on **Sunday, July 19, 2026**:
+
+```bash
+cd edutech_web
+npm run test:e2e:release:student-mutable-core
+```
+
+Purpose:
+
+- core student mutable flows that do not primarily exist to validate seeded family/demo lanes
+
+```bash
+cd edutech_web
+npm run test:e2e:release:student-mutable-family
+```
+
+Purpose:
+
+- seeded NEET, JEE, GRE, AWS, multi-subject, mobile-family, and recovery-style student mutable lanes
+
+```bash
+cd edutech_web
+npm run test:e2e:release:student-mutable-operator
+```
+
+Purpose:
+
+- student mutable lanes that depend on upstream operator provisioning, entitlements, referral setup, or economy state
+
+```bash
+cd edutech_web
+npm run test:e2e:release:student-mutable-all
+```
+
+Purpose:
+
+- run the three student mutable buckets in order
+
 Or, if you want to target a single mutable lane:
 
 ```bash

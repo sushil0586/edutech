@@ -157,6 +157,10 @@ export type StudentAttemptListItem = {
   exam: string;
   exam_title?: string;
   status: string;
+  expires_at?: string | null;
+  submitted_at?: string | null;
+  total_questions?: number;
+  attempted_questions?: number;
 };
 
 export type StudentContentEconomyAccess = {

@@ -42,7 +42,7 @@ test.describe("Student utility workspace coverage", () => {
 
     await gotoWithRetry(page, "/app/dashboard");
     await expect(page).toHaveURL(/\/app\/dashboard(?:\?.*)?$/);
-    await expect(page.getByText(/next best step|recommended for you/i).first()).toBeVisible();
+    await expect(page.getByText(/next best step|recommended for you|report spotlight/i).first()).toBeVisible();
     await expect(page.getByText(/study queue|action queue/i).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /open wallet|open attempt timeline/i }).first()).toBeVisible();
 
@@ -60,11 +60,13 @@ test.describe("Student utility workspace coverage", () => {
     await expect(page).toHaveURL(/\/app\/settings(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /settings/i }).first()).toBeVisible();
     await expect(page.getByText(/account controls/i).first()).toBeVisible();
-    await expect(page.getByText(/what you can do here/i).first()).toBeVisible();
+    await expect(page.getByText(/what this page covers/i).first()).toBeVisible();
     await expect(page.getByText(/session and access/i).first()).toBeVisible();
     await expect(page.getByText(/support handoff/i).first()).toBeVisible();
     await expect(
-      page.getByText(/password resets, institute corrections, and administrative identity changes still happen outside this learner shell/i).first(),
+      page.getByText(
+        /password resets, institute corrections, and administrative identity changes still happen outside this learner shell|password resets, institute corrections, and identity changes still happen outside this learner shell/i,
+      ).first(),
     ).toBeVisible();
     await expect(page.getByRole("button", { name: /logout from this device/i }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /profile/i }).first()).toBeVisible();
@@ -80,7 +82,11 @@ test.describe("Student utility workspace coverage", () => {
       await expect(page.getByText(/inbox overview/i).first()).toBeVisible();
       await expect(page.getByText(/how to use this inbox/i).first()).toBeVisible();
       await expect(page.getByText(/best next checks/i).first()).toBeVisible();
-      await expect(page.getByText(/open attempts for active work and results when you expect a score or review release/i).first()).toBeVisible();
+      await expect(
+        page.getByText(
+          /open attempts for active work and results when you expect a score or review release|open attempts for active work and results for score or review updates/i,
+        ).first(),
+      ).toBeVisible();
       await expect(page.getByRole("link", { name: /open results/i }).first()).toBeVisible();
 
       const markReadButton = page.getByRole("button", { name: /^mark read$/i }).first();

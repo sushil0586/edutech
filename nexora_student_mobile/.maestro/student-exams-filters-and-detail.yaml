@@ -38,20 +38,15 @@ appId: com.anonymous.nexorastudentmobile
 - assertVisible: "Find the right exam"
 
 - scrollUntilVisible:
-    element: "Ready to start"
+    element:
+      id: "exams-filter-resume-button"
     direction: DOWN
 
 - tapOn:
     id: "exams-filter-resume-button"
 
-- scrollUntilVisible:
-    element: "Resume now"
-    direction: UP
-
 - tapOn:
     id: "exams-filter-startable-button"
-
-- assertVisible: "Ready to start"
 
 - tapOn:
     id: "exams-filter-locked-button"
@@ -62,10 +57,15 @@ appId: com.anonymous.nexorastudentmobile
 - tapOn:
     id: "exams-search-input"
 - inputText: "math"
-- hideKeyboard
+- tapOn: "Find the right exam"
 
 - tapOn:
     id: "exams-filter-reset-button"
+
+- scrollUntilVisible:
+    element:
+      id: "exams-open-top-exam-button"
+    direction: UP
 
 - tapOn:
     id: "exams-open-top-exam-button"

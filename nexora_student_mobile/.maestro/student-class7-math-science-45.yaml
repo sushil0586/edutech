@@ -1,0 +1,79 @@
+appId: com.anonymous.nexorastudentmobile
+---
+# Required env:
+# STUDENT_USERNAME
+# STUDENT_PASSWORD
+# EXAM_SEARCH
+
+- launchApp:
+    clearState: true
+
+- extendedWaitUntil:
+    visible: "Login"
+    timeout: 30000
+
+- tapOn: "Login"
+- tapOn:
+    text: "Username"
+- inputText: ${STUDENT_USERNAME}
+
+- tapOn:
+    text: "Enter password"
+- inputText: ${STUDENT_PASSWORD}
+
+- hideKeyboard
+- tapOn: "Login"
+
+- extendedWaitUntil:
+    visible: "Student Dashboard"
+    timeout: 30000
+
+- tapOn: "Open Exam"
+
+- assertVisible: "Exam Readiness"
+- assertVisible: "Start Attempt"
+- assertVisible: "60m"
+- assertVisible: "45"
+
+- tapOn:
+    id: "exam-detail-primary-action-button"
+
+- extendedWaitUntil:
+    visible: "Live Attempt"
+    timeout: 30000
+
+- assertVisible: "Question navigator"
+
+- scrollUntilVisible:
+    element: "Current question"
+    direction: DOWN
+
+- assertVisible: "Current question"
+
+- scrollUntilVisible:
+    element:
+      id: "attempt-runtime-submit-button"
+    direction: UP
+
+- tapOn:
+    id: "attempt-runtime-submit-button"
+
+- scrollUntilVisible:
+    element: "Ready to submit?"
+    direction: DOWN
+
+- scrollUntilVisible:
+    element:
+      id: "attempt-runtime-submit-now-button"
+    direction: DOWN
+
+- tapOn:
+    id: "attempt-runtime-submit-now-button"
+
+- extendedWaitUntil:
+    visible: "Attempt Summary"
+    timeout: 30000
+
+- assertVisible: "Attempt Summary"
+- assertVisible: "Submission state"
+- assertVisible: "What happens next"

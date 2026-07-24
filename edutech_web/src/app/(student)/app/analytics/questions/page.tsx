@@ -1,6 +1,13 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
+import { fetchCurrentAccountProfile } from "@/lib/auth/session";
 import { StudentKpiGrid } from "@/components/ui/student-kpi-grid";
 import { StudentPageHeader } from "@/components/ui/student-page-header";
+import { StudentReportFilters } from "@/components/ui/student-report-filters";
+import {
+  StudentQuestionPatternReport,
+  type StudentQuestionPatternRow,
+} from "@/components/ui/student-question-pattern-report";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import {
   StudentAnalyticsDetailHero,
@@ -11,6 +18,7 @@ import {
   buildAnalyticsQuestionTypeHref,
   buildAnalyticsSubjectHref,
   buildAnalyticsTopicHref,
+  loadStudentAnalyticsBundle,
 } from "@/lib/student/analytics";
 import {
   benchmarkLabel,
@@ -19,6 +27,32 @@ import {
   questionTypeLabel,
   titleCaseState,
 } from "@/lib/student/formatters";
+import {
+  ALL_SOURCES_CONTEXT,
+  ALL_SUBJECTS_CONTEXT,
+  getStudentSourceOptions,
+  getStudentSubjectOptions,
+  resolveSelectedStudentSource,
+  resolveSelectedStudentSourceTeacher,
+  resolveSelectedStudentSubject,
+  STUDENT_SOURCE_CONTEXT_COOKIE,
+  STUDENT_SOURCE_TEACHER_CONTEXT_COOKIE,
+  STUDENT_SUBJECT_CONTEXT_COOKIE,
+} from "@/lib/student/subject-context";
+
+function questionBenchmarkSignalLabel(value: {
+  participant_count: number;
+  correct_percentage: string;
+} | null) {
+  if (!value) {
+    return "No school peer data yet";
+  }
+
+  return `${percentageLabel(value.correct_percentage)} correct · ${peerRecordLabel(
+    value.participant_count,
+    "records",
+  )}`;
+}
 
 export default async function StudentQuestionAnalyticsPage({
   searchParams,
@@ -32,6 +66,21 @@ export default async function StudentQuestionAnalyticsPage({
   }>;
 }) {
   const params = await searchParams;
+  const profile = await fetchCurrentAccountProfile();
+  const registrationContext = profile?.registration_context ?? {};
+  const subjectOptions = getStudentSubjectOptions(profile ?? registrationContext);
+  const cookieStore = await cookies();
+  const selectedSubject = resolveSelectedStudentSubject(
+    subjectOptions,
+    params.subject ??
+      cookieStore.get(STUDENT_SUBJECT_CONTEXT_COOKIE)?.value ??
+      ALL_SUBJECTS_CONTEXT,
+  );
+  const selectedSource = resolveSelectedStudentSource(
+    params.source ??
+      cookieStore.get(STUDENT_SOURCE_CONTEXT_COOKIE)?.value ??
+      ALL_SOURCES_CONTEXT,
+  );
   const state = getStudentApiState();
 
   if (!state.apiConfigured) {
@@ -51,17 +100,31 @@ export default async function StudentQuestionAnalyticsPage({
   }
 
   let data = null;
+  const bundle = await loadStudentAnalyticsBundle();
   try {
     data = await fetchStudentQuestionAnalytics({
-      subject: params.subject ?? null,
+      subject: selectedSubject === ALL_SUBJECTS_CONTEXT ? null : selectedSubject,
       topic: params.topic ?? null,
       question_type: params.question_type ?? null,
-      source: params.source ?? null,
+      source: selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
       teacher: params.teacher ?? null,
     });
   } catch {
     data = null;
   }
+  const { teacherOptions } = getStudentSourceOptions([
+    ...bundle.results,
+    ...bundle.exams,
+    ...(bundle.summary?.source_breakdown ?? []),
+    ...(bundle.summary?.recent_exams ?? []),
+  ]);
+  const selectedTeacherId = resolveSelectedStudentSourceTeacher(
+    teacherOptions,
+    selectedSource,
+    params.teacher ??
+      cookieStore.get(STUDENT_SOURCE_TEACHER_CONTEXT_COOKIE)?.value ??
+      null,
+  );
 
   const titleParts = [
     params.subject?.trim() || null,
@@ -79,19 +142,73 @@ export default async function StudentQuestionAnalyticsPage({
       )
     : 0;
   const activeFilterCount = [
-    params.subject,
+    selectedSubject === ALL_SUBJECTS_CONTEXT ? null : selectedSubject,
     params.topic,
     params.question_type,
-    params.source,
-    params.teacher,
+    selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
+    selectedTeacherId,
   ].filter(Boolean).length;
+  const questionPatternRows: StudentQuestionPatternRow[] = (data?.questions ?? []).map((item) => {
+    const resultToneClass =
+      item.your_result === "correct"
+        ? "statusLive"
+        : item.your_result === "wrong"
+          ? "statusDanger"
+          : "statusWarning";
+    const supportNote = item.attempted_by_you
+      ? item.your_result === "correct"
+        ? "This question is currently a stable point in your pattern."
+        : `This question is costing marks in ${item.topic_name ?? "this topic"} and should be reviewed again.`
+      : "This question was skipped and may indicate hesitation or timing pressure.";
+
+    return {
+      id: item.question_id,
+      questionLabel: item.question_text_summary,
+      subjectLabel: item.subject_name ?? "Unknown subject",
+      topicLabel: item.topic_name ?? "Unmapped topic",
+      typeLabel: questionTypeLabel(item.question_type),
+      difficultyLabel: titleCaseState(item.difficulty_level.replace(/_/g, " ")),
+      resultLabel: titleCaseState(item.your_result),
+      resultToneClass,
+      timeLabel: item.your_time_spent_seconds ? `${item.your_time_spent_seconds}s` : "N/A",
+      benchmarkLabel: questionBenchmarkSignalLabel(item.school_benchmark),
+      supportNote,
+      explanation:
+        item.explanation ||
+        "Open the related drill-downs to compare this question pattern with the larger subject or topic trend.",
+      subjectHref: item.subject_name
+        ? buildAnalyticsSubjectHref(item.subject_name, {
+            source: selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
+            teacher: selectedTeacherId,
+          })
+        : null,
+      topicHref: item.topic_id
+        ? buildAnalyticsTopicHref({
+          topicId: item.topic_id,
+          subject:
+            item.subject_name ??
+            (selectedSubject === ALL_SUBJECTS_CONTEXT ? null : selectedSubject),
+          source: selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
+          teacher: selectedTeacherId,
+        })
+        : null,
+      typeHref: buildAnalyticsQuestionTypeHref({
+        questionType: item.question_type,
+        subject:
+          item.subject_name ??
+          (selectedSubject === ALL_SUBJECTS_CONTEXT ? null : selectedSubject),
+        source: selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
+        teacher: selectedTeacherId,
+      }),
+    };
+  });
 
   return (
     <div className="studentPage studentDashboardModern">
       <StudentPageHeader
-        eyebrow="Question drill-down"
-        title={title}
-        description="Review question-level outcomes and see exactly where marks are being lost."
+        eyebrow="Question pattern report"
+        title={titleParts.length ? `${titleParts.join(" · ")} Question Pattern Report` : "Question Pattern Report"}
+        description="Review question-level academic patterns and see exactly where marks are being lost, skipped, or recovered."
         statusLabel={data ? `${data.questions.length} questions analyzed` : "Unable to load question analytics"}
         statusTone={data ? "live" : "demo"}
         action={<Link className="button buttonGhost" href="/app/analytics">Back to Analytics</Link>}
@@ -109,17 +226,30 @@ export default async function StudentQuestionAnalyticsPage({
         />
       ) : (
         <>
+          <StudentReportFilters
+            basePath="/app/analytics/questions"
+            title="Question report filters"
+            helper="Refine the question table by subject and source before reading topic and format patterns."
+            selectedSource={selectedSource}
+            selectedSubject={selectedSubject}
+            selectedTeacherId={selectedTeacherId}
+            subjectOptions={subjectOptions}
+            teacherOptions={teacherOptions}
+          />
+
           <StudentAnalyticsDetailHero
-            eyebrow="Question evidence"
-            title={params.question_type ? questionTypeLabel(params.question_type) : "All tracked questions"}
+            eyebrow="Question pattern report"
+            title={params.question_type ? `${questionTypeLabel(params.question_type)} pattern` : "All tracked question patterns"}
             description={
               params.topic
                 ? "This view is scoped to a topic and optional question type so you can confirm whether one pattern keeps costing marks."
                 : "This view shows the question-level evidence behind the analytics summary, including outcomes, time spent, and peer benchmarks."
             }
             badges={[
-              params.subject ?? "All subjects",
-              params.source ? `Source · ${titleCaseState(params.source)}` : "All sources",
+              selectedSubject !== ALL_SUBJECTS_CONTEXT ? selectedSubject : "All subjects",
+              selectedSource !== ALL_SOURCES_CONTEXT
+                ? `Source · ${titleCaseState(selectedSource)}`
+                : "All sources",
               params.topic ? "Topic scoped" : "All tracked topics",
             ]}
             stats={[
@@ -152,6 +282,15 @@ export default async function StudentQuestionAnalyticsPage({
             }
           />
 
+          <StudentQuestionPatternReport
+            rows={questionPatternRows}
+            scopeLabel={
+              params.topic
+                ? `${questionPatternRows.length} questions in this topic slice`
+                : `${questionPatternRows.length} questions in this report`
+            }
+          />
+
           <section className="contentCard">
             <div className="sectionHeading">
               <strong>Active Filters</strong>
@@ -161,12 +300,12 @@ export default async function StudentQuestionAnalyticsPage({
               {params.subject ? (
                 <Link
                   className="studentDashboardMiniBadge"
-                  href={buildAnalyticsSubjectHref(params.subject, {
-                    source: params.source ?? null,
-                    teacher: params.teacher ?? null,
+                  href={buildAnalyticsSubjectHref(selectedSubject, {
+                    source: selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
+                    teacher: selectedTeacherId,
                   })}
                 >
-                  Subject: {params.subject}
+                  Subject: {selectedSubject}
                 </Link>
               ) : null}
               {params.question_type ? (
@@ -174,9 +313,10 @@ export default async function StudentQuestionAnalyticsPage({
                   className="studentDashboardMiniBadge"
                   href={buildAnalyticsQuestionTypeHref({
                     questionType: params.question_type,
-                    subject: params.subject ?? null,
-                    source: params.source ?? null,
-                    teacher: params.teacher ?? null,
+                    subject:
+                      selectedSubject === ALL_SUBJECTS_CONTEXT ? null : selectedSubject,
+                    source: selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
+                    teacher: selectedTeacherId,
                   })}
                 >
                   Type: {questionTypeLabel(params.question_type)}
@@ -285,7 +425,7 @@ export default async function StudentQuestionAnalyticsPage({
 
           <section className="contentCard">
             <div className="sectionHeading">
-              <strong>Question Evidence</strong>
+              <strong>Question Evidence Ledger</strong>
               <span>{data.questions.length} items</span>
             </div>
             <StudentQuestionInsightList

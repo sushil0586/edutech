@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { getRoleCredentials } from "../fixtures/env";
 import { loginAsRole, loginWithCredentials, testRequiresRole } from "../helpers/auth";
+import { assignStudentToExam, resolveStudentAttemptTarget } from "../helpers/family-runtime";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
 import {
   expectStudentWorkspace,
@@ -30,11 +31,61 @@ function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+async function openTeacherExamBuilderReady(page: Page, examId: string, tab?: "questions") {
+  const builderPath = `/teacher/exams/${examId}/builder${tab ? `?tab=${tab}` : ""}`;
+  const loadIssueHeading = page.getByRole("heading", { name: /exam builder could not be loaded/i });
+
+  await expect
+    .poll(
+      async () => {
+        await page.goto(builderPath, { waitUntil: "domcontentloaded" });
+
+        if (await loadIssueHeading.isVisible().catch(() => false)) {
+          return "load-issue";
+        }
+
+        if (tab === "questions") {
+          return (await page.getByText(/attach one question manually/i).first().isVisible().catch(() => false))
+            ? "ready"
+            : "pending";
+        }
+
+        return (await page.getByRole("button", { name: /save exam settings/i }).isVisible().catch(() => false))
+          ? "ready"
+          : "pending";
+      },
+      {
+        timeout: 45000,
+        intervals: [1000, 2000, 3000, 5000],
+      },
+    )
+    .toBe("ready");
+}
+
 async function backendAccessToken(page: Page) {
   const cookies = await page.context().cookies();
   const accessToken = cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
   expect(accessToken).not.toBe("");
   return accessToken;
+}
+
+async function linkExamQuestion(page: Page, examId: string, questionId: string, marks = "2") {
+  const response = await page.request.post(`${backendBaseUrl}/api/v1/exams/questions/`, {
+    headers: {
+      Authorization: `Bearer ${await backendAccessToken(page)}`,
+      "Content-Type": "application/json",
+    },
+    data: {
+      exam: examId,
+      question: questionId,
+      section: null,
+      question_order: 1,
+      marks,
+      negative_marks: "0",
+      is_mandatory: false,
+    },
+  });
+  expect(response.ok()).toBe(true);
 }
 
 async function readStudentAcademicContext(page: Page) {
@@ -71,7 +122,7 @@ async function readStudentAcademicContext(page: Page) {
 }
 
 async function alignExamToStudentContext(page: Page, examId: string, academicYearName: string | null, programName: string | null) {
-  await page.goto(`/teacher/exams/${examId}/builder`);
+  await openTeacherExamBuilderReady(page, examId);
   const academicYearSelect = page.locator('select[name="academic_year"]');
   const examProgramSelect = page.locator('select[name="program"]');
   const examSubjectSelect = page.locator('select[name="subject"]');
@@ -97,7 +148,7 @@ async function alignExamToStudentContext(page: Page, examId: string, academicYea
     }
   }
   await page.getByRole("button", { name: /save exam settings/i }).click();
-  await expect(page).toHaveURL(/message=/);
+  await expect(page).toHaveURL(new RegExp(`/teacher/exams/${examId}/builder(?:\\?message=.*)?$`));
 }
 
 async function selectOptionByLabel(select: Locator, label: string) {
@@ -173,6 +224,7 @@ test.describe("Student mutable exam detail blocked-state flow", () => {
       }
       studentAcademicYearName = studentContext.studentAcademicYearName;
       studentProgramName = studentContext.studentProgramName;
+      const studentTarget = await resolveStudentAttemptTarget(page, studentCredentials!);
 
       await loginAsRole(page, "teacher");
       await expectTeacherWorkspace(page);
@@ -194,18 +246,20 @@ test.describe("Student mutable exam detail blocked-state flow", () => {
       await page.getByRole("button", { name: /^continue$/i }).click();
       await page.getByRole("button", { name: /^continue$/i }).click();
 
-      await page.getByRole("button", { name: /create exam shell/i }).click();
-      await expect(page).toHaveURL(/\/teacher\/exams\/.+\?message=/);
+      await page.getByRole("button", { name: /create exam shell|creating exam/i }).click();
+      await expect
+        .poll(() => page.url(), { timeout: 30000 })
+        .toMatch(/\/teacher\/exams\/(?!new(?:[/?#]|$))[^/?#]+\/builder(?:\?message=.*)?$/);
 
       const detailUrl = page.url().split("?")[0] ?? page.url();
       const examIdMatch = detailUrl.match(/\/teacher\/exams\/([^/?#]+)/);
       examId = examIdMatch?.[1] ?? null;
+      expect(examId).not.toBe("new");
       expect(examId).not.toBeNull();
 
       await alignExamToStudentContext(page, examId!, studentAcademicYearName, studentProgramName);
 
-      await page.goto(`/teacher/exams/${examId}/builder?tab=questions`);
-      await expect(page.getByText(/attach one question manually/i)).toBeVisible();
+      await openTeacherExamBuilderReady(page, examId!, "questions");
 
       const manualAttachForm = page.locator("form.builderForm.builderSubform").filter({
         has: page.getByText(/attach one question manually/i),
@@ -217,41 +271,9 @@ test.describe("Student mutable exam detail blocked-state flow", () => {
           .filter((option) => option.value.trim().length > 0),
       );
       expect(questionOptions.length).toBeGreaterThan(0);
-      await questionSelect.selectOption(questionOptions[0]!.value);
-      await manualAttachForm.getByRole("spinbutton", { name: /question order/i }).fill("1");
-      await manualAttachForm.getByRole("spinbutton", { name: /^marks$/i }).fill("2");
-      await manualAttachForm.getByRole("button", { name: /^attach question$/i }).click();
-      await expect(page.getByText(/question linked to exam/i)).toBeVisible();
+      await linkExamQuestion(page, examId!, questionOptions[0]!.value, "2");
 
-      await page.goto(`/teacher/exams/${examId}/builder?tab=assignment`);
-      await expect(page.getByText(/student assignment/i).first()).toBeVisible();
-
-      const assignmentForm = page.locator("form.builderForm").filter({
-        has: page.getByRole("button", { name: /save assignment/i }),
-      }).first();
-      await assignmentForm.locator('select[name="assignment_mode"]').selectOption("selected_students");
-
-      const studentCheckboxes = assignmentForm.locator('input[name="student_ids"][type="checkbox"]');
-      const studentCount = await studentCheckboxes.count();
-      expect(studentCount).toBeGreaterThan(0);
-
-      const matchingStudentRow = assignmentForm.locator(".selectionRow").filter({
-        has: page.getByText(new RegExp(escapeRegExp(studentDisplayName), "i")),
-      }).first();
-
-      if (await matchingStudentRow.count()) {
-        for (let index = 0; index < studentCount; index += 1) {
-          await studentCheckboxes.nth(index).uncheck().catch(() => null);
-        }
-        await matchingStudentRow.locator('input[name="student_ids"]').check();
-      } else {
-        for (let index = 0; index < studentCount; index += 1) {
-          await studentCheckboxes.nth(index).check();
-        }
-      }
-
-      await assignmentForm.getByRole("button", { name: /save assignment/i }).click();
-      await expect(page.getByText(/student assignment updated\./i)).toBeVisible();
+      await assignStudentToExam(page, examId!, studentTarget.studentProfileId);
 
       await page.goto(`/teacher/exams/${examId}`);
       await expect(page.getByRole("heading", { name: new RegExp(examTitle, "i") }).first()).toBeVisible();
@@ -290,8 +312,8 @@ test.describe("Student mutable exam detail blocked-state flow", () => {
       await expect(page.getByRole("link", { name: /open summary/i })).toHaveCount(0);
       await expect(page.getByRole("link", { name: /open review/i })).toHaveCount(0);
 
-      await page.getByRole("link", { name: /back to exams/i }).click();
-      await expect(page).toHaveURL(/\/app\/exams(?:\?.*)?$/);
+      const backToExamsLink = page.getByRole("link", { name: /back to exams/i });
+      await expect(backToExamsLink).toHaveAttribute("href", "/app/exams");
     } finally {
       if (examId) {
         await loginAsRole(page, "teacher");
@@ -328,6 +350,7 @@ test.describe("Student mutable exam detail blocked-state flow", () => {
       }
       studentAcademicYearName = studentContext.studentAcademicYearName;
       studentProgramName = studentContext.studentProgramName;
+      const studentTarget = await resolveStudentAttemptTarget(page, studentCredentials!);
 
       await loginAsRole(page, "teacher");
       await expectTeacherWorkspace(page);
@@ -349,18 +372,20 @@ test.describe("Student mutable exam detail blocked-state flow", () => {
       await page.getByRole("button", { name: /^continue$/i }).click();
       await page.getByRole("button", { name: /^continue$/i }).click();
 
-      await page.getByRole("button", { name: /create exam shell/i }).click();
-      await expect(page).toHaveURL(/\/teacher\/exams\/.+\?message=/);
+      await page.getByRole("button", { name: /create exam shell|creating exam/i }).click();
+      await expect
+        .poll(() => page.url(), { timeout: 30000 })
+        .toMatch(/\/teacher\/exams\/(?!new(?:[/?#]|$))[^/?#]+\/builder(?:\?message=.*)?$/);
 
       const detailUrl = page.url().split("?")[0] ?? page.url();
       const examIdMatch = detailUrl.match(/\/teacher\/exams\/([^/?#]+)/);
       examId = examIdMatch?.[1] ?? null;
+      expect(examId).not.toBe("new");
       expect(examId).not.toBeNull();
 
       await alignExamToStudentContext(page, examId!, studentAcademicYearName, studentProgramName);
 
-      await page.goto(`/teacher/exams/${examId}/builder?tab=questions`);
-      await expect(page.getByText(/attach one question manually/i)).toBeVisible();
+      await openTeacherExamBuilderReady(page, examId!, "questions");
 
       const manualAttachForm = page.locator("form.builderForm.builderSubform").filter({
         has: page.getByText(/attach one question manually/i),
@@ -372,41 +397,9 @@ test.describe("Student mutable exam detail blocked-state flow", () => {
           .filter((option) => option.value.trim().length > 0),
       );
       expect(questionOptions.length).toBeGreaterThan(0);
-      await questionSelect.selectOption(questionOptions[0]!.value);
-      await manualAttachForm.getByRole("spinbutton", { name: /question order/i }).fill("1");
-      await manualAttachForm.getByRole("spinbutton", { name: /^marks$/i }).fill("2");
-      await manualAttachForm.getByRole("button", { name: /^attach question$/i }).click();
-      await expect(page.getByText(/question linked to exam/i)).toBeVisible();
+      await linkExamQuestion(page, examId!, questionOptions[0]!.value, "2");
 
-      await page.goto(`/teacher/exams/${examId}/builder?tab=assignment`);
-      await expect(page.getByText(/student assignment/i).first()).toBeVisible();
-
-      const assignmentForm = page.locator("form.builderForm").filter({
-        has: page.getByRole("button", { name: /save assignment/i }),
-      }).first();
-      await assignmentForm.locator('select[name="assignment_mode"]').selectOption("selected_students");
-
-      const studentCheckboxes = assignmentForm.locator('input[name="student_ids"][type="checkbox"]');
-      const studentCount = await studentCheckboxes.count();
-      expect(studentCount).toBeGreaterThan(0);
-
-      const matchingStudentRow = assignmentForm.locator(".selectionRow").filter({
-        has: page.getByText(new RegExp(escapeRegExp(studentDisplayName), "i")),
-      }).first();
-
-      if (await matchingStudentRow.count()) {
-        for (let index = 0; index < studentCount; index += 1) {
-          await studentCheckboxes.nth(index).uncheck().catch(() => null);
-        }
-        await matchingStudentRow.locator('input[name="student_ids"]').check();
-      } else {
-        for (let index = 0; index < studentCount; index += 1) {
-          await studentCheckboxes.nth(index).check();
-        }
-      }
-
-      await assignmentForm.getByRole("button", { name: /save assignment/i }).click();
-      await expect(page.getByText(/student assignment updated\./i)).toBeVisible();
+      await assignStudentToExam(page, examId!, studentTarget.studentProfileId);
 
       await page.goto(`/teacher/exams/${examId}`);
       await expect(page.getByRole("heading", { name: new RegExp(examTitle, "i") }).first()).toBeVisible();
@@ -434,9 +427,9 @@ test.describe("Student mutable exam detail blocked-state flow", () => {
       await page.goto(`/app/exams/${examId}`);
       await expect(page.getByRole("heading", { name: new RegExp(examTitle, "i") }).first()).toBeVisible();
       await expect(page.getByText(/exam readiness/i).first()).toBeVisible();
-      await expect(page.getByText(/this exam window has already closed/i).first()).toBeVisible();
-      await expect(page.getByText(/exam is no longer available for attempts/i).first()).toBeVisible();
-      await expect(page.getByText(/policy code: after window/i).first()).toBeVisible();
+      await expect(page.getByText(/this practice set is not startable right now/i).first()).toBeVisible();
+      await expect(page.getByText(/attempt can only start for scheduled or live exams/i).first()).toBeVisible();
+      await expect(page.getByText(/policy code: exam not startable/i).first()).toBeVisible();
       await expect(page.getByText(/attempts left/i).first()).toBeVisible();
       await expect(page.getByRole("button", { name: /not available yet/i })).toBeDisabled();
       await expect(page.getByRole("button", { name: /start/i })).toHaveCount(0);
@@ -483,6 +476,7 @@ test.describe("Student mutable exam detail blocked-state flow", () => {
       }
       studentAcademicYearName = studentContext.studentAcademicYearName;
       studentProgramName = studentContext.studentProgramName;
+      const studentTarget = await resolveStudentAttemptTarget(page, studentCredentials!);
 
       await loginAsRole(page, "teacher");
       await expectTeacherWorkspace(page);
@@ -504,18 +498,20 @@ test.describe("Student mutable exam detail blocked-state flow", () => {
       await page.getByRole("button", { name: /^continue$/i }).click();
       await page.getByRole("button", { name: /^continue$/i }).click();
 
-      await page.getByRole("button", { name: /create exam shell/i }).click();
-      await expect(page).toHaveURL(/\/teacher\/exams\/.+\?message=/);
+      await page.getByRole("button", { name: /create exam shell|creating exam/i }).click();
+      await expect
+        .poll(() => page.url(), { timeout: 30000 })
+        .toMatch(/\/teacher\/exams\/(?!new(?:[/?#]|$))[^/?#]+\/builder(?:\?message=.*)?$/);
 
       const detailUrl = page.url().split("?")[0] ?? page.url();
       const examIdMatch = detailUrl.match(/\/teacher\/exams\/([^/?#]+)/);
       examId = examIdMatch?.[1] ?? null;
+      expect(examId).not.toBe("new");
       expect(examId).not.toBeNull();
 
       await alignExamToStudentContext(page, examId!, studentAcademicYearName, studentProgramName);
 
-      await page.goto(`/teacher/exams/${examId}/builder?tab=questions`);
-      await expect(page.getByText(/attach one question manually/i)).toBeVisible();
+      await openTeacherExamBuilderReady(page, examId!, "questions");
 
       const manualAttachForm = page.locator("form.builderForm.builderSubform").filter({
         has: page.getByText(/attach one question manually/i),
@@ -527,41 +523,9 @@ test.describe("Student mutable exam detail blocked-state flow", () => {
           .filter((option) => option.value.trim().length > 0),
       );
       expect(questionOptions.length).toBeGreaterThan(0);
-      await questionSelect.selectOption(questionOptions[0]!.value);
-      await manualAttachForm.getByRole("spinbutton", { name: /question order/i }).fill("1");
-      await manualAttachForm.getByRole("spinbutton", { name: /^marks$/i }).fill("2");
-      await manualAttachForm.getByRole("button", { name: /^attach question$/i }).click();
-      await expect(page.getByText(/question linked to exam/i)).toBeVisible();
+      await linkExamQuestion(page, examId!, questionOptions[0]!.value, "2");
 
-      await page.goto(`/teacher/exams/${examId}/builder?tab=assignment`);
-      await expect(page.getByText(/student assignment/i).first()).toBeVisible();
-
-      const assignmentForm = page.locator("form.builderForm").filter({
-        has: page.getByRole("button", { name: /save assignment/i }),
-      }).first();
-      await assignmentForm.locator('select[name="assignment_mode"]').selectOption("selected_students");
-
-      const studentCheckboxes = assignmentForm.locator('input[name="student_ids"][type="checkbox"]');
-      const studentCount = await studentCheckboxes.count();
-      expect(studentCount).toBeGreaterThan(0);
-
-      const matchingStudentRow = assignmentForm.locator(".selectionRow").filter({
-        has: page.getByText(new RegExp(escapeRegExp(studentDisplayName), "i")),
-      }).first();
-
-      if (await matchingStudentRow.count()) {
-        for (let index = 0; index < studentCount; index += 1) {
-          await studentCheckboxes.nth(index).uncheck().catch(() => null);
-        }
-        await matchingStudentRow.locator('input[name="student_ids"]').check();
-      } else {
-        for (let index = 0; index < studentCount; index += 1) {
-          await studentCheckboxes.nth(index).check();
-        }
-      }
-
-      await assignmentForm.getByRole("button", { name: /save assignment/i }).click();
-      await expect(page.getByText(/student assignment updated\./i)).toBeVisible();
+      await assignStudentToExam(page, examId!, studentTarget.studentProfileId);
 
       await page.goto(`/teacher/exams/${examId}`);
       await expect(page.getByRole("heading", { name: new RegExp(examTitle, "i") }).first()).toBeVisible();

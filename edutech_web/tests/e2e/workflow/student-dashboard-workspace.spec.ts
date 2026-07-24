@@ -26,11 +26,9 @@ test.describe("Student dashboard workspace", () => {
 
     await gotoWithRuntimeRecovery(page, "/app/dashboard");
     await expect(page).toHaveURL(/\/app\/dashboard(?:\?.*)?$/);
-    await expect(page.getByText(/next best step/i).first()).toBeVisible();
-    await expect(page.getByText(/study queue/i).first()).toBeVisible();
-    await expect(page.getByText(/available for you/i).first()).toBeVisible();
-    await expect(page.getByText(/premium access/i).first()).toBeVisible();
-    await expect(page.getByText(/latest activity/i).first()).toBeVisible();
+    await expect(page.locator(".studentDashboardRecommendation").first()).toBeVisible();
+    await expect(page.locator(".studentDashboardPremiumSection").first()).toBeVisible();
+    await expect(page.locator(".studentDashboardBottomGrid").first()).toBeVisible();
     await expect(page.locator(".studentDashboardChipRow").first()).toBeVisible();
 
     const subjectChips = page.locator(".studentDashboardChip");
@@ -41,13 +39,13 @@ test.describe("Student dashboard workspace", () => {
     await followLinkTarget(page, attemptTimelineLink, /\/app\/attempts(?:\?.*)?$/);
 
     await gotoWithRuntimeRecovery(page, "/app/dashboard");
-    await expect(page.getByText(/study queue/i).first()).toBeVisible();
+    await expect(page.locator(".studentDashboardExamGrid").first()).toBeVisible();
 
     const walletLink = page.getByRole("link", { name: /open wallet/i }).first();
     await followLinkTarget(page, walletLink, /\/app\/wallet(?:\?.*)?$/);
 
     await gotoWithRuntimeRecovery(page, "/app/dashboard");
-    await expect(page.getByText(/next best step/i).first()).toBeVisible();
+    await expect(page.locator(".studentDashboardRecommendation").first()).toBeVisible();
 
     const primaryRecommendationAction = page
       .locator(".studentDashboardRecommendation")
@@ -60,7 +58,7 @@ test.describe("Student dashboard workspace", () => {
     );
 
     await gotoWithRuntimeRecovery(page, "/app/dashboard");
-    await expect(page.getByText(/available for you/i).first()).toBeVisible();
+    await expect(page.locator(".studentDashboardExamGrid").nth(1)).toBeVisible();
     await followLinkTarget(
       page,
       page.getByRole("link", { name: /^view all$/i }).first(),
@@ -68,7 +66,15 @@ test.describe("Student dashboard workspace", () => {
     );
 
     await gotoWithRuntimeRecovery(page, "/app/dashboard");
-    await expect(page.getByText(/your progress/i).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /open reports hub/i }).first()).toBeVisible();
+    await followLinkTarget(
+      page,
+      page.getByRole("link", { name: /open reports hub/i }).first(),
+      /\/app\/reports(?:\?.*)?$/,
+    );
+
+    await gotoWithRuntimeRecovery(page, "/app/dashboard");
+    await expect(page.getByRole("link", { name: /view detailed report/i }).first()).toBeVisible();
     await followLinkTarget(
       page,
       page.getByRole("link", { name: /view detailed report/i }).first(),
@@ -76,7 +82,7 @@ test.describe("Student dashboard workspace", () => {
     );
 
     await gotoWithRuntimeRecovery(page, "/app/dashboard");
-    await expect(page.getByText(/latest activity/i).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /^view all$/i }).last()).toBeVisible();
     await followLinkTarget(
       page,
       page.getByRole("link", { name: /^view all$/i }).last(),

@@ -1,0 +1,33 @@
+appId: com.anonymous.nexorastudentmobile
+---
+- launchApp:
+    clearState: true
+
+- extendedWaitUntil:
+    visible: "Login"
+    timeout: 30000
+
+- tapOn: "Login"
+- tapOn:
+    text: "Username"
+- inputText: a001
+
+- tapOn:
+    text: "Enter password"
+- inputText: Ansh@1789
+
+- hideKeyboard
+- tapOn: "Login"
+
+- extendedWaitUntil:
+    visible: "Student Dashboard"
+    timeout: 30000
+
+- tapOn: "Open Exam"
+
+- extendedWaitUntil:
+    visible: "Exam Readiness"
+    timeout: 30000
+
+- assertVisible: "Start Attempt"
+- assertVisible: "45"

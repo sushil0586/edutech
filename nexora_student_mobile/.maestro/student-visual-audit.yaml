@@ -1,0 +1,90 @@
+appId: com.anonymous.nexorastudentmobile
+---
+# Set these before running:
+# STUDENT_USERNAME
+# STUDENT_PASSWORD
+
+- launchApp:
+    clearState: true
+
+- extendedWaitUntil:
+    visible: "Login"
+    timeout: 30000
+
+- tapOn: "Login"
+- tapOn:
+    text: "Username"
+- inputText: ${STUDENT_USERNAME}
+
+- tapOn:
+    text: "Enter password"
+- inputText: ${STUDENT_PASSWORD}
+
+- hideKeyboard
+- tapOn: "Login"
+
+- extendedWaitUntil:
+    visible: "Student Dashboard"
+    timeout: 30000
+
+- takeScreenshot: "01-dashboard"
+
+- tapOn:
+    id: "dashboard-open-exams-button"
+
+- assertVisible: "Student Exams"
+- takeScreenshot: "02-exams-top"
+
+- scrollUntilVisible:
+    element:
+      id: "exams-open-top-exam-button"
+    direction: UP
+
+- tapOn:
+    id: "exams-open-top-exam-button"
+
+- assertVisible: "Exam Readiness"
+- takeScreenshot: "03-exam-readiness"
+
+- tapOn:
+    id: "exam-detail-open-exams-button"
+
+- assertVisible: "Student Exams"
+- tapOn: "Attempts"
+
+- assertVisible: "Student Attempts"
+- takeScreenshot: "04-attempts-top"
+
+- scrollUntilVisible:
+    element: "Resume now"
+    direction: DOWN
+
+- takeScreenshot: "05-attempts-resume"
+
+- tapOn: "Results"
+
+- assertVisible: "Student Results"
+- takeScreenshot: "06-results-top"
+
+- scrollUntilVisible:
+    element:
+      id: "results-timeline-summary-button"
+    direction: DOWN
+
+- takeScreenshot: "07-results-timeline"
+
+- tapOn: "Insights"
+
+- assertVisible: "Student Analytics"
+- takeScreenshot: "08-analytics-top"
+
+- scrollUntilVisible:
+    element: "Next action"
+    direction: DOWN
+
+- takeScreenshot: "09-analytics-action"
+
+- tapOn: "Profile"
+
+- assertVisible: "Student Profile"
+- takeScreenshot: "10-profile-top"

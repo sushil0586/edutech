@@ -1510,7 +1510,6 @@ def build_student_question_analytics(
             "id",
             "question_id",
             "selected_option_id",
-            "selected_option_ids",
             "answer_text",
             "is_correct",
             "marks_awarded",

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { answerCurrentAttemptQuestion } from "../helpers/attempt";
+import { answerCurrentAttemptQuestion, ensureToggleChecked } from "../helpers/attempt";
 import { loginAsRole, loginWithCredentials, testRequiresRole, type DirectLoginCredentials } from "../helpers/auth";
 import { assignStudentToExam, resolveStudentAttemptTarget, scheduleAndPublishExam } from "../helpers/family-runtime";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
@@ -380,9 +380,16 @@ test.describe("Student OPBMS navigation and recovery", () => {
 
       await answerCurrentAttemptQuestion(page, uniqueSeed, "OPBMS navigation recovery");
       await page.getByRole("button", { name: /^save answer$/i }).click();
-      await expect(
-        page.getByText(/response updated successfully|responses saved/i).first(),
-      ).toBeVisible();
+      await expect
+        .poll(async () => {
+          const mainText = ((await page.locator("main").textContent().catch(() => "")) ?? "").toLowerCase();
+          return (
+            mainText.includes("response updated successfully") ||
+            mainText.includes("responses saved") ||
+            mainText.includes("1 saved")
+          );
+        })
+        .toBe(true);
       await expectSavedCount(page, "1");
 
       await page.getByRole("link", { name: /^next$/i }).click();
@@ -391,13 +398,13 @@ test.describe("Student OPBMS navigation and recovery", () => {
       await page.getByRole("link", { name: /^previous$/i }).click();
       await expect(page.getByText(/1 of 45/i).first()).toBeVisible();
 
-      const thirdQuestionChip = page
-        .locator(".attemptQuestionNavChip")
-        .filter({ has: page.locator("strong", { hasText: /^3$/ }) })
-        .first();
-      await expect(thirdQuestionChip).toBeVisible();
-      await thirdQuestionChip.click();
-      await expect(page.getByText(/3 of 45/i).first()).toBeVisible();
+      const thirdQuestionLink = page.getByRole("link", { name: /^3\b/i }).first();
+      await expect(thirdQuestionLink).toBeVisible();
+      const thirdQuestionHref = await thirdQuestionLink.getAttribute("href");
+      expect(thirdQuestionHref).toBeTruthy();
+      await thirdQuestionLink.click();
+      await expect(page).toHaveURL(new RegExp(`${String(thirdQuestionHref).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
+      await expect(page.getByText(/3 of 45|current focus.*question 3/i).first()).toBeVisible();
 
       await page.reload({ waitUntil: "domcontentloaded" });
       await expect(page).toHaveURL(new RegExp(`/app/attempts/${attemptId}(?:\\?.*)?$`));
@@ -416,16 +423,14 @@ test.describe("Student OPBMS navigation and recovery", () => {
       await page.getByRole("link", { name: /^resume$/i }).first().click();
       await expect(page).toHaveURL(new RegExp(`/app/attempts/${attemptId}(?:\\?.*)?$`));
 
-      await page.getByRole("checkbox", { name: /mark for review/i }).check();
+      const markForReviewCheckbox = page.getByRole("checkbox", { name: /mark for review/i });
+      await ensureToggleChecked(markForReviewCheckbox);
+      await expect(markForReviewCheckbox).toBeChecked();
       await page.getByRole("button", { name: /^save & next$/i }).click();
       await expect(
-        page
-          .locator(".feedbackBannerSuccess")
-          .filter({
-            hasText:
-              /response updated successfully|answer saved\. moving to the next question|answer saved\. you have reached the final question/i,
-          })
-          .first(),
+        page.getByText(
+          /response updated successfully|answer saved\. moving to the next question|answer saved\. you have reached the final question|responses saved/i,
+        ).first(),
       ).toBeVisible();
 
       page.once("dialog", async (dialog) => {

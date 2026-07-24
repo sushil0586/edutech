@@ -608,6 +608,9 @@ export default async function InstituteExamDetailPage({
           <Link className="button buttonPrimary" href={`/institute/exams/${detail.id}/builder`}>
             {detail.status === "draft" ? "Continue Setup" : "Open Builder"}
           </Link>
+          <Link className="button buttonSecondary" href="#exam-actions">
+            Jump to Delivery Actions
+          </Link>
           <Link className="button buttonSecondary" href={`/institute/results?exam=${detail.id}`}>
             Open Results
           </Link>

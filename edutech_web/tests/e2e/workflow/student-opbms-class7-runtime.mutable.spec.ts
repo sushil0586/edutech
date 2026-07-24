@@ -461,7 +461,7 @@ test.describe("Student OPBMS class 7 published exam runtime", () => {
       ).toBeVisible();
       await expect(page.getByText(/1 saved/i).first()).toBeVisible();
       await expect(page.locator(".attemptConsoleSummaryCard").first()).toContainText(
-        /45 question(?:s)? still need a final look|45 still need a look|marked questions stay unresolved/i,
+        /45 questions still need attention before you finish|still need attention|take one last look/i,
       );
       await expect(page.getByRole("link", { name: /^previous$/i })).toBeVisible();
       await expect(page.getByRole("link", { name: /^next$/i })).toBeVisible();

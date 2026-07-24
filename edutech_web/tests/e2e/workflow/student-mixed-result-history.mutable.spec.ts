@@ -20,6 +20,20 @@ function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function pickStableStudentSubjectLabel(
+  options: Array<{ label?: string }> | null | undefined,
+) {
+  const labels = (options ?? [])
+    .map((item) => item.label?.trim() ?? "")
+    .filter((label) => label.length > 0);
+
+  const preferredStableLabel =
+    labels.find((label) => !/^PW Sparse Subject\b/i.test(label)) ??
+    null;
+
+  return preferredStableLabel;
+}
+
 function toDateTimeLocalValue(date: Date) {
   const year = date.getFullYear();
   const month = `${date.getMonth() + 1}`.padStart(2, "0");
@@ -29,16 +43,14 @@ function toDateTimeLocalValue(date: Date) {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
-function resultCardByTitle(page: Page, title: string) {
-  return page.locator("article.studentResultSurface").filter({
-    has: page.locator(".studentResultSurfaceHead strong", { hasText: title }),
+function resultRowByTitle(page: Page, title: string) {
+  return page.locator(".studentResultsTable tbody tr").filter({
+    has: page.locator("td strong", { hasText: title }),
   }).first();
 }
 
-function resultCardByAttemptSummary(page: Page, attemptId: string) {
-  return page.locator("article.studentResultSurface").filter({
-    has: page.locator(`a[href="/app/attempts/${attemptId}/summary"]`),
-  }).first();
+function resultDetailsModal(page: Page) {
+  return page.locator(".studentResultsModalCard").first();
 }
 
 async function selectOptionByLabel(locator: Locator, label: string) {
@@ -109,6 +121,27 @@ async function getCurrentSessionAccessToken(page: Page) {
   return accessToken;
 }
 
+async function getInstituteCleanupAccessToken(page: Page) {
+  const instituteCredentials = getRoleCredentials("institute");
+  expect(instituteCredentials).not.toBeNull();
+
+  const response = await page.request.post(`${backendBaseUrl}/api/v1/auth/login/`, {
+    data: {
+      username: instituteCredentials!.username,
+      password: instituteCredentials!.password,
+    },
+    headers: {
+      "Content-Type": "application/json",
+    },
+    timeout: 15000,
+  });
+  expect(response.ok(), await response.text()).toBe(true);
+  const payload = (await response.json()) as { access?: string | null };
+  const accessToken = payload.access?.trim() ?? "";
+  expect(accessToken).not.toBe("");
+  return accessToken;
+}
+
 async function requestBackendJson<T>(
   page: Page,
   path: string,
@@ -145,6 +178,20 @@ async function requestBackendJson<T>(
       ? (JSON.parse(bodyText) as T)
       : (null as T);
   return { response, payload, bodyText, contentType };
+}
+
+async function publishAndMarkExamLive(page: Page, examId: string) {
+  const publishResponse = await requestBackendJson<Record<string, unknown>>(page, `/api/v1/exams/${examId}/publish/`, {
+    method: "POST",
+    data: {},
+  });
+  expect(publishResponse.response.ok(), publishResponse.bodyText).toBe(true);
+
+  const liveResponse = await requestBackendJson<Record<string, unknown>>(page, `/api/v1/exams/${examId}/mark-live/`, {
+    method: "POST",
+    data: {},
+  });
+  expect(liveResponse.response.ok(), liveResponse.bodyText).toBe(true);
 }
 
 async function waitForReviewTaskInQueue(page: Page, examId: string) {
@@ -366,22 +413,7 @@ async function configureExamAndPublish(
       typeof args.patch.show_result_immediately === "boolean" ? args.patch.show_result_immediately : undefined,
   });
 
-  await page.goto(`/institute/exams/${args.examId}`);
-  const syncMarksButton = page.getByRole("button", { name: /sync marks/i });
-  if (await syncMarksButton.count()) {
-    await syncMarksButton.click();
-    await expect(page).toHaveURL(/message=/);
-  }
-  const publishButton = page.getByRole("button", { name: /publish exam/i });
-  if (await publishButton.count()) {
-    await publishButton.click();
-    await expect(page).toHaveURL(/message=/);
-  }
-  const markLiveButton = page.getByRole("button", { name: /mark live/i });
-  if (await markLiveButton.count()) {
-    await markLiveButton.click();
-    await expect(page).toHaveURL(/message=/);
-  }
+  await publishAndMarkExamLive(page, args.examId);
 }
 
 async function expectExamDeliveryContract(
@@ -572,9 +604,7 @@ test.describe("Student mixed result history continuity", () => {
       studentProfileId = studentMe.payload?.student_profile?.trim() ?? null;
       studentAcademicYearName = studentMe.payload?.student_context?.academic_year_name?.trim() ?? null;
       studentProgramName = studentMe.payload?.student_context?.program_name?.trim() ?? null;
-      studentSubjectName =
-        studentMe.payload?.student_context?.subject_options?.find((item) => item.label?.trim())?.label?.trim() ??
-        null;
+      studentSubjectName = pickStableStudentSubjectLabel(studentMe.payload?.student_context?.subject_options);
       expect(studentProfileId).not.toBeNull();
       expect(studentAcademicYearName).not.toBeNull();
       expect(studentProgramName).not.toBeNull();
@@ -786,10 +816,10 @@ test.describe("Student mixed result history continuity", () => {
           async () => {
             await page.goto("/app/results");
             const checks = await Promise.all([
-              page.locator("article.studentResultSurface").first().isVisible().catch(() => false),
-              resultCardByAttemptSummary(page, summaryOnlyAttemptId).isVisible().catch(() => false),
-              resultCardByAttemptSummary(page, reviewReadyAttemptId).isVisible().catch(() => false),
-              resultCardByAttemptSummary(page, descriptiveAttemptId).isVisible().catch(() => false),
+              page.locator(".studentResultsTable tbody tr").first().isVisible().catch(() => false),
+              resultRowByTitle(page, summaryOnlyExamTitle).isVisible().catch(() => false),
+              resultRowByTitle(page, reviewReadyExamTitle).isVisible().catch(() => false),
+              resultRowByTitle(page, descriptiveExamTitle).isVisible().catch(() => false),
             ]);
             return checks.every(Boolean);
           },
@@ -799,11 +829,14 @@ test.describe("Student mixed result history continuity", () => {
 
       await page.goto("/app/results?result_status=pending");
       await expect(page).toHaveURL(/\/app\/results\?[^#]*result_status=pending/);
-      const pendingCard = page.locator("article.studentResultSurface").first();
-      await expect(pendingCard).toBeVisible();
-      await expect(pendingCard.getByText(/^pending$/i).first()).toBeVisible();
-      await expect(pendingCard.getByRole("link", { name: /open answer review/i })).toHaveCount(0);
-      await pendingCard.getByRole("link", { name: /open summary|check attempt status/i }).first().click();
+      const pendingRow = resultRowByTitle(page, pendingExamTitle);
+      await expect(pendingRow).toBeVisible();
+      await expect(pendingRow).toContainText(/pending/i);
+      await pendingRow.click();
+      let resultModal = resultDetailsModal(page);
+      await expect(resultModal).toBeVisible();
+      await expect(resultModal.getByRole("link", { name: /open answer review/i })).toHaveCount(0);
+      await resultModal.getByRole("link", { name: /open summary/i }).click();
       await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/summary(?:\?.*)?$/);
       await expect(page.getByText(/evaluation pending|awaiting publication/i).first()).toBeVisible();
       await expect(page.getByText(/review locked/i).first()).toBeVisible();
@@ -811,10 +844,13 @@ test.describe("Student mixed result history continuity", () => {
       await page.goto("/app/results?result_group=review");
       await expect(page.getByText(/group: review/i).first()).toBeVisible();
 
-      const summaryOnlyCard = resultCardByAttemptSummary(page, summaryOnlyAttemptId);
-      await expect(summaryOnlyCard).toBeVisible();
-      await expect(summaryOnlyCard.getByText(/result published/i).first()).toBeVisible();
-      await summaryOnlyCard.getByRole("link", { name: /open summary/i }).first().click();
+      const summaryOnlyRow = resultRowByTitle(page, summaryOnlyExamTitle);
+      await expect(summaryOnlyRow).toBeVisible();
+      await expect(summaryOnlyRow).toContainText(/published|pass|fail/i);
+      await summaryOnlyRow.click();
+      resultModal = resultDetailsModal(page);
+      await expect(resultModal).toBeVisible();
+      await resultModal.getByRole("link", { name: /open summary/i }).click();
       await expect(page).toHaveURL(new RegExp(`/app/attempts/${summaryOnlyAttemptId}/summary(?:\\?.*)?$`));
       await expect(page.getByText(/result published/i).first()).toBeVisible();
       await expect(page.getByText(/answer review locked|review locked/i).first()).toBeVisible();
@@ -822,19 +858,27 @@ test.describe("Student mixed result history continuity", () => {
       await page.goto("/app/results?result_status=review_ready");
       await expect(page).toHaveURL(/\/app\/results\?[^#]*result_status=review_ready/);
 
-      const reviewReadyCard = resultCardByAttemptSummary(page, reviewReadyAttemptId);
-      await expect(reviewReadyCard).toBeVisible();
-      await expect(reviewReadyCard.getByRole("link", { name: /open answer review/i }).first()).toBeVisible();
-      await reviewReadyCard.getByRole("link", { name: /open answer review/i }).first().click();
+      const reviewReadyRow = resultRowByTitle(page, reviewReadyExamTitle);
+      await expect(reviewReadyRow).toBeVisible();
+      await expect(reviewReadyRow).toContainText(/available/i);
+      await reviewReadyRow.click();
+      resultModal = resultDetailsModal(page);
+      await expect(resultModal).toBeVisible();
+      await expect(resultModal.getByRole("link", { name: /open answer review/i })).toBeVisible();
+      await resultModal.getByRole("link", { name: /open answer review/i }).click();
       await expect(page).toHaveURL(new RegExp(`/app/attempts/${reviewReadyAttemptId}/review(?:\\?.*)?$`));
       await expect(page.getByText(/review available/i).first()).toBeVisible();
       await expect(page.getByRole("link", { name: /open summary/i }).first()).toBeVisible();
 
       await page.goto("/app/results?result_status=review_ready&result_sort=latest");
-      const descriptiveCard = resultCardByAttemptSummary(page, descriptiveAttemptId);
-      await expect(descriptiveCard).toBeVisible();
-      await expect(descriptiveCard.getByRole("link", { name: /open answer review/i }).first()).toBeVisible();
-      await descriptiveCard.getByRole("link", { name: /open answer review/i }).first().click();
+      const descriptiveRow = resultRowByTitle(page, descriptiveExamTitle);
+      await expect(descriptiveRow).toBeVisible();
+      await expect(descriptiveRow).toContainText(/available/i);
+      await descriptiveRow.click();
+      resultModal = resultDetailsModal(page);
+      await expect(resultModal).toBeVisible();
+      await expect(resultModal.getByRole("link", { name: /open answer review/i })).toBeVisible();
+      await resultModal.getByRole("link", { name: /open answer review/i }).click();
       await expect(page).toHaveURL(new RegExp(`/app/attempts/${descriptiveAttemptId}/review(?:\\?.*)?$`));
       await expect(page.getByText(new RegExp(escapeRegExp(descriptiveQuestionText), "i")).first()).toBeVisible();
       await expect(page.getByText(/8(\.00)? final score|80%/i).first()).toBeVisible();
@@ -846,9 +890,7 @@ test.describe("Student mixed result history continuity", () => {
       await expect(page.getByText(new RegExp(`PW-MD-${uniqueSeed}|${escapeRegExp(descriptiveExamTitle)}`, "i")).first()).toBeVisible();
     } finally {
       if (cleanupExamIds.length) {
-        await loginAsRole(page, "institute");
-        await expectInstituteWorkspace(page);
-        const accessToken = await getCurrentSessionAccessToken(page);
+        const accessToken = await getInstituteCleanupAccessToken(page);
         for (const examId of cleanupExamIds) {
           const response = await page.request.delete(`${backendBaseUrl}/api/v1/exams/${examId}/`, {
             headers: {

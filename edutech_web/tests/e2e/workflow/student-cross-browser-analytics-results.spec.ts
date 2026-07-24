@@ -32,10 +32,8 @@ test.describe("Student cross-browser analytics and results sanity", () => {
     await gotoWithRetry(page, "/app/results");
     await expect(page).toHaveURL(/\/app\/results(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /view analytics/i }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /open attempts/i }).first()).toBeVisible();
-
-    await page.getByRole("link", { name: /view analytics/i }).first().click();
+    await expect(page.locator(".studentResultsTable, .studentWorkspaceFiltersCard").first()).toBeVisible();
+    await page.getByRole("link", { name: /^analytics$/i }).first().click();
     await expect(page).toHaveURL(/\/app\/analytics(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /analytics/i }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /open action center|action center/i }).first()).toBeVisible();
@@ -52,5 +50,9 @@ test.describe("Student cross-browser analytics and results sanity", () => {
     await expect(page.getByRole("heading", { name: /momentum over time/i }).first()).toBeVisible();
     await expect(page.getByText(/recent result timeline/i).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /open action center|action center/i }).first()).toBeVisible();
+
+    await page.getByRole("link", { name: /^attempts$/i }).first().click();
+    await expect(page).toHaveURL(/\/app\/attempts(?:\?.*)?$/);
+    await expect(page.getByRole("heading", { name: /attempt/i }).first()).toBeVisible();
   });
 });

@@ -2,6 +2,7 @@
 
 import { startTransition, useEffect, useEffectEvent } from "react";
 import { useRouter } from "next/navigation";
+import { rememberAttemptViewport } from "@/components/ui/attempt-navigation-guard";
 import { confirmAttemptQuestionNavigation } from "@/components/ui/attempt-question-navigation";
 
 function isTypingTarget(target: EventTarget | null) {
@@ -20,11 +21,13 @@ function isTypingTarget(target: EventTarget | null) {
 }
 
 export function AttemptQuestionShortcuts({
+  attemptId,
   formId,
   questionCardId,
   nextHref,
   previousHref,
 }: {
+  attemptId: string;
   formId: string;
   questionCardId: string;
   nextHref?: string | null;
@@ -38,10 +41,6 @@ export function AttemptQuestionShortcuts({
       return;
     }
 
-    questionCard.scrollIntoView({
-      block: "start",
-      behavior: "auto",
-    });
     questionCard.focus({ preventScroll: true });
   });
 
@@ -87,7 +86,8 @@ export function AttemptQuestionShortcuts({
       if (!confirmAttemptQuestionNavigation(formId)) {
         return;
       }
-      startTransition(() => router.push(nextHref));
+      rememberAttemptViewport(attemptId);
+      startTransition(() => router.push(nextHref, { scroll: false }));
       return;
     }
 
@@ -96,7 +96,8 @@ export function AttemptQuestionShortcuts({
       if (!confirmAttemptQuestionNavigation(formId)) {
         return;
       }
-      startTransition(() => router.push(previousHref));
+      rememberAttemptViewport(attemptId);
+      startTransition(() => router.push(previousHref, { scroll: false }));
     }
   });
 

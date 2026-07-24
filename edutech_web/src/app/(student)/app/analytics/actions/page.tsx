@@ -1,4 +1,7 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
+import { fetchCurrentAccountProfile } from "@/lib/auth/session";
+import { StudentReportFilters } from "@/components/ui/student-report-filters";
 import { StudentPageHeader } from "@/components/ui/student-page-header";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import {
@@ -16,10 +19,23 @@ import {
   buildAnalyticsTimelineHref,
   buildAnalyticsTopicHref,
   buildQuestionAnalyticsHref,
+  buildWrongQuestionsHref,
   decodeAnalyticsParam,
   loadStudentAnalyticsBundle,
 } from "@/lib/student/analytics";
 import { percentageLabel, questionTypeLabel } from "@/lib/student/formatters";
+import {
+  ALL_SOURCES_CONTEXT,
+  ALL_SUBJECTS_CONTEXT,
+  getStudentSourceOptions,
+  getStudentSubjectOptions,
+  resolveSelectedStudentSource,
+  resolveSelectedStudentSourceTeacher,
+  resolveSelectedStudentSubject,
+  STUDENT_SOURCE_CONTEXT_COOKIE,
+  STUDENT_SOURCE_TEACHER_CONTEXT_COOKIE,
+  STUDENT_SUBJECT_CONTEXT_COOKIE,
+} from "@/lib/student/subject-context";
 
 function readTopicContext(
   questions: Awaited<ReturnType<typeof fetchStudentQuestionAnalytics>>["questions"],
@@ -43,9 +59,21 @@ export default async function StudentAnalyticsActionsPage({
 }) {
   const query = await searchParams;
   const state = getStudentApiState();
-  const subject = query.subject ? decodeAnalyticsParam(query.subject) : null;
-  const source = query.source ? decodeAnalyticsParam(query.source) : null;
-  const teacher = query.teacher ?? null;
+  const profile = await fetchCurrentAccountProfile();
+  const registrationContext = profile?.registration_context ?? {};
+  const subjectOptions = getStudentSubjectOptions(profile ?? registrationContext);
+  const cookieStore = await cookies();
+  const selectedSubject = resolveSelectedStudentSubject(
+    subjectOptions,
+    query.subject
+      ? decodeAnalyticsParam(query.subject)
+      : cookieStore.get(STUDENT_SUBJECT_CONTEXT_COOKIE)?.value ?? ALL_SUBJECTS_CONTEXT,
+  );
+  const selectedSource = resolveSelectedStudentSource(
+    query.source
+      ? decodeAnalyticsParam(query.source)
+      : cookieStore.get(STUDENT_SOURCE_CONTEXT_COOKIE)?.value ?? ALL_SOURCES_CONTEXT,
+  );
 
   if (!state.apiConfigured) {
     return (
@@ -65,10 +93,14 @@ export default async function StudentAnalyticsActionsPage({
 
   const [bundle, questionData] = await Promise.all([
     loadStudentAnalyticsBundle(),
-    fetchStudentQuestionAnalytics({ subject, source, teacher }).catch(() => null),
+    fetchStudentQuestionAnalytics({
+      subject: selectedSubject === ALL_SUBJECTS_CONTEXT ? null : selectedSubject,
+      source: selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
+      teacher: query.teacher ?? null,
+    }).catch(() => null),
   ]);
 
-  if (!bundle.summary || !questionData) {
+  if (!bundle.summary) {
     return (
       <div className="studentPage studentDashboardModern">
         <StudentStatePanel
@@ -84,20 +116,49 @@ export default async function StudentAnalyticsActionsPage({
     );
   }
 
-  const weakTopics = aggregateQuestionsByTopic(questionData.questions).slice(0, 3);
+  const { teacherOptions } = getStudentSourceOptions([
+    ...bundle.results,
+    ...bundle.exams,
+    ...(bundle.summary?.source_breakdown ?? []),
+    ...(bundle.summary?.recent_exams ?? []),
+  ]);
+  const selectedTeacherId = resolveSelectedStudentSourceTeacher(
+    teacherOptions,
+    selectedSource,
+    query.teacher ??
+      cookieStore.get(STUDENT_SOURCE_TEACHER_CONTEXT_COOKIE)?.value ??
+      null,
+  );
+
+  const resolvedQuestionData = questionData ?? {
+    overview: {
+      question_count: 0,
+      attempted_count: 0,
+      correct_count: 0,
+      wrong_count: 0,
+      skipped_count: 0,
+    },
+    benchmark_overview: [],
+    questions: [],
+  };
+
+  const weakTopics = aggregateQuestionsByTopic(resolvedQuestionData.questions).slice(0, 3);
   const weakestTopic = weakTopics[0] ?? null;
-  const weakestTopicContext = readTopicContext(questionData.questions, weakestTopic?.key ?? null);
-  const mostWrong = questionData.questions
+  const weakestTopicContext = readTopicContext(resolvedQuestionData.questions, weakestTopic?.key ?? null);
+  const mostWrong = resolvedQuestionData.questions
     .filter((item) => item.your_result === "wrong")
     .slice(0, 4);
-  const mostSkipped = questionData.questions
+  const mostSkipped = resolvedQuestionData.questions
     .filter((item) => item.your_result === "skipped")
     .slice(0, 4);
-  const slowestQuestions = [...questionData.questions]
+  const slowestQuestions = [...resolvedQuestionData.questions]
     .sort((a, b) => b.your_time_spent_seconds - a.your_time_spent_seconds)
     .slice(0, 4);
-  const weakestQuestionType = aggregateQuestionsByType(questionData.questions)[0] ?? null;
-  const subjectFocusName = subject ?? weakestTopicContext?.subject_name ?? null;
+  const weakestQuestionType = aggregateQuestionsByType(resolvedQuestionData.questions)[0] ?? null;
+  const subjectFocusName =
+    selectedSubject === ALL_SUBJECTS_CONTEXT
+      ? weakestTopicContext?.subject_name ?? null
+      : selectedSubject;
 
   return (
     <div className="studentPage studentDashboardModern">
@@ -105,9 +166,20 @@ export default async function StudentAnalyticsActionsPage({
         eyebrow="Analytics action center"
         title="Next Best Moves"
         description="Turn analytics into targeted practice and fast recovery actions."
-        statusLabel={`${questionData.questions.length} questions evaluated`}
+        statusLabel={`${resolvedQuestionData.questions.length} questions evaluated`}
         statusTone="live"
         action={<Link className="button buttonGhost" href="/app/analytics">Back to Analytics</Link>}
+      />
+
+      <StudentReportFilters
+        basePath="/app/analytics/actions"
+        title="Action center filters"
+        helper="Scope the recommended next moves before opening topic recovery, question repair, or practice follow-up routes."
+        selectedSource={selectedSource}
+        selectedSubject={selectedSubject}
+        selectedTeacherId={selectedTeacherId}
+        subjectOptions={subjectOptions}
+        teacherOptions={teacherOptions}
       />
 
       <StudentAnalyticsDetailHero
@@ -155,10 +227,12 @@ export default async function StudentAnalyticsActionsPage({
                 weakestTopicContext
                   ? buildAnalyticsTopicHref({
                       topicId: weakestTopicContext.topic_id ?? "untagged",
-                      subject: weakestTopicContext.subject_name ?? subject,
+                      subject:
+                        weakestTopicContext.subject_name ??
+                        (selectedSubject === ALL_SUBJECTS_CONTEXT ? null : selectedSubject),
                       label: weakestTopicContext.topic_name,
-                      source,
-                      teacher,
+                      source: selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
+                      teacher: selectedTeacherId,
                     })
                   : "/app/practice"
               }
@@ -194,10 +268,13 @@ export default async function StudentAnalyticsActionsPage({
                   weakestTopicContext
                     ? buildAnalyticsTopicHref({
                         topicId: weakestTopicContext.topic_id ?? "untagged",
-                        subject: weakestTopicContext.subject_name ?? subject,
+                        subject:
+                          weakestTopicContext.subject_name ??
+                          (selectedSubject === ALL_SUBJECTS_CONTEXT ? null : selectedSubject),
                         label: weakestTopicContext.topic_name,
-                        source,
-                        teacher,
+                        source:
+                          selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
+                        teacher: selectedTeacherId,
                       })
                     : "/app/analytics"
                 }
@@ -232,23 +309,23 @@ export default async function StudentAnalyticsActionsPage({
                 className="button buttonPrimary"
                 href={buildAnalyticsQuestionTypeHref({
                   questionType: weakestQuestionType.label,
-                  subject,
-                  source,
-                  teacher,
+                  subject: selectedSubject === ALL_SUBJECTS_CONTEXT ? null : selectedSubject,
+                  source: selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
+                  teacher: selectedTeacherId,
                 })}
               >
                 Open type lab
               </Link>
               <Link
                 className="button buttonGhost"
-                href={buildQuestionAnalyticsHref({
+                href={buildWrongQuestionsHref({
                   questionType: weakestQuestionType.label,
-                  subject,
-                  source,
-                  teacher,
+                  subject: selectedSubject === ALL_SUBJECTS_CONTEXT ? null : selectedSubject,
+                  source: selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
+                  teacher: selectedTeacherId,
                 })}
               >
-                Open question table
+                Open wrong questions report
               </Link>
             </div>
           </article>
@@ -265,7 +342,11 @@ export default async function StudentAnalyticsActionsPage({
               className="button buttonPrimary"
               href={
                 subjectFocusName
-                  ? buildAnalyticsSubjectHref(subjectFocusName, { source, teacher })
+                  ? buildAnalyticsSubjectHref(subjectFocusName, {
+                      source:
+                        selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
+                      teacher: selectedTeacherId,
+                    })
                   : "/app/analytics"
               }
             >
@@ -280,6 +361,19 @@ export default async function StudentAnalyticsActionsPage({
           <div className="sectionHeading">
             <strong>Recover wrong answers</strong>
             <span>{mostWrong.length} priority questions</span>
+          </div>
+          <div className="studentInsightHeroActions">
+            <Link
+              className="button buttonSecondary"
+              href={buildWrongQuestionsHref({
+                subject:
+                  selectedSubject === ALL_SUBJECTS_CONTEXT ? null : selectedSubject,
+                source: selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
+                teacher: selectedTeacherId,
+              })}
+            >
+              Open Wrong Questions Report
+            </Link>
           </div>
           <StudentQuestionInsightList
             questions={mostWrong}
@@ -319,7 +413,11 @@ export default async function StudentAnalyticsActionsPage({
           <div className="analyticsChecklist">
             <Link
               className="analyticsChecklistItem"
-              href={buildAnalyticsTimelineHref({ subject, source, teacher })}
+              href={buildAnalyticsTimelineHref({
+                subject: selectedSubject === ALL_SUBJECTS_CONTEXT ? null : selectedSubject,
+                source: selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
+                teacher: selectedTeacherId,
+              })}
             >
               <strong>Check your timeline</strong>
               <span>Check whether this is a trend or a one-off dip.</span>
@@ -327,7 +425,10 @@ export default async function StudentAnalyticsActionsPage({
             {subjectFocusName ? (
               <Link
                 className="analyticsChecklistItem"
-                href={buildAnalyticsSubjectHref(subjectFocusName, { source, teacher })}
+                href={buildAnalyticsSubjectHref(subjectFocusName, {
+                  source: selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
+                  teacher: selectedTeacherId,
+                })}
               >
                 <strong>Open subject deep dive</strong>
                 <span>See whether the weakness comes from topic, format, or difficulty.</span>
@@ -338,9 +439,9 @@ export default async function StudentAnalyticsActionsPage({
                 className="analyticsChecklistItem"
                 href={buildAnalyticsQuestionTypeHref({
                   questionType: weakestQuestionType.label,
-                  subject,
-                  source,
-                  teacher,
+                  subject: selectedSubject === ALL_SUBJECTS_CONTEXT ? null : selectedSubject,
+                  source: selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
+                  teacher: selectedTeacherId,
                 })}
               >
                 <strong>Fix your riskiest format</strong>

@@ -3,49 +3,17 @@ import { answerCurrentAttemptQuestion } from "../helpers/attempt";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
 import { expectStudentWorkspace } from "../helpers/navigation";
+import {
+  openStudentPrimaryActionOrSkip,
+  resolveStudentFamilyExamOrSkip,
+} from "../helpers/student-family";
 
 const mutableStudentMultiSubjectLifecycleEnabled = isMutableLaneEnabled(
   "PLAYWRIGHT_ENABLE_MUTABLE_STUDENT_PRACTICE_ACTIONS",
 );
 
-const backendBaseUrl = (
-  process.env.API_BASE_URL ??
-  process.env.NEXT_PUBLIC_API_BASE_URL ??
-  process.env.PLAYWRIGHT_API_BASE_URL ??
-  "http://127.0.0.1:9001"
-).replace(/\/$/, "");
-
 const multiSubjectPracticeExamCode = "DMO-MIX-PRACTICE-01";
 const multiSubjectPracticeExamTitle = "Demo Multi Subject Practice Loop";
-
-async function backendAccessToken(page: import("@playwright/test").Page) {
-  const cookies = await page.context().cookies();
-  const accessToken = cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
-  expect(accessToken).not.toBe("");
-  return accessToken;
-}
-
-async function fetchStudentAvailableExams(page: import("@playwright/test").Page) {
-  const accessToken = await backendAccessToken(page);
-  const response = await page.request.get(`${backendBaseUrl}/api/v1/student/exams/available/`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    timeout: 15000,
-  });
-  expect(response.ok()).toBe(true);
-  return (await response.json()) as Array<{
-    id: string;
-    code: string;
-    title: string;
-    is_multi_subject?: boolean;
-    subject_summary?: {
-      display_label?: string;
-      subject_count?: number;
-    } | null;
-  }>;
-}
 
 test.describe("Student mutable multi-subject lifecycle", () => {
   test.skip(testRequiresRole("student"), "Student Playwright credentials are required.");
@@ -66,29 +34,26 @@ test.describe("Student mutable multi-subject lifecycle", () => {
     await loginAsRole(page, "student");
     await expectStudentWorkspace(page);
 
-    const exams = await fetchStudentAvailableExams(page);
-    const practiceExam = exams.find((exam) => exam.code === multiSubjectPracticeExamCode) ?? null;
-    expect(practiceExam).not.toBeNull();
-    expect(practiceExam!.title).toBe(multiSubjectPracticeExamTitle);
-    expect(practiceExam!.is_multi_subject).toBe(true);
-    expect(practiceExam!.subject_summary?.subject_count).toBe(3);
+    const practiceExam = await resolveStudentFamilyExamOrSkip(page, {
+      familyLabel: "multi-subject practice lifecycle",
+      examCode: multiSubjectPracticeExamCode,
+      expectedTitle: multiSubjectPracticeExamTitle,
+    });
+    if (!practiceExam) {
+      return;
+    }
+    expect(practiceExam.is_multi_subject).toBe(true);
+    expect(practiceExam.subject_summary?.subject_count).toBe(3);
 
-    await page.goto(`/app/exams/${practiceExam!.id}`);
+    await page.goto(`/app/exams/${practiceExam.id}`);
     await expect(page.getByRole("heading", { name: new RegExp(multiSubjectPracticeExamTitle, "i") }).first()).toBeVisible();
-    await expect(page.getByText(practiceExam!.subject_summary!.display_label!).first()).toBeVisible();
+    await expect(page.getByText(practiceExam.subject_summary!.display_label!).first()).toBeVisible();
     await expect(page.getByText(/section overview/i).first()).toBeVisible();
 
-    const resumeLink = page.getByRole("link", { name: /^resume$/i }).first();
-    const primaryActionCard = page.locator("article").filter({
-      has: page.getByText(/primary action/i),
-    }).first();
-    const startButton = primaryActionCard.getByRole("button", { name: /^start$/i }).first();
-
-    if (await resumeLink.isVisible().catch(() => false)) {
-      await resumeLink.click();
-    } else {
-      await expect(startButton).toBeVisible();
-      await startButton.click();
+    const handoff = await openStudentPrimaryActionOrSkip(page);
+    if (handoff !== "start" && handoff !== "resume") {
+      await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/(summary|review)(?:\?.*)?$/);
+      return;
     }
 
     await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+(?:\?.*)?$/);

@@ -24,6 +24,7 @@ const studentNavItems = [
   { href: "/app/practice", label: "Practice", icon: "P" },
   { href: "/app/attempts", label: "Attempts", icon: "A" },
   { href: "/app/analytics", label: "Analytics", icon: "L" },
+  { href: "/app/reports", label: "Reports", icon: "H" },
   { href: "/app/weak-areas", label: "Weak Areas", icon: "W" },
   { href: "/app/notifications", label: "Alerts", icon: "N" },
   { href: "/app/wallet", label: "Wallet", icon: "W" },

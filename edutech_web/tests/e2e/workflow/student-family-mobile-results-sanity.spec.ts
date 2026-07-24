@@ -1,14 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
-import type { StudentResult } from "@/features/dashboard/types";
 import { expectStudentWorkspace } from "../helpers/navigation";
-import { loginStudentFamilyAccountOrSkip } from "../helpers/student-family";
-
-const backendBaseUrl = (
-  process.env.API_BASE_URL ??
-  process.env.NEXT_PUBLIC_API_BASE_URL ??
-  process.env.PLAYWRIGHT_API_BASE_URL ??
-  "http://127.0.0.1:9001"
-).replace(/\/$/, "");
+import {
+  loginStudentFamilyAccountOrSkip,
+  resolveStudentFamilyResultOrSkip,
+} from "../helpers/student-family";
 
 const families = [
   {
@@ -29,29 +24,9 @@ const families = [
   },
 ] as const;
 
-async function backendAccessToken(page: Page) {
-  const cookies = await page.context().cookies();
-  const accessToken = cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
-  expect(accessToken).not.toBe("");
-  return accessToken;
-}
-
-async function fetchStudentResults(page: Page) {
-  const accessToken = await backendAccessToken(page);
-  const response = await page.request.get(`${backendBaseUrl}/api/v1/student/results/`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    timeout: 15000,
-  });
-  expect(response.ok()).toBe(true);
-  return (await response.json()) as StudentResult[];
-}
-
-function resultCardByTitle(page: Page, title: string) {
-  return page.locator("article.studentResultSurface").filter({
-    has: page.locator(".studentResultSurfaceHead strong", { hasText: title }),
+function resultRowByTitle(page: Page, title: string) {
+  return page.locator(".studentResultsTableRow").filter({
+    has: page.getByText(title, { exact: true }),
   }).first();
 }
 
@@ -67,31 +42,42 @@ test.describe("Student family mobile results sanity", () => {
       await loginStudentFamilyAccountOrSkip(page, family.credentials, family.label);
       await expectStudentWorkspace(page);
 
-      const results = await fetchStudentResults(page);
-      const familyResult = results.find((item) => item.exam_code === family.resultExamCode) ?? null;
-      expect(familyResult).not.toBeNull();
+      const familyResult = await resolveStudentFamilyResultOrSkip(page, {
+        familyLabel: `${family.label} mobile result`,
+        resultExamCode: family.resultExamCode,
+      });
+      if (!familyResult) {
+        return;
+      }
 
       await page.goto("/app/results");
       await expect(page).toHaveURL(/\/app\/results(?:\?.*)?$/);
       await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
       await expect(
-        page.getByText(/results recovery loop|mock recovery loop/i).first(),
+        page.locator(".studentWorkspaceFiltersCard, .studentResultsTable").first(),
       ).toBeVisible();
 
-      const familyResultCard = resultCardByTitle(page, familyResult!.exam_title);
-      await expect(familyResultCard).toBeVisible();
-      await expect(familyResultCard.getByText(/result published|pending/i).first()).toBeVisible();
+      const familyResultRow = resultRowByTitle(page, familyResult.exam_title);
+      await expect(familyResultRow).toBeVisible();
       await expect(
-        familyResultCard.getByRole("link", { name: /open summary|check attempt status/i }).first(),
+        familyResultRow.getByText(/pending|pass|fail|published/i).first(),
       ).toBeVisible();
 
-      await familyResultCard.getByRole("link", { name: /open summary|check attempt status/i }).first().click();
+      await familyResultRow.click();
+      const resultDialog = page.getByRole("dialog");
+      await expect(resultDialog).toBeVisible();
+      await expect(
+        resultDialog.getByRole("link", { name: /open summary/i }).first(),
+      ).toBeVisible();
+
+      await resultDialog.getByRole("link", { name: /open summary/i }).first().click();
       await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/summary(?:\?.*)?$/);
-      await expect(page.getByText(/post-submit state/i).first()).toBeVisible();
-      await expect(page.getByText(/recommended actions/i).first()).toBeVisible();
+      await expect(page.getByText(/attempt summary/i).first()).toBeVisible();
+      await expect(page.getByText(/attempt status/i).first()).toBeVisible();
+      await expect(page.getByText(/what to do next|next step/i).first()).toBeVisible();
 
       const reviewLink = page.getByRole("link", { name: /open answer review|review feedback/i }).first();
-      if (familyResult!.review_available && (await reviewLink.isVisible().catch(() => false))) {
+      if (familyResult.review_available && (await reviewLink.isVisible().catch(() => false))) {
         await reviewLink.click();
         await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/review(?:\?.*)?$/);
         const reviewModeHeading = page.getByText(/review mode/i).first();

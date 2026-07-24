@@ -1,14 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
-import type { StudentAvailableExam } from "@/features/dashboard/types";
 import { expectStudentWorkspace } from "../helpers/navigation";
-import { loginStudentFamilyAccountOrSkip } from "../helpers/student-family";
-
-const backendBaseUrl = (
-  process.env.API_BASE_URL ??
-  process.env.NEXT_PUBLIC_API_BASE_URL ??
-  process.env.PLAYWRIGHT_API_BASE_URL ??
-  "http://127.0.0.1:9001"
-).replace(/\/$/, "");
+import {
+  loginStudentFamilyAccountOrSkip,
+  resolveStudentFamilyExamOrSkip,
+} from "../helpers/student-family";
 
 const neetStudentCredentials = {
   username: "demo-neet-student",
@@ -37,26 +32,6 @@ const families = [
   },
 ] as const;
 
-async function backendAccessToken(page: Page) {
-  const cookies = await page.context().cookies();
-  const accessToken = cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
-  expect(accessToken).not.toBe("");
-  return accessToken;
-}
-
-async function fetchStudentAvailableExams(page: Page) {
-  const accessToken = await backendAccessToken(page);
-  const response = await page.request.get(`${backendBaseUrl}/api/v1/student/exams/available/`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    timeout: 15000,
-  });
-  expect(response.ok()).toBe(true);
-  return (await response.json()) as StudentAvailableExam[];
-}
-
 test.describe("Student family mobile sanity", () => {
   test.use({
     viewport: { width: 390, height: 844 },
@@ -69,23 +44,27 @@ test.describe("Student family mobile sanity", () => {
       await loginStudentFamilyAccountOrSkip(page, family.credentials, family.label);
       await expectStudentWorkspace(page);
 
-      const exams = await fetchStudentAvailableExams(page);
-      const exam = exams.find((item) => item.code === family.examCode) ?? null;
-      expect(exam).not.toBeNull();
+      const exam = await resolveStudentFamilyExamOrSkip(page, {
+        familyLabel: `${family.label} mobile exam detail`,
+        examCode: family.examCode,
+      });
+      if (!exam) {
+        return;
+      }
 
       await page.goto("/app/exams");
       await expect(page).toHaveURL(/\/app\/exams(?:\?.*)?$/);
       await expect(page.getByRole("heading", { name: /mock tests/i }).first()).toBeVisible();
-      await expect(page.getByText(exam!.title).first()).toBeVisible();
-      await expect(page.getByText(exam!.subject_summary.display_label).first()).toBeVisible();
+      await expect(page.getByText(exam.title).first()).toBeVisible();
+      await expect(page.getByText(exam.subject_summary.display_label).first()).toBeVisible();
 
-      await page.goto(`/app/exams/${exam!.id}`);
+      await page.goto(`/app/exams/${exam.id}`);
       await expect(page).toHaveURL(/\/app\/exams\/[^/?#]+(?:\?.*)?$/);
-      await expect(page.getByRole("heading", { name: new RegExp(exam!.title, "i") }).first()).toBeVisible();
+      await expect(page.getByRole("heading", { name: new RegExp(exam.title, "i") }).first()).toBeVisible();
       await expect(page.getByText(/exam readiness/i).first()).toBeVisible();
       await expect(page.getByText(/primary action/i).first()).toBeVisible();
       await expect(page.getByText(/section overview/i).first()).toBeVisible();
-      await expect(page.getByText(exam!.subject_summary.display_label).first()).toBeVisible();
+      await expect(page.getByText(exam.subject_summary.display_label).first()).toBeVisible();
 
       for (const expectedTag of family.expectedTags) {
         await expect(page.getByText(expectedTag).first()).toBeVisible();

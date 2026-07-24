@@ -22,6 +22,7 @@ async function resolveExamDetailHref(page: Page) {
   const emptyState = page.getByText(/your mock-test workspace is empty right now/i);
   if (!(await emptyState.isVisible().catch(() => false))) {
     const detailLink = await expectOneOfVisible([
+      page.getByRole("link", { name: /view details/i }).first(),
       page.getByRole("link", { name: /view full detail/i }).first(),
       page.getByRole("link", { name: /^detail$/i }).first(),
     ]);
@@ -59,6 +60,31 @@ async function resolveAttemptRuntimeHref(page: Page) {
   return null;
 }
 
+async function resolveRuntimeState(page: Page) {
+  const activeVisible = await expectOneOfVisible([
+    page.getByRole("button", { name: /^save answer$/i }).first(),
+    page.getByRole("button", { name: /^save & next$/i }).first(),
+    page.getByRole("button", { name: /^submit test$/i }).first(),
+    page.getByText(/test in progress|attempt progress|question palette/i).first(),
+  ])
+    .then(() => true)
+    .catch(() => false);
+
+  const lockedVisible = await expectOneOfVisible([
+    page.getByRole("link", {
+      name: /refresh attempt state|refresh mock state|view attempt summary|view mock summary/i,
+    }).first(),
+    page.getByText(/this test is no longer editable|this attempt has expired/i).first(),
+  ])
+    .then(() => true)
+    .catch(() => false);
+
+  return {
+    activeVisible,
+    lockedVisible,
+  };
+}
+
 test.describe("Student cross-browser exam detail and runtime sanity", () => {
   test.skip(testRequiresRole("student"), "Student Playwright credentials are not configured.");
 
@@ -86,7 +112,12 @@ test.describe("Student cross-browser exam detail and runtime sanity", () => {
 
     const attemptHref = await resolveAttemptRuntimeHref(page);
     if (!attemptHref) {
-      test.skip(true, "Student seeded account does not currently expose a resumable attempt runtime route.");
+      await gotoWithRuntimeRecovery(page, "/app/attempts");
+      await expect(page).toHaveURL(/\/app\/attempts(?:\?.*)?$/);
+      await expect(page.getByRole("heading", { name: /attempt/i }).first()).toBeVisible();
+      await expect(
+        page.getByText(/attempt history|attempts loaded|evaluation pending|your attempt history is empty/i).first(),
+      ).toBeVisible();
       return;
     }
 
@@ -97,19 +128,8 @@ test.describe("Student cross-browser exam detail and runtime sanity", () => {
     await expect
       .poll(
         async () => {
-          const activeVisible = await page
-            .getByRole("button", { name: /^save answer$/i })
-            .first()
-            .isVisible()
-            .catch(() => false);
-          const lockedVisible = await page
-            .getByRole("link", {
-              name: /refresh attempt state|refresh mock state|view attempt summary|view mock summary/i,
-            })
-            .first()
-            .isVisible()
-            .catch(() => false);
-          return activeVisible || lockedVisible;
+          const runtimeState = await resolveRuntimeState(page);
+          return runtimeState.activeVisible || runtimeState.lockedVisible;
         },
         {
           timeout: 10000,
@@ -117,25 +137,16 @@ test.describe("Student cross-browser exam detail and runtime sanity", () => {
       )
       .toBe(true);
 
-    const activeVisible = await page
-      .getByRole("button", { name: /^save answer$/i })
-      .first()
-      .isVisible()
-      .catch(() => false);
-    const lockedVisible = await page
-      .getByRole("link", {
-        name: /refresh attempt state|refresh mock state|view attempt summary|view mock summary/i,
-      })
-      .first()
-      .isVisible()
-      .catch(() => false);
+    const { activeVisible, lockedVisible } = await resolveRuntimeState(page);
 
     expect(activeVisible || lockedVisible).toBe(true);
 
     if (activeVisible) {
       await expect(page.getByText(/progress/i).first()).toBeVisible();
-      await expect(page.getByText(/last confirmed save/i).first()).toBeVisible();
-      await expect(page.getByText(/question palette/i).first()).toBeVisible();
+      await expect(
+        page.getByText(/last confirmed backend response|last saved answer/i).first(),
+      ).toBeVisible();
+      await expect(page.getByText(/question palette|questions/i).first()).toBeVisible();
     }
 
     if (lockedVisible) {

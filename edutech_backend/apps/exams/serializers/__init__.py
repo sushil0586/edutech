@@ -676,7 +676,17 @@ class ExamPublishLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExamPublishLog
         fields = "__all__"
-        read_only_fields = fields
+        read_only_fields = (
+            "id",
+            "exam",
+            "action",
+            "status_from",
+            "status_to",
+            "remarks",
+            "changed_by",
+            "changed_by_name",
+            "changed_at",
+        )
 
 
 class ExamWriteSerializer(serializers.ModelSerializer):

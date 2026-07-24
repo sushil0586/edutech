@@ -91,7 +91,7 @@ test.describe("Student results timing", () => {
           await resultsForm.locator('select[name="result_status"]').selectOption("review_ready");
           await resultsForm.locator('select[name="result_sort"]').selectOption("highest");
           await resultsForm.locator('select[name="result_group"]').selectOption("source");
-          await resultsForm.getByRole("button", { name: /apply filters/i }).click();
+          await resultsForm.getByRole("button", { name: /update view/i }).click();
         },
         assertVisible: async () => {
           await expect(page).toHaveURL(/\/app\/results\?[^#]*result_status=review_ready/);

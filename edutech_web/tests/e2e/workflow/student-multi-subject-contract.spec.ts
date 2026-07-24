@@ -1,14 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
-import type { StudentAvailableExam, StudentExamDetail } from "@/features/dashboard/types";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
+import {
+  fetchStudentExamDetailCatalog,
+  resolveStudentFamilyExamOrSkip,
+} from "../helpers/student-family";
 import { expectStudentWorkspace } from "../helpers/navigation";
-
-const backendBaseUrl = (
-  process.env.API_BASE_URL ??
-  process.env.NEXT_PUBLIC_API_BASE_URL ??
-  process.env.PLAYWRIGHT_API_BASE_URL ??
-  "http://127.0.0.1:9001"
-).replace(/\/$/, "");
 
 const multiSubjectExamCode = "DMO-MIX-MOCK-01";
 const expectedSectionNames = [
@@ -22,39 +18,6 @@ const expectedSubjectNames = [
   "Chemistry",
 ];
 
-async function backendAccessToken(page: Page) {
-  const cookies = await page.context().cookies();
-  const accessToken = cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
-  expect(accessToken).not.toBe("");
-  return accessToken;
-}
-
-async function fetchStudentAvailableExams(page: Page) {
-  const accessToken = await backendAccessToken(page);
-  const response = await page.request.get(`${backendBaseUrl}/api/v1/student/exams/available/`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    timeout: 15000,
-  });
-  expect(response.ok()).toBe(true);
-  return (await response.json()) as StudentAvailableExam[];
-}
-
-async function fetchStudentExamDetail(page: Page, examId: string) {
-  const accessToken = await backendAccessToken(page);
-  const response = await page.request.get(`${backendBaseUrl}/api/v1/student/exams/${examId}/detail/`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    timeout: 15000,
-  });
-  expect(response.ok()).toBe(true);
-  return (await response.json()) as StudentExamDetail;
-}
-
 test.describe("Student multi-subject exam contract", () => {
   test.skip(testRequiresRole("student"), "Student Playwright credentials are not configured.");
 
@@ -64,9 +27,10 @@ test.describe("Student multi-subject exam contract", () => {
     await loginAsRole(page, "student");
     await expectStudentWorkspace(page);
 
-    const exams = await fetchStudentAvailableExams(page);
-    const mixedExam = exams.find((exam) => exam.code === multiSubjectExamCode) ?? null;
-    test.skip(!mixedExam, "Seeded multi-subject student mock is not available in this environment.");
+    const mixedExam = await resolveStudentFamilyExamOrSkip(page, {
+      familyLabel: "multi-subject student mock",
+      examCode: multiSubjectExamCode,
+    });
     if (!mixedExam) {
       return;
     }
@@ -75,7 +39,7 @@ test.describe("Student multi-subject exam contract", () => {
     expect(mixedExam!.subject_summary.display_label).toBeTruthy();
     expect(mixedExam!.section_subjects.map((subject) => subject.name)).toEqual(expectedSubjectNames);
 
-    const detail = await fetchStudentExamDetail(page, mixedExam!.id);
+    const detail = await fetchStudentExamDetailCatalog(page, mixedExam!.id);
     expect(detail.code).toBe(multiSubjectExamCode);
     expect(detail.is_multi_subject).toBe(true);
     expect(detail.subject_summary.subject_count).toBe(3);

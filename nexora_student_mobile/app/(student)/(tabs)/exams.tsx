@@ -13,16 +13,24 @@ import { useSessionStore } from "@/store/session-store";
 import { appStyles } from "@/theme/styles";
 import type { StudentAvailableExam } from "@/types/api";
 
-function normalize(value: string) {
-  return value.trim().toLowerCase();
+function normalize(value: string | null | undefined) {
+  return (value ?? "").trim().toLowerCase();
 }
 
-function matchesSelectedSubject(subjectName: string, selectedSubject: string) {
+function matchesSelectedSubject(subjectName: string | null | undefined, selectedSubject: string | null | undefined) {
   if (normalize(selectedSubject) === "overall") {
     return true;
   }
 
   return normalize(subjectName) === normalize(selectedSubject);
+}
+
+function isStartableExam(exam: StudentAvailableExam) {
+  return exam.can_start && !exam.economy_access.is_locked && !exam.can_resume;
+}
+
+function isClosedExam(exam: StudentAvailableExam) {
+  return !exam.can_resume && !exam.economy_access.is_locked && !exam.can_start;
 }
 
 function availabilityTone(exam: StudentAvailableExam) {
@@ -42,6 +50,14 @@ function availabilityTone(exam: StudentAvailableExam) {
     };
   }
 
+  if (!exam.can_start) {
+    return {
+      container: appStyles.chipWarm,
+      text: appStyles.chipTextWarm,
+      label: "Closed",
+    };
+  }
+
   return {
     container: appStyles.chipPrimary,
     text: appStyles.chipTextPrimary,
@@ -56,6 +72,10 @@ function examSupportCopy(exam: StudentAvailableExam) {
 
   if (exam.economy_access.is_locked) {
     return exam.economy_access.lock_reason_message || "This exam is currently gated by stars or policy.";
+  }
+
+  if (!exam.can_start) {
+    return "This exam is visible in the catalog, but mobile should stop at detail until the backend marks it startable.";
   }
 
   if (exam.remaining_attempts <= 1) {
@@ -110,7 +130,7 @@ export default function ExamsScreen() {
       }
 
       if (filterMode === "startable") {
-        return !exam.economy_access.is_locked && !exam.can_resume;
+        return isStartableExam(exam);
       }
 
       if (filterMode === "locked") {
@@ -123,14 +143,37 @@ export default function ExamsScreen() {
 
   const resumeReadyExams = filteredExams.filter((exam) => exam.can_resume);
   const availableExams = filteredExams.filter(
-    (exam) => !exam.economy_access.is_locked && !exam.can_resume,
+    (exam) => isStartableExam(exam),
   );
   const lockedExams = filteredExams.filter((exam) => exam.economy_access.is_locked);
+  const closedExams = filteredExams.filter((exam) => isClosedExam(exam));
   const recommendedExam =
     resumeReadyExams[0] ??
     availableExams[0] ??
     lockedExams[0] ??
+    closedExams[0] ??
+    filteredExams[0] ??
     null;
+  const heroExam =
+    filterMode === "resume"
+      ? resumeReadyExams[0] ?? null
+      : filterMode === "startable"
+        ? availableExams[0] ?? null
+        : filterMode === "locked"
+          ? lockedExams[0] ?? null
+          : filterMode === "all"
+            ? recommendedExam
+          : recommendedExam;
+  const heroPrimaryLabel =
+    filterMode === "resume"
+      ? "Resume Top Attempt"
+      : filterMode === "startable"
+        ? "Open Startable Exam"
+        : filterMode === "locked"
+          ? "Open Locked Exam"
+          : heroExam?.can_resume
+            ? "Resume Top Exam"
+            : "Open Top Exam";
 
   function openExam(exam: StudentAvailableExam) {
     if (exam.can_resume && exam.active_attempt) {
@@ -155,16 +198,16 @@ export default function ExamsScreen() {
               ? query.error instanceof Error
                 ? query.error.message
                 : "Unable to load exams right now."
-              : recommendedExam
-                ? `${recommendedExam.title} is the next highest-signal exam action in the current scope.`
+              : heroExam
+                ? `${heroExam.title} is the next highest-signal exam action in the current scope.`
                 : "No exams were returned for the current student scope."
         }
         actions={
           <View style={appStyles.rowWrap}>
-            {recommendedExam ? (
+            {heroExam ? (
               <ActionButton
-                label={recommendedExam.can_resume ? "Resume Top Exam" : "Open Top Exam"}
-                onPress={() => openExam(recommendedExam)}
+                label={heroPrimaryLabel}
+                onPress={() => openExam(heroExam)}
                 testID="exams-open-top-exam-button"
               />
             ) : null}
@@ -209,6 +252,12 @@ export default function ExamsScreen() {
           label="Locked"
           value={String(lockedExams.length)}
           helper="Exams still gated by stars or access policy"
+        />
+        <MetricCard
+          label="Closed"
+          value={String(closedExams.length)}
+          helper="Visible exams that cannot start yet from mobile"
+          soft
         />
       </View>
 
@@ -281,18 +330,16 @@ export default function ExamsScreen() {
             onPress={() => setFilterMode("locked")}
             testID="exams-filter-locked-button"
           />
-          {(searchText || filterMode !== "all") ? (
-            <ActionButton
-              label="Reset"
-              tone="secondary"
-              compact
-              onPress={() => {
-                setSearchText("");
-                setFilterMode("all");
-              }}
-              testID="exams-filter-reset-button"
-            />
-          ) : null}
+          <ActionButton
+            label={searchText || filterMode !== "all" ? "Reset" : "Clear"}
+            tone="secondary"
+            compact
+            onPress={() => {
+              setSearchText("");
+              setFilterMode("all");
+            }}
+            testID="exams-filter-reset-button"
+          />
         </View>
         {!filteredExams.length ? (
           <StatePanel
@@ -417,6 +464,43 @@ export default function ExamsScreen() {
             tone="success"
             title="No locked exams in this scope"
             body="There are currently no locked exams blocking mobile progress in the active lane."
+          />
+        )}
+      </SectionBlock>
+
+      <SectionBlock
+        title="Closed exams"
+        subtitle="Visible in the catalog, but not yet startable from mobile"
+      >
+        {closedExams.length ? (
+          closedExams.map((exam) => {
+            const tone = availabilityTone(exam);
+            return (
+              <View key={exam.id} style={appStyles.productCard}>
+                <View style={appStyles.rowBetween}>
+                  <Text style={appStyles.label}>{exam.title}</Text>
+                  <View style={[appStyles.chip, tone.container]}>
+                    <Text style={[appStyles.chipText, tone.text]}>{tone.label}</Text>
+                  </View>
+                </View>
+                <Text style={appStyles.body}>{exam.subject_name} · {exam.duration_minutes} min</Text>
+                <Text style={appStyles.helper}>{examSupportCopy(exam)}</Text>
+                <View style={appStyles.rowWrap}>
+                  <View style={[appStyles.chip, appStyles.chipWarm]}>
+                    <Text style={[appStyles.chipText, appStyles.chipTextWarm]}>
+                      Detail only until start opens
+                    </Text>
+                  </View>
+                </View>
+                <ActionButton label="Open Detail" tone="secondary" onPress={() => openExam(exam)} />
+              </View>
+            );
+          })
+        ) : (
+          <StatePanel
+            tone="success"
+            title="No closed exams in this scope"
+            body="Every visible exam is either startable, resume-ready, or explicitly locked."
           />
         )}
       </SectionBlock>

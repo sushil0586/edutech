@@ -1,0 +1,61 @@
+appId: com.anonymous.nexorastudentmobile
+---
+- launchApp:
+    clearState: true
+
+- extendedWaitUntil:
+    visible: "Login"
+    timeout: 30000
+
+- tapOn: "Login"
+- tapOn:
+    text: "Username"
+- inputText: a001
+
+- tapOn:
+    text: "Enter password"
+- inputText: Ansh@1789
+
+- hideKeyboard
+- tapOn: "Login"
+
+- extendedWaitUntil:
+    visible: "Student Dashboard"
+    timeout: 30000
+
+- tapOn:
+    id: "dashboard-open-attempts-button"
+
+- extendedWaitUntil:
+    visible: "Student Attempts"
+    timeout: 30000
+
+- scrollUntilVisible:
+    element:
+      id: "attempts-resume-attempt-button"
+    direction: DOWN
+
+- tapOn:
+    id: "attempts-resume-attempt-button"
+
+- extendedWaitUntil:
+    visible: "Live Attempt"
+    timeout: 30000
+
+- scrollUntilVisible:
+    element: "Current question"
+    direction: DOWN
+
+- scrollUntilVisible:
+    element: "Save Answer"
+    direction: DOWN
+
+- assertVisible: "Selected D"
+- assertVisible: "Save Answer"
+
+- tapOn: "Select A"
+
+- assertVisible: "Selected A"
+
+- tapOn:
+    id: "attempt-runtime-save-answer-button"

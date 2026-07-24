@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { ActionSubmitButton } from "@/components/ui/action-submit-button";
+import { StudentKpiGrid } from "@/components/ui/student-kpi-grid";
 import { StatusPill } from "@/components/ui/status-pill";
 import {
   fetchStudentAttempts,
@@ -582,6 +583,48 @@ export default async function DashboardPage({
   const attemptedQuestionsCount = scopedSummary.attempt_behavior.attempted_questions;
   const averageScoreLabel = percentageLabel(scopedSummary.average_percentage);
   const trendLabel = trendDirectionLabel(scopedSummary.improvement_trend.direction);
+  const weakTopicCount = scopedSummary.weak_topics.length;
+  const recentResultCount = recentResults.length;
+  const reportKpis = [
+    {
+      label: "Average Score",
+      value: averageScoreLabel,
+      note: trendLabel,
+      tone: "primary" as const,
+      href: "/app/analytics",
+    },
+    {
+      label: "Attempts Tracked",
+      value: totalAttemptCount.toLocaleString("en-IN"),
+      note: `${attemptedQuestionsCount.toLocaleString("en-IN")} questions solved`,
+      href: "/app/attempts",
+    },
+    {
+      label: "Ready Actions",
+      value: String(readyExamCount + resumableExamCount),
+      note:
+        resumableExamCount > 0
+          ? `${resumableExamCount} ready to resume`
+          : `${readyExamCount} ready to start`,
+      href: "/app/exams",
+    },
+    {
+      label: "Weak Topics",
+      value: String(weakTopicCount),
+      note: topWeakTopic
+        ? `${topWeakTopic.topic_name} needs the fastest recovery`
+        : "Weak areas will appear as more scored work is completed",
+      href: "/app/weak-areas",
+    },
+    {
+      label: "Recent Results",
+      value: String(recentResultCount),
+      note: recentResults[0]
+        ? `${recentResults[0].exam_title} is the latest published result`
+        : "Published results will appear here when available",
+      href: "/app/results",
+    },
+  ];
 
   return (
     <div className="studentPage studentDashboardPage studentDashboardModern studentLearnerPage studentLearnerDashboardPage">
@@ -595,8 +638,8 @@ export default async function DashboardPage({
       <section className="studentDashboardHeroRow">
         <div className="studentDashboardWelcome studentDashboardWelcomeCompact">
           <div className="studentDashboardWelcomeCopy">
-            <span className="studentDashboardEyebrow">Student Dashboard</span>
-            <h1>Welcome back, {displayName}</h1>
+            <span className="studentDashboardEyebrow">Overall Performance Dashboard</span>
+            <h1>{displayName}&apos;s Academic Report</h1>
             <p>
               {[classLevel ? `Class ${classLevel}` : "", board, selectedSubjectLabel]
                 .filter(Boolean)
@@ -607,8 +650,8 @@ export default async function DashboardPage({
                 ? `${selectedStudentSourceLabel(selectedSource)} filter is active. `
                 : ""}
               {recommendedExam
-                ? "Your next step is ready."
-                : "Your next step will appear here as content becomes available."}
+                ? "This report is using live academic performance, results, and next-step data."
+                : "This report will strengthen as exams, results, and practice signals become available."}
             </small>
           </div>
           <div className="studentDashboardIllustration" aria-hidden="true">
@@ -619,10 +662,15 @@ export default async function DashboardPage({
         </div>
       </section>
 
+      <StudentKpiGrid
+        className="resultsSummaryGrid analyticsKpiGrid"
+        items={reportKpis}
+      />
+
       <section className="studentDashboardPrimaryGrid studentDashboardPrimaryGridCompact">
         <article className="studentDashboardCard studentDashboardCardCompact studentDashboardRecommendation">
           <div className="studentDashboardCardHead">
-            <span className="studentDashboardTag">Next best step</span>
+            <span className="studentDashboardTag">Report spotlight</span>
           </div>
           <div className="studentDashboardRecommendationLead">
             <span className="studentDashboardMiniBadge">{topAction?.eyebrow ?? "Recommended"}</span>
@@ -756,11 +804,11 @@ export default async function DashboardPage({
 
       <section className="contentCard">
         <div className="sectionHeading">
-          <strong>Study Queue</strong>
+          <strong>Academic Action Queue</strong>
           <Link href="/app/attempts">Open Attempt Timeline</Link>
         </div>
         <p className="sectionDescription">
-          Your next moves are ordered from immediate work to optional follow-up.
+          Your next academic moves are ordered from immediate action to lower-priority follow-up.
         </p>
         <div className="studentDashboardExamGrid">
           {actionQueue.map((item, index) => (
@@ -793,7 +841,7 @@ export default async function DashboardPage({
       <section className="studentInsightsTwoColumn">
         <article className="contentCard">
           <div className="sectionHeading">
-            <strong>Why This Works</strong>
+            <strong>Performance Interpretation</strong>
             <span>Current focus</span>
           </div>
           <div className="studentInsightMessageStack">
@@ -826,7 +874,7 @@ export default async function DashboardPage({
 
         <article className="contentCard">
           <div className="sectionHeading">
-            <strong>Recovery Lane</strong>
+            <strong>Recovery Recommendation</strong>
             <span>{practiceFocus.laneLabel}</span>
           </div>
           <div className="studentInsightMessageStack">
@@ -848,7 +896,7 @@ export default async function DashboardPage({
 
       <section className="contentCard">
         <div className="sectionHeading">
-          <strong>Available for You</strong>
+          <strong>Available Assessments</strong>
           <Link href="/app/exams">View all</Link>
         </div>
         <div className="studentDashboardExamGrid">
@@ -924,7 +972,7 @@ export default async function DashboardPage({
 
       <section className="contentCard studentDashboardPremiumSection">
         <div className="sectionHeading">
-          <strong>Premium Access</strong>
+          <strong>Premium Access And Unlock Path</strong>
           <Link href="/app/wallet">How it works</Link>
         </div>
           <div className="studentDashboardPremiumCallout">
@@ -1034,8 +1082,11 @@ export default async function DashboardPage({
       <section className="studentDashboardBottomGrid">
         <article className="contentCard">
           <div className="sectionHeading">
-            <strong>Your Progress</strong>
-            <Link href="/app/analytics">View Detailed Report</Link>
+            <strong>Performance Summary</strong>
+            <div className="studentInsightHeroActions">
+              <Link href="/app/reports">Open Reports Hub</Link>
+              <Link href="/app/analytics">View Detailed Report</Link>
+            </div>
           </div>
           <div className="studentDashboardProgressSummary">
             <div className="studentDashboardProgressRing">
@@ -1062,7 +1113,7 @@ export default async function DashboardPage({
 
         <article className="contentCard">
           <div className="sectionHeading">
-            <strong>Latest Activity</strong>
+            <strong>Recent Published Results</strong>
             <Link href="/app/results">View All</Link>
           </div>
           <div className="dashboardRailStack">

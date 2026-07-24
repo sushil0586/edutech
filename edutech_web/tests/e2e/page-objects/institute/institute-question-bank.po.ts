@@ -53,13 +53,17 @@ export class InstituteQuestionBankPage {
 
   async search(query: string) {
     await this.page.getByRole("textbox", { name: /search question text/i }).fill(query);
-    await this.page.getByRole("button", { name: /apply filters/i }).click();
+    await Promise.all([
+      this.page.waitForURL((url) => url.pathname === "/institute/question-bank" && url.searchParams.get("search") === query),
+      this.page.getByRole("button", { name: /update view/i }).click(),
+    ]);
+    await this.page.waitForLoadState("networkidle");
   }
 
   async selectAcademicFilters(programLabel: RegExp, subjectLabel: RegExp) {
     const programSelect = this.page.getByRole("combobox", { name: /^program$/i });
     const subjectSelect = this.page.getByRole("combobox", { name: /^subject$/i });
-    const applyFiltersButton = this.page.getByRole("button", { name: /apply filters/i });
+    const applyFiltersButton = this.page.getByRole("button", { name: /update view/i });
 
     const programOptionValue = await this.findOptionValueByLabelPattern(programSelect, programLabel);
     expect(programOptionValue).toBeTruthy();

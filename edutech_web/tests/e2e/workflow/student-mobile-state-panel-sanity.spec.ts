@@ -24,16 +24,14 @@ test.describe("Student mobile state-panel sanity", () => {
     await expect(
       page.getByText(/exam detail could not be loaded|this exam is not available in your workspace/i).first(),
     ).toBeVisible();
-    await expect(
-      page.getByText(/backend connectivity|student assignment scope|exam visibility policy/i).first(),
-    ).toBeVisible();
+    await expect(page.getByText(/student assignment|exam visibility|backend connectivity/i).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /back to exams/i }).first()).toBeVisible();
 
     await page.goto(`/app/attempts/${missingAttemptId}/summary`);
     await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/summary(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /attempt summary/i }).first()).toBeVisible();
     await expect(page.getByText(/attempt summary could not be loaded/i).first()).toBeVisible();
-    await expect(page.getByText(/backend connectivity/i).first()).toBeVisible();
+    await expect(page.getByText(/connection check|attempt summary|backend connectivity/i).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /open results/i }).first()).toBeVisible();
 
     await page.goto(`/app/attempts/${missingAttemptId}/review`);
@@ -42,9 +40,7 @@ test.describe("Student mobile state-panel sanity", () => {
     await expect(
       page.getByText(/attempt review is not available right now|waiting for review access/i).first(),
     ).toBeVisible();
-    await expect(
-      page.getByText(/review availability rules|attempt review endpoint/i).first(),
-    ).toBeVisible();
-    await expect(page.getByRole("link", { name: /check result status/i }).first()).toBeVisible();
+    await expect(page.getByText(/review availability rules|attempt review endpoint|review access/i).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /open results|check result status/i }).first()).toBeVisible();
   });
 });

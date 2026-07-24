@@ -1,6 +1,7 @@
 "use client";
 
 import { ReactNode, useEffect, useRef, useState } from "react";
+import { rememberAttemptViewport } from "@/components/ui/attempt-navigation-guard";
 
 const ATTEMPT_ACTION_STATUS_KEY = "nexora-attempt-action-status";
 const ATTEMPT_ACTION_EVENT = "nexora:attempt-action-status";
@@ -126,6 +127,7 @@ export function AttemptActionForm({
         detail: payload,
       }),
     );
+    rememberAttemptViewport(attemptId);
 
     // Server actions surface a runtime fetch error when the browser is offline.
     // Keep the user on the current attempt page so the resilience panel can guide recovery.

@@ -1,5 +1,8 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
+import { fetchCurrentAccountProfile } from "@/lib/auth/session";
 import { StudentKpiGrid } from "@/components/ui/student-kpi-grid";
+import { StudentReportFilters } from "@/components/ui/student-report-filters";
 import { StudentPageHeader } from "@/components/ui/student-page-header";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { StudentAnalyticsDetailHero } from "@/components/ui/student-analytics-detail";
@@ -21,9 +24,18 @@ import {
   trendDirectionLabel,
 } from "@/lib/student/formatters";
 import {
+  ALL_SOURCES_CONTEXT,
   ALL_SUBJECTS_CONTEXT,
   filterStudentRecordsByMetadataSubject,
   filterStudentRecordsBySource,
+  getStudentSourceOptions,
+  getStudentSubjectOptions,
+  resolveSelectedStudentSource,
+  resolveSelectedStudentSourceTeacher,
+  resolveSelectedStudentSubject,
+  STUDENT_SOURCE_CONTEXT_COOKIE,
+  STUDENT_SOURCE_TEACHER_CONTEXT_COOKIE,
+  STUDENT_SUBJECT_CONTEXT_COOKIE,
 } from "@/lib/student/subject-context";
 
 function aggregateQuestionSubjects(
@@ -75,16 +87,32 @@ export default async function StudentAnalyticsTimelinePage({
   searchParams: Promise<{ subject?: string; source?: string; teacher?: string }>;
 }) {
   const query = await searchParams;
-  const subject = query.subject ? decodeAnalyticsParam(query.subject) : null;
-  const source = query.source ? decodeAnalyticsParam(query.source) : null;
-  const teacher = query.teacher ?? null;
+  const profile = await fetchCurrentAccountProfile();
+  const registrationContext = profile?.registration_context ?? {};
+  const subjectOptions = getStudentSubjectOptions(profile ?? registrationContext);
+  const cookieStore = await cookies();
+  const selectedSubject = resolveSelectedStudentSubject(
+    subjectOptions,
+    query.subject
+      ? decodeAnalyticsParam(query.subject)
+      : cookieStore.get(STUDENT_SUBJECT_CONTEXT_COOKIE)?.value ?? ALL_SUBJECTS_CONTEXT,
+  );
+  const selectedSource = resolveSelectedStudentSource(
+    query.source
+      ? decodeAnalyticsParam(query.source)
+      : cookieStore.get(STUDENT_SOURCE_CONTEXT_COOKIE)?.value ?? ALL_SOURCES_CONTEXT,
+  );
 
   const [bundle, questionData] = await Promise.all([
     loadStudentAnalyticsBundle(),
-    fetchStudentQuestionAnalytics({ subject, source, teacher }).catch(() => null),
+    fetchStudentQuestionAnalytics({
+      subject: selectedSubject === ALL_SUBJECTS_CONTEXT ? null : selectedSubject,
+      source: selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
+      teacher: query.teacher ?? null,
+    }).catch(() => null),
   ]);
 
-  if (!bundle.summary || !questionData) {
+  if (!bundle.summary) {
     return (
       <div className="studentPage studentDashboardModern">
         <StudentStatePanel
@@ -112,20 +140,44 @@ export default async function StudentAnalyticsTimelinePage({
     );
   }
 
+  const resolvedQuestionData = questionData ?? {
+    overview: {
+      question_count: 0,
+      attempted_count: 0,
+      correct_count: 0,
+      wrong_count: 0,
+      skipped_count: 0,
+    },
+    benchmark_overview: [],
+    questions: [],
+  };
+
+  const { teacherOptions } = getStudentSourceOptions([
+    ...bundle.results,
+    ...bundle.exams,
+    ...(bundle.summary?.source_breakdown ?? []),
+    ...(bundle.summary?.recent_exams ?? []),
+  ]);
+  const selectedTeacherId = resolveSelectedStudentSourceTeacher(
+    teacherOptions,
+    selectedSource,
+    query.teacher ??
+      cookieStore.get(STUDENT_SOURCE_TEACHER_CONTEXT_COOKIE)?.value ??
+      null,
+  );
+
   const filteredResults = filterStudentRecordsByMetadataSubject(
     filterStudentRecordsBySource(
       bundle.results,
-      source === "platform" || source === "institute" || source === "teacher"
-        ? source
-        : "all",
-      source === "teacher" ? teacher : null,
+      selectedSource,
+      selectedSource === "teacher" ? selectedTeacherId : null,
     ),
-    subject ?? ALL_SUBJECTS_CONTEXT,
+    selectedSubject,
   );
   const publishedResults = sortResultsByPublishedDate(
     filteredResults.filter((item) => item.is_published),
   );
-  const subjectPerformance = aggregateQuestionSubjects(questionData.questions);
+  const subjectPerformance = aggregateQuestionSubjects(resolvedQuestionData.questions);
 
   return (
     <div className="studentPage studentDashboardModern">
@@ -136,6 +188,17 @@ export default async function StudentAnalyticsTimelinePage({
         statusLabel={`${publishedResults.length} published results`}
         statusTone="live"
         action={<Link className="button buttonGhost" href="/app/analytics">Back to Analytics</Link>}
+      />
+
+      <StudentReportFilters
+        basePath="/app/analytics/timeline"
+        title="Timeline filters"
+        helper="Keep the timeline scoped to the same academic lane before comparing score movement, results, and benchmark signals."
+        selectedSource={selectedSource}
+        selectedSubject={selectedSubject}
+        selectedTeacherId={selectedTeacherId}
+        subjectOptions={subjectOptions}
+        teacherOptions={teacherOptions}
       />
 
       <StudentAnalyticsDetailHero
@@ -153,11 +216,11 @@ export default async function StudentAnalyticsTimelinePage({
         stats={[
           {
             label: "Answered",
-            value: String(questionData.overview.attempted_count),
+            value: String(resolvedQuestionData.overview.attempted_count),
           },
           {
             label: "Skipped",
-            value: String(questionData.overview.skipped_count),
+            value: String(resolvedQuestionData.overview.skipped_count),
           },
           {
             label: "Results",
@@ -172,7 +235,11 @@ export default async function StudentAnalyticsTimelinePage({
           <>
             <Link
               className="button buttonPrimary"
-              href={buildAnalyticsActionsHref({ subject, source, teacher })}
+              href={buildAnalyticsActionsHref({
+                subject: selectedSubject === ALL_SUBJECTS_CONTEXT ? null : selectedSubject,
+                source: selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
+                teacher: selectedTeacherId,
+              })}
             >
               Open Action Center
             </Link>
@@ -203,7 +270,7 @@ export default async function StudentAnalyticsTimelinePage({
           },
           {
             label: "Attempt History",
-            value: String(questionData.overview.question_count),
+            value: String(resolvedQuestionData.overview.question_count),
             note: "Scoped questions contributing to this view",
           },
         ]}
@@ -288,7 +355,10 @@ export default async function StudentAnalyticsTimelinePage({
               subjectPerformance.map((item) => (
                 <Link
                   className="studentTopicRow"
-                  href={buildAnalyticsSubjectHref(item.subject, { source, teacher })}
+                  href={buildAnalyticsSubjectHref(item.subject, {
+                    source: selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
+                    teacher: selectedTeacherId,
+                  })}
                   key={item.subject}
                 >
                   <div>

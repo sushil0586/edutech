@@ -1,5 +1,7 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { StudentKpiGrid } from "@/components/ui/student-kpi-grid";
+import { StudentReportFilters } from "@/components/ui/student-report-filters";
 import { StudentPageHeader } from "@/components/ui/student-page-header";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import {
@@ -16,6 +18,7 @@ import {
   buildAnalyticsSubjectHref,
   buildAnalyticsTopicHref,
   decodeAnalyticsParam,
+  loadStudentAnalyticsBundle,
 } from "@/lib/student/analytics";
 import {
   benchmarkLabel,
@@ -24,6 +27,15 @@ import {
   questionTypeLabel,
   titleCaseState,
 } from "@/lib/student/formatters";
+import {
+  ALL_SOURCES_CONTEXT,
+  ALL_SUBJECTS_CONTEXT,
+  getStudentSourceOptions,
+  resolveSelectedStudentSource,
+  resolveSelectedStudentSourceTeacher,
+  STUDENT_SOURCE_CONTEXT_COOKIE,
+  STUDENT_SOURCE_TEACHER_CONTEXT_COOKIE,
+} from "@/lib/student/subject-context";
 
 export default async function StudentAnalyticsQuestionTypePage({
   params,
@@ -36,6 +48,10 @@ export default async function StudentAnalyticsQuestionTypePage({
   const query = await searchParams;
   const questionType = decodeAnalyticsParam(route.questionType);
   const subject = query.subject ? decodeAnalyticsParam(query.subject) : null;
+  const cookieStore = await cookies();
+  const selectedSource = resolveSelectedStudentSource(
+    query.source ?? cookieStore.get(STUDENT_SOURCE_CONTEXT_COOKIE)?.value ?? ALL_SOURCES_CONTEXT,
+  );
   const state = getStudentApiState();
 
   if (!state.apiConfigured) {
@@ -54,14 +70,17 @@ export default async function StudentAnalyticsQuestionTypePage({
     );
   }
 
-  const questionData = await fetchStudentQuestionAnalytics({
-    question_type: questionType,
-    subject,
-    source: query.source ?? null,
-    teacher: query.teacher ?? null,
-  }).catch(() => null);
+  const [bundle, questionData] = await Promise.all([
+    loadStudentAnalyticsBundle(),
+    fetchStudentQuestionAnalytics({
+      question_type: questionType,
+      subject,
+      source: selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
+      teacher: query.teacher ?? null,
+    }).catch(() => null),
+  ]);
 
-  if (!questionData) {
+  if (!bundle.summary) {
     return (
       <div className="studentPage studentDashboardModern">
         <StudentStatePanel
@@ -77,22 +96,47 @@ export default async function StudentAnalyticsQuestionTypePage({
     );
   }
 
-  const difficultyRows = aggregateQuestionsByDifficulty(questionData.questions);
-  const topicRows = aggregateQuestionsByTopic(questionData.questions).slice(0, 5);
-  const wrongCount = questionData.questions.filter(
+  const resolvedQuestionData = questionData ?? {
+    overview: {
+      question_count: 0,
+      attempted_count: 0,
+      correct_count: 0,
+      wrong_count: 0,
+      skipped_count: 0,
+    },
+    benchmark_overview: [],
+    questions: [],
+  };
+
+  const difficultyRows = aggregateQuestionsByDifficulty(resolvedQuestionData.questions);
+  const topicRows = aggregateQuestionsByTopic(resolvedQuestionData.questions).slice(0, 5);
+  const wrongCount = resolvedQuestionData.questions.filter(
     (item) => item.your_result === "wrong",
   ).length;
-  const skippedCount = questionData.questions.filter(
+  const skippedCount = resolvedQuestionData.questions.filter(
     (item) => item.your_result === "skipped",
   ).length;
-  const averageTime = questionData.questions.length
+  const averageTime = resolvedQuestionData.questions.length
     ? Math.round(
-        questionData.questions.reduce(
+        resolvedQuestionData.questions.reduce(
           (total, item) => total + item.your_time_spent_seconds,
           0,
-        ) / questionData.questions.length,
+        ) / resolvedQuestionData.questions.length,
       )
     : 0;
+  const { teacherOptions } = getStudentSourceOptions([
+    ...bundle.results,
+    ...bundle.exams,
+    ...(bundle.summary?.source_breakdown ?? []),
+    ...(bundle.summary?.recent_exams ?? []),
+  ]);
+  const selectedTeacherId = resolveSelectedStudentSourceTeacher(
+    teacherOptions,
+    selectedSource,
+    query.teacher ??
+      cookieStore.get(STUDENT_SOURCE_TEACHER_CONTEXT_COOKIE)?.value ??
+      null,
+  );
 
   return (
     <div className="studentPage studentDashboardModern">
@@ -100,9 +144,23 @@ export default async function StudentAnalyticsQuestionTypePage({
         eyebrow="Question-type lab"
         title={questionTypeLabel(questionType)}
         description="Study one format in isolation to see whether it is costing marks."
-        statusLabel={`${questionData.questions.length} questions analyzed`}
+        statusLabel={`${resolvedQuestionData.questions.length} questions analyzed`}
         statusTone="live"
         action={<Link className="button buttonGhost" href="/app/analytics">Back to Analytics</Link>}
+      />
+
+      <StudentReportFilters
+        basePath={`/app/analytics/question-types/${encodeURIComponent(questionType)}`}
+        title="Question-type filters"
+        helper="Keep the format fixed while refining the subject and source context around it."
+        selectedSource={selectedSource}
+        selectedSubject={subject ?? ALL_SUBJECTS_CONTEXT}
+        selectedTeacherId={selectedTeacherId}
+        subjectOptions={[
+          { value: ALL_SUBJECTS_CONTEXT, label: "Overall" },
+          ...(subject ? [{ value: subject, label: subject }] : []),
+        ]}
+        teacherOptions={teacherOptions}
       />
 
       <StudentAnalyticsDetailHero
@@ -111,7 +169,7 @@ export default async function StudentAnalyticsQuestionTypePage({
         description={`This page isolates ${questionTypeLabel(questionType).toLowerCase()} questions so you can see whether the format itself is causing wrong answers, skips, or slow completion.`}
         badges={[
           subject ?? "Overall subject view",
-          `${questionData.benchmark_overview.length} benchmark scopes`,
+          `${resolvedQuestionData.benchmark_overview.length} benchmark scopes`,
         ]}
         stats={[
           {
@@ -134,11 +192,24 @@ export default async function StudentAnalyticsQuestionTypePage({
         tone="warm"
         actions={
           <>
-            <Link className="button buttonPrimary" href={buildAnalyticsActionsHref({ subject })}>
+            <Link
+              className="button buttonPrimary"
+              href={buildAnalyticsActionsHref({
+                subject,
+                source: selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
+                teacher: selectedTeacherId,
+              })}
+            >
               Open Action Center
             </Link>
             {subject ? (
-              <Link className="button buttonSecondary" href={buildAnalyticsSubjectHref(subject)}>
+              <Link
+                className="button buttonSecondary"
+                href={buildAnalyticsSubjectHref(subject, {
+                  source: selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
+                  teacher: selectedTeacherId,
+                })}
+              >
                 Back to subject
               </Link>
             ) : null}
@@ -150,23 +221,23 @@ export default async function StudentAnalyticsQuestionTypePage({
         items={[
           {
             label: "Tracked Questions",
-            value: String(questionData.overview.question_count),
+            value: String(resolvedQuestionData.overview.question_count),
             note: "Question evidence in this format",
             tone: "primary",
           },
           {
             label: "Attempted",
-            value: String(questionData.overview.attempted_count),
-            note: `${questionData.overview.skipped_count} skipped`,
+            value: String(resolvedQuestionData.overview.attempted_count),
+            note: `${resolvedQuestionData.overview.skipped_count} skipped`,
           },
           {
             label: "Correct",
-            value: String(questionData.overview.correct_count),
-            note: `${questionData.overview.wrong_count} wrong`,
+            value: String(resolvedQuestionData.overview.correct_count),
+            note: `${resolvedQuestionData.overview.wrong_count} wrong`,
           },
           {
             label: "Benchmarks",
-            value: String(questionData.benchmark_overview.length),
+            value: String(resolvedQuestionData.benchmark_overview.length),
             note: "Anonymous peer comparison scopes",
           },
         ]}
@@ -176,11 +247,11 @@ export default async function StudentAnalyticsQuestionTypePage({
         <article className="contentCard">
           <div className="sectionHeading">
             <strong>Benchmark view</strong>
-            <span>{questionData.benchmark_overview.length} scopes</span>
+            <span>{resolvedQuestionData.benchmark_overview.length} scopes</span>
           </div>
           <div className="studentTopicStack">
-            {questionData.benchmark_overview.length ? (
-              questionData.benchmark_overview.map((benchmark) => (
+            {resolvedQuestionData.benchmark_overview.length ? (
+              resolvedQuestionData.benchmark_overview.map((benchmark) => (
                 <div className="studentTopicRow" key={benchmark.scope}>
                   <div>
                     <strong>{benchmarkLabel(benchmark.label || benchmark.scope)}</strong>
@@ -237,8 +308,8 @@ export default async function StudentAnalyticsQuestionTypePage({
                     topicId: row.key,
                     subject,
                     label: row.label,
-                    source: query.source ?? null,
-                    teacher: query.teacher ?? null,
+                    source: selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
+                    teacher: selectedTeacherId,
                   })}
                   key={row.key}
                 >
@@ -262,13 +333,13 @@ export default async function StudentAnalyticsQuestionTypePage({
       <section className="contentCard">
         <div className="sectionHeading">
           <strong>Question evidence</strong>
-          <span>{questionData.questions.length} tracked questions</span>
+          <span>{resolvedQuestionData.questions.length} tracked questions</span>
         </div>
         <StudentQuestionInsightList
-          questions={questionData.questions}
+          questions={resolvedQuestionData.questions}
           subject={subject}
-          source={query.source ?? null}
-          teacher={query.teacher ?? null}
+          source={selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource}
+          teacher={selectedTeacherId}
           currentView="question-type"
           currentQuestionType={questionType}
         />

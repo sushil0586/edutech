@@ -26,6 +26,9 @@ export default async function InstituteLayout({
 
   return (
     <div className="studentAppShell instituteAppShell">
+      <a className="workspaceSkipLink" href="#app-main-content">
+        Skip to main content
+      </a>
       <WorkspaceSidebar
         profile={profile}
         portalLabel="Institute Admin Portal"
@@ -33,7 +36,7 @@ export default async function InstituteLayout({
         homeHref="/institute/dashboard"
         navItems={instituteNavItems}
       />
-      <main className="studentAppMain instituteAppMain">
+      <main className="studentAppMain instituteAppMain" id="app-main-content" tabIndex={-1}>
         <WorkspaceTopbar
           profile={profile}
           workspaceLabel="Institute admin workspace"

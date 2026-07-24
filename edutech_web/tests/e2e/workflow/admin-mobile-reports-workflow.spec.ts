@@ -54,6 +54,7 @@ test.describe("Admin mobile reports workflow", () => {
     await expect(page.getByRole("combobox", { name: /focus lane/i })).toBeVisible();
     await expect(page.getByRole("combobox", { name: /subject/i })).toBeVisible();
     await expect(page.getByRole("combobox", { name: /sort by/i })).toBeVisible();
+    await expect(page.getByRole("combobox", { name: /runtime scope/i })).toBeVisible();
     await expect(page.getByRole("link", { name: /pending publication/i })).toBeVisible();
     await expect(page.getByRole("link", { name: /lowest mastery/i })).toBeVisible();
     await expect(page.getByRole("link", { name: /top performers/i })).toBeVisible();
@@ -61,14 +62,17 @@ test.describe("Admin mobile reports workflow", () => {
     await page.getByRole("combobox", { name: /focus lane/i }).selectOption("publication");
     await page.getByRole("combobox", { name: /subject/i }).selectOption("all");
     await page.getByRole("combobox", { name: /sort by/i }).selectOption("backlog_high");
+    await page.getByRole("combobox", { name: /runtime scope/i }).selectOption("live");
     await page.getByRole("button", { name: /apply filters/i }).click();
 
     await expect(page).toHaveURL(/lane=publication/);
     await expect(page).toHaveURL(/subject=all/);
     await expect(page).toHaveURL(/sort=backlog_high/);
+    await expect(page).toHaveURL(/runtime_status=live/);
     await expect(page.getByText(/lane: publication/i).first()).toBeVisible();
     await expect(page.getByText(/subject: all/i).first()).toBeVisible();
     await expect(page.getByText(/sort: backlog high/i).first()).toBeVisible();
+    await expect(page.getByText(/runtime: live/i).first()).toBeVisible();
 
     await page.getByRole("link", { name: /lowest mastery/i }).click();
     await expect(page).toHaveURL(/lane=weak_topics/);

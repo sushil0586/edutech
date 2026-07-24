@@ -17,20 +17,39 @@ function normalize(value: string) {
   return value.trim().toLowerCase();
 }
 
-function isActiveAttempt(status: string) {
-  return ["in_progress", "active", "started", "resumed"].includes(normalize(status));
+function isPastIso(value: string | null | undefined) {
+  if (!value) return false;
+  const parsed = new Date(value).getTime();
+  if (Number.isNaN(parsed)) return false;
+  return parsed <= Date.now();
 }
 
-function isCompletedAttempt(status: string) {
-  return ["submitted", "completed", "evaluated", "under_review"].includes(normalize(status));
+function isAttemptResumeEligible(attempt: StudentAttemptListItem) {
+  if (isPastIso(attempt.expires_at)) {
+    return false;
+  }
+
+  return ["in_progress", "active", "started", "resumed"].includes(normalize(attempt.status));
+}
+
+function isCompletedAttempt(attempt: StudentAttemptListItem) {
+  return !isAttemptResumeEligible(attempt);
 }
 
 function attemptTone(attempt: StudentAttemptListItem, result: StudentResult | undefined) {
-  if (isActiveAttempt(attempt.status)) {
+  if (isAttemptResumeEligible(attempt)) {
     return {
       container: appStyles.chipSuccess,
       text: appStyles.chipTextSuccess,
       label: "Resume ready",
+    };
+  }
+
+  if (isPastIso(attempt.expires_at) && normalize(attempt.status) === "in_progress") {
+    return {
+      container: appStyles.chipDanger,
+      text: appStyles.chipTextDanger,
+      label: "Expired",
     };
   }
 
@@ -58,8 +77,12 @@ function attemptTone(attempt: StudentAttemptListItem, result: StudentResult | un
 }
 
 function attemptSupportCopy(attempt: StudentAttemptListItem, result: StudentResult | undefined) {
-  if (isActiveAttempt(attempt.status)) {
+  if (isAttemptResumeEligible(attempt)) {
     return "This learner attempt is still active, so mobile should re-enter the runtime directly.";
+  }
+
+  if (isPastIso(attempt.expires_at) && normalize(attempt.status) === "in_progress") {
+    return "This attempt window already expired, so mobile should stop reopening runtime and use summary or results instead.";
   }
 
   if (result?.review_available) {
@@ -126,11 +149,11 @@ export default function AttemptsScreen() {
     });
   }, [attempts, exams, results, selectedSubject]);
   const activeAttempts = useMemo(
-    () => filteredAttempts.filter((attempt) => isActiveAttempt(attempt.status)),
+    () => filteredAttempts.filter((attempt) => isAttemptResumeEligible(attempt)),
     [filteredAttempts],
   );
   const completedAttempts = useMemo(
-    () => filteredAttempts.filter((attempt) => !isActiveAttempt(attempt.status)),
+    () => filteredAttempts.filter((attempt) => isCompletedAttempt(attempt)),
     [filteredAttempts],
   );
   const reviewReadyCount = completedAttempts.filter((attempt) =>
@@ -138,7 +161,7 @@ export default function AttemptsScreen() {
   ).length;
 
   function openPrimaryAttemptRoute(attempt: StudentAttemptListItem) {
-    if (isActiveAttempt(attempt.status)) {
+    if (isAttemptResumeEligible(attempt)) {
       router.push(`/(attempt)/attempt/${attempt.id}`);
       return;
     }

@@ -20,6 +20,20 @@ function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function pickStableStudentSubjectLabel(
+  options: Array<{ label?: string }> | null | undefined,
+) {
+  const labels = (options ?? [])
+    .map((item) => item.label?.trim() ?? "")
+    .filter((label) => label.length > 0);
+
+  const preferredStableLabel =
+    labels.find((label) => !/^PW Sparse Subject\b/i.test(label)) ??
+    null;
+
+  return preferredStableLabel;
+}
+
 function toDateTimeLocalValue(date: Date) {
   const year = date.getFullYear();
   const month = `${date.getMonth() + 1}`.padStart(2, "0");
@@ -29,10 +43,14 @@ function toDateTimeLocalValue(date: Date) {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
-function resultCardByTitle(page: Page, title: string) {
-  return page.locator("article.studentResultSurface").filter({
-    has: page.locator(".studentResultSurfaceHead strong", { hasText: title }),
+function resultRowByTitle(page: Page, title: string) {
+  return page.locator(".studentResultsTable tbody tr").filter({
+    has: page.locator("td strong", { hasText: title }),
   }).first();
+}
+
+function resultDetailsModal(page: Page) {
+  return page.locator(".studentResultsModalCard").first();
 }
 
 async function selectFirstNonEmptyOption(locator: Locator) {
@@ -103,6 +121,83 @@ async function getCurrentSessionAccessToken(page: Page) {
   return accessToken;
 }
 
+async function getInstituteCleanupAccessToken(page: Page) {
+  const instituteCredentials = getRoleCredentials("institute");
+  expect(instituteCredentials).not.toBeNull();
+
+  const response = await page.request.post(`${backendBaseUrl}/api/v1/auth/login/`, {
+    data: {
+      username: instituteCredentials!.username,
+      password: instituteCredentials!.password,
+    },
+    headers: {
+      "Content-Type": "application/json",
+    },
+    timeout: 15000,
+  });
+  expect(response.ok(), await response.text()).toBe(true);
+  const payload = (await response.json()) as { access?: string | null };
+  const accessToken = payload.access?.trim() ?? "";
+  expect(accessToken).not.toBe("");
+  return accessToken;
+}
+
+async function requestBackendJsonWithAccessToken<T>(
+  page: Page,
+  accessToken: string,
+  path: string,
+  init?: {
+    method?: "GET" | "POST";
+    data?: Record<string, unknown>;
+  },
+) {
+  const response = await page.request.fetch(`${backendBaseUrl}${path}`, {
+    method: init?.method ?? "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    data: init?.data,
+  });
+
+  const bodyText = await response.text();
+  const contentType = response.headers()["content-type"] ?? "";
+  const payload =
+    bodyText && contentType.includes("application/json")
+      ? (JSON.parse(bodyText) as T)
+      : (null as T);
+  return { response, payload, bodyText, contentType };
+}
+
+async function publishAndMarkExamLiveWithAccessToken(
+  page: Page,
+  accessToken: string,
+  examId: string,
+) {
+  const publishResponse = await requestBackendJsonWithAccessToken<Record<string, unknown>>(
+    page,
+    accessToken,
+    `/api/v1/exams/${examId}/publish/`,
+    {
+      method: "POST",
+      data: {},
+    },
+  );
+  expect(publishResponse.response.ok(), publishResponse.bodyText).toBe(true);
+
+  const liveResponse = await requestBackendJsonWithAccessToken<Record<string, unknown>>(
+    page,
+    accessToken,
+    `/api/v1/exams/${examId}/mark-live/`,
+    {
+      method: "POST",
+      data: {},
+    },
+  );
+  expect(liveResponse.response.ok(), liveResponse.bodyText).toBe(true);
+}
+
 async function requestBackendJson<T>(
   page: Page,
   path: string,
@@ -163,7 +258,7 @@ async function waitForReviewTaskInQueue(page: Page, examId: string) {
 }
 
 async function deleteInstituteExam(page: Page, examId: string) {
-  const accessToken = await getCurrentSessionAccessToken(page);
+  const accessToken = await getInstituteCleanupAccessToken(page);
 
   try {
     const response = await page.request.delete(`${backendBaseUrl}/api/v1/exams/${examId}/`, {
@@ -255,9 +350,7 @@ test.describe("Student mutable descriptive result storytelling", () => {
       expect(studentProfileId).not.toBeNull();
       studentAcademicYearName = studentMe.payload?.student_context?.academic_year_name?.trim() ?? null;
       studentProgramName = studentMe.payload?.student_context?.program_name?.trim() ?? null;
-      studentSubjectName =
-        studentMe.payload?.student_context?.subject_options?.find((item) => item.label?.trim())?.label?.trim() ??
-        null;
+      studentSubjectName = pickStableStudentSubjectLabel(studentMe.payload?.student_context?.subject_options);
       expect(studentAcademicYearName).not.toBeNull();
       expect(studentProgramName).not.toBeNull();
       expect(studentSubjectName).not.toBeNull();
@@ -361,22 +454,8 @@ test.describe("Student mutable descriptive result storytelling", () => {
       await page.getByRole("button", { name: /save exam settings/i }).click();
       await expect(page).toHaveURL(/message=/);
 
-      await page.goto(`/institute/exams/${examId}`);
-      const syncMarksButton = page.getByRole("button", { name: /sync marks/i });
-      if (await syncMarksButton.count()) {
-        await syncMarksButton.click();
-        await expect(page).toHaveURL(/message=/);
-      }
-      const publishButton = page.getByRole("button", { name: /publish exam/i });
-      if (await publishButton.count()) {
-        await publishButton.click();
-        await expect(page).toHaveURL(/message=/);
-      }
-      const markLiveButton = page.getByRole("button", { name: /mark live/i });
-      if (await markLiveButton.count()) {
-        await markLiveButton.click();
-        await expect(page).toHaveURL(/message=/);
-      }
+      const instituteAccessToken = await getInstituteCleanupAccessToken(page);
+      await publishAndMarkExamLiveWithAccessToken(page, instituteAccessToken, examId!);
 
       await loginAsRole(page, "student");
       await expectStudentWorkspace(page);
@@ -423,10 +502,22 @@ test.describe("Student mutable descriptive result storytelling", () => {
       await expectInstituteWorkspace(page);
 
       await page.goto(`/institute/results?exam=${examId}`);
-      const markCompletedButton = page.getByRole("button", { name: /mark exam completed/i });
-      if (await markCompletedButton.count()) {
-        await markCompletedButton.click();
-        await expect(page).toHaveURL(/message=/);
+      const markCompletedResponse = await requestBackendJsonWithAccessToken(
+        page,
+        instituteAccessToken,
+        `/api/v1/exams/${examId}/mark-completed/`,
+        {
+          method: "POST",
+          data: {
+            remarks: `Student descriptive storytelling completion gate ${uniqueSeed}`,
+          },
+        },
+      );
+      if (!markCompletedResponse.response.ok()) {
+        expect(
+          /already completed|invalid transition|not allowed/i.test(markCompletedResponse.bodyText),
+          markCompletedResponse.bodyText,
+        ).toBe(true);
       }
 
       const reviewTaskId = await waitForReviewTaskInQueue(page, examId!);
@@ -478,21 +569,27 @@ test.describe("Student mutable descriptive result storytelling", () => {
         .poll(
           async () => {
             await page.goto("/app/results?result_group=outcome&result_status=review_ready");
-            return resultCardByTitle(page, examTitle).isVisible().catch(() => false);
+            return resultRowByTitle(page, examTitle).isVisible().catch(() => false);
           },
           { timeout: 30000 },
         )
         .toBe(true);
 
-      const studentResultCard = resultCardByTitle(page, examTitle);
-      await expect(studentResultCard).toBeVisible();
-      await expect(studentResultCard).toContainText(/result published/i);
-      await expect(studentResultCard.getByRole("link", { name: /open summary/i }).first()).toBeVisible();
-      await expect(studentResultCard.getByRole("link", { name: /open answer review/i }).first()).toBeVisible();
+      const studentResultRow = resultRowByTitle(page, examTitle);
+      await expect(studentResultRow).toBeVisible();
+      await expect(studentResultRow).toContainText(/pass/i);
+      await expect(studentResultRow).toContainText(/available/i);
 
-      await studentResultCard.getByRole("link", { name: /open summary/i }).first().click();
+      await studentResultRow.click();
+      const resultModal = resultDetailsModal(page);
+      await expect(resultModal).toBeVisible();
+      await expect(resultModal.getByRole("link", { name: /open summary/i })).toBeVisible();
+      await expect(resultModal.getByRole("link", { name: /open answer review/i })).toBeVisible();
+
+      await resultModal.getByRole("link", { name: /open summary/i }).click();
       await expect(page).toHaveURL(new RegExp(`/app/attempts/${studentAttemptId}/summary(?:\\?.*)?$`));
-      await expect(page.getByText(/post-submit state/i).first()).toBeVisible();
+      await expect(page.getByText(/attempt summary/i).first()).toBeVisible();
+      await expect(page.getByText(/attempt status/i).first()).toBeVisible();
       await expect(page.getByText(/result published/i).first()).toBeVisible();
       await expect(page.getByText(/review available/i).first()).toBeVisible();
       await expect(page.getByRole("link", { name: /open answer review|review feedback/i }).first()).toBeVisible();
@@ -518,16 +615,33 @@ test.describe("Student mutable descriptive result storytelling", () => {
       await expect(page.getByText(/recent published results/i).first()).toBeVisible();
       await expect(page.getByText(new RegExp(escapeRegExp(examTitle), "i")).first()).toBeVisible();
     } finally {
-      if (examId) {
-        await loginAsRole(page, "institute");
-        await expectInstituteWorkspace(page);
-        await deleteInstituteExam(page, examId);
+      const instituteAccessToken = examId || questionId
+        ? await getInstituteCleanupAccessToken(page)
+        : null;
+      if (examId && instituteAccessToken) {
+        const response = await page.request.delete(`${backendBaseUrl}/api/v1/exams/${examId}/`, {
+          headers: {
+            Authorization: `Bearer ${instituteAccessToken}`,
+            "Content-Type": "application/json",
+          },
+          timeout: 15000,
+        });
+        expect(response.ok(), await response.text()).toBe(true);
       }
-      if (questionId) {
-        await loginAsRole(page, "institute");
-        await expectInstituteWorkspace(page);
-        const deleteQuestionResponse = await page.request.delete(`/api/question-bank/questions/${questionId}`);
-        expect(deleteQuestionResponse.ok()).toBe(true);
+      if (questionId && instituteAccessToken) {
+        const deleteQuestionResponse = await page.request.delete(`/api/question-bank/questions/${questionId}`, {
+          headers: {
+            Authorization: `Bearer ${instituteAccessToken}`,
+          },
+          timeout: 15000,
+        });
+        if (!deleteQuestionResponse.ok()) {
+          const deleteQuestionBody = await deleteQuestionResponse.text();
+          expect(
+            /not found|does not exist|protected|constraint|in use|portal session is not available/i.test(deleteQuestionBody),
+            deleteQuestionBody,
+          ).toBe(true);
+        }
       }
     }
   });

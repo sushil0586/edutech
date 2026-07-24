@@ -7,7 +7,9 @@ import { AttemptFullscreenButton } from "@/components/ui/attempt-fullscreen-butt
 import { AttemptActionForm } from "@/components/ui/attempt-action-form";
 import {
   AttemptNavigationGuard,
+  AttemptPostActionQuestionFocus,
   AttemptQuestionRestore,
+  AttemptViewportRestore,
 } from "@/components/ui/attempt-navigation-guard";
 import { AttemptQuestionLink } from "@/components/ui/attempt-question-link";
 import { AttemptResiliencePanel } from "@/components/ui/attempt-resilience-panel";
@@ -16,7 +18,6 @@ import { AttemptSecurityGuard } from "@/components/ui/attempt-security-guard";
 import { AttemptTimerAutoSubmit } from "@/components/ui/attempt-timer-auto-submit";
 import { StudentQuestionPrompt } from "@/components/ui/student-question-prompt";
 import { StudentSectionMediaPanel } from "@/components/ui/student-section-media-panel";
-import { StudentExamExperiencePanel } from "@/components/ui/student-exam-experience-panel";
 import { StudentPageHeader } from "@/components/ui/student-page-header";
 import { StudentResponseArtifactPanel } from "@/components/ui/student-response-artifact-panel";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
@@ -608,7 +609,7 @@ export default async function AttemptDetailPage({
         confirmedAt: confirmedSavedAt ?? new Date().toISOString(),
         savedAt: confirmedSavedAt ?? "",
         question: nextQuestion,
-      }, ATTEMPT_QUESTION_ANCHOR_ID));
+      }));
     } catch (error) {
       unstable_rethrow(error);
       const message =
@@ -619,7 +620,7 @@ export default async function AttemptDetailPage({
         buildAttemptUrl(attemptId, {
           error: message,
           question: returnQuestion || null,
-        }, ATTEMPT_QUESTION_ANCHOR_ID),
+        }),
       );
     }
   }
@@ -663,14 +664,14 @@ export default async function AttemptDetailPage({
         action: "section-switch",
         confirmedAt: confirmedActionAt,
         savedAt: confirmedSavedAt ?? "",
-      }, ATTEMPT_QUESTION_ANCHOR_ID));
+      }));
     } catch (error) {
       unstable_rethrow(error);
       const message =
         error instanceof Error && error.message
           ? error.message
           : "Unable to switch sections right now.";
-      redirect(buildAttemptUrl(attemptId, { error: message }, ATTEMPT_QUESTION_ANCHOR_ID));
+      redirect(buildAttemptUrl(attemptId, { error: message }));
     }
   }
 
@@ -685,6 +686,11 @@ export default async function AttemptDetailPage({
         activeQuestionId={activeQuestion?.question ?? null}
         attemptId={attemptId}
         attemptStatus={detail.status}
+      />
+      <AttemptViewportRestore attemptId={attemptId} />
+      <AttemptPostActionQuestionFocus
+        action={action ?? null}
+        questionCardId={ATTEMPT_QUESTION_ANCHOR_ID}
       />
       <AttemptQuestionRestore
         attemptId={attemptId}
@@ -736,80 +742,12 @@ export default async function AttemptDetailPage({
             </StatusPill>
           </div>
         </div>
-        {!isLockedAttemptState ? (
-          <>
-            <section className="attemptMobileRuntimeStrip" aria-label="Mobile runtime summary">
-              <div className="attemptMobileRuntimeHeader">
-                <div>
-                  <span className="studentDashboardTag">Runtime focus</span>
-                  <span className="studentDashboardTag">{attemptCopy.runtimeTag}</span>
-                  <strong>{attemptCopy.runtimeStrong}</strong>
-                </div>
-                <AttemptCountdown initialSeconds={activeTimeRemaining} mode="pill" />
-              </div>
-              <div className="attemptMobileRuntimeGrid">
-                <div className="attemptStatusTile attemptStatusTileSaved">
-                  <span>Save check</span>
-                  <strong>{activeSaveStateLabel}</strong>
-                </div>
-                <div className="attemptStatusTile attemptStatusTileMarked">
-                  <span>Answered here</span>
-                  <strong>
-                    {currentSectionName
-                      ? `${answeredCountInSection}/${questionCountInSection} done`
-                      : "Single-flow attempt"}
-                  </strong>
-                </div>
-                <div className="attemptStatusTile attemptStatusTileOpen">
-                  <span>Still needs attention</span>
-                  <strong>
-                    {unresolvedCount > 0
-                      ? `${unresolvedCount} left`
-                      : "All clear"}
-                  </strong>
-                </div>
-              </div>
-              <p className="attemptSupportText">
-                Latest confirmed save: {latestSavedLabel}. Save first, then jump or switch sections.
-              </p>
-            </section>
-
-            <div className="attemptStatusGrid">
-              <div className="attemptStatusTile attemptStatusTileSaved">
-                <span>{attemptCopy.overallProgress}</span>
-                <strong>{completionPercent}% complete</strong>
-                <div className="attemptProgressBar" aria-hidden="true">
-                  <span style={{ width: `${completionPercent}%` }} />
-                </div>
-              </div>
-              <div className="attemptStatusTile attemptStatusTileMarked">
-                <span>{attemptCopy.sectionProgress}</span>
-                <strong>
-                  {currentSectionName
-                    ? `${answeredCountInSection}/${questionCountInSection} saved`
-                    : "Single-flow attempt"}
-                </strong>
-                <div className="attemptProgressBar" aria-hidden="true">
-                  <span style={{ width: `${sectionCompletionPercent}%` }} />
-                </div>
-              </div>
-              <div className="attemptStatusTile">
-                <span>Last confirmed save</span>
-                <strong>
-                  {latestSavedLabel}
-                </strong>
-              </div>
-              <div className="attemptStatusTile attemptStatusTileOpen">
-                <span>{attemptCopy.submitHandoff}</span>
-                <strong>{attemptCopy.submitHandoffStrong}</strong>
-              </div>
-            </div>
-          </>
-        ) : null}
       </section>
 
       {error ? <p className="feedbackBanner feedbackBannerError">{decodedError}</p> : null}
-      {notice ? <p className="feedbackBanner feedbackBannerSuccess">{decodedNotice}</p> : null}
+      {notice && action !== "save" && action !== "section-switch" ? (
+        <p className="feedbackBanner feedbackBannerSuccess">{decodedNotice}</p>
+      ) : null}
 
       {isLockedAttemptState ? (
         <section className="attemptWorkspaceDetails">
@@ -902,58 +840,6 @@ export default async function AttemptDetailPage({
 
       <section className="attemptConsoleLayout">
         <div className="attemptConsoleMain">
-          <section className="contentCard attemptToolbar attemptToolbarConsole">
-            <div className="examStateSummary">
-              <span>{attemptCopy.toolbarAttemptProgress}</span>
-              <strong>
-                {completionPercent}% complete
-              </strong>
-              <small>
-                {answeredCount} answered · {markedCount} review later · {unansweredCount} to do
-              </small>
-            </div>
-            {currentSectionName ? (
-              <div className="examStateSummary">
-                <span>Current section</span>
-                <strong>{currentSectionName}</strong>
-              </div>
-            ) : null}
-            <div className="examStateSummary">
-              <span>{attemptCopy.toolbarSectionProgress}</span>
-              <strong>
-                {activeQuestion
-                  ? `${sectionCompletionPercent}% complete`
-                  : "No active section"}
-              </strong>
-              <small>
-                {answeredCountInSection}/{questionCountInSection} saved in this section
-              </small>
-            </div>
-            <div className="examStateSummary">
-              <span>Last confirmed save</span>
-              <strong>
-                {latestSavedDisplayAt
-                  ? studentDateTimeLabel(latestSavedDisplayAt)
-                  : "No saved response yet"}
-              </strong>
-            </div>
-            <div className="examStateSummary">
-              <span>Save confidence</span>
-              <strong>{activeSaveStateLabel}</strong>
-              <small>
-                {latestSavedDisplayAt
-                  ? attemptCopy.saveHintSaved
-                  : attemptCopy.saveHintUnsaved}
-              </small>
-            </div>
-            <div className="examStateSummary">
-              <span>Current question</span>
-              <strong>
-                {activeQuestion ? `${activeQuestionIndex + 1} of ${questionCountInSection}` : "Unavailable"}
-              </strong>
-            </div>
-          </section>
-
           <section className="attemptQuestionStack">
         {activeQuestion ? (() => {
           const question = activeQuestion;
@@ -989,18 +875,10 @@ export default async function AttemptDetailPage({
               ? `Save answer and move to ${nextSectionForQuestion.name}`
               : `Save answer for question ${question.question_order} and review the test`;
           const previousHref = previousQuestion
-            ? buildAttemptUrl(
-                attemptId,
-                { question: previousQuestion.question },
-                ATTEMPT_QUESTION_ANCHOR_ID,
-              )
+            ? buildAttemptUrl(attemptId, { question: previousQuestion.question })
             : undefined;
           const nextHref = nextQuestion
-            ? buildAttemptUrl(
-                attemptId,
-                { question: nextQuestion.question },
-                ATTEMPT_QUESTION_ANCHOR_ID,
-              )
+            ? buildAttemptUrl(attemptId, { question: nextQuestion.question })
             : undefined;
           const passageQuestions = question.passage
             ? visibleQuestions.filter(
@@ -1040,6 +918,7 @@ export default async function AttemptDetailPage({
               tabIndex={-1}
             >
               <AttemptQuestionShortcuts
+                attemptId={attemptId}
                 formId="attempt-question-form"
                 nextHref={nextHref}
                 previousHref={previousHref}
@@ -1064,104 +943,40 @@ export default async function AttemptDetailPage({
                 <StatusPill tone={questionStatusTone}>{questionStatusLabel}</StatusPill>
               </div>
 
-              <div className="attemptQuestionStateStrip">
-                <div className="attemptQuestionStateCard">
-                  <span>Current status</span>
-                  <strong>{questionStatusLabel}</strong>
-                  <small>
-                    {isMarked
-                      ? "Return before submit so this does not stay unresolved."
-                      : isAnswered
-                        ? "A saved response already exists for this question."
-                        : "This question still needs a saved response."}
-                  </small>
-                </div>
-                <div className="attemptQuestionStateCard">
-                  <span>Last save check</span>
-                  <strong>
-                    {latestSavedDisplayAt
-                      ? studentDateTimeLabel(latestSavedDisplayAt)
-                      : "Nothing confirmed yet"}
-                  </strong>
-                  <small>
-                    Palette jumps and section switches do not auto-save edits on this question.
-                  </small>
-                </div>
-                <div className="attemptQuestionStateCard">
-                  <span>Active timer</span>
-                  <strong>
-                    {activeTimeRemaining === null
-                      ? "Backend controlled"
-                      : `${Math.floor(activeTimeRemaining / 60)}m ${activeTimeRemaining % 60}s`}
-                  </strong>
-                  <small>{questionTimeLabel}</small>
-                </div>
-                <div className="attemptQuestionStateCard">
-                  <span>What happens next</span>
-                  <strong>
-                    {nextQuestion
-                      ? "Save and continue"
-                      : nextSectionForQuestion
-                        ? `Save and open ${nextSectionForQuestion.name}`
-                        : "Save and review before submit"}
-                  </strong>
-                  <small>
-                    Submit routes to the attempt summary first, where review and result visibility are explained.
-                  </small>
-                </div>
+              <div className="attemptQuestionStateInline">
+                <span>
+                  <strong>Status:</strong> {questionStatusLabel}
+                </span>
+                <span>
+                  <strong>Save:</strong>{" "}
+                  {latestSavedDisplayAt
+                    ? studentDateTimeLabel(latestSavedDisplayAt)
+                    : "Nothing confirmed yet"}
+                </span>
+                <span>
+                  <strong>Timer:</strong>{" "}
+                  {activeTimeRemaining === null
+                    ? "Backend controlled"
+                    : `${Math.floor(activeTimeRemaining / 60)}m ${activeTimeRemaining % 60}s`}
+                </span>
+                <span>
+                  <strong>Next:</strong>{" "}
+                  {nextQuestion
+                    ? "Save and continue"
+                    : nextSectionForQuestion
+                      ? `Open ${nextSectionForQuestion.name}`
+                      : "Review before submit"}
+                </span>
               </div>
 
-              <section className="attemptLiveCheckpoint" aria-label="Live checkpoint">
-                <div className="attemptLiveCheckpointHeader">
-                  <div>
-                    <span className="studentDashboardTag">Live checkpoint</span>
-                    <strong>Confirm save, time, and section movement before you continue</strong>
-                  </div>
-                  <StatusPill tone={timePressureTone(activeTimeRemaining)}>
-                    {activeTimeRemaining === null
-                      ? "Timer synced from backend"
-                      : activeTimeRemaining <= 300
-                        ? "Final 5 minutes"
-                        : activeTimeRemaining <= 900
-                          ? "Final 15 minutes"
-                          : "Time in hand"}
-                  </StatusPill>
-                </div>
-                <div className="attemptQuestionStateStrip">
-                  <div className="attemptQuestionStateCard">
-                    <span>Save checkpoint</span>
-                    <strong>{activeSaveStateLabel}</strong>
-                    <small>
-                      Latest confirmed save: {latestSavedLabel}. If you changed this answer, save again before opening another question or section.
-                    </small>
-                  </div>
-                  <div className="attemptQuestionStateCard">
-                    <span>Section progress</span>
-                    <strong>{answeredCountInSection}/{questionCountInSection} saved</strong>
-                    <small>
-                      {markedCountInSection} marked in this section. Save and move only when this question state looks right.
-                    </small>
-                  </div>
-                  <div className="attemptQuestionStateCard">
-                    <span>Next handoff</span>
-                    <strong>
-                      {nextQuestion
-                        ? "Next question"
-                        : nextSectionForQuestion
-                          ? nextSectionForQuestion.name
-                          : "Review before submit"}
-                    </strong>
-                    <small>
-                      Section switching and palette jumps are navigation only. Submission always opens summary first.
-                    </small>
-                  </div>
-                </div>
-              </section>
-
-              <StudentExamExperiencePanel
-                compact
-                profile={detail.experience_profile}
-              />
+              <label className="attemptReviewToggle attemptReviewToggleInline">
+                <input
+                  defaultChecked={answer?.is_marked_for_review ?? false}
+                  name="is_marked_for_review"
+                  type="checkbox"
+                />
+                <span>Mark for review</span>
+              </label>
 
               {currentSectionMediaContext.has_media ? (
                 <StudentSectionMediaPanel context={currentSectionMediaContext} />
@@ -1314,16 +1129,18 @@ export default async function AttemptDetailPage({
                   </div>
                 )}
 
-                <label className="attemptReviewToggle">
-                  <input
-                    defaultChecked={answer?.is_marked_for_review ?? false}
-                    name="is_marked_for_review"
-                    type="checkbox"
-                  />
-                  <span>Mark for review</span>
-                </label>
-
-                <div className="attemptActions">
+                <div className="attemptActions attemptActionsExamFooter">
+                  <div className="attemptActionsCluster">
+                    {previousQuestion ? (
+                      <AttemptQuestionLink
+                        attemptId={attemptId}
+                        className="button buttonGhost"
+                        formId="attempt-question-form"
+                        href={previousHref ?? ""}
+                      >
+                        Previous
+                      </AttemptQuestionLink>
+                    ) : null}
                   <ActionSubmitButton
                     actionLabel={`Save answer for question ${question.question_order}`}
                     className="button buttonSecondary"
@@ -1331,14 +1148,6 @@ export default async function AttemptDetailPage({
                     name="action_intent"
                     pendingLabel="Saving..."
                     value="save"
-                  />
-                  <ActionSubmitButton
-                    actionLabel={saveNextActionLabel}
-                    className="button buttonPrimary"
-                    idleLabel={saveNextLabel}
-                    name="action_intent"
-                    pendingLabel="Saving..."
-                    value="save-next"
                   />
                   <ActionSubmitButton
                     actionLabel={`Clear response for question ${question.question_order}`}
@@ -1356,6 +1165,8 @@ export default async function AttemptDetailPage({
                     pendingLabel="Skipping..."
                     value="skip"
                   />
+                  </div>
+                  <div className="attemptActionsCluster attemptActionsClusterPrimary">
                   <button
                     aria-hidden="true"
                     data-auto-submit-expired="true"
@@ -1367,30 +1178,16 @@ export default async function AttemptDetailPage({
                   >
                     Save and submit on expiry
                   </button>
-                </div>
-                <div className="attemptQuestionStateStrip">
-                  <div className="attemptQuestionStateCard">
-                    <span>Save state for this question</span>
-                    <strong>{isAnswered ? "Already saved" : "Needs a saved response"}</strong>
-                    <small>
-                      Use `Save Answer` if you want to stay here, or `{saveNextLabel}` if you are ready to move forward.
-                    </small>
-                  </div>
-                  <div className="attemptQuestionStateCard">
-                    <span>Section movement</span>
-                    <strong>
-                      {nextSectionForQuestion
-                        ? `Next section: ${nextSectionForQuestion.name}`
-                        : currentSectionName ?? "Single section flow"}
-                    </strong>
-                    <small>
-                      Save first, especially before opening another section. Section movement is navigation, not a save step.
-                    </small>
+                  <ActionSubmitButton
+                    actionLabel={saveNextActionLabel}
+                    className="button buttonPrimary attemptSaveNextPrimary"
+                    idleLabel={saveNextLabel}
+                    name="action_intent"
+                    pendingLabel="Saving..."
+                    value="save-next"
+                  />
                   </div>
                 </div>
-                <p className="attemptSupportText">
-                  Save this answer before moving on. Mark it for review if you want to revisit it before submission, and use the palette only after the current response state looks right.
-                </p>
                 <div className="attemptQuestionFooter">
                   <div className="attemptQuestionFooterMeta">
                     <span>
@@ -1400,27 +1197,6 @@ export default async function AttemptDetailPage({
                     <span>
                       Section: {answeredCountInSection}/{questionCountInSection} saved · {markedCountInSection} marked
                     </span>
-                    <span>Shortcuts: `1-9` choose, `M` review, `N` next, `P` previous</span>
-                  </div>
-                  <div className="attemptQuestionJumpRow">
-                    {previousQuestion ? (
-                      <AttemptQuestionLink
-                        className="button buttonGhost"
-                        formId="attempt-question-form"
-                        href={previousHref ?? ""}
-                      >
-                        Previous
-                      </AttemptQuestionLink>
-                    ) : null}
-                    {nextQuestion ? (
-                      <AttemptQuestionLink
-                        className="button buttonSecondary"
-                        formId="attempt-question-form"
-                        href={nextHref ?? ""}
-                      >
-                        Next
-                      </AttemptQuestionLink>
-                    ) : null}
                   </div>
                 </div>
               </AttemptActionForm>
@@ -1441,115 +1217,33 @@ export default async function AttemptDetailPage({
         </div>
 
         <aside className="attemptConsoleRail">
-          <section className="contentCard attemptConsoleSummaryCard">
-            <div className="sectionHeading">
-              <strong>Test Summary</strong>
-              <StatusPill tone={timePressureTone(activeTimeRemaining)}>
-                {activeTimeRemaining === null
-                  ? "Timer synced from backend"
-                  : activeTimeRemaining <= 300
-                    ? "Final 5 minutes"
-                    : activeTimeRemaining <= 900
-                      ? "Final 15 minutes"
-                      : "Time in hand"}
-              </StatusPill>
-            </div>
-            <div className="attemptConsoleTimerWrap">
-              <AttemptCountdown initialSeconds={activeTimeRemaining} mode="pill" />
-            </div>
-            <div className="attemptConsoleSummaryGrid">
-              <div className="attemptStatusTile attemptStatusTileSaved">
-                <span>Answered</span>
-                <strong>{answeredCount}</strong>
-                <div className="attemptProgressBar" aria-hidden="true">
-                  <span style={{ width: `${completionPercent}%` }} />
-                </div>
-              </div>
-              <div className="attemptStatusTile attemptStatusTileMarked">
-                <span>Review later</span>
-                <strong>{markedCount}</strong>
-              </div>
-              <div className="attemptStatusTile attemptStatusTileOpen">
-                <span>To do</span>
-                <strong>{unansweredCount}</strong>
-              </div>
-            </div>
-            <div className="attemptSubmitChecklist">
-              <span>
-                {latestSavedDisplayAt
-                  ? `Latest confirmed save reached the backend at ${latestSavedLabel}.`
-                  : "Create a save checkpoint before submitting if you changed the current answer."}
-              </span>
-              <span>
-                {unresolvedCount > 0
-                  ? `${unresolvedCount} question${unresolvedCount === 1 ? "" : "s"} still need attention before you finish.`
-                  : "Everything is answered and nothing is left for review."}
-              </span>
-              <span>
-                Submit opens your summary first.
-              </span>
-            </div>
-            <p className="attemptSupportText">
-              Take one last look at anything marked for review or still unanswered before you submit.
-            </p>
-            <AttemptActionForm
-              action={submitAttemptAction}
-              actionKind="submit"
-              attemptId={attemptId}
-              confirmMessage={`Submit this test now?\n\nSaved: ${answeredCount}\nMarked for review: ${markedCount}\nNot answered: ${unansweredCount}\n\nTake a quick breath and confirm only if you are ready. Your next stop will be the attempt summary, where result and review visibility are explained clearly.`}
-            >
-              <ActionSubmitButton
-                actionLabel="Submit test"
-                className="button buttonPrimary attemptRailSubmit"
-                idleLabel="Submit Test"
-                pendingLabel="Submitting..."
-              />
-              <button
-                aria-hidden="true"
-                data-auto-submit-final="true"
-                data-skip-confirm="true"
-                tabIndex={-1}
-                type="submit"
-                hidden
-              >
-                Auto submit final
-              </button>
-            </AttemptActionForm>
-          </section>
-
           <section className="contentCard attemptQuestionNavigator attemptRailPanel">
+            <div className="attemptRailTabs">
+              <button className="attemptRailTab attemptRailTabActive" type="button">
+                Questions
+              </button>
+              <button className="attemptRailTab" disabled type="button">
+                Test Summary
+              </button>
+            </div>
             <div className="sectionHeading">
-              <strong>Question Palette</strong>
-              <span>Jump only when needed</span>
+              <strong>Questions</strong>
+              <span>{questionCountInSection} in this section</span>
             </div>
-            <div className="attemptPaletteLegend">
-              <div className="attemptPaletteLegendCard">
-                <span>Current focus</span>
-                <strong>
-                  {activeQuestion ? `Question ${activeQuestion.question_order}` : "Unavailable"}
-                </strong>
-                <small>
-                  Open another question only after the current save checkpoint looks right.
-                </small>
-              </div>
-              <div className="attemptPaletteLegendCard">
-                <span>Answered here</span>
+            <div className="attemptPaletteLegend attemptPaletteLegendCompact">
+              <div className="attemptPaletteLegendCard attemptPaletteLegendCardCompact">
+                <span>Answered</span>
                 <strong>{answeredCountInSection}</strong>
-                <small>
-                  {questionCountInSection - answeredCountInSection} still to do in this section.
-                </small>
               </div>
-              <div className="attemptPaletteLegendCard">
-                <span>Review later</span>
+              <div className="attemptPaletteLegendCard attemptPaletteLegendCardCompact">
+                <span>Review</span>
                 <strong>{markedCountInSection}</strong>
-                <small>
-                  These stay in your final check until you revisit them.
-                </small>
+              </div>
+              <div className="attemptPaletteLegendCard attemptPaletteLegendCardCompact">
+                <span>To do</span>
+                <strong>{questionCountInSection - answeredCountInSection}</strong>
               </div>
             </div>
-            <p className="attemptSupportText">
-              Use the palette when you need to jump. It does not save the answer you are editing now.
-            </p>
             <div className="attemptQuestionNavGrid attemptQuestionNavGridCompact">
                 {visibleQuestions.map((question) => {
                 const answer = resolveAttemptAnswer(answerMap, question);
@@ -1573,6 +1267,7 @@ export default async function AttemptDetailPage({
 
                 return (
                   <AttemptQuestionLink
+                    attemptId={attemptId}
                     className={`attemptQuestionNavChip attemptQuestionNavChipCompact ${
                       isCurrent
                         ? "attemptQuestionNavChipCurrent"
@@ -1583,34 +1278,90 @@ export default async function AttemptDetailPage({
                             : "attemptQuestionNavChipTodo"
                     }`}
                     formId="attempt-question-form"
-                    href={buildAttemptUrl(
-                      attemptId,
-                      { question: question.question },
-                      ATTEMPT_QUESTION_ANCHOR_ID,
-                    )}
+                    href={buildAttemptUrl(attemptId, { question: question.question })}
                     key={question.id}
                     >
                       <strong>{question.question_order}</strong>
                       <div className="attemptQuestionNavChipMeta">
                         <StatusPill tone={tone}>{label}</StatusPill>
-                        <small>
-                          {isCurrent
-                            ? "You are here now"
-                            : isMarked
-                              ? "Return before submit"
-                              : isAnswered
-                                ? "Saved to backend"
-                                : "Needs a save"}
-                        </small>
                       </div>
                     </AttemptQuestionLink>
                   );
                 })}
             </div>
+            <div className="attemptRailFooterActions">
+              <label className="attemptReviewToggle attemptReviewToggleInline">
+                <input
+                  defaultChecked={resolveAttemptAnswer(answerMap, activeQuestion)?.is_marked_for_review ?? false}
+                  form="attempt-question-form"
+                  name="is_marked_for_review"
+                  type="checkbox"
+                />
+                <span>Review later</span>
+              </label>
+              <AttemptActionForm
+                action={submitAttemptAction}
+                actionKind="submit"
+                attemptId={attemptId}
+                confirmMessage={`Submit this test now?\n\nSaved: ${answeredCount}\nMarked for review: ${markedCount}\nNot answered: ${unansweredCount}\n\nTake a quick breath and confirm only if you are ready. Your next stop will be the attempt summary, where result and review visibility are explained clearly.`}
+              >
+                <ActionSubmitButton
+                  actionLabel="Submit test"
+                  className="button buttonPrimary attemptRailSubmit attemptRailSubmitDanger"
+                  idleLabel="End Test"
+                  pendingLabel="Submitting..."
+                />
+                <button
+                  aria-hidden="true"
+                  data-auto-submit-final="true"
+                  data-skip-confirm="true"
+                  tabIndex={-1}
+                  type="submit"
+                  hidden
+                >
+                  Auto submit final
+                </button>
+              </AttemptActionForm>
+            </div>
+          </section>
+
+          <section className="contentCard attemptConsoleSummaryCard attemptRailPanelMuted">
+            <div className="sectionHeading">
+              <strong>Test Summary</strong>
+              <StatusPill tone={timePressureTone(activeTimeRemaining)}>
+                {activeTimeRemaining === null
+                  ? "Timer synced"
+                  : activeTimeRemaining <= 300
+                    ? "Final 5 minutes"
+                    : activeTimeRemaining <= 900
+                      ? "Final 15 minutes"
+                      : "Time in hand"}
+              </StatusPill>
+            </div>
+            <div className="attemptConsoleTimerWrap">
+              <AttemptCountdown initialSeconds={activeTimeRemaining} mode="pill" />
+            </div>
+            <div className="attemptConsoleSummaryGrid">
+              <div className="attemptStatusTile attemptStatusTileSaved">
+                <span>Answered</span>
+                <strong>{answeredCount}</strong>
+                <div className="attemptProgressBar" aria-hidden="true">
+                  <span style={{ width: `${completionPercent}%` }} />
+                </div>
+              </div>
+              <div className="attemptStatusTile attemptStatusTileMarked">
+                <span>Review</span>
+                <strong>{markedCount}</strong>
+              </div>
+              <div className="attemptStatusTile attemptStatusTileOpen">
+                <span>To do</span>
+                <strong>{unansweredCount}</strong>
+              </div>
+            </div>
           </section>
 
           {sections.length > 1 ? (
-            <section className="contentCard attemptSectionPanel attemptRailPanel attemptSectionPanelMuted">
+            <section className="contentCard attemptSectionPanel attemptRailPanel attemptSectionPanelMuted attemptRailPanelMuted">
               <div className="sectionHeading">
                 <strong>Section Access</strong>
                 <span>
@@ -1688,15 +1439,12 @@ export default async function AttemptDetailPage({
                   );
                 })}
               </div>
-              <p className="attemptSupportText">
-                Opening another section keeps the same attempt active. Section switching is navigation, not save, so confirm the current answer first if you changed anything.
-              </p>
             </section>
           ) : null}
         </aside>
       </section>
 
-      <section className="attemptWorkspaceDetails">
+      <section className="attemptWorkspaceDetails attemptWorkspaceDetailsMuted">
         <AttemptResiliencePanel
           initialAction={action}
           initialConfirmedAt={confirmedAt ? feedbackMessage(confirmedAt) : null}

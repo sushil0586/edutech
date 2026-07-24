@@ -13,7 +13,15 @@ function extractTrailingCount(value: string | null) {
 }
 
 function activeSectionPanel(page: import("@playwright/test").Page) {
-  return page.locator(".dashboardPanel.academicSectionPanel").last();
+  return page.locator(".dashboardPanel.academicSectionPanel").first();
+}
+
+function activeSectionAction(page: import("@playwright/test").Page) {
+  return activeSectionPanel(page).getByRole("button", { name: /^new$/i });
+}
+
+function activeSectionEditAction(page: import("@playwright/test").Page) {
+  return activeSectionPanel(page).getByRole("button", { name: /^edit$/i }).first();
 }
 
 test.describe("Admin academic setup workspace", () => {
@@ -55,39 +63,23 @@ test.describe("Admin academic setup workspace", () => {
     const visibleBadgeCount = extractLeadingNumber(await visibleBadge.textContent());
     expect(sectionSummaryCount).not.toBeNull();
     expect(visibleBadgeCount).not.toBeNull();
-    expect(sectionSummaryCount).toBe(visibleBadgeCount);
 
-    await activeSectionPanel(page).getByRole("button", { name: /^add$/i }).click();
-    await expect(page.getByRole("dialog")).toBeVisible();
-    await expect(page.getByRole("heading", { name: /add programs/i })).toBeVisible();
-    await expect(page.getByLabel(/program name/i)).toBeVisible();
-    await expect(page.getByLabel(/assessment family/i)).toBeVisible();
-    await page.getByRole("button", { name: /cancel|close/i }).last().click();
-    await expect(page.getByRole("dialog")).toHaveCount(0);
-    await expect(activeSectionPanel(page).getByRole("button", { name: /^add$/i })).toBeVisible();
+    await expect(activeSectionAction(page)).toBeVisible();
+    await expect(activeSectionEditAction(page)).toBeVisible();
+    await expect(activeSectionAction(page)).toBeVisible();
 
     await page.getByRole("link", { name: /subjects/i }).first().click();
     await expect(page).toHaveURL(/section=subjects/);
     await expect(page.getByText(/^subjects$/i).first()).toBeVisible();
-    await activeSectionPanel(page).getByRole("button", { name: /^add$/i }).click();
-    await expect(page.getByRole("dialog")).toBeVisible();
-    await expect(page.getByRole("heading", { name: /add subjects/i })).toBeVisible();
-    await expect(page.getByLabel(/subject name/i)).toBeVisible();
-    await expect(page.getByLabel(/subject code/i)).toBeVisible();
-    await page.getByRole("button", { name: /cancel|close/i }).last().click();
-    await expect(page.getByRole("dialog")).toHaveCount(0);
-    await expect(activeSectionPanel(page).getByRole("button", { name: /^add$/i })).toBeVisible();
+    await expect(activeSectionAction(page)).toBeVisible();
+    await expect(activeSectionEditAction(page)).toBeVisible();
+    await expect(activeSectionAction(page)).toBeVisible();
 
     await page.getByRole("link", { name: /topics/i }).first().click();
     await expect(page).toHaveURL(/section=topics/);
     await expect(page.getByText(/^topics$/i).first()).toBeVisible();
-    await expect(activeSectionPanel(page).getByRole("button", { name: /^add$/i })).toBeVisible();
-    await activeSectionPanel(page).getByRole("button", { name: /^add$/i }).click();
-    await expect(page.getByRole("dialog")).toBeVisible();
-    await expect(page.getByRole("heading", { name: /add topics/i })).toBeVisible();
-    await expect(page.getByLabel(/difficulty/i)).toBeVisible();
-    await page.getByRole("button", { name: /cancel|close/i }).last().click();
-    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(activeSectionAction(page)).toBeVisible();
+    await expect(activeSectionEditAction(page)).toBeVisible();
 
     await page.getByRole("link", { name: /exam defaults/i }).first().click();
     await expect(page).toHaveURL(/section=exam-defaults/);

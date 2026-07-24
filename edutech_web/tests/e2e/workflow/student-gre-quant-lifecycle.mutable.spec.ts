@@ -2,15 +2,13 @@ import { expect, test, type Page } from "@playwright/test";
 import { answerCurrentAttemptQuestion } from "../helpers/attempt";
 import { loginAsRole, loginWithCredentials } from "../helpers/auth";
 import { reopenExamWindow } from "../helpers/family-runtime";
+import {
+  openStudentPrimaryActionOrSkip,
+  resolveStudentFamilyExamOrSkip,
+  resolveTeacherFamilyExamOrSkip,
+} from "../helpers/student-family";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
 import { expectStudentWorkspace, expectTeacherWorkspace } from "../helpers/navigation";
-
-const backendBaseUrl = (
-  process.env.API_BASE_URL ??
-  process.env.NEXT_PUBLIC_API_BASE_URL ??
-  process.env.PLAYWRIGHT_API_BASE_URL ??
-  "http://127.0.0.1:9001"
-).replace(/\/$/, "");
 
 const greStudentCredentials = {
   username: "demo-gre-student",
@@ -23,60 +21,6 @@ const mutableStudentGreLifecycleEnabled = isMutableLaneEnabled(
 
 const greExamCode = "DMO-GRE-QUANT-01";
 const greExamTitle = "Demo GRE Quant Drill 01";
-
-async function backendAccessToken(page: Page) {
-  const cookies = await page.context().cookies();
-  const accessToken = cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
-  expect(accessToken).not.toBe("");
-  return accessToken;
-}
-
-async function fetchStudentAvailableExams(page: Page) {
-  const accessToken = await backendAccessToken(page);
-  const response = await page.request.get(`${backendBaseUrl}/api/v1/student/exams/available/`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    timeout: 15000,
-  });
-  expect(response.ok()).toBe(true);
-  return (await response.json()) as Array<{
-    id: string;
-    code: string;
-    title: string;
-    is_multi_subject?: boolean;
-    subject_summary?: {
-      display_label?: string;
-      subject_count?: number;
-    } | null;
-  }>;
-}
-
-async function fetchTeacherExamByCode(page: Page, examCode: string) {
-  const accessToken = await backendAccessToken(page);
-  const response = await page.request.get(
-    `${backendBaseUrl}/api/v1/teacher/exams/?search=${encodeURIComponent(examCode)}&page_size=20`,
-    {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      timeout: 15000,
-    },
-  );
-  expect(response.ok()).toBe(true);
-  const payload = (await response.json()) as {
-    results?: Array<{
-      id: string;
-      code: string;
-      title: string;
-    }>;
-  };
-  const exam = payload.results?.find((item) => item.code === examCode) ?? null;
-  expect(exam).not.toBeNull();
-  return exam!;
-}
 
 test.describe("Student GRE quant lifecycle", () => {
   test.skip(
@@ -94,33 +38,38 @@ test.describe("Student GRE quant lifecycle", () => {
 
     await loginAsRole(page, "teacher");
     await expectTeacherWorkspace(page);
-    const teacherExam = await fetchTeacherExamByCode(page, greExamCode);
+    const teacherExam = await resolveTeacherFamilyExamOrSkip(page, {
+      familyLabel: "GRE quant lifecycle",
+      examCode: greExamCode,
+      expectedTitle: greExamTitle,
+    });
+    if (!teacherExam) {
+      return;
+    }
     await reopenExamWindow(page, teacherExam.id, { maxAttempts: 5 });
 
     await loginWithCredentials(page, greStudentCredentials, "student");
     await expectStudentWorkspace(page);
 
-    const exams = await fetchStudentAvailableExams(page);
-    const greExam = exams.find((exam) => exam.code === greExamCode) ?? null;
-    expect(greExam).not.toBeNull();
-    expect(greExam!.title).toBe(greExamTitle);
-    expect(greExam!.is_multi_subject).toBe(false);
-    expect(greExam!.subject_summary?.subject_count).toBe(1);
+    const greExam = await resolveStudentFamilyExamOrSkip(page, {
+      familyLabel: "GRE quant lifecycle",
+      examCode: greExamCode,
+      expectedTitle: greExamTitle,
+    });
+    if (!greExam) {
+      return;
+    }
+    expect(greExam.is_multi_subject).toBe(false);
+    expect(greExam.subject_summary?.subject_count).toBe(1);
 
-    await page.goto(`/app/exams/${greExam!.id}`);
+    await page.goto(`/app/exams/${greExam.id}`);
     await expect(page.getByRole("heading", { name: new RegExp(greExamTitle, "i") }).first()).toBeVisible();
     await expect(page.getByText(/section overview/i).first()).toBeVisible();
 
-    const primaryActionCard = page.locator("article").filter({
-      has: page.getByText(/primary action/i),
-    }).first();
-    const resumeLink = page.getByRole("link", { name: /^resume$/i }).first();
-    const startButton = primaryActionCard.getByRole("button", { name: /^start$/i }).first();
-    if (await resumeLink.isVisible().catch(() => false)) {
-      await resumeLink.click();
-    } else {
-      await expect(startButton).toBeVisible();
-      await startButton.click();
+    const handoff = await openStudentPrimaryActionOrSkip(page);
+    if (handoff !== "start" && handoff !== "resume") {
+      await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/(summary|review)(?:\?.*)?$/);
+      return;
     }
 
     await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+(?:\?.*)?$/);

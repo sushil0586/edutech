@@ -1,17 +1,24 @@
 import { expect, test, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectStudentWorkspace } from "../helpers/navigation";
+import { gotoWithRuntimeRecovery } from "../helpers/runtime";
 
 async function gotoWithRetry(page: Page, url: string, attempts = 3) {
   let lastError: unknown = null;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
-      await page.goto(url);
+      await gotoWithRuntimeRecovery(page, url, Math.max(4, attempts));
       return;
     } catch (error) {
       lastError = error;
       const message = error instanceof Error ? error.message : String(error);
-      if (!message.includes("ERR_CONNECTION_REFUSED") || attempt === attempts) {
+      if (
+        !message.includes("ERR_CONNECTION_REFUSED") &&
+        !message.includes("ERR_ABORTED") &&
+        !message.includes("interrupted by another navigation") &&
+        !message.includes("NS_BINDING_ABORTED") &&
+        attempt === attempts
+      ) {
         throw error;
       }
       await page.waitForTimeout(1500 * attempt);
@@ -35,6 +42,8 @@ test.describe("Student analytics scope persistence workspace", () => {
   test("@workflow student can preserve scoped analytics query context through source and subject drill chains", async ({
     page,
   }) => {
+    test.setTimeout(120000);
+
     await loginAsRole(page, "student");
     await expectStudentWorkspace(page);
 

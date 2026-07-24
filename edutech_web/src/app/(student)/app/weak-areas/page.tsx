@@ -13,6 +13,7 @@ import {
 import { fetchCurrentAccountProfile } from "@/lib/auth/session";
 import { StudentKpiGrid } from "@/components/ui/student-kpi-grid";
 import { StudentPageHeader } from "@/components/ui/student-page-header";
+import { StudentTopicMasteryReport, type StudentTopicMasteryRow } from "@/components/ui/student-topic-mastery-report";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import {
   buildAnalyticsQuestionTypeHref,
@@ -65,6 +66,18 @@ function scoreBarTone(score: number) {
   if (score >= 55) return "mid";
   if (score >= 40) return "warn";
   return "risk";
+}
+
+function masteryLabel(score: number) {
+  if (score < 40) return "Weak";
+  if (score < 70) return "Developing";
+  return "Strong";
+}
+
+function masteryToneClass(score: number) {
+  if (score < 40) return "statusDanger";
+  if (score < 70) return "statusWarning";
+  return "statusLive";
 }
 
 function topicEvidenceLabel(attemptedQuestions: number) {
@@ -389,6 +402,51 @@ export default async function WeakAreasPage({
     source: selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
     teacher: selectedTeacherId,
   };
+  const topicMasteryRows: StudentTopicMasteryRow[] = weakTopics.map((topic) => {
+    const score = Number(topic.percentage);
+    const causes = topicCauseTags(topic);
+    return {
+      id: topic.id,
+      topicName: topic.topic_name ?? "Untagged topic",
+      subjectName: topic.subject_name,
+      masteryLabel: masteryLabel(score),
+      masteryToneClass: masteryToneClass(score),
+      percentageLabel: percentageLabel(topic.percentage),
+      attemptedLabel: String(topic.attempted_questions),
+      skippedLabel: String(topic.skipped_questions),
+      trendLabel: weakTopicSignal(topic).direction,
+      evidenceLabel: topicEvidenceLabel(topic.attempted_questions),
+      causes,
+      overview: `${topic.attempted_questions} attempted, ${topic.incorrect_answers} incorrect, and ${topic.skipped_questions} skipped across this topic.`,
+      practiceHref: `/app/practice?subject=${encodeURIComponent(
+        topic.subject_name,
+      )}&topic=${encodeURIComponent(topic.topic_name ?? "")}`,
+      topicDrilldownHref: buildAnalyticsTopicHref({
+        topicId: topic.id,
+        subject:
+          selectedSubject === ALL_SUBJECTS_CONTEXT ? topic.subject_name : selectedSubject,
+        label: topic.topic_name ?? "",
+        source: analyticsFilters.source,
+        teacher: analyticsFilters.teacher,
+      }),
+      questionEvidenceHref: buildQuestionAnalyticsHref({
+        subject:
+          selectedSubject === ALL_SUBJECTS_CONTEXT ? topic.subject_name : selectedSubject,
+        topic: topic.id,
+        source: analyticsFilters.source,
+        teacher: analyticsFilters.teacher,
+      }),
+      stats: {
+        correct: Math.max(
+          topic.attempted_questions - topic.skipped_questions - topic.incorrect_answers,
+          0,
+        ),
+        incorrect: topic.incorrect_answers,
+        skipped: topic.skipped_questions,
+        attempted: topic.attempted_questions,
+      },
+    };
+  });
 
   return (
     <div className="studentPage studentDashboardModern studentLearnerPage studentLearnerWeakAreasPage">
@@ -664,177 +722,7 @@ export default async function WeakAreasPage({
           />
 
           <section className="studentWeakAreasLayout">
-            <article className="contentCard">
-              <div className="sectionHeading">
-                <strong>Ranked Weak Topics</strong>
-                <span>Priority ladder</span>
-              </div>
-
-              <div className="studentWeakAreaStack">
-                {weakTopics.map((topic, index) => {
-                  const score = Number(topic.percentage);
-                  const composition = scoreComposition(topic);
-                  const causeTags = topicCauseTags(topic);
-                  const signal = weakTopicSignal(topic);
-                  const isPriority = index < 3;
-                  return (
-                    <div
-                      className={`studentWeakAreaRow ${isPriority ? "studentWeakAreaRowPriority" : ""}`}
-                      key={topic.id}
-                    >
-                      <div className="studentWeakAreaRankColumn">
-                        <span
-                          className={`studentWeakAreaRankBadge ${
-                            index === 0
-                              ? "studentWeakAreaRankBadgeTop"
-                              : index === 1
-                                ? "studentWeakAreaRankBadgeHigh"
-                                : index === 2
-                                  ? "studentWeakAreaRankBadgeWarm"
-                                  : ""
-                          }`}
-                        >
-                          #{index + 1}
-                        </span>
-                        <span className="studentWeakAreaPriorityLabel">
-                          {isPriority
-                            ? index === 0
-                              ? "Top priority"
-                              : index === 1
-                                ? "Next priority"
-                                : "Keep close"
-                            : "Tracked"}
-                        </span>
-                      </div>
-
-                      <div className="studentWeakAreaTopic">
-                        <div className="studentWeakAreaTitleLine">
-                          <strong>{topic.topic_name ?? "Untagged topic"}</strong>
-                          <span className={`statusPill ${severityClass(score)}`}>
-                            {severityLabel(score)}
-                          </span>
-                        </div>
-                        <span>{topic.subject_name}</span>
-                        <div className="studentWeakAreaTagRow">
-                          <span className="studentWeakAreaEvidencePill">
-                            {topicEvidenceLabel(topic.attempted_questions)}
-                          </span>
-                          {causeTags.map((tag) => (
-                            <span className="studentWeakAreaCausePill" key={`${topic.id}-${tag}`}>
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                        <p>
-                          {topic.attempted_questions} attempted, {topic.skipped_questions} skipped,
-                          {` ${topic.incorrect_answers}`} incorrect
-                        </p>
-                      </div>
-
-                      <div className="studentWeakAreaMetrics">
-                        <div className="studentWeakAreaSignalHeader">
-                          <strong>{percentageLabel(topic.percentage)}</strong>
-                          <span>{signal.direction}</span>
-                        </div>
-                        <div
-                          className={`scoreBar scoreBar${scoreBarTone(score)} studentWeakAreaHoverHint`}
-                          data-tooltip={`Current accuracy in ${topic.topic_name ?? "this topic"} is ${percentageLabel(topic.percentage)}.`}
-                          style={{ ["--score-width" as string]: `${score}%` }}
-                        />
-                        <div
-                          className="studentWeakAreaSparkline studentWeakAreaHoverHint"
-                          data-tooltip={`Recent signal is ${signal.direction}. Use this sparkline to gauge whether the topic is stabilizing or slipping.`}
-                        >
-                          <svg
-                            aria-hidden="true"
-                            className="studentWeakAreaSparklineSvg"
-                            viewBox="0 0 88 40"
-                          >
-                            <path
-                              className="studentWeakAreaSparklineGrid"
-                              d="M0 34 H88"
-                            />
-                            <polyline
-                              className={`studentWeakAreaSparklinePath studentWeakAreaSparklinePath${scoreBarTone(score)}`}
-                              fill="none"
-                              points={signal.points}
-                            />
-                          </svg>
-                        </div>
-                        <div
-                          className="studentWeakAreaComposition studentWeakAreaHoverHint"
-                          aria-hidden="true"
-                          data-tooltip={`Answer mix: ${composition.correct} correct, ${composition.incorrect} wrong, and ${composition.skipped} skipped.`}
-                        >
-                          <span
-                            className="studentWeakAreaCompositionCorrect"
-                            style={{ width: `${composition.correctWidth}%` }}
-                          />
-                          <span
-                            className="studentWeakAreaCompositionIncorrect"
-                            style={{ width: `${composition.incorrectWidth}%` }}
-                          />
-                          <span
-                            className="studentWeakAreaCompositionSkipped"
-                            style={{ width: `${composition.skippedWidth}%` }}
-                          />
-                        </div>
-                        <div className="studentWeakAreaCompositionLabel" aria-label="Answer composition">
-                          <span>
-                            <strong>Correct</strong>
-                            <small>{composition.correct}</small>
-                          </span>
-                          <span>
-                            <strong>Wrong</strong>
-                            <small>{composition.incorrect}</small>
-                          </span>
-                          <span>
-                            <strong>Skipped</strong>
-                            <small>{composition.skipped}</small>
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="studentWeakAreaActions">
-                        <Link
-                          className="button buttonSecondary"
-                          href={`/app/practice?subject=${encodeURIComponent(
-                            topic.subject_name,
-                          )}&topic=${encodeURIComponent(topic.topic_name ?? "")}`}
-                        >
-                          Start Practice
-                        </Link>
-                        <Link
-                          className="button buttonGhost"
-                          href={buildAnalyticsTopicHref({
-                            topicId: topic.id,
-                            subject:
-                              selectedSubject === ALL_SUBJECTS_CONTEXT ? topic.subject_name : selectedSubject,
-                            label: topic.topic_name ?? "",
-                            source: analyticsFilters.source,
-                            teacher: analyticsFilters.teacher,
-                          })}
-                        >
-                          View Why
-                        </Link>
-                        <Link
-                          className="studentDashboardTextLink"
-                          href={buildQuestionAnalyticsHref({
-                            subject:
-                              selectedSubject === ALL_SUBJECTS_CONTEXT ? topic.subject_name : selectedSubject,
-                            topic: topic.id,
-                            source: analyticsFilters.source,
-                            teacher: analyticsFilters.teacher,
-                          })}
-                        >
-                          Question Evidence
-                        </Link>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </article>
+            <StudentTopicMasteryReport rows={topicMasteryRows} />
 
             <div className="studentWeakAreasRail">
               <article className="contentCard">

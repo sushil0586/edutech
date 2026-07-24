@@ -57,7 +57,7 @@ test.describe("Admin people API audit", () => {
 
       const studentOpenStartedAt = Date.now();
       audit.reset();
-      await page.getByRole("button", { name: /^open$/i }).click();
+      await page.getByRole("button", { name: /update view/i }).click();
       await expect(page).toHaveURL(new RegExp(`/admin/people\\?[^#]*view=students`));
       await expect(page).toHaveURL(new RegExp(`institute=${selectedInstituteId}`));
       await expect(

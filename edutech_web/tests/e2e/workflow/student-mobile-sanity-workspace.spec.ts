@@ -57,6 +57,7 @@ test.describe("Student mobile workspace sanity", () => {
     await expect(mobileNav.getByRole("link", { name: /^tests$/i })).toBeVisible();
     await expect(mobileNav.getByRole("link", { name: /^results$/i })).toBeVisible();
     await expect(mobileNav.getByRole("link", { name: /^analytics$/i })).toBeVisible();
+    await expect(mobileNav.getByRole("link", { name: /^reports$/i })).toBeVisible();
 
     await mobileNav.getByRole("link", { name: /^tests$/i }).click();
     await expect(page).toHaveURL(/\/app\/exams(?:\?.*)?$/);
@@ -66,13 +67,20 @@ test.describe("Student mobile workspace sanity", () => {
     await mobileNav.getByRole("link", { name: /^results$/i }).click();
     await expect(page).toHaveURL(/\/app\/results(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /view analytics/i }).first()).toBeVisible();
+    await expect(
+      page.locator(".studentWorkspaceFiltersCard, .studentResultsTableRow, .studentResultSurface").first(),
+    ).toBeVisible();
 
     await page.getByRole("button", { name: /menu/i }).click();
     await mobileNav.getByRole("link", { name: /^analytics$/i }).click();
     await expect(page).toHaveURL(/\/app\/analytics(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /analytics/i }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /open action center|action center/i }).first()).toBeVisible();
+
+    await page.getByRole("button", { name: /menu/i }).click();
+    await mobileNav.getByRole("link", { name: /^reports$/i }).click();
+    await expect(page).toHaveURL(/\/app\/reports(?:\?.*)?$/);
+    await expect(page.getByRole("heading", { name: /reports hub|downloadable reports center/i }).first()).toBeVisible();
 
     await page.getByRole("button", { name: /menu/i }).click();
     await mobileNav.getByRole("link", { name: /^profile$/i }).click();
@@ -83,7 +91,9 @@ test.describe("Student mobile workspace sanity", () => {
     await page.getByRole("button", { name: /menu/i }).click();
     await mobileNav.getByRole("link", { name: /^dashboard$/i }).click();
     await expect(page).toHaveURL(/\/app\/dashboard(?:\?.*)?$/);
-    await expect(page.getByText(/available for you/i).first()).toBeVisible();
+    await expect(
+      page.getByText(/study queue|action queue|browse tests|resume test|start test/i).first(),
+    ).toBeVisible();
 
     await page.getByRole("button", { name: /menu/i }).click();
     await expect(page.getByRole("button", { name: /close/i })).toBeVisible();
@@ -131,9 +141,15 @@ test.describe("Student mobile workspace sanity", () => {
       await expect(attemptsEmptyState).toBeVisible();
       await expect(page.getByRole("link", { name: /open exams/i }).first()).toBeVisible();
     } else {
-      await expect(page.getByText(/attempt continuity loop/i).first()).toBeVisible();
-      await expect(page.getByRole("link", { name: /open results/i }).first()).toBeVisible();
-      await expect(page.getByRole("link", { name: /open practice/i }).first()).toBeVisible();
+      await expect(page.locator(".studentWorkspaceFiltersCard").first()).toBeVisible();
+      await expect(page.locator(".studentResultSurface, .studentAttemptsCard").first()).toBeVisible();
+      await expect(
+        page
+          .getByRole("link", {
+            name: /resume attempt|open summary|open result status|view details|practice again|open practice/i,
+          })
+          .first(),
+      ).toBeVisible();
     }
 
     await gotoWithRetry(page, "/app/results");
@@ -144,9 +160,13 @@ test.describe("Student mobile workspace sanity", () => {
       await expect(resultsEmptyState).toBeVisible();
       await expect(page.getByRole("link", { name: /open exams/i }).first()).toBeVisible();
     } else {
-      await expect(page.getByText(/results recovery loop/i).first()).toBeVisible();
-      await expect(page.getByRole("link", { name: /view analytics/i }).first()).toBeVisible();
-      await expect(page.getByRole("link", { name: /open attempts/i }).first()).toBeVisible();
+      await expect(page.locator(".studentWorkspaceFiltersCard").first()).toBeVisible();
+      await expect(
+        page.locator(".studentResultsTableRow, .studentResultSurface, .studentPracticeRecommendationTable").first(),
+      ).toBeVisible();
+      await expect(
+        page.getByText(/result overview|review ready|top score|group by source|next action/i).first(),
+      ).toBeVisible();
     }
   });
 });

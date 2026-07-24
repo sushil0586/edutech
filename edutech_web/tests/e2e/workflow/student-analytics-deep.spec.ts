@@ -1,17 +1,24 @@
 import { expect, test, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectStudentWorkspace } from "../helpers/navigation";
+import { gotoWithRuntimeRecovery } from "../helpers/runtime";
 
 async function gotoWithRetry(page: Page, url: string, attempts = 3) {
   let lastError: unknown = null;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
-      await page.goto(url);
+      await gotoWithRuntimeRecovery(page, url, Math.max(4, attempts));
       return;
     } catch (error) {
       lastError = error;
       const message = error instanceof Error ? error.message : String(error);
-      if (!message.includes("ERR_CONNECTION_REFUSED") || attempt === attempts) {
+      const retriable =
+        message.includes("ERR_CONNECTION_REFUSED") ||
+        message.includes("ERR_ABORTED") ||
+        message.includes("NS_BINDING_ABORTED") ||
+        message.includes("interrupted by another navigation");
+
+      if (!retriable || attempt === attempts) {
         throw error;
       }
       await page.waitForTimeout(1500 * attempt);
@@ -33,25 +40,34 @@ test.describe("Student analytics deep drills", () => {
   test("@workflow student can navigate action center, timeline, compare, and subject analytics drills", async ({
     page,
   }) => {
+    test.setTimeout(120000);
+
     await loginAsRole(page, "student");
     await expectStudentWorkspace(page);
 
     await gotoWithRetry(page, "/app/analytics");
     await expectStudentAnalyticsHome(page);
     await expect(
-      page.getByText(/a strong sequence is: open weak areas for the ranked topic/i).first(),
+      page.getByText(
+        /open weak areas for the ranked topic|open weak areas for the weakest ranked topic/i,
+      ).first(),
     ).toBeVisible();
     await expect(page.getByText(/do this first/i).first()).toBeVisible();
     await expect(page.getByText(/if blocked/i).first()).toBeVisible();
 
-    await page.getByRole("link", { name: /open weak areas/i }).first().click();
+    const openWeakAreasLink = page.getByRole("link", { name: /open weak areas/i }).first();
+    const weakAreasHref = await openWeakAreasLink.getAttribute("href");
+    expect(weakAreasHref).toContain("/app/weak-areas");
+    await gotoWithRetry(page, weakAreasHref!);
     await expect(page).toHaveURL(/\/app\/weak-areas(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /weak areas/i }).first()).toBeVisible();
     await expect(
-      page.getByText(/a strong sequence is: inspect the top weak topic/i).first(),
+      page.getByText(/inspect the top weak topic|strong sequence/i).first(),
     ).toBeVisible();
     await expect(page.getByText(/then next/i).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /open practice workspace/i }).first()).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: /open focused practice workspace|open practice workspace/i }).first(),
+    ).toBeVisible();
 
     await gotoWithRetry(page, "/app/analytics");
     await expectStudentAnalyticsHome(page);

@@ -16,7 +16,7 @@ export function MetricCard({
     <View style={[appStyles.metricCard, soft ? appStyles.metricCardSoft : null]}>
       <Text style={appStyles.metricLabel}>{label}</Text>
       <Text style={appStyles.metricValue}>{value}</Text>
-      <Text style={appStyles.helper}>{helper}</Text>
+      <Text numberOfLines={3} style={appStyles.helper}>{helper}</Text>
     </View>
   );
 }

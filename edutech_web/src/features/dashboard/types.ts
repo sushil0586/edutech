@@ -1830,6 +1830,7 @@ export type TeacherInsightSummary = {
     topic_name: string | null;
     average_percentage: string;
     attempted_questions: number;
+    skipped_questions: number;
   }>;
   most_wrong_questions: Array<{
     question_id: string;

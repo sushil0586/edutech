@@ -46,6 +46,90 @@ function buildInstituteReportHref(args: {
   ]);
 }
 
+type InstituteReportHubItem = {
+  id: string;
+  title: string;
+  description: string;
+  formatLabel: string;
+  href: string;
+  ctaLabel: string;
+};
+
+const instituteReportDirectory: InstituteReportHubItem[] = [
+  {
+    id: "publication-backlog-report",
+    title: "Publication Backlog Report",
+    description: "Completed or evaluated exams still needing publication attention across the institute.",
+    formatLabel: "Interactive now",
+    href: "/institute/reports?lane=publication&sort=backlog_high&subject=all",
+    ctaLabel: "Open Publication Backlog",
+  },
+  {
+    id: "exam-performance-report",
+    title: "Exam Performance Report",
+    description: "Exam-level score, attempt, and pass posture across institute-visible result cycles.",
+    formatLabel: "Interactive now",
+    href: "/institute/reports?lane=performance&sort=attempts_high&subject=all",
+    ctaLabel: "Open Exam Performance",
+  },
+  {
+    id: "weak-topic-report",
+    title: "Weak Topic Report",
+    description: "Institute-level academic pressure points built from weak-topic and mastery signals.",
+    formatLabel: "Interactive now",
+    href: "/institute/reports/weak-areas",
+    ctaLabel: "Open Weak Topics",
+  },
+  {
+    id: "subject-performance-report",
+    title: "Student Subject Performance Report",
+    description: "Dedicated subject comparison reporting for institute-scoped students and academic groups.",
+    formatLabel: "Interactive now",
+    href: "/institute/reports/subjects",
+    ctaLabel: "Open Subject Report",
+  },
+  {
+    id: "student-distribution-report",
+    title: "Student Distribution Report",
+    description: "Top performers and support students visible from current institute insight signals.",
+    formatLabel: "Interactive now",
+    href: "/institute/reports?lane=students&sort=score_high&subject=all",
+    ctaLabel: "Open Student Distribution",
+  },
+  {
+    id: "rank-history-report",
+    title: "Student Rank History Report",
+    description: "Ranking posture across institute result cycles with leaderboard-ready checkpoints.",
+    formatLabel: "Interactive now",
+    href: "/institute/reports/rank-history",
+    ctaLabel: "Open Rank History Report",
+  },
+  {
+    id: "study-recommendations-report",
+    title: "Student Study Recommendations Report",
+    description: "Institute-scoped coaching priorities and next-step academic recommendations for support students.",
+    formatLabel: "Interactive now",
+    href: "/institute/reports/study-recommendations",
+    ctaLabel: "Open Study Recommendations Report",
+  },
+  {
+    id: "wrong-questions-report",
+    title: "Student Wrong Questions Report",
+    description: "Recovery-first wrong-question reporting with grouped mistake and skip pressure at institute scope.",
+    formatLabel: "Interactive now",
+    href: "/institute/reports/wrong-questions",
+    ctaLabel: "Open Wrong Questions Report",
+  },
+  {
+    id: "time-management-report",
+    title: "Student Time Management Report",
+    description: "Pacing, slow-question, and fast-risk reporting for institute-led intervention.",
+    formatLabel: "Interactive now",
+    href: "/institute/reports/time-management",
+    ctaLabel: "Open Time Management Report",
+  },
+];
+
 async function loadInstituteReports() {
   const state = getTeacherApiState();
 
@@ -522,6 +606,42 @@ export default async function InstituteReportsPage({
               </article>
             </section>
           ) : null}
+
+          <section className="contentCard">
+            <div className="sectionHeading">
+              <strong>Institute report directory</strong>
+              <span>{instituteReportDirectory.length} direct links</span>
+            </div>
+            <div className="studentResultsTableWrap">
+              <table className="studentResultsTable studentDownloadableReportsTable">
+                <thead>
+                  <tr>
+                    <th>Report</th>
+                    <th>Description</th>
+                    <th>Current Mode</th>
+                    <th>Open</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {instituteReportDirectory.map((report) => (
+                    <tr className="studentResultsTableRow" key={report.id}>
+                      <td>
+                        <strong>{report.title}</strong>
+                        <small>{report.id}</small>
+                      </td>
+                      <td>{report.description}</td>
+                      <td>{report.formatLabel}</td>
+                      <td>
+                        <Link className="button buttonSecondary" href={report.href}>
+                          {report.ctaLabel}
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
         </>
       )}
     </section>

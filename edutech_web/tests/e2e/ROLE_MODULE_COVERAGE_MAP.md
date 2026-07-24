@@ -3,7 +3,25 @@
 ## Current verified state
 
 - Suite command: `npm run test:e2e:full-round`
+- Operator confidence shortcut: `npm run test:e2e:release:operator-confidence`
 - Latest targeted verification:
+  - operator mobile dense browser coverage: `2 passed (7.5s)`
+  - accessibility keyboard workflows baseline: `4 passed (7.8s)`
+  - teacher + institute dense operator browser coverage: `6 passed (11.6s)`
+    - teacher dense operator browser coverage: `3 passed (5.1s)`
+    - institute dense operator browser coverage: `3 passed (6.5s)`
+  - teacher + institute learner-detail visual coverage: `10 passed (10.5s)`
+  - teacher + institute learner-drilldown browser coverage: `10 passed (11.7s)`
+  - operator confidence packaged run:
+    - broad pack: `104 passed (4.3m)`
+    - report visuals: `14 passed (13.3s)`
+  - teacher learner-drilldown report detail suite: `5 passed (9.0s)`
+  - institute learner-drilldown report detail suite: `5 passed (8.5s)`
+  - teacher + institute broad operator pack: `102 passed (4.6m)`
+  - operator report visual pack: `14 passed (13.7s)`
+  - institute report visual pack: `4 passed (4.9s)`
+  - teacher report visual pack: `4 passed (5.3s)`
+  - operator mobile report visual pack: `6 passed (6.1s)`
   - full authored round: `109 passed`, `1 skipped`
   - readiness-focused baseline subset: `5 passed`
   - teacher mutable results readiness lifecycle: `1 passed`
@@ -60,8 +78,10 @@
 - Browser lane: `chromium` baseline plus opt-in `firefox` and `webkit` student, teacher, institute, and admin sanity lanes
 - Current device/form-factor note:
   - admin, institute, and teacher cross-browser sanity is desktop-focused today
-  - student has the only dedicated mobile-web baseline lane right now
-  - smaller-screen stress on dense operator surfaces is still a remaining gap, not already-covered evidence
+  - student still has the deepest dedicated mobile-web baseline lane
+  - operator smaller-screen confidence now includes mobile report-surface visuals for teacher and institute dense academic report routes
+  - operator smaller-screen confidence now also includes mobile dense browser contracts for teacher and institute live-monitor, exam-detail, and question-detail routes
+  - accessibility confidence is stronger across student reports hub plus teacher exam detail, teacher live monitor, teacher question editor, and institute live monitor; institute exam-detail tab-order still needs dedicated hardening
 - Execution style: serial worker model using shared seeded demo accounts
 - Coverage shape:
   - `107` spec files
@@ -76,8 +96,8 @@
 | --- | --- | ---: |
 | Anonymous | route protection and login redirects | 3 |
 | Platform admin | dashboard, dashboard alias, search, settings, exams, advanced builder, desktop cross-browser shell sanity, desktop cross-browser deep-route sanity, mutable advanced builder templates, mutable advanced-builder exam creation, mutable advanced-builder learner attempt handoff, preset library, mutable preset library actions, mutable preset-library exam persistence, mutable assignment-mode persistence, exam creation, exam detail, mutable exam detail, exam builder, mutable exam builder, academic setup, mutable academic setup, institutes, institute CRUD, reports, people, mutable roster actions, mutable roster import, security, economy, and platform governance workspace navigation | 30 |
-| Institute admin | control center, people, academic setup, exams, dedicated exam detail, results, reports, reviews, desktop cross-browser shell sanity, desktop cross-browser results deep-route sanity, mutable admin actions, mutable preset-library exam persistence, mutable assignment-mode persistence, and mutable advanced-builder exam creation | 19 |
-| Teacher | dashboard, exams, dedicated exam detail, builder, question bank, results, reviews, desktop cross-browser shell sanity, desktop cross-browser results deep-route sanity, mutable authoring and delivery actions | 16 |
+| Institute admin | control center, people, academic setup, exams, dedicated exam detail, results, reports, learner report drilldowns, report detail surfaces, desktop report visuals, mobile report visuals, mobile dense operator browser coverage, reviews, search, security, settings, desktop cross-browser shell sanity, desktop cross-browser results deep-route sanity, mutable admin actions, mutable preset-library exam persistence, mutable assignment-mode persistence, and mutable advanced-builder exam creation | 27 |
+| Teacher | dashboard, exams, dedicated exam detail, builder, question bank, reports, learner report drilldowns, report detail surfaces, results, reviews, search, desktop report visuals, mobile report visuals, mobile dense operator browser coverage, desktop cross-browser shell sanity, desktop cross-browser results deep-route sanity, mutable authoring and delivery actions | 21 |
 | Student | exams, exam detail, exam-key entry, dashboard, profile, settings, notifications, wallet, subscriptions, search, practice, analytics, analytics scope continuity across source, compare, timeline, and action-center drills, mobile navigation sanity, cross-browser shell sanity, cross-browser analytics/results sanity, cross-browser attempts/post-submit sanity, cross-browser exam/runtime sanity, attempts, attempt runtime, post-submit summary and review, results, result state matrix, mutable live attempt flow, mutable admin-created assigned exam attempt, mutable published-result visibility flow | 22 |
 | Registration journeys | new teacher and student signup flows | 2 |
 | Cross-role access control | wrong-role redirects and workspace blocking | 3 |
@@ -158,15 +178,22 @@
 | Institute advanced builder template library | save template, export selected JSON bundle, import JSON bundle, and cleanup | Mutable | `tests/e2e/workflow/institute-advanced-builder-templates-mutable.spec.ts` |
 | Question bank workspace | question bank landing, search/filter workflow, detail preview expansion, route drills into import and authoring flows, baseline question/comprehension detail route coverage, bulk-action guard validation, and mutable bulk-action success paths for difficulty, availability, and tagging | Baseline + Mutable | `tests/e2e/workflow/institute-question-bank-workspace.spec.ts`, `tests/e2e/workflow/institute-question-bank-detail-workspace.spec.ts`, `tests/e2e/workflow/institute-question-bank-bulk-workspace.spec.ts`, `tests/e2e/workflow/institute-question-bank-bulk-mutable.spec.ts` |
 | Results workspace | results landing page, summary cards, exam/result publish-readiness cards, filter/reset flows, publication-group filtered-state validation, drills into exam, builder, reviews, question bank, leaderboard, leaderboard KPIs/checklist/pagination plus leaderboard utility handoffs and cross-view navigation, live monitor controls and attempt drillthrough, analysis, refresh-status/workflow-card utilities, and analysis-page student/question exploration | Baseline | `tests/e2e/smoke/institute-results.spec.ts`, `tests/e2e/workflow/institute-results-workspace.spec.ts`, `tests/e2e/workflow/institute-results-leaderboard-workspace.spec.ts`, `tests/e2e/workflow/institute-results-live-workspace.spec.ts`, `tests/e2e/workflow/institute-results-analysis-workspace.spec.ts` |
-| Reports workspace | report controls, full quick-filter cycling, lane switching, reporting drill surfaces, and hero handoff to results/exams | Baseline | `tests/e2e/workflow/institute-reports-workspace.spec.ts` |
+| Reports workspace | report controls, full quick-filter cycling, lane switching, reporting drill surfaces, direct handoffs into dedicated subject, topic-mastery, wrong-question, time-management, rank-history, and study-recommendation reports, plus hero handoff to results/exams | Baseline | `tests/e2e/workflow/institute-reports-workspace.spec.ts`, `tests/e2e/workflow/institute-reports-browser-coverage.spec.ts` |
+| Learner report drilldowns | dedicated institute learner report detail route with report-lane handoffs from subject, study-recommendation, and timing surfaces, plus browser-truthful learner-link contracts | Baseline | `tests/e2e/workflow/institute-report-detail-workspace.spec.ts`, `tests/e2e/workflow/institute-report-detail-browser-coverage.spec.ts` |
+| Report detail surfaces | dedicated institute subject performance, topic mastery, wrong questions, and time management reports with browser-truthful counts, empty states, learner drilldowns, and handoffs into analysis, attempts, and sibling report lanes | Baseline | `tests/e2e/workflow/institute-report-detail-workspace.spec.ts`, `tests/e2e/workflow/institute-report-detail-browser-coverage.spec.ts` |
+| Desktop report visual contracts | dedicated institute subject performance, topic mastery, wrong questions, time management, and learner detail reports preserve hero, KPI strip, and dense support-card alignment under screenshot-based visual assertions | Baseline | `tests/e2e/workflow/institute-report-surfaces-visual.spec.ts` |
+| Mobile report visual contracts | mobile teacher subject, topic-mastery, wrong-question, and time-management report surfaces plus institute wrong-question and time-management report surfaces preserve hero readability and dense row alignment under narrow-view screenshot assertions | Baseline | `tests/e2e/workflow/operator-mobile-report-surfaces-visual.spec.ts` |
+| Dense operator browser contracts | live monitor, exam detail, and question detail keep dense cards, panels, and handoffs horizontally stable and browser-truthful | Baseline | `tests/e2e/workflow/institute-dense-operator-browser-coverage.spec.ts` |
+| Mobile dense operator browser contracts | mobile live monitor, exam detail, and question detail keep dense cards, panels, and handoffs horizontally stable and browser-truthful | Baseline | `tests/e2e/workflow/operator-mobile-dense-browser-coverage.spec.ts` |
 | Results attempts | attempt filters, grouping, pagination controls, inspect-attempt path or empty-state validation | Baseline | `tests/e2e/workflow/institute-results-attempts-workspace.spec.ts` |
-| Reviews workspace | results handoff, pending/reviewed filters, reset flow, filtered-empty recovery, exam-scoped queue actions, task-detail, and pagination checks; institute review navigation baseline is proven while scoring mutation remains future expansion | Baseline | `tests/e2e/workflow/institute-reviews-workspace.spec.ts` |
+| Reviews workspace | results handoff, pending/reviewed filters, reset flow, filtered-empty recovery, exam-scoped queue actions, task-detail, and pagination checks | Baseline | `tests/e2e/workflow/institute-reviews-workspace.spec.ts` |
+| Mutable review decisions | create a disposable institute descriptive review task, assign it, request recheck, moderate it, and verify browser-truthful review state transitions | Mutable | `tests/e2e/workflow/institute-reviews-mutable.spec.ts` |
 | Mutable academic setup | create/edit/archive/restore academic year, program, cohort, subject, topic records | Mutable | `tests/e2e/workflow/institute-academic-setup-mutable.spec.ts` |
 | Mutable guided exam creation matrix | create disposable `practice`, `quiz`, and `mock_exam` institute exams through the guided wizard, attach one section and question, assign a learner, and verify student visibility; selected-student baseline is proven while broader multi-learner distribution remains future expansion | Mutable | `tests/e2e/workflow/institute-exam-creation-wizard-matrix.mutable.spec.ts` |
 | Guided exam family defaults | guided wizard applies seeded NEET, JEE, GRE, and AWS family defaults, checklist guidance, and runtime/learner posture changes across steps | Baseline | `tests/e2e/workflow/institute-family-guided-create-defaults.spec.ts` |
 | Mutable guided family persistence | guided wizard persists JEE and GRE family-selected defaults into saved institute exam metadata | Mutable | `tests/e2e/workflow/institute-family-guided-persistence.mutable.spec.ts` |
 | Mutable exam shell | create disposable institute exam shell, validate detail handoffs, mutable detail actions, and verify builder PDF export popup; `entitlement_only` persistence baseline is browser-proven while broader stars-policy breadth remains future expansion | Mutable | `tests/e2e/workflow/institute-exam-mutable.spec.ts` |
-| Mutable results workflow | create disposable institute exam shell, submit one learner attempt, and prove publish-readiness plus leaderboard state changes through results publication; single-ranked learner leaderboard-ready flow is proven while broader multi-learner distribution remains future expansion | Mutable | `tests/e2e/workflow/institute-results-mutable.spec.ts` |
+| Mutable results workflow | create disposable institute exam shells, submit learner attempts, and prove publish-readiness, leaderboard state changes, populated live-monitor evidence, and populated analysis drilldowns through institute-side result publication; single-ranked, multi-learner, descriptive, live-monitor, and analysis-populated flows are browser-proven | Mutable | `tests/e2e/workflow/institute-results-mutable.spec.ts`, `tests/e2e/workflow/institute-results-multi-learner.mutable.spec.ts`, `tests/e2e/workflow/institute-results-descriptive-multi-role.mutable.spec.ts`, `tests/e2e/workflow/institute-results-analysis-populated.mutable.spec.ts`, `tests/e2e/workflow/institute-results-live-populated.mutable.spec.ts` |
 | Mutable question bank | create, update, delete disposable institute question | Mutable | `tests/e2e/workflow/institute-question-mutable.spec.ts` |
 | Mutable question import | preview and finalize disposable institute question-import CSV rows | Mutable | `tests/e2e/workflow/question-import-mutable.spec.ts` |
 | Mutable roster | create disposable teacher and student records, create login, reset/disable/enable login, cleanup through admin APIs | Mutable | `tests/e2e/workflow/institute-roster-mutable.spec.ts` |
@@ -193,13 +220,18 @@
 | Mutable question import | preview and finalize disposable teacher question-import CSV rows | Mutable | `tests/e2e/workflow/question-import-mutable.spec.ts` |
 | Mutable exam builder | create disposable exam, save settings, add/remove section, attach/update/remove linked question | Mutable | `tests/e2e/workflow/teacher-exam-builder-mutable.spec.ts` |
 | Mutable exam detail | create disposable exam shell, validate delivery page handoffs, access-key, policy, refresh, sync actions | Mutable | `tests/e2e/workflow/teacher-exam-detail-mutable.spec.ts` |
-| Mutable results workflow | export builder paper popup, publish-ready results workflow, and leaderboard assertions; manual-review plus single-ranked learner publication baseline is proven while broader multi-learner distribution remains future expansion | Mutable | `tests/e2e/workflow/teacher-results-mutable.spec.ts` |
+| Mutable results workflow | export builder paper popup, publish-ready teacher results workflow, ranked multi-learner distribution, partial publication distribution, populated live-monitor evidence, and populated analysis drilldowns are browser-proven across teacher-managed result publication flows | Mutable | `tests/e2e/workflow/teacher-results-mutable.spec.ts`, `tests/e2e/workflow/teacher-results-multi-learner.mutable.spec.ts`, `tests/e2e/workflow/teacher-results-partial-distribution.mutable.spec.ts`, `tests/e2e/workflow/teacher-results-analysis-populated.mutable.spec.ts`, `tests/e2e/workflow/teacher-results-live-populated.mutable.spec.ts` |
+| Learner report drilldowns | dedicated teacher learner report detail route with report-lane handoffs from subject, weak-area, wrong-question, time-management, and study-recommendation surfaces, plus browser-truthful learner-link contracts | Baseline | `tests/e2e/workflow/teacher-report-detail-workspace.spec.ts`, `tests/e2e/workflow/teacher-report-detail-browser-coverage.spec.ts` |
+| Report detail surfaces | dedicated teacher subject performance, topic mastery, wrong questions, and time management reports with browser-truthful counts, empty states, learner drilldowns, and handoffs into analysis, attempts, and sibling report lanes | Baseline | `tests/e2e/workflow/teacher-report-detail-workspace.spec.ts`, `tests/e2e/workflow/teacher-report-detail-browser-coverage.spec.ts` |
+| Desktop report visual contracts | dedicated teacher subject performance, topic mastery, wrong questions, time management, and learner detail reports preserve hero, KPI strip, and dense support-card alignment under screenshot-based visual assertions | Baseline | `tests/e2e/workflow/teacher-report-surfaces-visual.spec.ts` |
+| Dense operator browser contracts | live monitor, exam detail, and question detail keep dense cards, panels, editor surfaces, and handoffs horizontally stable and browser-truthful | Baseline | `tests/e2e/workflow/teacher-dense-operator-browser-coverage.spec.ts` |
+| Mobile dense operator browser contracts | mobile live monitor, exam detail, and question detail keep dense cards, panels, editor surfaces, and handoffs horizontally stable and browser-truthful | Baseline | `tests/e2e/workflow/operator-mobile-dense-browser-coverage.spec.ts` |
 
 ### Student
 
 | Module | Coverage | Mode | Spec |
 | --- | --- | --- | --- |
-| Exams workspace | exams shell, filter variations, enter-key route, empty-state handling | Baseline | `tests/e2e/smoke/student-attempts.spec.ts` |
+| Exams workspace | exams shell, availability/sort/group/page-size filters, quick-filter chips, pagination summary, primary action-branch coverage, enter-key route, detail handoff, and empty-state handling | Baseline | `tests/e2e/workflow/student-exams-workspace.spec.ts`, `tests/e2e/smoke/student-attempts.spec.ts` |
 | Exam detail workspace | exam readiness, runtime and policy surfaces, section and blueprint visibility, plus safe non-mutating handoffs into attempts, review, summary, or wallet based on live backend state | Baseline | `tests/e2e/workflow/student-exam-detail-workspace.spec.ts` |
 | Exam-key entry workspace | quick exam lookup guidance, required-field validation, and safe navigation back into the catalog or dashboard without depending on disposable access keys | Baseline | `tests/e2e/workflow/student-exam-key-workspace.spec.ts` |
 | Dashboard workspace | dashboard recommendation cards, action queue, source/subject context controls, and major handoffs into attempts, wallet, exams, analytics, and results | Baseline | `tests/e2e/workflow/student-dashboard-workspace.spec.ts` |
@@ -208,15 +240,25 @@
 | Cross-browser analytics and results sanity | desktop results plus analytics compare/timeline route sanity on Chromium, Firefox, and WebKit | Baseline | `tests/e2e/workflow/student-cross-browser-analytics-results.spec.ts` |
 | Cross-browser attempts and post-submit sanity | desktop attempts plus post-submit summary/review route sanity on Chromium, Firefox, and WebKit | Baseline | `tests/e2e/workflow/student-cross-browser-attempts-summary.spec.ts` |
 | Cross-browser exam detail and runtime sanity | desktop exam detail plus conditional runtime route sanity on Chromium, Firefox, and WebKit | Baseline | `tests/e2e/workflow/student-cross-browser-exam-runtime.spec.ts` |
-| Utility and identity surfaces | dashboard, profile, settings, wallet, subscriptions, and search route coverage with truthful utility-state assertions | Baseline | `tests/e2e/workflow/student-utility-workspace.spec.ts` |
-| Notifications workspace | inbox setup/load/empty-state truthfulness, mark-read actions, mark-all flow, filters, grouping, reset, and learner-route handoffs | Baseline | `tests/e2e/workflow/student-notifications-workspace.spec.ts` |
+| Utility and identity surfaces | dashboard and profile route coverage with truthful utility-state assertions | Baseline | `tests/e2e/workflow/student-utility-workspace.spec.ts` |
+| Settings workspace | account-state visibility, support guidance, quick-access handoffs, notifications/help handoffs, and session-control visibility | Baseline | `tests/e2e/workflow/student-settings-workspace.spec.ts` |
+| Search workspace | search query behavior, section/source/sort/group filters, quick-filter chip continuity, grouped handoff behavior, zero-state handling, reset behavior, and truthful shell handoffs into student routes | Baseline | `tests/e2e/workflow/student-search-workspace.spec.ts`, `tests/e2e/workflow/student-search-continuity.spec.ts` |
+| Wallet workspace | balance and KPI visibility, rewards and referral visibility, ledger and unlock-history visibility, star-pack and subscription-plan visibility, request-state visibility, and premium-route handoffs | Baseline | `tests/e2e/workflow/student-wallet-workspace.spec.ts` |
+| Subscriptions workspace | section filter behavior, rows/page-size behavior, plans/orders/subscriptions state branches, wallet handoff truthfulness, premium-route handoffs, and subscription-state messaging | Baseline | `tests/e2e/workflow/student-subscriptions-workspace.spec.ts` |
+| Notifications workspace | inbox setup/load/empty-state truthfulness, mark-read actions, mark-all flow, filters, grouping, reset, learner-route handoffs, and filter-to-handoff continuity across category, object, page-size, and hero CTA navigation | Baseline | `tests/e2e/workflow/student-notifications-workspace.spec.ts`, `tests/e2e/workflow/student-notifications-continuity.spec.ts` |
 | Practice workspace | practice filters, reset flow, weak-areas navigation, real-data empty-state handling | Baseline | `tests/e2e/smoke/student-attempts.spec.ts`, `tests/e2e/workflow/student-practice-workspace.spec.ts` |
 | Mutable practice loop | start, resume, submit, and review a disposable practice set from the practice lane | Mutable | `tests/e2e/workflow/student-practice-mutable.spec.ts` |
-| Weak areas | weak-areas entry path from practice workspace | Baseline | `tests/e2e/smoke/student-attempts.spec.ts` |
-| Analytics | analytics landing, action-center handoff, source and subject deep drills, compare route entry plus rendered source/subject context, timeline, and subject practice-link preservation | Baseline | `tests/e2e/smoke/student-attempts.spec.ts`, `tests/e2e/workflow/student-analytics-deep.spec.ts` |
+| Weak areas | weak-areas entry path from practice workspace, ranked topic mastery validation, and recovery handoffs into topic drilldown, question evidence, practice, and exams | Baseline | `tests/e2e/smoke/student-attempts.spec.ts`, `tests/e2e/workflow/student-weak-areas-workspace.spec.ts`, `tests/e2e/workflow/student-weak-areas-recovery-workflow.spec.ts` |
+| Analytics | analytics landing, action-center handoff, source and subject deep drills, compare route entry plus rendered source/subject context, timeline, and subject practice-link preservation | Baseline | `tests/e2e/smoke/student-attempts.spec.ts`, `tests/e2e/workflow/student-analytics-deep.spec.ts`, `tests/e2e/workflow/student-analytics-subject-report-workspace.spec.ts` |
 | Analytics scope continuity | source drill preserves subject/teacher context, compare drill materializes source key into scoped query params, timeline/action-center handoffs preserve scoped filters, and subject drill keeps source-teacher scope alive | Baseline | `tests/e2e/workflow/student-analytics-scope-persistence-workspace.spec.ts` |
 | Analytics timeline and compare | standalone timeline and comparison route coverage for trend snapshot, benchmark panels, subject momentum, result ledger, and the timeline/compare/results handoff loop | Baseline | `tests/e2e/workflow/student-analytics-timeline-compare-workspace.spec.ts` |
-| Attempts | attempts workspace shell and drillthrough | Baseline | `tests/e2e/smoke/student-attempts.spec.ts` |
+| Analytics action center and question evidence | action-center shortlist, question evidence route, guided drill-downs, and cross-route continuity through actions and questions | Baseline | `tests/e2e/workflow/student-analytics-actions-questions-workspace.spec.ts` |
+| Dense academic reports | wrong questions, time management, study recommendations, rank history, and student reports hub surfaces with desktop workflow coverage; the reports hub now proves both `/app/analytics/downloads` compatibility and direct `/app/reports` entry plus scoped handoffs into linked student report routes | Baseline | `tests/e2e/workflow/student-wrong-questions-workspace.spec.ts`, `tests/e2e/workflow/student-time-management-workspace.spec.ts`, `tests/e2e/workflow/student-study-recommendations-workspace.spec.ts`, `tests/e2e/workflow/student-rank-history-workspace.spec.ts`, `tests/e2e/workflow/student-downloads-workspace.spec.ts`, `tests/e2e/workflow/student-downloads-report-handoffs.spec.ts` |
+| Student academic continuity journey | end-to-end continuity across dashboard, analytics, practice, attempts, results, and academic report handoffs | Baseline | `tests/e2e/workflow/student-academic-continuity-journey.spec.ts` |
+| Family fixture preflight | seeded NEET, JEE, GRE, AWS, and multi-subject student credentials and exam/result fixtures are validated up front with fixture-gap specific failures | Baseline | `tests/e2e/workflow/student-family-fixture-preflight.spec.ts` |
+| Desktop report visual contracts | dashboard reports, dense academic reports, utility surfaces, analytics drill-downs, results compare, post-submit states, attempts, and report surfaces | Baseline | `tests/e2e/workflow/student-dashboard-report-visual.spec.ts`, `tests/e2e/workflow/student-dense-report-visual.spec.ts`, `tests/e2e/workflow/student-utility-visual.spec.ts`, `tests/e2e/workflow/student-analytics-drilldown-visual.spec.ts`, `tests/e2e/workflow/student-analytics-results-compare-visual.spec.ts`, `tests/e2e/workflow/student-analytics-actions-sources-visual.spec.ts`, `tests/e2e/workflow/student-report-surfaces-visual.spec.ts`, `tests/e2e/workflow/student-post-submit-visual.spec.ts`, `tests/e2e/workflow/student-attempt-visual.spec.ts` |
+| Mobile report visual contracts | mobile dashboard reports, dense academic reports, analytics extensions, utility surfaces, report surfaces, post-submit states, attempt runtime visuals, and mobile continuity across notifications, search, and downloads-linked report routes | Baseline | `tests/e2e/workflow/student-mobile-dashboard-report-visual.spec.ts`, `tests/e2e/workflow/student-mobile-dense-report-visual.spec.ts`, `tests/e2e/workflow/student-mobile-utility-visual.spec.ts`, `tests/e2e/workflow/student-mobile-analytics-extended-visual.spec.ts`, `tests/e2e/workflow/student-mobile-report-surfaces-visual.spec.ts`, `tests/e2e/workflow/student-mobile-post-submit-visual.spec.ts`, `tests/e2e/workflow/student-mobile-attempt-visual.spec.ts`, `tests/e2e/workflow/student-mobile-academic-report-contracts.spec.ts`, `tests/e2e/workflow/student-mobile-report-continuity.spec.ts` |
+| Attempts | attempts workspace shell, status/sort/group/page-size filters, quick-filter state, grouped ledger sections, pagination summary, and primary/secondary action branching | Baseline | `tests/e2e/workflow/student-attempts-workspace.spec.ts`, `tests/e2e/smoke/student-attempts.spec.ts` |
 | Attempt runtime workspace | active attempt console coverage for progress, palette, save/submit controls, and truthful locked-state fallback when a previously active route has already expired or been submitted | Baseline | `tests/e2e/workflow/student-attempt-runtime-workspace.spec.ts` |
 | Post-submit summary and review | post-submit state messaging, status and recommended-action surfaces, result handoff, and conditional review drillthrough when backend policy exposes learner review | Baseline | `tests/e2e/workflow/student-post-submit-workspace.spec.ts` |
 | Results workspace | results landing, hero navigation, filters, quick-filter chips, grouped source/review assertions tied to live cards, summary/review drillthroughs, and empty/live state tolerance | Baseline | `tests/e2e/workflow/student-results-workspace.spec.ts` |
@@ -224,6 +266,12 @@
 | Mutable live attempt | start, save, and submit a disposable teacher-assigned exam | Mutable | `tests/e2e/workflow/student-attempt-mutable.spec.ts` |
 | Mutable admin-created assigned exam attempt | start, save, and submit a disposable admin advanced-builder `mock_exam` assigned to the seeded learner | Mutable | `tests/e2e/workflow/admin-exam-creation-advanced-student-attempt.mutable.spec.ts` |
 | Mutable published student result visibility | create a disposable teacher-assigned exam, submit one learner attempt, publish results, and verify grouped outcome visibility plus summary handoff in the student results workspace; single-ranked learner leaderboard-ready outcome visibility is proven while wider distribution depth remains future expansion | Mutable | `tests/e2e/workflow/student-results-mutable.spec.ts` |
+| Mutable student result storytelling continuity | follow a seeded review-ready student result across grouped results, summary, review, analytics, compare, and timeline storytelling surfaces | Mutable | `tests/e2e/workflow/student-results-storytelling.mutable.spec.ts` |
+| Mutable student analytics drill-down continuity | follow a seeded published result through analytics compare, timeline, action center, subject deep dive, and results continuity with scoped filters preserved | Mutable | `tests/e2e/workflow/student-analytics-drilldown.mutable.spec.ts` |
+| Mutable descriptive analytics continuity | create a disposable institute descriptive exam, submit a manual-review answer, publish the reviewed result, and verify results, review, compare, question-pattern analytics, and timeline continuity | Mutable | `tests/e2e/workflow/student-descriptive-analytics-continuity.mutable.spec.ts` |
+| Mutable descriptive result storytelling | create a disposable institute descriptive exam, moderate it manually, and verify learner-visible continuity across results, summary, review, and analytics | Mutable | `tests/e2e/workflow/student-descriptive-result-storytelling.mutable.spec.ts` |
+| Mutable mixed result history continuity | create pending, summary-only, review-ready, and descriptive-reviewed disposable result states for one learner and verify the results workspace and downstream handoffs stay coherent | Mutable | `tests/e2e/workflow/student-mixed-result-history.mutable.spec.ts` |
+| Mutable multi-attempt history continuity | create three disposable attempts on one exam and verify latest, best, and lowest attempt ordering across attempts, results, compare, and timeline surfaces | Mutable | `tests/e2e/workflow/student-multi-attempt-history.mutable.spec.ts` |
 | Mutable exam-key flow | submit a live exam access key and open the assigned exam | Mutable | `tests/e2e/workflow/student-exam-key-mutable.spec.ts` |
 
 ### Registration journeys
@@ -361,16 +409,61 @@ These specs intentionally create or change disposable records and therefore run 
 
 ## Current gaps to expand next
 
+### Student
+
+| Area | Status | Notes |
+| --- | --- | --- |
+| Core desktop workflows | Covered | dashboard, exams, practice, attempts, analytics, results, and report handoffs all have baseline automation |
+| Attempt runtime happy path | Covered | active attempt, save, submit, summary, and review flows are automated |
+| Attempt runtime edge cases | Partial | resume-after-refresh, timer edge transitions, rapid-save races, and section-edge submit states still need deeper coverage |
+| Dense desktop visual alignment | Partial | high-value report and attempt surfaces are stronger, but not every dense card, modal, drawer, or utility panel is under visual contract |
+| Empty and low-data states | Partial | several report and workspace empty states are covered, but not systematically across every student lane |
+| Long-content overflow hardening | Partial | recent UI hardening improved this area, but broad ellipsis and no-spill assertions are not yet enforced across every component |
+| Mobile high-density workflows | Partial | mobile navigation sanity exists, but dense report, attempt, and review surfaces do not yet have equally deep mobile coverage |
+| Cross-browser deep report behavior | Partial | shell, analytics, results, attempts, and exam/runtime sanity exist, but deep student report-lane parity across browsers is still lighter than Chromium desktop coverage |
+
 ### Teacher
 
-- Product gap: results and reports surfaces do not yet expose dedicated export/download CTAs beyond the builder popup and existing import-template downloads
+| Area | Status | Notes |
+| --- | --- | --- |
+| Report drilldowns and learner detail | Covered | subject, weak-area, wrong-question, time-management, and study-recommendation lanes now drill into learner detail with browser-proofed contracts |
+| Report visual contracts | Covered | teacher report surfaces and learner-detail hero/KPI/support-card alignment are under screenshot assertions |
+| Results, leaderboard, live, and analysis workflows | Covered | dedicated teacher results workspace specs exist, including mutable publication coverage |
+| Dense non-report operator pages | Covered | `teacher/results/live`, `teacher/exams/[id]`, and `teacher/question-bank/detail` now have dedicated browser-based dense-surface contracts |
+| Extreme data states | Partial | long names, oversized cohorts, rank/tie edge cases, and heavy table stress states are not yet systematically exercised |
+| Export/download verification | Missing by product | results and reports still lack broad dedicated export CTAs beyond current builder/import download surfaces |
+| Cross-browser deep report-detail parity | Partial | targeted browser-truthful checks exist, but full deep route/filter/state parity across Chromium, Firefox, and WebKit is not yet complete |
 
-### Cross-platform
+### Institute
 
-- Product gap: file downloads and export verification across report/results surfaces are blocked until those surfaces expose real export/download controls
-- Broader multi-browser expansion beyond the current student shell and deep-route sanity lanes plus the admin, teacher, and institute shell/results sanity lanes
-- Local debug bulk-import workflows now run without throttle-based skips, so roster and question-import lanes are part of the clean full-round pass.
-- Current full-round blockers to stabilize: none
+| Area | Status | Notes |
+| --- | --- | --- |
+| Report drilldowns and learner detail | Covered | institute subject, timing, and study-recommendation lanes now drill into learner detail with browser-proofed contracts |
+| Report visual contracts | Covered | institute report surfaces and learner-detail hero/KPI/support-card alignment are under screenshot assertions |
+| Results, leaderboard, live, and analysis workflows | Covered | dedicated institute results workspace specs exist, including mutable publication and analysis-populated coverage |
+| Dense non-report operator pages | Covered | `institute/results/live`, `institute/exams/[id]`, and `institute/question-bank/detail` now have dedicated browser-based dense-surface contracts |
+| Extreme data states | Partial | large rosters, long labels, single-row and zero-row reports, and pagination extremes are not yet systematically locked down |
+| Export/download verification | Missing by product | report/results export assertions are blocked until those surfaces expose real export/download controls |
+| Cross-browser deep report-detail parity | Partial | browser coverage exists for truthful handoffs, but not complete deep-state parity across all supported browsers |
+
+### Cross-platform and quality
+
+| Area | Status | Notes |
+| --- | --- | --- |
+| Cross-browser route sanity | Covered | student, teacher, admin, and institute each have at least baseline cross-browser shell or deep-route sanity lanes |
+| Cross-browser depth for dense surfaces | Partial | current coverage is strong for sanity and selected deep routes, but not exhaustive for every dense operator and student report surface |
+| Mobile operator visual contracts | Partial | mobile report visual checks exist, but not yet for all teacher/institute dense pages or all student high-density report states |
+| Accessibility and keyboard behavior | Partial | keyboard-only traversal now has a baseline across student reports hub, teacher exam detail, and institute live monitor, but deeper focus-order, screen reader naming, and broad focus-visible assertions are still uncovered |
+| Backend/UI reporting contract resilience | Partial | several reporting mismatches have been fixed, but schema/query drift remains a live risk area whenever analytics payloads change |
+| Full-round blockers | Covered | current full authored round reports no active blockers to stabilize |
+
+### Immediate next-priority gaps
+
+1. Extreme and empty-state hardening across student, teacher, and institute reports.
+2. Mobile visual contracts for high-density student, teacher, and institute pages.
+3. Broader accessibility coverage beyond the current keyboard baseline.
+4. Broader cross-browser deep-state parity for dense teacher and institute operator pages.
+5. Export/download verification once teacher and institute results/report surfaces expose dedicated product CTAs.
 
 ## Recommended usage
 

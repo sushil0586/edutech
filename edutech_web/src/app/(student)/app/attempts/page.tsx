@@ -696,7 +696,12 @@ export default async function AttemptsPage({
               });
 
               return (
-                <article className={`contentCard studentAttemptsCard${isInProgress ? " studentAttemptsCardLive" : ""}`} key={attempt.id}>
+                <article
+                  className={`contentCard studentResultSurface studentAttemptsCard${
+                    isInProgress ? " studentAttemptsCardLive" : ""
+                  }`}
+                  key={attempt.id}
+                >
                   <div className="studentAttemptsCardHead">
                     <div className="studentAttemptsCardTitle">
                       <strong>{attempt.exam_title}</strong>

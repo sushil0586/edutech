@@ -1,0 +1,96 @@
+appId: com.anonymous.nexorastudentmobile
+---
+- launchApp:
+    clearState: true
+
+- extendedWaitUntil:
+    visible: "Login"
+    timeout: 30000
+
+- tapOn: "Login"
+- tapOn:
+    text: "Username"
+- inputText: a001
+
+- tapOn:
+    text: "Enter password"
+- inputText: Ansh@1789
+
+- hideKeyboard
+- tapOn: "Login"
+
+- extendedWaitUntil:
+    visible: "Student Dashboard"
+    timeout: 30000
+
+- tapOn:
+    id: "dashboard-open-exams-button"
+
+- extendedWaitUntil:
+    visible: "Student Exams"
+    timeout: 30000
+
+- scrollUntilVisible:
+    element:
+      id: "exams-filter-startable-button"
+    direction: DOWN
+
+- tapOn:
+    id: "exams-filter-startable-button"
+
+- assertVisible: "Startable"
+
+- scrollUntilVisible:
+    element:
+      id: "exams-open-top-exam-button"
+    direction: DOWN
+
+- tapOn:
+    id: "exams-open-top-exam-button"
+
+- extendedWaitUntil:
+    visible: "Exam Readiness"
+    timeout: 30000
+
+- tapOn:
+    id: "exam-detail-primary-action-button"
+
+- extendedWaitUntil:
+    visible: "Current question"
+    timeout: 30000
+
+- scrollUntilVisible:
+    element: "Current question"
+    direction: DOWN
+    visibilityPercentage: 70
+
+- assertVisible: "Current question"
+
+- scrollUntilVisible:
+    element:
+      id: "attempt-runtime-submit-button"
+    direction: DOWN
+    visibilityPercentage: 70
+
+- tapOn:
+    id: "attempt-runtime-submit-button"
+
+- scrollUntilVisible:
+    element: "Ready to submit?"
+    direction: DOWN
+
+- scrollUntilVisible:
+    element:
+      id: "attempt-runtime-submit-now-button"
+    direction: DOWN
+
+- tapOn:
+    id: "attempt-runtime-submit-now-button"
+
+- extendedWaitUntil:
+    visible: "Attempt Summary"
+    timeout: 30000
+
+- assertVisible: "Attempt Summary"
+- assertVisible: "Submission state"
+- assertVisible: "What happens next"

@@ -1,20 +1,15 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
-import { isRedirectError } from "next/dist/client/components/redirect-error";
-import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import { FilterSummaryPills } from "@/components/ui/filter-summary-pills";
 import { StudentKpiGrid } from "@/components/ui/student-kpi-grid";
 import { StudentPageHeader } from "@/components/ui/student-page-header";
+import { StudentPracticeRecommendationReport, type StudentPracticeRecommendationRow } from "@/components/ui/student-practice-recommendation-report";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
-import { StatusPill } from "@/components/ui/status-pill";
 import {
   fetchStudentAttempts,
   fetchStudentAvailableExams,
   fetchStudentInsightSummary,
   getStudentApiState,
-  spendStarsForContent,
-  startStudentAttempt,
 } from "@/lib/api/student";
 import { fetchCurrentAccountProfile } from "@/lib/auth/session";
 import {
@@ -126,10 +121,6 @@ function practiceActionLabel(args: {
   return "View Details";
 }
 
-function practiceDetailCtaLabel() {
-  return "View Details";
-}
-
 function compactPracticeDateTime(value: string | null) {
   if (!value) return "Ready now";
 
@@ -192,15 +183,6 @@ function practiceActionHref(args: {
     return `/app/attempts/${args.latestAttemptId}/summary`;
   }
   return `/app/exams/${args.examId}`;
-}
-
-function practiceStateTone(state: string) {
-  if (state === "locked") return "warning" as const;
-  if (state === "available_now") return "live" as const;
-  if (state === "upcoming") return "warning" as const;
-  if (state === "completed") return "demo" as const;
-  if (state === "missed") return "danger" as const;
-  return "default" as const;
 }
 
 function practiceGuidance(exam: {
@@ -349,36 +331,6 @@ function sortPracticeExams(exams: StudentAvailableExam[], sortBy: PracticeSortOp
   return sortable;
 }
 
-function buildPracticeGroupLabel(exam: StudentAvailableExam, groupBy: PracticeGroupOption) {
-  if (groupBy === "availability") {
-    return titleCaseState(exam.availability_state);
-  }
-  if (groupBy === "subject") {
-    return getExamSubjectDisplayLabel(exam);
-  }
-  if (groupBy === "access") {
-    if (!exam.economy_access.requires_unlock) return "Free access";
-    if (exam.economy_access.is_unlocked) return "Unlocked with stars";
-    if (exam.economy_access.can_unlock_with_stars) return "Requires stars";
-    return "Restricted access";
-  }
-  return "Practice";
-}
-
-function groupPracticeExams(exams: StudentAvailableExam[], groupBy: PracticeGroupOption) {
-  if (groupBy === "none") {
-    return [{ label: "All practice sets", items: exams }];
-  }
-
-  const buckets = new Map<string, StudentAvailableExam[]>();
-  for (const exam of exams) {
-    const label = buildPracticeGroupLabel(exam, groupBy);
-    buckets.set(label, [...(buckets.get(label) ?? []), exam]);
-  }
-
-  return Array.from(buckets.entries()).map(([label, items]) => ({ label, items }));
-}
-
 function buildPracticeFilterHref(args: {
   availability?: PracticeAvailabilityFilter;
   sort?: PracticeSortOption;
@@ -401,65 +353,6 @@ function buildPracticeFilterHref(args: {
     ["practice_page", args.page ? String(args.page) : undefined, "1"],
     ["practice_page_size", args.pageSize ? String(args.pageSize) : undefined, "12"],
   ]);
-}
-
-async function unlockPracticeAction(formData: FormData) {
-  "use server";
-
-  const examId = String(formData.get("exam_id") ?? "");
-  const contentType = String(formData.get("content_type") ?? "");
-  const contentKey = String(formData.get("content_key") ?? "");
-  const subject = String(formData.get("subject_id") ?? "").trim();
-
-  if (!examId || !contentType || !contentKey) {
-    redirect("/app/practice?error=Unable%20to%20resolve%20the%20selected%20practice%20set.");
-  }
-
-  try {
-    const response = await spendStarsForContent({
-      content_type: contentType,
-      content_key: contentKey,
-      subject: subject || null,
-    });
-    redirect(
-      `/app/exams/${examId}?message=${encodeURIComponent(
-        response.data.message || "Practice set unlocked successfully.",
-      )}`,
-    );
-  } catch (error) {
-    if (isRedirectError(error)) {
-      throw error;
-    }
-
-    const message =
-      error instanceof Error && error.message
-        ? encodeURIComponent(error.message)
-        : "Unable to unlock this practice set right now.";
-    redirect(`/app/practice?error=${message}`);
-  }
-}
-
-async function startPracticeAction(formData: FormData) {
-  "use server";
-
-  const examId = String(formData.get("exam_id") ?? "");
-  if (!examId) return;
-
-  try {
-    const summary = await fetchStudentInsightSummary();
-    const response = await startStudentAttempt(examId, summary.student_id);
-    redirect(`/app/attempts/${response.data.id}`);
-  } catch (error) {
-    if (isRedirectError(error)) {
-      throw error;
-    }
-
-    const message =
-      error instanceof Error && error.message
-        ? encodeURIComponent(error.message)
-        : "Unable to start this practice set right now.";
-    redirect(`/app/practice?error=${message}`);
-  }
 }
 
 async function loadPracticeWorkspace() {
@@ -606,67 +499,89 @@ export default async function PracticePage({
   const showingStart = filteredPracticeExams.length ? (currentPage - 1) * pageSize + 1 : 0;
   const showingEnd = Math.min(currentPage * pageSize, filteredPracticeExams.length);
 
-  const featuredPractice = pagedPracticeExams[0] ?? null;
-  const featuredPracticeSubjectLabel = featuredPractice
-    ? getExamSubjectDisplayLabel(featuredPractice)
-    : null;
-  const additionalPracticeGroups = groupPracticeExams(
-    featuredPractice
-      ? pagedPracticeExams.filter((exam) => exam.id !== featuredPractice.id)
-      : pagedPracticeExams,
-    groupOption,
-  );
   const focusedWeakTopic = scopedSummary?.weak_topics.find(
     (weakTopic) =>
       weakTopic.topic_name === focusTopic && weakTopic.subject_name === focusSubject,
   );
   const focusedTopicLabel = focusedWeakTopic?.topic_name ?? focusTopic ?? "General revision";
-  const latestFocusedAttemptId = featuredPractice
-    ? latestAttemptForExam(attempts, featuredPractice.id)?.id ?? null
-    : null;
-  const featuredPracticeState = featuredPractice
-    ? resolvePracticeUiState(featuredPractice, latestFocusedAttemptId)
-    : null;
   const practiceFocus = resolvePracticeFocusRecommendation({
     exams: practiceExams,
     subjectName: focusSubject || focusedWeakTopic?.subject_name || null,
     topicName: focusTopic || focusedWeakTopic?.topic_name || null,
   });
-  const practiceLoopSequence =
-    featuredPractice?.review_available
-      ? [
-          {
-            label: "Do this first",
-            detail: "Open the recommended practice set and finish the focused revision pass for this topic.",
-          },
-          {
-            label: "Then next",
-            detail: "Review the latest attempt feedback immediately while the weak pattern is still fresh.",
-          },
-          {
-            label: "After that",
-            detail: "Return to analytics or results before booking another broad mock test.",
-          },
-        ]
-      : [
-          {
-            label: "Do this first",
-            detail: "Start or resume the recommended practice set for the current weak topic.",
-          },
-          {
-            label: "Then next",
-            detail: "Check the attempt summary or review surface as soon as feedback becomes available.",
-          },
-          {
-            label: "After that",
-            detail: "Return to weak areas or analytics to confirm whether the same topic still needs repair.",
-          },
-        ];
   const readyNowCount = filteredPracticeExams.filter(
     (exam) => exam.can_start && !exam.can_resume,
   ).length;
   const resumeCount = filteredPracticeExams.filter((exam) => exam.can_resume).length;
   const reviewReadyCount = filteredPracticeExams.filter((exam) => exam.review_available).length;
+  const practiceReportRows: StudentPracticeRecommendationRow[] = pagedPracticeExams.map((exam) => {
+    const latestAttemptId = latestAttemptForExam(attempts, exam.id)?.id ?? null;
+    const examUiState = resolvePracticeUiState(exam, latestAttemptId);
+    const accessLabel = exam.economy_access.requires_unlock
+      ? exam.economy_access.is_unlocked
+        ? "Unlocked"
+        : exam.economy_access.can_unlock_with_stars
+          ? `${exam.economy_access.star_cost} stars`
+          : "Restricted"
+      : "Free";
+    const toneClass =
+      exam.availability_state === "available_now"
+        ? "statusLive"
+        : exam.availability_state === "locked" || exam.availability_state === "upcoming"
+          ? "statusWarning"
+          : exam.availability_state === "missed"
+            ? "statusDanger"
+            : "statusDemo";
+
+    return {
+      id: exam.id,
+      title: exam.title,
+      code: exam.code,
+      subjectLabel: getExamSubjectDisplayLabel(exam) || "General",
+      recommendationReason: compactPracticeHeadline({
+        canResume: examUiState.canResume,
+        canStart: examUiState.canStart,
+        hasAttemptHistory: examUiState.hasAttemptHistory,
+        reviewAvailable: exam.review_available,
+      }),
+      durationLabel: `${exam.duration_minutes}m`,
+      availabilityLabel: practiceAvailabilityValue(exam),
+      accessLabel,
+      actionLabel: practiceActionLabel({
+        canResume: examUiState.canResume,
+        canStart: examUiState.canStart,
+        hasAttemptHistory: examUiState.hasAttemptHistory,
+        reviewAvailable: exam.review_available,
+      }),
+      toneClass,
+      sourceLabel: exam.security_policy.student_label || practiceFocus.helper,
+      supportNote: practiceSupportNote(exam, examUiState),
+      guidance: practiceGuidance({
+        ...exam,
+        can_resume: examUiState.canResume,
+        can_start: examUiState.canStart,
+      }),
+      primaryHref: practiceActionHref({
+        examId: exam.id,
+        canResume: examUiState.canResume,
+        activeAttemptId: examUiState.activeAttemptId,
+        latestAttemptId,
+        reviewAvailable: exam.review_available,
+      }),
+      detailHref: `/app/exams/${exam.id}`,
+      weakAreasHref: buildFilterHref("/app/weak-areas", [
+        ["subject", focusSubject || undefined],
+        ["topic", focusTopic || undefined],
+        ["source", scopedSourceParam],
+        ["teacher", selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined],
+      ]),
+      resultsHref: buildFilterHref("/app/results", [
+        ["subject", focusSubject || undefined],
+        ["source", scopedSourceParam],
+        ["teacher", selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined],
+      ]),
+    };
+  });
 
   return (
     <div className="studentPage studentDashboardModern studentLearnerPage studentLearnerPracticePage">
@@ -961,312 +876,24 @@ export default async function PracticePage({
             ))}
           </section>
 
-          {featuredPractice ? (
-            <section className="studentResultsGroupedSection">
-              <div className="sectionHeading">
-                <strong id="recommended-practice">Recommended Practice</strong>
-                <span>
-                  {focusedWeakTopic
-                    ? `${percentageLabel(focusedWeakTopic.average_percentage)} in ${focusedWeakTopic.subject_name}`
-                    : practiceFocus.helper}
-                </span>
-              </div>
-              <article className="contentCard studentPracticeCompactCard">
-                <div className="studentAttemptsCardHead">
-                  <div className="studentAttemptsCardTitle">
-                    <strong>{featuredPractice.title}</strong>
-                    <span className="studentAttemptsCardMeta">
-                      {featuredPractice.code} · {featuredPracticeSubjectLabel || "General"}
-                    </span>
-                  </div>
-                  <div className="studentAttemptsCardStatus">
-                    <StatusPill tone={practiceStateTone(featuredPractice.availability_state)}>
-                      {titleCaseState(featuredPractice.availability_state)}
-                    </StatusPill>
-                  </div>
-                </div>
-
-                <div className="studentAttemptsCardSourceRow">
-                  <span>{practiceFocus.helper}</span>
-                </div>
-
-                <div className="studentPracticeMetrics">
-                  <div className="studentAttemptsMetric">
-                    <span>Duration</span>
-                    <strong>{featuredPractice.duration_minutes}m</strong>
-                  </div>
-                  <div className="studentAttemptsMetric">
-                    <span>Attempts</span>
-                    <strong>
-                      {featuredPractice.attempt_policy === "unlimited_practice"
-                        ? "Unlimited"
-                        : `${featuredPractice.remaining_attempts}`}
-                    </strong>
-                  </div>
-                  <div className="studentAttemptsMetric">
-                    <span>Availability</span>
-                    <strong className="studentAttemptsMetricValueCompact">
-                      {practiceAvailabilityValue(featuredPractice)}
-                    </strong>
-                  </div>
-                  <div className="studentAttemptsMetric">
-                    <span>Access</span>
-                    <strong>
-                      {featuredPractice.economy_access.requires_unlock
-                        ? featuredPractice.economy_access.is_unlocked
-                          ? "Unlocked"
-                          : featuredPractice.economy_access.can_unlock_with_stars
-                            ? `${featuredPractice.economy_access.star_cost} stars`
-                            : "Restricted"
-                        : "Free"}
-                    </strong>
-                  </div>
-                </div>
-
-                <div className="studentAttemptsNotice">
-                  <strong>
-                    {compactPracticeHeadline({
-                      canResume: featuredPracticeState?.canResume ?? false,
-                      canStart: featuredPracticeState?.canStart ?? false,
-                      hasAttemptHistory: featuredPracticeState?.hasAttemptHistory ?? false,
-                      reviewAvailable: featuredPractice.review_available,
-                    })}
-                  </strong>
-                  <span>
-                    {practiceGuidance({
-                      ...featuredPractice,
-                      can_resume: featuredPracticeState?.canResume ?? false,
-                      can_start: featuredPracticeState?.canStart ?? false,
-                    })}
-                  </span>
-                </div>
-
-                <div className="studentAttemptsFooter">
-                  <div className="studentAttemptsUpdateRow">
-                    <span>{practiceSupportNote(featuredPractice, featuredPracticeState ?? resolvePracticeUiState(featuredPractice, latestFocusedAttemptId))}</span>
-                  </div>
-                  <div className="studentAttemptsActions">
-                    {featuredPracticeState?.canStart ? (
-                      <form action={startPracticeAction}>
-                        <input name="exam_id" type="hidden" value={featuredPractice.id} />
-                        <ActionSubmitButton
-                          className="button buttonPrimary"
-                          idleLabel="Start Practice"
-                          pendingLabel="Starting..."
-                        />
-                      </form>
-                    ) : featuredPractice.economy_access.is_locked &&
-                      featuredPractice.economy_access.can_unlock_with_stars ? (
-                      <form action={unlockPracticeAction}>
-                        <input name="exam_id" type="hidden" value={featuredPractice.id} />
-                        <input
-                          name="content_type"
-                          type="hidden"
-                          value={featuredPractice.economy_access.content_type}
-                        />
-                        <input
-                          name="content_key"
-                          type="hidden"
-                          value={featuredPractice.economy_access.content_key}
-                        />
-                        <input
-                          name="subject_id"
-                          type="hidden"
-                          value={featuredPractice.economy_access.subject_id ?? ""}
-                        />
-                        <ActionSubmitButton
-                          className="button buttonPrimary"
-                          idleLabel={`Unlock with ${featuredPractice.economy_access.star_cost} Stars`}
-                          pendingLabel="Unlocking..."
-                        />
-                      </form>
-                    ) : (
-                      <Link
-                        className="button buttonPrimary"
-                        href={practiceActionHref({
-                          examId: featuredPractice.id,
-                          canResume: featuredPracticeState?.canResume ?? false,
-                          activeAttemptId: featuredPracticeState?.activeAttemptId ?? null,
-                          latestAttemptId: latestFocusedAttemptId,
-                          reviewAvailable: featuredPractice.review_available,
-                        })}
-                      >
-                        {practiceActionLabel({
-                          canResume: featuredPracticeState?.canResume ?? false,
-                          canStart: featuredPracticeState?.canStart ?? false,
-                          hasAttemptHistory: featuredPracticeState?.hasAttemptHistory ?? false,
-                          reviewAvailable: featuredPractice.review_available,
-                        })}
-                      </Link>
-                    )}
-                    <Link className="button buttonSecondary" href={`/app/exams/${featuredPractice.id}`}>
-                      {practiceDetailCtaLabel()}
-                    </Link>
-                  </div>
-                </div>
-              </article>
-            </section>
-          ) : null}
-          
-          {additionalPracticeGroups.some((group) => group.items.length > 0) ? (
-            <>
-              {additionalPracticeGroups.map((group) =>
-                group.items.length > 0 ? (
-                  <section className="studentResultsGroupedSection" key={group.label}>
-                    {groupOption !== "none" ? (
-                      <div className="sectionHeading">
-                        <strong>{group.label}</strong>
-                        <span>{group.items.length} practice sets</span>
-                      </div>
-                    ) : null}
-                    <div className="studentResultsGrid">
-                      {group.items.map((exam) => {
-              const latestAttemptId = latestAttemptForExam(attempts, exam.id)?.id ?? null;
-              const examUiState = resolvePracticeUiState(exam, latestAttemptId);
-
-              return (
-                <article className="contentCard studentPracticeCompactCard" key={exam.id}>
-                  <div className="studentAttemptsCardHead">
-                    <div className="studentAttemptsCardTitle">
-                      <strong>{exam.title}</strong>
-                      <span className="studentAttemptsCardMeta">
-                        {exam.code} · {getExamSubjectDisplayLabel(exam)}
-                      </span>
-                    </div>
-                    <div className="studentAttemptsCardStatus">
-                      <StatusPill tone={practiceStateTone(exam.availability_state)}>
-                        {titleCaseState(exam.availability_state)}
-                      </StatusPill>
-                    </div>
-                  </div>
-
-                  <div className="studentAttemptsCardSourceRow">
-                    <span>{exam.security_policy.student_label}</span>
-                  </div>
-
-                  <div className="studentPracticeMetrics">
-                    <div className="studentAttemptsMetric">
-                      <span>Duration</span>
-                      <strong>{exam.duration_minutes}m</strong>
-                    </div>
-                    <div className="studentAttemptsMetric">
-                      <span>Attempts</span>
-                      <strong>
-                        {exam.attempt_policy === "unlimited_practice"
-                          ? "Unlimited"
-                          : `${exam.remaining_attempts} left`}
-                      </strong>
-                    </div>
-                    <div className="studentAttemptsMetric">
-                      <span>Availability</span>
-                      <strong className="studentAttemptsMetricValueCompact">
-                        {practiceAvailabilityValue(exam)}
-                      </strong>
-                    </div>
-                    <div className="studentAttemptsMetric">
-                      <span>Access</span>
-                      <strong>
-                        {exam.economy_access.requires_unlock
-                          ? exam.economy_access.is_unlocked
-                            ? "Unlocked"
-                            : exam.economy_access.can_unlock_with_stars
-                              ? `${exam.economy_access.star_cost} stars`
-                              : "Restricted"
-                          : "Free"}
-                      </strong>
-                    </div>
-                  </div>
-
-                  <div className="studentAttemptsNotice">
-                    <strong>
-                      {compactPracticeHeadline({
-                        canResume: examUiState.canResume,
-                        canStart: examUiState.canStart,
-                        hasAttemptHistory: examUiState.hasAttemptHistory,
-                        reviewAvailable: exam.review_available,
-                      })}
-                    </strong>
-                    <span>
-                      {practiceGuidance({
-                        ...exam,
-                        can_resume: examUiState.canResume,
-                        can_start: examUiState.canStart,
-                      })}
-                    </span>
-                  </div>
-
-                  <div className="studentAttemptsFooter">
-                    <div className="studentAttemptsUpdateRow">
-                      <span>{practiceSupportNote(exam, examUiState)}</span>
-                    </div>
-                    <div className="studentAttemptsActions">
-                      {examUiState.canStart ? (
-                        <form action={startPracticeAction}>
-                          <input name="exam_id" type="hidden" value={exam.id} />
-                          <ActionSubmitButton
-                            className="button buttonPrimary"
-                            idleLabel="Start Practice"
-                            pendingLabel="Starting..."
-                          />
-                        </form>
-                      ) : exam.economy_access.is_locked &&
-                        exam.economy_access.can_unlock_with_stars ? (
-                        <form action={unlockPracticeAction}>
-                          <input name="exam_id" type="hidden" value={exam.id} />
-                          <input
-                            name="content_type"
-                            type="hidden"
-                            value={exam.economy_access.content_type}
-                          />
-                          <input
-                            name="content_key"
-                            type="hidden"
-                            value={exam.economy_access.content_key}
-                          />
-                          <input
-                            name="subject_id"
-                            type="hidden"
-                            value={exam.economy_access.subject_id ?? ""}
-                          />
-                          <ActionSubmitButton
-                            className="button buttonPrimary"
-                            idleLabel={`Unlock with ${exam.economy_access.star_cost} Stars`}
-                            pendingLabel="Unlocking..."
-                          />
-                        </form>
-                      ) : (
-                        <Link
-                          className="button buttonPrimary"
-                          href={practiceActionHref({
-                            examId: exam.id,
-                            canResume: examUiState.canResume,
-                            activeAttemptId: examUiState.activeAttemptId,
-                            latestAttemptId,
-                            reviewAvailable: exam.review_available,
-                          })}
-                        >
-                          {practiceActionLabel({
-                            canResume: examUiState.canResume,
-                            canStart: examUiState.canStart,
-                            hasAttemptHistory: examUiState.hasAttemptHistory,
-                            reviewAvailable: exam.review_available,
-                          })}
-                        </Link>
-                      )}
-                      <Link className="button buttonSecondary" href={`/app/exams/${exam.id}`}>
-                        {practiceDetailCtaLabel()}
-                      </Link>
-                    </div>
-                  </div>
-                </article>
-              );
-                      })}
-                    </div>
-                  </section>
-                ) : null,
-              )}
-            </>
-          ) : null}
+          <section className="studentResultsGroupedSection">
+            <div className="sectionHeading">
+              <strong id="recommended-practice">Practice Recommendation Report</strong>
+              <span>
+                {focusedWeakTopic
+                  ? `${percentageLabel(focusedWeakTopic.average_percentage)} in ${focusedWeakTopic.subject_name}`
+                  : practiceFocus.helper}
+              </span>
+            </div>
+            <StudentPracticeRecommendationReport
+              groupLabel={
+                groupOption === "none"
+                  ? `${practiceReportRows.length} practice sets on this page`
+                  : `Grouped by ${formatFilterValue(groupOption)}`
+              }
+              rows={practiceReportRows}
+            />
+          </section>
 
           {filteredPracticeExams.length > 0 ? (
             <section className="contentCard studentCatalogPaginationCard">

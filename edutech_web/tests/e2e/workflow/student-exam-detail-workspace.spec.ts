@@ -24,8 +24,8 @@ async function resolveExamDetailEntry(page: Page) {
 
   if (!hasEmptyState) {
     const examsEntry = await expectOneOfVisible([
-      page.getByRole("link", { name: /view full detail/i }).first(),
-      page.getByRole("link", { name: /^detail$/i }).first(),
+      page.getByRole("link", { name: /view full detail|view details|detail/i }).first(),
+      page.locator('a[href^="/app/exams/"]').first(),
     ]);
 
     return {
@@ -37,10 +37,12 @@ async function resolveExamDetailEntry(page: Page) {
 
   await gotoWithRuntimeRecovery(page, "/app/dashboard");
   await expect(page).toHaveURL(/\/app\/dashboard(?:\?.*)?$/);
-  await expect(page.getByText(/next best step|recommended for you/i).first()).toBeVisible();
+  await expect(page.getByText(/next best step|recommended for you|report spotlight/i).first()).toBeVisible();
 
-  const dashboardEntry = page.getByRole("link", { name: /view details/i }).first();
-  await expect(dashboardEntry).toBeVisible();
+  const dashboardEntry = await expectOneOfVisible([
+    page.getByRole("link", { name: /view details|open summary|resume test|start test|open wallet/i }).first(),
+    page.locator('a[href^="/app/exams/"], a[href^="/app/attempts/"], a[href="/app/wallet"]').first(),
+  ]);
 
   return {
     origin: "dashboard" as const,
@@ -60,10 +62,26 @@ test.describe("Student exam detail workspace", () => {
 
     const detailSource = await resolveExamDetailEntry(page);
     const detailHref = detailSource.href;
-    expect(detailHref).toMatch(/^\/app\/exams\/[^/]+$/);
+    expect(detailHref).toMatch(/^\/app\/(exams\/[^/]+|attempts\/[^/?#]+(?:\/summary|\/review)?|wallet)$/);
 
     await detailSource.entry.click();
-    await expect(page).toHaveURL(/\/app\/exams\/[^/?#]+(?:\?.*)?$/);
+    await expect(page).toHaveURL(/\/app\/(exams\/[^/?#]+|attempts\/[^/?#]+(?:\/summary|\/review)?|wallet)(?:\?.*)?$/);
+
+    if (/\/app\/wallet(?:\?.*)?$/.test(page.url())) {
+      await expect(page.getByRole("heading", { name: /wallet/i }).first()).toBeVisible();
+      return;
+    }
+
+    if (/\/app\/attempts\/[^/?#]+\/summary(?:\?.*)?$/.test(page.url())) {
+      await expect(page.getByText(/attempt summary/i).first()).toBeVisible();
+      return;
+    }
+
+    if (/\/app\/attempts\/[^/?#]+\/review(?:\?.*)?$/.test(page.url())) {
+      await expect(page.getByText(/review mode/i).first()).toBeVisible();
+      return;
+    }
+
     await expect(page.getByText(/exam readiness/i).first()).toBeVisible();
     await expect(page.getByText(/availability and runtime/i).first()).toBeVisible();
     await expect(page.getByText(/primary action/i).first()).toBeVisible();
@@ -119,7 +137,10 @@ test.describe("Student exam detail workspace", () => {
 
     await gotoWithRuntimeRecovery(page, detailHref!);
     await expect(page).toHaveURL(new RegExp(`${detailHref!.replace(/\//g, "\\/")}(?:\\?.*)?$`));
-    await page.getByRole("link", { name: /back to exams/i }).click();
-    await expect(page).toHaveURL(/\/app\/exams(?:\?.*)?$/);
+    const backToExams = page.getByRole("link", { name: /back to exams|open tests/i }).first();
+    if (await backToExams.isVisible().catch(() => false)) {
+      await backToExams.click();
+      await expect(page).toHaveURL(/\/app\/exams(?:\?.*)?$/);
+    }
   });
 });

@@ -50,10 +50,8 @@ function expectSearchParamIfPresent(url: URL, key: string, expectedValue: string
   expect(url.searchParams.get(key)).toBe(expectedValue);
 }
 
-function resultCardByTitle(page: Page, title: string) {
-  return page.locator("article.studentResultSurface").filter({
-    has: page.locator(".studentResultSurfaceHead strong", { hasText: title }),
-  }).first();
+function resultRowByTitle(page: Page, title: string) {
+  return page.getByRole("button", { name: new RegExp(title, "i") }).first();
 }
 
 test.describe("Student mutable results storytelling", () => {
@@ -82,20 +80,26 @@ test.describe("Student mutable results storytelling", () => {
     await expect(page).toHaveURL(/\/app\/results\?[^#]*result_status=review_ready/);
     await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
 
-    const resultCard = resultCardByTitle(page, awsPublishedTitle);
-    await expect(resultCard).toBeVisible();
-    await expect(resultCard.getByText(/result published/i).first()).toBeVisible();
-    await expect(resultCard.getByRole("link", { name: /open answer review/i }).first()).toBeVisible();
+    const resultRow = resultRowByTitle(page, awsPublishedTitle);
+    await expect(resultRow).toBeVisible();
+    await expect(page.getByText(/result published · pass/i).first()).toBeVisible();
+    await resultRow.click();
 
-    const summaryLink = resultCard.getByRole("link", { name: /open summary/i }).first();
+    const resultDialog = page.getByRole("dialog");
+    await expect(resultDialog).toBeVisible();
+    await expect(resultDialog.getByText(new RegExp(awsPublishedTitle, "i")).first()).toBeVisible();
+    await expect(resultDialog.getByRole("link", { name: /open answer review/i }).first()).toBeVisible();
+
+    const summaryLink = resultDialog.getByRole("link", { name: /open summary/i }).first();
     await expect(summaryLink).toBeVisible();
     const summaryHref = await summaryLink.getAttribute("href");
     expect(summaryHref).toBe(`/app/attempts/${seededResult!.attempt}/summary`);
     await summaryLink.click();
 
     await expect(page).toHaveURL(new RegExp(`/app/attempts/${seededResult!.attempt}/summary(?:\\?.*)?$`));
-    await expect(page.getByText(/post-submit state/i).first()).toBeVisible();
-    await expect(page.getByText(/recommended actions/i).first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: new RegExp(`${awsPublishedTitle}\\s+Summary`, "i") }).first()).toBeVisible();
+    await expect(page.getByText(/attempt status/i).first()).toBeVisible();
+    await expect(page.getByText(/what to do next/i).first()).toBeVisible();
     await expect(page.getByText(/review available/i).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /open answer review|review feedback/i }).first()).toBeVisible();
 
@@ -147,7 +151,7 @@ test.describe("Student mutable results storytelling", () => {
 
     await page.getByRole("link", { name: /open results/i }).first().click();
     await expect(page).toHaveURL(/\/app\/results(?:\?.*)?$/);
-    await expect(resultCardByTitle(page, awsPublishedTitle)).toBeVisible();
+    await expect(resultRowByTitle(page, awsPublishedTitle)).toBeVisible();
 
     currentUrl = new URL(page.url());
     expectSearchParamIfPresent(currentUrl, "subject", expectedSubject);

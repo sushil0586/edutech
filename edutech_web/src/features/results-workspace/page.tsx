@@ -2952,6 +2952,8 @@ function renderOverviewView(context: WorkspaceContext) {
     resultExamCards,
     selectedExam,
     selectedSummary,
+    attemptsPageData,
+    leaderboardPageData,
     readiness,
     readinessSnapshot,
     workflowSteps,
@@ -2973,9 +2975,251 @@ function renderOverviewView(context: WorkspaceContext) {
   const scoreDistribution = selectedSummary?.score_distribution ?? [];
   const sectionPerformance = selectedSummary?.section_performance ?? [];
   const reviewReleaseRisk = selectedSummary?.review_release_risk;
+  const urgentAttentionAttempts = attemptsPageData.results
+    .filter((attempt) => {
+      const health = attemptHealth(attempt);
+      return health === "critical" || health === "watch" || Number(attempt.percentage) < 40;
+    })
+    .slice(0, 4);
+  const leaderboardHighlights = leaderboardPageData.results.slice(0, 4);
+  const weakestSection =
+    sectionPerformance.length > 0
+      ? sectionPerformance.slice().sort((left, right) => left.accuracy_percentage - right.accuracy_percentage)[0]
+      : null;
+  const strongestSection =
+    sectionPerformance.length > 0
+      ? sectionPerformance.slice().sort((left, right) => right.accuracy_percentage - left.accuracy_percentage)[0]
+      : null;
 
   return (
     <>
+      <section className="resultsSummaryGrid teacherResultsStatsGrid teacherResultsStatsGridSix">
+        <article className="metricCard metricCardPrimary dashboardHeroCard">
+          <span>Student result status</span>
+          <strong>{readiness.label}</strong>
+          <small>{readiness.note}</small>
+        </article>
+        <article className="metricCard">
+          <span>Students attempted</span>
+          <strong>{selectedSummary?.total_attempted ?? 0}</strong>
+          <small>Visible student result rows in the selected exam scope</small>
+        </article>
+        <article className="metricCard">
+          <span>Average percentage</span>
+          <strong>{selectedSummary ? percentage(selectedSummary.average_percentage) : "N/A"}</strong>
+          <small>Class-wide academic outcome for the selected exam</small>
+        </article>
+        <article className="metricCard">
+          <span>Passed</span>
+          <strong>{selectedSummary?.total_passed ?? 0}</strong>
+          <small>Students already on the stable outcome side</small>
+        </article>
+        <article className="metricCard">
+          <span>Failed</span>
+          <strong>{selectedSummary?.total_failed ?? 0}</strong>
+          <small>Students likely needing follow-up or remediation</small>
+        </article>
+        <article className="metricCard">
+          <span>Review blockers</span>
+          <strong>{selectedReviewBlockCount}</strong>
+          <small>
+            {selectedReviewBlockCount > 0
+              ? "Manual review work is still holding back some student visibility"
+              : "No review blocker is currently holding back student result release"}
+          </small>
+        </article>
+      </section>
+
+      <section className="contentCard teacherResultsOverviewCard">
+        <div className="sectionHeading">
+          <strong>Student results snapshot</strong>
+          <span>{selectedExam.code}</span>
+        </div>
+        <div className="teacherResultsReadinessBoard">
+          <article className="teacherResultsReadinessHero">
+            <span className="studentDashboardTag">Teacher report view</span>
+            <strong>Start with student outcomes, then move into operations only where needed.</strong>
+            <p>
+              This overview now prioritizes learner outcomes, ranking posture, and follow-up lanes for the selected
+              exam before dropping into publication workflow and release administration.
+            </p>
+            <div className="questionBankTagRow">
+              <span className="questionBankTagChip">
+                {attemptsPageData.summary.total_attempts} attempts in current exam scope
+              </span>
+              <span className="questionBankTagChip">
+                {leaderboardPageData.summary.ranked_count} ranked learner
+                {leaderboardPageData.summary.ranked_count === 1 ? "" : "s"}
+              </span>
+              <span className={`statusPill ${reviewReleaseRisk ? reviewRiskTone(reviewReleaseRisk.level) : "statusLive"}`}>
+                {reviewReleaseRisk?.label ?? "No review risk"}
+              </span>
+            </div>
+          </article>
+
+          <article className="teacherResultsReadinessCard">
+            <div className="teacherResultsReadinessCardTop">
+              <strong>Strongest section</strong>
+              <span className="statusPill statusLive">
+                {strongestSection ? `${Math.round(strongestSection.accuracy_percentage)}%` : "N/A"}
+              </span>
+            </div>
+            {strongestSection ? (
+              <p>
+                <strong>{strongestSection.section_name}</strong> is currently leading with{" "}
+                {Math.round(strongestSection.accuracy_percentage)}% accuracy across{" "}
+                {strongestSection.total_questions} question{strongestSection.total_questions === 1 ? "" : "s"}.
+              </p>
+            ) : (
+              <p>Section-level strength will appear after enough evaluated result data is available.</p>
+            )}
+          </article>
+
+          <article className="teacherResultsReadinessCard teacherResultsReadinessCardBlocked">
+            <div className="teacherResultsReadinessCardTop">
+              <strong>Weakest section</strong>
+              <span className="statusPill statusWarning">
+                {weakestSection ? `${Math.round(weakestSection.accuracy_percentage)}%` : "N/A"}
+              </span>
+            </div>
+            {weakestSection ? (
+              <p>
+                <strong>{weakestSection.section_name}</strong> is the first place to intervene with{" "}
+                {Math.round(weakestSection.accuracy_percentage)}% accuracy and{" "}
+                {Math.round(weakestSection.skip_percentage)}% skip pressure.
+              </p>
+            ) : (
+              <p>Section-level weakness will appear after answer-level summaries are generated.</p>
+            )}
+          </article>
+
+          <article className="teacherResultsReadinessCard teacherResultsReadinessCardReady">
+            <div className="teacherResultsReadinessCardTop">
+              <strong>Next report drilldown</strong>
+              <span className="statusPill statusDemo">Recommended</span>
+            </div>
+            <p>
+              Move from this results snapshot into ranked learners, attempt evidence, or question analytics without
+              losing the current exam context.
+            </p>
+            <div className="resultCardActions">
+              <Link
+                className="button buttonSecondary"
+                href={buildResultsHref(resultsViewPath(config.basePath, "leaderboard"), baseHrefArgs)}
+              >
+                Open Leaderboard
+              </Link>
+              <Link
+                className="button buttonGhost"
+                href={buildResultsHref(resultsViewPath(config.basePath, "attempts"), baseHrefArgs)}
+              >
+                Open Attempts
+              </Link>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section className="contentCard">
+        <div className="sectionHeading">
+          <strong>Students needing follow-up</strong>
+          <span>Highest-risk visible learners first</span>
+        </div>
+        {!urgentAttentionAttempts.length ? (
+          <p className="emptyText">No urgent student follow-up lane is visible in the current result scope.</p>
+        ) : (
+          <div className="resultsList">
+            {urgentAttentionAttempts.map((attempt) => {
+              const health = attemptHealth(attempt);
+              return (
+                <article className="resultCard" key={`overview-attention-${attempt.id}`}>
+                  <div className="resultCardTop">
+                    <div>
+                      <strong>{attempt.student_name}</strong>
+                      <span>
+                        {attempt.student_admission_no} · Attempt {attempt.attempt_no}
+                      </span>
+                    </div>
+                    <span className={`statusPill ${healthTone(health)}`}>{healthLabel(health)}</span>
+                  </div>
+                  <div className="resultKpiGrid">
+                    <div>
+                      <span>Percentage</span>
+                      <strong>{percentage(attempt.percentage)}</strong>
+                    </div>
+                    <div>
+                      <span>Correct</span>
+                      <strong>{attempt.correct_answers}</strong>
+                    </div>
+                    <div>
+                      <span>Skipped</span>
+                      <strong>{attempt.skipped_questions}</strong>
+                    </div>
+                    <div>
+                      <span>Warnings</span>
+                      <strong>{attempt.integrity_summary.violation_count}</strong>
+                    </div>
+                  </div>
+                  <p>{recommendedAction(attempt, config.roleNounLower)}</p>
+                  <div className="resultCardActions">
+                    <Link
+                      className="button buttonSecondary"
+                      href={buildResultsHref(resultsViewPath(config.basePath, "attempts"), {
+                        ...baseHrefArgs,
+                        attemptId: attempt.id,
+                      })}
+                    >
+                      Inspect Student
+                    </Link>
+                    <Link className="button buttonGhost" href={`${config.reviewsBasePath}?exam=${selectedExam.id}`}>
+                      Open Review Queue
+                    </Link>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      <section className="contentCard">
+        <div className="sectionHeading">
+          <strong>Top ranked learners</strong>
+          <span>Best visible student outcomes for this exam</span>
+        </div>
+        {!leaderboardHighlights.length ? (
+          <p className="emptyText">Ranked learner highlights will appear once the current exam is fully evaluated.</p>
+        ) : (
+          <div className="resultsList">
+            {leaderboardHighlights.map((row) => (
+              <article className="resultCard" key={`overview-rank-${row.id}`}>
+                <div className="resultCardTop">
+                  <div>
+                    <strong>{row.student_name}</strong>
+                    <span>{row.student_admission_no}</span>
+                  </div>
+                  <span className="statusPill statusLive">Rank {row.rank ?? "N/A"}</span>
+                </div>
+                <div className="resultKpiGrid">
+                  <div>
+                    <span>Score</span>
+                    <strong>{row.final_score}</strong>
+                  </div>
+                  <div>
+                    <span>Percentage</span>
+                    <strong>{percentage(row.percentage)}</strong>
+                  </div>
+                  <div>
+                    <span>Time taken</span>
+                    <strong>{formatDuration(row.time_taken_seconds)}</strong>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
       <section className="contentCard teacherResultsOverviewCard">
         <div className="resultCardTop">
           <div>
@@ -3010,7 +3254,7 @@ function renderOverviewView(context: WorkspaceContext) {
 
         <div className="teacherWorkflowSummary">
           <div>
-            <span className="studentDashboardTag">Guided workflow</span>
+            <span className="studentDashboardTag">Results operations</span>
             <strong>
               {recommendedWorkflowStep
                 ? `Next recommended step: ${recommendedWorkflowStep.title}`
@@ -3322,7 +3566,7 @@ function renderOverviewView(context: WorkspaceContext) {
 
         <div className="teacherResultsReadinessBoard">
           <article className="teacherResultsReadinessHero">
-            <span className="studentDashboardTag">Publication readiness</span>
+            <span className="studentDashboardTag">Release operations</span>
             <strong>{readinessSnapshot.headline}</strong>
             <p>{readinessSnapshot.summary}</p>
           </article>

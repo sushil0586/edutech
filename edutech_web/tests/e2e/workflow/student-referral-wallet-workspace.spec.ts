@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectStudentWorkspace } from "../helpers/navigation";
+import { gotoWithRuntimeRecovery } from "../helpers/runtime";
 
 test.describe("Student referral and wallet workspace", () => {
   test.skip(
@@ -14,7 +15,7 @@ test.describe("Student referral and wallet workspace", () => {
     await loginAsRole(page, "student");
     await expectStudentWorkspace(page);
 
-    await page.goto("/app/profile");
+    await gotoWithRuntimeRecovery(page, "/app/profile");
     await expect(page.getByRole("heading", { name: /profile/i }).first()).toBeVisible();
     await expect(
       page.locator(".detailCard").filter({ has: page.getByText(/^referral code$/i) }).first(),
@@ -26,11 +27,11 @@ test.describe("Student referral and wallet workspace", () => {
       page.locator(".detailCard").filter({ has: page.getByText(/^referral channel$/i) }).first(),
     ).toBeVisible();
     await expect(
-      page.getByText(/if you joined with a referral code, verify the reward in wallet after onboarding completes/i).first(),
+      page.getByText(/if you joined with a referral code, verify the reward in wallet after onboarding/i).first(),
     ).toBeVisible();
     await expect(page.getByRole("link", { name: /open wallet/i }).first()).toBeVisible();
 
-    await page.goto("/app/wallet");
+    await gotoWithRuntimeRecovery(page, "/app/wallet");
     await expect(page.getByRole("heading", { name: /wallet/i }).first()).toBeVisible();
     await expect(page.getByText(/wallet state/i).first()).toBeVisible();
     await expect(page.getByText(/what this page covers/i).first()).toBeVisible();

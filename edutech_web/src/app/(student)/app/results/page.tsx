@@ -6,6 +6,7 @@ import { fetchCurrentAccountProfile } from "@/lib/auth/session";
 import { StudentKpiGrid } from "@/components/ui/student-kpi-grid";
 import { StudentPassiveNavLink } from "@/components/ui/student-passive-nav-link";
 import { StudentPageHeader } from "@/components/ui/student-page-header";
+import { StudentResultsReport, type StudentResultsReportRow } from "@/components/ui/student-results-report";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { StudentWorkspaceLink as Link } from "@/components/ui/student-workspace-link";
 import {
@@ -208,6 +209,20 @@ function buildResultGroupLabel(result: StudentResult, groupBy: ResultGroupOption
     return attemptOutcomeReviewLabel(outcomeState);
   }
   return "Results";
+}
+
+function resultStatusLabel(result: StudentResult) {
+  if (!result.is_published) {
+    return "Pending";
+  }
+  return titleCaseState(result.result_status);
+}
+
+function reviewStatusLabel(result: StudentResult) {
+  if (!result.is_published) {
+    return "Awaiting result";
+  }
+  return result.review_available ? "Available" : "Locked";
 }
 
 function applyResultStatusFilter(results: StudentResult[], filter: ResultStatusFilter) {
@@ -484,6 +499,7 @@ export default async function ResultsPage({
     exams: scopedPracticeExams,
     subjectName: selectedSubject === ALL_SUBJECTS_CONTEXT ? null : selectedSubject,
   });
+  const practiceActionHref = practiceFollowUp.action.href;
   const neetLane =
     looksLikeNeetValue(selectedSubjectLabel) ||
     scopedResults.some(
@@ -545,6 +561,70 @@ export default async function ResultsPage({
         recoverySecond:
           "Check the summary or answer review first, then continue into the matched practice lane.",
       };
+  const reportGroups = groupedResults.map((group) => ({
+    label: group.label,
+    items: group.items.map((result): StudentResultsReportRow => {
+      const stateCopy = resultStateCopy(result);
+      const resultSubjectLabel = getMetadataSubjectDisplayLabel(result.metadata);
+      const summaryHref = buildFilterHref(`/app/attempts/${result.attempt}/summary`, [
+        ["subject", scopedSubjectParam],
+        ["source", scopedSourceParam],
+        ["teacher", selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined],
+      ]);
+      const reviewHref = stateCopy.reviewHref
+        ? buildFilterHref(stateCopy.reviewHref, [
+            ["subject", scopedSubjectParam],
+            ["source", scopedSourceParam],
+            ["teacher", selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined],
+          ])
+        : null;
+      const attemptedCount =
+        result.correct_answers + result.incorrect_answers + result.skipped_questions;
+
+      return {
+        id: result.id,
+        examTitle: result.exam_title,
+        examCode: result.exam_code,
+        subjectScope: resultSubjectLabel !== "Subject pending" ? resultSubjectLabel : "Multi-subject or pending",
+        sourceLabel: resultSourceDescriptor(result),
+        scoreLabel: result.is_published ? String(result.final_score) : "Pending",
+        percentageLabel: result.is_published ? percentageLabel(result.percentage) : "Pending",
+        rankLabel: result.rank !== null ? String(result.rank) : "N/A",
+        resultStatusLabel: resultStatusLabel(result),
+        reviewLabel: reviewStatusLabel(result),
+        nextActionLabel: stateCopy.practiceCta,
+        dateLabel: result.published_at
+          ? `Published ${studentDateTimeLabel(result.published_at)}`
+          : `Updated ${studentDateTimeLabel(result.created_at)}`,
+        statusToneClass: resultTone(result),
+        statusBadgeLabel: stateCopy.badge,
+        summaryHref,
+        reviewHref,
+        practiceHref: practiceActionHref,
+        stats: {
+          finalScore: result.is_published ? String(result.final_score) : "Pending",
+          percentage: result.is_published ? percentageLabel(result.percentage) : "Pending",
+          attemptedCount: result.is_published ? String(attemptedCount) : "Pending",
+          correctAnswers: result.correct_answers,
+          incorrectAnswers: result.incorrect_answers,
+          skippedQuestions: result.skipped_questions,
+          timeTaken: durationLabel(result.time_taken_seconds),
+          publishedState: result.is_published ? "Published" : "Awaiting publish",
+        },
+        insight: {
+          headline: compactResultHeadline(
+            result,
+            resolveAttemptOutcomeState({
+              resultVisible: result.is_published,
+              reviewAvailable: result.review_available,
+            }),
+          ),
+          helper: stateCopy.helper,
+          progress: stateCopy.progress,
+        },
+      };
+    }),
+  }));
 
   return (
     <div className="studentPage studentDashboardModern studentLearnerPage studentLearnerResultsPage">
@@ -922,187 +1002,12 @@ export default async function ResultsPage({
             />
           ) : null}
 
-          {visibleResults.length > 0 ? groupedResults.map((group) => (
-            <section className="studentResultsGroupedSection" key={group.label}>
-              {groupOption !== "none" ? (
-                <div className="sectionHeading sectionHeadingCompact">
-                  <strong>{group.label}</strong>
-                  <span>{group.items.length} results</span>
-                </div>
-              ) : null}
-              <div className="studentResultsGrid">
-            {group.items.map((result) => {
-              const stateCopy = resultStateCopy(result);
-              const outcomeState = resolveAttemptOutcomeState({
-                resultVisible: result.is_published,
-                reviewAvailable: result.review_available,
-              });
-              const resultSubjectLabel = getMetadataSubjectDisplayLabel(result.metadata);
-              const attemptedCount =
-                result.correct_answers + result.incorrect_answers + result.skipped_questions;
-
-              return (
-                <article className="contentCard studentResultsCompactCard" key={result.id}>
-                  <div className="studentAttemptsCardHead">
-                    <div className="studentAttemptsCardTitle">
-                      <strong>{result.exam_title}</strong>
-                      <span className="studentAttemptsCardMeta">
-                        {result.exam_code}
-                        {resultSubjectLabel !== "Subject pending"
-                          ? ` · ${resultSubjectLabel}`
-                          : ""}
-                      </span>
-                    </div>
-                    <div className="studentAttemptsCardStatus">
-                      <span className={`statusPill ${resultTone(result)}`}>
-                        {stateCopy.badge}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="studentAttemptsCardSourceRow">
-                    <span>{resultSourceDescriptor(result)}</span>
-                  </div>
-
-                  <div className="studentResultsMetrics">
-                    <div className="studentAttemptsMetric">
-                      <span>Score</span>
-                      <strong>
-                        {result.is_published ? percentageLabel(result.percentage) : "Pending"}
-                      </strong>
-                    </div>
-                    <div className="studentAttemptsMetric">
-                      <span>Attempted</span>
-                      <strong>
-                        {result.is_published ? `${attemptedCount}` : "Pending"}
-                      </strong>
-                    </div>
-                    <div className="studentAttemptsMetric">
-                      <span>Time Taken</span>
-                      <strong>{durationLabel(result.time_taken_seconds)}</strong>
-                    </div>
-                  </div>
-
-                  {result.is_published ? (
-                    <div className="studentResultsBreakdownStrip">
-                      <div>
-                        <span>Correct</span>
-                        <strong>{result.correct_answers}</strong>
-                      </div>
-                      <div>
-                        <span>Incorrect</span>
-                        <strong>{result.incorrect_answers}</strong>
-                      </div>
-                      <div>
-                        <span>Skipped</span>
-                        <strong>{result.skipped_questions}</strong>
-                      </div>
-                      <div>
-                        <span>Rank</span>
-                        <strong>{result.rank ?? "N/A"}</strong>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="studentAttemptsNotice">
-                      <strong>{compactResultHeadline(result, outcomeState)}</strong>
-                      <span>{stateCopy.progress}</span>
-                    </div>
-                  )}
-
-                  {result.is_published ? (
-                    <div className="studentAttemptsNotice">
-                      <strong>{compactResultHeadline(result, outcomeState)}</strong>
-                      <span>
-                        {result.review_available
-                          ? "Answer review is available for deeper correction."
-                          : stateCopy.progress}
-                      </span>
-                    </div>
-                  ) : null}
-
-                  <div className="studentAttemptsFooter">
-                    <div className="studentAttemptsUpdateRow">
-                      <span>
-                        {result.published_at
-                          ? `Published ${studentDateTimeLabel(result.published_at)}`
-                          : `Updated ${studentDateTimeLabel(result.created_at)}`}
-                      </span>
-                    </div>
-                    <div className="studentAttemptsActions">
-                      <Link
-                        className="button buttonPrimary"
-                        href={buildFilterHref(`/app/attempts/${result.attempt}/summary`, [
-                          ["subject", scopedSubjectParam],
-                          ["source", scopedSourceParam],
-                          ["teacher", selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined],
-                        ])}
-                      >
-                        {stateCopy.summaryCta}
-                      </Link>
-                      {stateCopy.reviewHref ? (
-                        <Link
-                          className="button buttonSecondary"
-                          href={buildFilterHref(stateCopy.reviewHref, [
-                            ["subject", scopedSubjectParam],
-                            ["source", scopedSourceParam],
-                            ["teacher", selectedSource === "teacher" ? selectedTeacherId ?? undefined : undefined],
-                          ])}
-                        >
-                          Open Answer Review
-                        </Link>
-                      ) : null}
-                      {practiceFollowUp.exam && practiceFollowUp.action.mode === "start" ? (
-                        <form action={startPracticeAction}>
-                          <input name="exam_id" type="hidden" value={practiceFollowUp.exam.id} />
-                          <input name="student_id" type="hidden" value={result.student} />
-                          <ActionSubmitButton
-                            className="button buttonGhost"
-                            idleLabel={stateCopy.practiceCta}
-                            pendingLabel="Starting..."
-                          />
-                        </form>
-                      ) : practiceFollowUp.exam && practiceFollowUp.action.mode === "unlock" ? (
-                        <>
-                          <form action={unlockPracticeAction}>
-                            <input name="exam_id" type="hidden" value={practiceFollowUp.exam.id} />
-                            <input
-                              name="content_type"
-                              type="hidden"
-                              value={practiceFollowUp.exam.economy_access.content_type}
-                            />
-                            <input
-                              name="content_key"
-                              type="hidden"
-                              value={practiceFollowUp.exam.economy_access.content_key}
-                            />
-                            <input
-                              name="subject_id"
-                              type="hidden"
-                              value={practiceFollowUp.exam.economy_access.subject_id ?? ""}
-                            />
-                            <ActionSubmitButton
-                              className="button buttonGhost"
-                              idleLabel={practiceFollowUp.action.label}
-                              pendingLabel="Unlocking..."
-                            />
-                          </form>
-                          <StudentPassiveNavLink className="button buttonSecondary" href="/app/wallet">
-                            Open Wallet
-                          </StudentPassiveNavLink>
-                        </>
-                      ) : (
-                        <Link className="button buttonGhost" href={practiceFollowUp.action.href}>
-                          {stateCopy.practiceCta}
-                        </Link>
-                      )}
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
-              </div>
-            </section>
-          )) : null}
+          {visibleResults.length > 0 ? (
+            <StudentResultsReport
+              groups={reportGroups}
+              showGroupHeadings={groupOption !== "none"}
+            />
+          ) : null}
           {filteredResults.length > 0 && totalResultPages > 1 ? (
             <section className="contentCard studentReviewPaginationCard">
               <div className="studentReviewPaginationBar">

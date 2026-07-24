@@ -95,7 +95,9 @@ test.describe("Operator mobile shell sanity", () => {
     await examFilter.selectOption("live");
     await attemptFilter.selectOption("watch");
     await attemptGroup.selectOption("health");
-    await page.getByRole("button", { name: /apply filters/i }).click();
+    const applySecurityFiltersButton = page.getByRole("button", { name: /apply filters/i });
+    await applySecurityFiltersButton.scrollIntoViewIfNeeded();
+    await applySecurityFiltersButton.click();
 
     await expect(page).toHaveURL(/search=aws/i);
     await expect(page).toHaveURL(/exam_filter=live/);
@@ -134,10 +136,14 @@ test.describe("Operator mobile shell sanity", () => {
 
     const searchField = page.getByRole("textbox", { name: /search question text/i });
     await searchField.fill("playwright-no-match-mobile-1781");
-    await page.getByRole("button", { name: /apply filters/i }).click();
+    const instituteApplyFiltersButton = page.getByRole("button", { name: /update view/i });
+    await instituteApplyFiltersButton.scrollIntoViewIfNeeded();
+    await instituteApplyFiltersButton.click();
     await expect(page.getByText(/no questions match these filters/i).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /reset filters and show all questions/i }).first()).toBeVisible();
-    await page.getByRole("link", { name: /reset filters and show all questions/i }).first().click();
+    const instituteResetButton = page.getByRole("button", { name: /^reset$/i });
+    await expect(instituteResetButton).toBeVisible();
+    await instituteResetButton.scrollIntoViewIfNeeded();
+    await instituteResetButton.click();
     await expect(page).toHaveURL(/\/institute\/question-bank(?:\?.*)?$/);
 
     await page.getByRole("link", { name: /create question/i }).first().click();
@@ -180,18 +186,21 @@ test.describe("Operator mobile shell sanity", () => {
     await expect(page).toHaveURL(/\/teacher\/reviews(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /review queue/i }).first()).toBeVisible();
     await expect(page.getByText(/quick triage|one-click grading views/i).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /open results/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /view results/i }).first()).toBeVisible();
 
     await page.getByRole("combobox", { name: /^status$/i }).selectOption("in_review");
     await page.getByRole("combobox", { name: /page size/i }).selectOption("24");
-    await page.getByRole("button", { name: /apply filters/i }).click();
+    const teacherUpdateViewButton = page.getByRole("button", { name: /update view/i });
+    await teacherUpdateViewButton.scrollIntoViewIfNeeded();
+    await teacherUpdateViewButton.click();
     await expect(page).toHaveURL(/status=in_review/);
     await expect(page).toHaveURL(/page_size=24/);
     await expect(page.getByText(/status: in review/i).first()).toBeVisible();
     await expect(page.getByText(/page size: 24 tasks/i).first()).toBeVisible();
 
     await page.getByRole("textbox", { name: /^search$/i }).fill("playwright-no-teacher-review-match-mobile-1943");
-    await page.getByRole("button", { name: /apply filters/i }).click();
+    await teacherUpdateViewButton.scrollIntoViewIfNeeded();
+    await teacherUpdateViewButton.click();
     await expect(page).toHaveURL(/search=playwright-no-teacher-review-match-mobile-1943/);
     await expect(page.getByText(/no review tasks match these filters/i).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /reset filters and show full queue/i }).first()).toBeVisible();

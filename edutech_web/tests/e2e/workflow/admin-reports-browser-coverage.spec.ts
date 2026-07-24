@@ -19,6 +19,10 @@ function sortSelect(page: Page) {
   return page.getByRole("combobox", { name: /sort by/i });
 }
 
+function runtimeScopeSelect(page: Page) {
+  return page.getByRole("combobox", { name: /runtime scope/i });
+}
+
 async function expectSelectHasOptions(locator: Locator) {
   await expect(locator).toBeVisible();
   await expect
@@ -52,14 +56,17 @@ test.describe("Admin reports browser functionality coverage", () => {
     await expectSelectHasOptions(laneSelect(page));
     await expectSelectHasOptions(subjectSelect(page));
     await expectSelectHasOptions(sortSelect(page));
+    await expectSelectHasOptions(runtimeScopeSelect(page));
 
     await expect(laneSelect(page)).toHaveValue("all");
     await expect(subjectSelect(page)).toHaveValue("all");
     await expect(sortSelect(page)).toHaveValue("recommended");
+    await expect(runtimeScopeSelect(page)).toHaveValue("active");
 
     const laneOptions = await getOptionValues(laneSelect(page));
     const subjectOptions = await getOptionValues(subjectSelect(page));
     const sortOptions = await getOptionValues(sortSelect(page));
+    const runtimeScopeOptions = await getOptionValues(runtimeScopeSelect(page));
 
     expect(laneOptions).toEqual(["all", "publication", "performance", "weak_topics", "students"]);
     expect(subjectOptions.length).toBeGreaterThan(0);
@@ -70,6 +77,7 @@ test.describe("Admin reports browser functionality coverage", () => {
       "score_high",
       "attempts_high",
     ]);
+    expect(runtimeScopeOptions).toEqual(["active", "live", "scheduled", "all"]);
   });
 
   test("@workflow browser coverage can apply and reset reports filters truthfully", async ({
@@ -83,6 +91,7 @@ test.describe("Admin reports browser functionality coverage", () => {
     await laneSelect(page).selectOption("weak_topics");
     await subjectSelect(page).selectOption(scopedSubject);
     await sortSelect(page).selectOption("score_low");
+    await runtimeScopeSelect(page).selectOption("scheduled");
     await page.getByRole("button", { name: /apply filters/i }).click();
 
     await expect
@@ -92,26 +101,31 @@ test.describe("Admin reports browser functionality coverage", () => {
           lane: url.searchParams.get("lane"),
           subject: url.searchParams.get("subject"),
           sort: url.searchParams.get("sort"),
+          runtimeStatus: url.searchParams.get("runtime_status"),
         };
       })
       .toEqual({
         lane: "weak_topics",
         subject: scopedSubject,
         sort: "score_low",
+        runtimeStatus: "scheduled",
       });
 
     await expect(laneSelect(page)).toHaveValue("weak_topics");
     await expect(subjectSelect(page)).toHaveValue(scopedSubject);
     await expect(sortSelect(page)).toHaveValue("score_low");
+    await expect(runtimeScopeSelect(page)).toHaveValue("scheduled");
     await expect(page.getByText(/lane: weak topics/i).first()).toBeVisible();
     await expect(page.getByText(new RegExp(`subject: ${scopedSubject}`, "i")).first()).toBeVisible();
     await expect(page.getByText(/sort: score low/i).first()).toBeVisible();
+    await expect(page.getByText(/runtime: scheduled/i).first()).toBeVisible();
 
     await page.getByRole("link", { name: /reset filters/i }).click();
     await expect(page).toHaveURL(/\/admin\/reports$/);
     await expect(laneSelect(page)).toHaveValue("all");
     await expect(subjectSelect(page)).toHaveValue("all");
     await expect(sortSelect(page)).toHaveValue("recommended");
+    await expect(runtimeScopeSelect(page)).toHaveValue("active");
   });
 
   test("@workflow browser coverage keeps quick filters truthful across report lanes", async ({
@@ -147,6 +161,7 @@ test.describe("Admin reports browser functionality coverage", () => {
     await expect(page).toHaveURL(/\/admin\/reports$/);
     await expect(laneSelect(page)).toHaveValue("all");
     await expect(sortSelect(page)).toHaveValue("recommended");
+    await expect(runtimeScopeSelect(page)).toHaveValue("active");
   });
 
   test("@workflow browser coverage proves weak-topic empty state is distinct from loaded state", async ({
@@ -204,5 +219,54 @@ test.describe("Admin reports browser functionality coverage", () => {
     expect(pendingFromHero).toBe(pendingFromCard);
     expect(backlogFromFilter).toBeGreaterThanOrEqual(pendingFromCard ?? 0);
     expect(resultSummariesFromHero).toBeGreaterThanOrEqual(pendingFromHero ?? 0);
+  });
+
+  test("@workflow browser coverage keeps runtime scope stats aligned with the selected runtime filter", async ({
+    page,
+  }) => {
+    await gotoReports(page, "/admin/reports?runtime_status=live");
+
+    await expect(runtimeScopeSelect(page)).toHaveValue("live");
+    await expect(page.getByText(/runtime: live/i).first()).toBeVisible();
+    await expect(page.getByText(/^Runtime Ops$/i).first()).toBeVisible();
+    await expect(page.getByText(/^Top Pressure Exams$/i).first()).toBeVisible();
+
+    const runtimeStatusLabel =
+      (await page.locator(".studentInsightsTwoColumn .sectionHeading span").first().textContent())?.trim() ?? "";
+    const liveAttemptPressureText =
+      (await page
+        .locator(".resultsSummaryGrid .metricCard")
+        .filter({ has: page.getByText(/^Live attempt pressure$/i) })
+        .locator("small")
+        .textContent()) ?? "";
+    const runtimeTrackedExamsCard =
+      (await page
+        .locator(".studentInsightsTwoColumn .studentResultStat")
+        .filter({ has: page.getByText(/^Tracked exams$/i) })
+        .locator("strong")
+        .textContent()) ?? "";
+
+    expect(runtimeStatusLabel.toLowerCase()).toContain("live");
+    expect(liveAttemptPressureText.toLowerCase()).toContain("live view");
+    expect(extractLeadingNumber(runtimeTrackedExamsCard)).not.toBeNull();
+
+    await runtimeScopeSelect(page).selectOption("scheduled");
+    await page.getByRole("button", { name: /apply filters/i }).click();
+
+    await expect(page).toHaveURL(/runtime_status=scheduled/);
+    await expect(runtimeScopeSelect(page)).toHaveValue("scheduled");
+    await expect(page.getByText(/runtime: scheduled/i).first()).toBeVisible();
+
+    const scheduledStatusLabel =
+      (await page.locator(".studentInsightsTwoColumn .sectionHeading span").first().textContent())?.trim() ?? "";
+    const scheduledPressureText =
+      (await page
+        .locator(".resultsSummaryGrid .metricCard")
+        .filter({ has: page.getByText(/^Live attempt pressure$/i) })
+        .locator("small")
+        .textContent()) ?? "";
+
+    expect(scheduledStatusLabel.toLowerCase()).toContain("scheduled");
+    expect(scheduledPressureText.toLowerCase()).toContain("scheduled view");
   });
 });

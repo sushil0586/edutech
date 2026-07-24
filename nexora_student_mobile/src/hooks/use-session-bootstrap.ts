@@ -31,6 +31,27 @@ function friendlyBootstrapError(error: unknown) {
   return "We could not restore the previous mobile session.";
 }
 
+function isRecoverableBootstrapError(error: unknown) {
+  if (error instanceof MobileApiError) {
+    if (error.status === 401 || error.status === 403) {
+      return false;
+    }
+
+    return true;
+  }
+
+  if (error instanceof Error) {
+    const message = error.message.toLowerCase();
+    return (
+      message.includes("network request failed") ||
+      message.includes("took too long") ||
+      message.includes("could not reach")
+    );
+  }
+
+  return false;
+}
+
 export function useSessionBootstrap() {
   const hydrated = useSessionStore((state) => state.hydrated);
   const setSession = useSessionStore((state) => state.setSession);
@@ -71,10 +92,25 @@ export function useSessionBootstrap() {
           profile: liveProfile,
         });
       } catch (error) {
-        await clearPersistedSession();
-        clearSession();
-        if (active) {
-          setBootError(friendlyBootstrapError(error));
+        const persisted = await loadPersistedSession();
+
+        if (persisted && isRecoverableBootstrapError(error)) {
+          if (active) {
+            setSession({
+              accessToken: persisted.accessToken,
+              refreshToken: persisted.refreshToken,
+              profile: persisted.profile,
+            });
+            setBootError(
+              "Using the last saved student session because Nexora could not be reached right now.",
+            );
+          }
+        } else {
+          await clearPersistedSession();
+          clearSession();
+          if (active) {
+            setBootError(friendlyBootstrapError(error));
+          }
         }
       } finally {
         if (active) {

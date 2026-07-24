@@ -31,7 +31,7 @@ async function openMobileTeacherNav(page: Page) {
 
 async function expectTeacherReviewsWorkspace(page: Page) {
   await expect(page.getByRole("heading", { name: /review queue/i }).first()).toBeVisible();
-  await expect(page.getByText(/one-click grading views|quick triage/i).first()).toBeVisible();
+  await expect(page.getByText(/teacher review workspace/i).first()).toBeVisible();
 }
 
 test.describe("Teacher mobile reviews workflow", () => {
@@ -62,7 +62,7 @@ test.describe("Teacher mobile reviews workflow", () => {
 
     await page.getByRole("combobox", { name: /^status$/i }).selectOption("in_review");
     await page.getByRole("combobox", { name: /page size/i }).selectOption("24");
-    await page.getByRole("button", { name: /apply filters/i }).click();
+    await page.getByRole("button", { name: /update view/i }).click();
 
     await expect(page).toHaveURL(/status=in_review/);
     await expect(page).toHaveURL(/page_size=24/);
@@ -70,7 +70,7 @@ test.describe("Teacher mobile reviews workflow", () => {
     await expect(page.getByText(/page size: 24 tasks/i).first()).toBeVisible();
 
     await page.getByRole("textbox", { name: /^search$/i }).fill("playwright-mobile-teacher-review-no-match-2044");
-    await page.getByRole("button", { name: /apply filters/i }).click();
+    await page.getByRole("button", { name: /update view/i }).click();
     await expect(page).toHaveURL(/search=playwright-mobile-teacher-review-no-match-2044/);
     await expect(page.getByText(/no review tasks match these filters/i).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /reset filters and show full queue/i }).first()).toBeVisible();
@@ -78,8 +78,8 @@ test.describe("Teacher mobile reviews workflow", () => {
     await expect(page).toHaveURL(/\/teacher\/reviews(?:\?.*)?$/);
     await expectTeacherReviewsWorkspace(page);
 
-    await expect(page.getByRole("link", { name: /open results/i }).first()).toBeVisible();
-    await page.getByRole("link", { name: /open results/i }).first().click();
+    await expect(page.getByRole("link", { name: /view results/i }).first()).toBeVisible();
+    await page.getByRole("link", { name: /view results/i }).first().click();
     await expect(page).toHaveURL(/\/teacher\/results(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
 

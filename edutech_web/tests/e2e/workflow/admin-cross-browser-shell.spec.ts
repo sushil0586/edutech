@@ -44,7 +44,12 @@ test.describe("Admin cross-browser shell sanity", () => {
     ]);
     await expect(page).toHaveURL(/\/admin\/exams(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /exam management/i }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /quick create/i }).first()).toBeVisible();
+    await expect(
+      await Promise.race([
+        Promise.resolve(page.getByRole("link", { name: /new exam/i }).first()),
+        Promise.resolve(page.getByRole("link", { name: /advanced builder/i }).first()),
+      ]),
+    ).toBeVisible();
 
     await Promise.all([
       page.waitForURL(/\/admin\/institutes(?:\?.*)?$/),

@@ -38,8 +38,8 @@ test.describe("Student mobile report surfaces visual", () => {
       maxDiffPixels: 220,
     });
 
-    const firstResultCard = page.locator("article.studentResultsCompactCard").first();
-    await expect(firstResultCard).toHaveScreenshot("student-mobile-results-card.png", {
+    const firstResultRow = page.locator(".studentResultsTableRow").first();
+    await expect(firstResultRow).toHaveScreenshot("student-mobile-results-card.png", {
       animations: "disabled",
       caret: "hide",
       maxDiffPixels: 260,
@@ -62,8 +62,8 @@ test.describe("Student mobile report surfaces visual", () => {
       return;
     }
 
-    const firstPracticeCard = page.locator("article.studentPracticeCompactCard").first();
-    await expect(firstPracticeCard).toHaveScreenshot("student-mobile-practice-card.png", {
+    const firstPracticeRow = page.locator(".studentPracticeRecommendationTable .studentResultsTableRow").first();
+    await expect(firstPracticeRow).toHaveScreenshot("student-mobile-practice-card.png", {
       animations: "disabled",
       caret: "hide",
       maxDiffPixels: 280,

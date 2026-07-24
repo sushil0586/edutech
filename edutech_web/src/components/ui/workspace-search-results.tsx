@@ -201,6 +201,9 @@ export function WorkspaceSearchResults({
             <Link className="button buttonSecondary" href="/app/dashboard">
               Open Dashboard
             </Link>
+            <Link className="button buttonSecondary" href="/app/reports">
+              Open Reports Hub
+            </Link>
             <Link className="button buttonGhost" href="/app/analytics">
               Open Analytics
             </Link>

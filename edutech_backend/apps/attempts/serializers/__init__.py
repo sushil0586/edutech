@@ -17,6 +17,7 @@ from apps.attempts.services import (
     ordered_options_for_attempt,
     question_order_map_for_attempt,
     refresh_attempt_runtime_state,
+    sync_attempt_access_state,
     resolve_attempt_security_policy,
 )
 from apps.exams.serializers import StudentExamQuestionDetailSerializer
@@ -729,6 +730,10 @@ class StudentExamAttemptSerializer(serializers.ModelSerializer):
         model = StudentExamAttempt
         fields = "__all__"
 
+    def to_representation(self, instance):
+        sync_attempt_access_state(instance)
+        return super().to_representation(instance)
+
     def get_server_time(self, obj):
         from django.utils import timezone
 
@@ -870,6 +875,10 @@ class AttemptDetailSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         )
+
+    def to_representation(self, instance):
+        sync_attempt_access_state(instance)
+        return super().to_representation(instance)
 
     def _active_exam_questions(self, obj):
         prefetched_exam_questions = getattr(obj.exam, "_prefetched_active_exam_questions", None)

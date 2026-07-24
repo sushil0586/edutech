@@ -1,6 +1,8 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { StudentKpiGrid } from "@/components/ui/student-kpi-grid";
 import { StudentPageHeader } from "@/components/ui/student-page-header";
+import { StudentReportFilters } from "@/components/ui/student-report-filters";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { StudentQuestionInsightList } from "@/components/ui/student-analytics-detail";
 import { fetchStudentQuestionAnalytics, getStudentApiState } from "@/lib/api/student";
@@ -22,6 +24,18 @@ import {
   questionTypeLabel,
   titleCaseState,
 } from "@/lib/student/formatters";
+import {
+  ALL_SOURCES_CONTEXT,
+  ALL_SUBJECTS_CONTEXT,
+  getStudentSourceOptions,
+  getStudentSubjectOptions,
+  resolveSelectedStudentSource,
+  resolveSelectedStudentSourceTeacher,
+  resolveSelectedStudentSubject,
+  STUDENT_SOURCE_CONTEXT_COOKIE,
+  STUDENT_SOURCE_TEACHER_CONTEXT_COOKIE,
+  STUDENT_SUBJECT_CONTEXT_COOKIE,
+} from "@/lib/student/subject-context";
 
 export default async function StudentAnalyticsTopicPage({
   params,
@@ -38,7 +52,16 @@ export default async function StudentAnalyticsTopicPage({
   const route = await params;
   const query = await searchParams;
   const topicId = decodeAnalyticsParam(route.topic);
-  const subject = query.subject ? decodeAnalyticsParam(query.subject) : null;
+  const cookieStore = await cookies();
+  const selectedSource = resolveSelectedStudentSource(
+    query.source ?? cookieStore.get(STUDENT_SOURCE_CONTEXT_COOKIE)?.value ?? ALL_SOURCES_CONTEXT,
+  );
+  const selectedSubject = resolveSelectedStudentSubject(
+    getStudentSubjectOptions({ subject_interests: [] }),
+    query.subject
+      ? decodeAnalyticsParam(query.subject)
+      : cookieStore.get(STUDENT_SUBJECT_CONTEXT_COOKIE)?.value ?? ALL_SUBJECTS_CONTEXT,
+  );
   const label = query.label ? decodeAnalyticsParam(query.label) : null;
   const state = getStudentApiState();
 
@@ -62,13 +85,13 @@ export default async function StudentAnalyticsTopicPage({
     loadStudentAnalyticsBundle(),
     fetchStudentQuestionAnalytics({
       topic: topicId,
-      subject,
-      source: query.source ?? null,
+      subject: selectedSubject === ALL_SUBJECTS_CONTEXT ? null : selectedSubject,
+      source: selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
       teacher: query.teacher ?? null,
     }).catch(() => null),
   ]);
 
-  if (!bundle.summary || !questionData) {
+  if (!bundle.summary) {
     return (
       <div className="studentPage studentDashboardModern">
         <StudentStatePanel
@@ -84,20 +107,47 @@ export default async function StudentAnalyticsTopicPage({
     );
   }
 
+  const resolvedQuestionData = questionData ?? {
+    overview: {
+      question_count: 0,
+      attempted_count: 0,
+      correct_count: 0,
+      wrong_count: 0,
+      skipped_count: 0,
+    },
+    benchmark_overview: [],
+    questions: [],
+  };
+
   const topicTitle =
-    questionData.questions[0]?.topic_name ??
+    resolvedQuestionData.questions[0]?.topic_name ??
     bundle.topicPerformance.find((item) => item.topic === topicId)?.topic_name ??
     label ??
     "Topic";
-  const difficultyRows = aggregateQuestionsByDifficulty(questionData.questions);
-  const typeRows = aggregateQuestionsByType(questionData.questions);
+  const difficultyRows = aggregateQuestionsByDifficulty(resolvedQuestionData.questions);
+  const typeRows = aggregateQuestionsByType(resolvedQuestionData.questions);
   const topicRecords = bundle.topicPerformance.filter((item) => item.topic === topicId);
   const topicAverage =
     topicRecords.reduce((total, item) => total + Number(item.percentage), 0) /
     (topicRecords.length || 1);
-  const skippedCount = questionData.questions.filter(
+  const skippedCount = resolvedQuestionData.questions.filter(
     (item) => item.your_result === "skipped",
   ).length;
+  const { teacherOptions } = getStudentSourceOptions([
+    ...bundle.results,
+    ...bundle.exams,
+    ...(bundle.summary?.source_breakdown ?? []),
+    ...(bundle.summary?.recent_exams ?? []),
+  ]);
+  const selectedTeacherId = resolveSelectedStudentSourceTeacher(
+    teacherOptions,
+    selectedSource,
+    query.teacher ??
+      cookieStore.get(STUDENT_SOURCE_TEACHER_CONTEXT_COOKIE)?.value ??
+      null,
+  );
+  const effectiveSubject =
+    selectedSubject === ALL_SUBJECTS_CONTEXT ? null : selectedSubject;
 
   return (
     <div className="studentPage studentDashboardModern">
@@ -105,9 +155,23 @@ export default async function StudentAnalyticsTopicPage({
         eyebrow="Topic deep dive"
         title={topicTitle}
         description="One topic, exact question evidence, and the next move."
-        statusLabel={`${questionData.questions.length} questions analyzed`}
+        statusLabel={`${resolvedQuestionData.questions.length} questions analyzed`}
         statusTone="live"
         action={<Link className="button buttonGhost" href="/app/analytics">Back to Analytics</Link>}
+      />
+
+      <StudentReportFilters
+        basePath={`/app/analytics/topics/${encodeURIComponent(topicId)}`}
+        title="Topic detail filters"
+        helper="Keep the topic fixed while refining the subject and source context around it."
+        selectedSource={selectedSource}
+        selectedSubject={effectiveSubject ?? ALL_SUBJECTS_CONTEXT}
+        selectedTeacherId={selectedTeacherId}
+        subjectOptions={[
+          { value: ALL_SUBJECTS_CONTEXT, label: "Overall" },
+          ...(effectiveSubject ? [{ value: effectiveSubject, label: effectiveSubject }] : []),
+        ]}
+        teacherOptions={teacherOptions}
       />
 
       <section className="topicFocusCompact">
@@ -116,20 +180,20 @@ export default async function StudentAnalyticsTopicPage({
           <strong>{topicTitle}</strong>
           <div className="studentInsightHeroActions">
             <span className="studentDashboardMiniBadge">
-              {subject ?? questionData.questions[0]?.subject_name ?? "Overall subject"}
+              {effectiveSubject ?? resolvedQuestionData.questions[0]?.subject_name ?? "Overall subject"}
             </span>
             <span className="studentDashboardMiniBadge">
               {topicRecords.length} scored topic records
             </span>
             <span className="studentDashboardMiniBadge">
-              {questionData.questions.length} questions analyzed
+              {resolvedQuestionData.questions.length} questions analyzed
             </span>
           </div>
           <div className="studentInsightHeroActions topicFocusCompactActions">
-            {subject ? (
+            {effectiveSubject ? (
               <Link
                 className="button buttonPrimary"
-                href={`/app/practice?subject=${encodeURIComponent(subject)}&topic=${encodeURIComponent(topicTitle)}`}
+                href={`/app/practice?subject=${encodeURIComponent(effectiveSubject)}&topic=${encodeURIComponent(topicTitle)}`}
               >
                 Practice this topic
               </Link>
@@ -138,18 +202,25 @@ export default async function StudentAnalyticsTopicPage({
                 Open Practice Lane
               </Link>
             )}
-            {subject ? (
+            {effectiveSubject ? (
               <Link
                 className="button buttonSecondary"
-                href={buildAnalyticsSubjectHref(subject, {
-                  source: query.source ?? null,
-                  teacher: query.teacher ?? null,
+                href={buildAnalyticsSubjectHref(effectiveSubject, {
+                  source: selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
+                  teacher: selectedTeacherId,
                 })}
               >
                 Back to subject
               </Link>
             ) : null}
-            <Link className="button buttonGhost" href={buildAnalyticsActionsHref({ subject })}>
+            <Link
+              className="button buttonGhost"
+              href={buildAnalyticsActionsHref({
+                subject: effectiveSubject,
+                source: selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
+                teacher: selectedTeacherId,
+              })}
+            >
               Open action center
             </Link>
           </div>
@@ -162,7 +233,7 @@ export default async function StudentAnalyticsTopicPage({
           </article>
           <article className="topicFocusCompactStat">
             <span>Wrong questions</span>
-            <strong>{questionData.overview.wrong_count}</strong>
+            <strong>{resolvedQuestionData.overview.wrong_count}</strong>
           </article>
           <article className="topicFocusCompactStat">
             <span>Skipped</span>
@@ -180,23 +251,23 @@ export default async function StudentAnalyticsTopicPage({
         items={[
           {
             label: "Tracked Questions",
-            value: String(questionData.overview.question_count),
+            value: String(resolvedQuestionData.overview.question_count),
             note: "Question evidence inside this topic",
             tone: "primary",
           },
           {
             label: "Attempted",
-            value: String(questionData.overview.attempted_count),
-            note: `${questionData.overview.skipped_count} skipped`,
+            value: String(resolvedQuestionData.overview.attempted_count),
+            note: `${resolvedQuestionData.overview.skipped_count} skipped`,
           },
           {
             label: "Correct",
-            value: String(questionData.overview.correct_count),
-            note: `${questionData.overview.wrong_count} wrong`,
+            value: String(resolvedQuestionData.overview.correct_count),
+            note: `${resolvedQuestionData.overview.wrong_count} wrong`,
           },
           {
             label: "Benchmarks",
-            value: String(questionData.benchmark_overview.length),
+            value: String(resolvedQuestionData.benchmark_overview.length),
             note: "Peer scopes available for this view",
           },
         ]}
@@ -240,9 +311,9 @@ export default async function StudentAnalyticsTopicPage({
                   className="studentTopicRow"
                   href={buildAnalyticsQuestionTypeHref({
                     questionType: row.key,
-                    subject,
-                    source: query.source ?? null,
-                    teacher: query.teacher ?? null,
+                    subject: effectiveSubject,
+                    source: selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
+                    teacher: selectedTeacherId,
                   })}
                   key={row.key}
                 >
@@ -267,11 +338,11 @@ export default async function StudentAnalyticsTopicPage({
         <article className="contentCard analyticsPanel analyticsPanelMatrix">
           <div className="sectionHeading">
             <strong>Benchmark view</strong>
-            <span>{questionData.benchmark_overview.length} scopes</span>
+            <span>{resolvedQuestionData.benchmark_overview.length} scopes</span>
           </div>
           <div className="studentTopicStack">
-            {questionData.benchmark_overview.length ? (
-              questionData.benchmark_overview.map((benchmark) => (
+            {resolvedQuestionData.benchmark_overview.length ? (
+              resolvedQuestionData.benchmark_overview.map((benchmark) => (
                 <div className="studentTopicRow" key={benchmark.scope}>
                   <div>
                     <strong>{benchmarkLabel(benchmark.label || benchmark.scope)}</strong>
@@ -295,16 +366,23 @@ export default async function StudentAnalyticsTopicPage({
             <span>Action continuity</span>
           </div>
           <div className="analyticsChecklist">
-            <Link className="analyticsChecklistItem" href={buildAnalyticsActionsHref({ subject })}>
+            <Link
+              className="analyticsChecklistItem"
+              href={buildAnalyticsActionsHref({
+                subject: effectiveSubject,
+                source: selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
+                teacher: selectedTeacherId,
+              })}
+            >
               <strong>Open action center</strong>
               <span>Check whether this topic is still the top priority.</span>
             </Link>
-            {subject ? (
+            {effectiveSubject ? (
               <Link
                 className="analyticsChecklistItem"
-                href={buildAnalyticsSubjectHref(subject, {
-                  source: query.source ?? null,
-                  teacher: query.teacher ?? null,
+                href={buildAnalyticsSubjectHref(effectiveSubject, {
+                  source: selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource,
+                  teacher: selectedTeacherId,
                 })}
               >
                 <strong>Compare inside the subject</strong>
@@ -318,13 +396,13 @@ export default async function StudentAnalyticsTopicPage({
       <section className="contentCard analyticsPanel analyticsPanelSource">
         <div className="sectionHeading">
           <strong>Question evidence</strong>
-          <span>{questionData.questions.length} tracked questions</span>
+          <span>{resolvedQuestionData.questions.length} tracked questions</span>
         </div>
         <StudentQuestionInsightList
-          questions={questionData.questions}
-          subject={subject}
-          source={query.source ?? null}
-          teacher={query.teacher ?? null}
+          questions={resolvedQuestionData.questions}
+          subject={effectiveSubject}
+          source={selectedSource === ALL_SOURCES_CONTEXT ? null : selectedSource}
+          teacher={selectedTeacherId}
           currentView="topic"
           currentTopicId={topicId}
         />

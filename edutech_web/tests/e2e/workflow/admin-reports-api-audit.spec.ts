@@ -40,16 +40,19 @@ test.describe("Admin reports API audit", () => {
       const laneSelect = page.getByRole("combobox", { name: /focus lane/i });
       const subjectSelect = page.getByRole("combobox", { name: /subject/i });
       const sortSelect = page.getByRole("combobox", { name: /sort by/i });
+      const runtimeScopeSelect = page.getByRole("combobox", { name: /runtime scope/i });
 
       const applyStartedAt = Date.now();
       audit.reset();
       await laneSelect.selectOption("publication");
       await subjectSelect.selectOption("all");
       await sortSelect.selectOption("backlog_high");
+      await runtimeScopeSelect.selectOption("live");
       await page.getByRole("button", { name: /apply filters/i }).click();
       await expect(page).toHaveURL(/lane=publication/);
       await expect(page).toHaveURL(/subject=all/);
       await expect(page).toHaveURL(/sort=backlog_high/);
+      await expect(page).toHaveURL(/runtime_status=live/);
       await expect(page.getByRole("heading", { name: /^reports$/i }).first()).toBeVisible();
       await audit.waitForSettled();
       metrics.push({
@@ -102,7 +105,7 @@ test.describe("Admin reports API audit", () => {
           "teacher exam page filter=live&pageSize=1",
           "teacher exam page filter=completed&pageSize=1",
         ],
-        "filter-param-contract": ["lane", "subject", "sort"],
+        "filter-param-contract": ["lane", "subject", "sort", "runtime_status"],
       };
 
       const payload = {

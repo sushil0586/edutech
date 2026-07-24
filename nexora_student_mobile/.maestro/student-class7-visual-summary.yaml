@@ -1,0 +1,32 @@
+appId: com.anonymous.nexorastudentmobile
+---
+- extendedWaitUntil:
+    visible: "Live Attempt"
+    timeout: 30000
+
+- scrollUntilVisible:
+    element:
+      id: "attempt-runtime-submit-button"
+    direction: UP
+
+- tapOn:
+    id: "attempt-runtime-submit-button"
+
+- scrollUntilVisible:
+    element: "Ready to submit?"
+    direction: DOWN
+
+- scrollUntilVisible:
+    element:
+      id: "attempt-runtime-submit-now-button"
+    direction: DOWN
+
+- tapOn:
+    id: "attempt-runtime-submit-now-button"
+
+- extendedWaitUntil:
+    visible: "Attempt Summary"
+    timeout: 30000
+
+- assertVisible: "Submission state"
+- assertVisible: "What happens next"

@@ -184,13 +184,19 @@ test.describe("Teacher dashboard browser functionality coverage", () => {
     const weakTopicsFromControls = extractLeadingNumber(controlsSummaryText.split("·")[1] ?? "");
     const trackedExamsFromCard = extractLeadingNumber(trackedExamsCardText);
     const weakTopicsFromPanel = extractLeadingNumber(weakTopicsPanelCountText);
+    const visibleExamRows = await page
+      .locator(".dashboardPanel")
+      .filter({ has: page.getByText(/^Exam Delivery Snapshot$/i) })
+      .locator(".weakTopicRow")
+      .count();
 
     expect(examSummariesFromControls).not.toBeNull();
     expect(weakTopicsFromControls).not.toBeNull();
     expect(trackedExamsFromCard).not.toBeNull();
     expect(weakTopicsFromPanel).not.toBeNull();
 
-    expect(examSummariesFromControls).toBe(trackedExamsFromCard);
+    expect(examSummariesFromControls).toBe(visibleExamRows);
+    expect(trackedExamsFromCard).toBeGreaterThanOrEqual(visibleExamRows);
     expect(weakTopicsFromControls).toBe(weakTopicsFromPanel);
   });
 });

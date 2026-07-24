@@ -105,7 +105,7 @@ test.describe("Institute comprehension import browser coverage", () => {
     await expect(page.getByText(/preview results/i).first()).toBeVisible();
     await expect(page.getByText(/duplicate comprehension titles need attention first/i)).toBeVisible();
     await expect(page.getByText(/1 comprehension rows are ready to import/i)).toBeVisible();
-    await expect(page.getByRole("button", { name: /finalize import \(1\)/i })).toBeEnabled();
+    await expect(page.getByRole("button", { name: /import valid rows \(1\)/i })).toBeEnabled();
     await expect(page.getByText(/row 2/i)).toBeVisible();
     await expect(page.getByText(/row 3/i)).toBeVisible();
     await expect(
@@ -200,9 +200,9 @@ test.describe("Institute comprehension import browser coverage", () => {
 
     await page.getByRole("button", { name: /preview import/i }).click();
     await expect(page.getByText(/all comprehension rows are valid and ready for final import/i)).toBeVisible();
-    await expect(page.getByRole("button", { name: /finalize import \(2\)/i })).toBeEnabled();
+    await expect(page.getByRole("button", { name: /import valid rows \(2\)/i })).toBeEnabled();
 
-    await page.getByRole("button", { name: /finalize import \(2\)/i }).click();
+    await page.getByRole("button", { name: /import valid rows \(2\)/i }).click();
 
     await expect(page.getByText(/2 comprehension set\(s\) were imported into the question bank/i)).toBeVisible();
     await expect(page.getByText(/preview results/i)).not.toBeVisible();

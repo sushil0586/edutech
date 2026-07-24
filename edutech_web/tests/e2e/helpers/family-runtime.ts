@@ -1021,7 +1021,7 @@ export async function scheduleAndPublishExam(page: Page, examId: string) {
     },
     timeout: 15000,
   });
-  expect(updateResponse.ok()).toBe(true);
+  expect(updateResponse.ok(), await updateResponse.text()).toBe(true);
 
   const syncResponse = await page.request.post(`${backendBaseUrl}/api/v1/exams/${examId}/sync-marks/`, {
     headers: {
@@ -1031,7 +1031,7 @@ export async function scheduleAndPublishExam(page: Page, examId: string) {
     data: {},
     timeout: 15000,
   });
-  expect(syncResponse.ok()).toBe(true);
+  expect(syncResponse.ok(), await syncResponse.text()).toBe(true);
 
   const publishResponse = await page.request.post(`${backendBaseUrl}/api/v1/exams/${examId}/publish/`, {
     headers: {
@@ -1041,7 +1041,7 @@ export async function scheduleAndPublishExam(page: Page, examId: string) {
     data: {},
     timeout: 15000,
   });
-  expect(publishResponse.ok()).toBe(true);
+  expect(publishResponse.ok(), await publishResponse.text()).toBe(true);
 
   const liveResponse = await page.request.post(`${backendBaseUrl}/api/v1/exams/${examId}/mark-live/`, {
     headers: {
@@ -1051,7 +1051,7 @@ export async function scheduleAndPublishExam(page: Page, examId: string) {
     data: {},
     timeout: 15000,
   });
-  expect(liveResponse.ok()).toBe(true);
+  expect(liveResponse.ok(), await liveResponse.text()).toBe(true);
 }
 
 export async function reopenExamWindow(

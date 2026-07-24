@@ -76,7 +76,7 @@ test.describe("Admin exams browser functionality coverage", () => {
     await sourceSelect(page).selectOption("teacher");
     await sortSelect(page).selectOption("start_soon");
     await groupSelect(page).selectOption("source");
-    await page.getByRole("button", { name: /apply filters/i }).click();
+    await page.getByRole("button", { name: /update view/i }).click();
 
     await expect
       .poll(() => {
@@ -106,7 +106,7 @@ test.describe("Admin exams browser functionality coverage", () => {
     if (await noMatchState.isVisible().catch(() => false)) {
       await page.getByRole("link", { name: /reset exam filters/i }).click();
     } else {
-      await page.getByRole("link", { name: /reset filters/i }).click();
+      await page.getByRole("link", { name: /reset view/i }).click();
     }
 
     await expect

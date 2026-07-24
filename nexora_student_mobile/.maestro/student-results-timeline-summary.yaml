@@ -35,15 +35,16 @@ appId: com.anonymous.nexorastudentmobile
 - tapOn: "Results"
 
 - assertVisible: "Student Results"
-- assertVisible: "Results timeline"
+- scrollUntilVisible:
+    element:
+      id: "results-timeline-summary-button"
+    direction: DOWN
 
 - tapOn:
     id: "results-timeline-summary-button"
 
 - assertVisible: "Attempt Summary"
 - assertVisible: "Submission state"
-- assertVisible: "What happens next"
-
 - tapOn:
     id: "attempt-summary-open-analytics-button"
 
@@ -52,3 +53,17 @@ appId: com.anonymous.nexorastudentmobile
 - tapOn: "Results"
 
 - assertVisible: "Student Results"
+
+- scrollUntilVisible:
+    element:
+      id: "results-timeline-summary-button"
+    direction: DOWN
+
+- tapOn:
+    id: "results-timeline-summary-button"
+
+- assertVisible: "Attempt Summary"
+- assertVisible: "Submission state"
+- scrollUntilVisible:
+    element: "What happens next"
+    direction: DOWN

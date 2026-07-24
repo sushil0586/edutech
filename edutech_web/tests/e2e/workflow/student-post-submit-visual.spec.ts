@@ -65,18 +65,38 @@ async function openAttemptFromExamDetail(page: Page, examId: string, examTitle: 
   await page.goto(`/app/exams/${examId}`);
   await expect(page.getByRole("heading", { name: new RegExp(escapeRegExp(examTitle), "i") }).first()).toBeVisible();
 
-  const resumeLink = page.getByRole("link", { name: /^resume$/i }).first();
-  const startButton = page.getByRole("button", { name: /^start$/i }).first();
-  if (await resumeLink.isVisible().catch(() => false)) {
+  const openSummaryLink = page.getByRole("link", { name: /open summary/i }).first();
+  const openReviewLink = page.getByRole("link", { name: /open review/i }).first();
+  const resumeLink = page.getByRole("link", { name: /resume/i }).first();
+  const launchAction = page
+    .locator("a,button")
+    .filter({
+      hasText: /^(start|start test|start mock test|start exam|start practice set|resume|resume test|resume attempt)$/i,
+    })
+    .first();
+  let entryState: "runtime" | "summary" | "review" = "runtime";
+  if (await openSummaryLink.isVisible().catch(() => false)) {
+    await openSummaryLink.click();
+    await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/summary(?:\?.*)?$/);
+    entryState = "summary";
+  } else if (await openReviewLink.isVisible().catch(() => false)) {
+    await openReviewLink.click();
+    await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/review(?:\?.*)?$/);
+    entryState = "review";
+  } else if (await resumeLink.isVisible().catch(() => false)) {
     await resumeLink.click();
   } else {
-    await startButton.click();
+    await expect(launchAction).toBeVisible();
+    await launchAction.click();
   }
 
-  await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+(?:\?.*)?$/);
+  await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+(?:\/(summary|review))?(?:\?.*)?$/);
   const attemptId = page.url().match(/\/app\/attempts\/([^/?#]+)/)?.[1] ?? null;
   expect(attemptId).not.toBeNull();
-  return attemptId!;
+  return {
+    attemptId: attemptId!,
+    entryState,
+  };
 }
 
 async function saveAndSubmitAttempt(page: Page, examTitle: string, answerSeed: number, prefix: string) {
@@ -90,7 +110,7 @@ async function saveAndSubmitAttempt(page: Page, examTitle: string, answerSeed: n
   page.once("dialog", async (dialog) => {
     await dialog.accept();
   });
-  await page.getByRole("button", { name: /^submit test$/i }).click();
+  await page.getByRole("button", { name: /^(submit test|end test)$/i }).click();
   await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/summary(?:\?.*)?$/);
   await expect(
     page.getByRole("heading", { name: new RegExp(`${escapeRegExp(examTitle)}\\s+Summary`, "i") }).first(),
@@ -135,8 +155,14 @@ test.describe("Student post-submit visual journey", () => {
       attemptId = page.url().match(/\/app\/attempts\/([^/?#]+)\/summary/)?.[1] ?? null;
       expect(attemptId).not.toBeNull();
     } else {
-      attemptId = await openAttemptFromExamDetail(page, jeeExam!.id, jeeExamTitle);
-      await saveAndSubmitAttempt(page, jeeExamTitle, Date.now(), "visual pending");
+      const entry = await openAttemptFromExamDetail(page, jeeExam!.id, jeeExamTitle);
+      attemptId = entry.attemptId;
+      if (entry.entryState === "runtime") {
+        await saveAndSubmitAttempt(page, jeeExamTitle, Date.now(), "visual pending");
+      } else if (entry.entryState === "review") {
+        await page.goto(`/app/attempts/${attemptId}/summary`);
+        await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/summary(?:\?.*)?$/);
+      }
     }
 
     const summaryCards = page.locator(".studentInsightsTwoColumn").first();
@@ -156,10 +182,9 @@ test.describe("Student post-submit visual journey", () => {
     await expect(
       page.getByRole("heading", { name: /attempt review is not available right now/i }).first(),
     ).toBeVisible();
-    await expect(page.locator("main")).toHaveScreenshot("student-review-unavailable.png", {
+    await expect(page.locator(".studentAppContent")).toHaveScreenshot("student-review-unavailable.png", {
       animations: "disabled",
       caret: "hide",
-      mask: [page.locator(".studentPageHeader").first()],
     });
 
     await page.goto("/app/attempts");
@@ -178,6 +203,11 @@ test.describe("Student post-submit visual journey", () => {
     const awsExamCode = "DMO-AWS-PRACTICE-01";
     const awsExamTitle = "Demo AWS Practitioner Practice 01";
 
+    await loginAsRole(page, "teacher");
+    await expectTeacherWorkspace(page);
+    const teacherExam = await fetchTeacherExamByCode(page, awsExamCode);
+    await reopenExamWindow(page, teacherExam.id);
+
     await loginWithCredentials(page, awsStudentCredentials, "student");
     await expectStudentWorkspace(page);
 
@@ -185,8 +215,14 @@ test.describe("Student post-submit visual journey", () => {
     const awsExam = exams.find((exam) => exam.code === awsExamCode) ?? null;
     expect(awsExam).not.toBeNull();
 
-    const attemptId = await openAttemptFromExamDetail(page, awsExam!.id, awsExamTitle);
-    await saveAndSubmitAttempt(page, awsExamTitle, Date.now(), "visual review ready");
+    const entry = await openAttemptFromExamDetail(page, awsExam!.id, awsExamTitle);
+    const attemptId = entry.attemptId;
+    if (entry.entryState === "runtime") {
+      await saveAndSubmitAttempt(page, awsExamTitle, Date.now(), "visual review ready");
+    } else if (entry.entryState === "review") {
+      await page.goto(`/app/attempts/${attemptId}/summary`);
+      await expect(page).toHaveURL(new RegExp(`/app/attempts/${attemptId}/summary(?:\\?.*)?$`));
+    }
 
     const summaryCards = page.locator(".studentInsightsTwoColumn").first();
     await expect(summaryCards).toHaveScreenshot("student-summary-review-ready-actions.png", {
@@ -214,7 +250,7 @@ test.describe("Student post-submit visual journey", () => {
 
     await page.goto("/app/results?result_status=review_ready");
     await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
-    const resultsCard = page.locator("article.contentCard").filter({
+    const resultsCard = page.locator(".studentResultsTableRow").filter({
       has: page.locator("strong", {
         hasText: new RegExp(escapeRegExp(awsExamTitle), "i"),
       }),

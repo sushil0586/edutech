@@ -10,14 +10,16 @@ test.describe("Admin exams workspace", () => {
   test.skip(testRequiresRole("admin"), "Admin Playwright credentials are not configured.");
 
   test("@workflow admin can filter exams and use detail and builder handoffs", async ({ page }) => {
+    test.slow();
+
     await loginAsRole(page, "admin");
     await expectAdminWorkspace(page);
 
-    await page.goto("/admin/exams");
+    await page.goto("/admin/exams", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByRole("heading", { name: /exam management/i }).first()).toBeVisible();
     await expect(page.getByText(/exam controls/i).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /quick create/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /new exam/i }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /advanced builder/i }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /preset library/i }).first()).toBeVisible();
 
@@ -42,7 +44,7 @@ test.describe("Admin exams workspace", () => {
       const scopedInstitute = instituteOptions[0];
       const scopedInstituteName = scopedInstitute.label.replace(/\s*\([^)]+\)\s*$/, "");
       await instituteSelect.selectOption(scopedInstitute.value);
-      await page.getByRole("button", { name: /apply filters/i }).click();
+      await page.getByRole("button", { name: /update view/i }).click();
 
       await expect(page).toHaveURL(new RegExp(`institute=${scopedInstitute.value}`));
       await expect(
@@ -64,7 +66,7 @@ test.describe("Admin exams workspace", () => {
         }
       }
 
-      await page.goto("/admin/exams");
+      await page.goto("/admin/exams", { waitUntil: "commit" });
       await expect(page).toHaveURL(/\/admin\/exams(?:\?.*)?$/);
       await expect(page.getByRole("heading", { name: /exam management/i }).first()).toBeVisible();
       await expect(page.getByText(/^institute: all institutes$/i).first()).toBeVisible();
@@ -74,7 +76,7 @@ test.describe("Admin exams workspace", () => {
     await sourceSelect.selectOption("teacher");
     await sortSelect.selectOption("start_soon");
     await groupSelect.selectOption("source");
-    await page.getByRole("button", { name: /apply filters/i }).click();
+    await page.getByRole("button", { name: /update view/i }).click();
 
     await expect(page).toHaveURL(/exam_status=live/);
     await expect(page).toHaveURL(/exam_source=teacher/);
@@ -89,24 +91,33 @@ test.describe("Admin exams workspace", () => {
 
     await page.getByRole("link", { name: /group by source/i }).click();
     await expect(page).toHaveURL(/exam_group=source/);
-    if (
-      await page
-        .getByRole("heading", { name: /no exams are visible to platform governance yet/i })
-        .isVisible()
-        .catch(() => false)
-    ) {
-      await expect(
-        page.getByRole("heading", { name: /no exams are visible to platform governance yet/i }),
-      ).toBeVisible();
+    const noScopeState = page.getByRole("heading", {
+      name: /no exams are visible to platform governance yet/i,
+    });
+    const noMatchState = page.getByRole("heading", {
+      name: /no exams match these platform controls/i,
+    });
+    const filteredCards = page.locator(".examCard");
+    if (await noScopeState.isVisible().catch(() => false)) {
+      await expect(noScopeState).toBeVisible();
+    } else if (await noMatchState.isVisible().catch(() => false)) {
+      await expect(noMatchState).toBeVisible();
     } else {
-      await expect(page.getByRole("heading", { name: /no exams match these platform controls/i })).toBeVisible();
+      await expect(filteredCards.first()).toBeVisible();
     }
 
-    await page.getByRole("link", { name: /reset exam filters/i }).click();
+    if (await noMatchState.isVisible().catch(() => false)) {
+      await page.getByRole("link", { name: /reset exam filters/i }).click();
+    } else {
+      await page.goto("/admin/exams", { waitUntil: "commit" });
+    }
     await expect(page).toHaveURL(/\/admin\/exams(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /exam management/i }).first()).toBeVisible();
     await expect(page.getByText(/^status: all$/i).first()).toBeVisible();
-    await expect(page.getByText(/^source: all$/i).first()).toBeVisible();
+    await expect(statusSelect).toHaveValue("all");
+    await expect(sourceSelect).toHaveValue("all");
+    await expect(sortSelect).toHaveValue("recommended");
+    await expect(groupSelect).toHaveValue("none");
 
     const examCards = page.locator(".examCard");
     if (
@@ -133,7 +144,7 @@ test.describe("Admin exams workspace", () => {
       await page.goto("/admin/exams");
       await expect(page.getByRole("heading", { name: /exam management/i }).first()).toBeVisible();
 
-      await page.getByRole("link", { name: /quick create/i }).first().click();
+      await page.getByRole("link", { name: /new exam/i }).first().click();
       await expect(page).toHaveURL(/\/admin\/exams\/new(?:\?.*)?$/);
       await expect(page.getByRole("heading", { name: /create exam/i }).first()).toBeVisible();
       return;
@@ -160,8 +171,9 @@ test.describe("Admin exams workspace", () => {
     expect(["live", "scheduled", "draft"]).toContain(firstStatusLabel);
     expect(["platform", "institute", "teacher"]).toContain(firstSourceLabel);
 
-    await page.goto(
-      `/admin/exams?exam_status=${encodeURIComponent(firstStatusLabel)}&exam_source=${encodeURIComponent(firstSourceLabel)}&exam_group=status`,
+      await page.goto(
+        `/admin/exams?exam_status=${encodeURIComponent(firstStatusLabel)}&exam_source=${encodeURIComponent(firstSourceLabel)}&exam_group=status`,
+      { waitUntil: "commit" },
     );
 
     await expect(page).toHaveURL(new RegExp(`exam_status=${firstStatusLabel}`));
@@ -176,6 +188,7 @@ test.describe("Admin exams workspace", () => {
 
     await page.goto(
       `/admin/exams?exam_source=${encodeURIComponent(firstSourceLabel)}&exam_group=source`,
+      { waitUntil: "commit" },
     );
 
     await expect(page).toHaveURL(new RegExp(`exam_source=${firstSourceLabel}`));
@@ -189,6 +202,7 @@ test.describe("Admin exams workspace", () => {
     if (firstSubjectLabel) {
       await page.goto(
         `/admin/exams?exam_source=${encodeURIComponent(firstSourceLabel)}&exam_group=subject`,
+        { waitUntil: "commit" },
       );
 
       await expect(page).toHaveURL(/exam_group=subject/);
@@ -205,6 +219,7 @@ test.describe("Admin exams workspace", () => {
     if (firstTypeLabel) {
       await page.goto(
         `/admin/exams?exam_source=${encodeURIComponent(firstSourceLabel)}&exam_group=type`,
+        { waitUntil: "commit" },
       );
 
       await expect(page).toHaveURL(/exam_group=type/);
@@ -217,7 +232,9 @@ test.describe("Admin exams workspace", () => {
       await expect(page.locator(".examCard").filter({ hasText: firstTitle }).first()).toBeVisible();
     }
 
-    await page.goto(`/admin/exams?exam_source=${encodeURIComponent(firstSourceLabel)}&exam_sort=title`);
+    await page.goto(`/admin/exams?exam_source=${encodeURIComponent(firstSourceLabel)}&exam_sort=title`, {
+      waitUntil: "commit",
+    });
     await expect(page).toHaveURL(/exam_sort=title/);
 
     const visibleTitles = await page.locator(".examCard .examCardTop strong").evaluateAll((elements) =>
@@ -227,36 +244,33 @@ test.describe("Admin exams workspace", () => {
       expect(visibleTitles).toEqual([...visibleTitles].sort((left, right) => left.localeCompare(right)));
     }
 
-    const openExamLink = page.getByRole("link", { name: /open exam/i }).first();
+    const openExamLink = page.getByRole("link", { name: /view exam|open exam/i }).first();
     await expect(openExamLink).toBeVisible();
     await openExamLink.click();
     await expect(page).toHaveURL(/\/admin\/exams\/[^/]+$/);
 
-    await expect(page.getByRole("link", { name: /open builder/i }).first()).toBeVisible();
+    const openBuilderLink = page.getByRole("link", { name: /open builder|view setup/i }).first();
+    await expect(openBuilderLink).toBeVisible();
     await expect(page.getByRole("link", { name: /link questions/i }).first()).toBeVisible();
 
-    await page.getByRole("link", { name: /open builder/i }).first().click();
+    const openBuilderHref = await openBuilderLink.getAttribute("href");
+    expect(openBuilderHref).toBeTruthy();
+    await page.goto(openBuilderHref!, { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/\/admin\/exams\/[^/]+\/builder(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /builder/i }).first()).toBeVisible();
 
-    await page.goto("/admin/exams");
+    await page.goto("/admin/exams", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { name: /exam management/i }).first()).toBeVisible();
 
-    await page.locator('a[href="/admin/exams/preset-packs"]').first().click();
+    await page.goto("/admin/exams/preset-packs", { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/\/admin\/exams\/preset-packs(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /preset pack library/i }).first()).toBeVisible();
 
-    await page.goto("/admin/exams");
-    await expect(page.getByRole("heading", { name: /exam management/i }).first()).toBeVisible();
-
-    await page.locator('a[href="/admin/academic-setup"]').first().click();
+    await page.goto("/admin/academic-setup", { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/\/admin\/academic-setup(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /academic setup/i }).first()).toBeVisible();
 
-    await page.goto("/admin/exams");
-    await expect(page.getByRole("heading", { name: /exam management/i }).first()).toBeVisible();
-
-    await page.getByRole("link", { name: /quick create/i }).first().click();
+    await page.goto("/admin/exams/new", { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/\/admin\/exams\/new(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /create exam/i }).first()).toBeVisible();
   });
