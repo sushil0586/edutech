@@ -281,6 +281,7 @@ class ExamAccessRuntimeContractTests(TestCase):
         self.assertTrue(decision["threshold_state"]["blocked"])
 
     def test_runtime_blocks_when_hourly_start_cap_is_reached(self):
+        current_time = timezone.now()
         self.context["institute"].management_mode = InstituteManagementMode.PUBLIC_INSTITUTE_MANAGED
         self.context["institute"].save(update_fields=["management_mode", "updated_at"])
         self.exam.access_mode = ExamAccessMode.LONG_WINDOW_ATTEMPT_MANAGED
@@ -296,14 +297,14 @@ class ExamAccessRuntimeContractTests(TestCase):
             student=self.student,
             attempt_no=1,
             status="submitted",
-            started_at=timezone.now() - timedelta(minutes=20),
-            submitted_at=timezone.now() - timedelta(minutes=5),
-            expires_at=timezone.now() - timedelta(minutes=1),
+            started_at=current_time - timedelta(minutes=5),
+            submitted_at=current_time - timedelta(minutes=1),
+            expires_at=current_time,
             total_questions=1,
             metadata={},
         )
 
-        decision = resolve_exam_access_runtime(self.student, self.exam, now=timezone.now())
+        decision = resolve_exam_access_runtime(self.student, self.exam, now=current_time)
 
         self.assertFalse(decision["is_allowed"])
         self.assertEqual(decision["block_reason_code"], RUNTIME_BLOCK_REASON_HOURLY_START_CAP_REACHED)
