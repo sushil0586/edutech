@@ -4,6 +4,18 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BACKEND_DIR="$ROOT_DIR/edutech_backend"
+ALL_TEST_MODULES=(
+  "apps.academics.tests"
+  "apps.accounts.tests"
+  "apps.attempts.tests"
+  "apps.economy.tests"
+  "apps.exams.tests"
+  "apps.institutes.tests"
+  "apps.parents.tests"
+  "apps.question_bank.tests"
+  "apps.reports.tests"
+  "apps.results.tests"
+)
 
 run_all=false
 changed_file_list=""
@@ -125,7 +137,8 @@ run_tests() {
 
   if [[ "$run_all" == "true" ]]; then
     echo "Running full backend test suite."
-    python manage.py test --noinput
+    printf ' - %s\n' "${ALL_TEST_MODULES[@]}"
+    python manage.py test --noinput "${ALL_TEST_MODULES[@]}"
     return
   fi
 
