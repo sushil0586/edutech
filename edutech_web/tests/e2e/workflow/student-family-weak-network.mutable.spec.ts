@@ -319,11 +319,15 @@ test.describe("Student family weak-network runtime", () => {
   }) => {
     test.setTimeout(180000);
 
-    const { attemptId, resiliencePanel } = await prepareStartableFamilyAttempt(page, {
+    const preparedAttempt = await prepareStartableFamilyAttempt(page, {
       examCode: greExamCode,
       examTitle: greExamTitle,
       studentCredentials: greStudentCredentials,
     });
+    if (!preparedAttempt) {
+      return;
+    }
+    const { attemptId, resiliencePanel } = preparedAttempt;
 
     await answerCurrentAttemptQuestion(page, Date.now() + 2, "Weak network GRE");
 

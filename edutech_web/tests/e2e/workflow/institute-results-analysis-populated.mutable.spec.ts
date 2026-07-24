@@ -515,10 +515,14 @@ test.describe("Institute populated analysis mutable coverage", () => {
       console.log("analysis: exam shell created");
 
       const examDetailUrl = page.url().split("?")[0] ?? page.url();
-      examId = examDetailUrl.match(/\/institute\/exams\/([^/?#]+)/)?.[1] ?? null;
-      expect(examId).not.toBeNull();
+      const ensuredExamId = examDetailUrl.match(/\/institute\/exams\/([^/?#]+)/)?.[1] ?? null;
+      expect(ensuredExamId).not.toBeNull();
+      if (!ensuredExamId) {
+        throw new Error("Expected created institute exam to expose an exam ID.");
+      }
+      examId = ensuredExamId;
 
-      const questionBuilderUrl = `/institute/exams/${examId}/builder?tab=questions`;
+      const questionBuilderUrl = `/institute/exams/${ensuredExamId}/builder?tab=questions`;
       await page.goto(questionBuilderUrl);
       await expect(page.getByText(/question mapping/i).first()).toBeVisible();
       const manualAttachForm = page.locator("form.builderForm.builderSubform").filter({
@@ -540,7 +544,7 @@ test.describe("Institute populated analysis mutable coverage", () => {
       await expect(page).toHaveURL(/tab=questions&message=/);
       console.log("analysis: question attached");
 
-      const examScope = await fetchExamDetailScope(page, examId);
+      const examScope = await fetchExamDetailScope(page, ensuredExamId);
       const scopedStudents = await fetchScopedStudents(page, {
         academicYear: examScope.academic_year,
         program: examScope.program,
@@ -551,10 +555,10 @@ test.describe("Institute populated analysis mutable coverage", () => {
         scopedStudents.find((student) =>
           student.full_name.toLowerCase().includes(studentDisplayName.toLowerCase()),
         ) ?? scopedStudents[0]!;
-      await assignExamStudents(page, examId, [matchedStudent.id]);
+      await assignExamStudents(page, ensuredExamId, [matchedStudent.id]);
       console.log("analysis: student assigned");
 
-      await page.goto(`/institute/exams/${examId}/builder`);
+      await page.goto(`/institute/exams/${ensuredExamId}/builder`);
       await page.locator('input[name="start_at"]').fill(toDateTimeLocalValue(startAt));
       await page.locator('input[name="end_at"]').fill(toDateTimeLocalValue(endAt));
       await page.locator('input[name="total_marks"]').fill("4");
@@ -563,35 +567,35 @@ test.describe("Institute populated analysis mutable coverage", () => {
       await expect(page).toHaveURL(/message=/);
       console.log("analysis: exam settings saved");
 
-      await page.goto(`/institute/exams/${examId}`);
+      await page.goto(`/institute/exams/${ensuredExamId}`);
       const syncMarksButton = page.getByRole("button", { name: /sync marks/i });
       if (await syncMarksButton.isVisible().catch(() => false)) {
         await syncMarksButton.click();
         await expect(page).toHaveURL(/message=/);
       } else {
-        await runInstituteExamAction(page, examId, "sync-marks");
+        await runInstituteExamAction(page, ensuredExamId, "sync-marks");
       }
       const publishButton = page.getByRole("button", { name: /publish exam/i });
       if (await publishButton.isVisible().catch(() => false)) {
         await publishButton.click();
         await expect(page).toHaveURL(/message=/);
       } else {
-        await runInstituteExamAction(page, examId, "publish");
+        await runInstituteExamAction(page, ensuredExamId, "publish");
       }
       const markLiveButton = page.getByRole("button", { name: /mark live/i });
       if (await markLiveButton.isVisible().catch(() => false)) {
         await markLiveButton.click();
         await expect(page).toHaveURL(/message=/);
       } else {
-        await runInstituteExamAction(page, examId, "mark-live");
+        await runInstituteExamAction(page, ensuredExamId, "mark-live");
       }
       console.log("analysis: exam lifecycle actions complete");
 
       await loginAsRole(page, "student");
       await expectStudentWorkspace(page);
       console.log("analysis: student relogin ready for exam");
-      await expectStudentStartAccess(page, examId);
-      await page.goto(`/app/exams/${examId}`);
+      await expectStudentStartAccess(page, ensuredExamId);
+      await page.goto(`/app/exams/${ensuredExamId}`);
       console.log("analysis: student exam detail opened", page.url());
       await expect(
         page.getByRole("heading", { name: new RegExp(escapeRegExp(examTitle), "i") }).first(),
@@ -607,6 +611,9 @@ test.describe("Institute populated analysis mutable coverage", () => {
       const attemptUrl = page.url().split("?")[0] ?? page.url();
       const studentAttemptId = attemptUrl.match(/\/app\/attempts\/([^/?#]+)/)?.[1] ?? null;
       expect(studentAttemptId).not.toBeNull();
+      if (!studentAttemptId) {
+        throw new Error("Expected student attempt route to expose an attempt ID.");
+      }
       await answerCurrentAttemptQuestion(page, uniqueSeed, "Playwright institute analysis answer");
       await page.getByRole("button", { name: /^save answer$/i }).click();
       await expect(page.getByText(/1 saved|response updated successfully/i).first()).toBeVisible();
@@ -625,7 +632,7 @@ test.describe("Institute populated analysis mutable coverage", () => {
 
       await loginAsRole(page, "institute");
       await expectInstituteWorkspace(page);
-      await page.goto(`/institute/results?exam=${examId}`);
+      await page.goto(`/institute/results?exam=${ensuredExamId}`);
       const markCompletedButton = page.getByRole("button", { name: /mark exam completed/i });
       if (await markCompletedButton.count()) {
         await markCompletedButton.click();
@@ -653,7 +660,7 @@ test.describe("Institute populated analysis mutable coverage", () => {
         .poll(
           async () =>
             /message=/.test(page.url()) ||
-            Boolean((await fetchLeaderboardSummary(page, examId)).all_ranked),
+            Boolean((await fetchLeaderboardSummary(page, ensuredExamId))?.all_ranked),
           { timeout: 15000 },
         )
         .toBe(true);
@@ -666,7 +673,7 @@ test.describe("Institute populated analysis mutable coverage", () => {
           .poll(
             async () =>
               /message=/.test(page.url()) ||
-              Boolean((await fetchLeaderboardSummary(page, examId)).published_results),
+              Boolean((await fetchLeaderboardSummary(page, ensuredExamId))?.published_results),
             { timeout: 15000 },
           )
           .toBe(true);
@@ -676,7 +683,7 @@ test.describe("Institute populated analysis mutable coverage", () => {
       await expect
         .poll(
           async () => {
-            await page.goto(`/institute/results/analysis?exam=${examId}`);
+            await page.goto(`/institute/results/analysis?exam=${ensuredExamId}`);
             return page.getByText(/question risk board/i).first().isVisible().catch(() => false);
           },
           { timeout: 30000 },

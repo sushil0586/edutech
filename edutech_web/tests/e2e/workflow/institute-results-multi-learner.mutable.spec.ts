@@ -635,25 +635,29 @@ test.describe("Institute mutable multi-learner results distribution", () => {
         programId: academicLane.programValue,
         subjectId: academicLane.subjectValue,
       });
-      examId = createdExam.id ?? null;
-      expect(examId).not.toBeNull();
-      await page.goto(`/institute/exams/${examId}`);
+      const ensuredExamId = createdExam.id ?? null;
+      expect(ensuredExamId).not.toBeNull();
+      if (!ensuredExamId) {
+        throw new Error("Expected created institute exam to expose an exam ID.");
+      }
+      examId = ensuredExamId;
+      await page.goto(`/institute/exams/${ensuredExamId}`);
       await expect(page.getByRole("heading", { name: new RegExp(escapeRegExp(examTitle), "i") }).first()).toBeVisible();
-      console.log("[institute-results-multi] exam shell ready", examId);
+      console.log("[institute-results-multi] exam shell ready", ensuredExamId);
 
-      await page.goto(`/institute/exams/${examId}/builder?tab=sections`);
+      await page.goto(`/institute/exams/${ensuredExamId}/builder?tab=sections`);
       await page.getByRole("textbox", { name: /section name/i }).fill(sectionName);
       await page.getByRole("spinbutton", { name: /total questions/i }).fill("1");
       await page.getByRole("button", { name: /^add section$/i }).click();
       await expect(page).toHaveURL(/tab=sections&message=/);
 
-      await page.goto(`/institute/exams/${examId}/builder?tab=questions`);
+      await page.goto(`/institute/exams/${ensuredExamId}/builder?tab=questions`);
       console.log("[institute-results-multi] attaching question and assigning learners");
       const manualAttachForm = page.locator("form.builderForm.builderSubform").filter({
         has: page.getByText(/attach one question manually/i),
       }).first();
       const questionSelect = manualAttachForm.locator('select[name="question"]');
-      const questionBuilderUrl = `/institute/exams/${examId}/builder?tab=questions`;
+      const questionBuilderUrl = `/institute/exams/${ensuredExamId}/builder?tab=questions`;
       const targetQuestionOption = await waitForQuestionOption(page, questionSelect, questionText, questionBuilderUrl);
       expect(targetQuestionOption).not.toBeNull();
       await questionSelect.selectOption(targetQuestionOption!.value);
@@ -677,9 +681,9 @@ test.describe("Institute mutable multi-learner results distribution", () => {
       await manualAttachForm.getByRole("button", { name: /^attach question$/i }).click();
       await expect(page).toHaveURL(/tab=questions&message=/);
 
-      await assignExamStudents(page, examId, [primaryStudentDetail.id, secondStudent.studentId]);
+      await assignExamStudents(page, ensuredExamId, [primaryStudentDetail.id, secondStudent.studentId]);
 
-      await page.goto(`/institute/exams/${examId}/builder`);
+      await page.goto(`/institute/exams/${ensuredExamId}/builder`);
       await page.locator('input[name="start_at"]').fill(toDateTimeLocalValue(startAt));
       await page.locator('input[name="end_at"]').fill(toDateTimeLocalValue(endAt));
       await page.locator('input[name="total_marks"]').fill("4");
@@ -687,34 +691,34 @@ test.describe("Institute mutable multi-learner results distribution", () => {
       await page.getByRole("button", { name: /save exam settings/i }).click();
       await expect(page).toHaveURL(/message=/);
 
-      await page.goto(`/institute/exams/${examId}`);
+      await page.goto(`/institute/exams/${ensuredExamId}`);
       console.log("[institute-results-multi] publishing exam lifecycle");
       const syncMarksButton = page.getByRole("button", { name: /sync marks/i });
       if (await syncMarksButton.isVisible().catch(() => false)) {
         await syncMarksButton.click();
         await expect(page).toHaveURL(/message=/);
       } else {
-        await runInstituteExamAction(page, examId, "sync-marks");
+        await runInstituteExamAction(page, ensuredExamId, "sync-marks");
       }
       const publishButton = page.getByRole("button", { name: /publish exam/i });
       if (await publishButton.isVisible().catch(() => false)) {
         await publishButton.click();
         await expect(page).toHaveURL(/message=/);
       } else {
-        await runInstituteExamAction(page, examId, "publish");
+        await runInstituteExamAction(page, ensuredExamId, "publish");
       }
       const markLiveButton = page.getByRole("button", { name: /mark live/i });
       if (await markLiveButton.isVisible().catch(() => false)) {
         await markLiveButton.click();
         await expect(page).toHaveURL(/message=/);
       } else {
-        await runInstituteExamAction(page, examId, "mark-live");
+        await runInstituteExamAction(page, ensuredExamId, "mark-live");
       }
 
       await loginAsRole(page, "student");
       console.log("[institute-results-multi] primary student submitting attempt");
       await expectStudentWorkspace(page);
-      await page.goto(`/app/exams/${examId}`);
+      await page.goto(`/app/exams/${ensuredExamId}`);
       await page.getByRole("button", { name: /^(start|start (mock test|practice set|exam|quiz))$/i }).click();
       await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+(?:\?.*)?$/);
       await answerCurrentAttemptQuestion(page, uniqueSeed, "Playwright institute first answer");
@@ -731,7 +735,7 @@ test.describe("Institute mutable multi-learner results distribution", () => {
       await loginWithCredentials(page, secondStudentCredentials!, "student");
       console.log("[institute-results-multi] second student submitting attempt");
       await expectStudentWorkspace(page);
-      await page.goto(`/app/exams/${examId}`);
+      await page.goto(`/app/exams/${ensuredExamId}`);
       await page.getByRole("button", { name: /^(start|start (mock test|practice set|exam|quiz))$/i }).click();
       await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+(?:\?.*)?$/);
       await submitAttemptViaApi(page);
@@ -739,7 +743,7 @@ test.describe("Institute mutable multi-learner results distribution", () => {
       await loginAsRole(page, "institute");
       console.log("[institute-results-multi] completing exam and publishing results");
       await expectInstituteWorkspace(page);
-      await page.goto(`/institute/results?exam=${examId}`);
+      await page.goto(`/institute/results?exam=${ensuredExamId}`);
       await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
 
       const markCompletedButton = page.getByRole("button", { name: /mark exam completed/i });
@@ -747,13 +751,13 @@ test.describe("Institute mutable multi-learner results distribution", () => {
         await markCompletedButton.click();
         await expect(page).toHaveURL(/message=/);
       } else {
-        await runInstituteExamAction(page, examId, "refresh-status");
-        await runInstituteExamAction(page, examId, "mark-completed");
+        await runInstituteExamAction(page, ensuredExamId, "refresh-status");
+        await runInstituteExamAction(page, ensuredExamId, "mark-completed");
       }
       await expect
-        .poll(async () => await fetchExamStatus(page, examId), {
+        .poll(async () => await fetchExamStatus(page, ensuredExamId), {
           timeout: 15000,
-          message: `Expected exam ${examId} to reach completed status before results publication.`,
+          message: `Expected exam ${ensuredExamId} to reach completed status before results publication.`,
         })
         .toBe("completed");
 
@@ -773,7 +777,7 @@ test.describe("Institute mutable multi-learner results distribution", () => {
       await expect(calculateRanksButton).toBeVisible();
       await calculateRanksButton.click();
       await expect
-        .poll(async () => /message=/.test(page.url()) || Boolean((await fetchInstituteLeaderboard(page, examId!)).summary.all_ranked))
+        .poll(async () => /message=/.test(page.url()) || Boolean((await fetchInstituteLeaderboard(page, ensuredExamId)).summary.all_ranked))
         .toBe(true);
 
       const publishResultsButton = page.getByRole("button", { name: /publish results/i }).first();
@@ -783,25 +787,25 @@ test.describe("Institute mutable multi-learner results distribution", () => {
           .poll(
             async () =>
               /message=/.test(page.url()) ||
-              Boolean((await fetchInstituteLeaderboard(page, examId!)).summary.published_results),
+              Boolean((await fetchInstituteLeaderboard(page, ensuredExamId)).summary.published_results),
           )
           .toBe(true);
       } else {
-        await publishExamResultsViaApi(page, examId);
+        await publishExamResultsViaApi(page, ensuredExamId);
         await expect
           .poll(
             async () =>
               /message=/.test(page.url()) ||
-              Boolean((await fetchInstituteLeaderboard(page, examId!)).summary.published_results),
+              Boolean((await fetchInstituteLeaderboard(page, ensuredExamId)).summary.published_results),
             { timeout: 15000 },
           )
           .toBe(true);
       }
 
-      await page.goto(`/institute/results?exam=${examId}`);
+      await page.goto(`/institute/results?exam=${ensuredExamId}`);
       await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
 
-      const leaderboard = await fetchInstituteLeaderboard(page, examId!);
+      const leaderboard = await fetchInstituteLeaderboard(page, ensuredExamId);
       console.log("[institute-results-multi] leaderboard payload received", leaderboard.summary);
       expect(leaderboard.summary.total).toBe(2);
       expect(leaderboard.summary.ranked_count).toBe(2);

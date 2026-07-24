@@ -49,12 +49,12 @@ test.describe("Operator mobile report surfaces visual", () => {
       const RealDate = Date;
 
       class MockDate extends RealDate {
-        constructor(...args: ConstructorParameters<typeof Date>) {
+        constructor(...args: unknown[]) {
           if (args.length === 0) {
             super(fixedTime);
             return;
           }
-          super(...args);
+          super(...(args as ConstructorParameters<typeof Date>));
         }
 
         static now() {

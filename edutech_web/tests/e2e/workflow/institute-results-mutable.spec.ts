@@ -471,28 +471,32 @@ test.describe("Institute mutable results actions", () => {
 
       const examDetailUrl = page.url().split("?")[0] ?? page.url();
       const examIdMatch = examDetailUrl.match(/\/institute\/exams\/([^/?#]+)/);
-      examId = examIdMatch?.[1] ?? null;
-      expect(examId).not.toBeNull();
+      const ensuredExamId = examIdMatch?.[1] ?? null;
+      expect(ensuredExamId).not.toBeNull();
+      if (!ensuredExamId) {
+        throw new Error("Expected created institute exam to expose an exam ID.");
+      }
+      examId = ensuredExamId;
 
       await expect(instituteExamReadinessPanel(page)).toContainText(/blocked/i);
       await expect(instituteExamReadinessPanel(page)).toContainText(/blocker/i);
       await expect(instituteResultReadinessPanel(page)).toContainText(/review first|blocked/i);
 
-      await page.goto(`/institute/exams/${examId}/builder?tab=sections`);
+      await page.goto(`/institute/exams/${ensuredExamId}/builder?tab=sections`);
       await expect(page.getByText(/add a new section/i).first()).toBeVisible();
       await page.getByRole("textbox", { name: /section name/i }).fill(sectionName);
       await page.getByRole("spinbutton", { name: /total questions/i }).fill("1");
       await page.getByRole("button", { name: /^add section$/i }).click();
       await expect(page).toHaveURL(/tab=sections&message=/);
 
-      await page.goto(`/institute/exams/${examId}/builder?tab=questions`);
+      await page.goto(`/institute/exams/${ensuredExamId}/builder?tab=questions`);
       await expect(page.getByText(/attach one question manually/i).first()).toBeVisible();
 
       const manualAttachForm = page.locator("form.builderForm.builderSubform").filter({
         has: page.getByText(/attach one question manually/i),
       }).first();
       const questionSelect = manualAttachForm.locator('select[name="question"]');
-      const questionBuilderUrl = `/institute/exams/${examId}/builder?tab=questions`;
+      const questionBuilderUrl = `/institute/exams/${ensuredExamId}/builder?tab=questions`;
       const targetQuestionOption = await waitForQuestionOption(page, questionSelect, questionText, questionBuilderUrl);
       expect(targetQuestionOption).not.toBeNull();
       await questionSelect.selectOption(targetQuestionOption!.value);
@@ -516,9 +520,9 @@ test.describe("Institute mutable results actions", () => {
       await manualAttachForm.getByRole("button", { name: /^attach question$/i }).click();
       await expect(page).toHaveURL(/tab=questions&message=/);
 
-      await assignExamStudents(page, examId, [studentDetail.id]);
+      await assignExamStudents(page, ensuredExamId, [studentDetail.id]);
 
-      await page.goto(`/institute/exams/${examId}/builder`);
+      await page.goto(`/institute/exams/${ensuredExamId}/builder`);
       await page.locator('input[name="start_at"]').fill(toDateTimeLocalValue(startAt));
       await page.locator('input[name="end_at"]').fill(toDateTimeLocalValue(endAt));
       await page.locator('input[name="total_marks"]').fill("4");
@@ -526,34 +530,34 @@ test.describe("Institute mutable results actions", () => {
       await page.getByRole("button", { name: /save exam settings/i }).click();
       await expect(page).toHaveURL(/message=/);
 
-      await page.goto(`/institute/exams/${examId}`);
+      await page.goto(`/institute/exams/${ensuredExamId}`);
       const syncMarksButton = page.getByRole("button", { name: /sync marks/i });
       if (await syncMarksButton.isVisible().catch(() => false)) {
         await syncMarksButton.click();
         await expect(page).toHaveURL(/message=/);
       } else {
-        await runInstituteExamAction(page, examId, "sync-marks");
+        await runInstituteExamAction(page, ensuredExamId, "sync-marks");
       }
       const publishButton = page.getByRole("button", { name: /publish exam/i });
       if (await publishButton.isVisible().catch(() => false)) {
         await publishButton.click();
         await expect(page).toHaveURL(/message=/);
       } else {
-        await runInstituteExamAction(page, examId, "publish");
+        await runInstituteExamAction(page, ensuredExamId, "publish");
       }
       const markLiveButton = page.getByRole("button", { name: /mark live/i });
       if (await markLiveButton.isVisible().catch(() => false)) {
         await markLiveButton.click();
         await expect(page).toHaveURL(/message=/);
       } else {
-        await runInstituteExamAction(page, examId, "mark-live");
+        await runInstituteExamAction(page, ensuredExamId, "mark-live");
       }
 
       await expect(instituteExamReadinessPanel(page)).toContainText(/ready/i);
 
       await loginAsRole(page, "student");
       await expectStudentWorkspace(page);
-      await page.goto(`/app/exams/${examId}`);
+      await page.goto(`/app/exams/${ensuredExamId}`);
       await expect(page.getByRole("heading", { name: new RegExp(escapeRegExp(examTitle), "i") }).first()).toBeVisible();
       await page
         .getByRole("button", { name: /^(start|start (mock test|practice set|exam|quiz))$/i })
@@ -573,7 +577,7 @@ test.describe("Institute mutable results actions", () => {
 
       await loginAsRole(page, "institute");
       await expectInstituteWorkspace(page);
-      await page.goto(`/institute/results?exam=${examId}`);
+      await page.goto(`/institute/results?exam=${ensuredExamId}`);
       await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
       await expect(
         instituteResultsWorkspaceReadinessCard(page, /^exam publish readiness$/i),
@@ -590,13 +594,13 @@ test.describe("Institute mutable results actions", () => {
         await markCompletedButton.click();
         await expect(page).toHaveURL(/message=/);
       } else {
-        await runInstituteExamAction(page, examId, "refresh-status");
-        await runInstituteExamAction(page, examId, "mark-completed");
+        await runInstituteExamAction(page, ensuredExamId, "refresh-status");
+        await runInstituteExamAction(page, ensuredExamId, "mark-completed");
       }
       await expect
-        .poll(async () => await fetchExamStatus(page, examId), {
+        .poll(async () => await fetchExamStatus(page, ensuredExamId), {
           timeout: 15000,
-          message: `Expected exam ${examId} to reach completed status before results publication.`,
+          message: `Expected exam ${ensuredExamId} to reach completed status before results publication.`,
         })
         .toBe("completed");
 
@@ -616,7 +620,7 @@ test.describe("Institute mutable results actions", () => {
       await expect(calculateRanksButton).toBeVisible();
       await calculateRanksButton.click();
       await expect
-        .poll(async () => /message=/.test(page.url()) || Boolean((await fetchLeaderboardSummary(page, examId)).all_ranked))
+        .poll(async () => /message=/.test(page.url()) || Boolean((await fetchLeaderboardSummary(page, ensuredExamId))?.all_ranked))
         .toBe(true);
 
       const publishResultsButton = page.getByRole("button", { name: /publish results/i }).first();
@@ -625,21 +629,21 @@ test.describe("Institute mutable results actions", () => {
         await expect
           .poll(
             async () =>
-              /message=/.test(page.url()) || Boolean((await fetchLeaderboardSummary(page, examId)).published_results),
+              /message=/.test(page.url()) || Boolean((await fetchLeaderboardSummary(page, ensuredExamId))?.published_results),
           )
           .toBe(true);
       } else {
         await expect
           .poll(
             async () =>
-              Boolean((await fetchLeaderboardSummary(page, examId)).published_results) ||
+              Boolean((await fetchLeaderboardSummary(page, ensuredExamId))?.published_results) ||
               page.getByText(/results published|published/i).first().isVisible().catch(() => false),
             { timeout: 15000 },
           )
           .toBe(true);
       }
 
-      await page.goto(`/institute/results?exam=${examId}`);
+      await page.goto(`/institute/results?exam=${ensuredExamId}`);
       await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
 
       await expect(
@@ -649,16 +653,16 @@ test.describe("Institute mutable results actions", () => {
         instituteResultsWorkspaceReadinessCard(page, /^result publish readiness$/i),
       ).toContainText(/1 published/i);
       await expect
-        .poll(async () => Boolean((await fetchLeaderboardSummary(page, examId)).published_results), {
+        .poll(async () => Boolean((await fetchLeaderboardSummary(page, ensuredExamId))?.published_results), {
           timeout: 15000,
-          message: `Expected leaderboard summary for exam ${examId} to confirm published results.`,
+          message: `Expected leaderboard summary for exam ${ensuredExamId} to confirm published results.`,
         })
         .toBe(true);
 
       await page.getByRole("link", { name: /open leaderboard/i }).first().click();
       await expect(page).toHaveURL(/\/institute\/results\/leaderboard\?[^#]*exam=/);
       await expect(page.getByText(/publication checklist/i).first()).toBeVisible();
-      const leaderboard = await fetchLeaderboardSummary(page, examId);
+      const leaderboard = await fetchLeaderboardSummary(page, ensuredExamId);
       expect(leaderboard?.total).toBe(1);
       expect(leaderboard?.ranked_count).toBe(1);
       expect(leaderboard?.published_count).toBe(1);

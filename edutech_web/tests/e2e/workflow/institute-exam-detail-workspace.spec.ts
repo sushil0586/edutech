@@ -1,9 +1,9 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectInstituteWorkspace } from "../helpers/navigation";
 
 async function expectFocusedElementToMatch(
-  page: Parameters<typeof test>[0]["page"],
+  page: Page,
   matcher: {
     role?: string | null;
     hrefIncludes?: string | null;
