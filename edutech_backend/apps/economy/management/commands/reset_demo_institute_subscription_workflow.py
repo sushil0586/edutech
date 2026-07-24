@@ -56,10 +56,12 @@ class Command(BaseCommand):
                 package_ids.add(link.question_bank_package_id)
                 package_codes.add(link.question_bank_package.code)
 
-        deleted_requests, _ = InstituteSubscriptionRequest.objects.filter(
+        request_queryset = InstituteSubscriptionRequest.objects.filter(
             institute=institute,
             subscription_plan_cycle_id__in=cycle_ids,
-        ).delete()
+        )
+        deleted_request_count = request_queryset.count()
+        request_queryset.delete()
 
         live_entitlements = list(
             InstituteQuestionEntitlement.objects.select_related("question_bank_package").filter(
@@ -88,7 +90,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS("Demo institute subscription workflow reset complete."))
         self.stdout.write(f"- institute={institute.code}")
         self.stdout.write(f"- requestable_plan_count={len(requestable_plans)}")
-        self.stdout.write(f"- deleted_subscription_requests={deleted_requests}")
+        self.stdout.write(f"- deleted_subscription_requests={deleted_request_count}")
         self.stdout.write(f"- revoked_entitlements={revoked_count}")
         self.stdout.write(
             f"- package_codes={', '.join(sorted(package_codes)) if package_codes else 'none'}"

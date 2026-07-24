@@ -660,8 +660,9 @@ class AuthenticationAccessControlTestCase(TestCase):
             email="expired-practice-student@example.com",
         )
         expired_attempt = start_attempt(fresh_student, self.exam)
+        expired_attempt.started_at = self.builder.now - timedelta(minutes=15)
         expired_attempt.expires_at = self.builder.now - timedelta(minutes=5)
-        expired_attempt.save(update_fields=["expires_at", "updated_at"])
+        expired_attempt.save(update_fields=["started_at", "expires_at", "updated_at"])
 
         self._authenticate_with_token("expired-practice-student", "Student@123")
         response = self.client.get("/api/v1/student/exams/available/")
@@ -728,22 +729,19 @@ class AuthenticationAccessControlTestCase(TestCase):
         self.assertEqual([str(item["id"]) for item in assigned_available_response.data], [str(self.exam.id)])
 
     def test_selected_student_assignment_overrides_program_scope_for_visibility_and_detail(self):
-        alternate_program = self.builder.create_program(
-            self.context["institute"],
-            name="Selected Student Override Program",
-            code="SSOP01",
-        )
         alternate_cohort = self.builder.create_cohort(
             self.context["institute"],
-            alternate_program,
+            self.context["program"],
             self.context["academic_year"],
             name="Selected Student Override Cohort",
             code="SSOC01",
         )
+        self.exam.cohort = None
+        self.exam.save(update_fields=["cohort", "updated_at"])
         assigned_student = self.builder.create_student(
             self.context["institute"],
             self.context["academic_year"],
-            alternate_program,
+            self.context["program"],
             alternate_cohort,
             admission_no="STU005",
             email="scope-override@example.com",

@@ -2948,6 +2948,7 @@ class AttemptWorkspaceApiTestCase(TestCase):
     def test_expired_attempt_save_rejects_safely(self):
         attempt = self._start_attempt()
         StudentExamAttempt.objects.filter(pk=attempt.pk).update(
+            started_at=timezone.now() - timedelta(minutes=2),
             expires_at=timezone.now() - timedelta(minutes=1)
         )
         attempt.refresh_from_db()

@@ -802,6 +802,19 @@ class ExamStudentAssignment(BaseModel):
             raise ValidationError(
                 {"access_slot": "Assigned student must belong to the slot cohort."}
             )
+        if self.access_slot_id and self.access_slot.assignment_capacity:
+            assigned_count = (
+                ExamStudentAssignment.objects.filter(
+                    access_slot_id=self.access_slot_id,
+                    is_active=True,
+                )
+                .exclude(pk=self.pk)
+                .count()
+            )
+            if assigned_count >= self.access_slot.assignment_capacity:
+                raise ValidationError(
+                    {"access_slot": "This slot has reached its assignment capacity."}
+                )
 
     def save(self, *args, **kwargs):
         self.full_clean()
