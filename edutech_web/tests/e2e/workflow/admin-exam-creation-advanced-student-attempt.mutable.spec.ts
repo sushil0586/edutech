@@ -22,12 +22,12 @@ function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function toDateTimeLocalValue(date: Date) {
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, "0");
-  const day = `${date.getDate()}`.padStart(2, "0");
-  const hours = `${date.getHours()}`.padStart(2, "0");
-  const minutes = `${date.getMinutes()}`.padStart(2, "0");
+function toUtcDateTimeLocalValue(date: Date) {
+  const year = date.getUTCFullYear();
+  const month = `${date.getUTCMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getUTCDate()}`.padStart(2, "0");
+  const hours = `${date.getUTCHours()}`.padStart(2, "0");
+  const minutes = `${date.getUTCMinutes()}`.padStart(2, "0");
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
@@ -72,9 +72,25 @@ async function deleteAdminExamDirectly(page: Page, examId: string) {
   expect(response.ok()).toBe(true);
 }
 
+async function fetchAdminExamStatus(page: Page, examId: string) {
+  const accessToken = await backendAccessToken(page);
+  const response = await page.request.get(`${adminApiBaseUrl}/api/v1/exams/${examId}/`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    timeout: 15000,
+  });
+  expect(response.ok(), await response.text()).toBe(true);
+  const payload = (await response.json()) as { status?: string };
+  return payload.status ?? "";
+}
+
 type StudentAttemptTarget = {
   displayName: string;
 };
+
+type PublishedDeliveryStatus = "scheduled" | "live";
 
 async function resolveStudentAttemptTarget(page: Page): Promise<StudentAttemptTarget> {
   await loginWithCredentials(page, awsStudentCredentials, "student");
@@ -222,14 +238,17 @@ async function assignStudentToAdminExam(page: Page, examId: string, studentDispl
   await expect(page.getByText(/student assignment updated\./i)).toBeVisible();
 }
 
-async function scheduleAndPublishAdminExam(page: Page, examId: string) {
+async function scheduleAndPublishAdminExam(
+  page: Page,
+  examId: string,
+): Promise<PublishedDeliveryStatus> {
   const now = new Date();
   const startAt = new Date(now.getTime() - 5 * 60 * 1000);
   const endAt = new Date(now.getTime() + 90 * 60 * 1000);
 
   await page.goto(`/admin/exams/${examId}/builder`);
-  await page.locator('input[name="start_at"]').fill(toDateTimeLocalValue(startAt));
-  await page.locator('input[name="end_at"]').fill(toDateTimeLocalValue(endAt));
+  await page.locator('input[name="start_at"]').fill(toUtcDateTimeLocalValue(startAt));
+  await page.locator('input[name="end_at"]').fill(toUtcDateTimeLocalValue(endAt));
   await page.locator('input[name="total_marks"]').fill("1");
   await page.locator('input[name="passing_marks"]').fill("1");
   await page.getByRole("button", { name: /save exam settings/i }).click();
@@ -252,11 +271,16 @@ async function scheduleAndPublishAdminExam(page: Page, examId: string) {
     await expect(page).toHaveURL(/message=/);
   }
 
+  await page.goto(`/admin/exams/${examId}`);
   const markLiveButton = page.getByRole("button", { name: /mark live/i });
   if (await markLiveButton.count()) {
     await markLiveButton.click();
     await expect(page).toHaveURL(/message=/);
   }
+
+  const finalStatus = await fetchAdminExamStatus(page, examId);
+  expect(["scheduled", "live"]).toContain(finalStatus);
+  return finalStatus as PublishedDeliveryStatus;
 }
 
 async function expectAdminReadinessBeforePublish(page: Page, examId: string, examTitle: string) {
@@ -269,12 +293,18 @@ async function expectAdminReadinessBeforePublish(page: Page, examId: string, exa
   await expect(adminResultReadinessPanel(page)).toContainText(/review first|blocked/i);
 }
 
-async function expectAdminReadinessAfterLive(page: Page, examId: string, examTitle: string) {
+async function expectAdminDeliveryAfterPublish(
+  page: Page,
+  examId: string,
+  examTitle: string,
+  expectedStatus: PublishedDeliveryStatus,
+) {
   await page.goto(`/admin/exams/${examId}`);
   await expect(
     page.getByRole("heading", { name: new RegExp(escapeRegExp(examTitle), "i") }).first(),
   ).toBeVisible();
-  await expect(adminExamReadinessPanel(page)).toContainText(/ready/i);
+  await expect.poll(async () => fetchAdminExamStatus(page, examId)).toBe(expectedStatus);
+  await expect(adminExamReadinessPanel(page)).toContainText(/exam publish readiness/i);
 }
 
 async function expectAdminReadinessAfterSubmission(page: Page, examId: string, examTitle: string) {
@@ -369,8 +399,8 @@ test.describe("Admin advanced-builder student attempt", () => {
 
       await expectAdminReadinessBeforePublish(page, examId, created.examTitle);
       await assignStudentToAdminExam(page, examId, studentTarget.displayName);
-      await scheduleAndPublishAdminExam(page, examId);
-      await expectAdminReadinessAfterLive(page, examId, created.examTitle);
+      const publishedStatus = await scheduleAndPublishAdminExam(page, examId);
+      await expectAdminDeliveryAfterPublish(page, examId, created.examTitle, publishedStatus);
       await attemptExamAsStudent(page, examId, created.examTitle, uniqueSeed);
       await expectAdminReadinessAfterSubmission(page, examId, created.examTitle);
     } finally {

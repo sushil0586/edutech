@@ -12,6 +12,8 @@ const backendBaseUrl = (
   process.env.PLAYWRIGHT_API_BASE_URL ??
   "http://127.0.0.1:9001"
 ).replace(/\/$/, "");
+const SHARED_LIBRARY_ACCESS_SUBJECT_CODE = "CLS7-MATH";
+const SHARED_LIBRARY_ACCESS_PACKAGE_CODE = "DEMO_SHARED_LIBRARY_ACCESS";
 
 type SessionProfile = {
   institute?: string | null;
@@ -134,7 +136,9 @@ test.describe("Institute shared-library entitlement enforcement", () => {
     expect(institute.code).toBeTruthy();
 
     const masterLibraryResponse = await page.request.get(
-      `${backendBaseUrl}/api/v1/question-bank/master-library/`,
+      `${backendBaseUrl}/api/v1/question-bank/master-library/?page_size=100&subject_code=${encodeURIComponent(
+        SHARED_LIBRARY_ACCESS_SUBJECT_CODE,
+      )}`,
       {
         headers: {
           Authorization: `Bearer ${instituteAccessToken}`,
@@ -152,6 +156,7 @@ test.describe("Institute shared-library entitlement enforcement", () => {
           row.has_entitlement &&
           row.access_availability === "available" &&
           row.matching_packages.length === 1 &&
+          row.matching_packages.some((item) => item.code === SHARED_LIBRARY_ACCESS_PACKAGE_CODE) &&
           row.access_status !== "linked" &&
           row.access_status !== "requested" &&
           Boolean(row.source_program_code) &&
@@ -161,11 +166,11 @@ test.describe("Institute shared-library entitlement enforcement", () => {
     if (!candidateRow) {
       test.skip(
         true,
-        "No institute-visible shared-library question currently has exactly one active matching package.",
+        `No unlinked institute-visible ${SHARED_LIBRARY_ACCESS_PACKAGE_CODE} shared-library question is available.`,
       );
     }
 
-    const packageCode = candidateRow!.matching_packages[0]?.code ?? "";
+    const packageCode = SHARED_LIBRARY_ACCESS_PACKAGE_CODE;
     const searchProbe = candidateRow!.question_text.slice(0, 60);
     expect(packageCode).not.toBe("");
     expect(searchProbe).not.toBe("");

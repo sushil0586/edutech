@@ -197,6 +197,49 @@ Commercialization mutable checks:
 ALLOW_STAGING_MUTATION=1 ./scripts/phase0_staging_browser_rerun.sh commercial
 ```
 
+## Evidence Snapshot - 2026-09-03
+
+Provider checks were intentionally deferred for this run. Razorpay, email, and OTP/SMS still need separate provider-dashboard evidence.
+
+Validated against:
+
+- Staging web/API: `https://learn.accerio.in`
+- EC2 path: `/var/www/nexora-learn/edutech`
+- Current deployed commit after roll-forward: `e634d45`
+
+Completed non-provider Phase 0 evidence:
+
+- Django deploy check with `.env.production` loaded through Python-safe parsing: `no issues`.
+- Public HTTPS root headers include:
+  - `Strict-Transport-Security: max-age=31536000; includeSubDomains; preload`
+  - `X-Frame-Options: DENY`
+  - `X-Content-Type-Options: nosniff`
+  - `Referrer-Policy: strict-origin-when-cross-origin`
+  - no `X-Powered-By` header.
+- HTTP root redirects to HTTPS with `301`.
+- EC2 frontend dependency audit: `npm audit --audit-level=high` returned `0 vulnerabilities`.
+- Staging smoke after hardening deploy: `8 passed`.
+- PostgreSQL backup/restore drill:
+  - dump path: `/var/backups/nexora-learn/nexora_learn_prod_20260903T091312Z.dump`
+  - dump size: `4092099` bytes
+  - restored into temporary database `nexora_restore_drill_20260903_091312`
+  - verified `94` public tables and `106` Django migrations
+  - verified key tables: `auth_user`, `exams_exam`, `institutes_institute`
+  - temporary restore database dropped after verification.
+- Rollback drill:
+  - rollback target `8e03d36` checked out, dependencies installed, production build passed, web service restarted, `/login` served.
+  - roll-forward to `e634d45` completed, dependency audit returned `0 vulnerabilities`, production build passed, web service restarted, `/login` served.
+- Mutable admin exam journey:
+  - `PLAYWRIGHT_ENABLE_MUTABLE_STUDENT_ATTEMPT_ACTIONS=1 npx playwright test tests/e2e/workflow/admin-exam-creation-advanced-student-attempt.mutable.spec.ts --project=chromium --workers=1`
+  - result: `1 passed`
+  - covered admin advanced-builder exam creation, selected-student assignment, schedule/publish delivery, student start/save/submit, admin post-submission readiness/result checks, and disposable exam cleanup.
+- Commercial non-provider browser gate after staging reset:
+  - subscription request approve/reject: `2 passed`
+  - institute shared-library entitlement enforcement: `1 passed`
+  - teacher shared-library entitlement enforcement: `1 skipped`
+  - skip reason: no unlinked teacher-visible `DEMO_SHARED_LIBRARY_ACCESS` candidate existed for the current seeded teacher scope after reset. Treat as a seed-scope watchpoint, not a provider blocker.
+  - verified `DEMO_SHARED_LIBRARY_ACCESS` and `DEMO_SHARED_LIBRARY_PAUSED_ONLY` entitlements restored to `active`.
+
 Phase 1 optimized-route and warning watchpoints:
 
 ```bash
