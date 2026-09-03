@@ -1,4 +1,4 @@
-import { expect, test, type TestInfo } from "@playwright/test";
+import { expect, test, type Locator, type TestInfo } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { createNetworkAudit, summarizeDuplicateRequests } from "../helpers/network-audit";
 import { expectAdminWorkspace } from "../helpers/navigation";
@@ -18,6 +18,26 @@ const adminApiBaseUrl = (
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+async function waitForNonEmptyOptionValues(locator: Locator) {
+  await expect
+    .poll(async () => {
+      return locator.locator("option").evaluateAll((options) =>
+        options.filter((option) => (option as HTMLOptionElement).value.trim().length > 0).length,
+      );
+    })
+    .toBeGreaterThan(0);
+}
+
+async function selectFirstNonEmptyOption(locator: Locator) {
+  await waitForNonEmptyOptionValues(locator);
+  const firstValue = await locator.locator("option").evaluateAll((options) => {
+    const option = options.find((entry) => (entry as HTMLOptionElement).value.trim().length > 0);
+    return option ? (option as HTMLOptionElement).value : "";
+  });
+  expect(firstValue).not.toBe("");
+  await locator.selectOption(firstValue);
 }
 
 async function backendAccessToken(page: Parameters<typeof createNetworkAudit>[0]) {
@@ -45,9 +65,26 @@ async function createAdminWizardExam(page: Parameters<typeof createNetworkAudit>
 
   await page.goto("/admin/exams/new", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("heading", { name: /create exam/i }).first()).toBeVisible();
+  const preferredInstituteChip = page.locator(".academicInstituteChip").filter({
+    hasText: /Demo Learning Institute|DLI001/i,
+  }).first();
+  if (await preferredInstituteChip.count()) {
+    await preferredInstituteChip.click();
+    await expect(page).toHaveURL(/\/admin\/exams\/new\?institute=/);
+  }
+
+  const academicYear = page.locator('select[name="academic_year"]').first();
+  const program = page.locator('select[name="program"]').first();
+  const subject = page.locator('select[name="subject"]').first();
   await page.getByRole("textbox", { name: /exam title/i }).fill(examTitle);
   await page.getByRole("textbox", { name: /exam code/i }).fill(examCode);
   await page.locator('select[name="source_type"]').selectOption("platform");
+  if ((await academicYear.inputValue()) === "") {
+    await selectFirstNonEmptyOption(academicYear);
+  }
+  await selectFirstNonEmptyOption(program);
+  await expect(subject).toBeEnabled();
+  await selectFirstNonEmptyOption(subject);
 
   for (let step = 0; step < 3; step += 1) {
     await page.getByRole("button", { name: /^continue$/i }).click();

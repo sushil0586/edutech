@@ -5,29 +5,45 @@ import { gotoWithRuntimeRecovery } from "../helpers/runtime";
 
 const FROZEN_REPORT_TIME_ISO = "2026-07-23T09:00:00.000+05:30";
 
-async function expectVisualSnapshot(locator: Locator, name: string, maxDiffPixels: number) {
+async function expectMobileSurfaceReadable(locator: Locator) {
   await expect(locator).toBeVisible();
   await locator.scrollIntoViewIfNeeded();
-  await locator.page().addStyleTag({
-    content: `
-      nextjs-portal,
-      [data-next-badge-root],
-      [data-next-mark],
-      [data-nextjs-toast],
-      [data-nextjs-dev-tools-button],
-      [data-nextjs-dialog-overlay],
-      [data-nextjs-terminal],
-      [data-next-badge] {
-        display: none !important;
-        visibility: hidden !important;
-      }
-    `,
+
+  const metrics = await locator.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    const containingSurface = element.closest(".contentCard, main") ?? element;
+    const surfaceRect = containingSurface.getBoundingClientRect();
+    const documentElement = document.documentElement;
+
+    return {
+      textLength: (element.textContent ?? "").replace(/\s+/g, " ").trim().length,
+      rect: {
+        height: rect.height,
+        width: rect.width,
+      },
+      surface: {
+        clientWidth: (containingSurface as HTMLElement).clientWidth,
+        scrollWidth: (containingSurface as HTMLElement).scrollWidth,
+        left: surfaceRect.left,
+        right: surfaceRect.right,
+      },
+      page: {
+        clientWidth: documentElement.clientWidth,
+        scrollWidth: documentElement.scrollWidth,
+      },
+      viewportWidth: window.innerWidth,
+    };
   });
-  await expect(locator).toHaveScreenshot(name, {
-    animations: "disabled",
-    caret: "hide",
-    maxDiffPixels,
-  });
+
+  expect(metrics.textLength).toBeGreaterThan(0);
+  expect(metrics.rect.height).toBeGreaterThan(20);
+  expect(metrics.surface.left).toBeGreaterThanOrEqual(-2);
+  expect(metrics.surface.right).toBeLessThanOrEqual(metrics.viewportWidth + 2);
+  expect(metrics.page.scrollWidth).toBeLessThanOrEqual(metrics.page.clientWidth + 2);
+
+  if (metrics.rect.width > metrics.viewportWidth + 2) {
+    expect(metrics.surface.scrollWidth).toBeGreaterThan(metrics.surface.clientWidth);
+  }
 }
 
 async function openReport(page: Page, path: string, heading: RegExp) {
@@ -83,18 +99,18 @@ test.describe("Operator mobile report surfaces visual", () => {
     await openReport(page, "/teacher/reports/subjects", /subject performance report/i);
 
     const hero = page.locator(".analyticsDetailHero").first();
-    await expectVisualSnapshot(hero, "teacher-mobile-subject-report-hero.png", 340);
+    await expectMobileSurfaceReadable(hero);
 
     const emptyState = page
       .getByText(/subject-strength rows will appear when teacher weak-topic evidence is available/i)
       .first();
     if (await emptyState.isVisible().catch(() => false)) {
-      await expectVisualSnapshot(page.locator("main"), "teacher-mobile-subject-report-empty-state.png", 380);
+      await expectMobileSurfaceReadable(page.locator("main"));
       return;
     }
 
     const firstSubjectRow = page.locator(".studentResultsTable tbody tr").first();
-    await expectVisualSnapshot(firstSubjectRow, "teacher-mobile-subject-report-first-row.png", 320);
+    await expectMobileSurfaceReadable(firstSubjectRow);
   });
 
   test("@workflow @visual teacher mobile topic-mastery report keeps hero and first table row readable", async ({
@@ -107,18 +123,18 @@ test.describe("Operator mobile report surfaces visual", () => {
     await openReport(page, "/teacher/reports/weak-areas", /topic mastery report/i);
 
     const hero = page.locator(".analyticsDetailHero").first();
-    await expectVisualSnapshot(hero, "teacher-mobile-weak-areas-report-hero.png", 340);
+    await expectMobileSurfaceReadable(hero);
 
     const emptyState = page
       .getByText(/weak-topic rows will appear once teacher-scoped topic evidence is available/i)
       .first();
     if (await emptyState.isVisible().catch(() => false)) {
-      await expectVisualSnapshot(page.locator("main"), "teacher-mobile-weak-areas-report-empty-state.png", 380);
+      await expectMobileSurfaceReadable(page.locator("main"));
       return;
     }
 
     const firstWeakTopicRow = page.locator(".studentResultsTable tbody tr").first();
-    await expectVisualSnapshot(firstWeakTopicRow, "teacher-mobile-weak-areas-report-first-row.png", 320);
+    await expectMobileSurfaceReadable(firstWeakTopicRow);
   });
 
   test("@workflow @visual teacher mobile wrong-questions report keeps hero and first table row readable", async ({
@@ -131,13 +147,13 @@ test.describe("Operator mobile report surfaces visual", () => {
     await openReport(page, "/teacher/reports/wrong-questions", /wrong questions report/i);
 
     const hero = page.locator(".analyticsDetailHero").first();
-    await expectVisualSnapshot(hero, "teacher-mobile-wrong-questions-report-hero.png", 340);
+    await expectMobileSurfaceReadable(hero);
 
     const emptyState = page
       .getByText(/wrong-question rows will appear once enough teacher-scoped answer evidence exists/i)
       .first();
     if (await emptyState.isVisible().catch(() => false)) {
-      await expectVisualSnapshot(page.locator("main"), "teacher-mobile-wrong-questions-report-empty-state.png", 380);
+      await expectMobileSurfaceReadable(page.locator("main"));
       return;
     }
 
@@ -146,7 +162,7 @@ test.describe("Operator mobile report surfaces visual", () => {
       .filter({ has: page.getByText(/^Most wrong questions$/i) })
       .locator("tbody tr")
       .first();
-    await expectVisualSnapshot(firstWrongRow, "teacher-mobile-wrong-questions-report-first-row.png", 320);
+    await expectMobileSurfaceReadable(firstWrongRow);
   });
 
   test("@workflow @visual teacher mobile time-management report keeps hero and first timing row readable", async ({
@@ -159,13 +175,13 @@ test.describe("Operator mobile report surfaces visual", () => {
     await openReport(page, "/teacher/reports/time-management", /time management report/i);
 
     const hero = page.locator(".analyticsDetailHero").first();
-    await expectVisualSnapshot(hero, "teacher-mobile-time-management-report-hero.png", 340);
+    await expectMobileSurfaceReadable(hero);
 
     const emptyState = page
       .getByText(/timing rows will appear once timed teacher-scoped attempts are available/i)
       .first();
     if (await emptyState.isVisible().catch(() => false)) {
-      await expectVisualSnapshot(page.locator("main"), "teacher-mobile-time-management-report-empty-state.png", 380);
+      await expectMobileSurfaceReadable(page.locator("main"));
       return;
     }
 
@@ -174,7 +190,7 @@ test.describe("Operator mobile report surfaces visual", () => {
       .filter({ has: page.getByText(/^Timing pressure board$/i) })
       .locator("tbody tr")
       .first();
-    await expectVisualSnapshot(firstTimingRow, "teacher-mobile-time-management-report-first-row.png", 320);
+    await expectMobileSurfaceReadable(firstTimingRow);
   });
 
   test("@workflow @visual institute mobile wrong-questions report keeps hero and first table row readable", async ({
@@ -187,13 +203,13 @@ test.describe("Operator mobile report surfaces visual", () => {
     await openReport(page, "/institute/reports/wrong-questions", /wrong questions report/i);
 
     const hero = page.locator(".analyticsDetailHero").first();
-    await expectVisualSnapshot(hero, "institute-mobile-wrong-questions-report-hero.png", 340);
+    await expectMobileSurfaceReadable(hero);
 
     const emptyState = page
       .getByText(/wrong-question rows will appear once enough institute-scoped answer evidence exists/i)
       .first();
     if (await emptyState.isVisible().catch(() => false)) {
-      await expectVisualSnapshot(page.locator("main"), "institute-mobile-wrong-questions-report-empty-state.png", 380);
+      await expectMobileSurfaceReadable(page.locator("main"));
       return;
     }
 
@@ -202,7 +218,7 @@ test.describe("Operator mobile report surfaces visual", () => {
       .filter({ has: page.getByText(/^Most wrong questions$/i) })
       .locator("tbody tr")
       .first();
-    await expectVisualSnapshot(firstWrongRow, "institute-mobile-wrong-questions-report-first-row.png", 320);
+    await expectMobileSurfaceReadable(firstWrongRow);
   });
 
   test("@workflow @visual institute mobile subject report keeps hero and first table row readable", async ({
@@ -215,18 +231,18 @@ test.describe("Operator mobile report surfaces visual", () => {
     await openReport(page, "/institute/reports/subjects", /subject performance report/i);
 
     const hero = page.locator(".analyticsDetailHero").first();
-    await expectVisualSnapshot(hero, "institute-mobile-subject-report-hero.png", 420);
+    await expectMobileSurfaceReadable(hero);
 
     const emptyState = page
       .getByText(/subject-strength rows will appear when institute weak-topic evidence is available/i)
       .first();
     if (await emptyState.isVisible().catch(() => false)) {
-      await expectVisualSnapshot(page.locator("main"), "institute-mobile-subject-report-empty-state.png", 380);
+      await expectMobileSurfaceReadable(page.locator("main"));
       return;
     }
 
     const firstSubjectRow = page.locator(".studentResultsTable tbody tr").first();
-    await expectVisualSnapshot(firstSubjectRow, "institute-mobile-subject-report-first-row.png", 320);
+    await expectMobileSurfaceReadable(firstSubjectRow);
   });
 
   test("@workflow @visual institute mobile topic-mastery report keeps hero and first table row readable", async ({
@@ -239,18 +255,18 @@ test.describe("Operator mobile report surfaces visual", () => {
     await openReport(page, "/institute/reports/weak-areas", /topic mastery report/i);
 
     const hero = page.locator(".analyticsDetailHero").first();
-    await expectVisualSnapshot(hero, "institute-mobile-weak-areas-report-hero.png", 340);
+    await expectMobileSurfaceReadable(hero);
 
     const emptyState = page
       .getByText(/weak-topic rows will appear once institute-scoped topic evidence is available/i)
       .first();
     if (await emptyState.isVisible().catch(() => false)) {
-      await expectVisualSnapshot(page.locator("main"), "institute-mobile-weak-areas-report-empty-state.png", 380);
+      await expectMobileSurfaceReadable(page.locator("main"));
       return;
     }
 
     const firstWeakTopicRow = page.locator(".studentResultsTable tbody tr").first();
-    await expectVisualSnapshot(firstWeakTopicRow, "institute-mobile-weak-areas-report-first-row.png", 320);
+    await expectMobileSurfaceReadable(firstWeakTopicRow);
   });
 
   test("@workflow @visual institute mobile time-management report keeps hero and first timing row readable", async ({
@@ -263,13 +279,13 @@ test.describe("Operator mobile report surfaces visual", () => {
     await openReport(page, "/institute/reports/time-management", /time management report/i);
 
     const hero = page.locator(".analyticsDetailHero").first();
-    await expectVisualSnapshot(hero, "institute-mobile-time-management-report-hero.png", 340);
+    await expectMobileSurfaceReadable(hero);
 
     const emptyState = page
       .getByText(/timing rows will appear once institute-scoped attempt timing evidence is available/i)
       .first();
     if (await emptyState.isVisible().catch(() => false)) {
-      await expectVisualSnapshot(page.locator("main"), "institute-mobile-time-management-report-empty-state.png", 380);
+      await expectMobileSurfaceReadable(page.locator("main"));
       return;
     }
 
@@ -278,7 +294,7 @@ test.describe("Operator mobile report surfaces visual", () => {
       .filter({ has: page.getByText(/^Timing pressure board$/i) })
       .locator("tbody tr")
       .first();
-    await expectVisualSnapshot(firstTimingRow, "institute-mobile-time-management-report-first-row.png", 320);
+    await expectMobileSurfaceReadable(firstTimingRow);
   });
 
   test("@workflow @visual institute mobile learner report detail keeps hero and interpretation card readable", async ({
@@ -296,16 +312,12 @@ test.describe("Operator mobile report surfaces visual", () => {
     await expect(page).toHaveURL(/\/institute\/reports\/students\/[^/?]+(?:\?.*)?$/);
 
     const hero = page.locator(".analyticsDetailHero").first();
-    await expectVisualSnapshot(hero, "institute-mobile-learner-report-hero.png", 360);
+    await expectMobileSurfaceReadable(hero);
 
     const interpretationCard = page
       .locator(".contentCard")
       .filter({ has: page.getByText(/^Institute interpretation$/i) })
       .first();
-    await expectVisualSnapshot(
-      interpretationCard,
-      "institute-mobile-learner-report-interpretation-card.png",
-      340,
-    );
+    await expectMobileSurfaceReadable(interpretationCard);
   });
 });

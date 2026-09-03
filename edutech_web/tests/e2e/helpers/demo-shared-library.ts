@@ -5,6 +5,32 @@ const backendRoot = path.resolve(process.cwd(), "../edutech_backend");
 const pythonExecutable = path.join(backendRoot, ".venv", "bin", "python");
 const managePyPath = path.join(backendRoot, "manage.py");
 
+function isLocalPlaywrightUrl(rawUrl: string) {
+  try {
+    const hostname = new URL(rawUrl).hostname.toLowerCase();
+    return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+  } catch {
+    return false;
+  }
+}
+
+function shouldRunLocalDjangoSeedCommands() {
+  const configuredUrls = [
+    process.env.PLAYWRIGHT_BASE_URL?.trim(),
+    process.env.PLAYWRIGHT_API_BASE_URL?.trim(),
+  ].filter((url): url is string => Boolean(url));
+
+  if (process.env.PLAYWRIGHT_DEMO_SHARED_LIBRARY_ALLOW_LOCAL_SEED === "1") {
+    return true;
+  }
+
+  if (configuredUrls.length === 0) {
+    return true;
+  }
+
+  return configuredUrls.every(isLocalPlaywrightUrl);
+}
+
 function resolveTargetInstituteCode(preferredInstituteCode?: string) {
   const configuredInstituteCode =
     preferredInstituteCode?.trim() ||
@@ -193,6 +219,14 @@ function resolveSeedSubjectCodes(targetInstituteCode: string) {
 
 export function resetAndSeedDemoSharedLibraryWorkflow(targetInstituteCode?: string) {
   const resolvedInstituteCode = resolveTargetInstituteCode(targetInstituteCode);
+
+  if (!shouldRunLocalDjangoSeedCommands()) {
+    console.info(
+      `Skipping local shared-library seed commands for remote Playwright target ${resolvedInstituteCode}.`,
+    );
+    return;
+  }
+
   const subjectCodes = resolveSeedSubjectCodes(resolvedInstituteCode);
   runManagePyCommand([
     "reset_demo_shared_library_workflow",
