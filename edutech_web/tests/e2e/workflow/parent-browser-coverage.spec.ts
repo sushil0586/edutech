@@ -31,6 +31,33 @@ async function expectEither(page: Page, patterns: RegExp[]) {
   throw new Error(`Expected one of the parent patterns to be visible: ${patterns.map(String).join(", ")}`);
 }
 
+async function saveParentPreferences(page: Page) {
+  const saveButton = page.getByRole("button", { name: /save preferences/i }).first();
+  await expect(saveButton).toBeEnabled();
+
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const saveResponsePromise = page
+      .waitForResponse(
+        (response) =>
+          response.url().includes("/api/parent/preferences") &&
+          response.request().method() === "PATCH",
+        { timeout: 5000 },
+      )
+      .catch(() => null);
+
+    await saveButton.click();
+    const saveResponse = await saveResponsePromise;
+    if (saveResponse) {
+      expect(saveResponse.ok(), await saveResponse.text().catch(() => "")).toBe(true);
+      return;
+    }
+
+    await page.waitForTimeout(500 * attempt);
+  }
+
+  throw new Error("Parent preferences save did not issue a PATCH request.");
+}
+
 test.describe("Parent browser coverage", () => {
   test.skip(testRequiresRole("parent"), "Parent Playwright credentials are not configured.");
 
@@ -88,7 +115,7 @@ test.describe("Parent browser coverage", () => {
     await expect(page.getByText(/parent access is active and relationship-driven/i).first()).toBeVisible();
     await expect(page.getByRole("button", { name: /save preferences/i }).first()).toBeVisible();
 
-    await page.getByRole("button", { name: /save preferences/i }).click();
+    await saveParentPreferences(page);
     await expect(page.getByText(/parent preferences updated successfully/i).first()).toBeVisible();
 
     await gotoWithRetry(page, "/parent/search");

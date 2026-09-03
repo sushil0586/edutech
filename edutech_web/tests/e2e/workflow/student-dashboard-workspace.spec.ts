@@ -66,11 +66,11 @@ test.describe("Student dashboard workspace", () => {
     );
 
     await gotoWithRuntimeRecovery(page, "/app/dashboard");
-    await expect(page.getByRole("link", { name: /open reports hub/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /open results/i }).first()).toBeVisible();
     await followLinkTarget(
       page,
-      page.getByRole("link", { name: /open reports hub/i }).first(),
-      /\/app\/reports(?:\?.*)?$/,
+      page.getByRole("link", { name: /open results/i }).first(),
+      /\/app\/results(?:\?.*)?$/,
     );
 
     await gotoWithRuntimeRecovery(page, "/app/dashboard");

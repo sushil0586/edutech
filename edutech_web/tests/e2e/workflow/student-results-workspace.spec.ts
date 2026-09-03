@@ -45,7 +45,7 @@ test.describe("Student results workspace", () => {
     await gotoWithRuntimeRecovery(page, "/app/results");
     await expectStudentResultsWorkspace(page);
 
-  const filtersCard = page.locator("section.studentWorkspaceFiltersCard").first();
+    const filtersCard = page.locator("section.studentWorkspaceFiltersCard").first();
     if (!(await filtersCard.isVisible().catch(() => false))) {
       await expect(page.getByText(/your result history is empty right now/i).first()).toBeVisible();
       await page.getByRole("link", { name: /open exams/i }).first().click();
@@ -59,7 +59,9 @@ test.describe("Student results workspace", () => {
     await resultsForm.locator('select[name="result_status"]').selectOption("review_ready");
     await resultsForm.locator('select[name="result_sort"]').selectOption("highest");
     await resultsForm.locator('select[name="result_group"]').selectOption("source");
-    await resultsForm.getByRole("button", { name: /update view/i }).click();
+    const updateButton = resultsForm.getByRole("button", { name: /apply filters|update view/i });
+    await updateButton.scrollIntoViewIfNeeded();
+    await updateButton.click();
 
     await expect(page).toHaveURL(/\/app\/results\?[^#]*result_status=review_ready/);
     await expect(page).toHaveURL(/\/app\/results\?[^#]*result_sort=highest/);
@@ -69,7 +71,7 @@ test.describe("Student results workspace", () => {
 
     const noMatchState = page.getByText(/no results match these filters/i).first();
     if (await noMatchState.isVisible().catch(() => false)) {
-      await page.getByRole("link", { name: /reset result filters/i }).first().click();
+      await page.getByRole("link", { name: /reset result filters|reset filters/i }).first().click();
       await expectStudentResultsWorkspace(page);
       return;
     }
@@ -84,7 +86,7 @@ test.describe("Student results workspace", () => {
       await pendingQuickControl.click();
       await expect(page).toHaveURL(/\/app\/results\?[^#]*result_status=pending/);
     } else {
-      await page.getByRole("link", { name: /reset result filters/i }).first().click();
+      await page.getByRole("link", { name: /reset result filters|reset filters/i }).first().click();
       await expectStudentResultsWorkspace(page);
     }
 

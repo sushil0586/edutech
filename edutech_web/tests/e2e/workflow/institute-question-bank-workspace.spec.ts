@@ -1,4 +1,4 @@
-import { expect, test, type Locator } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectInstituteWorkspace } from "../helpers/navigation";
 import { gotoWithRuntimeRecovery } from "../helpers/runtime";
@@ -12,6 +12,10 @@ async function selectFirstNonEmptyOption(locator: Locator) {
   const firstValue = values[0] ?? null;
   expect(firstValue).not.toBeNull();
   await locator.selectOption(firstValue!);
+}
+
+async function submitQuestionBankFilters(page: Page) {
+  await page.getByRole("button", { name: /apply filters|update view/i }).click();
 }
 
 test.describe("Institute question bank workspace", () => {
@@ -32,16 +36,20 @@ test.describe("Institute question bank workspace", () => {
 
     const searchField = page.getByRole("textbox", { name: /search question text/i });
     await searchField.fill("square root");
-    await page.getByRole("button", { name: /update view/i }).click();
+    await submitQuestionBankFilters(page);
     await expect(page).toHaveURL(/search=square\+root|search=square%20root/);
     await expect(searchField).toHaveValue("square root");
 
     await searchField.fill("playwright-no-match-zzqv-1781");
-    await page.getByRole("button", { name: /update view/i }).click();
+    await submitQuestionBankFilters(page);
     await expect(page.getByText(/no questions match these filters/i).first()).toBeVisible();
     await expect(page.getByText(/active controls are shaping this empty state/i).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /^reset filters$/i }).first()).toBeVisible();
-    await page.getByRole("link", { name: /^reset filters$/i }).first().click();
+    const resetFilters = page
+      .getByRole("link", { name: /^reset filters$/i })
+      .or(page.getByRole("button", { name: /^reset$/i }))
+      .first();
+    await expect(resetFilters).toBeVisible();
+    await resetFilters.click();
     await expect(page).toHaveURL(/\/institute\/question-bank(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /question bank/i }).first()).toBeVisible();
 

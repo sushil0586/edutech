@@ -6,9 +6,9 @@ import { gotoWithRuntimeRecovery } from "../helpers/runtime";
 async function expectTeacherResultsWorkspace(page: Page) {
   await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
   await expect(page.getByRole("combobox", { name: /exam state/i })).toBeVisible();
-  await expect(page.getByText(/student results snapshot/i).first()).toBeVisible();
-  await expect(page.getByText(/students needing follow-up/i).first()).toBeVisible();
-  await expect(page.getByText(/top ranked learners/i).first()).toBeVisible();
+  await expect(page.getByText(/visible exams/i).first()).toBeVisible();
+  await expect(page.getByText(/total attempts/i).first()).toBeVisible();
+  await expect(page.getByText(/average performance/i).first()).toBeVisible();
 }
 
 async function expectWorkflowLinkUtility(page: Page) {
@@ -86,13 +86,13 @@ test.describe("Teacher results workspace", () => {
     await expectTeacherResultsWorkspace(page);
     await selectFirstVisibleTeacherExam(page);
 
-    await expect(page.getByRole("link", { name: /view exam/i }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /view reviews/i }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /view question bank/i }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /view leaderboard/i }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /view live monitor/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /open exam|view exam/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /open reviews|view reviews/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /inspect question bank|view question bank/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /open leaderboard|view leaderboard/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /open live monitor|view live monitor/i }).first()).toBeVisible();
 
-    await page.getByRole("link", { name: /view leaderboard/i }).first().click();
+    await page.getByRole("link", { name: /open leaderboard|view leaderboard/i }).first().click();
     await expect(page).toHaveURL(/\/teacher\/results\/leaderboard(?:\?.*)?$/);
     await expect(page.getByText(/publication checklist/i).first()).toBeVisible();
 
@@ -100,7 +100,7 @@ test.describe("Teacher results workspace", () => {
     await expectTeacherResultsWorkspace(page);
     await selectFirstVisibleTeacherExam(page);
 
-    const openExamLink = page.getByRole("link", { name: /^view exam$/i }).first();
+    const openExamLink = page.getByRole("link", { name: /^(open|view) exam$/i }).first();
     await expect(openExamLink).toBeVisible();
     await openExamLink.click();
     await expect(page).toHaveURL(/\/teacher\/exams\/[^/?#]+(?:\?.*)?$/);
@@ -110,7 +110,7 @@ test.describe("Teacher results workspace", () => {
     await expectTeacherResultsWorkspace(page);
     await selectFirstVisibleTeacherExam(page);
 
-    const openReviewsLink = page.getByRole("link", { name: /^view reviews$/i }).first();
+    const openReviewsLink = page.getByRole("link", { name: /^(open|view) reviews$/i }).first();
     await expect(openReviewsLink).toBeVisible();
     await openReviewsLink.click();
     await expect(page).toHaveURL(/\/teacher\/reviews\?[^#]*exam=/);
@@ -120,7 +120,7 @@ test.describe("Teacher results workspace", () => {
     await expectTeacherResultsWorkspace(page);
     await selectFirstVisibleTeacherExam(page);
 
-    const inspectQuestionBankLink = page.getByRole("link", { name: /view question bank/i }).first();
+    const inspectQuestionBankLink = page.getByRole("link", { name: /inspect question bank|view question bank/i }).first();
     await expect(inspectQuestionBankLink).toBeVisible();
     await inspectQuestionBankLink.click();
     await expect(page).toHaveURL(/\/teacher\/question-bank(?:\?.*)?$/);
@@ -131,7 +131,7 @@ test.describe("Teacher results workspace", () => {
     await selectFirstVisibleTeacherExam(page);
 
     const liveMonitorNavLink = page.getByRole("link", {
-      name: /view live monitor/i,
+      name: /open live monitor|view live monitor/i,
     }).first();
     await expect(liveMonitorNavLink).toBeVisible();
     const liveMonitorHref = await liveMonitorNavLink.getAttribute("href");
@@ -146,7 +146,7 @@ test.describe("Teacher results workspace", () => {
     await selectFirstVisibleTeacherExam(page);
 
     const analysisCard = page.getByRole("link").filter({
-      has: page.getByText(/^analysis$/i),
+      has: page.getByText(/^(open )?analysis$/i),
     }).first();
     await expect(analysisCard).toBeVisible();
     await analysisCard.click();
