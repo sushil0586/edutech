@@ -14,7 +14,6 @@ import {
   fetchSubjects,
   fetchTopics,
   getAdminAccessToken,
-  selectFirstNonEmptyOption,
   uniqueOnboardingSeed,
 } from "../helpers/onboarding";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";

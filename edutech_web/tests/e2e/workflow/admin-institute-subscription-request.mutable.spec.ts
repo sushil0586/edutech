@@ -44,6 +44,12 @@ type RequestablePlan = {
   }>;
 };
 
+type InstituteSubscriptionRequestRow = {
+  status: string;
+  subscription_plan_code: string;
+  subscription_plan_cycle: string;
+};
+
 type RequestSelection = {
   cycleId: string;
   packageCodes: string[];
@@ -98,6 +104,21 @@ async function selectUnentitledRequestableCycle(page: Page, accessToken: string)
     accessToken,
     `${backendBaseUrl}/api/v1/economy/admin/institute-question-bank-entitlements/`,
   );
+  const requestsResponse = await page.request.get(
+    `${backendBaseUrl}/api/v1/economy/admin/institute-subscription-requests/`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  );
+  expect(requestsResponse.ok()).toBe(true);
+  const subscriptionRequests = (await requestsResponse.json()) as InstituteSubscriptionRequestRow[];
+  const pendingCycleIds = new Set(
+    subscriptionRequests
+      .filter((request) => String(request.status || "").toLowerCase() === "pending")
+      .map((request) => request.subscription_plan_cycle),
+  );
 
   const activePackageCodes = new Set(
     entitlements
@@ -112,16 +133,17 @@ async function selectUnentitledRequestableCycle(page: Page, accessToken: string)
     if (packageCodes.length === 0) {
       continue;
     }
-    if (packageCodes.every((code) => activePackageCodes.has(code))) {
+    const missingPackageCodes = packageCodes.filter((code) => !activePackageCodes.has(code));
+    if (missingPackageCodes.length === 0) {
       continue;
     }
-    const cycle = plan.cycles.find((entry) => entry.is_active);
+    const cycle = plan.cycles.find((entry) => entry.is_active && !pendingCycleIds.has(entry.id));
     if (!cycle) {
       continue;
     }
     return {
       cycleId: cycle.id,
-      packageCodes,
+      packageCodes: missingPackageCodes,
       instituteId,
     } satisfies RequestSelection;
   }
@@ -183,7 +205,7 @@ async function createInstituteRequest(browser: Browser, requestNote: string) {
       );
     }
 
-    const cycleSelect = requestCard.locator("select").first();
+    const cycleSelect = requestCard.getByLabel(/institute requestable plan cycle/i);
     await cycleSelect.selectOption(selection!.cycleId);
     const selectedCycleId = await cycleSelect.inputValue();
     expect(selectedCycleId).toBe(selection!.cycleId);
@@ -201,6 +223,7 @@ async function createInstituteRequest(browser: Browser, requestNote: string) {
     expect(requestResponse.ok()).toBe(true);
 
     await expect(page.getByText(/subscription request submitted successfully/i).first()).toBeVisible();
+    await requestCard.getByLabel(/institute subscription workspace view/i).selectOption("history");
     await expect(requestCard.getByText(requestNote, { exact: false })).toBeVisible();
 
     return selection!;
@@ -256,7 +279,7 @@ async function reviewInstituteRequest(
     expect(adminAccessToken).not.toBe("");
     const entitlementsBefore = await listEntitlements(page, adminAccessToken);
 
-    await page.goto("/admin/economy");
+    await page.goto("/admin/economy?tab=support-ops");
     await expect(page.getByRole("heading", { name: /economy/i }).first()).toBeVisible();
 
     const queueCard = adminRequestQueueCard(page);
@@ -282,7 +305,14 @@ async function reviewInstituteRequest(
     const reviewBody = (await reviewResponse.json()) as { data?: ReviewedRequest };
 
     await expect(page.getByText(/subscription request reviewed successfully/i).first()).toBeVisible();
-    await expect(requestRow!.locator(".weakTopicMeta strong")).toHaveText(
+    await queueCard
+      .getByLabel(/institute subscription request queue view/i)
+      .selectOption(decision === "approve" ? "fulfilled" : "rejected");
+    const reviewedRequestRow = queueCard.locator(".weakTopicRow").filter({
+      has: page.getByText(requestNote, { exact: false }),
+    }).first();
+    await expect(reviewedRequestRow).toBeVisible();
+    await expect(reviewedRequestRow.locator(".weakTopicMeta strong")).toHaveText(
       decision === "approve" ? /fulfilled/i : /rejected/i,
     );
 

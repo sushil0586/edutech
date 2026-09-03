@@ -77,12 +77,6 @@ export function AccountActionButtons({
   const [confirmPassword, setConfirmPassword] = useState("");
 
   useEffect(() => {
-    setLocalHasLogin(hasLogin);
-    setLocalLoginIsActive(loginIsActive);
-    setLocalUserId(userId);
-  }, [hasLogin, loginIsActive, userId]);
-
-  useEffect(() => {
     if (!resetDialogOpen) {
       return;
     }

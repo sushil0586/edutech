@@ -120,16 +120,6 @@ export function AdminPeopleWorkspace({
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    setCurrentView(activeView);
-    setCurrentInstituteId(selectedInstituteId);
-    setCurrentAcademicYears(academicYears);
-    setCurrentPrograms(programs);
-    setCurrentCohorts(cohorts);
-    setCurrentVisibleRows(visibleRows);
-    setCurrentVisibleCount(visibleCount);
-  }, [academicYears, activeView, cohorts, programs, selectedInstituteId, visibleCount, visibleRows]);
-
-  useEffect(() => {
     return () => {
       requestIdRef.current += 1;
       abortRef.current?.abort();

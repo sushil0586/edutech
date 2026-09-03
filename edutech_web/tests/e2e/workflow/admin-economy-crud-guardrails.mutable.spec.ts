@@ -21,10 +21,6 @@ function economyCard(page: Page, heading: RegExp) {
     .first();
 }
 
-function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 function fieldContainer(scope: Locator, label: RegExp) {
   return scope.locator("label").filter({ hasText: label }).first();
 }

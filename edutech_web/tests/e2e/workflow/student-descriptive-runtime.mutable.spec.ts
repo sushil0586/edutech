@@ -263,7 +263,6 @@ test.describe("Student descriptive runtime actions", () => {
     const studentCredentials = getRoleCredentials("student");
     expect(studentCredentials).not.toBeNull();
 
-    let studentDisplayName = studentCredentials!.username;
     let studentProfileId: string | null = null;
     let studentAcademicYearName: string | null = null;
     let studentProgramName: string | null = null;
@@ -283,9 +282,6 @@ test.describe("Student descriptive runtime actions", () => {
     await expectStudentWorkspace(page);
 
     const studentContext = await readStudentAcademicContext(page);
-    if (studentContext.studentDisplayName) {
-      studentDisplayName = studentContext.studentDisplayName;
-    }
     studentProfileId = studentContext.studentProfileId;
     studentAcademicYearName = studentContext.studentAcademicYearName;
     studentProgramName = studentContext.studentProgramName;

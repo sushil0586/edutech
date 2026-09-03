@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { resetAndSeedDemoSharedLibraryWorkflow } from "../helpers/demo-shared-library";
 import { expectInstituteWorkspace } from "../helpers/navigation";
@@ -36,17 +36,6 @@ async function waitForQuestionAuthoringShell(page: Page, attempts = 4) {
     await page.waitForTimeout(1000 * attempt);
     await page.reload({ waitUntil: "domcontentloaded" });
   }
-}
-
-async function selectFirstNonEmptyOption(locator: Locator) {
-  const values = await locator.locator("option").evaluateAll((options) =>
-    options
-      .map((option) => (option as HTMLOptionElement).value)
-      .filter((value) => value.trim().length > 0),
-  );
-  const firstValue = values[0] ?? null;
-  expect(firstValue).not.toBeNull();
-  await locator.selectOption(firstValue!);
 }
 
 async function selectProgramWithAvailableSubjects(page: Page) {

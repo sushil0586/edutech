@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { buildQuestionTypeSelectOptions, questionTypeLabel } from "@/lib/assessment/question-type";
 
 type InstituteOption = {
   id: string;
@@ -121,6 +122,8 @@ type ScopeLookupMaps = {
   topicsById: Map<string, TopicOption>;
 };
 
+const QUESTION_TYPE_SCOPE_OPTIONS = buildQuestionTypeSelectOptions();
+
 function titleCase(value: string | null | undefined) {
   return String(value || "")
     .replaceAll("_", " ")
@@ -188,7 +191,7 @@ function describeScopeConstraintSummary(scope: PackageScopeDraft) {
   const parts = [
     scope.question_source_type ? `Source: ${titleCase(scope.question_source_type)}` : null,
     scope.difficulty_level ? `Difficulty: ${titleCase(scope.difficulty_level)}` : "Difficulty: Any",
-    scope.question_type ? `Type: ${titleCase(scope.question_type)}` : "Type: Any",
+    scope.question_type ? `Type: ${questionTypeLabel(scope.question_type)}` : "Type: Any",
     scope.master_visibility ? `Visibility: ${titleCase(scope.master_visibility)}` : "Visibility: Any",
     scope.max_questions_total ? `Max total: ${scope.max_questions_total}` : null,
     scope.max_questions_per_topic ? `Max/topic: ${scope.max_questions_per_topic}` : null,
@@ -283,13 +286,15 @@ function describeInstituteFacingScopeOutcome(scope: PackageScopeDraft, lookup: S
         ? "institute-authored questions only"
         : "platform and institute questions";
   const difficultyLabel = scope.difficulty_level ? titleCase(scope.difficulty_level) : "all difficulty levels";
-  const questionTypeLabel = scope.question_type ? titleCase(scope.question_type) : "all supported question types";
+  const questionTypeSummaryLabel = scope.question_type
+    ? questionTypeLabel(scope.question_type)
+    : "all supported question types";
   const quotaParts = [
     scope.max_questions_total ? `up to ${scope.max_questions_total} total questions` : null,
     scope.max_questions_per_topic ? `up to ${scope.max_questions_per_topic} per topic` : null,
   ].filter(Boolean);
 
-  return `${academicSlice}. Institutes should expect ${sourceLabel}, ${difficultyLabel}, and ${questionTypeLabel}${
+  return `${academicSlice}. Institutes should expect ${sourceLabel}, ${difficultyLabel}, and ${questionTypeSummaryLabel}${
     quotaParts.length > 0 ? `, limited to ${quotaParts.join(" and ")}` : ""
   }.`;
 }
@@ -421,10 +426,6 @@ export function EconomyQuestionBankPackageManagementCard({
   const [editorLookupsError, setEditorLookupsError] = useState("");
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogLoadError, setCatalogLoadError] = useState("");
-
-  useEffect(() => {
-    setPackageRows(packages);
-  }, [packages]);
 
   const editorLookupsReady =
     editorPrograms.length > 0 || editorSubjects.length > 0 || editorTopics.length > 0;
@@ -1988,15 +1989,11 @@ export function EconomyQuestionBankPackageManagementCard({
                             onChange={(event) => updateScope(index, { question_type: event.target.value })}
                           >
                             <option value="">Any</option>
-                            <option value="mcq_single">MCQ Single</option>
-                            <option value="mcq_multiple">MCQ Multiple</option>
-                            <option value="true_false">True / False</option>
-                            <option value="assertion_reason">Assertion / Reason</option>
-                            <option value="matrix_match">Matrix Match</option>
-                            <option value="short_answer">Short Answer</option>
-                            <option value="fill_in_blanks">Fill in the Blanks</option>
-                            <option value="numeric_answer">Numeric Answer</option>
-                            <option value="essay_manual_review">Essay Manual Review</option>
+                            {QUESTION_TYPE_SCOPE_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
                           </select>
                         </label>
                         <label className="setupField">

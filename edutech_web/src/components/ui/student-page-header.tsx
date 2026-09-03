@@ -24,7 +24,7 @@ export function StudentPageHeader({
   action,
   className = "pageHeaderCompact pageHeaderSlim",
   showEyebrow = false,
-  showDescription = false,
+  showDescription = true,
 }: StudentPageHeaderProps) {
   return (
     <PageHeader

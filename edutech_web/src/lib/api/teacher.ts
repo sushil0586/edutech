@@ -12,10 +12,8 @@ import {
   TeacherAttemptIntervention,
   TeacherInsightSummary,
   TeacherLeaderboardPage,
-  TeacherLeaderboardRow,
   TeacherLiveExamMonitor,
   TeacherAttemptQuestionAnalysis,
-  TeacherQuestionAnalysis,
   TeacherQuestionAnalysisPage,
   TeacherResultPublishReadiness,
   TeacherResultSummary,
@@ -113,7 +111,7 @@ async function requestTeacherJson<T>(
   }
 
   const method = init?.method ?? "GET";
-  const shouldUseCachedRead = method === "GET" && !init?.body && !init?.headers;
+  const shouldUseCachedRead = method === "GET" && !init?.body && !init?.headers && init?.cache == null;
 
   if (shouldUseCachedRead) {
     return requestTeacherJsonCached<T>(path, accessToken);
@@ -167,7 +165,7 @@ export async function fetchTeacherExamPage(
 }
 
 export async function fetchTeacherExamDetail(examId: string) {
-  return requestTeacherJson<TeacherExam>(`/api/v1/exams/${examId}/`);
+  return requestTeacherJson<TeacherExam>(`/api/v1/exams/${examId}/`, { cache: "no-store" });
 }
 
 export async function fetchTeacherExamPublishReadiness(examId: string) {
@@ -175,7 +173,7 @@ export async function fetchTeacherExamPublishReadiness(examId: string) {
     success?: boolean;
     message?: string;
     data: TeacherExamPublishReadiness;
-  }>(`/api/v1/exams/${examId}/publish-readiness/`);
+  }>(`/api/v1/exams/${examId}/publish-readiness/`, { cache: "no-store" });
   return response.data;
 }
 
@@ -183,8 +181,15 @@ export async function fetchTeacherInsightSummary() {
   return requestTeacherJson<TeacherInsightSummary>("/api/v1/teacher/insights/summary/");
 }
 
-export async function fetchTeacherResultSummary() {
-  return requestTeacherJson<TeacherResultSummary[]>("/api/v1/teacher/results/summary/");
+export async function fetchTeacherResultSummary(options?: {
+  search?: string;
+  pageSize?: number;
+}) {
+  const params = new URLSearchParams();
+  if (options?.search?.trim()) params.set("search", options.search.trim());
+  if (options?.pageSize) params.set("page_size", String(options.pageSize));
+  const query = params.toString();
+  return requestTeacherJson<TeacherResultSummary[]>(`/api/v1/teacher/results/summary/${query ? `?${query}` : ""}`);
 }
 
 export async function fetchAdminExamRuntimeSummary(options?: {
@@ -211,7 +216,7 @@ export async function fetchTeacherResultPublishReadiness(examId: string) {
     success?: boolean;
     message?: string;
     data: TeacherResultPublishReadiness;
-  }>(`/api/v1/results/exam/${examId}/publish-readiness/`);
+  }>(`/api/v1/results/exam/${examId}/publish-readiness/`, { cache: "no-store" });
   return response.data;
 }
 

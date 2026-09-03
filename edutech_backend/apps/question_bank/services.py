@@ -22,6 +22,22 @@ from apps.academics.services import (
     validate_option_catalog_code,
 )
 from apps.academics.models import Program, Subject, Topic
+from apps.question_bank.constants import (
+    ASSERTION_REASON_DEFAULT_OPTIONS,
+    FILL_IN_BLANKS_MARKER,
+    QUESTION_METADATA_ACCEPTED_ANSWERS_KEY,
+    QUESTION_METADATA_ASSERTION_REASON_KEY,
+    QUESTION_METADATA_ASSERTION_TEXT_KEY,
+    QUESTION_METADATA_BLANK_COUNT_KEY,
+    QUESTION_METADATA_FILL_IN_BLANKS_KEY,
+    QUESTION_METADATA_MATRIX_LEFT_ITEMS_KEY,
+    QUESTION_METADATA_MATRIX_MATCH_KEY,
+    QUESTION_METADATA_MATRIX_RIGHT_ITEMS_KEY,
+    QUESTION_METADATA_NUMERIC_TOLERANCE_KEY,
+    QUESTION_METADATA_NUMERIC_VALIDATION_KEY,
+    QUESTION_METADATA_REASON_TEXT_KEY,
+    QUESTION_METADATA_REVIEW_GUIDANCE_KEY,
+)
 from apps.question_bank.models import (
     InstituteQuestionAccess,
     InstituteQuestionAccessStatus,
@@ -98,13 +114,6 @@ IMPORT_TEMPLATE_REQUIRED_COLUMNS = [
     "negative_marks",
     "explanation",
     "tags",
-]
-FILL_IN_BLANKS_MARKER = "[[blank]]"
-ASSERTION_REASON_DEFAULT_OPTIONS = [
-    "Both Assertion and Reason are true, and Reason is the correct explanation of Assertion.",
-    "Both Assertion and Reason are true, but Reason is not the correct explanation of Assertion.",
-    "Assertion is true, but Reason is false.",
-    "Assertion is false, but Reason is true.",
 ]
 IMPORT_PASSAGE_TEMPLATE_COLUMNS = [
     "subject",
@@ -1306,9 +1315,9 @@ def _build_type_specific_import_metadata(question_type, row):
                 "Reason:\n"
                 f"{reason_text}"
             )
-        metadata["assertion_reason"] = {
-            "assertion_text": assertion_text,
-            "reason_text": reason_text,
+        metadata[QUESTION_METADATA_ASSERTION_REASON_KEY] = {
+            QUESTION_METADATA_ASSERTION_TEXT_KEY: assertion_text,
+            QUESTION_METADATA_REASON_TEXT_KEY: reason_text,
         }
         return metadata
 
@@ -1327,9 +1336,9 @@ def _build_type_specific_import_metadata(question_type, row):
             raise ValidationError(
                 {"review_guidance": "Review guidance is only supported for essay manual-review rows."}
             )
-        metadata["matrix_match"] = {
-            "left_items": matrix_left_items,
-            "right_items": matrix_right_items,
+        metadata[QUESTION_METADATA_MATRIX_MATCH_KEY] = {
+            QUESTION_METADATA_MATRIX_LEFT_ITEMS_KEY: matrix_left_items,
+            QUESTION_METADATA_MATRIX_RIGHT_ITEMS_KEY: matrix_right_items,
         }
         return metadata
 
@@ -1347,7 +1356,7 @@ def _build_type_specific_import_metadata(question_type, row):
                 {"numeric_tolerance": "Numeric tolerance is only supported for numeric-answer rows."}
             )
         if review_guidance:
-            metadata["review_guidance"] = review_guidance
+            metadata[QUESTION_METADATA_REVIEW_GUIDANCE_KEY] = review_guidance
         return metadata
 
     if question_type == "numeric_answer":
@@ -1369,7 +1378,7 @@ def _build_type_specific_import_metadata(question_type, row):
             normalized_value = format(numeric_value.normalize(), "f")
             if normalized_value not in normalized_answers:
                 normalized_answers.append(normalized_value)
-        metadata["accepted_answers"] = normalized_answers
+        metadata[QUESTION_METADATA_ACCEPTED_ANSWERS_KEY] = normalized_answers
 
         if numeric_tolerance:
             try:
@@ -1382,7 +1391,9 @@ def _build_type_specific_import_metadata(question_type, row):
                 raise ValidationError(
                     {"numeric_tolerance": "Numeric tolerance cannot be negative."}
                 )
-            metadata["numeric_validation"] = {"tolerance": format(tolerance_decimal.normalize(), "f")}
+            metadata[QUESTION_METADATA_NUMERIC_VALIDATION_KEY] = {
+                QUESTION_METADATA_NUMERIC_TOLERANCE_KEY: format(tolerance_decimal.normalize(), "f")
+            }
 
         if review_guidance:
             raise ValidationError(
@@ -1407,8 +1418,10 @@ def _build_type_specific_import_metadata(question_type, row):
                     )
                 }
             )
-        metadata["accepted_answers"] = accepted_answers
-        metadata["fill_in_blanks"] = {"blank_count": blank_count}
+        metadata[QUESTION_METADATA_ACCEPTED_ANSWERS_KEY] = accepted_answers
+        metadata[QUESTION_METADATA_FILL_IN_BLANKS_KEY] = {
+            QUESTION_METADATA_BLANK_COUNT_KEY: blank_count
+        }
         if numeric_tolerance:
             raise ValidationError(
                 {"numeric_tolerance": "Numeric tolerance is only supported for numeric-answer rows."}

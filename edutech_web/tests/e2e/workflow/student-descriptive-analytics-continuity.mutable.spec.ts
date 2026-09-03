@@ -54,8 +54,8 @@ function resultDetailsModal(page: Page) {
 }
 
 function questionPatternRowByTitle(page: Page, title: string) {
-  return page.locator(".studentQuestionPatternTable tbody tr").filter({
-    has: page.locator("td strong", { hasText: title }),
+  return page.getByRole("button", {
+    name: new RegExp(`^Open question pattern for ${escapeRegExp(title)}$`, "i"),
   }).first();
 }
 
@@ -361,30 +361,6 @@ async function waitForReviewTaskInQueue(
   }
 
   return null;
-}
-
-async function deleteInstituteExam(page: Page, examId: string) {
-  const accessToken = await getInstituteCleanupAccessToken(page);
-
-  try {
-    const response = await page.request.delete(`${backendBaseUrl}/api/v1/exams/${examId}/`, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      timeout: 15000,
-    });
-    if (response.ok()) {
-      return;
-    }
-  } catch {
-    // Fall back to the web proxy route used elsewhere in the suite.
-  }
-
-  const proxyResponse = await page.request.delete(`/api/institute/exams/${examId}`, {
-    timeout: 15000,
-  });
-  expect(proxyResponse.ok()).toBe(true);
 }
 
 test.describe("Student mutable descriptive analytics continuity", () => {
@@ -731,6 +707,8 @@ test.describe("Student mutable descriptive analytics continuity", () => {
       await expect(page.getByRole("heading", { name: /question pattern report/i }).first()).toBeVisible();
       const questionPatternRow = questionPatternRowByTitle(page, questionText);
       await expect(questionPatternRow).toBeVisible();
+      await expect(questionPatternRow).toBeEnabled();
+      await questionPatternRow.scrollIntoViewIfNeeded();
       await questionPatternRow.click();
       const questionPatternModal = resultDetailsModal(page);
       await expect(questionPatternModal).toBeVisible();

@@ -6,6 +6,8 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.contrib.auth import get_user_model
 from django.db.models import Case, Count, IntegerField, Prefetch, Q, Value, When
 from django.utils import timezone
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema, inline_serializer
+from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -56,12 +58,18 @@ from apps.attempts.models import (
     StudentAnswerReviewTask,
     StudentExamAttempt,
 )
+from apps.attempts.serializers import StudentExamAttemptSerializer
+from apps.attempts.services import REVIEW_TASK_UNRESOLVED_STATUSES
 from apps.academics.models import AcademicYear, Cohort, Program, Subject, Topic
-from apps.exams.models import Exam, ExamQuestion, ExamSection
+from apps.exams.models import Exam, ExamAccessSlot, ExamQuestion, ExamSection
+from apps.exams.models import ExamStudentAssignment
 from apps.exams.serializers import (
     ExamListSerializer,
     ExamReadSerializer,
     StudentExamAvailabilitySerializer,
+    StudentExamCatalogSerializer,
+    StudentExamDashboardSerializer,
+    StudentExamDiscoverySerializer,
     StudentExamFollowUpSerializer,
     StudentExamReadinessSerializer,
 )
@@ -130,6 +138,17 @@ class LoginView(APIView):
     permission_classes = [AllowAny]
     throttle_classes = [LoginRateThrottle]
 
+    @extend_schema(
+        request=LoginSerializer,
+        responses=inline_serializer(
+            name="LoginResponse",
+            fields={
+                "refresh": serializers.CharField(),
+                "access": serializers.CharField(),
+                "user": serializers.DictField(),
+            },
+        ),
+    )
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         try:
@@ -170,6 +189,17 @@ class PublicRegisterView(APIView):
     permission_classes = [AllowAny]
     throttle_classes = [RegistrationRateThrottle]
 
+    @extend_schema(
+        request=PublicRegistrationSerializer,
+        responses=inline_serializer(
+            name="PublicRegisterResponse",
+            fields={
+                "refresh": serializers.CharField(),
+                "access": serializers.CharField(),
+                "user": serializers.DictField(),
+            },
+        ),
+    )
     def post(self, request):
         serializer = PublicRegistrationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -202,6 +232,18 @@ class PublicRegisterView(APIView):
 class PublicRegistrationOptionsView(APIView):
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        responses=inline_serializer(
+            name="PublicRegistrationOptionsResponse",
+            fields={
+                "roles": serializers.ListField(child=serializers.DictField(), required=False),
+                "class_levels": serializers.ListField(child=serializers.DictField(), required=False),
+                "boards": serializers.ListField(child=serializers.DictField(), required=False),
+                "exam_interests": serializers.ListField(child=serializers.DictField(), required=False),
+                "subject_interests": serializers.ListField(child=serializers.DictField(), required=False),
+            },
+        )
+    )
     def get(self, request):
         return Response(get_public_registration_options(), status=status.HTTP_200_OK)
 
@@ -209,6 +251,27 @@ class PublicRegistrationOptionsView(APIView):
 class MeView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        responses=inline_serializer(
+            name="MeResponse",
+            fields={
+                "id": serializers.UUIDField(),
+                "username": serializers.CharField(),
+                "email": serializers.CharField(),
+                "display_name": serializers.CharField(),
+                "role": serializers.CharField(),
+                "institute": serializers.UUIDField(allow_null=True),
+                "student_profile": serializers.UUIDField(allow_null=True),
+                "teacher_profile": serializers.UUIDField(allow_null=True),
+                "registration_context": serializers.DictField(),
+                "student_context": serializers.DictField(required=False, allow_null=True),
+                "parent_context": serializers.DictField(required=False, allow_null=True),
+                "location_context": serializers.DictField(required=False, allow_null=True),
+                "acquisition_context": serializers.DictField(required=False, allow_null=True),
+                "is_active": serializers.BooleanField(),
+            },
+        )
+    )
     def get(self, request):
         profile = _get_hydrated_account_profile_for_session(request.user)
         if profile is None:
@@ -219,6 +282,23 @@ class MeView(APIView):
 class OnboardingProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        request=OnboardingProfileSerializer,
+        responses=inline_serializer(
+            name="OnboardingProfileResponse",
+            fields={
+                "id": serializers.UUIDField(),
+                "username": serializers.CharField(),
+                "email": serializers.CharField(),
+                "display_name": serializers.CharField(),
+                "role": serializers.CharField(),
+                "registration_context": serializers.DictField(),
+                "onboarding_status": serializers.CharField(),
+                "profile_completion_required": serializers.BooleanField(),
+                "is_active": serializers.BooleanField(),
+            },
+        ),
+    )
     def patch(self, request):
         serializer = OnboardingProfileSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
@@ -246,6 +326,23 @@ class StudentCreateLoginView(APIView):
     permission_classes = [IsAuthenticated, IsPlatformOrInstituteAdmin]
     throttle_classes = [AdminProvisionRateThrottle]
 
+    @extend_schema(
+        request=CreateLoginSerializer,
+        responses={
+            201: OpenApiResponse(
+                response=inline_serializer(
+                    name="StudentCreateLoginResponse",
+                    fields={
+                        "user_id": serializers.IntegerField(),
+                        "username": serializers.CharField(),
+                        "generated_password": serializers.CharField(allow_null=True),
+                        "role": serializers.CharField(),
+                    },
+                )
+            ),
+            404: OpenApiResponse(description="Student not found."),
+        },
+    )
     def post(self, request, student_id):
         admin_profile = request.user.account_profile
         student = get_scoped_student_for_admin(
@@ -293,6 +390,23 @@ class InstituteCreateLoginView(APIView):
     permission_classes = [IsAuthenticated, IsPlatformOrInstituteAdmin]
     throttle_classes = [AdminProvisionRateThrottle]
 
+    @extend_schema(
+        request=CreateLoginSerializer,
+        responses={
+            201: OpenApiResponse(
+                response=inline_serializer(
+                    name="InstituteCreateLoginResponse",
+                    fields={
+                        "user_id": serializers.IntegerField(),
+                        "username": serializers.CharField(),
+                        "generated_password": serializers.CharField(allow_null=True),
+                        "role": serializers.CharField(),
+                    },
+                )
+            ),
+            404: OpenApiResponse(description="Institute not found."),
+        },
+    )
     def post(self, request, institute_id):
         admin_profile = request.user.account_profile
         institute = get_scoped_institute_for_admin(
@@ -340,6 +454,23 @@ class TeacherCreateLoginView(APIView):
     permission_classes = [IsAuthenticated, IsPlatformOrInstituteAdmin]
     throttle_classes = [AdminProvisionRateThrottle]
 
+    @extend_schema(
+        request=CreateLoginSerializer,
+        responses={
+            201: OpenApiResponse(
+                response=inline_serializer(
+                    name="TeacherCreateLoginResponse",
+                    fields={
+                        "user_id": serializers.IntegerField(),
+                        "username": serializers.CharField(),
+                        "generated_password": serializers.CharField(allow_null=True),
+                        "role": serializers.CharField(),
+                    },
+                )
+            ),
+            404: OpenApiResponse(description="Teacher not found."),
+        },
+    )
     def post(self, request, teacher_id):
         admin_profile = request.user.account_profile
         teacher = get_scoped_teacher_for_admin(
@@ -386,6 +517,22 @@ class TeacherCreateLoginView(APIView):
 class UserResetPasswordView(APIView):
     permission_classes = [IsAuthenticated, IsPlatformOrInstituteAdmin]
 
+    @extend_schema(
+        request=ResetPasswordSerializer,
+        responses={
+            200: OpenApiResponse(
+                response=inline_serializer(
+                    name="UserResetPasswordResponse",
+                    fields={
+                        "user_id": serializers.IntegerField(),
+                        "username": serializers.CharField(),
+                        "generated_password": serializers.CharField(allow_null=True),
+                    },
+                )
+            ),
+            404: OpenApiResponse(description="User not found."),
+        },
+    )
     def post(self, request, user_id):
         admin_profile = request.user.account_profile
         user = get_scoped_user_for_admin(user_id=user_id, requesting_profile=admin_profile)
@@ -425,6 +572,21 @@ class UserResetPasswordView(APIView):
 class UserDisableView(APIView):
     permission_classes = [IsAuthenticated, IsPlatformOrInstituteAdmin]
 
+    @extend_schema(
+        request=None,
+        responses={
+            200: OpenApiResponse(
+                response=inline_serializer(
+                    name="UserDisableResponse",
+                    fields={
+                        "user_id": serializers.IntegerField(),
+                        "is_active": serializers.BooleanField(),
+                    },
+                )
+            ),
+            404: OpenApiResponse(description="User not found."),
+        },
+    )
     def post(self, request, user_id):
         admin_profile = request.user.account_profile
         user = get_scoped_user_for_admin(user_id=user_id, requesting_profile=admin_profile)
@@ -448,6 +610,21 @@ class UserDisableView(APIView):
 class UserEnableView(APIView):
     permission_classes = [IsAuthenticated, IsPlatformOrInstituteAdmin]
 
+    @extend_schema(
+        request=None,
+        responses={
+            200: OpenApiResponse(
+                response=inline_serializer(
+                    name="UserEnableResponse",
+                    fields={
+                        "user_id": serializers.IntegerField(),
+                        "is_active": serializers.BooleanField(),
+                    },
+                )
+            ),
+            404: OpenApiResponse(description="User not found."),
+        },
+    )
     def post(self, request, user_id):
         admin_profile = request.user.account_profile
         user = get_scoped_user_for_admin(user_id=user_id, requesting_profile=admin_profile)
@@ -471,11 +648,72 @@ class UserEnableView(APIView):
 class StudentAvailableExamView(APIView):
     permission_classes = [IsAuthenticated, IsStudent]
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name="source", type=str, required=False, enum=sorted(STUDENT_EXAM_SOURCE_FILTERS)),
+            OpenApiParameter(name="compact", type=bool, required=False),
+            OpenApiParameter(name="discovery", type=bool, required=False),
+            OpenApiParameter(name="dashboard", type=bool, required=False),
+            OpenApiParameter(name="catalog", type=bool, required=False),
+            OpenApiParameter(name="exam_type", type=str, required=False),
+            OpenApiParameter(name="exclude_exam_type", type=str, required=False),
+            OpenApiParameter(name="teacher", type=str, required=False),
+        ],
+        responses=inline_serializer(
+            name="StudentAvailableExamItem",
+            fields={
+                "id": serializers.UUIDField(),
+                "title": serializers.CharField(),
+                "code": serializers.CharField(),
+                "exam_type": serializers.CharField(required=False),
+                "status": serializers.CharField(required=False),
+                "source_type": serializers.CharField(required=False),
+                "availability_state": serializers.CharField(required=False),
+                "can_start": serializers.BooleanField(required=False),
+                "can_resume": serializers.BooleanField(required=False),
+                "start_access": serializers.DictField(required=False),
+                "economy_access": serializers.DictField(required=False),
+            },
+            many=True,
+        ),
+    )
     def get(self, request):
         student = request.user.account_profile.student_profile
+        student_attempts_queryset = (
+            StudentExamAttempt.objects.filter(
+                student=student,
+                is_active=True,
+            )
+            .select_related("result")
+            .prefetch_related(
+                Prefetch(
+                    "review_tasks",
+                    queryset=StudentAnswerReviewTask.objects.filter(
+                        is_active=True,
+                        status__in=REVIEW_TASK_UNRESOLVED_STATUSES,
+                    ).only("id", "attempt_id"),
+                    to_attr="_prefetched_unresolved_review_tasks",
+                )
+            )
+        )
         source_filter = str(request.query_params.get("source", "all") or "all").strip().lower()
         compact = str(request.query_params.get("compact", "") or "").strip().lower() == "true"
+        discovery = (
+            str(request.query_params.get("discovery", "") or "").strip().lower()
+            in {"1", "true", "yes"}
+        )
+        dashboard = (
+            str(request.query_params.get("dashboard", "") or "").strip().lower()
+            in {"1", "true", "yes"}
+        )
+        catalog = (
+            str(request.query_params.get("catalog", "") or "").strip().lower()
+            in {"1", "true", "yes"}
+        )
         exam_type_filter = str(request.query_params.get("exam_type", "") or "").strip().lower()
+        exclude_exam_type_filter = str(
+            request.query_params.get("exclude_exam_type", "") or ""
+        ).strip().lower()
         teacher_filter = str(
             request.query_params.get("teacher")
             or request.query_params.get("teacher_id")
@@ -483,7 +721,7 @@ class StudentAvailableExamView(APIView):
         ).strip()
         if source_filter not in STUDENT_EXAM_SOURCE_FILTERS:
             raise ValidationError({"source": "Invalid source filter."})
-        if compact:
+        if compact or discovery:
             queryset = scope_exam_queryset(
                 Exam.objects.select_related(
                     "institute",
@@ -494,14 +732,84 @@ class StudentAvailableExamView(APIView):
             ).filter(is_active=True).prefetch_related(
                 Prefetch(
                     "student_assignments",
+                    queryset=ExamStudentAssignment.objects.filter(
+                        is_active=True
+                    ).select_related("access_slot"),
                     to_attr="_prefetched_student_assignments",
                 ),
                 Prefetch(
-                    "attempts",
-                    queryset=StudentExamAttempt.objects.filter(
-                        student=student,
+                    "access_slots",
+                    queryset=ExamAccessSlot.objects.filter(
                         is_active=True,
-                    ).select_related("result"),
+                        status="active",
+                    )
+                    .annotate(
+                        active_assignment_count=Count(
+                            "student_assignments",
+                            filter=Q(student_assignments__is_active=True),
+                            distinct=True,
+                        ),
+                        active_attempt_count=Count(
+                            "attempts",
+                            filter=Q(attempts__is_active=True, attempts__status="in_progress"),
+                            distinct=True,
+                        ),
+                    )
+                    .order_by("slot_start_at", "created_at"),
+                    to_attr="_prefetched_active_access_slots",
+                ),
+                Prefetch(
+                    "attempts",
+                    queryset=student_attempts_queryset,
+                    to_attr="_prefetched_attempts_for_student",
+                ),
+            )
+        elif dashboard or catalog:
+            queryset = scope_exam_queryset(
+                Exam.objects.select_related(
+                    "institute",
+                    "subject",
+                    "source_teacher",
+                ),
+                request.user,
+            ).filter(is_active=True).prefetch_related(
+                Prefetch(
+                    "sections",
+                    queryset=ExamSection.objects.filter(is_active=True)
+                    .select_related("subject")
+                    .order_by("section_order", "created_at"),
+                ),
+                Prefetch(
+                    "student_assignments",
+                    queryset=ExamStudentAssignment.objects.filter(
+                        is_active=True
+                    ).select_related("access_slot"),
+                    to_attr="_prefetched_student_assignments",
+                ),
+                Prefetch(
+                    "access_slots",
+                    queryset=ExamAccessSlot.objects.filter(
+                        is_active=True,
+                        status="active",
+                    )
+                    .annotate(
+                        active_assignment_count=Count(
+                            "student_assignments",
+                            filter=Q(student_assignments__is_active=True),
+                            distinct=True,
+                        ),
+                        active_attempt_count=Count(
+                            "attempts",
+                            filter=Q(attempts__is_active=True, attempts__status="in_progress"),
+                            distinct=True,
+                        ),
+                    )
+                    .order_by("slot_start_at", "created_at"),
+                    to_attr="_prefetched_active_access_slots",
+                ),
+                Prefetch(
+                    "attempts",
+                    queryset=student_attempts_queryset,
                     to_attr="_prefetched_attempts_for_student",
                 ),
             )
@@ -525,16 +833,42 @@ class StudentAvailableExamView(APIView):
                 ),
                 Prefetch(
                     "student_assignments",
+                    queryset=ExamStudentAssignment.objects.filter(
+                        is_active=True
+                    ).select_related("access_slot"),
                     to_attr="_prefetched_student_assignments",
                 ),
                 Prefetch(
+                    "access_slots",
+                    queryset=ExamAccessSlot.objects.filter(
+                        is_active=True,
+                        status="active",
+                    )
+                    .annotate(
+                        active_assignment_count=Count(
+                            "student_assignments",
+                            filter=Q(student_assignments__is_active=True),
+                            distinct=True,
+                        ),
+                        active_attempt_count=Count(
+                            "attempts",
+                            filter=Q(attempts__is_active=True, attempts__status="in_progress"),
+                            distinct=True,
+                        ),
+                    )
+                    .order_by("slot_start_at", "created_at"),
+                    to_attr="_prefetched_active_access_slots",
+                ),
+                Prefetch(
                     "attempts",
-                    queryset=StudentExamAttempt.objects.filter(student=student, is_active=True).select_related("result"),
+                    queryset=student_attempts_queryset,
                     to_attr="_prefetched_attempts_for_student",
                 )
             )
         if exam_type_filter:
             queryset = queryset.filter(exam_type=exam_type_filter)
+        if exclude_exam_type_filter:
+            queryset = queryset.exclude(exam_type=exclude_exam_type_filter)
         exams = [exam for exam in queryset if is_exam_assigned_to_student(exam, student)]
         exams = filter_student_visible_exams_by_source(
             exams,
@@ -542,14 +876,23 @@ class StudentAvailableExamView(APIView):
             teacher_id=teacher_filter or None,
         )
         _hydrate_exam_access_policies(exams)
-        if not compact:
+        if not compact and not discovery and not dashboard and not catalog:
             ensure_exam_window_notifications(student, exams)
-        serializer_class = StudentExamFollowUpSerializer if compact else StudentExamAvailabilitySerializer
+        if catalog:
+            serializer_class = StudentExamCatalogSerializer
+        elif dashboard:
+            serializer_class = StudentExamDashboardSerializer
+        elif discovery:
+            serializer_class = StudentExamDiscoverySerializer
+        elif compact:
+            serializer_class = StudentExamFollowUpSerializer
+        else:
+            serializer_class = StudentExamAvailabilitySerializer
         return Response(
             serializer_class(
                 exams,
                 many=True,
-                context={"request": request},
+                context={"request": request, "persist_unlock_state": False},
             ).data
         )
 
@@ -557,6 +900,27 @@ class StudentAvailableExamView(APIView):
 class StudentExamDetailView(APIView):
     permission_classes = [IsAuthenticated, IsStudent]
 
+    @extend_schema(
+        parameters=[OpenApiParameter(name="exam_id", type=str, location=OpenApiParameter.PATH)],
+        responses={
+            200: OpenApiResponse(
+                response=inline_serializer(
+                    name="StudentExamReadinessResponse",
+                    fields={
+                        "id": serializers.UUIDField(),
+                        "title": serializers.CharField(),
+                        "code": serializers.CharField(),
+                        "status": serializers.CharField(),
+                        "start_access": serializers.DictField(required=False),
+                        "security_policy": serializers.DictField(required=False),
+                        "sections": serializers.ListField(child=serializers.DictField(), required=False),
+                        "questions": serializers.ListField(child=serializers.DictField(), required=False),
+                    },
+                )
+            ),
+            404: OpenApiResponse(description="Exam not found."),
+        },
+    )
     def get(self, request, exam_id):
         student = request.user.account_profile.student_profile
         queryset = scope_exam_queryset(
@@ -599,7 +963,18 @@ class StudentExamDetailView(APIView):
         queryset = queryset.prefetch_related(
             Prefetch(
                 "student_assignments",
+                queryset=ExamStudentAssignment.objects.filter(is_active=True).select_related(
+                    "access_slot"
+                ),
                 to_attr="_prefetched_student_assignments",
+            ),
+            Prefetch(
+                "access_slots",
+                queryset=ExamAccessSlot.objects.filter(
+                    is_active=True,
+                    status="active",
+                ).order_by("slot_start_at", "created_at"),
+                to_attr="_prefetched_active_access_slots",
             ),
         )
         exam = queryset.first()
@@ -614,6 +989,28 @@ class StudentExamDetailView(APIView):
 class StudentExamAccessKeyResolveView(APIView):
     permission_classes = [IsAuthenticated, IsStudent]
 
+    @extend_schema(
+        request=StudentExamAccessKeySerializer,
+        responses={
+            200: OpenApiResponse(
+                response=inline_serializer(
+                    name="StudentExamAccessKeyResolveResponse",
+                    fields={
+                        "id": serializers.UUIDField(),
+                        "title": serializers.CharField(),
+                        "code": serializers.CharField(),
+                        "status": serializers.CharField(),
+                        "start_access": serializers.DictField(required=False),
+                        "security_policy": serializers.DictField(required=False),
+                        "sections": serializers.ListField(child=serializers.DictField(), required=False),
+                        "questions": serializers.ListField(child=serializers.DictField(), required=False),
+                    },
+                )
+            ),
+            403: OpenApiResponse(description="Exam is not available to this student."),
+            404: OpenApiResponse(description="Invalid exam key."),
+        },
+    )
     def post(self, request):
         serializer = StudentExamAccessKeySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -667,7 +1064,18 @@ class StudentExamAccessKeyResolveView(APIView):
         queryset = queryset.prefetch_related(
             Prefetch(
                 "student_assignments",
+                queryset=ExamStudentAssignment.objects.filter(is_active=True).select_related(
+                    "access_slot"
+                ),
                 to_attr="_prefetched_student_assignments",
+            ),
+            Prefetch(
+                "access_slots",
+                queryset=ExamAccessSlot.objects.filter(
+                    is_active=True,
+                    status="active",
+                ).order_by("slot_start_at", "created_at"),
+                to_attr="_prefetched_active_access_slots",
             ),
         )
         exam = queryset.first()
@@ -702,6 +1110,7 @@ class StudentExamAccessKeyResolveView(APIView):
 class StudentAttemptListView(APIView):
     permission_classes = [IsAuthenticated, IsStudent]
 
+    @extend_schema(responses=StudentExamAttemptSerializer(many=True))
     def get(self, request):
         queryset = scope_student_queryset(
             StudentExamAttempt.objects.select_related(
@@ -743,14 +1152,13 @@ class StudentAttemptListView(APIView):
             ),
             request.user,
         ).filter(is_active=True)
-        from apps.attempts.serializers import StudentExamAttemptSerializer
-
         return Response(StudentExamAttemptSerializer(queryset, many=True).data)
 
 
 class StudentResultListView(APIView):
     permission_classes = [IsAuthenticated, IsStudent]
 
+    @extend_schema(responses=ExamResultListSerializer(many=True))
     def get(self, request):
         queryset = scope_student_queryset(
             ExamResult.objects.select_related(
@@ -778,6 +1186,16 @@ class StudentResultListView(APIView):
 class StudentInsightSummaryView(APIView):
     permission_classes = [IsAuthenticated, IsStudent]
 
+    @extend_schema(
+        responses=inline_serializer(
+            name="StudentInsightSummaryResponse",
+            fields={
+                "summary": serializers.DictField(required=False),
+                "cards": serializers.ListField(child=serializers.DictField(), required=False),
+                "recommendations": serializers.ListField(child=serializers.DictField(), required=False),
+            },
+        )
+    )
     def get(self, request):
         profile = request.user.account_profile
         payload = build_student_insight_summary(profile.student_profile)
@@ -787,6 +1205,23 @@ class StudentInsightSummaryView(APIView):
 class StudentQuestionAnalyticsView(APIView):
     permission_classes = [IsAuthenticated, IsStudent]
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name="subject", type=str, required=False),
+            OpenApiParameter(name="topic", type=str, required=False),
+            OpenApiParameter(name="question_type", type=str, required=False),
+            OpenApiParameter(name="source", type=str, required=False),
+            OpenApiParameter(name="teacher", type=str, required=False),
+        ],
+        responses=inline_serializer(
+            name="StudentQuestionAnalyticsResponse",
+            fields={
+                "summary": serializers.DictField(required=False),
+                "questions": serializers.ListField(child=serializers.DictField(), required=False),
+                "filters": serializers.DictField(required=False),
+            },
+        ),
+    )
     def get(self, request):
         profile = request.user.account_profile
         payload = build_student_question_analytics(
@@ -803,6 +1238,17 @@ class StudentQuestionAnalyticsView(APIView):
 class TeacherExamListView(APIView):
     permission_classes = [IsAuthenticated, CanBuildExams]
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name="page", type=int, required=False),
+            OpenApiParameter(name="page_size", type=int, required=False),
+            OpenApiParameter(name="filter", type=str, required=False),
+            OpenApiParameter(name="sort", type=str, required=False),
+            OpenApiParameter(name="search", type=str, required=False),
+            OpenApiParameter(name="teacher", type=str, required=False),
+        ],
+        responses=ExamListSerializer(many=True),
+    )
     def get(self, request):
         queryset = scope_teacher_queryset(
             Exam.objects.select_related(
@@ -957,6 +1403,7 @@ class TeacherExamListView(APIView):
 class TeacherQuestionListView(APIView):
     permission_classes = [IsAuthenticated, CanManageQuestionBank]
 
+    @extend_schema(responses=QuestionSerializer(many=True))
     def get(self, request):
         queryset = scope_question_queryset(
             Question.objects.select_related(
@@ -970,11 +1417,20 @@ class TeacherQuestionListView(APIView):
 class TeacherResultSummaryView(APIView):
     permission_classes = [IsAuthenticated, CanViewAnalytics]
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name="search", type=str, required=False),
+            OpenApiParameter(name="page_size", type=int, required=False),
+        ],
+        responses=ExamPerformanceSummarySerializer(many=True),
+    )
     def get(self, request):
         from apps.results.models import ExamPerformanceSummary
         from apps.attempts.services import REVIEW_TASK_UNRESOLVED_STATUSES
         from django.db.models import Count, Min, Q
 
+        search = (request.query_params.get("search") or "").strip()
+        requested_page_size = request.query_params.get("page_size")
         unresolved_statuses = tuple(REVIEW_TASK_UNRESOLVED_STATUSES)
         queryset = scope_teacher_queryset(
             ExamPerformanceSummary.objects.select_related(
@@ -1006,12 +1462,38 @@ class TeacherResultSummaryView(APIView):
                 filter=Q(exam__answer_review_tasks__status__in=unresolved_statuses),
             ),
         )
+        if search:
+            queryset = queryset.filter(
+                Q(exam__title__icontains=search)
+                | Q(exam__code__icontains=search)
+                | Q(exam__subject__name__icontains=search)
+            )
+
+        queryset = queryset.order_by("-updated_at", "exam__title")
+
+        if requested_page_size:
+            try:
+                page_size = max(1, min(int(requested_page_size), 20))
+            except (TypeError, ValueError):
+                page_size = 20
+            queryset = queryset[:page_size]
+
         return Response(ExamPerformanceSummarySerializer(queryset, many=True).data)
 
 
 class TeacherInsightSummaryView(APIView):
     permission_classes = [IsAuthenticated, CanViewAnalytics]
 
+    @extend_schema(
+        responses=inline_serializer(
+            name="TeacherInsightSummaryResponse",
+            fields={
+                "summary": serializers.DictField(required=False),
+                "cards": serializers.ListField(child=serializers.DictField(), required=False),
+                "recommendations": serializers.ListField(child=serializers.DictField(), required=False),
+            },
+        )
+    )
     def get(self, request):
         return Response(build_teacher_insight_summary(request.user))
 
@@ -1019,6 +1501,18 @@ class TeacherInsightSummaryView(APIView):
 class InstituteDashboardSummaryView(APIView):
     permission_classes = [IsAuthenticated, IsPlatformOrInstituteAdmin]
 
+    @extend_schema(
+        responses=inline_serializer(
+            name="InstituteDashboardSummaryResponse",
+            fields={
+                "institute": serializers.DictField(),
+                "counts": serializers.DictField(),
+                "derived": serializers.DictField(),
+                "recent_exam_analytics": serializers.ListField(child=serializers.DictField()),
+                "aggregate_score_distribution": serializers.ListField(child=serializers.DictField()),
+            },
+        )
+    )
     def get(self, request):
         from apps.attempts.services import unresolved_review_tasks_queryset
 
@@ -1218,5 +1712,15 @@ class InstituteDashboardSummaryView(APIView):
 class TeacherQuestionPerformanceView(APIView):
     permission_classes = [IsAuthenticated, CanViewAnalytics]
 
+    @extend_schema(
+        responses=inline_serializer(
+            name="TeacherQuestionPerformanceResponse",
+            fields={
+                "summary": serializers.DictField(required=False),
+                "questions": serializers.ListField(child=serializers.DictField(), required=False),
+                "filters": serializers.DictField(required=False),
+            },
+        )
+    )
     def get(self, request):
         return Response(build_teacher_question_performance_summary(request.user))

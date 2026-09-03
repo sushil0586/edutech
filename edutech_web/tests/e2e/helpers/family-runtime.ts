@@ -126,15 +126,6 @@ export function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function toDateTimeLocalValue(date: Date) {
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, "0");
-  const day = `${date.getDate()}`.padStart(2, "0");
-  const hours = `${date.getHours()}`.padStart(2, "0");
-  const minutes = `${date.getMinutes()}`.padStart(2, "0");
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
-}
-
 export async function backendAccessToken(page: Page) {
   const cookies = await page.context().cookies();
   const accessToken = cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
@@ -870,7 +861,7 @@ async function createScopedFamilyExam(
   const previewResponse = await previewResponsePromise;
   expect(previewResponse.ok(), await previewResponse.text()).toBe(true);
 
-  await expect(page.getByText(/preview refreshed\./i)).toBeVisible({ timeout: 60000 });
+  await expect(page.getByText(/preview refreshed\.|preview ready\./i)).toBeVisible({ timeout: 60000 });
 
   await page.getByRole("button", { name: /create advanced exam/i }).click();
   await expect(page).toHaveURL(new RegExp(`\\/${role}\\/exams\\/.+\\/builder\\?message=`), { timeout: 60000 });
@@ -1200,11 +1191,15 @@ export async function answerAndSubmitCurrentAttempt(
   examTitle: string,
 ) {
   await answerCurrentAttemptQuestion(page, uniqueSeed, prefix);
+  await page.getByRole("button", { name: /^save answer$/i }).click();
+  await expect(page.getByText(/1 saved|response updated successfully/i).first()).toBeVisible({
+    timeout: 30000,
+  });
 
   page.once("dialog", async (dialog) => {
     await dialog.accept();
   });
-  await page.getByRole("button", { name: /^submit test$/i }).click();
+  await page.getByRole("button", { name: /^(submit test|end test)$/i }).click();
 
   await expect(page).toHaveURL(
     /\/app\/attempts\/[^/?#]+(?:\/summary|\?question=[^#]+)(?:\?.*)?$/,

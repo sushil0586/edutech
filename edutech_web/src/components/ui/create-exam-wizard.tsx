@@ -7,6 +7,11 @@ import {
   getAssessmentExamFamilyMetadata,
   resolveAssessmentExamFamilyId,
 } from "@/lib/assessment/exam-family-metadata";
+import {
+  buildAssessmentFamilyExecutionChecklist,
+  resolveAssessmentFamilyIdFromProgramLike,
+  summarizeFamilyScoringDefaults,
+} from "@/lib/assessment/family-profile";
 
 type Option = {
   value: string;
@@ -164,83 +169,8 @@ function summarizePresetSections(
     .join(" | ");
 }
 
-function scoringDefaultsAuthoringNote(scoringDefaults: Record<string, unknown> | null | undefined) {
-  if (!scoringDefaults || typeof scoringDefaults !== "object") {
-    return "Standard positive scoring is assumed unless the exam shell overrides it.";
-  }
-  const negativeMarkingEnabled = Boolean(scoringDefaults.negative_marking_default);
-  const supportsNumericEntry = Boolean(scoringDefaults.supports_numeric_entry);
-  const recommendedAttemptPolicy =
-    typeof scoringDefaults.recommended_attempt_policy === "string"
-      ? scoringDefaults.recommended_attempt_policy.replaceAll("_", " ")
-      : "";
-
-  const parts = [
-    negativeMarkingEnabled
-      ? "Negative marking is expected by default."
-      : "Negative marking is not expected by default.",
-    supportsNumericEntry
-      ? "Numeric-entry items are part of this family contract."
-      : "Numeric-entry items are not a primary expectation for this family.",
-  ];
-  if (recommendedAttemptPolicy) {
-    parts.push(`Recommended attempt policy: ${recommendedAttemptPolicy}.`);
-  }
-  return parts.join(" ");
-}
-
-function buildFamilyExecutionChecklist(
-  familyId: ReturnType<typeof resolveAssessmentExamFamilyId>,
-  presetPack: (typeof examPresetPacks)[number] | null,
-) {
-  const questionMix = presetPack?.recommendations?.questionMixGuidance ?? "";
-  switch (familyId) {
-    case "neet":
-      return [
-        "Keep this mock-first: serious pacing, one-attempt discipline, and controlled post-submit visibility.",
-        "Use broad Biology, Chemistry, and Physics blocks instead of tiny chapter drills.",
-        questionMix || "Preserve a Biology-heavy objective mix with Chemistry and Physics support.",
-      ];
-    case "jee":
-      return [
-        "Use challenge-oriented timed sections instead of school-style short checks.",
-        "Include a numeric-answer lane when this paper is meant to mirror JEE solving depth.",
-        "Do not combine numeric-entry sections with negative marking in the current JEE contract.",
-      ];
-    case "gre":
-      return [
-        "Frame the exam as formal graduate-readiness practice, not a chapter test.",
-        "Keep review and result expectations aligned to total-score-first reporting.",
-        questionMix || "Balance quant reasoning across difficulty bands instead of clustering only easy prompts.",
-      ];
-    case "aws_certification":
-      return [
-        "Organize the exam around AWS domains or objectives rather than school chapters.",
-        "Favor scenario-based single-best-answer practice with explanation-friendly review.",
-        questionMix || "Keep service-domain coverage broad enough that readiness feels certification-oriented.",
-      ];
-    default:
-      return [];
-  }
-}
-
 function resolveProgramFamilyId(program: CreateExamWizardProps["programs"][number] | null) {
-  const candidates = [
-    program?.name,
-    program?.code,
-    program?.assessment_family_profile?.label,
-    program?.assessment_family_profile?.code,
-    program?.assessment_family_label,
-    program?.assessment_family_code,
-    program?.assessment_family,
-  ];
-  for (const candidate of candidates) {
-    const resolved = resolveAssessmentExamFamilyId(candidate);
-    if (resolved) {
-      return resolved;
-    }
-  }
-  return null;
+  return resolveAssessmentFamilyIdFromProgramLike(program, resolveAssessmentExamFamilyId);
 }
 
 function resolveProgramPresetPack(program: CreateExamWizardProps["programs"][number] | null) {
@@ -451,7 +381,7 @@ export function CreateExamWizard({
       return activePresetPack;
     }
     return resolveProgramPresetPack(selectedProgramRecord);
-  }, [selectedPresetPackId, selectedProgramRecord, selectedProgramFamilyId, selectedProgramBaseFamilyMetadata?.programFamilyCode]);
+  }, [selectedPresetPackId, selectedProgramRecord, selectedProgramFamilyId, selectedProgramBaseFamilyMetadata]);
   const effectiveFamilyId = useMemo(
     () => selectedProgramPresetPack?.familyId ?? selectedProgramFamilyId,
     [selectedProgramPresetPack?.familyId, selectedProgramFamilyId],
@@ -470,7 +400,11 @@ export function CreateExamWizard({
     );
   }, [selectedProgramFamilyMetadata?.programFamilyCode]);
   const familyExecutionChecklist = useMemo(
-    () => buildFamilyExecutionChecklist(effectiveFamilyId, selectedProgramPresetPack),
+    () =>
+      buildAssessmentFamilyExecutionChecklist(
+        effectiveFamilyId,
+        selectedProgramPresetPack?.recommendations?.questionMixGuidance ?? "",
+      ),
     [effectiveFamilyId, selectedProgramPresetPack],
   );
 
@@ -1276,8 +1210,9 @@ export function CreateExamWizard({
               <div className="builderHintPanel">
                 <strong>Scoring posture</strong>
                 <p>
-                  {scoringDefaultsAuthoringNote(
+                  {summarizeFamilyScoringDefaults(
                     selectedProgramRecord.assessment_family_profile.scoring_defaults,
+                    "builder",
                   )}
                 </p>
                 <small>

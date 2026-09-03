@@ -3,29 +3,6 @@ import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { fetchPrograms, fetchSubjects, fetchTopics } from "../helpers/assessment-family";
 import { expectAdminWorkspace } from "../helpers/navigation";
 
-async function waitForPrimarySubjectTopics(page: import("@playwright/test").Page) {
-  const firstTopicSelect = page.locator(".advancedBuilderTopicRow").first().locator("select");
-  await expect
-    .poll(async () => firstTopicSelect.locator("option").count(), {
-      timeout: 30000,
-      message: "Expected the advanced builder topic selector to load real topic options.",
-    })
-    .toBeGreaterThan(1);
-}
-
-async function selectFirstRealOption(locator: import("@playwright/test").Locator) {
-  const options = await locator.locator("option").evaluateAll((nodes) =>
-    nodes
-      .map((node) => ({
-        value: (node as HTMLOptionElement).value,
-        disabled: (node as HTMLOptionElement).disabled,
-      }))
-      .filter((option) => option.value && !option.disabled),
-  );
-  expect(options.length).toBeGreaterThan(0);
-  await locator.selectOption(options[0]!.value);
-}
-
 async function resolveScopeWithTopics(page: import("@playwright/test").Page, instituteId: string) {
   const programs = await fetchPrograms(page, instituteId);
   for (const program of programs) {

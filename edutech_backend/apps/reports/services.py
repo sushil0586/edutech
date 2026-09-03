@@ -273,35 +273,70 @@ def ensure_exam_window_notifications(student, exams):
         return
     user = profile.user
     now = timezone.now()
+    candidates = []
     for exam in exams:
         if not exam.is_active:
             continue
         if exam.start_at and now < exam.start_at:
             delta = exam.start_at - now
             if delta <= timedelta(minutes=30):
-                _create_notification_if_missing(
-                    institute=exam.institute,
-                    recipient_user=user,
-                    notification_type=NotificationType.EXAM_STARTING_SOON,
-                    title=f"{exam.title} starts soon",
-                    message=f"Your {exam.title} starts in {max(int(delta.total_seconds() // 60), 0)} minutes.",
-                    related_object_type="exam",
-                    related_object_id=exam.id,
-                    metadata={"exam_id": str(exam.id), "route": "student_exam_detail"},
+                candidates.append(
+                    {
+                        "institute": exam.institute,
+                        "notification_type": NotificationType.EXAM_STARTING_SOON,
+                        "title": f"{exam.title} starts soon",
+                        "message": f"Your {exam.title} starts in {max(int(delta.total_seconds() // 60), 0)} minutes.",
+                        "related_object_type": "exam",
+                        "related_object_id": str(exam.id),
+                        "metadata": {"exam_id": str(exam.id), "route": "student_exam_detail"},
+                    }
                 )
         elif exam.status in {"scheduled", "live"} and (
             exam.end_at is None or now <= exam.end_at
         ):
-            _create_notification_if_missing(
-                institute=exam.institute,
-                recipient_user=user,
-                notification_type=NotificationType.EXAM_LIVE,
-                title=f"{exam.title} is live",
-                message=f"{exam.title} is currently available. Start when you are ready within the exam window.",
-                related_object_type="exam",
-                related_object_id=exam.id,
-                metadata={"exam_id": str(exam.id), "route": "student_exam_detail"},
+            candidates.append(
+                {
+                    "institute": exam.institute,
+                    "notification_type": NotificationType.EXAM_LIVE,
+                    "title": f"{exam.title} is live",
+                    "message": f"{exam.title} is currently available. Start when you are ready within the exam window.",
+                    "related_object_type": "exam",
+                    "related_object_id": str(exam.id),
+                    "metadata": {"exam_id": str(exam.id), "route": "student_exam_detail"},
+                }
             )
+    if not candidates:
+        return
+
+    existing_keys = set(
+        InAppNotification.objects.filter(
+            recipient_user=user,
+            related_object_type="exam",
+            related_object_id__in=[candidate["related_object_id"] for candidate in candidates],
+            notification_type__in=[
+                NotificationType.EXAM_STARTING_SOON,
+                NotificationType.EXAM_LIVE,
+            ],
+            is_active=True,
+        ).values_list("notification_type", "related_object_id")
+    )
+    notifications = [
+        InAppNotification(
+            institute=candidate["institute"],
+            recipient_user=user,
+            notification_type=candidate["notification_type"],
+            title=candidate["title"],
+            message=candidate["message"],
+            related_object_type=candidate["related_object_type"],
+            related_object_id=candidate["related_object_id"],
+            metadata=candidate["metadata"],
+        )
+        for candidate in candidates
+        if (candidate["notification_type"], candidate["related_object_id"]) not in existing_keys
+    ]
+    if notifications:
+        InAppNotification.objects.bulk_create(notifications)
+        invalidate_notification_list_metadata_cache(user=user)
 
 
 @transaction.atomic

@@ -192,7 +192,7 @@ async function expectResolvedQuestionSet(page: Page, examId: string) {
   await expect(page.locator(".builderQuestionCard").first()).toBeVisible({ timeout: 30000 });
 }
 
-async function assignStudentToInstituteExam(page: Page, examId: string, studentDisplayName: string) {
+async function assignStudentToInstituteExam(page: Page, examId: string) {
   await page.goto(`/institute/exams/${examId}/builder?tab=assignment`);
   await expect(page.getByText(/student assignment/i).first()).toBeVisible();
 
@@ -253,7 +253,6 @@ async function expectInstituteVisibility(
   examId: string,
   examTitle: string,
   examType: InstituteAdvancedScenario["examType"],
-  studentDisplayName: string,
 ) {
   await page.goto(`/institute/exams/${examId}`);
   await expect(
@@ -311,14 +310,13 @@ test.describe("Institute exam creation advanced builder matrix", () => {
         examId = created.examId;
 
         await expectResolvedQuestionSet(page, examId);
-        await assignStudentToInstituteExam(page, examId, studentScope.displayName);
+        await assignStudentToInstituteExam(page, examId);
         await scheduleAndPublishInstituteExam(page, examId);
         await expectInstituteVisibility(
           page,
           examId,
           created.examTitle,
           scenario.examType,
-          studentScope.displayName,
         );
         await expectStudentVisibility(
           page,

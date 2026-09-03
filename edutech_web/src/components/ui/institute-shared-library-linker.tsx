@@ -285,7 +285,7 @@ export function InstituteSharedLibraryLinker({
             This page shows platform questions the institute is allowed to bring into its own bank. The safest workflow is: choose class, choose subject, choose one topic, review the list, then add only the rows teachers will actually use.
           </p>
           <small>
-            If this page looks empty, first ask whether package access is missing, the topic is unseeded, or the current filters are too narrow.
+            If this page looks empty, first ask whether package access is missing, the topic is not yet available in the platform library, or the current filters are too narrow.
           </small>
         </div>
         <div className="questionBankChipRow questionBankChipRowCompact">
@@ -387,7 +387,7 @@ export function InstituteSharedLibraryLinker({
           </div>
           <div className="questionBankCardMetaNote questionBankCardMetaNoteCompact">
             <span>Choose one topic only, especially for careful manual review.</span>
-            <span>When a topic shows zero source rows, it usually means the platform has not seeded content for that topic yet, not that the institute lost access.</span>
+            <span>When a topic shows zero source rows, it usually means the platform does not currently offer source content for that topic, not that the institute lost access.</span>
           </div>
           <div className="questionBankCardActions">
             <button
@@ -424,7 +424,7 @@ export function InstituteSharedLibraryLinker({
                     {topicSummary.availableCount === 0 ? (
                       <p className="questionBankCardMetaNote">
                         No platform questions are currently available for this topic. This usually means
-                        the platform has not seeded questions for this topic yet, not that the institute did anything wrong.
+                        the platform does not currently offer source rows for this topic, not that the institute did anything wrong.
                       </p>
                     ) : null}
                     {topicSummary.availableCount > 0 && topicSummary.remainingCount === 0 ? (

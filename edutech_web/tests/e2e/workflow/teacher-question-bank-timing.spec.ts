@@ -65,7 +65,7 @@ test.describe("Teacher question bank timing", () => {
       metrics,
       action: async () => {
         await searchField.fill("square root");
-        await page.getByRole("button", { name: /apply filters/i }).click();
+        await page.getByRole("button", { name: /update view|apply filters/i }).click();
       },
       assertVisible: async () => {
         await expect(page).toHaveURL(/search=square\+root|search=square%20root/);
@@ -78,13 +78,17 @@ test.describe("Teacher question bank timing", () => {
       metrics,
       action: async () => {
         await searchField.fill("playwright-no-match-zzqv-1781");
-        await page.getByRole("button", { name: /apply filters/i }).click();
+        await page.getByRole("button", { name: /update view|apply filters/i }).click();
       },
       assertVisible: async () => {
         await expect(
           page.getByText(/no questions match these filters|no shared library questions match this scope/i).first(),
         ).toBeVisible();
-        await expect(page.getByRole("link", { name: /reset filters and show all questions/i }).first()).toBeVisible();
+        await expect(
+          page.getByRole("link", { name: /reset filters and show all questions/i }).first().or(
+            page.getByRole("button", { name: /^reset$/i }).first(),
+          ),
+        ).toBeVisible();
       },
     });
 
@@ -92,7 +96,12 @@ test.describe("Teacher question bank timing", () => {
       label: "question-bank-reset",
       metrics,
       action: async () => {
-        await page.getByRole("link", { name: /reset filters and show all questions/i }).first().click();
+        const resetLink = page.getByRole("link", { name: /reset filters and show all questions/i }).first();
+        if (await resetLink.isVisible().catch(() => false)) {
+          await resetLink.click();
+          return;
+        }
+        await page.getByRole("button", { name: /^reset$/i }).first().click();
       },
       assertVisible: async () => {
         await expect(page).toHaveURL(/\/teacher\/question-bank(?:\?.*)?$/);
@@ -105,7 +114,7 @@ test.describe("Teacher question bank timing", () => {
       metrics,
       action: async () => {
         await page.goto("/teacher/question-bank", { waitUntil: "domcontentloaded" });
-        await page.getByRole("link", { name: /import questions csv/i }).click();
+        await page.getByRole("link", { name: /import questions(?: csv)?/i }).click();
       },
       assertVisible: async () => {
         await expect(page).toHaveURL(/\/teacher\/question-bank\/import(?:\?.*)?$/);
@@ -118,7 +127,7 @@ test.describe("Teacher question bank timing", () => {
       metrics,
       action: async () => {
         await page.goto("/teacher/question-bank", { waitUntil: "domcontentloaded" });
-        await page.getByRole("link", { name: /create question/i }).click();
+        await page.getByRole("link", { name: /create question|new question/i }).click();
       },
       assertVisible: async () => {
         await expect(page).toHaveURL(/\/teacher\/question-bank\/new(?:\?.*)?$/);

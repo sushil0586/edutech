@@ -54,8 +54,13 @@ class EconomyOperatorPolicyConfigAdmin(RichModelAdmin):
         "singleton_key",
         "institute_admin_can_confirm_orders",
         "institute_admin_max_confirm_order_amount",
+        "institute_admin_confirm_order_currency",
         "institute_admin_can_grant_stars",
         "institute_admin_max_grant_stars",
+        "platform_catalog_governance_scope",
+        "institute_catalog_governance_scope",
+        "platform_support_scope",
+        "institute_support_scope",
         "is_active",
     )
     readonly_fields = ("singleton_key", "created_at", "updated_at")

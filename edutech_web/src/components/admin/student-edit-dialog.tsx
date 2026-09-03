@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 type AcademicYearRecord = {
   id: string;
@@ -102,7 +102,7 @@ export function StudentEditDialog({
   const [isActive, setIsActive] = useState(row.is_active);
   const [fieldErrors, setFieldErrors] = useState<StudentFieldErrors>({});
 
-  function resetFormFields() {
+  const resetFormFields = useCallback(() => {
     setAdmissionNo(row.admission_no);
     setFirstName(row.first_name ?? row.full_name.split(" ")[0] ?? "");
     setLastName(row.last_name ?? row.full_name.split(" ").slice(1).join(" "));
@@ -119,7 +119,7 @@ export function StudentEditDialog({
     setIsActive(row.is_active);
     setFieldErrors({});
     setMessage("");
-  }
+  }, [row]);
 
   const filteredCohorts = useMemo(
     () =>
@@ -154,9 +154,10 @@ export function StudentEditDialog({
 
   useEffect(() => {
     if (!open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       resetFormFields();
     }
-  }, [open, row]);
+  }, [open, resetFormFields]);
 
   async function submitStudentUpdate() {
     const nextFieldErrors: StudentFieldErrors = {};

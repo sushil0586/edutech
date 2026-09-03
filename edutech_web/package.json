@@ -36,6 +36,7 @@
     "test:e2e:full-round": "PLAYWRIGHT_REAL_DATA_MODE=1 playwright test",
     "test:e2e:smoke": "playwright test --grep @smoke",
     "test:e2e:release-smoke": "playwright test tests/e2e/workflow/student-dashboard-workspace.spec.ts tests/e2e/workflow/student-exam-detail-workspace.spec.ts tests/e2e/workflow/student-results-workspace.spec.ts tests/e2e/workflow/teacher-results-workspace.spec.ts tests/e2e/workflow/institute-dashboard-workspace.spec.ts tests/e2e/workflow/institute-question-bank-workspace.spec.ts tests/e2e/workflow/admin-dashboard-workspace.spec.ts tests/e2e/workflow/admin-economy-workspace.spec.ts --project=chromium",
+    "test:e2e:release:parent-core": "npm run test:e2e:mutable:prepare-auth && ../edutech_backend/.venv/bin/python ../edutech_backend/manage.py seed_demo_parent_workspace && playwright test tests/e2e/workflow/parent-browser-coverage.spec.ts tests/e2e/workflow/parent-api-audit.spec.ts tests/e2e/workflow/parent-mobile-workflow.spec.ts --project=chromium",
     "test:e2e:release:student-core": "playwright test tests/e2e/workflow/student-dashboard-workspace.spec.ts tests/e2e/workflow/student-exam-detail-workspace.spec.ts tests/e2e/workflow/student-exam-key-workspace.spec.ts tests/e2e/workflow/student-attempt-runtime-workspace.spec.ts tests/e2e/workflow/student-post-submit-workspace.spec.ts tests/e2e/workflow/student-attempts-workspace.spec.ts tests/e2e/workflow/student-results-workspace.spec.ts tests/e2e/workflow/student-result-state-matrix-workspace.spec.ts tests/e2e/workflow/student-review-workspace.spec.ts tests/e2e/workflow/student-practice-workspace.spec.ts tests/e2e/workflow/student-practice-attempts-scope-persistence.spec.ts tests/e2e/workflow/student-analytics-deep.spec.ts tests/e2e/workflow/student-analytics-scope-persistence-workspace.spec.ts tests/e2e/workflow/student-analytics-timeline-compare-workspace.spec.ts tests/e2e/workflow/student-summary-review-scope-persistence.spec.ts tests/e2e/workflow/student-summary-review-source-persistence.spec.ts tests/e2e/workflow/student-utility-workspace.spec.ts tests/e2e/workflow/student-notifications-workspace.spec.ts tests/e2e/workflow/student-family-experience-detail.spec.ts tests/e2e/workflow/student-neet-full-mock-contract.spec.ts tests/e2e/workflow/student-jee-full-mock-contract.spec.ts tests/e2e/workflow/student-gre-quant-contract.spec.ts tests/e2e/workflow/student-aws-practice-contract.spec.ts tests/e2e/workflow/student-multi-subject-contract.spec.ts --project=chromium",
     "test:e2e:release:student-mutable-core": "playwright test tests/e2e/workflow/student-exam-detail-mutable.spec.ts tests/e2e/workflow/student-exam-key-mutable.spec.ts tests/e2e/workflow/student-attempt-mutable.spec.ts tests/e2e/workflow/student-practice-mutable.spec.ts tests/e2e/workflow/student-results-mutable.spec.ts tests/e2e/workflow/student-results-storytelling.mutable.spec.ts tests/e2e/workflow/student-analytics-drilldown.mutable.spec.ts tests/e2e/workflow/student-descriptive-result-storytelling.mutable.spec.ts tests/e2e/workflow/student-descriptive-analytics-continuity.mutable.spec.ts tests/e2e/workflow/student-long-session-runtime.mutable.spec.ts tests/e2e/workflow/student-mixed-result-history.mutable.spec.ts tests/e2e/workflow/student-multi-attempt-history.mutable.spec.ts --project=chromium",
     "test:e2e:release:student-mutable-family": "playwright test tests/e2e/workflow/student-neet-full-mock-lifecycle.mutable.spec.ts tests/e2e/workflow/student-jee-full-mock-lifecycle.mutable.spec.ts tests/e2e/workflow/student-gre-quant-lifecycle.mutable.spec.ts tests/e2e/workflow/student-aws-practice-lifecycle.mutable.spec.ts tests/e2e/workflow/student-multi-subject-lifecycle.mutable.spec.ts tests/e2e/workflow/student-family-weak-network.mutable.spec.ts tests/e2e/workflow/student-mobile-ju-full-mock-section-switching.mutable.spec.ts tests/e2e/workflow/student-mobile-attempt-runtime.mutable.spec.ts tests/e2e/workflow/student-opbms-class7-runtime.mutable.spec.ts tests/e2e/workflow/student-opbms-navigation-recovery.mutable.spec.ts --project=chromium",
@@ -98,7 +99,7 @@
     "test:load:dev:smoke-ramp": "K6_STAGES_JSON='[{\"duration\":\"30s\",\"target\":10},{\"duration\":\"60s\",\"target\":10},{\"duration\":\"30s\",\"target\":20},{\"duration\":\"60s\",\"target\":20},{\"duration\":\"30s\",\"target\":50},{\"duration\":\"60s\",\"target\":50},{\"duration\":\"30s\",\"target\":0}]' k6 run ../performance/k6/student-session-and-exam-discovery.js"
   },
   "dependencies": {
-    "next": "16.2.7",
+    "next": "16.3.3",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
@@ -108,7 +109,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.7",
+    "eslint-config-next": "16.3.3",
     "typescript": "^5"
   }
 }

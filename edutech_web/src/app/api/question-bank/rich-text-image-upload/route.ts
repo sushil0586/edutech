@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAuthenticatedSession, hasRequiredRole } from "@/lib/auth/session";
+import { getAuthenticatedSession, hasRequiredRole, PORTAL_ROLE_GROUPS } from "@/lib/auth/session";
 import { validateImageUpload } from "@/lib/http/upload-validation";
 
 const API_BASE_URL = (
@@ -12,7 +12,7 @@ export async function POST(request: Request) {
   }
 
   const session = await getAuthenticatedSession();
-  if (!session || !hasRequiredRole(session.profile, ["teacher", "institute_admin", "platform_admin"])) {
+  if (!session || !hasRequiredRole(session.profile, PORTAL_ROLE_GROUPS.teacherScopedOperators)) {
     return NextResponse.json({ detail: "Portal session is not available." }, { status: 401 });
   }
 

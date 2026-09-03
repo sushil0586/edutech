@@ -30,7 +30,7 @@ class AccountProfileSerializer(serializers.ModelSerializer):
     location_context = serializers.SerializerMethodField()
     acquisition_context = serializers.SerializerMethodField()
 
-    def get_display_name(self, obj):
+    def get_display_name(self, obj) -> str:
         student_profile = getattr(obj, "student_profile", None)
         if student_profile and student_profile.full_name.strip():
             return student_profile.full_name.strip()
@@ -51,13 +51,13 @@ class AccountProfileSerializer(serializers.ModelSerializer):
             return full_name
         return getattr(user, "username", "")
 
-    def get_institute_name(self, obj):
+    def get_institute_name(self, obj) -> str | None:
         institute = getattr(obj, "institute", None)
         if institute and getattr(institute, "name", "").strip():
             return institute.name.strip()
         return None
 
-    def get_student_context(self, obj):
+    def get_student_context(self, obj) -> dict | None:
         if obj.role != "student" or obj.student_profile_id is None:
             return None
 
@@ -115,7 +115,7 @@ class AccountProfileSerializer(serializers.ModelSerializer):
             ],
         }
 
-    def get_parent_context(self, obj):
+    def get_parent_context(self, obj) -> dict | None:
         if obj.role != "parent":
             return None
         parent_profile = getattr(obj, "parent_profile", None)
@@ -132,7 +132,7 @@ class AccountProfileSerializer(serializers.ModelSerializer):
             "has_active_links": active_relationships > 0,
         }
 
-    def get_location_context(self, obj):
+    def get_location_context(self, obj) -> dict | None:
         location_profile = getattr(obj, "location_profile", None)
         if location_profile is None:
             return None
@@ -152,7 +152,7 @@ class AccountProfileSerializer(serializers.ModelSerializer):
             "confirmed_at": location_profile.confirmed_at,
         }
 
-    def get_acquisition_context(self, obj):
+    def get_acquisition_context(self, obj) -> dict:
         acquisition_profile = getattr(obj, "acquisition_profile", None)
         if acquisition_profile is None:
             return None
@@ -208,7 +208,7 @@ class LoginAccountProfileSerializer(serializers.ModelSerializer):
     display_name = serializers.SerializerMethodField()
     institute_name = serializers.SerializerMethodField()
 
-    def get_display_name(self, obj):
+    def get_display_name(self, obj) -> str:
         student_profile = getattr(obj, "student_profile", None)
         if student_profile and student_profile.full_name.strip():
             return student_profile.full_name.strip()
@@ -229,7 +229,7 @@ class LoginAccountProfileSerializer(serializers.ModelSerializer):
             return full_name
         return getattr(user, "username", "")
 
-    def get_institute_name(self, obj):
+    def get_institute_name(self, obj) -> str | None:
         institute = getattr(obj, "institute", None)
         if institute and getattr(institute, "name", "").strip():
             return institute.name.strip()
@@ -314,19 +314,19 @@ class CredentialStatusMixin(serializers.Serializer):
     login_is_active = serializers.SerializerMethodField()
     account_user_id = serializers.SerializerMethodField()
 
-    def get_has_login(self, obj):
+    def get_has_login(self, obj) -> bool:
         return hasattr(obj, "account_profile") and obj.account_profile is not None
 
-    def get_login_username(self, obj):
+    def get_login_username(self, obj) -> str | None:
         profile = getattr(obj, "account_profile", None)
         return getattr(getattr(profile, "user", None), "username", None)
 
-    def get_login_is_active(self, obj):
+    def get_login_is_active(self, obj) -> bool:
         profile = getattr(obj, "account_profile", None)
         user = getattr(profile, "user", None)
         return bool(user and user.is_active)
 
-    def get_account_user_id(self, obj):
+    def get_account_user_id(self, obj) -> int | None:
         profile = getattr(obj, "account_profile", None)
         user = getattr(profile, "user", None)
         return getattr(user, "id", None)

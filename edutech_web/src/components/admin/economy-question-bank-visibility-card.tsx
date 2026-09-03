@@ -199,9 +199,11 @@ function parseDateValue(value: string | null | undefined) {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-function getEntitlementLifecycleLabel(entitlement: AdminInstituteQuestionEntitlement) {
+function getEntitlementLifecycleLabel(
+  entitlement: AdminInstituteQuestionEntitlement,
+  nowMs: number,
+) {
   const normalizedStatus = String(entitlement.status || "").toLowerCase();
-  const now = Date.now();
   const endsAt = parseDateValue(entitlement.ends_at);
 
   if (normalizedStatus === "revoked") {
@@ -210,11 +212,11 @@ function getEntitlementLifecycleLabel(entitlement: AdminInstituteQuestionEntitle
   if (normalizedStatus === "paused") {
     return "Paused";
   }
-  if (endsAt && endsAt.getTime() < now) {
+  if (endsAt && endsAt.getTime() < nowMs) {
     return "Expired";
   }
   if (normalizedStatus === "active" && endsAt) {
-    const daysUntilExpiry = (endsAt.getTime() - now) / (1000 * 60 * 60 * 24);
+    const daysUntilExpiry = (endsAt.getTime() - nowMs) / (1000 * 60 * 60 * 24);
     if (daysUntilExpiry <= 14) {
       return "Active · Expiring soon";
     }
@@ -222,7 +224,10 @@ function getEntitlementLifecycleLabel(entitlement: AdminInstituteQuestionEntitle
   return titleCase(entitlement.status) || "Unknown";
 }
 
-function getEntitlementLifecycleHelper(entitlement: AdminInstituteQuestionEntitlement) {
+function getEntitlementLifecycleHelper(
+  entitlement: AdminInstituteQuestionEntitlement,
+  nowMs: number,
+) {
   const normalizedStatus = String(entitlement.status || "").toLowerCase();
   const startsAt = parseDateValue(entitlement.starts_at);
   const endsAt = parseDateValue(entitlement.ends_at);
@@ -233,7 +238,7 @@ function getEntitlementLifecycleHelper(entitlement: AdminInstituteQuestionEntitl
   if (normalizedStatus === "paused") {
     return "Paused by operator. Shared-library usage is blocked until the entitlement is reactivated.";
   }
-  if (endsAt && endsAt.getTime() < Date.now()) {
+  if (endsAt && endsAt.getTime() < nowMs) {
     return `Expired on ${formatDateLabel(entitlement.ends_at)}. Renewal or a replacement grant is required.`;
   }
   if (endsAt) {
@@ -789,6 +794,7 @@ export function EconomyQuestionBankVisibilityCard({
   featureEntitlements: AdminInstituteQuestionFeatureEntitlement[];
   usageEntries: AdminInstituteQuestionUsageEntry[];
 }) {
+  const [currentTimeMs] = useState(() => Date.now());
   const [entitlements, setEntitlements] = useState(initialEntitlements);
   const [featureEntitlements, setFeatureEntitlements] = useState(initialFeatureEntitlements);
   const [entitlementDrafts, setEntitlementDrafts] = useState<
@@ -1223,10 +1229,10 @@ export function EconomyQuestionBankVisibilityCard({
             {entitlement.question_bank_package_code} · owner {entitlement.package_owner_institute_code}
           </span>
           <span>
-            Status: {getEntitlementLifecycleLabel(entitlement)} · {titleCase(entitlement.question_bank_package_type)} ·{" "}
+            Status: {getEntitlementLifecycleLabel(entitlement, currentTimeMs)} · {titleCase(entitlement.question_bank_package_type)} ·{" "}
             {titleCase(entitlement.question_bank_package_access_mode)} · via {prettify(entitlement.granted_via)}
           </span>
-          <span>{getEntitlementLifecycleHelper(entitlement)}</span>
+          <span>{getEntitlementLifecycleHelper(entitlement, currentTimeMs)}</span>
           <span>
             {entitlement.subscription_plan_name
               ? `${entitlement.subscription_plan_name}${entitlement.subscription_cycle_label ? ` · ${entitlement.subscription_cycle_label}` : ""}`
@@ -1353,8 +1359,8 @@ export function EconomyQuestionBankVisibilityCard({
                 ? `Starts ${formatDateLabel(entitlement.starts_at)}`
                 : "Not scheduled"}
           </span>
-          <span className={`statusTag statusTag${titleCase(lifecycleTone(getEntitlementLifecycleLabel(entitlement)))}`}>
-            {getEntitlementLifecycleLabel(entitlement)}
+          <span className={`statusTag statusTag${titleCase(lifecycleTone(getEntitlementLifecycleLabel(entitlement, currentTimeMs)))}`}>
+            {getEntitlementLifecycleLabel(entitlement, currentTimeMs)}
           </span>
           <span className={`statusTag statusTag${titleCase(diagnosis.tone)}`}>
             {diagnosis.title}

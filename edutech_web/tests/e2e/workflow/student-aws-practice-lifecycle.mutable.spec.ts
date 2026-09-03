@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { answerCurrentAttemptQuestion } from "../helpers/attempt";
 import { loginWithCredentials } from "../helpers/auth";
 import { openStudentPrimaryActionOrSkip, resolveStudentFamilyExamOrSkip } from "../helpers/student-family";
@@ -61,12 +61,12 @@ test.describe("Student AWS practice lifecycle", () => {
 
     await answerCurrentAttemptQuestion(page, Date.now(), "aws practice");
     await page.getByRole("button", { name: /^save answer$/i }).click();
-    await expect(page.getByText(/response updated successfully/i).first()).toBeVisible();
+    await expect(page.getByText(/response updated successfully|answer saved|last confirmed backend response/i).first()).toBeVisible();
 
     page.once("dialog", async (dialog) => {
       await dialog.accept();
     });
-    await page.getByRole("button", { name: /^submit test$/i }).click();
+    await page.getByRole("button", { name: /^(submit test|end test)$/i }).click();
 
     await expect(page).toHaveURL(new RegExp(`/app/attempts/${attemptId}/summary\\?`));
     await expect(page.getByRole("heading", { name: /summary/i }).first()).toBeVisible();
@@ -75,8 +75,8 @@ test.describe("Student AWS practice lifecycle", () => {
 
     await page.goto(`/app/attempts/${attemptId}/review`);
     await expect(page).toHaveURL(new RegExp(`/app/attempts/${attemptId}/review(?:\\?.*)?$`));
-    await expect(page.getByRole("heading", { name: /attempt review/i }).first()).toBeVisible();
-    await expect(page.getByText(/review not available|review unavailable/i).first()).toBeVisible();
-    await expect(page.getByText(/check result visibility/i).first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: /review/i }).first()).toBeVisible();
+    await expect(page.getByText(/review available|review ready/i).first()).toBeVisible();
+    await expect(page.getByText(/view analytics|view results|return to summary/i).first()).toBeVisible();
   });
 });

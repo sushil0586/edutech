@@ -36,20 +36,20 @@ class InstituteAdminCredentialMixin(serializers.Serializer):
         active_profile = next((profile for profile in profiles if profile.is_active), None)
         return active_profile or profiles[0]
 
-    def get_has_login(self, obj):
+    def get_has_login(self, obj) -> bool:
         profile = self._get_institute_admin_profile(obj)
         return bool(profile and getattr(profile, "user", None))
 
-    def get_login_username(self, obj):
+    def get_login_username(self, obj) -> str | None:
         profile = self._get_institute_admin_profile(obj)
         return getattr(getattr(profile, "user", None), "username", None)
 
-    def get_login_is_active(self, obj):
+    def get_login_is_active(self, obj) -> bool:
         profile = self._get_institute_admin_profile(obj)
         user = getattr(profile, "user", None)
         return bool(user and user.is_active)
 
-    def get_account_user_id(self, obj):
+    def get_account_user_id(self, obj) -> int | None:
         profile = self._get_institute_admin_profile(obj)
         user = getattr(profile, "user", None)
         return getattr(user, "id", None)
@@ -292,36 +292,36 @@ class InstituteSerializer(InstituteAdminCredentialMixin, serializers.ModelSerial
         if value <= 0:
             raise serializers.ValidationError({key: "Value must be greater than zero."})
 
-    def get_onboarding_run_id(self, obj):
+    def get_onboarding_run_id(self, obj) -> str | None:
         created_run_id = getattr(obj, "_created_onboarding_run_id", None)
         if created_run_id:
             return created_run_id
         latest_run = self._get_latest_onboarding_run(obj)
         return str(latest_run.id) if latest_run is not None else None
 
-    def get_onboarding_run_status(self, obj):
+    def get_onboarding_run_status(self, obj) -> str | None:
         created_run_status = getattr(obj, "_created_onboarding_run_status", None)
         if created_run_status:
             return created_run_status
         latest_run = self._get_latest_onboarding_run(obj)
         return latest_run.status if latest_run is not None else None
 
-    def get_latest_onboarding_profile_code(self, obj):
+    def get_latest_onboarding_profile_code(self, obj) -> str | None:
         latest_run = self._get_latest_onboarding_run(obj)
         return latest_run.profile_code if latest_run is not None else None
 
-    def get_latest_onboarding_profile_name(self, obj):
+    def get_latest_onboarding_profile_name(self, obj) -> str | None:
         latest_run = self._get_latest_onboarding_run(obj)
         if latest_run is None:
             return None
         profile = getattr(latest_run, "profile", None)
         return profile.name if profile is not None else None
 
-    def get_latest_onboarding_source(self, obj):
+    def get_latest_onboarding_source(self, obj) -> str | None:
         latest_run = self._get_latest_onboarding_run(obj)
         return latest_run.source if latest_run is not None else None
 
-    def get_latest_onboarding_completed_at(self, obj):
+    def get_latest_onboarding_completed_at(self, obj) -> str | None:
         latest_run = self._get_latest_onboarding_run(obj)
         if latest_run is None or latest_run.completed_at is None:
             return None
@@ -381,17 +381,17 @@ class InstituteOnboardingRunListSerializer(serializers.Serializer):
     error_summary = serializers.CharField(read_only=True)
     created_at = serializers.DateTimeField(read_only=True)
 
-    def get_profile_name(self, obj):
+    def get_profile_name(self, obj) -> str | None:
         profile = getattr(obj, "profile", None)
         return profile.name if profile is not None else None
 
-    def get_task_count(self, obj):
+    def get_task_count(self, obj) -> int:
         annotated = getattr(obj, "task_total", None)
         if annotated is not None:
             return annotated
         return obj.tasks.count()
 
-    def get_completed_task_count(self, obj):
+    def get_completed_task_count(self, obj) -> int:
         annotated = getattr(obj, "task_completed_total", None)
         if annotated is not None:
             return annotated
@@ -423,6 +423,6 @@ class InstituteOnboardingRunDetailSerializer(serializers.Serializer):
     error_summary = serializers.CharField(read_only=True)
     created_at = serializers.DateTimeField(read_only=True)
 
-    def get_profile_name(self, obj):
+    def get_profile_name(self, obj) -> str | None:
         profile = getattr(obj, "profile", None)
         return profile.name if profile is not None else None

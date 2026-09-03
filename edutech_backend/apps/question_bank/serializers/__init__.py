@@ -7,6 +7,26 @@ from apps.academics.assessment_family_contracts import (
 )
 from apps.academics.services import QUESTION_DIFFICULTY_NAMESPACE, validate_option_catalog_code
 from apps.academics.models import Topic
+from apps.question_bank.constants import (
+    ASSERTION_REASON_DEFAULT_OPTIONS,
+    FILL_IN_BLANKS_MARKER,
+    QUESTION_METADATA_ACCEPTED_ANSWERS_KEY,
+    QUESTION_METADATA_ASSERTION_REASON_KEY,
+    QUESTION_METADATA_ASSERTION_TEXT_KEY,
+    QUESTION_METADATA_BLANK_COUNT_KEY,
+    QUESTION_METADATA_FILL_IN_BLANKS_KEY,
+    QUESTION_METADATA_MATRIX_LEFT_ITEMS_KEY,
+    QUESTION_METADATA_MATRIX_MATCH_KEY,
+    QUESTION_METADATA_MATRIX_RIGHT_ITEMS_KEY,
+    QUESTION_METADATA_NUMERIC_TOLERANCE_KEY,
+    QUESTION_METADATA_NUMERIC_VALIDATION_KEY,
+    QUESTION_METADATA_RUBRIC_CRITERIA_KEY,
+    QUESTION_METADATA_RUBRIC_KEY,
+    QUESTION_METADATA_RUBRIC_MODE_KEY,
+    QUESTION_METADATA_RUBRIC_MODE_CRITERION_SCORES,
+    QUESTION_METADATA_REASON_TEXT_KEY,
+    QUESTION_METADATA_REVIEW_GUIDANCE_KEY,
+)
 from apps.question_bank.models import (
     ContentFormat,
     InstituteQuestionAccessStatus,
@@ -43,15 +63,6 @@ from apps.question_bank.services import (
 from decimal import Decimal, InvalidOperation
 
 
-FILL_IN_BLANKS_MARKER = "[[blank]]"
-ASSERTION_REASON_DEFAULT_OPTIONS = [
-    "Both Assertion and Reason are true, and Reason is the correct explanation of Assertion.",
-    "Both Assertion and Reason are true, but Reason is not the correct explanation of Assertion.",
-    "Assertion is true, but Reason is false.",
-    "Assertion is false, but Reason is true.",
-]
-
-
 def _decimal_string(value):
     if isinstance(value, Decimal):
         return format(value.quantize(Decimal("0.01")), "f")
@@ -71,16 +82,16 @@ def _normalized_accepted_answers(values):
 def _extract_accepted_answers(metadata):
     if not isinstance(metadata, dict):
         return []
-    return _normalized_accepted_answers(metadata.get("accepted_answers", []))
+    return _normalized_accepted_answers(metadata.get(QUESTION_METADATA_ACCEPTED_ANSWERS_KEY, []))
 
 
 def _extract_numeric_tolerance(metadata):
     if not isinstance(metadata, dict):
         return None
-    numeric_validation = metadata.get("numeric_validation", {})
+    numeric_validation = metadata.get(QUESTION_METADATA_NUMERIC_VALIDATION_KEY, {})
     if not isinstance(numeric_validation, dict):
         return None
-    tolerance = numeric_validation.get("tolerance")
+    tolerance = numeric_validation.get(QUESTION_METADATA_NUMERIC_TOLERANCE_KEY)
     if tolerance in (None, ""):
         return None
     return str(tolerance)
@@ -93,10 +104,13 @@ def _fill_in_blanks_marker_count(question_text):
 def _extract_assertion_reason(metadata):
     if not isinstance(metadata, dict):
         return "", ""
-    payload = metadata.get("assertion_reason", {})
+    payload = metadata.get(QUESTION_METADATA_ASSERTION_REASON_KEY, {})
     if not isinstance(payload, dict):
         return "", ""
-    return str(payload.get("assertion_text", "") or ""), str(payload.get("reason_text", "") or "")
+    return (
+        str(payload.get(QUESTION_METADATA_ASSERTION_TEXT_KEY, "") or ""),
+        str(payload.get(QUESTION_METADATA_REASON_TEXT_KEY, "") or ""),
+    )
 
 
 def _normalized_text_list(values):
@@ -111,22 +125,22 @@ def _normalized_text_list(values):
 def _extract_matrix_match(metadata):
     if not isinstance(metadata, dict):
         return [], []
-    payload = metadata.get("matrix_match", {})
+    payload = metadata.get(QUESTION_METADATA_MATRIX_MATCH_KEY, {})
     if not isinstance(payload, dict):
         return [], []
     return (
-        _normalized_text_list(payload.get("left_items", [])),
-        _normalized_text_list(payload.get("right_items", [])),
+        _normalized_text_list(payload.get(QUESTION_METADATA_MATRIX_LEFT_ITEMS_KEY, [])),
+        _normalized_text_list(payload.get(QUESTION_METADATA_MATRIX_RIGHT_ITEMS_KEY, [])),
     )
 
 
 def _extract_rubric_criteria(metadata):
     if not isinstance(metadata, dict):
         return []
-    rubric = metadata.get("rubric", {})
+    rubric = metadata.get(QUESTION_METADATA_RUBRIC_KEY, {})
     if not isinstance(rubric, dict):
         return []
-    criteria = rubric.get("criteria", [])
+    criteria = rubric.get(QUESTION_METADATA_RUBRIC_CRITERIA_KEY, [])
     if not isinstance(criteria, list):
         return []
 
@@ -334,12 +348,12 @@ class QuestionOptionSerializer(serializers.ModelSerializer):
         attrs["option_text"] = sanitize_content_by_format(content_format, attrs.get("option_text", ""))
         return attrs
 
-    def get_selection_rate(self, obj):
+    def get_selection_rate(self, obj) -> float:
         question = getattr(obj, "question", None)
         usage_count = getattr(question, "usage_count", 0) or 0
         return _attempt_rate(getattr(obj, "selected_count", 0) or 0, usage_count)
 
-    def get_distractor_signal(self, obj):
+    def get_distractor_signal(self, obj) -> str:
         selected_count = getattr(obj, "selected_count", 0) or 0
         selected_correct_count = getattr(obj, "selected_correct_count", 0) or 0
         selected_wrong_count = getattr(obj, "selected_wrong_count", 0) or 0
@@ -359,7 +373,7 @@ class QuestionOptionSerializer(serializers.ModelSerializer):
             return "working_distractor"
         return "light_distractor"
 
-    def get_distractor_note(self, obj):
+    def get_distractor_note(self, obj) -> str:
         signal = self.get_distractor_signal(obj)
         if signal == "validated_key":
             return "Students are finding the keyed answer reliably."
@@ -410,7 +424,7 @@ class QuestionAttachmentSerializer(serializers.ModelSerializer):
             "updated_at",
         )
 
-    def get_file_url(self, obj):
+    def get_file_url(self, obj) -> str:
         try:
             return obj.file.url
         except ValueError:
@@ -443,7 +457,7 @@ class QuestionPassageQuestionSerializer(serializers.ModelSerializer):
         )
         read_only_fields = fields
 
-    def get_question_type_definition(self, obj):
+    def get_question_type_definition(self, obj) -> dict:
         return get_question_type_definition_payload(obj.question_type)
 
 
@@ -476,7 +490,7 @@ class QuestionPassageSerializer(serializers.ModelSerializer):
             "updated_at",
         )
 
-    def get_linked_question_count(self, obj):
+    def get_linked_question_count(self, obj) -> int:
         annotated = getattr(obj, "linked_question_count", None)
         if annotated is not None:
             return annotated
@@ -555,13 +569,13 @@ class QuestionPassageListSerializer(serializers.ModelSerializer):
         )
         read_only_fields = fields
 
-    def get_linked_question_count(self, obj):
+    def get_linked_question_count(self, obj) -> int:
         annotated = getattr(obj, "linked_question_count", None)
         if annotated is not None:
             return annotated
         return obj.questions.filter(is_active=True).count()
 
-    def get_created_by_teacher_name(self, obj):
+    def get_created_by_teacher_name(self, obj) -> str:
         teacher = getattr(obj, "created_by_teacher", None)
         return getattr(teacher, "full_name", "") or ""
 
@@ -667,55 +681,55 @@ class QuestionSerializer(serializers.ModelSerializer):
             "updated_at",
         )
 
-    def get_correct_attempt_percentage(self, obj):
+    def get_correct_attempt_percentage(self, obj) -> float:
         usage = getattr(obj, "usage_count", 0) or 0
         if not usage:
             return "0.00"
         return f"{(getattr(obj, 'correct_count', 0) / usage) * 100:.2f}"
 
-    def get_wrong_attempt_percentage(self, obj):
+    def get_wrong_attempt_percentage(self, obj) -> float:
         usage = getattr(obj, "usage_count", 0) or 0
         if not usage:
             return "0.00"
         return f"{(getattr(obj, 'wrong_count', 0) / usage) * 100:.2f}"
 
-    def get_skip_percentage(self, obj):
+    def get_skip_percentage(self, obj) -> float:
         usage = getattr(obj, "usage_count", 0) or 0
         if not usage:
             return "0.00"
         return f"{(getattr(obj, 'skipped_count', 0) / usage) * 100:.2f}"
 
-    def get_has_explanation(self, obj):
+    def get_has_explanation(self, obj) -> bool:
         return bool((obj.explanation or "").strip())
 
-    def get_correct_rate(self, obj):
+    def get_correct_rate(self, obj) -> float:
         return _question_quality_payload(obj)["correct_rate"]
 
-    def get_wrong_rate(self, obj):
+    def get_wrong_rate(self, obj) -> float:
         return _question_quality_payload(obj)["wrong_rate"]
 
-    def get_skip_rate(self, obj):
+    def get_skip_rate(self, obj) -> float:
         return _question_quality_payload(obj)["skip_rate"]
 
-    def get_quality_signal(self, obj):
+    def get_quality_signal(self, obj) -> str:
         return _question_quality_payload(obj)["quality_signal"]
 
-    def get_revision_priority(self, obj):
+    def get_revision_priority(self, obj) -> str:
         return _question_quality_payload(obj)["revision_priority"]
 
-    def get_quality_note(self, obj):
+    def get_quality_note(self, obj) -> str:
         return _question_quality_payload(obj)["quality_note"]
 
-    def get_question_type_definition(self, obj):
+    def get_question_type_definition(self, obj) -> dict:
         return get_question_type_definition_payload(obj.question_type)
 
-    def get_is_shared_library_link(self, obj):
+    def get_is_shared_library_link(self, obj) -> bool:
         master_question = getattr(obj, "master_question", None)
         if master_question is None:
             return False
         return str(getattr(master_question, "source_type", "") or "").strip() == "platform"
 
-    def get_shared_library_access_active(self, obj):
+    def get_shared_library_access_active(self, obj) -> bool:
         if not self.get_is_shared_library_link(obj):
             return None
         access_map = self.context.get("question_shared_library_access_map", {})
@@ -724,7 +738,7 @@ class QuestionSerializer(serializers.ModelSerializer):
             return access_map[question_id]
         return institute_has_question_authoring_access(obj.institute, question=obj)
 
-    def get_shared_library_access_state(self, obj):
+    def get_shared_library_access_state(self, obj) -> dict | None:
         if not self.get_is_shared_library_link(obj):
             return "not_applicable"
         return "active" if self.get_shared_library_access_active(obj) else "inactive"
@@ -734,7 +748,7 @@ class QuestionSerializer(serializers.ModelSerializer):
         data["accepted_answers"] = _extract_accepted_answers(instance.metadata)
         data["numeric_tolerance"] = _extract_numeric_tolerance(instance.metadata)
         metadata = instance.metadata if isinstance(instance.metadata, dict) else {}
-        data["review_guidance"] = str(metadata.get("review_guidance", "") or "")
+        data["review_guidance"] = str(metadata.get(QUESTION_METADATA_REVIEW_GUIDANCE_KEY, "") or "")
         data["rubric_criteria"] = _extract_rubric_criteria(instance.metadata)
         assertion_text, reason_text = _extract_assertion_reason(instance.metadata)
         data["assertion_text"] = assertion_text
@@ -790,9 +804,9 @@ class QuestionSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({"assertion_text": "Assertion text is required."})
             if not reason_text:
                 raise serializers.ValidationError({"reason_text": "Reason text is required."})
-            metadata["assertion_reason"] = {
-                "assertion_text": assertion_text,
-                "reason_text": reason_text,
+            metadata[QUESTION_METADATA_ASSERTION_REASON_KEY] = {
+                QUESTION_METADATA_ASSERTION_TEXT_KEY: assertion_text,
+                QUESTION_METADATA_REASON_TEXT_KEY: reason_text,
             }
             attrs["question_text"] = (
                 "Assertion:\n"
@@ -809,7 +823,7 @@ class QuestionSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {"reason_text": f"{question_type_definition.label} does not use reason text."}
                 )
-            metadata.pop("assertion_reason", None)
+            metadata.pop(QUESTION_METADATA_ASSERTION_REASON_KEY, None)
 
         if question_type == QuestionType.MATRIX_MATCH:
             if len(matrix_left_items) < 2:
@@ -820,9 +834,9 @@ class QuestionSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {"matrix_right_items": "Provide at least two right-column items for matrix match questions."}
                 )
-            metadata["matrix_match"] = {
-                "left_items": matrix_left_items,
-                "right_items": matrix_right_items,
+            metadata[QUESTION_METADATA_MATRIX_MATCH_KEY] = {
+                QUESTION_METADATA_MATRIX_LEFT_ITEMS_KEY: matrix_left_items,
+                QUESTION_METADATA_MATRIX_RIGHT_ITEMS_KEY: matrix_right_items,
             }
         else:
             if matrix_left_items:
@@ -833,7 +847,7 @@ class QuestionSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {"matrix_right_items": f"{question_type_definition.label} does not use matrix right-column items."}
                 )
-            metadata.pop("matrix_match", None)
+            metadata.pop(QUESTION_METADATA_MATRIX_MATCH_KEY, None)
 
         if question_type != QuestionType.ASSERTION_REASON and not str(attrs.get("question_text", "") or "").strip():
             raise serializers.ValidationError({"question_text": "Question text is required."})
@@ -857,28 +871,30 @@ class QuestionSerializer(serializers.ModelSerializer):
                         )
                     }
                 )
-            metadata["fill_in_blanks"] = {"blank_count": blank_count}
+            metadata[QUESTION_METADATA_FILL_IN_BLANKS_KEY] = {
+                QUESTION_METADATA_BLANK_COUNT_KEY: blank_count
+            }
         else:
-            metadata.pop("fill_in_blanks", None)
+            metadata.pop(QUESTION_METADATA_FILL_IN_BLANKS_KEY, None)
 
         if question_type_supports_review_guidance(question_type):
             if accepted_answers_provided and accepted_answers:
                 raise serializers.ValidationError(
                     {"accepted_answers": f"{question_type_definition.label} does not use accepted answers."}
                 )
-            metadata.pop("accepted_answers", None)
+            metadata.pop(QUESTION_METADATA_ACCEPTED_ANSWERS_KEY, None)
         elif question_type_supports_accepted_answers(question_type):
             if not accepted_answers:
                 raise serializers.ValidationError(
                     {"accepted_answers": "Provide at least one accepted answer for text-based question types."}
                 )
-            metadata["accepted_answers"] = accepted_answers
+            metadata[QUESTION_METADATA_ACCEPTED_ANSWERS_KEY] = accepted_answers
         elif accepted_answers and accepted_answers_provided:
             raise serializers.ValidationError(
                 {"accepted_answers": f"{question_type_definition.label} does not use accepted answers."}
             )
         else:
-            metadata.pop("accepted_answers", None)
+            metadata.pop(QUESTION_METADATA_ACCEPTED_ANSWERS_KEY, None)
 
         if question_type_supports_numeric_tolerance(question_type):
             if numeric_tolerance_input is serializers.empty:
@@ -896,7 +912,7 @@ class QuestionSerializer(serializers.ModelSerializer):
                 normalized_value = format(numeric_value.normalize(), "f")
                 if normalized_value not in normalized_numeric_answers:
                     normalized_numeric_answers.append(normalized_value)
-            metadata["accepted_answers"] = normalized_numeric_answers
+            metadata[QUESTION_METADATA_ACCEPTED_ANSWERS_KEY] = normalized_numeric_answers
 
             if tolerance_value:
                 try:
@@ -909,18 +925,20 @@ class QuestionSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError(
                         {"numeric_tolerance": "Numeric tolerance cannot be negative."}
                     )
-                metadata["numeric_validation"] = {"tolerance": format(tolerance_decimal.normalize(), "f")}
+                metadata[QUESTION_METADATA_NUMERIC_VALIDATION_KEY] = {
+                    QUESTION_METADATA_NUMERIC_TOLERANCE_KEY: format(tolerance_decimal.normalize(), "f")
+                }
             else:
-                metadata.pop("numeric_validation", None)
+                metadata.pop(QUESTION_METADATA_NUMERIC_VALIDATION_KEY, None)
         else:
             if numeric_tolerance_input not in {serializers.empty, None, ""} and str(numeric_tolerance_input).strip():
                 raise serializers.ValidationError(
                     {"numeric_tolerance": "Numeric tolerance is only supported for numeric-answer questions."}
                 )
-            metadata.pop("numeric_validation", None)
+            metadata.pop(QUESTION_METADATA_NUMERIC_VALIDATION_KEY, None)
 
         if review_guidance_input is serializers.empty:
-            review_guidance = str(metadata.get("review_guidance", "") or "").strip()
+            review_guidance = str(metadata.get(QUESTION_METADATA_REVIEW_GUIDANCE_KEY, "") or "").strip()
         else:
             review_guidance = str(review_guidance_input or "").strip()
 
@@ -934,29 +952,29 @@ class QuestionSerializer(serializers.ModelSerializer):
 
         if question_type_supports_review_guidance(question_type):
             if review_guidance:
-                metadata["review_guidance"] = review_guidance
+                metadata[QUESTION_METADATA_REVIEW_GUIDANCE_KEY] = review_guidance
             else:
-                metadata.pop("review_guidance", None)
+                metadata.pop(QUESTION_METADATA_REVIEW_GUIDANCE_KEY, None)
             if rubric_criteria is serializers.empty:
                 rubric_criteria = _extract_rubric_criteria(metadata)
             if rubric_criteria:
-                metadata["rubric"] = {
-                    "mode": "criterion_scores",
-                    "criteria": rubric_criteria,
+                metadata[QUESTION_METADATA_RUBRIC_KEY] = {
+                    QUESTION_METADATA_RUBRIC_MODE_KEY: QUESTION_METADATA_RUBRIC_MODE_CRITERION_SCORES,
+                    QUESTION_METADATA_RUBRIC_CRITERIA_KEY: rubric_criteria,
                 }
             else:
-                metadata.pop("rubric", None)
+                metadata.pop(QUESTION_METADATA_RUBRIC_KEY, None)
         else:
             if review_guidance_input not in {serializers.empty, None, ""} and review_guidance:
                 raise serializers.ValidationError(
                     {"review_guidance": "Review guidance is only supported for essay manual-review questions."}
                 )
-            metadata.pop("review_guidance", None)
+            metadata.pop(QUESTION_METADATA_REVIEW_GUIDANCE_KEY, None)
             if rubric_criteria_input is not serializers.empty and rubric_criteria_input not in (None, "") and rubric_criteria:
                 raise serializers.ValidationError(
                     {"rubric_criteria": "Rubric criteria are only supported for essay manual-review questions."}
                 )
-            metadata.pop("rubric", None)
+            metadata.pop(QUESTION_METADATA_RUBRIC_KEY, None)
 
         attrs["metadata"] = metadata
 
@@ -1160,48 +1178,48 @@ class QuestionListSerializer(serializers.ModelSerializer):
         )
         read_only_fields = fields
 
-    def get_has_explanation(self, obj):
+    def get_has_explanation(self, obj) -> bool:
         return bool((obj.explanation or "").strip())
 
-    def get_created_by_teacher_name(self, obj):
+    def get_created_by_teacher_name(self, obj) -> str:
         teacher = getattr(obj, "created_by_teacher", None)
         return getattr(teacher, "full_name", "") or ""
 
-    def get_passage_title(self, obj):
+    def get_passage_title(self, obj) -> str:
         passage = getattr(obj, "passage", None)
         return getattr(passage, "title", "") or ""
 
-    def get_wrong_attempt_percentage(self, obj):
+    def get_wrong_attempt_percentage(self, obj) -> float:
         usage = getattr(obj, "usage_count", 0) or 0
         if not usage:
             return "0.00"
         return f"{(getattr(obj, 'wrong_count', 0) / usage) * 100:.2f}"
 
-    def get_skip_percentage(self, obj):
+    def get_skip_percentage(self, obj) -> float:
         usage = getattr(obj, "usage_count", 0) or 0
         if not usage:
             return "0.00"
         return f"{(getattr(obj, 'skipped_count', 0) / usage) * 100:.2f}"
 
-    def get_correct_rate(self, obj):
+    def get_correct_rate(self, obj) -> float:
         return _question_quality_payload(obj)["correct_rate"]
 
-    def get_wrong_rate(self, obj):
+    def get_wrong_rate(self, obj) -> float:
         return _question_quality_payload(obj)["wrong_rate"]
 
-    def get_skip_rate(self, obj):
+    def get_skip_rate(self, obj) -> float:
         return _question_quality_payload(obj)["skip_rate"]
 
-    def get_quality_signal(self, obj):
+    def get_quality_signal(self, obj) -> str:
         return _question_quality_payload(obj)["quality_signal"]
 
-    def get_revision_priority(self, obj):
+    def get_revision_priority(self, obj) -> str:
         return _question_quality_payload(obj)["revision_priority"]
 
-    def get_quality_note(self, obj):
+    def get_quality_note(self, obj) -> str:
         return _question_quality_payload(obj)["quality_note"]
 
-    def get_is_quality_ready(self, obj):
+    def get_is_quality_ready(self, obj) -> bool:
         has_explanation = self.get_has_explanation(obj)
         correct_option_count = getattr(obj, "correct_option_count", 0) or 0
         option_count = getattr(obj, "option_count", 0) or 0
@@ -1216,16 +1234,16 @@ class QuestionListSerializer(serializers.ModelSerializer):
             return has_explanation and correct_option_count > 0 and option_count == 2
         return has_explanation and correct_option_count > 0 and option_count >= 2
 
-    def get_question_type_definition(self, obj):
+    def get_question_type_definition(self, obj) -> dict:
         return get_question_type_definition_payload(obj.question_type)
 
-    def get_is_shared_library_link(self, obj):
+    def get_is_shared_library_link(self, obj) -> bool:
         master_question = getattr(obj, "master_question", None)
         if master_question is None:
             return False
         return str(getattr(master_question, "source_type", "") or "").strip() == "platform"
 
-    def get_shared_library_access_active(self, obj):
+    def get_shared_library_access_active(self, obj) -> bool:
         if not self.get_is_shared_library_link(obj):
             return None
         access_map = self.context.get("question_shared_library_access_map", {})
@@ -1234,7 +1252,7 @@ class QuestionListSerializer(serializers.ModelSerializer):
             return access_map[question_id]
         return institute_has_question_authoring_access(obj.institute, question=obj)
 
-    def get_shared_library_access_state(self, obj):
+    def get_shared_library_access_state(self, obj) -> dict | None:
         if not self.get_is_shared_library_link(obj):
             return "not_applicable"
         return "active" if self.get_shared_library_access_active(obj) else "inactive"
@@ -1296,49 +1314,49 @@ class MasterQuestionLibrarySerializer(serializers.ModelSerializer):
         )
         read_only_fields = fields
 
-    def get_source_topic_code(self, obj):
+    def get_source_topic_code(self, obj) -> str:
         topic = getattr(obj, "source_topic", None)
         return getattr(topic, "code", None)
 
-    def get_source_topic_name(self, obj):
+    def get_source_topic_name(self, obj) -> str:
         topic = getattr(obj, "source_topic", None)
         return getattr(topic, "name", None)
 
-    def get_option_count(self, obj):
+    def get_option_count(self, obj) -> int:
         annotated = getattr(obj, "option_count", None)
         if annotated is not None:
             return annotated
         return obj.options.filter(is_active=True).count()
 
-    def get_has_access(self, obj):
+    def get_has_access(self, obj) -> bool:
         access_map = self.context.get("master_question_access_map", {})
         return access_map.get(str(obj.id))
 
-    def get_has_entitlement(self, obj):
+    def get_has_entitlement(self, obj) -> bool:
         entitlement_map = self.context.get("master_question_entitlement_map", {})
         return entitlement_map.get(str(obj.id))
 
-    def get_access_availability(self, obj):
+    def get_access_availability(self, obj) -> dict:
         availability_map = self.context.get("master_question_availability_map", {})
         return availability_map.get(str(obj.id), "")
 
-    def get_quota_limited(self, obj):
+    def get_quota_limited(self, obj) -> bool:
         quota_limited_map = self.context.get("master_question_quota_limited_map", {})
         return quota_limited_map.get(str(obj.id))
 
-    def get_quota_exhausted(self, obj):
+    def get_quota_exhausted(self, obj) -> bool:
         quota_exhausted_map = self.context.get("master_question_quota_exhausted_map", {})
         return quota_exhausted_map.get(str(obj.id))
 
-    def get_quota_note(self, obj):
+    def get_quota_note(self, obj) -> str:
         quota_note_map = self.context.get("master_question_quota_note_map", {})
         return quota_note_map.get(str(obj.id), "")
 
-    def get_matching_packages(self, obj):
+    def get_matching_packages(self, obj) -> list:
         package_map = self.context.get("master_question_package_map", {})
         return package_map.get(str(obj.id), [])
 
-    def get_access_status(self, obj):
+    def get_access_status(self, obj) -> str:
         status_map = self.context.get("master_question_status_map", {})
         return status_map.get(str(obj.id), "")
 

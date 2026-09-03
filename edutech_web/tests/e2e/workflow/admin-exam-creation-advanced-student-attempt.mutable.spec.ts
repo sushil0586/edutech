@@ -176,13 +176,13 @@ async function createAdminAdvancedMockExam(
   await firstTopicRow.locator('input[type="number"]').fill("1");
 
   await page.getByRole("button", { name: /preview exam/i }).click();
-  await expect(page.getByText(/preview refreshed\./i)).toBeVisible({ timeout: 60000 });
+  await expect(page.getByText(/preview ready\./i)).toBeVisible({ timeout: 60000 });
   await expect(page.getByText(/run preview when you are ready/i)).toHaveCount(0);
   await expect(page.getByText(/preview resolution/i).first()).toBeVisible();
 
   await page.getByRole("button", { name: /create advanced exam/i }).click();
   await expect(page).toHaveURL(/\/admin\/exams\/.+\/builder\?message=/, { timeout: 60000 });
-  await expect(page.getByText(/advanced exam created successfully\./i)).toBeVisible();
+  await expect(page.getByText(/advanced exam created (with \d+ active questions|successfully)\./i)).toBeVisible();
 
   const examId = page.url().match(/\/admin\/exams\/([^/?#]+)\/builder/)?.[1] ?? null;
   expect(examId).not.toBeNull();
@@ -320,23 +320,16 @@ async function attemptExamAsStudent(page: Page, examId: string, examTitle: strin
     page.waitForURL(/notice=.*confirmedAt=/),
     page.getByRole("button", { name: /^save (&|and) review$/i }).click(),
   ]);
-  await expect(
-    page
-      .locator(".feedbackBannerSuccess")
-      .filter({
-        hasText:
-          /response updated successfully|answer saved\. moving to the next question|answer saved\. you have reached the final question/i,
-      })
-      .first(),
-  ).toBeVisible();
+  await expect(page.getByText(/last confirmed action/i).first()).toBeVisible();
+  await expect(page.getByText(/response updated successfully/i).first()).toBeVisible();
   await expect(page.getByText(/1 saved/i).first()).toBeVisible();
-  await expect(page.getByText(/last confirmed save/i).first()).toBeVisible();
+  await expect(page.getByText(/last confirmed backend response/i).first()).toBeVisible();
   await expect(page.getByText(/nothing confirmed yet/i)).toHaveCount(0);
 
   page.once("dialog", async (dialog) => {
     await dialog.accept();
   });
-  await page.getByRole("button", { name: /^submit test$/i }).click();
+  await page.getByRole("button", { name: /^(submit test|end test)$/i }).click();
 
   await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/summary\?/);
   await expect(page.getByRole("heading", { name: /summary/i }).first()).toBeVisible();

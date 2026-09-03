@@ -1,5 +1,4 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { getRoleCredentials } from "../fixtures/env";
 import { answerCurrentAttemptQuestion } from "../helpers/attempt";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
@@ -57,24 +56,6 @@ async function expectOneOf(primary: Locator, secondary: Locator) {
     return;
   }
   await expect(secondary).toBeVisible();
-}
-
-async function selectFirstNonEmptyOption(locator: Locator) {
-  let optionValue: string | null = null;
-  await expect
-    .poll(async () => {
-      const values = await locator.locator("option").evaluateAll((options) =>
-        options.map((option) => (option as HTMLOptionElement).value),
-      );
-      optionValue = values.find((value) => value.trim().length > 0) ?? null;
-      return optionValue;
-    }, {
-      timeout: 15000,
-      message: "Expected hydrated select options to include a non-empty value",
-    })
-    .not.toBeNull();
-  await locator.selectOption(optionValue!);
-  return optionValue!;
 }
 
 async function deleteInstituteExam(page: Page, examId: string) {
@@ -374,10 +355,6 @@ test.describe("Institute mutable results actions", () => {
   }) => {
     test.setTimeout(240000);
 
-    const studentCredentials = getRoleCredentials("student");
-    expect(studentCredentials).not.toBeNull();
-
-    let studentDisplayName = studentCredentials!.username;
     let questionId: string | null = null;
     let examId: string | null = null;
     const uniqueSeed = Date.now();
@@ -392,7 +369,6 @@ test.describe("Institute mutable results actions", () => {
       await loginAsRole(page, "student");
       await expectStudentWorkspace(page);
       const studentScope = await resolveStudentProfileScope(page);
-      studentDisplayName = studentScope.displayName;
       const studentSessionProfile = await fetchSessionProfile(page);
       const studentProfileId = studentSessionProfile.student_profile?.trim() ?? "";
       expect(studentProfileId).not.toBe("");
@@ -620,17 +596,32 @@ test.describe("Institute mutable results actions", () => {
       await expect(calculateRanksButton).toBeVisible();
       await calculateRanksButton.click();
       await expect
-        .poll(async () => /message=/.test(page.url()) || Boolean((await fetchLeaderboardSummary(page, ensuredExamId))?.all_ranked))
+        .poll(async () => (await fetchLeaderboardSummary(page, ensuredExamId))?.ranked_count ?? 0, {
+          timeout: 15000,
+          message: `Expected leaderboard summary for exam ${ensuredExamId} to rank the learner.`,
+        })
+        .toBe(1);
+      await expect
+        .poll(async () => Boolean((await fetchLeaderboardSummary(page, ensuredExamId))?.all_ranked), {
+          timeout: 15000,
+          message: `Expected leaderboard summary for exam ${ensuredExamId} to mark all learners ranked.`,
+        })
         .toBe(true);
 
       const publishResultsButton = page.getByRole("button", { name: /publish results/i }).first();
       if (await publishResultsButton.isVisible().catch(() => false)) {
         await publishResultsButton.click();
         await expect
-          .poll(
-            async () =>
-              /message=/.test(page.url()) || Boolean((await fetchLeaderboardSummary(page, ensuredExamId))?.published_results),
-          )
+          .poll(async () => (await fetchLeaderboardSummary(page, ensuredExamId))?.published_count ?? 0, {
+            timeout: 15000,
+            message: `Expected leaderboard summary for exam ${ensuredExamId} to publish the learner result.`,
+          })
+          .toBe(1);
+        await expect
+          .poll(async () => Boolean((await fetchLeaderboardSummary(page, ensuredExamId))?.published_results), {
+            timeout: 15000,
+            message: `Expected leaderboard summary for exam ${ensuredExamId} to confirm published results.`,
+          })
           .toBe(true);
       } else {
         await expect

@@ -191,12 +191,13 @@ test.describe("Teacher mutable comprehension import finalize lane", () => {
       await page.getByRole("button", { name: /preview import/i }).click();
 
       await expect(page.getByText(/preview results/i).first()).toBeVisible();
-      await expect(page.getByRole("button", { name: /finalize import \(1\)/i })).toBeVisible();
+      const importValidRowsButton = page.getByRole("button", { name: /import valid rows \(1\)/i });
+      await expect(importValidRowsButton).toBeVisible();
       await expect(page.locator(".builderSummaryCard").filter({ has: page.getByText(/^preview valid rows$/i) }).locator("strong")).toHaveText("1");
       await expect(page.locator(".builderSummaryCard").filter({ has: page.getByText(/^preview invalid rows$/i) }).locator("strong")).toHaveText("0");
       await expect(page.getByText(new RegExp(escapeRegExp(title), "i")).first()).toBeVisible();
 
-      await page.getByRole("button", { name: /finalize import \(1\)/i }).click();
+      await importValidRowsButton.click();
 
       await expect(
         page.getByText(/1 comprehension set\(s\) were imported into the question bank\./i).first(),

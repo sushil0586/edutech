@@ -8,9 +8,19 @@ from django.core.exceptions import ValidationError
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 
+from apps.economy.constants import (
+    COMMERCIAL_PATH_ALIASES,
+    REFEREE_STUDENT_ID_METADATA_KEY,
+    REFERRAL_CODE_METADATA_KEY,
+    REFERRAL_EVENT_ID_METADATA_KEY,
+    REFERRER_STUDENT_ID_METADATA_KEY,
+    SIGNUP_TRIGGER,
+    TRIGGER_METADATA_KEY,
+)
 from apps.economy.models import (
     ContentAccessPolicy,
     EconomyBalanceSource,
+    LedgerEntrySourceType,
     InstituteQuestionEntitlement,
     InstituteQuestionEntitlementStatus,
     InstituteQuestionFeatureEntitlement,
@@ -88,7 +98,7 @@ class EconomyServicesTestCase(TestCase):
 
         credit_entry = credit_stars(
             student=self.student,
-            source_type="signup_bonus",
+            source_type=LedgerEntrySourceType.SIGNUP_BONUS,
             reason="Signup reward",
             stars=100,
             balance_source=EconomyBalanceSource.EARNED,
@@ -212,16 +222,7 @@ class EconomyServicesTestCase(TestCase):
         self.assertEqual(unlocked_state.status, "unlocked")
 
     def test_resolve_access_policy_commercial_path_normalizes_exam_aliases(self):
-        alias_expectations = {
-            "free_exam": "free",
-            "star_unlock_exam": "stars_only",
-            "subscription_covered_exam": "subscription_only",
-            "subscription_or_stars_exam": "subscription_or_stars",
-            "institute_sponsored_exam": "institute_sponsored",
-            "platform_sponsored_exam": "platform_managed",
-        }
-
-        for explicit_path, expected in alias_expectations.items():
+        for explicit_path, expected in COMMERCIAL_PATH_ALIASES.items():
             policy = ContentAccessPolicy(
                 institute=self.context["institute"],
                 content_type="exam",
@@ -256,6 +257,7 @@ class EconomyServicesTestCase(TestCase):
         self.assertEqual(len(second_run), 0)
         self.assertEqual(profile.available_stars, 100)
         self.assertEqual(created_events[0].ledger_entry.source_type, "signup_bonus")
+        self.assertEqual(created_events[0].metadata[TRIGGER_METADATA_KEY], SIGNUP_TRIGGER)
 
     def test_process_exam_result_rewards_applies_completion_and_threshold_rules(self):
         RewardRule.objects.create(
@@ -341,6 +343,19 @@ class EconomyServicesTestCase(TestCase):
         self.assertEqual(event.referee_student_id, self.student.id)
         self.assertEqual(event.referrer_ledger_entry.stars_delta, 50)
         self.assertEqual(event.referee_ledger_entry.stars_delta, 25)
+        self.assertEqual(event.metadata[REFERRAL_CODE_METADATA_KEY], referral_code.code)
+        self.assertEqual(
+            event.referrer_ledger_entry.metadata[REFERRAL_EVENT_ID_METADATA_KEY],
+            str(event.id),
+        )
+        self.assertEqual(
+            event.referrer_ledger_entry.metadata[REFEREE_STUDENT_ID_METADATA_KEY],
+            str(self.student.id),
+        )
+        self.assertEqual(
+            event.referee_ledger_entry.metadata[REFERRER_STUDENT_ID_METADATA_KEY],
+            str(referrer.id),
+        )
 
         referrer_profile = get_or_create_student_economy_profile(referrer)
         referee_profile = get_or_create_student_economy_profile(self.student)

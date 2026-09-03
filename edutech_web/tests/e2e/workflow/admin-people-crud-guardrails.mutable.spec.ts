@@ -33,32 +33,6 @@ function buildPeopleViewHref(view: "students" | "teachers", instituteId?: string
   return `/admin/people?${params.toString()}`;
 }
 
-async function openTeacherRow(
-  page: Page,
-  employeeCode: string,
-  instituteId?: string | null,
-) {
-  await page.goto(buildPeopleViewHref("teachers", instituteId));
-  await expect(page.getByRole("heading", { name: /teacher roster/i })).toBeVisible();
-  await page.getByRole("textbox", { name: /search roster/i }).fill(employeeCode);
-  const row = page.locator(".adminPeopleRosterTable tbody tr").filter({ hasText: employeeCode }).first();
-  await expect(row).toBeVisible();
-  return row;
-}
-
-async function openStudentRow(
-  page: Page,
-  admissionNo: string,
-  instituteId?: string | null,
-) {
-  await page.goto(buildPeopleViewHref("students", instituteId));
-  await expect(page.getByRole("heading", { name: /student roster/i })).toBeVisible();
-  await page.getByRole("textbox", { name: /search roster/i }).fill(admissionNo);
-  const row = page.locator(".adminPeopleRosterTable tbody tr").filter({ hasText: admissionNo }).first();
-  await expect(row).toBeVisible();
-  return row;
-}
-
 async function openFirstTeacherRow(
   page: Page,
   instituteId?: string | null,

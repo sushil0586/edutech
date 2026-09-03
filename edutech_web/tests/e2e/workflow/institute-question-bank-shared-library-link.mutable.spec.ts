@@ -170,17 +170,6 @@ async function findLinkableSharedLibraryCard(cards: Locator) {
   return fallbackCard;
 }
 
-function escapeRegex(text: string) {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function findSharedLibraryCardByExactTitle(cards: Locator, questionText: string) {
-  const exactTitle = new RegExp(`^${escapeRegex(questionText)}$`);
-  return cards.filter({
-    has: cards.locator("strong").filter({ hasText: exactTitle }),
-  }).first();
-}
-
 async function findResolvableInstituteLinkableRow(
   page: Page,
   accessToken: string,

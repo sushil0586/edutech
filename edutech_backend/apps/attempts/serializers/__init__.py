@@ -1,3 +1,4 @@
+from datetime import datetime
 from decimal import Decimal
 
 from rest_framework import serializers
@@ -401,14 +402,14 @@ class StudentAnswerSerializer(serializers.ModelSerializer):
             "updated_at",
         )
 
-    def get_question_text_summary(self, obj):
+    def get_question_text_summary(self, obj) -> str:
         text = obj.question.question_text.strip()
         return text[:120] + ("..." if len(text) > 120 else "")
 
-    def get_selected_option_ids(self, obj):
+    def get_selected_option_ids(self, obj) -> list:
         return resolved_selected_option_ids(obj)
 
-    def get_selected_option_texts(self, obj):
+    def get_selected_option_texts(self, obj) -> list:
         selected_ids = self.get_selected_option_ids(obj)
         if not selected_ids:
             return []
@@ -515,12 +516,12 @@ class StudentAnswerReviewEventSerializer(serializers.ModelSerializer):
             "created_at",
         )
 
-    def get_actor_user_name(self, obj):
+    def get_actor_user_name(self, obj) -> str:
         if obj.actor_user_id:
             return obj.actor_user.get_username()
         return ""
 
-    def get_actor_teacher_name(self, obj):
+    def get_actor_teacher_name(self, obj) -> str:
         return obj.actor_teacher.full_name if obj.actor_teacher_id else ""
 
 
@@ -611,27 +612,27 @@ class StudentAnswerReviewTaskSerializer(serializers.ModelSerializer):
             "updated_at",
         )
 
-    def get_question_text_summary(self, obj):
+    def get_question_text_summary(self, obj) -> str:
         text = (obj.question.question_text or "").strip()
         return text[:160] + ("..." if len(text) > 160 else "")
 
-    def get_question_type_definition(self, obj):
+    def get_question_type_definition(self, obj) -> dict:
         attempt = self.context.get("attempt")
         return question_type_definition_payload_for_question(obj.question, exam=getattr(attempt, "exam", None))
 
-    def get_assertion_text(self, obj):
+    def get_assertion_text(self, obj) -> str:
         return assertion_reason_fields_for_question(obj.question)[0]
 
-    def get_reason_text(self, obj):
+    def get_reason_text(self, obj) -> str:
         return assertion_reason_fields_for_question(obj.question)[1]
 
-    def get_matrix_left_items(self, obj):
+    def get_matrix_left_items(self, obj) -> list:
         return matrix_match_fields_for_question(obj.question)[0]
 
-    def get_matrix_right_items(self, obj):
+    def get_matrix_right_items(self, obj) -> list:
         return matrix_match_fields_for_question(obj.question)[1]
 
-    def get_passage_detail(self, obj):
+    def get_passage_detail(self, obj) -> dict | None:
         passage = getattr(obj.question, "passage", None)
         if passage is None:
             return None
@@ -643,7 +644,7 @@ class StudentAnswerReviewTaskSerializer(serializers.ModelSerializer):
             "description": passage.description,
         }
 
-    def get_attachments(self, obj):
+    def get_attachments(self, obj) -> list:
         return [
             {
                 "id": str(attachment.id),
@@ -659,39 +660,39 @@ class StudentAnswerReviewTaskSerializer(serializers.ModelSerializer):
             for attachment in obj.question.attachments.filter(is_active=True).order_by("display_order", "created_at")
         ]
 
-    def get_media_context(self, obj):
+    def get_media_context(self, obj) -> dict:
         return media_context_for_question(obj.question)
 
-    def get_review_guidance(self, obj):
+    def get_review_guidance(self, obj) -> dict:
         return review_guidance_for_question(obj.question)
 
-    def get_rubric_checklist(self, obj):
+    def get_rubric_checklist(self, obj) -> list:
         return rubric_checklist_from_guidance(self.get_review_guidance(obj))
 
-    def get_has_rubric(self, obj):
+    def get_has_rubric(self, obj) -> bool:
         return bool(rubric_definition_for_question(obj.question))
 
-    def get_rubric(self, obj):
+    def get_rubric(self, obj) -> dict:
         return rubric_definition_for_question(obj.question)
 
-    def get_rubric_scores(self, obj):
+    def get_rubric_scores(self, obj) -> list:
         metadata = obj.metadata if isinstance(obj.metadata, dict) else {}
         scores = metadata.get("rubric_scores", [])
         return scores if isinstance(scores, list) else []
 
-    def get_rubric_total(self, obj):
+    def get_rubric_total(self, obj) -> str:
         metadata = obj.metadata if isinstance(obj.metadata, dict) else {}
         total = metadata.get("rubric_total")
         return str(total) if total not in (None, "") else ""
 
-    def get_question_marks(self, obj):
+    def get_question_marks(self, obj) -> str:
         exam_question = obj.attempt.exam.exam_questions.filter(question=obj.question, is_active=True).only("marks").first()
         return str(exam_question.marks if exam_question and exam_question.marks is not None else Decimal("0.00"))
 
-    def get_assigned_to_teacher_name(self, obj):
+    def get_assigned_to_teacher_name(self, obj) -> str:
         return obj.assigned_to_teacher.full_name if obj.assigned_to_teacher_id else ""
 
-    def get_last_reviewed_by_teacher_name(self, obj):
+    def get_last_reviewed_by_teacher_name(self, obj) -> str:
         return obj.last_reviewed_by_teacher.full_name if obj.last_reviewed_by_teacher_id else ""
 
 
@@ -734,18 +735,18 @@ class StudentExamAttemptSerializer(serializers.ModelSerializer):
         sync_attempt_access_state(instance)
         return super().to_representation(instance)
 
-    def get_server_time(self, obj):
+    def get_server_time(self, obj) -> datetime:
         from django.utils import timezone
 
         return timezone.now()
 
-    def get_subject_name(self, obj):
+    def get_subject_name(self, obj) -> str | None:
         return getattr(getattr(obj.exam, "subject", None), "name", None)
 
-    def get_primary_subject_name(self, obj):
+    def get_primary_subject_name(self, obj) -> str | None:
         return getattr(getattr(obj.exam, "subject", None), "name", None)
 
-    def get_section_subjects(self, obj):
+    def get_section_subjects(self, obj) -> list:
         seen = set()
         subjects = []
         for section in obj.exam.sections.filter(is_active=True).select_related("subject"):
@@ -757,7 +758,7 @@ class StudentExamAttemptSerializer(serializers.ModelSerializer):
             subjects.append({"name": subject_name})
         return subjects
 
-    def get_subject_summary(self, obj):
+    def get_subject_summary(self, obj) -> dict:
         section_subjects = self.get_section_subjects(obj)
         if section_subjects:
             return {
@@ -772,41 +773,41 @@ class StudentExamAttemptSerializer(serializers.ModelSerializer):
             }
         return {"display_label": None, "subjects": []}
 
-    def get_source_type(self, obj):
+    def get_source_type(self, obj) -> str:
         return resolve_exam_source_metadata(obj.exam)["source_type"]
 
-    def get_source_label(self, obj):
+    def get_source_label(self, obj) -> str:
         return resolve_exam_source_metadata(obj.exam)["source_label"]
 
-    def get_source_name(self, obj):
+    def get_source_name(self, obj) -> str:
         return resolve_exam_source_metadata(obj.exam)["source_name"]
 
-    def get_source_teacher_id(self, obj):
+    def get_source_teacher_id(self, obj) -> str | None:
         return resolve_exam_source_metadata(obj.exam)["teacher_id"]
 
-    def get_source_teacher_name(self, obj):
+    def get_source_teacher_name(self, obj) -> str | None:
         return resolve_exam_source_metadata(obj.exam)["teacher_name"]
 
-    def get_section_runtime(self, obj):
+    def get_section_runtime(self, obj) -> dict:
         refresh_attempt_runtime_state(obj)
         metadata = obj.metadata if isinstance(obj.metadata, dict) else {}
         runtime = metadata.get("section_runtime", {})
         return runtime if isinstance(runtime, dict) else {}
 
-    def get_current_section_media_context(self, obj):
+    def get_current_section_media_context(self, obj) -> dict | None:
         refresh_attempt_runtime_state(obj)
         return current_section_media_context_for_attempt(obj)
 
-    def get_experience_profile(self, obj):
+    def get_experience_profile(self, obj) -> dict:
         return resolve_exam_experience_profile(obj.exam)
 
-    def get_security_policy(self, obj):
+    def get_security_policy(self, obj) -> dict:
         return resolve_attempt_security_policy(obj)
 
-    def get_integrity_summary(self, obj):
+    def get_integrity_summary(self, obj) -> dict:
         return attempt_integrity_summary(obj)
 
-    def get_accommodation_snapshot(self, obj):
+    def get_accommodation_snapshot(self, obj) -> dict:
         return attempt_accommodation_snapshot(obj)
 
 
@@ -890,7 +891,7 @@ class AttemptDetailSerializer(serializers.ModelSerializer):
             .prefetch_related("question__options", "question__attachments")
         )
 
-    def get_questions(self, obj):
+    def get_questions(self, obj) -> list:
         exam_questions = self._active_exam_questions(obj)
         ensure_delivery_snapshot(obj)
         ordered_questions = ordered_exam_questions_for_attempt(obj, exam_questions)
@@ -907,43 +908,43 @@ class AttemptDetailSerializer(serializers.ModelSerializer):
             },
         ).data
 
-    def get_server_time(self, obj):
+    def get_server_time(self, obj) -> datetime:
         from django.utils import timezone
 
         return timezone.now()
 
-    def get_source_type(self, obj):
+    def get_source_type(self, obj) -> str:
         return resolve_exam_source_metadata(obj.exam)["source_type"]
 
-    def get_source_label(self, obj):
+    def get_source_label(self, obj) -> str:
         return resolve_exam_source_metadata(obj.exam)["source_label"]
 
-    def get_source_name(self, obj):
+    def get_source_name(self, obj) -> str:
         return resolve_exam_source_metadata(obj.exam)["source_name"]
 
-    def get_source_teacher_name(self, obj):
+    def get_source_teacher_name(self, obj) -> str | None:
         return resolve_exam_source_metadata(obj.exam)["teacher_name"]
 
-    def get_section_runtime(self, obj):
+    def get_section_runtime(self, obj) -> dict:
         refresh_attempt_runtime_state(obj)
         metadata = obj.metadata if isinstance(obj.metadata, dict) else {}
         runtime = metadata.get("section_runtime", {})
         return runtime if isinstance(runtime, dict) else {}
 
-    def get_current_section_media_context(self, obj):
+    def get_current_section_media_context(self, obj) -> dict | None:
         refresh_attempt_runtime_state(obj)
         return current_section_media_context_for_attempt(obj)
 
-    def get_experience_profile(self, obj):
+    def get_experience_profile(self, obj) -> dict:
         return resolve_exam_experience_profile(obj.exam)
 
-    def get_security_policy(self, obj):
+    def get_security_policy(self, obj) -> dict:
         return resolve_attempt_security_policy(obj)
 
-    def get_integrity_summary(self, obj):
+    def get_integrity_summary(self, obj) -> dict:
         return attempt_integrity_summary(obj)
 
-    def get_accommodation_snapshot(self, obj):
+    def get_accommodation_snapshot(self, obj) -> dict:
         return attempt_accommodation_snapshot(obj)
 
 
@@ -1017,7 +1018,7 @@ class AttemptReviewSerializer(serializers.ModelSerializer):
             "review_questions",
         )
 
-    def get_server_time(self, obj):
+    def get_server_time(self, obj) -> datetime:
         from django.utils import timezone
 
         return timezone.now()
@@ -1026,16 +1027,16 @@ class AttemptReviewSerializer(serializers.ModelSerializer):
         result = getattr(obj, "result", None)
         return review_visibility_for_attempt(obj.exam, obj, result=result)
 
-    def get_review_mode(self, obj):
+    def get_review_mode(self, obj) -> str:
         return self._review_visibility(obj)["review_mode"]
 
-    def get_show_correct_answers(self, obj):
+    def get_show_correct_answers(self, obj) -> bool:
         return self._review_visibility(obj)["show_correct_answers"]
 
-    def get_show_explanations(self, obj):
+    def get_show_explanations(self, obj) -> bool:
         return self._review_visibility(obj)["show_explanations"]
 
-    def get_review_questions(self, obj):
+    def get_review_questions(self, obj) -> list:
         exam_questions = list(
             obj.exam.exam_questions.filter(is_active=True)
             .select_related(
@@ -1458,34 +1459,34 @@ class AttemptSummarySerializer(serializers.ModelSerializer):
             "accommodation_snapshot",
         )
 
-    def get_server_time(self, obj):
+    def get_server_time(self, obj) -> datetime:
         from django.utils import timezone
 
         return timezone.now()
 
-    def get_result_visible(self, obj):
+    def get_result_visible(self, obj) -> bool:
         result = getattr(obj, "result", None)
         return is_result_visible_for_attempt(obj.exam, obj, result=result)
 
-    def get_source_type(self, obj):
+    def get_source_type(self, obj) -> str:
         return resolve_exam_source_metadata(obj.exam)["source_type"]
 
-    def get_source_label(self, obj):
+    def get_source_label(self, obj) -> str:
         return resolve_exam_source_metadata(obj.exam)["source_label"]
 
-    def get_source_name(self, obj):
+    def get_source_name(self, obj) -> str:
         return resolve_exam_source_metadata(obj.exam)["source_name"]
 
-    def get_source_teacher_name(self, obj):
+    def get_source_teacher_name(self, obj) -> str | None:
         return resolve_exam_source_metadata(obj.exam)["teacher_name"]
 
-    def get_review_available(self, obj):
+    def get_review_available(self, obj) -> bool:
         result = getattr(obj, "result", None)
         return review_visibility_for_attempt(obj.exam, obj, result=result)[
             "review_available"
         ]
 
-    def get_accommodation_snapshot(self, obj):
+    def get_accommodation_snapshot(self, obj) -> dict:
         return attempt_accommodation_snapshot(obj)
 
     def to_representation(self, instance):

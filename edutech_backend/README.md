@@ -41,16 +41,28 @@ python manage.py check
 - ReDoc: `/api/docs/redoc/`
 - OpenAPI schema: `/api/schema/`
 
-## Demo Readiness
+## Local Demo And QA Only
 
-Seed the MVP demo data:
+This section is for local demos, QA environments, and disposable staging data only.
+
+Do not run demo seed commands in production or in any shared environment that should remain customer-safe.
+
+Production-safe bootstrap commands are documented below under:
+
+- `Economy Seed Runbook`
+- `Public Institute Bootstrap`
+- `Public Academics Seed`
+- `Regular Institute Bootstrap`
+- `Regular Institute Academics Seed`
+
+Seed the MVP demo data only when you intentionally need a non-production walkthrough environment:
 
 ```bash
 cd edutech_backend
 python manage.py seed_demo_academic_data
 ```
 
-Run the backend validation suite:
+Run the backend validation suite after local demo setup if needed:
 
 ```bash
 python manage.py test
@@ -58,7 +70,7 @@ python manage.py check
 python manage.py check --settings=config.settings.prod
 ```
 
-The seed command creates a complete demo flow:
+The demo seed command creates a complete non-production walkthrough flow:
 
 - institute
 - academic year
@@ -80,12 +92,18 @@ Demo users created by the seed command:
 - `demo-student` / `Demo@12345`
 - `demo-parent` / `Demo@12345`
 
-Recommended backend demo order:
+Recommended local demo order:
 
 1. Run migrations.
 2. Run `python manage.py seed_demo_academic_data`.
 3. Start the backend server.
 4. Use the seeded users from Flutter to walk the role-based demo.
+
+Production note:
+
+- keep demo credentials out of customer-facing documentation
+- keep `seed_demo_*` commands out of production runbooks
+- verify production environments do not contain `demo-*` users or `DMO-*` exams
 
 ## Economy Seed Runbook
 

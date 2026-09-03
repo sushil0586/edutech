@@ -3,6 +3,7 @@ from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator
 
+from apps.accounts.models import AccountRole
 from apps.accounts.scopes import get_account_profile
 from apps.academics.assessment_family_contracts import (
     validate_program_assessment_family_question_contract,
@@ -388,7 +389,7 @@ class ExamSectionSerializer(serializers.ModelSerializer):
         model = ExamSection
         fields = "__all__"
 
-    def get_linked_questions_count(self, obj):
+    def get_linked_questions_count(self, obj) -> int:
         exam = getattr(obj, "exam", None)
         if exam is not None:
             cached_counts = getattr(exam, "_linked_question_count_by_section_cache", None)
@@ -466,7 +467,7 @@ class ExamAccessSlotSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ("id", "exam", "created_at", "updated_at", "occupancy")
 
-    def get_occupancy(self, obj):
+    def get_occupancy(self, obj) -> dict:
         return summarize_exam_slot_occupancy(obj)
 
 
@@ -662,11 +663,11 @@ class ExamQuestionSerializer(serializers.ModelSerializer):
             "updated_at",
         )
 
-    def get_question_text_summary(self, obj):
+    def get_question_text_summary(self, obj) -> str:
         text = obj.question.question_text.strip()
         return text[:120] + ("..." if len(text) > 120 else "")
 
-    def get_has_explanation(self, obj):
+    def get_has_explanation(self, obj) -> bool:
         return bool(obj.question.explanation.strip())
 
 
@@ -1339,16 +1340,16 @@ class AdvancedExamTemplateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Blueprint must define at least one section.")
         return value
 
-    def get_can_manage(self, obj):
+    def get_can_manage(self, obj) -> bool:
         request = self.context.get("request")
         profile = get_account_profile(getattr(request, "user", None))
         if profile is None or not profile.is_active:
             return False
-        if profile.role == "platform_admin":
+        if profile.role == AccountRole.PLATFORM_ADMIN:
             return True
-        if profile.role == "institute_admin":
+        if profile.role == AccountRole.INSTITUTE_ADMIN:
             return obj.audience_context == "institute" and profile.institute_id == obj.institute_id
-        if profile.role == "teacher":
+        if profile.role == AccountRole.TEACHER:
             return (
                 obj.audience_context == "teacher"
                 and profile.teacher_profile_id is not None
@@ -1407,7 +1408,7 @@ class ExamPresetPackSerializer(serializers.ModelSerializer):
         institute = attrs.get("institute", getattr(self.instance, "institute", None))
         if scope_type == ExamPresetPackScope.PLATFORM:
             attrs["institute"] = None
-        elif institute is None and getattr(profile, "role", None) == "institute_admin":
+        elif institute is None and getattr(profile, "role", None) == AccountRole.INSTITUTE_ADMIN:
             attrs["institute"] = getattr(profile, "institute", None)
         elif institute is None:
             raise serializers.ValidationError(
@@ -1415,14 +1416,14 @@ class ExamPresetPackSerializer(serializers.ModelSerializer):
             )
         return attrs
 
-    def get_can_manage(self, obj):
+    def get_can_manage(self, obj) -> bool:
         request = self.context.get("request")
         profile = get_account_profile(getattr(request, "user", None))
         if profile is None or not profile.is_active:
             return False
-        if profile.role == "platform_admin":
+        if profile.role == AccountRole.PLATFORM_ADMIN:
             return True
-        if profile.role == "institute_admin":
+        if profile.role == AccountRole.INSTITUTE_ADMIN:
             return (
                 obj.scope_type == ExamPresetPackScope.INSTITUTE
                 and profile.institute_id == obj.institute_id
@@ -1470,7 +1471,7 @@ class ExamReadSerializer(serializers.ModelSerializer):
         model = Exam
         fields = "__all__"
 
-    def get_active_questions_count(self, obj):
+    def get_active_questions_count(self, obj) -> int:
         annotated = getattr(obj, "active_questions_count", None)
         if annotated is not None:
             return annotated
@@ -1479,7 +1480,7 @@ class ExamReadSerializer(serializers.ModelSerializer):
             return len([question for question in prefetched if getattr(question, "is_active", True)])
         return obj.exam_questions.filter(is_active=True).count()
 
-    def get_assigned_student_count(self, obj):
+    def get_assigned_student_count(self, obj) -> int:
         annotated = getattr(obj, "assigned_student_count", None)
         if annotated is not None:
             return annotated
@@ -1488,10 +1489,10 @@ class ExamReadSerializer(serializers.ModelSerializer):
             return len([assignment for assignment in prefetched if getattr(assignment, "is_active", True)])
         return obj.student_assignments.filter(is_active=True).count()
 
-    def get_security_policy(self, obj):
+    def get_security_policy(self, obj) -> dict:
         return resolve_security_policy(obj)
 
-    def get_economy_policy(self, obj):
+    def get_economy_policy(self, obj) -> dict | None:
         policy = getattr(obj, "_resolved_access_policy", None)
         if policy is None and not getattr(obj, "_resolved_access_policy_loaded", False):
             policy = get_exam_access_policy(obj)
@@ -1517,46 +1518,46 @@ class ExamReadSerializer(serializers.ModelSerializer):
             }
         ).data
 
-    def get_source_label(self, obj):
+    def get_source_label(self, obj) -> str:
         return resolve_exam_source_metadata(obj)["source_label"]
 
-    def get_source_name(self, obj):
+    def get_source_name(self, obj) -> str:
         return resolve_exam_source_metadata(obj)["source_name"]
 
-    def get_experience_profile(self, obj):
+    def get_experience_profile(self, obj) -> dict:
         return resolve_exam_experience_profile(obj)
 
-    def get_rank_visibility_mode(self, obj):
+    def get_rank_visibility_mode(self, obj) -> str:
         return resolve_exam_result_visibility_policy(obj)["rank_visibility_mode"]
 
-    def get_percentile_visibility_mode(self, obj):
+    def get_percentile_visibility_mode(self, obj) -> str:
         return resolve_exam_result_visibility_policy(obj)["percentile_visibility_mode"]
 
-    def get_benchmark_visibility_mode(self, obj):
+    def get_benchmark_visibility_mode(self, obj) -> str:
         return resolve_exam_result_visibility_policy(obj)["benchmark_visibility_mode"]
 
-    def get_rank_freeze_policy(self, obj):
+    def get_rank_freeze_policy(self, obj) -> str:
         return resolve_exam_result_visibility_policy(obj)["rank_freeze_policy"]
 
-    def get_publish_readiness(self, obj):
+    def get_publish_readiness(self, obj) -> dict:
         return build_exam_publish_readiness(obj)
 
-    def get_access_mode(self, obj):
+    def get_access_mode(self, obj) -> str:
         return obj.resolved_access_mode
 
-    def get_daily_start_cap(self, obj):
+    def get_daily_start_cap(self, obj) -> int | None:
         thresholds = resolve_exam_runtime_thresholds(obj)
         return thresholds["daily_start_cap"]
 
-    def get_hourly_start_cap(self, obj):
+    def get_hourly_start_cap(self, obj) -> int | None:
         thresholds = resolve_exam_runtime_thresholds(obj)
         return thresholds["hourly_start_cap"]
 
-    def get_concurrent_active_attempt_cap(self, obj):
+    def get_concurrent_active_attempt_cap(self, obj) -> int | None:
         thresholds = resolve_exam_runtime_thresholds(obj)
         return thresholds["concurrent_active_attempt_cap"]
 
-    def get_subject_name(self, obj):
+    def get_subject_name(self, obj) -> str | None:
         summary = _exam_subject_summary_payload(obj)
         primary_subject = summary["primary_subject"]
         if primary_subject is not None:
@@ -1565,21 +1566,21 @@ class ExamReadSerializer(serializers.ModelSerializer):
             return "Mixed Subjects"
         return None
 
-    def get_primary_subject(self, obj):
+    def get_primary_subject(self, obj) -> str | None:
         primary_subject = _exam_subject_summary_payload(obj)["primary_subject"]
         return primary_subject["id"] if primary_subject is not None else None
 
-    def get_primary_subject_name(self, obj):
+    def get_primary_subject_name(self, obj) -> str | None:
         primary_subject = _exam_subject_summary_payload(obj)["primary_subject"]
         return primary_subject["name"] if primary_subject is not None else None
 
-    def get_is_multi_subject(self, obj):
+    def get_is_multi_subject(self, obj) -> bool:
         return _exam_subject_summary_payload(obj)["is_multi_subject"]
 
-    def get_section_subjects(self, obj):
+    def get_section_subjects(self, obj) -> list:
         return _exam_subject_summary_payload(obj)["section_subjects"]
 
-    def get_subject_summary(self, obj):
+    def get_subject_summary(self, obj) -> dict:
         return _exam_subject_summary_payload(obj)["subject_summary"]
 
 
@@ -1681,37 +1682,37 @@ class ExamListSerializer(serializers.ModelSerializer):
         )
         read_only_fields = fields
 
-    def get_access_mode(self, obj):
+    def get_access_mode(self, obj) -> str:
         return obj.resolved_access_mode
 
-    def get_daily_start_cap(self, obj):
+    def get_daily_start_cap(self, obj) -> int | None:
         thresholds = resolve_exam_runtime_thresholds(obj)
         return thresholds["daily_start_cap"]
 
-    def get_hourly_start_cap(self, obj):
+    def get_hourly_start_cap(self, obj) -> int | None:
         thresholds = resolve_exam_runtime_thresholds(obj)
         return thresholds["hourly_start_cap"]
 
-    def get_concurrent_active_attempt_cap(self, obj):
+    def get_concurrent_active_attempt_cap(self, obj) -> int | None:
         thresholds = resolve_exam_runtime_thresholds(obj)
         return thresholds["concurrent_active_attempt_cap"]
 
-    def get_active_questions_count(self, obj):
+    def get_active_questions_count(self, obj) -> int:
         annotated = getattr(obj, "active_questions_count", None)
         if annotated is not None:
             return annotated
         return obj.exam_questions.filter(is_active=True).count()
 
-    def get_assigned_student_count(self, obj):
+    def get_assigned_student_count(self, obj) -> int:
         annotated = getattr(obj, "assigned_student_count", None)
         if annotated is not None:
             return annotated
         return obj.student_assignments.filter(is_active=True).count()
 
-    def get_security_policy(self, obj):
+    def get_security_policy(self, obj) -> dict:
         return resolve_security_policy(obj)
 
-    def get_subject_name(self, obj):
+    def get_subject_name(self, obj) -> str | None:
         summary = _exam_subject_summary_payload(obj)
         primary_subject = summary["primary_subject"]
         if primary_subject is not None:
@@ -1720,21 +1721,21 @@ class ExamListSerializer(serializers.ModelSerializer):
             return "Mixed Subjects"
         return None
 
-    def get_primary_subject(self, obj):
+    def get_primary_subject(self, obj) -> str | None:
         primary_subject = _exam_subject_summary_payload(obj)["primary_subject"]
         return primary_subject["id"] if primary_subject is not None else None
 
-    def get_primary_subject_name(self, obj):
+    def get_primary_subject_name(self, obj) -> str | None:
         primary_subject = _exam_subject_summary_payload(obj)["primary_subject"]
         return primary_subject["name"] if primary_subject is not None else None
 
-    def get_is_multi_subject(self, obj):
+    def get_is_multi_subject(self, obj) -> bool:
         return _exam_subject_summary_payload(obj)["is_multi_subject"]
 
-    def get_section_subjects(self, obj):
+    def get_section_subjects(self, obj) -> list:
         return _exam_subject_summary_payload(obj)["section_subjects"]
 
-    def get_subject_summary(self, obj):
+    def get_subject_summary(self, obj) -> dict:
         return _exam_subject_summary_payload(obj)["subject_summary"]
 
     def _serialize_economy_policy(self, policy):
@@ -1757,7 +1758,7 @@ class ExamListSerializer(serializers.ModelSerializer):
             }
         ).data
 
-    def get_economy_policy(self, obj):
+    def get_economy_policy(self, obj) -> dict | None:
         policy = getattr(obj, "_resolved_access_policy", None)
         if policy is None and not getattr(obj, "_resolved_access_policy_loaded", False):
             policy = get_exam_access_policy(obj)
@@ -1765,22 +1766,22 @@ class ExamListSerializer(serializers.ModelSerializer):
             return None
         return self._serialize_economy_policy(policy)
 
-    def get_source_label(self, obj):
+    def get_source_label(self, obj) -> str:
         return resolve_exam_source_metadata(obj)["source_label"]
 
-    def get_source_name(self, obj):
+    def get_source_name(self, obj) -> str:
         return resolve_exam_source_metadata(obj)["source_name"]
 
-    def get_rank_visibility_mode(self, obj):
+    def get_rank_visibility_mode(self, obj) -> str:
         return resolve_exam_result_visibility_policy(obj)["rank_visibility_mode"]
 
-    def get_percentile_visibility_mode(self, obj):
+    def get_percentile_visibility_mode(self, obj) -> str:
         return resolve_exam_result_visibility_policy(obj)["percentile_visibility_mode"]
 
-    def get_benchmark_visibility_mode(self, obj):
+    def get_benchmark_visibility_mode(self, obj) -> str:
         return resolve_exam_result_visibility_policy(obj)["benchmark_visibility_mode"]
 
-    def get_rank_freeze_policy(self, obj):
+    def get_rank_freeze_policy(self, obj) -> str:
         return resolve_exam_result_visibility_policy(obj)["rank_freeze_policy"]
 
 
@@ -2096,9 +2097,13 @@ class StudentExamAvailabilitySerializer(serializers.ModelSerializer):
         )
 
     def _student(self):
+        if "_student_profile" in self.context:
+            return self.context["_student_profile"]
         request = self.context.get("request")
         profile = getattr(getattr(request, "user", None), "account_profile", None)
-        return getattr(profile, "student_profile", None)
+        student = getattr(profile, "student_profile", None)
+        self.context["_student_profile"] = student
+        return student
 
     def _is_assigned_to_student(self, obj):
         cached = getattr(obj, "_student_exam_assigned_cache", None)
@@ -2132,44 +2137,81 @@ class StudentExamAvailabilitySerializer(serializers.ModelSerializer):
                     "unlock_state_status": "",
                 }
             else:
-                cache[cache_key] = resolve_exam_economy_access(student, obj)
+                cache[cache_key] = resolve_exam_economy_access(
+                    student,
+                    obj,
+                    persist_unlock_state=self.context.get("persist_unlock_state", True),
+                )
         return cache[cache_key]
 
     def _student_attempts(self, obj):
         student = self._student()
         if student is None:
             return []
+        cache = self.context.setdefault("_student_attempts_cache", {})
+        cache_key = str(obj.id)
+        if cache_key in cache:
+            return cache[cache_key]
         from apps.attempts.services import sync_attempt_access_state
 
-        return [
+        attempts = [
             sync_attempt_access_state(attempt)
             for attempt in getattr(obj, "_prefetched_attempts_for_student", [])
             if attempt.student_id == student.id
         ]
+        cache[cache_key] = attempts
+        return attempts
 
-    def _latest_attempt(self, obj):
-        attempts = sorted(
-            self._student_attempts(obj),
+    def _source_metadata(self, obj):
+        cache = self.context.setdefault("_exam_source_metadata_cache", {})
+        cache_key = str(obj.id)
+        if cache_key not in cache:
+            cache[cache_key] = resolve_exam_source_metadata(obj)
+        return cache[cache_key]
+
+    def _student_attempt_summary(self, obj):
+        cache = self.context.setdefault("_student_attempt_summary_cache", {})
+        cache_key = str(obj.id)
+        if cache_key in cache:
+            return cache[cache_key]
+        attempts = self._student_attempts(obj)
+        ordered = sorted(
+            attempts,
             key=lambda attempt: (attempt.attempt_no, attempt.created_at),
             reverse=True,
         )
-        return attempts[0] if attempts else None
+        summary = {
+            "attempts": attempts,
+            "latest": ordered[0] if ordered else None,
+            "latest_with_result": next(
+                (
+                    attempt
+                    for attempt in ordered
+                    if getattr(attempt, "result", None) is not None
+                ),
+                None,
+            ),
+            "active": next(
+                (
+                    attempt
+                    for attempt in attempts
+                    if attempt.status == "in_progress" and attempt.is_active
+                ),
+                None,
+            ),
+            "attempts_used": len(attempts),
+        }
+        cache[cache_key] = summary
+        return summary
+
+    def _latest_attempt(self, obj):
+        return self._student_attempt_summary(obj)["latest"]
 
     def _latest_attempt_with_result(self, obj):
-        for attempt in sorted(
-            self._student_attempts(obj),
-            key=lambda attempt: (attempt.attempt_no, attempt.created_at),
-            reverse=True,
-        ):
-            if getattr(attempt, "result", None) is not None:
-                return attempt
-        return None
+        return self._student_attempt_summary(obj)["latest_with_result"]
 
     def _active_attempt(self, obj):
-        for attempt in self._student_attempts(obj):
-            if attempt.status == "in_progress" and attempt.is_active:
-                return attempt
-        return None
+        return self._student_attempt_summary(obj)["active"]
 
     def _start_access(self, obj):
         cache = self.context.setdefault("_exam_start_access_cache", {})
@@ -2250,7 +2292,7 @@ class StudentExamAvailabilitySerializer(serializers.ModelSerializer):
         return _exam_subject_summary_payload(obj)["subject_summary"]
 
     def get_attempts_used(self, obj):
-        return len(self._student_attempts(obj))
+        return self._student_attempt_summary(obj)["attempts_used"]
 
     def get_remaining_attempts(self, obj):
         return remaining_attempts_for_student(obj, self.get_attempts_used(obj))
@@ -2371,19 +2413,19 @@ class StudentExamAvailabilitySerializer(serializers.ModelSerializer):
         return base_state
 
     def get_source_type(self, obj):
-        return resolve_exam_source_metadata(obj)["source_type"]
+        return self._source_metadata(obj)["source_type"]
 
     def get_source_label(self, obj):
-        return resolve_exam_source_metadata(obj)["source_label"]
+        return self._source_metadata(obj)["source_label"]
 
     def get_source_name(self, obj):
-        return resolve_exam_source_metadata(obj)["source_name"]
+        return self._source_metadata(obj)["source_name"]
 
     def get_source_teacher_id(self, obj):
-        return resolve_exam_source_metadata(obj)["teacher_id"]
+        return self._source_metadata(obj)["teacher_id"]
 
     def get_source_teacher_name(self, obj):
-        return resolve_exam_source_metadata(obj)["teacher_name"]
+        return self._source_metadata(obj)["teacher_name"]
 
     def get_experience_profile(self, obj):
         return resolve_exam_experience_profile(obj)
@@ -2434,6 +2476,213 @@ class StudentExamFollowUpSerializer(StudentExamAvailabilitySerializer):
             "assessment_family": profile.get("assessment_family", ""),
         }
 
+
+class StudentExamDiscoverySerializer(StudentExamAvailabilitySerializer):
+    active_attempt = serializers.SerializerMethodField()
+    subject_name = serializers.SerializerMethodField()
+
+    class Meta(StudentExamAvailabilitySerializer.Meta):
+        fields = (
+            "id",
+            "title",
+            "code",
+            "exam_type",
+            "status",
+            "subject_name",
+            "duration_minutes",
+            "start_at",
+            "end_at",
+            "attempts_used",
+            "remaining_attempts",
+            "active_attempt",
+            "availability_state",
+            "can_resume",
+            "latest_attempt_status",
+            "source_type",
+            "source_label",
+            "source_name",
+            "source_teacher_id",
+            "source_teacher_name",
+        )
+
+    def get_active_attempt(self, obj):
+        attempt = self._active_attempt(obj)
+        if attempt is None:
+            return None
+        return {
+            "id": str(attempt.id),
+            "status": attempt.status,
+        }
+
+    def get_availability_state(self, obj):
+        return self._availability_state_value(obj)
+
+    def get_subject_name(self, obj):
+        subject = getattr(obj, "subject", None)
+        if subject is not None and getattr(subject, "name", None):
+            return subject.name
+        return "Mixed Subjects"
+
+
+class StudentExamDashboardSerializer(StudentExamAvailabilitySerializer):
+    economy_access = serializers.SerializerMethodField()
+    active_attempt = serializers.SerializerMethodField()
+
+    class Meta(StudentExamAvailabilitySerializer.Meta):
+        fields = (
+            "id",
+            "title",
+            "code",
+            "exam_type",
+            "status",
+            "subject_name",
+            "primary_subject",
+            "primary_subject_name",
+            "is_multi_subject",
+            "section_subjects",
+            "duration_minutes",
+            "start_at",
+            "end_at",
+            "attempts_used",
+            "remaining_attempts",
+            "active_attempt",
+            "availability_state",
+            "can_start",
+            "can_resume",
+            "result_published",
+            "latest_attempt_status",
+            "source_type",
+            "source_label",
+            "source_name",
+            "source_teacher_id",
+            "source_teacher_name",
+            "economy_access",
+        )
+
+    def get_economy_access(self, obj):
+        access = self._economy_access(obj)
+        payload = {
+            "content_type": access.get("content_type", ""),
+            "content_key": access.get("content_key", ""),
+            "subject_id": access.get("subject_id"),
+            "star_cost": int(access.get("star_cost") or 0),
+            "requires_unlock": bool(access.get("requires_unlock")),
+            "can_unlock_with_stars": bool(access.get("can_unlock_with_stars")),
+            "is_unlocked": bool(access.get("is_unlocked")),
+            "is_locked": bool(access.get("is_locked")),
+            "lock_reason_message": access.get("lock_reason_message", ""),
+        }
+        subscription = serialize_subscription_allowance_resolution(
+            access.get("subscription_resolution")
+        )
+        if subscription["is_applicable"]:
+            payload["subscription_resolution"] = {
+                "is_applicable": subscription["is_applicable"],
+                "is_covered": subscription["is_covered"],
+                "included_allowance": subscription["included_allowance"],
+                "remaining_allowance": subscription["remaining_allowance"],
+                "reason_message": subscription["reason_message"],
+            }
+        return payload
+
+    def get_can_start(self, obj):
+        if self._active_attempt(obj) is not None:
+            return False
+        if self._availability_state_value(obj) != "available_now":
+            return False
+        if self._economy_access(obj)["is_locked"]:
+            return False
+        return self._start_access(obj)["is_allowed"]
+
+    def get_active_attempt(self, obj):
+        attempt = self._active_attempt(obj)
+        if attempt is None:
+            return None
+        return {
+            "id": str(attempt.id),
+            "status": attempt.status,
+        }
+
+
+class StudentExamCatalogSerializer(StudentExamDashboardSerializer):
+    security_policy = serializers.SerializerMethodField()
+
+    class Meta(StudentExamDashboardSerializer.Meta):
+        fields = (
+            "id",
+            "title",
+            "code",
+            "exam_type",
+            "attempt_policy",
+            "access_key_enabled",
+            "status",
+            "subject_name",
+            "primary_subject",
+            "primary_subject_name",
+            "is_multi_subject",
+            "section_subjects",
+            "duration_minutes",
+            "start_at",
+            "end_at",
+            "total_marks",
+            "passing_marks",
+            "attempts_used",
+            "remaining_attempts",
+            "active_attempt",
+            "availability_state",
+            "can_start",
+            "can_resume",
+            "review_available",
+            "result_published",
+            "latest_attempt_status",
+            "security_mode",
+            "security_policy",
+            "source_type",
+            "source_label",
+            "source_name",
+            "source_teacher_id",
+            "source_teacher_name",
+            "economy_access",
+        )
+
+    def get_security_policy(self, obj):
+        return {
+            "student_label": resolve_security_policy(obj).get("student_label", ""),
+        }
+
+    def get_economy_access(self, obj):
+        access = self._economy_access(obj)
+        subscription = serialize_subscription_allowance_resolution(
+            access.get("subscription_resolution")
+        )
+        is_locked = bool(access.get("is_locked"))
+        requires_unlock = bool(access.get("requires_unlock"))
+        can_unlock_with_stars = bool(access.get("can_unlock_with_stars"))
+        payload = {
+            "star_cost": int(access.get("star_cost") or 0),
+            "requires_unlock": requires_unlock,
+            "can_unlock_with_stars": can_unlock_with_stars,
+            "is_unlocked": bool(access.get("is_unlocked")),
+            "is_locked": is_locked,
+            "lock_reason_message": access.get("lock_reason_message", ""),
+        }
+        if is_locked or requires_unlock or can_unlock_with_stars:
+            payload.update(
+                {
+                    "content_type": access.get("content_type", ""),
+                    "content_key": access.get("content_key", ""),
+                    "subject_id": access.get("subject_id"),
+                }
+            )
+        if subscription["is_applicable"]:
+            payload["subscription_resolution"] = {
+                "is_applicable": subscription["is_applicable"],
+                "is_covered": subscription["is_covered"],
+                "included_allowance": subscription["included_allowance"],
+                "remaining_allowance": subscription["remaining_allowance"],
+                "reason_message": subscription["reason_message"],
+            }
+        return payload
 
 class StudentExamReadinessSerializer(StudentExamDetailSerializer):
     def _availability_serializer(self, obj):

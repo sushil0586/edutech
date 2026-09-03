@@ -123,6 +123,7 @@ export function AttemptResiliencePanel({
       return;
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPendingActionDetail(matchingPendingStatus.detail);
 
     if (initialError || initialNotice) {

@@ -48,9 +48,6 @@ export default async function AdminPeoplePage({
   const institutes = await fetchPortalListAll<InstituteRecord>("/api/v1/institutes/?page_size=50").catch(() => []);
   const selectedInstituteId = normalizeSelectedInstitute(params.institute, institutes);
   const activeView = normalizePeopleView(params.view);
-  const selectedInstitute = selectedInstituteId
-    ? institutes.find((item) => item.id === selectedInstituteId) ?? null
-    : null;
   const instituteQuery = selectedInstituteId
     ? `?institute=${selectedInstituteId}&page_size=100`
     : "?page_size=100";

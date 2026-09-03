@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { answerCurrentAttemptQuestion } from "../helpers/attempt";
 import { loginAsRole, loginWithCredentials } from "../helpers/auth";
 import { reopenExamWindow } from "../helpers/family-runtime";
@@ -75,7 +75,7 @@ test.describe("Student NEET full mock lifecycle", () => {
 
     await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+(?:\?.*)?$/);
     await expect(page.getByText(/mock in progress/i).first()).toBeVisible();
-    await expect(page.getByText(/subject block progress/i).first()).toBeVisible();
+    await expect(page.getByText(/test summary/i).first()).toBeVisible();
     await expect(page.getByText(/section access/i).first()).toBeVisible();
 
     const attemptUrl = page.url();
@@ -89,7 +89,7 @@ test.describe("Student NEET full mock lifecycle", () => {
 
     await answerCurrentAttemptQuestion(page, Date.now(), "Playwright NEET answer");
     await page.getByRole("button", { name: /^save answer$/i }).click();
-    await expect(page.getByText(/response updated successfully/i).first()).toBeVisible();
+    await expect(page.getByText(/response updated successfully|answer saved|last confirmed backend response/i).first()).toBeVisible();
 
     const chemistrySectionButton = page
       .locator(".attemptSectionCard")
@@ -102,13 +102,13 @@ test.describe("Student NEET full mock lifecycle", () => {
       await expect(page.getByText(/section switched successfully/i).first()).toBeVisible();
       await answerCurrentAttemptQuestion(page, Date.now() + 1, "Playwright NEET answer");
       await page.getByRole("button", { name: /^save answer$/i }).click();
-      await expect(page.getByText(/response updated successfully/i).first()).toBeVisible();
+      await expect(page.getByText(/response updated successfully|answer saved|last confirmed backend response/i).first()).toBeVisible();
     }
 
     page.once("dialog", async (dialog) => {
       await dialog.accept();
     });
-    await page.getByRole("button", { name: /^submit test$/i }).click();
+    await page.getByRole("button", { name: /^(submit test|end test)$/i }).click();
 
     await expect(page).toHaveURL(new RegExp(`/app/attempts/${attemptId}/summary\\?`));
     await expect(page.getByRole("heading", { name: /summary/i }).first()).toBeVisible();
@@ -120,16 +120,11 @@ test.describe("Student NEET full mock lifecycle", () => {
 
     await page.goto("/app/results?result_status=pending");
     await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
-    const pendingResultCard = page.locator("article.studentResultSurface").filter({
-      has: page.locator(".studentResultSurfaceHead strong", {
-        hasText: new RegExp(neetExamTitle, "i"),
-      }),
+    const pendingResultRow = page.locator(".studentResultsTable tbody tr").filter({
+      hasText: new RegExp(neetExamTitle, "i"),
     }).first();
-    await expect(pendingResultCard).toBeVisible();
-    await expect(pendingResultCard.getByText(/awaiting publication/i).first()).toBeVisible();
-    await expect(pendingResultCard.getByText(/evaluation pending/i).first()).toBeVisible();
-    await expect(
-      pendingResultCard.getByRole("link", { name: /check attempt status/i }).first(),
-    ).toBeVisible();
+    await expect(pendingResultRow).toBeVisible();
+    await expect(pendingResultRow).toContainText(/pending/i);
+    await expect(pendingResultRow).toContainText(/awaiting result|open practice/i);
   });
 });

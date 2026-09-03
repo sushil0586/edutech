@@ -7,6 +7,22 @@ from django.db import transaction
 from django.db.models import Prefetch, Q
 from django.utils import timezone
 
+from apps.economy.constants import (
+    COMMERCIAL_PATH_ALIASES,
+    DEFAULT_REWARD_LEDGER_SOURCE_TYPE,
+    DERIVED_CONTENT_ENTITLEMENT_PREFIX,
+    MASTER_QUESTION_SEED_LANES_METADATA_KEY,
+    REWARD_RULE_LEDGER_SOURCE_TYPES,
+    REFEREE_STUDENT_ID_METADATA_KEY,
+    REFERRAL_CODE_METADATA_KEY,
+    REFERRAL_EVENT_ID_METADATA_KEY,
+    REFERRER_STUDENT_ID_METADATA_KEY,
+    SEED_LANE_METADATA_KEY,
+    SIGNUP_TRIGGER,
+    SPONSORED_COMMERCIAL_PATHS,
+    SUBSCRIPTION_COMMERCIAL_PATHS,
+    TRIGGER_METADATA_KEY,
+)
 from apps.economy.models import (
     AccessPolicyType,
     BillingInterval,
@@ -61,23 +77,6 @@ from apps.results.models import ExamResult
 
 QUESTION_BANK_FEATURE_CACHE_TTL_SECONDS = 60
 QUESTION_BANK_ENTITLEMENT_SNAPSHOT_CACHE_TTL_SECONDS = 60
-SUBSCRIPTION_COMMERCIAL_PATHS = {
-    "subscription_only",
-    "subscription_or_stars",
-}
-SPONSORED_COMMERCIAL_PATHS = {
-    "institute_sponsored",
-    "platform_managed",
-}
-COMMERCIAL_PATH_ALIASES = {
-    "free_exam": "free",
-    "star_unlock_exam": "stars_only",
-    "subscription_covered_exam": "subscription_only",
-    "subscription_or_stars_exam": "subscription_or_stars",
-    "institute_sponsored_exam": "institute_sponsored",
-    "platform_sponsored_exam": "platform_managed",
-    "platform_managed_exam": "platform_managed",
-}
 
 
 def _content_target_query(*, content_type, content_key, subject=None):
@@ -98,7 +97,7 @@ def _best_rule_match(queryset, *, subject=None):
 
 
 def _derived_content_entitlement_code(*, content_type, content_key):
-    return f"unlock:{content_type}:{content_key}"
+    return f"{DERIVED_CONTENT_ENTITLEMENT_PREFIX}:{content_type}:{content_key}"
 
 
 def _active_reward_rules_queryset(*, institute, rule_type, at_time=None, subject=None):
@@ -130,13 +129,10 @@ def _active_referral_programs_queryset(*, institute, at_time=None):
 
 
 def _reward_ledger_source_type(*, reward_rule):
-    if reward_rule.rule_type == RewardRuleType.SIGNUP:
-        return "signup_bonus"
-    if reward_rule.rule_type == RewardRuleType.REFERRAL:
-        return "referral_bonus"
-    if reward_rule.rule_type in {RewardRuleType.EXAM_COMPLETION, RewardRuleType.SCORE_THRESHOLD}:
-        return "exam_reward"
-    return "adjustment"
+    return REWARD_RULE_LEDGER_SOURCE_TYPES.get(
+        reward_rule.rule_type,
+        DEFAULT_REWARD_LEDGER_SOURCE_TYPE,
+    )
 
 
 def _normalize_referral_code(value):
@@ -234,7 +230,7 @@ def apply_referral_code_for_student_signup(
         referrer_student=referral_code_obj.owner_student,
         referee_student=student,
         metadata={
-            "referral_code": referral_code_obj.code,
+            REFERRAL_CODE_METADATA_KEY: referral_code_obj.code,
             **(metadata or {}),
         },
     )
@@ -257,8 +253,8 @@ def apply_referral_code_for_student_signup(
             source_reference=referral_code_obj.code,
             effective_at=processed_time,
             metadata={
-                "referral_event_id": str(event.id),
-                "referee_student_id": str(student.id),
+                REFERRAL_EVENT_ID_METADATA_KEY: str(event.id),
+                REFEREE_STUDENT_ID_METADATA_KEY: str(student.id),
                 **(metadata or {}),
             },
         )
@@ -278,8 +274,8 @@ def apply_referral_code_for_student_signup(
             source_reference=referral_code_obj.code,
             effective_at=processed_time,
             metadata={
-                "referral_event_id": str(event.id),
-                "referrer_student_id": str(referral_code_obj.owner_student_id),
+                REFERRAL_EVENT_ID_METADATA_KEY: str(event.id),
+                REFERRER_STUDENT_ID_METADATA_KEY: str(referral_code_obj.owner_student_id),
                 **(metadata or {}),
             },
         )
@@ -612,13 +608,30 @@ def resolve_student_exam_subscription_allowance(
             "reason_message": "",
         }
 
-    subscriptions = list(
-        _active_subscription_allowance_queryset(
-            student=student,
-            at_time=at_time,
-            for_update=for_update,
-        )
+    subscription_cache_key = (
+        None
+        if for_update
+        else (at_time.isoformat() if at_time is not None else "current_period")
     )
+    subscription_cache = getattr(student, "_active_subscription_allowance_cache", None)
+    if subscription_cache_key is not None and subscription_cache_key in (
+        subscription_cache or {}
+    ):
+        subscriptions = subscription_cache[subscription_cache_key]
+    else:
+        subscriptions = list(
+            _active_subscription_allowance_queryset(
+                student=student,
+                at_time=at_time,
+                for_update=for_update,
+            )
+        )
+        if subscription_cache_key is not None:
+            if subscription_cache is None:
+                subscription_cache = {}
+                setattr(student, "_active_subscription_allowance_cache", subscription_cache)
+            subscription_cache[subscription_cache_key] = subscriptions
+
     if not subscriptions:
         return {
             "is_applicable": True,
@@ -1153,7 +1166,7 @@ def process_signup_rewards(*, student, created_by=None, processed_at=None):
             event_reference=str(student.id),
             created_by=created_by,
             processed_at=processed_time,
-            metadata={"trigger": "signup"},
+            metadata={TRIGGER_METADATA_KEY: SIGNUP_TRIGGER},
         )
         if created:
             created_events.append(event)
@@ -1408,7 +1421,7 @@ def package_scope_matches_master_question(*, scope, master_question):
 
     scope_metadata = getattr(scope, "metadata", {}) or {}
     master_metadata = getattr(master_question, "metadata", {}) or {}
-    seed_lane_filters = scope_metadata.get("master_question_seed_lanes")
+    seed_lane_filters = scope_metadata.get(MASTER_QUESTION_SEED_LANES_METADATA_KEY)
     if seed_lane_filters:
         normalized_seed_lanes = {
             str(seed_lane).strip()
@@ -1416,7 +1429,7 @@ def package_scope_matches_master_question(*, scope, master_question):
             if str(seed_lane).strip()
         }
         if normalized_seed_lanes:
-            master_seed_lane = str(master_metadata.get("seed_lane", "")).strip()
+            master_seed_lane = str(master_metadata.get(SEED_LANE_METADATA_KEY, "")).strip()
             if master_seed_lane not in normalized_seed_lanes:
                 return False
 
@@ -2926,6 +2939,49 @@ def student_has_entitlement(student, entitlement_code, *, content_type=None, con
     return queryset.exists()
 
 
+def _cached_student_economy_profile(student):
+    if hasattr(student, "_read_only_economy_profile"):
+        return student._read_only_economy_profile
+
+    profile = StudentEconomyProfile.objects.filter(student=student).first()
+    if profile is not None and profile.institute_id != student.institute_id:
+        raise ValidationError({"student": "Economy profile institute does not match the student."})
+    student._read_only_economy_profile = profile
+    return profile
+
+
+def _cached_active_student_entitlements(student, *, at_time=None):
+    cache_key = at_time.isoformat() if at_time is not None else "current"
+    cache = getattr(student, "_read_only_active_entitlements_cache", None)
+    if cache is None:
+        cache = {}
+        student._read_only_active_entitlements_cache = cache
+    if cache_key not in cache:
+        cache[cache_key] = list(active_student_entitlements(student, at_time=at_time))
+    return cache[cache_key]
+
+
+def _cached_student_has_entitlement(
+    student,
+    entitlement_code,
+    *,
+    content_type=None,
+    content_key=None,
+    at_time=None,
+):
+    if not entitlement_code:
+        return False
+    entitlements = _cached_active_student_entitlements(student, at_time=at_time)
+    for entitlement in entitlements:
+        if entitlement.entitlement_code != entitlement_code:
+            continue
+        if content_type is not None and content_key is not None:
+            if entitlement.content_type != content_type or entitlement.content_key != str(content_key):
+                continue
+        return True
+    return False
+
+
 def resolve_content_access_policy(*, student, content_type, content_key, subject=None):
     queryset = ContentAccessPolicy.objects.filter(
         institute=student.institute,
@@ -3012,6 +3068,227 @@ def evaluate_unlock_rule(*, student, rule):
         "reason_code": "composite_rule_not_implemented",
         "reason_message": "This unlock rule requires composite evaluation support.",
     }
+
+
+def _target_matches(*, item, content_type, content_key, subject=None):
+    if item.content_type != content_type or item.content_key != str(content_key):
+        return False
+    if subject is not None:
+        return item.subject_id in {None, subject.id}
+    return item.subject_id is None
+
+
+def _read_only_unlock_rules_for_target(*, student, content_type, content_key, subject=None):
+    cache_key = content_type
+    cache = getattr(student, "_read_only_unlock_rule_snapshot_cache", None)
+    if cache is None:
+        cache = {}
+        student._read_only_unlock_rule_snapshot_cache = cache
+    if cache_key not in cache:
+        cache[cache_key] = list(
+            UnlockRule.objects.filter(
+                institute=student.institute,
+                content_type=content_type,
+                is_active=True,
+            )
+            .select_related("subject")
+            .order_by("priority", "created_at")
+        )
+    return [
+        rule
+        for rule in cache[cache_key]
+        if _target_matches(
+            item=rule,
+            content_type=content_type,
+            content_key=content_key,
+            subject=subject,
+        )
+    ]
+
+
+def _cached_student_completion_count(student, *, subject=None):
+    subject_id = getattr(subject, "id", None)
+    cache = getattr(student, "_read_only_completion_count_cache", None)
+    if cache is None:
+        cache = {}
+        student._read_only_completion_count_cache = cache
+    if subject_id not in cache:
+        queryset = ExamResult.objects.filter(student=student, is_active=True)
+        if subject is not None:
+            queryset = queryset.filter(exam__subject=subject)
+        cache[subject_id] = queryset.count()
+    return cache[subject_id]
+
+
+def _cached_student_best_percentage(student, *, subject=None):
+    subject_id = getattr(subject, "id", None)
+    cache = getattr(student, "_read_only_best_percentage_cache", None)
+    if cache is None:
+        cache = {}
+        student._read_only_best_percentage_cache = cache
+    if subject_id not in cache:
+        queryset = ExamResult.objects.filter(student=student, is_active=True)
+        if subject is not None:
+            queryset = queryset.filter(exam__subject=subject)
+        cache[subject_id] = queryset.order_by("-percentage").values_list("percentage", flat=True).first()
+    return float(cache[subject_id] or 0)
+
+
+def _evaluate_unlock_rule_read_only(*, student, rule):
+    if rule.rule_type == UnlockRuleType.STARS_BALANCE:
+        profile = _cached_student_economy_profile(student)
+        available_stars = getattr(profile, "available_stars", 0) if profile is not None else 0
+        required = int(rule.required_star_balance or 0)
+        passed = available_stars >= required
+        return {
+            "passed": passed,
+            "reason_code": "" if passed else "insufficient_stars",
+            "reason_message": "" if passed else f"{required} stars are required to unlock this content.",
+        }
+
+    if rule.rule_type == UnlockRuleType.ENTITLEMENT:
+        passed = _cached_student_has_entitlement(
+            student,
+            rule.required_entitlement_code,
+            content_type=rule.content_type,
+            content_key=rule.content_key,
+        )
+        return {
+            "passed": passed,
+            "reason_code": "" if passed else "missing_entitlement",
+            "reason_message": ""
+            if passed
+            else "An entitlement is required to unlock this content.",
+        }
+
+    if rule.rule_type == UnlockRuleType.EXAM_COMPLETION:
+        required = int(rule.required_completion_count or 0)
+        completed = _cached_student_completion_count(student, subject=rule.subject)
+        passed = completed >= required
+        return {
+            "passed": passed,
+            "reason_code": "" if passed else "completion_requirement_not_met",
+            "reason_message": ""
+            if passed
+            else f"Complete {required} qualifying tests to unlock this content.",
+        }
+
+    if rule.rule_type == UnlockRuleType.SCORE_THRESHOLD:
+        required = float(rule.required_score_percentage or 0)
+        achieved = _cached_student_best_percentage(student, subject=rule.subject)
+        passed = achieved >= required
+        return {
+            "passed": passed,
+            "reason_code": "" if passed else "score_requirement_not_met",
+            "reason_message": ""
+            if passed
+            else f"Reach at least {required:.0f}% in a qualifying test to unlock this content.",
+        }
+
+    if rule.rule_type == UnlockRuleType.ADMIN_APPROVAL:
+        return {
+            "passed": False,
+            "reason_code": "admin_approval_required",
+            "reason_message": "Admin approval is required to unlock this content.",
+        }
+
+    return {
+        "passed": False,
+        "reason_code": "composite_rule_not_implemented",
+        "reason_message": "This unlock rule requires composite evaluation support.",
+    }
+
+
+def evaluate_unlock_state_read_only(
+    *,
+    student,
+    content_type,
+    content_key,
+    subject=None,
+    access_policy=None,
+):
+    profile = _cached_student_economy_profile(student)
+    if access_policy is None:
+        access_policy = resolve_content_access_policy(
+            student=student,
+            content_type=content_type,
+            content_key=content_key,
+            subject=subject,
+        )
+
+    status = UnlockStateStatus.UNLOCKED
+    reason_code = ""
+    reason_message = ""
+
+    if access_policy is not None:
+        spend_unlock_entitlement = _derived_content_entitlement_code(
+            content_type=content_type,
+            content_key=content_key,
+        )
+        has_spend_unlock = _cached_student_has_entitlement(
+            student,
+            spend_unlock_entitlement,
+            content_type=content_type,
+            content_key=content_key,
+        )
+        available_stars = getattr(profile, "available_stars", 0) if profile is not None else 0
+
+        if access_policy.policy_type == AccessPolicyType.STARS_ONLY:
+            if not has_spend_unlock and available_stars < access_policy.star_cost:
+                status = UnlockStateStatus.LOCKED
+                reason_code = "insufficient_stars"
+                reason_message = f"{access_policy.star_cost} stars are required to access this content."
+        elif access_policy.policy_type == AccessPolicyType.ENTITLEMENT_ONLY:
+            if not _cached_student_has_entitlement(
+                student,
+                access_policy.entitlement_code,
+                content_type=content_type,
+                content_key=content_key,
+            ):
+                status = UnlockStateStatus.LOCKED
+                reason_code = "missing_entitlement"
+                reason_message = "An entitlement is required to access this content."
+        elif access_policy.policy_type == AccessPolicyType.STARS_OR_ENTITLEMENT:
+            has_entitlement = _cached_student_has_entitlement(
+                student,
+                access_policy.entitlement_code,
+                content_type=content_type,
+                content_key=content_key,
+            )
+            if not has_entitlement and not has_spend_unlock and available_stars < access_policy.star_cost:
+                status = UnlockStateStatus.LOCKED
+                reason_code = "insufficient_stars_or_entitlement"
+                reason_message = f"Either {access_policy.star_cost} stars or a valid entitlement is required."
+
+    if status == UnlockStateStatus.UNLOCKED:
+        for rule in _read_only_unlock_rules_for_target(
+            student=student,
+            content_type=content_type,
+            content_key=content_key,
+            subject=subject,
+        ):
+            result = _evaluate_unlock_rule_read_only(student=student, rule=rule)
+            if not result["passed"]:
+                status = UnlockStateStatus.LOCKED
+                reason_code = result["reason_code"]
+                reason_message = result["reason_message"]
+                break
+
+    return StudentUnlockState(
+        institute=student.institute,
+        student=student,
+        subject=subject,
+        content_type=content_type,
+        content_key=str(content_key),
+        content_label=access_policy.content_label if access_policy else "",
+        status=status,
+        lock_reason_code=reason_code,
+        lock_reason_message=reason_message,
+        last_evaluated_at=timezone.now(),
+        unlocked_at=timezone.now() if status == UnlockStateStatus.UNLOCKED else None,
+        locked_at=timezone.now() if status == UnlockStateStatus.LOCKED else None,
+        metadata={},
+    )
 
 
 @transaction.atomic

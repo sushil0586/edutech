@@ -9,6 +9,38 @@ WEB_DIR="$ROOT_DIR/edutech_web"
 run_backend=true
 run_playwright=true
 
+resolve_backend_python() {
+  if [[ -x "$BACKEND_DIR/.venv/bin/python" ]]; then
+    echo "$BACKEND_DIR/.venv/bin/python"
+    return 0
+  fi
+
+  if command -v python3 >/dev/null 2>&1; then
+    echo "python3"
+    return 0
+  fi
+
+  if command -v python >/dev/null 2>&1; then
+    echo "python"
+    return 0
+  fi
+
+  echo "No backend Python interpreter found. Create $BACKEND_DIR/.venv or install python3." >&2
+  return 1
+}
+
+ensure_backend_django() {
+  local backend_python="$1"
+  if ! (
+    cd "$BACKEND_DIR"
+    "$backend_python" -c "import django" >/dev/null 2>&1
+  ); then
+    echo "Backend validation cannot run because Django is unavailable for $backend_python." >&2
+    echo "Activate/install the backend environment before running this bundle." >&2
+    return 1
+  fi
+}
+
 usage() {
   cat <<'EOF'
 Usage:
@@ -56,10 +88,14 @@ parse_args() {
 }
 
 run_backend_bundle() {
+  local backend_python
+  backend_python="$(resolve_backend_python)"
+  ensure_backend_django "$backend_python"
+
   echo "==> Running backend immediate-release regression bundle"
   (
     cd "$BACKEND_DIR"
-    ./.venv/bin/python manage.py test \
+    "$backend_python" manage.py test \
       apps.attempts.tests.test_attempt_workspace_api.AttemptWorkspaceApiTestCase.test_submit_attempt_generates_immediate_result_records \
       apps.attempts.tests.test_attempt_workspace_api.AttemptWorkspaceApiTestCase.test_immediate_result_mode_publishes_each_retry_and_recalculates_ranks
   )

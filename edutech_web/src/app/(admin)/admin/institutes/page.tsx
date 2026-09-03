@@ -4,7 +4,7 @@ import {
   type InstituteCounts,
   type InstituteOnboardingRunRecord,
 } from "@/components/admin/institute-management-workspace";
-import { fetchPortalCount, fetchPortalList, fetchPortalListAll, fetchPortalRecord } from "@/lib/api/portal";
+import { fetchPortalCount, fetchPortalListAll, fetchPortalRecord } from "@/lib/api/portal";
 import { fetchRegistrationOptions } from "@/lib/auth/session";
 
 function normalizeSelectedInstitute(

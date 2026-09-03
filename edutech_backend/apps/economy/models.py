@@ -181,6 +181,15 @@ class InstituteQuestionUsageActionType(models.TextChoices):
     ENTITLEMENT_OVERRIDE = "entitlement_override", "Entitlement Override"
 
 
+class EconomyCatalogGovernanceScope(models.TextChoices):
+    PLATFORM_ONLY = "platform_only", "Platform Only"
+
+
+class EconomySupportScope(models.TextChoices):
+    CROSS_INSTITUTE = "cross_institute", "Cross Institute"
+    INSTITUTE_ONLY = "institute_only", "Institute Only"
+
+
 class ContentTargetMixin(models.Model):
     subject = models.ForeignKey(
         Subject,
@@ -212,6 +221,26 @@ class EconomyOperatorPolicyConfig(BaseModel):
     institute_admin_confirm_order_currency = models.CharField(max_length=10, default="INR")
     institute_admin_can_grant_stars = models.BooleanField(default=True)
     institute_admin_max_grant_stars = models.PositiveIntegerField(default=250)
+    platform_catalog_governance_scope = models.CharField(
+        max_length=30,
+        choices=EconomyCatalogGovernanceScope.choices,
+        default=EconomyCatalogGovernanceScope.PLATFORM_ONLY,
+    )
+    institute_catalog_governance_scope = models.CharField(
+        max_length=30,
+        choices=EconomyCatalogGovernanceScope.choices,
+        default=EconomyCatalogGovernanceScope.PLATFORM_ONLY,
+    )
+    platform_support_scope = models.CharField(
+        max_length=30,
+        choices=EconomySupportScope.choices,
+        default=EconomySupportScope.CROSS_INSTITUTE,
+    )
+    institute_support_scope = models.CharField(
+        max_length=30,
+        choices=EconomySupportScope.choices,
+        default=EconomySupportScope.INSTITUTE_ONLY,
+    )
 
     class Meta:
         verbose_name = "Economy operator policy config"

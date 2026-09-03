@@ -127,7 +127,7 @@ export default async function CompleteProfilePage() {
             <article className="authInlineStat">
               <span>Profile</span>
               <strong>Role-aware fields</strong>
-              <small>Students, parents, and teachers see only what matters.</small>
+              <small>Students, teachers, and managed roles see only what matters.</small>
             </article>
             <article className="authInlineStat">
               <span>Outcome</span>

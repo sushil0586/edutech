@@ -2,7 +2,6 @@ import "server-only";
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { cache } from "react";
 
 const API_BASE_URL = (
   process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? ""
@@ -117,6 +116,16 @@ export type PortalRole =
   | "platform_admin"
   | "institute_admin"
   | "parent";
+
+export const PORTAL_ROLE_GROUPS = {
+  studentOnly: ["student"],
+  teacherOnly: ["teacher"],
+  parentOnly: ["parent"],
+  instituteAdminOnly: ["institute_admin"],
+  platformAdminOnly: ["platform_admin"],
+  instituteOrPlatformAdmin: ["institute_admin", "platform_admin"],
+  teacherScopedOperators: ["teacher", "institute_admin", "platform_admin"],
+} as const satisfies Record<string, readonly PortalRole[]>;
 
 export type AuthenticatedSession = {
   accessToken: string;
@@ -491,6 +500,13 @@ export function hasRequiredRole(
   return allowedRoles.includes(profile.role);
 }
 
+export function hasPortalRole(
+  profile: Pick<AccountProfile, "role"> | null | undefined,
+  role: PortalRole,
+) {
+  return profile?.role === role;
+}
+
 export function getPortalHomePath(role: string) {
   switch (role) {
     case "teacher":
@@ -612,7 +628,7 @@ async function readAuthenticatedSession(): Promise<AuthenticatedSession | null> 
       accessToken,
       profile,
     };
-  } catch (error) {
+  } catch {
     const shouldUseSnapshot =
       sessionSnapshot &&
       sessionSnapshot.is_active;

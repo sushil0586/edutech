@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { finalizeTeacherQuestionImport } from "@/lib/api/teacher-builder";
-import { fetchCurrentAccountProfile } from "@/lib/auth/session";
+import { fetchCurrentAccountProfile, hasPortalRole } from "@/lib/auth/session";
 
 export async function POST(request: Request) {
   const profile = await fetchCurrentAccountProfile();
 
-  if (!profile || profile.role !== "teacher" || !profile.institute) {
+  if (!profile || !hasPortalRole(profile, "teacher") || !profile.institute) {
     return NextResponse.json({ error: "Teacher session is not available." }, { status: 401 });
   }
 

@@ -39,6 +39,17 @@ import {
   buildPracticeHref,
   resolvePracticeFocusRecommendation,
 } from "@/lib/student/practice";
+import { resolveAssessmentExamFamilyId } from "@/lib/assessment/exam-family-metadata";
+
+function detectCompetitiveLane(values: Array<string | null | undefined>) {
+  for (const value of values) {
+    const familyId = resolveAssessmentExamFamilyId(value);
+    if (familyId === "neet" || familyId === "jee") {
+      return familyId;
+    }
+  }
+  return null;
+}
 
 function subscriptionAllowanceBadge(exam: {
   economy_access: {
@@ -547,6 +558,15 @@ export default async function DashboardPage({
   const recommendedExamSubjectLabel = recommendedExam
     ? dashboardExamSubjectLabel(recommendedExam)
     : null;
+  const competitiveLane =
+    detectCompetitiveLane([selectedSubjectLabel]) ??
+    (recommendedExam
+      ? detectCompetitiveLane([
+          recommendedExamSubjectLabel,
+          recommendedExam.title,
+          recommendedExam.code,
+        ])
+      : null);
   const heroAction = dashboardActionForExam(recommendedExam);
   const availableExams = scopedExams
     .filter(
@@ -638,20 +658,32 @@ export default async function DashboardPage({
       <section className="studentDashboardHeroRow">
         <div className="studentDashboardWelcome studentDashboardWelcomeCompact">
           <div className="studentDashboardWelcomeCopy">
-            <span className="studentDashboardEyebrow">Overall Performance Dashboard</span>
-            <h1>{displayName}&apos;s Academic Report</h1>
+            <span className="studentDashboardEyebrow">Student launch workspace</span>
+            <h1>{displayName}, here&apos;s your best next step</h1>
             <p>
-              {[classLevel ? `Class ${classLevel}` : "", board, selectedSubjectLabel]
-                .filter(Boolean)
-                .join(" · ")}
+              {competitiveLane === "neet"
+                ? topAction?.description ??
+                  "Stay focused on the next serious NEET-style move: resume the live mock, open the next full mock, or recover the weakest topic before your next attempt."
+                : competitiveLane === "jee"
+                  ? topAction?.description ??
+                    "Stay focused on the next JEE-style move: resume the live challenge mock, open the next timed set, or recover the weakest concept before your next attempt."
+                  : topAction?.description ??
+                    heroAction.reason}
             </p>
             <small>
-              {selectedSource !== ALL_SOURCES_CONTEXT
-                ? `${selectedStudentSourceLabel(selectedSource)} filter is active. `
-                : ""}
-              {recommendedExam
-                ? "This report is using live academic performance, results, and next-step data."
-                : "This report will strengthen as exams, results, and practice signals become available."}
+              {[
+                classLevel ? `Class ${classLevel}` : null,
+                board || null,
+                selectedSubjectLabel || null,
+                selectedSource !== ALL_SOURCES_CONTEXT
+                  ? `${selectedStudentSourceLabel(selectedSource)} active`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(" · ") ||
+                (recommendedExam
+                  ? "Live performance, results, and next-step signals are active."
+                  : "Your dashboard will sharpen as attempts, results, and practice signals build up.")}
             </small>
           </div>
           <div className="studentDashboardIllustration" aria-hidden="true">
@@ -670,12 +702,12 @@ export default async function DashboardPage({
       <section className="studentDashboardPrimaryGrid studentDashboardPrimaryGridCompact">
         <article className="studentDashboardCard studentDashboardCardCompact studentDashboardRecommendation">
           <div className="studentDashboardCardHead">
-            <span className="studentDashboardTag">Report spotlight</span>
+            <span className="studentDashboardTag">Start here</span>
           </div>
           <div className="studentDashboardRecommendationLead">
             <span className="studentDashboardMiniBadge">{topAction?.eyebrow ?? "Recommended"}</span>
             <small>
-              Start here, then use the queue below for follow-up options.
+              Do this first, then use the queue below for the best follow-up options.
             </small>
           </div>
           <strong>{topAction?.title ?? heroAction.title}</strong>
@@ -727,8 +759,8 @@ export default async function DashboardPage({
           ) : null}
           {topAction?.nextStep ? (
             <div className="studentDashboardRecommendationChecklist">
-              <span>Now: {topAction.label}</span>
-              <span>Then: {topAction.nextStep}</span>
+              <span>First: {topAction.label}</span>
+              <span>Next: {topAction.nextStep}</span>
             </div>
           ) : null}
           <div className="studentDashboardActionRow">

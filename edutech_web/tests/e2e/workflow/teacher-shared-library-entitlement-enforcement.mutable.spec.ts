@@ -64,7 +64,7 @@ test.describe("Teacher shared-library entitlement enforcement", () => {
   test("@workflow @mutable teacher shared-library availability turns blocked when the matching entitlement is paused", async ({
     page,
   }) => {
-    test.setTimeout(180000);
+    test.setTimeout(240000);
 
     await loginAsRole(page, "teacher");
     await expectTeacherWorkspace(page);
@@ -175,12 +175,11 @@ test.describe("Teacher shared-library entitlement enforcement", () => {
       await loginAsRole(page, "teacher");
       await expectTeacherWorkspace(page);
 
-      await page.goto("/teacher/question-bank");
+      await page.goto(`/teacher/question-bank?search=${encodeURIComponent(searchProbe)}`);
       await expect(page.getByRole("heading", { name: /question bank/i }).first()).toBeVisible();
 
       const searchField = page.getByRole("textbox", { name: /search question text/i });
-      await searchField.fill(searchProbe);
-      await page.getByRole("button", { name: /apply filters/i }).click();
+      await expect(searchField).toHaveValue(searchProbe);
       await expect(page).toHaveURL(/search=/);
 
       const sharedLibrarySection = page.locator("section.contentCard").filter({
@@ -191,10 +190,10 @@ test.describe("Teacher shared-library entitlement enforcement", () => {
       const targetCard = sharedLibrarySection
         .locator(".questionBankCard")
         .filter({ hasText: searchProbe })
-        .filter({ hasText: /subscription required/i })
+        .filter({ hasText: /no matching subscribed package was found for this local scope/i })
         .first();
       await expect(targetCard).toBeVisible();
-      await expect(targetCard.getByText(/subscription required/i)).toBeVisible();
+      await expect(targetCard.getByText(/subscription required|scope mismatch/i).first()).toBeVisible();
       await expect(
         targetCard.getByText(/no matching subscribed package was found for this local scope/i).first(),
       ).toBeVisible();

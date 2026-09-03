@@ -4,6 +4,7 @@ import type {
   AssessmentResponseModeDefinition,
 } from "@/features/dashboard/types";
 import type { TeacherQuestionTypeDefinition } from "@/lib/api/teacher-builder";
+import type { CatalogSelectOption } from "@/lib/teacher/option-catalog";
 
 type QuestionTypeCapabilities = {
   supports_options: boolean;
@@ -50,6 +51,18 @@ export type AppQuestionTypeDefinition =
   | SharedQuestionTypeDefinition
   | null
   | undefined;
+
+export const DEFAULT_QUESTION_TYPE_CODES = [
+  "mcq_single",
+  "mcq_multiple",
+  "true_false",
+  "assertion_reason",
+  "matrix_match",
+  "short_answer",
+  "fill_in_blanks",
+  "numeric_answer",
+  "essay_manual_review",
+] as const;
 
 export function questionTypeLabel(
   value: string,
@@ -270,4 +283,22 @@ export function questionTypeIsMatrixMatch(definition: AppQuestionTypeDefinition)
     return false;
   }
   return definition.authoring_variant === "matrix_match";
+}
+
+export function buildQuestionTypeSelectOptions(
+  definitions?: AppQuestionTypeDefinition[] | null,
+  fallbackCodes: readonly string[] = DEFAULT_QUESTION_TYPE_CODES,
+) {
+  const typedDefinitions = (definitions ?? []).filter(
+    (definition): definition is Exclude<AppQuestionTypeDefinition, null | undefined> => Boolean(definition?.code),
+  );
+  const labelByCode = new Map(typedDefinitions.map((definition) => [definition.code, definition.label]));
+  const codes = typedDefinitions.length
+    ? typedDefinitions.map((definition) => definition.code)
+    : [...fallbackCodes];
+
+  return codes.map((code): CatalogSelectOption => ({
+    value: code,
+    label: labelByCode.get(code) ?? questionTypeLabel(code),
+  }));
 }

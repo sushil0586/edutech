@@ -56,6 +56,7 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "django.middleware.gzip.GZipMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -158,6 +159,27 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "REST API foundation for the EduTech education portal.",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    "ENUM_NAME_OVERRIDES": {
+        "AccountRoleEnum": "apps.accounts.models.AccountRole",
+        "AccountOnboardingStatusEnum": "apps.accounts.models.OnboardingStatus",
+        "AttemptReviewTaskStatusEnum": "apps.attempts.models.ReviewTaskStatus",
+        "EconomyEntitlementStatusEnum": "apps.economy.models.EntitlementStatus",
+        "ExamAccessSlotStatusEnum": "apps.exams.models.ExamAccessSlotStatus",
+        "ExamStatusEnum": "apps.exams.models.ExamStatus",
+        "InstituteOnboardingRunStatusEnum": "apps.institutes.models.InstituteOnboardingRunStatus",
+        "InstituteOnboardingTaskStatusEnum": "apps.institutes.models.InstituteOnboardingTaskStatus",
+        "InstituteQuestionEntitlementStatusEnum": "apps.economy.models.InstituteQuestionEntitlementStatus",
+        "InstituteSubscriptionRequestStatusEnum": "apps.economy.models.InstituteSubscriptionRequestStatus",
+        "PaymentOrderStatusEnum": "apps.economy.models.PaymentOrderStatus",
+        "PaymentTransactionStatusEnum": "apps.economy.models.PaymentTransactionStatus",
+        "ResultVisibilityTimingEnum": [
+            ("hidden", "Hidden"),
+            ("provisional_after_submit", "Provisional After Submit"),
+            ("final_after_exam_closure", "Final After Exam Closure"),
+        ],
+        "StudentSubscriptionStatusEnum": "apps.economy.models.StudentSubscriptionStatus",
+        "StudentUnlockStateStatusEnum": "apps.economy.models.UnlockStateStatus",
+    },
 }
 
 CORS_ALLOW_ALL_ORIGINS = config("CORS_ALLOW_ALL_ORIGINS", cast=bool, default=False)

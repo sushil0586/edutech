@@ -5031,6 +5031,10 @@ button {
 
 .studentPage {
   gap: 14px;
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   padding: 16px;
   border-radius: 20px;
   background:
@@ -5041,6 +5045,11 @@ button {
   position: relative;
   overflow: hidden;
   box-shadow: 0 14px 28px rgba(79, 70, 229, 0.08);
+}
+
+.studentPage > * {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .attemptPageFocusMode {
@@ -5143,6 +5152,9 @@ button {
 .contentCard {
   display: grid;
   gap: var(--space-4);
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   padding: 16px;
   border: 1px solid rgba(160, 174, 208, 0.18);
   border-radius: 16px;
@@ -5844,6 +5856,9 @@ button {
 .analyticsDetailHero {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   gap: 18px;
   padding: 22px;
   border: 1px solid rgba(148, 163, 184, 0.2);
@@ -5865,7 +5880,9 @@ button {
 .analyticsDetailHeroRail {
   display: grid;
   align-content: start;
+  width: 100%;
   min-width: 0;
+  max-width: 100%;
   gap: 12px;
 }
 
@@ -5895,6 +5912,9 @@ button {
 
 .analyticsSignalGrid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .analyticsActionGrid {
@@ -5941,6 +5961,8 @@ button {
 @media (max-width: 640px) {
   .analyticsDetailHero {
     gap: 10px;
+    grid-template-columns: minmax(0, 1fr);
+    overflow: hidden;
     padding: 14px 12px;
     border-radius: 20px;
   }
@@ -5948,6 +5970,8 @@ button {
   .analyticsDetailHeroCopy strong {
     font-size: clamp(1.15rem, 5.8vw, 1.55rem);
     line-height: 1.04;
+    letter-spacing: 0;
+    overflow-wrap: anywhere;
   }
 
   .analyticsDetailHeroCopy,
@@ -5958,20 +5982,25 @@ button {
   .analyticsDetailHeroCopy p {
     font-size: 0.85rem;
     line-height: 1.45;
+    overflow-wrap: anywhere;
   }
 
   .analyticsDetailHero .studentDashboardTag,
   .analyticsDetailHero .studentDashboardMiniBadge {
+    width: auto;
     min-height: 28px;
+    max-width: 100%;
     padding: 0 10px;
     font-size: 0.7rem;
   }
 
   .analyticsDetailHero .analyticsSignalGrid {
     gap: 8px;
+    min-width: 0;
   }
 
   .analyticsDetailHero .analyticsSignalCard {
+    min-width: 0;
     gap: 4px;
     padding: 10px 12px;
     border-radius: 14px;
@@ -5992,18 +6021,21 @@ button {
   }
 
   .analyticsDetailHero .analyticsDetailHeroCopy > .studentInsightHeroActions {
+    width: 100%;
+    min-width: 0;
     flex: 0 1 auto;
     justify-content: flex-start;
     gap: 6px;
   }
 
   .analyticsDetailHero .analyticsDetailHeroCopy > .studentInsightHeroActions > .studentDashboardMiniBadge {
-    flex: 0 1 auto;
+    flex: 1 1 calc(50% - 4px);
     max-width: 100%;
   }
 
   .analyticsDetailHero .studentInsightHeroActions {
     width: 100%;
+    min-width: 0;
     justify-content: flex-start;
     gap: 6px;
   }
@@ -6035,11 +6067,10 @@ button {
 
   .analyticsDetailHero .studentInsightHeroActions > .button,
   .analyticsDetailHero .studentInsightHeroActions > form {
-    flex: 1 1 calc(50% - 4px);
+    flex: 1 1 100%;
   }
 
-  .analyticsDetailHero .studentInsightHeroActions > .button:last-child,
-  .analyticsDetailHero .studentInsightHeroActions > form:last-child {
+  .analyticsDetailHero .analyticsDetailHeroCopy > .studentInsightHeroActions > .studentDashboardMiniBadge {
     flex-basis: 100%;
   }
 }

@@ -6,12 +6,6 @@ import { expectInstituteWorkspace, expectStudentWorkspace } from "../helpers/nav
 const mutableInstituteEconomyActionsEnabled = isMutableLaneEnabled(
   "PLAYWRIGHT_ENABLE_MUTABLE_INSTITUTE_ECONOMY_ACTIONS",
 );
-const backendBaseUrl = (
-  process.env.API_BASE_URL ??
-  process.env.NEXT_PUBLIC_API_BASE_URL ??
-  process.env.PLAYWRIGHT_API_BASE_URL ??
-  "http://127.0.0.1:9001"
-).replace(/\/$/, "");
 
 type EconomyPolicyConfig = {
   institute_admin_can_confirm_orders: boolean;
@@ -19,19 +13,6 @@ type EconomyPolicyConfig = {
   institute_admin_confirm_order_currency: string;
   institute_admin_can_grant_stars: boolean;
   institute_admin_max_grant_stars: number;
-};
-
-type CreatedStarPackResponse = {
-  data?: {
-    id: string;
-    institute: string;
-    name: string;
-    code: string;
-    stars_credited: number;
-    price_amount: string;
-    currency: string;
-  };
-  message?: string;
 };
 
 function supportActionsCard(page: Page) {
@@ -48,11 +29,6 @@ function unlockRefreshCard(page: Page) {
       name: /current unlock states after recalculation/i,
     }),
   }).first();
-}
-
-async function getAccessToken(page: Page) {
-  const cookies = await page.context().cookies();
-  return cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
 }
 
 async function readEconomyPolicy(page: Page) {

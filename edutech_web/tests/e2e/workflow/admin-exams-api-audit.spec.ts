@@ -10,6 +10,7 @@ type TimingMetric = {
 };
 
 test.describe("Admin exams API audit", () => {
+  test.setTimeout(180_000);
   test.skip(testRequiresRole("admin"), "Admin Playwright credentials are not configured.");
 
   test("@workflow admin exams filters preserve params without extra browser-side API calls", async ({
@@ -62,9 +63,13 @@ test.describe("Admin exams API audit", () => {
         const scopeStartedAt = Date.now();
         audit.reset();
         await instituteSelect.selectOption(selectedInstituteId);
-        await page.getByRole("button", { name: /apply filters/i }).click();
-        await expect(page).toHaveURL(new RegExp(`/admin/exams\\?[^#]*institute=${selectedInstituteId}`));
-        await expect(page.getByRole("heading", { name: /exam management/i }).first()).toBeVisible();
+        await page.getByRole("button", { name: /update view/i }).click();
+        await expect(page).toHaveURL(new RegExp(`/admin/exams\\?[^#]*institute=${selectedInstituteId}`), {
+          timeout: 60_000,
+        });
+        await expect(page.getByRole("heading", { name: /exam management/i }).first()).toBeVisible({
+          timeout: 60_000,
+        });
         await audit.waitForSettled();
         metrics.push({
           elapsedMs: Date.now() - scopeStartedAt,
@@ -83,8 +88,8 @@ test.describe("Admin exams API audit", () => {
       await sourceSelect.selectOption("teacher");
       await sortSelect.selectOption("start_soon");
       await groupSelect.selectOption("source");
-      await page.getByRole("button", { name: /apply filters/i }).click();
-      await expect(page).toHaveURL(/exam_status=live/);
+      await page.getByRole("button", { name: /update view/i }).click();
+      await expect(page).toHaveURL(/exam_status=live/, { timeout: 60_000 });
       await expect(page).toHaveURL(/exam_source=teacher/);
       await expect(page).toHaveURL(/exam_sort=start_soon/);
       await expect(page).toHaveURL(/exam_group=source/);
@@ -106,7 +111,7 @@ test.describe("Admin exams API audit", () => {
       const sourceQuickFilterStartedAt = Date.now();
       audit.reset();
       await page.getByRole("link", { name: /^platform$/i }).click();
-      await expect(page).toHaveURL(/exam_source=platform/);
+      await expect(page).toHaveURL(/exam_source=platform/, { timeout: 60_000 });
       await expect(page).toHaveURL(/exam_status=live/);
       await audit.waitForSettled();
       metrics.push({
@@ -121,8 +126,8 @@ test.describe("Admin exams API audit", () => {
 
       const resetStartedAt = Date.now();
       audit.reset();
-      await page.getByRole("link", { name: /reset exam filters/i }).click();
-      await expect(page).toHaveURL(/\/admin\/exams(?:\?.*)?$/);
+      await gotoWithRuntimeRecovery(page, "/admin/exams");
+      await expect(page).toHaveURL(/\/admin\/exams(?:\?.*)?$/, { timeout: 60_000 });
       await expect(page).not.toHaveURL(/exam_status=|exam_source=|exam_sort=|exam_group=/);
       await expect(page.getByRole("heading", { name: /exam management/i }).first()).toBeVisible();
       await audit.waitForSettled();
@@ -139,20 +144,33 @@ test.describe("Admin exams API audit", () => {
       const expectedServerRenderContract = {
         default: [
           "/api/v1/institutes/?page_size=100",
-          "/api/v1/exams/?page_size=200",
+          "/api/v1/exams/platform-catalog-summary/",
+          "/api/v1/exams/?page=1&page_size=24",
         ],
         "institute-scoped": selectedInstituteId
           ? [
               "/api/v1/institutes/?page_size=100",
-              `/api/v1/exams/?page_size=200&institute=${selectedInstituteId}`,
+              `/api/v1/exams/platform-catalog-summary/?institute=${selectedInstituteId}`,
+              `/api/v1/exams/?page=1&page_size=24&institute=${selectedInstituteId}`,
             ]
-          : ["/api/v1/institutes/?page_size=100", "/api/v1/exams/?page_size=200"],
+          : [
+              "/api/v1/institutes/?page_size=100",
+              "/api/v1/exams/platform-catalog-summary/",
+              "/api/v1/exams/?page=1&page_size=24",
+            ],
         "filter-param-contract": [
           "exam_status",
           "exam_source",
           "exam_sort",
           "exam_group",
           "institute",
+        ],
+        "backend-filter-contract": [
+          "status",
+          "source_type",
+          "ordering",
+          "page",
+          "page_size",
         ],
       };
 

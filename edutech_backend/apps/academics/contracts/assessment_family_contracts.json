@@ -1,0 +1,72 @@
+{
+  "school": {
+    "allowed_question_types": [
+      "mcq_single",
+      "mcq_multiple",
+      "true_false",
+      "short_answer",
+      "essay_manual_review",
+      "fill_in_blanks",
+      "assertion_reason",
+      "matrix_match"
+    ],
+    "scoring_defaults": {
+      "strategy": "standard_marks",
+      "negative_marking_default": false,
+      "negative_marking_scope": "disabled",
+      "supports_numeric_entry": false,
+      "supports_partial_scoring": true,
+      "recommended_attempt_policy": "single"
+    }
+  },
+  "competitive": {
+    "allowed_question_types": [
+      "mcq_single",
+      "mcq_multiple",
+      "true_false",
+      "assertion_reason",
+      "matrix_match",
+      "numeric_answer"
+    ],
+    "scoring_defaults": {
+      "strategy": "negative_marks",
+      "negative_marking_default": true,
+      "negative_marking_scope": "objective_only",
+      "supports_numeric_entry": true,
+      "supports_partial_scoring": true,
+      "recommended_attempt_policy": "single"
+    }
+  },
+  "certification": {
+    "allowed_question_types": [
+      "mcq_single",
+      "mcq_multiple",
+      "true_false",
+      "short_answer"
+    ],
+    "scoring_defaults": {
+      "strategy": "standard_marks",
+      "negative_marking_default": false,
+      "negative_marking_scope": "disabled",
+      "supports_numeric_entry": false,
+      "supports_partial_scoring": true,
+      "recommended_attempt_policy": "best"
+    }
+  },
+  "language_proficiency": {
+    "allowed_question_types": [
+      "mcq_single",
+      "short_answer",
+      "fill_in_blanks",
+      "essay_manual_review"
+    ],
+    "scoring_defaults": {
+      "strategy": "band_score",
+      "negative_marking_default": false,
+      "negative_marking_scope": "disabled",
+      "supports_numeric_entry": false,
+      "supports_partial_scoring": true,
+      "recommended_attempt_policy": "single"
+    }
+  }
+}

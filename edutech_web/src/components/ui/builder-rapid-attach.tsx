@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import { BuilderQuestionPreviewTrigger } from "@/components/ui/builder-question-preview-trigger";
+import { buildQuestionTypeSelectOptions } from "@/lib/assessment/question-type";
 import type { LookupProgram, LookupQuestion, LookupTopic } from "@/lib/api/teacher-builder";
 import type { CatalogSelectOption } from "@/lib/teacher/option-catalog";
 
@@ -86,15 +87,28 @@ export function BuilderRapidAttach({
   );
 
   const questionTypeOptions = useMemo(
-    () =>
-      Array.from(
+    () => {
+      const filteredTypes = Array.from(
         new Set(
           questions
             .map((question) => question.question_type)
             .filter((type) => !allowedQuestionTypeSet.size || allowedQuestionTypeSet.has(type)),
         ),
-      ).sort(),
-    [allowedQuestionTypeSet, questions],
+      ).sort();
+
+      const definitions = filteredTypes.map((code) => ({
+        code,
+        label: questionTypeLabelMap[code] ?? titleCase(code),
+        response_mode: "",
+        answer_mode: "",
+        evaluation_mode: "",
+        option_source: "",
+        authoring_variant: "",
+      }));
+
+      return buildQuestionTypeSelectOptions(definitions, filteredTypes);
+    },
+    [allowedQuestionTypeSet, questionTypeLabelMap, questions],
   );
 
   const questionMap = useMemo(
@@ -256,9 +270,9 @@ export function BuilderRapidAttach({
                 <span>Question type</span>
                 <select onChange={(event) => setTypeFilter(event.target.value)} value={typeFilter}>
                   <option value="">All question types</option>
-                  {questionTypeOptions.map((type) => (
-                    <option key={type} value={type}>
-                      {questionTypeLabelMap[type] ?? titleCase(type)}
+                  {questionTypeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
                     </option>
                   ))}
                 </select>

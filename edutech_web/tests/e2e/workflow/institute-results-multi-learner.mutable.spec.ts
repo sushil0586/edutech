@@ -71,12 +71,6 @@ function toDateTimeLocalValue(date: Date) {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
-function instituteResultsWorkspaceReadinessCard(page: Page, title: RegExp) {
-  return page.locator(".teacherResultsReadinessCard").filter({
-    has: page.getByText(title),
-  }).first();
-}
-
 async function expectOneOf(primary: Locator, secondary: Locator) {
   const primaryVisible = await primary.isVisible().catch(() => false);
   if (primaryVisible) {
@@ -91,24 +85,6 @@ async function getAccessToken(page: Page) {
   const accessToken = cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
   expect(accessToken).not.toBe("");
   return accessToken;
-}
-
-async function selectFirstNonEmptyOption(locator: Locator) {
-  let optionValue: string | null = null;
-  await expect
-    .poll(async () => {
-      const values = await locator.locator("option").evaluateAll((options) =>
-        options.map((option) => (option as HTMLOptionElement).value),
-      );
-      optionValue = values.find((value) => value.trim().length > 0) ?? null;
-      return optionValue;
-    }, {
-      timeout: 15000,
-      message: "Expected hydrated select options to include a non-empty value",
-    })
-    .not.toBeNull();
-  await locator.selectOption(optionValue!);
-  return optionValue!;
 }
 
 async function fetchSessionProfile(page: Page, accessToken?: string) {
@@ -777,28 +753,40 @@ test.describe("Institute mutable multi-learner results distribution", () => {
       await expect(calculateRanksButton).toBeVisible();
       await calculateRanksButton.click();
       await expect
-        .poll(async () => /message=/.test(page.url()) || Boolean((await fetchInstituteLeaderboard(page, ensuredExamId)).summary.all_ranked))
+        .poll(async () => (await fetchInstituteLeaderboard(page, ensuredExamId)).summary.ranked_count, {
+          timeout: 15000,
+          message: `Expected leaderboard summary for exam ${ensuredExamId} to rank both learners.`,
+        })
+        .toBe(2);
+      await expect
+        .poll(async () => Boolean((await fetchInstituteLeaderboard(page, ensuredExamId)).summary.all_ranked), {
+          timeout: 15000,
+          message: `Expected leaderboard summary for exam ${ensuredExamId} to mark all learners ranked.`,
+        })
         .toBe(true);
 
       const publishResultsButton = page.getByRole("button", { name: /publish results/i }).first();
       if (await publishResultsButton.isVisible().catch(() => false)) {
         await publishResultsButton.click();
         await expect
-          .poll(
-            async () =>
-              /message=/.test(page.url()) ||
-              Boolean((await fetchInstituteLeaderboard(page, ensuredExamId)).summary.published_results),
-          )
+          .poll(async () => (await fetchInstituteLeaderboard(page, ensuredExamId)).summary.published_count, {
+            timeout: 15000,
+            message: `Expected leaderboard summary for exam ${ensuredExamId} to publish both learner results.`,
+          })
+          .toBe(2);
+        await expect
+          .poll(async () => Boolean((await fetchInstituteLeaderboard(page, ensuredExamId)).summary.published_results), {
+            timeout: 15000,
+            message: `Expected leaderboard summary for exam ${ensuredExamId} to confirm published results.`,
+          })
           .toBe(true);
       } else {
         await publishExamResultsViaApi(page, ensuredExamId);
         await expect
-          .poll(
-            async () =>
-              /message=/.test(page.url()) ||
-              Boolean((await fetchInstituteLeaderboard(page, ensuredExamId)).summary.published_results),
-            { timeout: 15000 },
-          )
+          .poll(async () => Boolean((await fetchInstituteLeaderboard(page, ensuredExamId)).summary.published_results), {
+            timeout: 15000,
+            message: `Expected leaderboard summary for exam ${ensuredExamId} to confirm published results.`,
+          })
           .toBe(true);
       }
 

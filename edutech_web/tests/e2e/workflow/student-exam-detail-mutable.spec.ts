@@ -27,10 +27,6 @@ function toDateTimeLocalValue(date: Date) {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
-function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 async function openTeacherExamBuilderReady(page: Page, examId: string, tab?: "questions") {
   const builderPath = `/teacher/exams/${examId}/builder${tab ? `?tab=${tab}` : ""}`;
   const loadIssueHeading = page.getByRole("heading", { name: /exam builder could not be loaded/i });
@@ -206,7 +202,6 @@ test.describe("Student mutable exam detail blocked-state flow", () => {
     const studentCredentials = getRoleCredentials("student");
     expect(studentCredentials).not.toBeNull();
 
-    let studentDisplayName = studentCredentials!.username;
     let studentAcademicYearName: string | null = null;
     let studentProgramName: string | null = null;
     let examId: string | null = null;
@@ -219,9 +214,6 @@ test.describe("Student mutable exam detail blocked-state flow", () => {
       await expectStudentWorkspace(page);
 
       const studentContext = await readStudentAcademicContext(page);
-      if (studentContext.studentDisplayName) {
-        studentDisplayName = studentContext.studentDisplayName;
-      }
       studentAcademicYearName = studentContext.studentAcademicYearName;
       studentProgramName = studentContext.studentProgramName;
       const studentTarget = await resolveStudentAttemptTarget(page, studentCredentials!);
@@ -332,7 +324,6 @@ test.describe("Student mutable exam detail blocked-state flow", () => {
     const studentCredentials = getRoleCredentials("student");
     expect(studentCredentials).not.toBeNull();
 
-    let studentDisplayName = studentCredentials!.username;
     let studentAcademicYearName: string | null = null;
     let studentProgramName: string | null = null;
     let examId: string | null = null;
@@ -345,9 +336,6 @@ test.describe("Student mutable exam detail blocked-state flow", () => {
       await expectStudentWorkspace(page);
 
       const studentContext = await readStudentAcademicContext(page);
-      if (studentContext.studentDisplayName) {
-        studentDisplayName = studentContext.studentDisplayName;
-      }
       studentAcademicYearName = studentContext.studentAcademicYearName;
       studentProgramName = studentContext.studentProgramName;
       const studentTarget = await resolveStudentAttemptTarget(page, studentCredentials!);
@@ -457,23 +445,19 @@ test.describe("Student mutable exam detail blocked-state flow", () => {
     const studentCredentials = getRoleCredentials("student");
     expect(studentCredentials).not.toBeNull();
 
-    let studentDisplayName = studentCredentials!.username;
     let studentAcademicYearName: string | null = null;
     let studentProgramName: string | null = null;
     let examId: string | null = null;
     const now = new Date();
     const startAt = new Date(now.getTime() - 60 * 60 * 1000);
     const endAt = new Date(now.getTime() + 2 * 60 * 60 * 1000);
-    const starCost = "7";
+    const starCost = "1000000";
 
     try {
       await loginAsRole(page, "student");
       await expectStudentWorkspace(page);
 
       const studentContext = await readStudentAcademicContext(page);
-      if (studentContext.studentDisplayName) {
-        studentDisplayName = studentContext.studentDisplayName;
-      }
       studentAcademicYearName = studentContext.studentAcademicYearName;
       studentProgramName = studentContext.studentProgramName;
       const studentTarget = await resolveStudentAttemptTarget(page, studentCredentials!);

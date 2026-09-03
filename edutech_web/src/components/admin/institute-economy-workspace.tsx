@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   EconomyOperatorPolicy,
   StudentPaymentOrder,
@@ -25,7 +25,6 @@ type UnlockRefreshResponse = {
   data?: StudentUnlockState[];
   message?: string;
 };
-type PolicyResponse = EconomyOperatorPolicy;
 
 function formatDateTime(value: string | null) {
   if (!value) return "Not available";
@@ -42,6 +41,14 @@ function formatDateTime(value: string | null) {
 
 function titleCase(value: string) {
   return value.replaceAll("_", " ").replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function buildManualOrderReference(orderId: string) {
+  const suffix =
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `${orderId}-manual`;
+  return `manual-${orderId}-${suffix}`;
 }
 
 export function InstituteEconomyWorkspace({
@@ -65,7 +72,7 @@ export function InstituteEconomyWorkspace({
   const [historyRows, setHistoryRows] = useState<"4" | "6" | "10">("4");
   const [studentId, setStudentId] = useState(initialStudentId ?? students[0]?.id ?? "");
   const [wallet, setWallet] = useState<StudentWalletSummary | null>(initialWallet ?? null);
-  const [policy, setPolicy] = useState<EconomyOperatorPolicy | null>(initialPolicy ?? null);
+  const [policy] = useState<EconomyOperatorPolicy | null>(initialPolicy ?? null);
   const [rewards, setRewards] = useState<StudentRewardEvent[]>(initialRewards ?? []);
   const [orders, setOrders] = useState<StudentPaymentOrder[]>(initialOrders ?? []);
   const [subscriptions, setSubscriptions] = useState<StudentSubscription[]>([]);
@@ -105,14 +112,6 @@ export function InstituteEconomyWorkspace({
     }
     return students;
   }, [studentStatusFilter, students]);
-  const visibleHistoryRows = Number(historyRows);
-  const selectedStudent = useMemo(
-    () => students.find((student) => student.id === studentId) ?? null,
-    [studentId, students],
-  );
-  const visibleRewards = rewards.slice(0, visibleHistoryRows);
-  const visibleOrders = orders.slice(0, visibleHistoryRows);
-  const visibleSubscriptions = subscriptions.slice(0, visibleHistoryRows);
   const supportViewOptions = useMemo(() => {
     switch (workspaceView) {
       case "wallet":
@@ -147,6 +146,28 @@ export function InstituteEconomyWorkspace({
         ] as const;
     }
   }, [workspaceView]);
+  const resolvedStudentId = useMemo(() => {
+    if (!filteredStudents.length) {
+      return "";
+    }
+
+    return filteredStudents.some((student) => student.id === studentId)
+      ? studentId
+      : (filteredStudents[0]?.id ?? "");
+  }, [filteredStudents, studentId]);
+  const resolvedSupportView = useMemo(() => {
+    return supportViewOptions.some((option) => option.value === supportView)
+      ? supportView
+      : (supportViewOptions[0]?.value ?? "all");
+  }, [supportView, supportViewOptions]);
+  const visibleHistoryRows = Number(historyRows);
+  const selectedStudent = useMemo(
+    () => students.find((student) => student.id === resolvedStudentId) ?? null,
+    [resolvedStudentId, students],
+  );
+  const visibleRewards = rewards.slice(0, visibleHistoryRows);
+  const visibleOrders = orders.slice(0, visibleHistoryRows);
+  const visibleSubscriptions = subscriptions.slice(0, visibleHistoryRows);
   const supportViewLabel =
     workspaceView === "activity"
       ? "Activity detail"
@@ -154,11 +175,12 @@ export function InstituteEconomyWorkspace({
         ? "Context to keep visible"
         : "Visible data panel";
   const supportViewLocked = supportViewOptions.length === 1;
-  const showWalletPanel = supportView === "all" || supportView === "wallet";
-  const showRewardsPanel = supportView === "all" || supportView === "rewards";
-  const showUnlocksPanel = supportView === "all" || supportView === "unlocks";
-  const showOrdersPanel = supportView === "all" || supportView === "orders";
-  const showSubscriptionsPanel = supportView === "all" || supportView === "subscriptions";
+  const showWalletPanel = resolvedSupportView === "all" || resolvedSupportView === "wallet";
+  const showRewardsPanel = resolvedSupportView === "all" || resolvedSupportView === "rewards";
+  const showUnlocksPanel = resolvedSupportView === "all" || resolvedSupportView === "unlocks";
+  const showOrdersPanel = resolvedSupportView === "all" || resolvedSupportView === "orders";
+  const showSubscriptionsPanel =
+    resolvedSupportView === "all" || resolvedSupportView === "subscriptions";
   const showActionPanel = workspaceView === "all" || workspaceView === "actions";
   const showWalletWorkspacePanel = workspaceView === "all" || workspaceView === "wallet";
   const showActivityWorkspacePanel = workspaceView === "all" || workspaceView === "activity";
@@ -192,25 +214,6 @@ export function InstituteEconomyWorkspace({
     showWalletWorkspacePanel,
   ]);
   const requiredStudentSectionsKey = requiredStudentSections.join(",");
-
-  useEffect(() => {
-    if (!filteredStudents.length) {
-      if (studentId) {
-        setStudentId("");
-      }
-      return;
-    }
-
-    if (!filteredStudents.some((student) => student.id === studentId)) {
-      setStudentId(filteredStudents[0]?.id ?? "");
-    }
-  }, [filteredStudents, studentId]);
-
-  useEffect(() => {
-    if (!supportViewOptions.some((option) => option.value === supportView)) {
-      setSupportView(supportViewOptions[0]?.value ?? "all");
-    }
-  }, [supportView, supportViewOptions]);
 
   async function fetchWallet(studentIdToLoad: string, signal?: AbortSignal) {
     const response = await fetch(`/api/admin/economy/student/${studentIdToLoad}/wallet`, {
@@ -348,11 +351,11 @@ export function InstituteEconomyWorkspace({
     });
   }
 
-  async function refreshStudentEconomy(args: {
+  const refreshStudentEconomy = useCallback(async (args: {
     studentId: string;
     signal?: AbortSignal;
     sections?: Array<"wallet" | "rewards" | "orders" | "subscriptions">;
-  }) {
+  }) => {
     const sections = args.sections ?? ["wallet", "rewards", "orders", "subscriptions"];
     const shouldLoadWallet = sections.includes("wallet");
     const shouldLoadRewards = sections.includes("rewards");
@@ -384,10 +387,10 @@ export function InstituteEconomyWorkspace({
     }
 
     setRefreshStates([]);
-  }
+  }, []);
 
   useEffect(() => {
-    if (!studentId) {
+    if (!resolvedStudentId) {
       return;
     }
 
@@ -397,14 +400,14 @@ export function InstituteEconomyWorkspace({
       setLoading(true);
       setError("");
 
-      if (previousStudentIdRef.current !== studentId) {
+      if (previousStudentIdRef.current !== resolvedStudentId) {
         setMessage("");
-        previousStudentIdRef.current = studentId;
+        previousStudentIdRef.current = resolvedStudentId;
       }
 
-      syncStudentEconomyFromCache(studentId, requiredStudentSections);
+      syncStudentEconomyFromCache(resolvedStudentId, requiredStudentSections);
 
-      const missingSections = getMissingStudentSections(studentId, requiredStudentSections);
+      const missingSections = getMissingStudentSections(resolvedStudentId, requiredStudentSections);
       if (missingSections.length === 0) {
         setLoading(false);
         return;
@@ -415,7 +418,7 @@ export function InstituteEconomyWorkspace({
           await refreshStudentEconomy({
             signal: undefined,
             sections: missingSections,
-            studentId,
+            studentId: resolvedStudentId,
           });
         }
       } catch (loadError) {
@@ -439,10 +442,10 @@ export function InstituteEconomyWorkspace({
     return () => {
       cancelled = true;
     };
-  }, [requiredStudentSections, requiredStudentSectionsKey, studentId]);
+  }, [refreshStudentEconomy, requiredStudentSections, requiredStudentSectionsKey, resolvedStudentId]);
 
   async function handleGrantStars() {
-    if (!studentId) {
+    if (!resolvedStudentId) {
       setError("Select a student before granting stars.");
       return;
     }
@@ -469,7 +472,7 @@ export function InstituteEconomyWorkspace({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          student: studentId,
+          student: resolvedStudentId,
           stars: starsToGrant,
           reason: reason.trim(),
           source_reference: sourceReference.trim(),
@@ -493,7 +496,7 @@ export function InstituteEconomyWorkspace({
       setSourceReference("");
       setRefreshStates([]);
       await refreshStudentEconomy({
-        studentId,
+        studentId: resolvedStudentId,
         sections: ["wallet", "rewards"],
       });
     } catch (grantError) {
@@ -504,7 +507,7 @@ export function InstituteEconomyWorkspace({
   }
 
   async function handleRefreshUnlocks() {
-    if (!studentId) {
+    if (!resolvedStudentId) {
       setError("Select a student before refreshing unlock states.");
       return;
     }
@@ -514,7 +517,7 @@ export function InstituteEconomyWorkspace({
     setMessage("");
 
     try {
-      const response = await fetch(`/api/admin/economy/student/${studentId}/refresh-unlocks`, {
+      const response = await fetch(`/api/admin/economy/student/${resolvedStudentId}/refresh-unlocks`, {
         method: "POST",
       });
       const body = (await response.json().catch(() => ({}))) as UnlockRefreshResponse & {
@@ -543,7 +546,7 @@ export function InstituteEconomyWorkspace({
   }
 
   async function handleConfirmOrder(order: StudentPaymentOrder) {
-    if (!studentId) {
+    if (!resolvedStudentId) {
       setError("Select a student before confirming an order.");
       return;
     }
@@ -553,7 +556,7 @@ export function InstituteEconomyWorkspace({
     setMessage("");
 
     try {
-      const uniqueReference = `manual-${order.id}-${Date.now()}`;
+      const uniqueReference = buildManualOrderReference(order.id);
       const response = await fetch(`/api/admin/economy/orders/${order.id}/confirm`, {
         method: "POST",
         headers: {
@@ -581,7 +584,7 @@ export function InstituteEconomyWorkspace({
 
       setMessage(body.message ?? "Payment order completed successfully.");
       await refreshStudentEconomy({
-        studentId,
+        studentId: resolvedStudentId,
         sections: ["wallet", "orders"],
       });
     } catch (confirmError) {
@@ -591,7 +594,8 @@ export function InstituteEconomyWorkspace({
     }
   }
 
-  const hasOrdersForStudent = studentId ? ordersCacheRef.current.has(studentId) : false;
+  // eslint-disable-next-line react-hooks/refs
+  const hasOrdersForStudent = resolvedStudentId ? ordersCacheRef.current.has(resolvedStudentId) : false;
   const pendingOrders = hasOrdersForStudent
     ? orders.filter((order) => ["pending", "processing"].includes(order.status))
     : [];

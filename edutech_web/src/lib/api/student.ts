@@ -3,13 +3,15 @@ import {
   DashboardData,
   NotificationUnreadCount,
   PaginatedResponse,
-  StudentAvailableExam,
+  StudentExamCatalog,
   StudentAttemptAnswer,
   StudentAttemptDetail,
   StudentAttemptListItem,
   StudentAttemptReview,
   StudentAttemptSummary,
+  StudentDashboardExam,
   StudentExamDetail,
+  StudentExamDiscovery,
   StudentInsightSummary,
   StudentQuestionAnalytics,
   StudentUploadedResponseArtifact,
@@ -161,12 +163,15 @@ export async function fetchStudentInsightSummary() {
 export type StudentAvailableExamFilters = {
   source?: "all" | "platform" | "institute" | "teacher";
   teacher?: string | null;
+  examType?: string | null;
+  excludeExamType?: string | null;
 };
 
 export async function fetchStudentAvailableExams(
   filters?: StudentAvailableExamFilters,
 ) {
   const query = new URLSearchParams();
+  query.set("catalog", "true");
 
   if (filters?.source && filters.source !== "all") {
     query.set("source", filters.source);
@@ -176,10 +181,42 @@ export async function fetchStudentAvailableExams(
     query.set("teacher", filters.teacher);
   }
 
+  if (filters?.examType) {
+    query.set("exam_type", filters.examType);
+  }
+
+  if (filters?.excludeExamType) {
+    query.set("exclude_exam_type", filters.excludeExamType);
+  }
+
   const queryString = query.toString();
-  return fetchStudentJson<StudentAvailableExam[]>(
+  return fetchStudentJson<StudentExamCatalog[]>(
     `/api/v1/student/exams/available/${queryString ? `?${queryString}` : ""}`,
   );
+}
+
+export async function fetchStudentExamDiscovery(
+  filters?: StudentAvailableExamFilters,
+) {
+  const query = new URLSearchParams();
+
+  query.set("discovery", "true");
+
+  if (filters?.source && filters.source !== "all") {
+    query.set("source", filters.source);
+  }
+
+  if (filters?.source === "teacher" && filters.teacher) {
+    query.set("teacher", filters.teacher);
+  }
+
+  return fetchStudentJson<StudentExamDiscovery[]>(
+    `/api/v1/student/exams/available/?${query.toString()}`,
+  );
+}
+
+export async function fetchStudentDashboardExams() {
+  return fetchStudentJson<StudentDashboardExam[]>("/api/v1/student/exams/available/?dashboard=true");
 }
 
 export async function fetchStudentPracticeFollowUpExams(
@@ -550,7 +587,7 @@ export async function getStudentDashboardData(): Promise<DashboardData> {
   try {
     const [summary, exams] = await Promise.all([
       fetchStudentInsightSummary(),
-      fetchStudentAvailableExams(),
+      fetchStudentDashboardExams(),
     ]);
 
     return {

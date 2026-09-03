@@ -304,7 +304,8 @@ test.describe("Institute shared-library entitlement enforcement", () => {
       await expect(page.getByRole("heading", { name: /question bank/i }).first()).toBeVisible();
       await expect(page).toHaveURL(/search=/);
       await expect(page.getByText(/why questions are or are not visible/i).first()).toBeVisible();
-      await expect(page.getByText(/shared library intake/i).first()).toBeVisible();
+      await expect(page.getByRole("link", { name: /missing explanation/i }).first()).toBeVisible();
+      await expect(page.getByRole("button", { name: /licensed paused/i }).first()).toBeVisible();
       await expect(page.getByRole("link", { name: /open shared library linker/i }).first()).toBeVisible();
 
       await page.goto(

@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 type TeacherRosterRow = {
   id: string;
@@ -43,7 +43,7 @@ export function TeacherEditDialog({ row }: { row: TeacherRosterRow }) {
   const [joinedAt, setJoinedAt] = useState(row.joined_at ? row.joined_at.slice(0, 10) : "");
   const [isActive, setIsActive] = useState(row.is_active);
 
-  function resetFormFields() {
+  const resetFormFields = useCallback(() => {
     setEmployeeCode(row.employee_code);
     setFirstName(row.first_name ?? row.full_name.split(" ")[0] ?? "");
     setLastName(row.last_name ?? row.full_name.split(" ").slice(1).join(" "));
@@ -55,7 +55,7 @@ export function TeacherEditDialog({ row }: { row: TeacherRosterRow }) {
     setJoinedAt(row.joined_at ? row.joined_at.slice(0, 10) : "");
     setIsActive(row.is_active);
     setMessage("");
-  }
+  }, [row]);
 
   useEffect(() => {
     if (!open) {
@@ -80,9 +80,10 @@ export function TeacherEditDialog({ row }: { row: TeacherRosterRow }) {
 
   useEffect(() => {
     if (!open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       resetFormFields();
     }
-  }, [open, row]);
+  }, [open, resetFormFields]);
 
   async function submitTeacherUpdate() {
     if (!employeeCode.trim() || !firstName.trim()) {

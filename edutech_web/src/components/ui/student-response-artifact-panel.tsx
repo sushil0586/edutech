@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   StudentAttemptAnswer,
   StudentUploadedResponseArtifact,
@@ -149,6 +149,7 @@ export function StudentResponseArtifactPanel({
 
   useEffect(() => {
     if (!availableArtifactKinds.includes(artifactKind)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setArtifactKind(availableArtifactKinds[0] ?? "audio_recording");
       setSelectedFileName("");
       setErrorMessage("");
@@ -168,12 +169,12 @@ export function StudentResponseArtifactPanel({
     }
   };
 
-  const clearRecordedPreview = () => {
+  const clearRecordedPreview = useCallback(() => {
     if (recordedPreviewUrl) {
       URL.revokeObjectURL(recordedPreviewUrl);
     }
     setRecordedPreviewUrl("");
-  };
+  }, [recordedPreviewUrl]);
 
   const resetRecordedMedia = () => {
     setRecordedBlob(null);
@@ -214,7 +215,7 @@ export function StudentResponseArtifactPanel({
       clearRecordedPreview();
       stopMediaTracks();
     };
-  }, [recordedPreviewUrl]);
+  }, [clearRecordedPreview]);
 
   const handleUpload = async (uploadSource?: {
     file: Blob | File;
@@ -410,6 +411,7 @@ export function StudentResponseArtifactPanel({
     if (isRecording) {
       handleStopRecording();
     } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       resetRecordedMedia();
       setSelectedFileName("");
       setErrorMessage("");

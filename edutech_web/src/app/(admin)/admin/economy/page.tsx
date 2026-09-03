@@ -12,6 +12,8 @@ import { EconomySubscriptionPlanManagementCard } from "@/components/admin/econom
 import { EconomyUnlockRuleManagementCard } from "@/components/admin/economy-unlock-rule-management-card";
 import { InstituteEconomyWorkspace } from "@/components/admin/institute-economy-workspace";
 import type {
+  EconomyPolicyAuditEntry,
+  EconomyPolicyConfig,
   EconomyOperatorPolicy,
   StudentPaymentOrder,
   StudentRewardEvent,
@@ -88,42 +90,6 @@ type EconomyCatalogOverview = {
   referral_programs: EconomyCatalogGroup;
   star_packs: EconomyCatalogGroup;
   subscription_plans: EconomyCatalogGroup;
-};
-
-type EconomyPolicyAuditEntry = {
-  id: string;
-  user: number | null;
-  user_label: string | null;
-  action: string;
-  entity_type: string;
-  entity_id: string;
-  message: string;
-  metadata: {
-    changed_fields?: Record<string, { before: unknown; after: unknown }>;
-  };
-  created_at: string;
-};
-
-type EconomyPolicyConfig = {
-  id: string;
-  singleton_key: string;
-  institute_admin_can_confirm_orders: boolean;
-  institute_admin_max_confirm_order_amount: string;
-  institute_admin_confirm_order_currency: string;
-  institute_admin_can_grant_stars: boolean;
-  institute_admin_max_grant_stars: number;
-  latest_audit: {
-    id: string;
-    action: string;
-    message: string;
-    user: number | null;
-    user_label: string | null;
-    created_at: string;
-    metadata: Record<string, unknown>;
-  } | null;
-  created_at: string;
-  updated_at: string;
-  is_active: boolean;
 };
 
 type AdminSubscriptionAllowanceOpsSummary = {
@@ -542,11 +508,7 @@ function defaultFocusForTab(tab: EconomyTabKey): EconomyLaneFocus {
 }
 
 async function loadPortalCount(path: string) {
-  try {
-    return await fetchPortalCount(path);
-  } catch {
-    return 0;
-  }
+  return fetchPortalCount(path).catch(() => 0);
 }
 
 function resolveEconomyFocus(tab: EconomyTabKey, focus: string | undefined): EconomyLaneFocus {
@@ -647,22 +609,14 @@ async function loadPlatformEconomy() {
     };
   }
 
-  try {
-    const gatedExamsPage = await fetchTeacherExamPage({
-      page: 1,
-      pageSize: 10,
-      filter: "economy_gated",
-      sort: "recommended",
-    });
-    return {
-      source: "live" as const,
-      gatedExams: gatedExamsPage.results,
-      gatedExamCount: gatedExamsPage.count ?? gatedExamsPage.results.length,
-      starLockedCount: gatedExamsPage.summary?.star_gated_count ?? 0,
-      entitlementCount: gatedExamsPage.summary?.entitlement_gated_count ?? 0,
-      totalStarCost: gatedExamsPage.summary?.total_star_cost ?? 0,
-    };
-  } catch {
+  const gatedExamsPage = await fetchTeacherExamPage({
+    page: 1,
+    pageSize: 10,
+    filter: "economy_gated",
+    sort: "recommended",
+  }).catch(() => null);
+
+  if (!gatedExamsPage) {
     return {
       source: "error" as const,
       gatedExams: [] as TeacherExamListItem[],
@@ -672,6 +626,15 @@ async function loadPlatformEconomy() {
       totalStarCost: 0,
     };
   }
+
+  return {
+    source: "live" as const,
+    gatedExams: gatedExamsPage.results,
+    gatedExamCount: gatedExamsPage.count ?? gatedExamsPage.results.length,
+    starLockedCount: gatedExamsPage.summary?.star_gated_count ?? 0,
+    entitlementCount: gatedExamsPage.summary?.entitlement_gated_count ?? 0,
+    totalStarCost: gatedExamsPage.summary?.total_star_cost ?? 0,
+  };
 }
 
 function policyLabel(value: string | null | undefined) {
@@ -746,8 +709,7 @@ export default async function AdminEconomyPage({
 }: {
   searchParams?: Promise<{ tab?: string; focus?: string; institute?: string }>;
 }) {
-  try {
-    const params = (await searchParams) ?? {};
+  const params = (await searchParams) ?? {};
     const activeTab = resolveEconomyTab(params.tab);
     const activeFocus = resolveEconomyFocus(activeTab, params.focus);
     const requestedInstituteId = params.institute?.trim() ?? "";
@@ -1160,7 +1122,7 @@ export default async function AdminEconomyPage({
     bootstrap: [{ key: "all", label: "All" }],
   };
 
-    return (
+  return (
     <section className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteSupportPageVivid adminEconomyPage">
       <PlatformAdminPageHeader
         title="Economy"
@@ -1773,32 +1735,5 @@ export default async function AdminEconomyPage({
         {activeTab === "bootstrap" ? <EconomySeedScreen audience="platform" /> : null}
       </>
     </section>
-    );
-  } catch {
-    return (
-      <section className="studentPage studentPageTight studentDashboardModern instituteConsolePage">
-        <PlatformAdminPageHeader
-          title="Economy"
-          description="Inspect commercial catalog state, access control rules, question-bank entitlements, and support operations."
-          statusLabel="Controlled fallback"
-          statusTone="warning"
-        />
-        <StudentStatePanel
-          eyebrow="Economy workspace"
-          title="Economy workspace could not be fully rendered"
-          description="The route stayed within the admin shell, but one or more server-side dependencies failed before the workspace could finish rendering."
-          bullets={[
-            "Portal session and API access",
-            "Economy governance endpoints",
-            "Admin workspace server rendering",
-          ]}
-          ctaHref="/admin"
-          ctaLabel="Back to Dashboard"
-          secondaryCtaHref="/admin/economy?tab=overview"
-          secondaryCtaLabel="Retry Economy"
-          statusLabel="Retry after backend check"
-        />
-      </section>
-    );
-  }
+  );
 }

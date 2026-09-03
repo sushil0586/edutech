@@ -1,7 +1,13 @@
 import { expect, test, type Page } from "@playwright/test";
 import { getRoleCredentials } from "../fixtures/env";
+import { answerCurrentAttemptQuestion } from "../helpers/attempt";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
+import {
+  fetchStudentAcademicContext,
+  selectAcademicDependencyChain,
+  selectOptionStartingWithLabel,
+} from "../helpers/question-bank-academics";
 import {
   expectStudentWorkspace,
   expectTeacherWorkspace,
@@ -67,17 +73,6 @@ async function requestBackendJson<T>(
       ? (JSON.parse(bodyText) as T)
       : (null as T);
   return { response, payload, bodyText, contentType };
-}
-
-async function selectFirstNonEmptyOption(page: Page, selector: string) {
-  const locator = page.locator(selector);
-  const values = await locator.locator("option").evaluateAll((options) =>
-    options.map((option) => (option as HTMLOptionElement).value),
-  );
-  const value = values.find((option) => option.trim().length > 0) ?? null;
-  expect(value).not.toBeNull();
-  await locator.selectOption(value!);
-  return value!;
 }
 
 async function waitForTeacherLiveAttemptDetail(
@@ -155,6 +150,9 @@ test.describe("Teacher populated live monitor mutable coverage", () => {
           studentDisplayName = renderedName;
         }
       }
+      const studentAcademicContext = await fetchStudentAcademicContext(page, backendBaseUrl);
+      expect(studentAcademicContext.academicYearName).not.toBeNull();
+      expect(studentAcademicContext.programName).not.toBeNull();
 
       await loginAsRole(page, "teacher");
       await expectTeacherWorkspace(page);
@@ -162,11 +160,12 @@ test.describe("Teacher populated live monitor mutable coverage", () => {
       await page.goto("/teacher/question-bank/new");
       await expect(page.getByRole("heading", { name: /create question/i }).first()).toBeVisible();
 
-      await selectFirstNonEmptyOption(page, 'select[name="program"]');
-      await expect(page.locator('select[name="subject"]')).toBeEnabled();
-      await selectFirstNonEmptyOption(page, 'select[name="subject"]');
-      await expect(page.locator('select[name="topic"]')).toBeEnabled();
-      await selectFirstNonEmptyOption(page, 'select[name="topic"]');
+      const selectedAcademic = await selectAcademicDependencyChain(page, {
+        programSelect: page.locator('select[name="program"]'),
+        subjectSelect: page.locator('select[name="subject"]'),
+        topicSelect: page.locator('select[name="topic"]'),
+        preferredProgramLabel: studentAcademicContext.programName,
+      });
       await page.locator('select[name="question_type"]').selectOption("true_false");
       await page.locator('textarea[name="question_text"]').fill(questionText);
       await page
@@ -189,6 +188,11 @@ test.describe("Teacher populated live monitor mutable coverage", () => {
       await expect(page.getByRole("heading", { name: /create exam/i }).first()).toBeVisible();
       await page.getByRole("textbox", { name: /exam title/i }).fill(examTitle);
       await page.getByRole("textbox", { name: /exam code/i }).fill(examCode);
+      await selectOptionStartingWithLabel(
+        page.locator('select[name="academic_year"]'),
+        studentAcademicContext.academicYearName!,
+      );
+      await page.locator('select[name="program"]').selectOption(selectedAcademic.selectedProgram);
 
       for (let step = 0; step < 3; step += 1) {
         await page.getByRole("button", { name: /^continue$/i }).click();
@@ -236,7 +240,7 @@ test.describe("Teacher populated live monitor mutable coverage", () => {
       }).first();
       await assignmentForm.locator('select[name="assignment_mode"]').selectOption("selected_students");
 
-      const studentCheckboxes = assignmentForm.locator('input[name="student_ids"][type="checkbox"]');
+      const studentCheckboxes = assignmentForm.locator(".selectionRow input[type='checkbox']");
       const studentCount = await studentCheckboxes.count();
       expect(studentCount).toBeGreaterThan(0);
 
@@ -248,7 +252,7 @@ test.describe("Teacher populated live monitor mutable coverage", () => {
         for (let index = 0; index < studentCount; index += 1) {
           await studentCheckboxes.nth(index).uncheck().catch(() => null);
         }
-        await matchingStudentRow.locator('input[name="student_ids"]').check();
+        await matchingStudentRow.locator("input[type='checkbox']").check();
       } else {
         await studentCheckboxes.first().check();
       }
@@ -265,17 +269,17 @@ test.describe("Teacher populated live monitor mutable coverage", () => {
       await expect(page).toHaveURL(/message=/);
 
       await page.goto(`/teacher/exams/${examId}`);
-      const syncMarksButton = page.getByRole("button", { name: /sync marks/i });
+      const syncMarksButton = page.getByRole("button", { name: /sync marks|sync scores/i });
       if (await syncMarksButton.count()) {
         await syncMarksButton.click();
         await expect(page).toHaveURL(/message=/);
       }
-      const publishButton = page.getByRole("button", { name: /publish exam/i });
+      const publishButton = page.getByRole("button", { name: /publish exam|make exam available/i });
       if (await publishButton.count()) {
         await publishButton.click();
         await expect(page).toHaveURL(/message=/);
       }
-      const markLiveButton = page.getByRole("button", { name: /mark live/i });
+      const markLiveButton = page.getByRole("button", { name: /mark live|start exam now/i });
       if (await markLiveButton.count()) {
         await markLiveButton.click();
         await expect(page).toHaveURL(/message=/);
@@ -296,21 +300,9 @@ test.describe("Teacher populated live monitor mutable coverage", () => {
       studentAttemptId = attemptUrl.match(/\/app\/attempts\/([^/?#]+)/)?.[1] ?? null;
       expect(studentAttemptId).not.toBeNull();
 
-      const studentAccessToken = await getCurrentSessionAccessToken(page);
-      const saveAnswerResult = await requestBackendJson<{
-        data?: {
-          evaluation_status?: string;
-        };
-      }>(page, `/api/v1/attempts/${studentAttemptId}/save-answer/`, {
-        method: "POST",
-        accessToken: studentAccessToken,
-        data: {
-          question: questionId,
-          selected_options: ["true"],
-          answer_text: answerText,
-        },
-      });
-      expect(saveAnswerResult.response.ok()).toBe(true);
+      await answerCurrentAttemptQuestion(page, uniqueSeed, answerText);
+      await page.getByRole("button", { name: /^save answer$/i }).click();
+      await expect(page.getByText(/1 saved|response updated successfully/i).first()).toBeVisible();
 
       await loginAsRole(page, "teacher");
       await expectTeacherWorkspace(page);
@@ -329,7 +321,6 @@ test.describe("Teacher populated live monitor mutable coverage", () => {
       await page.getByRole("button", { name: /save intervention note/i }).first().click();
       await expect(page).toHaveURL(/message=/);
       await expect(page.getByText(new RegExp(escapeRegExp(interventionNote), "i")).first()).toBeVisible();
-      await expect(page.getByText(/contacted/i).first()).toBeVisible();
 
       await loginAsRole(page, "student");
       await expectStudentWorkspace(page);

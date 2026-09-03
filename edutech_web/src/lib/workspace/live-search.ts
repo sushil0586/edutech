@@ -5,13 +5,13 @@ import {
 import { fetchPortalList } from "@/lib/api/portal";
 import {
   fetchStudentAttempts,
-  fetchStudentAvailableExams,
+  fetchStudentExamDiscovery,
   fetchStudentNotifications,
   fetchStudentResults,
 } from "@/lib/api/student";
 import { fetchTeacherQuestionPage } from "@/lib/api/teacher-builder";
 import {
-  fetchTeacherExams,
+  fetchTeacherExamPage,
   fetchTeacherResultSummary,
 } from "@/lib/api/teacher";
 import type { WorkspaceSearchEntry, WorkspaceRole } from "@/lib/workspace/search-index";
@@ -61,7 +61,7 @@ function compactKeywords(values: Array<string | null | undefined>) {
 async function loadStudentLiveEntries(query: string): Promise<WorkspaceSearchEntry[]> {
   const [examsResult, resultsResult, attemptsResult, notificationsResult] =
     await Promise.allSettled([
-      fetchStudentAvailableExams(),
+      fetchStudentExamDiscovery(),
       fetchStudentResults(),
       fetchStudentAttempts(),
       fetchStudentNotifications(),
@@ -162,8 +162,8 @@ async function loadStudentLiveEntries(query: string): Promise<WorkspaceSearchEnt
 
 async function loadTeacherLiveEntries(baseHref: "/teacher" | "/institute", query: string): Promise<WorkspaceSearchEntry[]> {
   const [examsResult, resultsResult, questionsResult] = await Promise.allSettled([
-    fetchTeacherExams(),
-    fetchTeacherResultSummary(),
+    fetchTeacherExamPage({ search: query, pageSize: 8 }),
+    fetchTeacherResultSummary({ search: query, pageSize: 8 }),
     fetchTeacherQuestionPage({ search: query, page_size: 8 }),
   ]);
 
@@ -171,7 +171,7 @@ async function loadTeacherLiveEntries(baseHref: "/teacher" | "/institute", query
 
   if (examsResult.status === "fulfilled") {
     entries.push(
-      ...examsResult.value
+      ...examsResult.value.results
         .filter((exam) =>
           matchesQuery(query, [exam.title, exam.code, ...examSubjectKeywords(exam), exam.cohort_name]),
         )

@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
-import { expectInstituteWorkspace, expectStudentWorkspace } from "../helpers/navigation";
+import { expectInstituteWorkspace } from "../helpers/navigation";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
 import {
   resolveStudentProfileScope,

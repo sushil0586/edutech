@@ -32,15 +32,6 @@ async function openTeacherExamDetail(page: Page) {
   await expect(page).toHaveURL(/\/teacher\/exams\/[^/]+(?:\?.*)?$/);
 }
 
-async function openInstituteExamDetail(page: Page) {
-  await loginAsRole(page, "institute");
-  await expectInstituteWorkspace(page);
-  await gotoWithRuntimeRecovery(page, "/institute/exams");
-  await expect(page.getByRole("heading", { name: /exam management/i }).first()).toBeVisible();
-  await page.getByRole("link", { name: /open exam/i }).first().click();
-  await expect(page).toHaveURL(/\/institute\/exams\/[^/]+(?:\?.*)?$/);
-}
-
 test.describe("Operator mobile dense visual contracts", () => {
   test.use({
     viewport: { width: 390, height: 844 },

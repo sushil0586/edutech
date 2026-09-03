@@ -143,13 +143,14 @@ test.describe("Student mobile workspace sanity", () => {
     } else {
       await expect(page.locator(".studentWorkspaceFiltersCard").first()).toBeVisible();
       await expect(page.locator(".studentResultSurface, .studentAttemptsCard").first()).toBeVisible();
-      await expect(
+      await expectOneOfVisible(page, [
         page
           .getByRole("link", {
-            name: /resume attempt|open summary|open result status|view details|practice again|open practice/i,
+            name: /resume attempt|open summary|check attempt status|open result status|check result status|view details|open practice/i,
           })
           .first(),
-      ).toBeVisible();
+        page.getByRole("button", { name: /practice again/i }).first(),
+      ]);
     }
 
     await gotoWithRetry(page, "/app/results");

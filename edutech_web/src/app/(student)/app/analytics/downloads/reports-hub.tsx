@@ -180,16 +180,13 @@ export async function StudentReportsHub({
   const interactiveReadyCount = studentReports.filter(
     (item) => item.currentMode === "interactive_ready",
   ).length;
-  const exportPendingCount = studentReports.filter(
-    (item) => item.currentMode === "export_contract_pending",
-  ).length;
 
   return (
     <div className="studentPage studentDashboardModern">
       <StudentPageHeader
         eyebrow="Student reports hub"
         title="Reports Hub"
-        description="A single student-facing hub for academic report links, scoped drilldowns, and future export readiness."
+        description="Open the right academic report for your next step, whether you need scores, subject insight, mistakes, pacing, or study planning."
         statusLabel={`${studentReports.length} academic reports available`}
         statusTone="live"
         action={<Link className="button buttonGhost" href="/app/analytics">Back to Analytics</Link>}
@@ -207,18 +204,18 @@ export async function StudentReportsHub({
       />
 
       <StudentAnalyticsDetailHero
-        eyebrow="Report manifest"
-        title="Direct report access is ready"
-        description="Use this hub to open student reports directly from one place. Interactive routes are available now, while downloadable PDF and spreadsheet export contracts still need backend composition support."
+        eyebrow="Choose your next report"
+        title="Open the report that matches your next decision"
+        description="Use this hub when you want one clear place to move from broad performance into scores, weak areas, time control, rank history, or guided recommendations."
         badges={[
-          "Interactive web reports ready",
-          "Direct report links available",
-          "Export layer pending",
+          "Results and score follow-up",
+          "Weak-area and mistake recovery",
+          "Planning and pacing support",
         ]}
         stats={[
           { label: "Tracked reports", value: String(studentReports.length) },
           { label: "Interactive ready", value: String(interactiveReadyCount) },
-          { label: "Export pending", value: String(exportPendingCount) },
+          { label: "Direct links", value: "Ready" },
           { label: "Student scope", value: "Academic only" },
         ]}
         actions={
@@ -255,9 +252,9 @@ export async function StudentReportsHub({
             note: "Open reports directly from this hub",
           },
           {
-            label: "Exports",
-            value: "Pending",
-            note: "Needs backend report composition and file delivery",
+            label: "Recovery Routes",
+            value: "Ready",
+            note: "Jump from reports into review, practice, and planning flows",
           },
         ]}
       />
@@ -298,6 +295,9 @@ export async function StudentReportsHub({
           <strong>Report directory</strong>
           <span>{studentReports.length} direct links</span>
         </div>
+        <p className="sectionDescription">
+          Start with the report that answers your immediate question, then follow linked drilldowns if you need more detail.
+        </p>
         <div className="studentResultsTableWrap">
           <table className="studentResultsTable studentDownloadableReportsTable">
             <thead>
@@ -334,21 +334,21 @@ export async function StudentReportsHub({
       <section className="studentInsightsTwoColumn">
         <article className="contentCard">
           <div className="sectionHeading">
-            <strong>Export roadmap</strong>
-            <span>What still needs to ship</span>
+            <strong>How to use this hub</strong>
+            <span>Best first moves</span>
           </div>
           <div className="analyticsChecklist">
             <div className="analyticsChecklistItem">
-              <strong>PDF composition layer</strong>
-              <span>Each report still needs a backend-owned printable template before PDF export can be offered truthfully.</span>
+              <strong>Start broad, then narrow</strong>
+              <span>Open Dashboard or Results first when you need the fastest overview of what changed most recently.</span>
             </div>
             <div className="analyticsChecklistItem">
-              <strong>Spreadsheet contract</strong>
-              <span>Tabular reports need a stable export schema so CSV or spreadsheet output remains consistent across releases.</span>
+              <strong>Use recovery reports after low scores</strong>
+              <span>Wrong Questions, Time Management, and Recommendations are the best follow-up once a result shows clear weakness.</span>
             </div>
             <div className="analyticsChecklistItem">
-              <strong>Reports hub governance</strong>
-              <span>This hub should remain the source of truth for which student reports are interactive-only and which become export-ready later.</span>
+              <strong>Let scope filters do the setup</strong>
+              <span>Choose subject and source here first so every linked report opens in the right student context.</span>
             </div>
           </div>
         </article>

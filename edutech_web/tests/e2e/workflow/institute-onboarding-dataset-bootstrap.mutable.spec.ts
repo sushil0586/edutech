@@ -2,7 +2,7 @@ import { writeFile } from "node:fs/promises";
 import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { answerCurrentAttemptQuestion } from "../helpers/attempt";
 import { loginAsRole, loginWithCredentials, testRequiresRole, type DirectLoginCredentials } from "../helpers/auth";
-import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
+import { isMutableLaneEnabled } from "../helpers/mutable";
 import { expectInstituteWorkspace } from "../helpers/navigation";
 
 const mutableRosterActionsEnabled = isMutableLaneEnabled(

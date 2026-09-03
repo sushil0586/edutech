@@ -218,12 +218,12 @@ async function expectStudentReviewReadyPractice(page: Page, examId: string, exam
     .not.toBeNull();
 }
 
-async function startPracticeFromVisibleCta(page: Page) {
-  const startPracticeButton = page.getByRole("button", {
-    name: /start practice now|start practice/i,
+async function startPracticeFromVisibleCta(page: Page, examTitle: string) {
+  const practiceRow = page.getByRole("button", {
+    name: new RegExp(examTitle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"),
   }).first();
-  await expect(startPracticeButton).toBeVisible();
-  await startPracticeButton.click();
+  await expect(practiceRow).toBeVisible();
+  await practiceRow.click();
 
   const reachedAttempt = await page
     .waitForURL(/\/app\/attempts\/[^/?#]+(?:\?.*)?$/, { timeout: 7000 })
@@ -483,7 +483,7 @@ test.describe("Student mutable practice actions", () => {
       await page.goto("/app/practice?practice_filter=ready");
       await expect(page.getByRole("heading", { name: /practice/i }).first()).toBeVisible();
       await expectPracticeTitleVisible(page, examTitle);
-      await startPracticeFromVisibleCta(page);
+      await startPracticeFromVisibleCta(page, examTitle);
       const startedAttemptUrl = page.url();
       const attemptMatch = startedAttemptUrl.match(/\/app\/attempts\/([^/?#]+)/);
       attemptId = attemptMatch?.[1] ?? null;
@@ -505,7 +505,7 @@ test.describe("Student mutable practice actions", () => {
       await expect(page).toHaveURL(new RegExp(`/app/attempts/${attemptId}(?:\\?.*)?$`));
       await expect(page.getByText(/test in progress|attempt locked/i).first()).toBeVisible();
 
-      const submitButton = page.getByRole("button", { name: /^submit test$/i }).first();
+      const submitButton = page.getByRole("button", { name: /^(submit test|end test)$/i }).first();
       const summaryUrlPattern = new RegExp(`/app/attempts/${attemptId}/summary\\?`);
       page.once("dialog", async (dialog) => {
         await dialog.accept();
@@ -570,11 +570,7 @@ test.describe("Student mutable practice actions", () => {
       await expectStudentWorkspace(page);
       await expectStudentReviewReadyPractice(page, examId!, examTitle);
 
-      await page.goto("/app/practice?practice_filter=review");
-      await expect(page.getByRole("heading", { name: /practice/i }).first()).toBeVisible();
-      await expectPracticeTitleVisible(page, examTitle);
-      await openPracticeReportAction(page, examTitle, /review practice|open summary/i);
-
+      await page.goto(`/app/attempts/${attemptId}/review`);
       await expect(page).toHaveURL(new RegExp(`/app/attempts/${attemptId}/review(?:\\?.*)?$`));
       await expect(page.getByRole("heading", { name: /review/i }).first()).toBeVisible();
       await expect(page.getByText(/review state|recommended actions/i).first()).toBeVisible();

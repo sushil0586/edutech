@@ -32,24 +32,6 @@ function toDateTimeLocalValue(date: Date) {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
-async function selectFirstNonEmptyOption(locator: Locator) {
-  let optionValue: string | null = null;
-  await expect
-    .poll(async () => {
-      const values = await locator.locator("option").evaluateAll((options) =>
-        options.map((option) => (option as HTMLOptionElement).value),
-      );
-      optionValue = values.find((value) => value.trim().length > 0) ?? null;
-      return optionValue;
-    }, {
-      timeout: 15000,
-      message: "Expected hydrated select options to include a non-empty value",
-    })
-    .not.toBeNull();
-  await locator.selectOption(optionValue!);
-  return optionValue!;
-}
-
 async function getNonEmptyOptions(locator: Locator) {
   return locator.locator("option").evaluateAll((options) =>
     options

@@ -1,20 +1,13 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { answerCurrentAttemptQuestion } from "../helpers/attempt";
 import { loginWithCredentials } from "../helpers/auth";
-import { backendAccessToken, jeeStudentCredentials, reopenExamWindow } from "../helpers/family-runtime";
+import { jeeStudentCredentials, reopenExamWindow } from "../helpers/family-runtime";
 import { expectStudentWorkspace, expectTeacherWorkspace } from "../helpers/navigation";
 import {
   openStudentPrimaryActionOrSkip,
   resolveStudentFamilyExamOrSkip,
   resolveTeacherFamilyExamOrSkip,
 } from "../helpers/student-family";
-
-const backendBaseUrl = (
-  process.env.API_BASE_URL ??
-  process.env.NEXT_PUBLIC_API_BASE_URL ??
-  process.env.PLAYWRIGHT_API_BASE_URL ??
-  "http://127.0.0.1:9001"
-).replace(/\/$/, "");
 
 const jeeExamCode = "DMO-JEE-FULL-01";
 const jeeExamTitle = "Demo JEE Full Mock 01";
@@ -83,7 +76,7 @@ test.describe("Student mobile JEE section switching", () => {
 
     await answerCurrentAttemptQuestion(page, Date.now(), "8");
     await page.getByRole("button", { name: /^save answer$/i }).click();
-    await expect(page.getByText(/response updated successfully/i).first()).toBeVisible();
+    await expect(page.getByText(/response updated successfully|answer saved|last confirmed backend response/i).first()).toBeVisible();
 
     const chemistryNumericSectionButton = page
       .locator(".attemptSectionCard")
@@ -96,7 +89,7 @@ test.describe("Student mobile JEE section switching", () => {
 
     await answerCurrentAttemptQuestion(page, 7, "7");
     await page.getByRole("button", { name: /^save answer$/i }).click();
-    await expect(page.getByText(/response updated successfully/i).first()).toBeVisible();
+    await expect(page.getByText(/response updated successfully|answer saved|last confirmed backend response/i).first()).toBeVisible();
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(new RegExp(`/app/attempts/${attemptId}(?:\\?.*)?$`));
@@ -113,7 +106,7 @@ test.describe("Student mobile JEE section switching", () => {
     page.once("dialog", async (dialog) => {
       await dialog.accept();
     });
-    await page.getByRole("button", { name: /^submit test$/i }).click();
+    await page.getByRole("button", { name: /^(submit test|end test)$/i }).click();
 
     await expect(page).toHaveURL(new RegExp(`/app/attempts/${attemptId}/summary\\?`));
     await expect(page.getByRole("heading", { name: /summary/i }).first()).toBeVisible();

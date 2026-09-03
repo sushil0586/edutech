@@ -15,7 +15,6 @@ import { fetchCurrentAccountProfile } from "@/lib/auth/session";
 import {
   percentageLabel,
   signedPercentageLabel,
-  studentDateTimeLabel,
   titleCaseState,
   trendDirectionLabel,
 } from "@/lib/student/formatters";
@@ -40,7 +39,7 @@ import {
 } from "@/lib/student/subject-context";
 import type {
   StudentAttemptListItem,
-  StudentAvailableExam,
+  StudentExamCatalog,
 } from "@/features/dashboard/types";
 import { buildFilterHref, formatFilterValue } from "@/lib/workspace/filter-utils";
 import { resolvePracticeFocusRecommendation } from "@/lib/student/practice";
@@ -65,7 +64,7 @@ function isPracticeAttemptInProgress(status: string | null | undefined) {
   return status === "in_progress";
 }
 
-function hasPracticeAttemptsRemaining(exam: StudentAvailableExam) {
+function hasPracticeAttemptsRemaining(exam: StudentExamCatalog) {
   return (
     exam.attempt_policy === "unlimited_practice" || exam.remaining_attempts > 0
   );
@@ -87,7 +86,7 @@ function latestAttemptForExam(
 }
 
 function resolvePracticeUiState(
-  exam: StudentAvailableExam,
+  exam: StudentExamCatalog,
   latestAttemptId: string | null,
 ) {
   const activeAttemptId = isPracticeAttemptInProgress(exam.active_attempt?.status)
@@ -133,7 +132,7 @@ function compactPracticeDateTime(value: string | null) {
   }).format(new Date(value));
 }
 
-function practiceAvailabilityValue(exam: StudentAvailableExam) {
+function practiceAvailabilityValue(exam: StudentExamCatalog) {
   if (exam.availability_state === "available_now") return "Ready now";
   if (exam.availability_state === "completed") return "Completed";
   if (exam.availability_state === "missed") return "Missed";
@@ -142,7 +141,7 @@ function practiceAvailabilityValue(exam: StudentAvailableExam) {
   return titleCaseState(exam.availability_state);
 }
 
-function practiceSupportNote(exam: StudentAvailableExam, uiState: ReturnType<typeof resolvePracticeUiState>) {
+function practiceSupportNote(exam: StudentExamCatalog, uiState: ReturnType<typeof resolvePracticeUiState>) {
   if (uiState.canResume) {
     return "Continue your latest in-progress practice attempt.";
   }
@@ -280,7 +279,7 @@ function resolvePracticeGroupOption(value?: string): PracticeGroupOption {
 }
 
 function applyPracticeAvailabilityFilter(
-  exams: StudentAvailableExam[],
+  exams: StudentExamCatalog[],
   filter: PracticeAvailabilityFilter,
 ) {
   switch (filter) {
@@ -301,9 +300,9 @@ function applyPracticeAvailabilityFilter(
   }
 }
 
-function sortPracticeExams(exams: StudentAvailableExam[], sortBy: PracticeSortOption) {
+function sortPracticeExams(exams: StudentExamCatalog[], sortBy: PracticeSortOption) {
   const sortable = [...exams];
-  const recommendedRank = (exam: StudentAvailableExam) => {
+  const recommendedRank = (exam: StudentExamCatalog) => {
     if (exam.can_resume) return 0;
     if (exam.can_start) return 1;
     if (exam.review_available) return 2;
@@ -370,7 +369,7 @@ async function loadPracticeWorkspace() {
   try {
     const [summary, exams, attempts] = await Promise.all([
       fetchStudentInsightSummary(),
-      fetchStudentAvailableExams(),
+      fetchStudentAvailableExams({ examType: "practice" }),
       fetchStudentAttempts(),
     ]);
 

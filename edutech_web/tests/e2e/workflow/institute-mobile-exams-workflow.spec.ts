@@ -3,24 +3,6 @@ import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectInstituteWorkspace } from "../helpers/navigation";
 import { gotoWithRuntimeRecovery } from "../helpers/runtime";
 
-async function gotoWithRetry(page: Page, url: string, attempts = 3) {
-  let lastError: unknown = null;
-  for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    try {
-      await page.goto(url, { waitUntil: "domcontentloaded" });
-      return;
-    } catch (error) {
-      lastError = error;
-      const message = error instanceof Error ? error.message : String(error);
-      if (!message.includes("ERR_CONNECTION_REFUSED") || attempt === attempts) {
-        throw error;
-      }
-      await page.waitForTimeout(1500 * attempt);
-    }
-  }
-  throw lastError;
-}
-
 async function gotoInstituteExamsWorkspace(page: Page) {
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     await gotoWithRuntimeRecovery(page, "/institute/exams");

@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import json
 from copy import deepcopy
 from decimal import Decimal
+from functools import lru_cache
+from pathlib import Path
 
 
 ASSESSMENT_FAMILY_ALLOWED_QUESTION_TYPE_ALIASES = {
@@ -9,78 +12,33 @@ ASSESSMENT_FAMILY_ALLOWED_QUESTION_TYPE_ALIASES = {
     "numerical_response": "numeric_answer",
 }
 
-ASSESSMENT_FAMILY_CONTRACTS = {
-    "school": {
-        "allowed_question_types": [
-            "mcq_single",
-            "mcq_multiple",
-            "true_false",
-            "short_answer",
-            "essay_manual_review",
-            "fill_in_blanks",
-            "assertion_reason",
-            "matrix_match",
-        ],
-        "scoring_defaults": {
-            "strategy": "standard_marks",
-            "negative_marking_default": False,
-            "negative_marking_scope": "disabled",
-            "supports_numeric_entry": False,
-            "supports_partial_scoring": True,
-            "recommended_attempt_policy": "single",
-        },
-    },
-    "competitive": {
-        "allowed_question_types": [
-            "mcq_single",
-            "mcq_multiple",
-            "true_false",
-            "assertion_reason",
-            "matrix_match",
-            "numeric_answer",
-        ],
-        "scoring_defaults": {
-            "strategy": "negative_marks",
-            "negative_marking_default": True,
-            "negative_marking_scope": "objective_only",
-            "supports_numeric_entry": True,
-            "supports_partial_scoring": True,
-            "recommended_attempt_policy": "single",
-        },
-    },
-    "certification": {
-        "allowed_question_types": [
-            "mcq_single",
-            "mcq_multiple",
-            "true_false",
-            "short_answer",
-        ],
-        "scoring_defaults": {
-            "strategy": "standard_marks",
-            "negative_marking_default": False,
-            "negative_marking_scope": "disabled",
-            "supports_numeric_entry": False,
-            "supports_partial_scoring": True,
-            "recommended_attempt_policy": "best",
-        },
-    },
-    "language_proficiency": {
-        "allowed_question_types": [
-            "mcq_single",
-            "short_answer",
-            "fill_in_blanks",
-            "essay_manual_review",
-        ],
-        "scoring_defaults": {
-            "strategy": "band_score",
-            "negative_marking_default": False,
-            "negative_marking_scope": "disabled",
-            "supports_numeric_entry": False,
-            "supports_partial_scoring": True,
-            "recommended_attempt_policy": "single",
-        },
-    },
-}
+ASSESSMENT_FAMILY_CONTRACTS_PATH = (
+    Path(__file__).resolve().parent / "contracts" / "assessment_family_contracts.json"
+)
+
+
+@lru_cache(maxsize=1)
+def load_assessment_family_contracts():
+    with ASSESSMENT_FAMILY_CONTRACTS_PATH.open(encoding="utf-8") as contract_file:
+        payload = json.load(contract_file)
+
+    if not isinstance(payload, dict):
+        raise ValueError("Assessment family contracts manifest must be a JSON object.")
+
+    contracts: dict[str, dict] = {}
+    for family_code, contract in payload.items():
+        normalized_family_code = str(family_code or "").strip()
+        if not normalized_family_code:
+            continue
+        if not isinstance(contract, dict):
+            raise ValueError(
+                f"Assessment family contract for '{normalized_family_code}' must be a JSON object."
+            )
+        contracts[normalized_family_code] = contract
+    return contracts
+
+
+ASSESSMENT_FAMILY_CONTRACTS = load_assessment_family_contracts()
 
 
 def normalize_assessment_family_allowed_question_types(codes: list[str] | tuple[str, ...] | None):

@@ -1,6 +1,15 @@
-import type { StudentAvailableExam, StudentPracticeFollowUpExam } from "@/features/dashboard/types";
+import type {
+  StudentAvailableExam,
+  StudentDashboardExam,
+  StudentExamCatalog,
+  StudentPracticeFollowUpExam,
+} from "@/features/dashboard/types";
 
-type PracticeFollowUpExam = StudentAvailableExam | StudentPracticeFollowUpExam;
+type PracticeFollowUpExam =
+  | StudentAvailableExam
+  | StudentDashboardExam
+  | StudentExamCatalog
+  | StudentPracticeFollowUpExam;
 
 export function buildPracticeHref(args?: {
   subjectName?: string | null;

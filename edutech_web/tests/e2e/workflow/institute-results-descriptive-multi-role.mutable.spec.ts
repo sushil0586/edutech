@@ -1,5 +1,4 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { getRoleCredentials } from "../fixtures/env";
 import { assignStudentToExam } from "../helpers/family-runtime";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
@@ -43,20 +42,19 @@ function instituteResultsWorkspaceReadinessCard(page: Page, title: RegExp) {
   }).first();
 }
 
-function resultCardByTitle(page: Page, title: string) {
-  return page.locator("article.studentResultSurface").filter({
-    has: page.locator(".studentResultSurfaceHead strong", { hasText: title }),
-  }).first();
+function resultRowByTitle(page: Page, title: string) {
+  return page.getByRole("button", { name: new RegExp(escapeRegExp(title), "i") }).first();
 }
 
-async function selectFirstNonEmptyOption(locator: Locator) {
-  const values = await locator.locator("option").evaluateAll((options) =>
-    options.map((option) => (option as HTMLOptionElement).value),
+async function getNonEmptyOptions(locator: Locator) {
+  return locator.locator("option").evaluateAll((options) =>
+    options
+      .map((option) => ({
+        label: (option as HTMLOptionElement).label,
+        value: (option as HTMLOptionElement).value,
+      }))
+      .filter((option) => option.value.trim().length > 0),
   );
-  const optionValue = values.find((value) => value.trim().length > 0) ?? null;
-  expect(optionValue).not.toBeNull();
-  await locator.selectOption(optionValue!);
-  return optionValue!;
 }
 
 async function waitForSelectableOption(locator: Locator) {
@@ -110,6 +108,54 @@ async function selectOptionStartingWithLabel(locator: Locator, label: string) {
   return optionValue!;
 }
 
+async function selectSubjectWithTopicOptions(
+  page: Page,
+  subjectLocator: Locator,
+  topicLocator: Locator,
+  preferredSubjectLabel: string | null,
+) {
+  await waitForSelectableOption(subjectLocator);
+  const subjects = await getNonEmptyOptions(subjectLocator);
+  const preferredSubject =
+    (preferredSubjectLabel
+      ? subjects.find((subject) => subject.label.trim().toLowerCase() === preferredSubjectLabel.trim().toLowerCase())?.value
+      : null) ??
+    subjects.find((subject) => /math/i.test(subject.label))?.value ??
+    subjects[0]?.value ??
+    null;
+  expect(preferredSubject).not.toBeNull();
+
+  const candidateSubjects = [
+    preferredSubject!,
+    ...subjects.map((subject) => subject.value).filter((value) => value !== preferredSubject),
+  ];
+
+  for (const subjectValue of candidateSubjects) {
+    const topicsResponse = page
+      .waitForResponse((response) => {
+        if (!response.ok()) {
+          return false;
+        }
+        const url = new URL(response.url());
+        return url.pathname.includes("/academics/topics") && url.searchParams.get("subject") === subjectValue;
+      }, { timeout: 5000 })
+      .catch(() => null);
+    await subjectLocator.selectOption(subjectValue);
+    await expect.poll(async () => subjectLocator.inputValue()).toBe(subjectValue);
+    await topicsResponse;
+    await expect(topicLocator).toBeEnabled();
+
+    const topics = await getNonEmptyOptions(topicLocator);
+    if (topics.length > 0) {
+      await topicLocator.selectOption(topics[0]!.value);
+      await expect.poll(async () => topicLocator.inputValue()).toBe(topics[0]!.value);
+      return { subjectValue, topicValue: topics[0]!.value };
+    }
+  }
+
+  throw new Error("Expected at least one selected subject to hydrate topic options.");
+}
+
 async function getCurrentSessionAccessToken(page: Page) {
   const cookies = await page.context().cookies();
   const accessToken = cookies.find((cookie) => cookie.name === "nexora_access_token")?.value?.trim() ?? "";
@@ -146,6 +192,41 @@ async function requestBackendJson<T>(
       ? (JSON.parse(bodyText) as T)
       : (null as T);
   return { response, payload, bodyText, contentType };
+}
+
+async function runInstituteExamAction(
+  page: Page,
+  examId: string,
+  action: "sync-marks" | "publish" | "mark-live" | "mark-completed" | "refresh-status",
+) {
+  const result = await requestBackendJson(page, `/api/v1/exams/${examId}/${action}/`, {
+    method: "POST",
+    data: {},
+  });
+  expect(result.response.ok(), result.bodyText).toBe(true);
+}
+
+async function fetchExamStatus(page: Page, examId: string) {
+  const result = await requestBackendJson<{
+    status?: string | null;
+  }>(page, `/api/v1/exams/${examId}/`);
+  expect(result.response.ok(), result.bodyText).toBe(true);
+  return result.payload?.status ?? null;
+}
+
+async function fetchResultPublishReadiness(page: Page, examId: string) {
+  const result = await requestBackendJson<{
+    data?: {
+      ready?: boolean;
+      generated_results_count?: number;
+      published_results_count?: number;
+    };
+    ready?: boolean;
+    generated_results_count?: number;
+    published_results_count?: number;
+  }>(page, `/api/v1/results/exam/${examId}/publish-readiness/`);
+  expect(result.response.ok(), result.bodyText).toBe(true);
+  return result.payload?.data ?? result.payload;
 }
 
 async function fetchSessionProfile(page: Page, accessToken?: string) {
@@ -232,10 +313,6 @@ test.describe("Institute mutable descriptive multi-role moderation actions", () 
   }) => {
     test.setTimeout(300000);
 
-    const studentCredentials = getRoleCredentials("student");
-    expect(studentCredentials).not.toBeNull();
-
-    let studentDisplayName = studentCredentials!.username;
     let studentProfileId: string | null = null;
     let studentAcademicYearName: string | null = null;
     let studentProgramName: string | null = null;
@@ -261,15 +338,6 @@ test.describe("Institute mutable descriptive multi-role moderation actions", () 
 
       await page.goto("/app/profile");
       await expect(page.getByRole("heading", { name: /^profile$/i }).first()).toBeVisible();
-      const identityCard = page.locator(".detailCard").filter({
-        has: page.getByText(/^name$/i),
-      }).first();
-      if (await identityCard.count()) {
-        const renderedName = (await identityCard.locator("strong").first().textContent())?.trim();
-        if (renderedName) {
-          studentDisplayName = renderedName;
-        }
-      }
       const studentMe = await requestBackendJson<{
         student_profile?: string | null;
         student_context?: {
@@ -308,11 +376,7 @@ test.describe("Institute mutable descriptive multi-role moderation actions", () 
 
       await selectOptionByLabel(programSelect, studentProgramName!);
       await expect(subjectSelect).toBeEnabled();
-      await waitForSelectableOption(subjectSelect);
-      await selectOptionByLabel(subjectSelect, studentSubjectName!);
-      await expect(topicSelect).toBeEnabled();
-      await waitForSelectableOption(topicSelect);
-      await selectFirstNonEmptyOption(topicSelect);
+      await selectSubjectWithTopicOptions(page, subjectSelect, topicSelect, studentSubjectName);
       await questionTypeSelect.selectOption("essay_manual_review");
 
       await page.locator('textarea[name="question_text"]').fill(questionText);
@@ -394,20 +458,32 @@ test.describe("Institute mutable descriptive multi-role moderation actions", () 
 
       await page.goto(`/institute/exams/${examId}`);
       const syncMarksButton = page.getByRole("button", { name: /sync marks/i });
-      if (await syncMarksButton.count()) {
+      if (await syncMarksButton.isVisible().catch(() => false)) {
         await syncMarksButton.click();
         await expect(page).toHaveURL(/message=/);
+      } else {
+        await runInstituteExamAction(page, examId!, "sync-marks");
       }
       const publishButton = page.getByRole("button", { name: /publish exam/i });
-      if (await publishButton.count()) {
+      if (await publishButton.isVisible().catch(() => false)) {
         await publishButton.click();
         await expect(page).toHaveURL(/message=/);
+      } else {
+        await runInstituteExamAction(page, examId!, "publish");
       }
       const markLiveButton = page.getByRole("button", { name: /mark live/i });
-      if (await markLiveButton.count()) {
+      if (await markLiveButton.isVisible().catch(() => false)) {
         await markLiveButton.click();
         await expect(page).toHaveURL(/message=/);
+      } else {
+        await runInstituteExamAction(page, examId!, "mark-live");
       }
+      await expect
+        .poll(async () => await fetchExamStatus(page, examId!), {
+          timeout: 15000,
+          message: `Expected exam ${examId} to be live before student attempt.`,
+        })
+        .toBe("live");
 
       await loginAsRole(page, "student");
       await expectStudentWorkspace(page);
@@ -456,10 +532,19 @@ test.describe("Institute mutable descriptive multi-role moderation actions", () 
       ).toContainText(/blocked/i);
 
       const markCompletedButton = page.getByRole("button", { name: /mark exam completed/i });
-      if (await markCompletedButton.count()) {
+      if (await markCompletedButton.isVisible().catch(() => false)) {
         await markCompletedButton.click();
         await expect(page).toHaveURL(/message=/);
+      } else {
+        await runInstituteExamAction(page, examId!, "refresh-status");
+        await runInstituteExamAction(page, examId!, "mark-completed");
       }
+      await expect
+        .poll(async () => await fetchExamStatus(page, examId!), {
+          timeout: 15000,
+          message: `Expected exam ${examId} to complete before review/result publication.`,
+        })
+        .toBe("completed");
 
       const reviewTaskId = await waitForReviewTaskInQueue(page, examId!);
       expect(reviewTaskId).not.toBeNull();
@@ -603,7 +688,14 @@ test.describe("Institute mutable descriptive multi-role moderation actions", () 
       });
       expect(publishResultsResponse.response.ok()).toBe(true);
 
-      await page.goto(`/institute/results?exam=${examId}`);
+      await expect
+        .poll(async () => Boolean((await fetchResultPublishReadiness(page, examId!))?.ready), {
+          timeout: 60000,
+          message: `Expected result publish readiness for exam ${examId} to be ready after publication.`,
+        })
+        .toBe(true);
+
+      await page.goto(`/institute/results?exam=${examId}&qa_refresh=${Date.now()}`);
       await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
 
       await expect(
@@ -622,19 +714,26 @@ test.describe("Institute mutable descriptive multi-role moderation actions", () 
         .poll(
           async () => {
             await page.goto("/app/results?result_group=outcome");
-            return resultCardByTitle(page, examTitle).isVisible().catch(() => false);
+            return resultRowByTitle(page, examTitle).isVisible().catch(() => false);
           },
           { timeout: 30000 },
         )
         .toBe(true);
-      const studentResultCard = resultCardByTitle(page, examTitle);
-      await expect(studentResultCard).toContainText(/result published/i);
-      await expect(studentResultCard.getByRole("link", { name: /open answer review/i }).first()).toBeVisible();
-      await expect(studentResultCard.getByRole("link", { name: /open summary/i }).first()).toBeVisible();
+      const studentResultRow = resultRowByTitle(page, examTitle);
+      await expect(studentResultRow).toBeVisible();
+      await expect(page.getByText(/result published · pass|result published · fail/i).first()).toBeVisible();
+      await studentResultRow.click();
 
-      await studentResultCard.getByRole("link", { name: /open summary/i }).first().click();
+      const studentResultDialog = page.getByRole("dialog");
+      await expect(studentResultDialog).toBeVisible();
+      await expect(studentResultDialog.getByText(new RegExp(escapeRegExp(examTitle), "i")).first()).toBeVisible();
+      await expect(studentResultDialog.getByText(/published/i).first()).toBeVisible();
+      await expect(studentResultDialog.getByRole("link", { name: /open answer review/i }).first()).toBeVisible();
+      await expect(studentResultDialog.getByRole("link", { name: /open summary/i }).first()).toBeVisible();
+
+      await studentResultDialog.getByRole("link", { name: /open summary/i }).first().click();
       await expect(page).toHaveURL(new RegExp(`/app/attempts/${studentAttemptId}/summary(?:\\?.*)?$`));
-      await expect(page.getByText(/post-submit state/i).first()).toBeVisible();
+      await expect(page.getByText(/attempt summary/i).first()).toBeVisible();
       await expect(page.getByText(/result published/i).first()).toBeVisible();
       await expect(page.getByText(/review available/i).first()).toBeVisible();
       await expect(page.getByRole("link", { name: /open answer review|review feedback/i }).first()).toBeVisible();

@@ -99,7 +99,7 @@ export default async function StudentStudyRecommendationsPage({
   try {
     [summary, exams, attempts] = await Promise.all([
       fetchStudentInsightSummary(),
-      fetchStudentAvailableExams(),
+      fetchStudentAvailableExams({ examType: "practice" }),
       fetchStudentAttempts().catch(() => []),
     ]);
   } catch {

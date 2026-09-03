@@ -200,6 +200,122 @@ export type StudentAvailableExam = {
   experience_profile: StudentExamExperienceProfile;
 };
 
+export type StudentExamDiscovery = {
+  id: string;
+  title: string;
+  code: string;
+  exam_type: string;
+  status: string;
+  subject_name: string;
+  duration_minutes: number;
+  start_at: string | null;
+  end_at: string | null;
+  attempts_used: number;
+  remaining_attempts: number;
+  active_attempt: {
+    id: string;
+    status: string;
+  } | null;
+  availability_state: string;
+  can_resume: boolean;
+  latest_attempt_status: string | null;
+  source_type: string;
+  source_label: string;
+  source_name: string;
+  source_teacher_id: string | null;
+  source_teacher_name: string | null;
+};
+
+export type StudentDashboardExam = {
+  id: string;
+  title: string;
+  code: string;
+  exam_type: string;
+  status: string;
+  subject_name: string;
+  primary_subject: string | null;
+  primary_subject_name: string | null;
+  is_multi_subject: boolean;
+  section_subjects: TeacherExamSectionSubjectSummary[];
+  duration_minutes: number;
+  start_at: string | null;
+  end_at: string | null;
+  attempts_used: number;
+  remaining_attempts: number;
+  active_attempt: {
+    id: string;
+    status: string;
+  } | null;
+  availability_state: string;
+  can_start: boolean;
+  can_resume: boolean;
+  result_published: boolean;
+  latest_attempt_status: string | null;
+  source_type: string;
+  source_label: string;
+  source_name: string;
+  source_teacher_id: string | null;
+  source_teacher_name: string | null;
+  economy_access: Pick<
+    StudentContentEconomyAccess,
+    | "content_type"
+    | "content_key"
+    | "subject_id"
+    | "star_cost"
+    | "requires_unlock"
+    | "can_unlock_with_stars"
+    | "is_unlocked"
+    | "is_locked"
+    | "lock_reason_message"
+  > & {
+    subscription_resolution?: Pick<
+      NonNullable<StudentContentEconomyAccess["subscription_resolution"]>,
+      | "is_applicable"
+      | "is_covered"
+      | "included_allowance"
+      | "remaining_allowance"
+      | "reason_message"
+    >;
+  };
+};
+
+export type StudentExamCatalog = Omit<StudentDashboardExam, "economy_access"> & {
+  attempt_policy: string;
+  access_key_enabled: boolean;
+  total_marks: string;
+  passing_marks: string;
+  review_available: boolean;
+  security_mode: string;
+  security_policy: {
+    student_label: string;
+  };
+  experience_profile?: Pick<
+    StudentExamExperienceProfile,
+    "assessment_family" | "assessment_family_label"
+  >;
+  economy_access: Pick<
+    StudentContentEconomyAccess,
+    | "star_cost"
+    | "requires_unlock"
+    | "can_unlock_with_stars"
+    | "is_unlocked"
+    | "is_locked"
+    | "lock_reason_message"
+  > & {
+    content_type?: string;
+    content_key?: string;
+    subject_id?: string | null;
+    subscription_resolution?: Pick<
+      NonNullable<StudentContentEconomyAccess["subscription_resolution"]>,
+      | "is_applicable"
+      | "is_covered"
+      | "included_allowance"
+      | "remaining_allowance"
+      | "reason_message"
+    >;
+  };
+};
+
 export type StudentPracticeFollowUpExam = {
   id: string;
   title: string;
@@ -218,14 +334,17 @@ export type StudentPracticeFollowUpExam = {
   can_start: boolean;
   can_resume: boolean;
   economy_access: StudentContentEconomyAccess;
-  experience_profile: Pick<StudentExamExperienceProfile, "assessment_family">;
+  experience_profile: Pick<
+    StudentExamExperienceProfile,
+    "assessment_family" | "assessment_family_label"
+  >;
 };
 
 export type DashboardData = {
   source: "live" | "unconfigured" | "error";
   apiConfigured: boolean;
   summary: StudentInsightSummary | null;
-  exams: StudentAvailableExam[];
+  exams: StudentDashboardExam[];
 };
 
 export type StudentWalletSummary = {
@@ -247,6 +366,46 @@ export type StudentWalletSummary = {
   is_active: boolean;
 };
 
+export type EconomyPolicyAuditEntry = {
+  id: string;
+  user: number | null;
+  user_label: string | null;
+  action: string;
+  entity_type: string;
+  entity_id: string;
+  message: string;
+  metadata: {
+    changed_fields?: Record<string, { before: unknown; after: unknown }>;
+  };
+  created_at: string;
+};
+
+export type EconomyPolicyConfig = {
+  id: string;
+  singleton_key: string;
+  institute_admin_can_confirm_orders: boolean;
+  institute_admin_max_confirm_order_amount: string;
+  institute_admin_confirm_order_currency: string;
+  institute_admin_can_grant_stars: boolean;
+  institute_admin_max_grant_stars: number;
+  platform_catalog_governance_scope: "platform_only";
+  institute_catalog_governance_scope: "platform_only";
+  platform_support_scope: "cross_institute";
+  institute_support_scope: "cross_institute" | "institute_only";
+  latest_audit: {
+    id: string;
+    action: string;
+    message: string;
+    user: number | null;
+    user_label: string | null;
+    created_at: string;
+    metadata: Record<string, unknown>;
+  } | null;
+  created_at: string;
+  updated_at: string;
+  is_active: boolean;
+};
+
 export type EconomyOperatorPolicy = {
   role: "platform_admin" | "institute_admin";
   can_grant_stars: boolean;
@@ -254,8 +413,10 @@ export type EconomyOperatorPolicy = {
   can_confirm_orders: boolean;
   max_confirm_order_amount: string | null;
   max_confirm_order_currency: string | null;
-  catalog_governance_scope: "platform_only";
-  support_scope: "cross_institute" | "institute_only";
+  platform_catalog_governance_scope: "platform_only";
+  institute_catalog_governance_scope: "platform_only";
+  platform_support_scope: "cross_institute";
+  institute_support_scope: "cross_institute" | "institute_only";
 };
 
 export type StudentStarLedgerEntry = {
@@ -535,6 +696,8 @@ export type StudentResult = {
   metadata: Record<string, unknown>;
   exam_title: string;
   exam_code: string;
+  subject_name?: string | null;
+  primary_subject_name?: string | null;
   student_name: string;
   student_admission_no: string;
   created_at: string;

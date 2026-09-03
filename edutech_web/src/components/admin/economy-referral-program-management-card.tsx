@@ -78,10 +78,6 @@ export function EconomyReferralProgramManagementCard({
   const [error, setError] = useState("");
 
   useEffect(() => {
-    setPrograms(initialPrograms);
-  }, [initialPrograms]);
-
-  useEffect(() => {
     let cancelled = false;
 
     async function loadPrograms() {

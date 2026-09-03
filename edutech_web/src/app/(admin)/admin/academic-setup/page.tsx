@@ -13,7 +13,7 @@ import {
   type TopicRecord,
 } from "@/components/admin/academic-setup-workspace";
 import { type TeacherAssignmentRecord, type TeacherRecord } from "@/components/admin/teacher-assignment-workspace";
-import { fetchPortalCount, fetchPortalList, fetchPortalListAll, fetchPortalRecord } from "@/lib/api/portal";
+import { fetchPortalCount, fetchPortalListAll, fetchPortalRecord } from "@/lib/api/portal";
 import { requirePlatformAdminSession } from "@/lib/auth/session";
 import { groupTeacherOptionCatalog } from "@/lib/teacher/option-catalog";
 

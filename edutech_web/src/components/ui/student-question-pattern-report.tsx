@@ -29,6 +29,12 @@ export function StudentQuestionPatternReport({
   scopeLabel?: string | null;
 }) {
   const [activeRow, setActiveRow] = useState<StudentQuestionPatternRow | null>(null);
+  const [isInteractive, setIsInteractive] = useState(false);
+
+  useEffect(() => {
+    const hydrationTimer = window.setTimeout(() => setIsInteractive(true), 0);
+    return () => window.clearTimeout(hydrationTimer);
+  }, []);
 
   useEffect(() => {
     if (!activeRow) return;
@@ -69,19 +75,23 @@ export function StudentQuestionPatternReport({
                 <tr
                   className="studentResultsTableRow"
                   key={row.id}
-                  onClick={() => setActiveRow(row)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
+                  onClick={() => {
+                    if (isInteractive) {
                       setActiveRow(row);
                     }
                   }}
-                  role="button"
-                  tabIndex={0}
                 >
                   <td>
-                    <strong>{row.questionLabel}</strong>
-                    <small>{row.supportNote}</small>
+                    <button
+                      aria-label={`Open question pattern for ${row.questionLabel}`}
+                      className="studentQuestionPatternOpenButton"
+                      disabled={!isInteractive}
+                      onClick={() => setActiveRow(row)}
+                      type="button"
+                    >
+                      <strong>{row.questionLabel}</strong>
+                      <small>{row.supportNote}</small>
+                    </button>
                   </td>
                   <td>{row.subjectLabel}</td>
                   <td>{row.topicLabel}</td>

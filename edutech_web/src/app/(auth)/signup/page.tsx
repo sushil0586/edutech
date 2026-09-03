@@ -8,7 +8,7 @@ import {
   fetchRegistrationOptions,
   getPostAuthRedirectPath,
 } from "@/lib/auth/session";
-import { publicPortalAccessLanes } from "@/lib/site-content";
+import { launchScopeStatement, publicPortalAccessLanes } from "@/lib/site-content";
 
 type SignupPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -102,7 +102,7 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
           <PageHeader
             eyebrow="Guided signup"
             title="Start your learning journey with Nexora"
-            description="Corporate-ready onboarding for students, parents, and teachers. Keep account creation quick, then complete the role profile once after login."
+            description="Guided onboarding for students and teachers, with institution-managed setup where needed. Keep account creation quick, then complete the role profile once after login."
             className="pageHeaderCompact"
           />
 
@@ -123,6 +123,7 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
             We keep account creation intentionally light, then collect the richer role
             details after login so learners and teachers get into the product faster.
           </p>
+          <p>{launchScopeStatement}</p>
           <div className="authIntroMetrics">
             <article className="authInlineStat">
               <span>Step 1</span>

@@ -1,4 +1,5 @@
 import { TeacherBuilderApiError } from "@/lib/api/teacher-builder-error";
+import { QUESTION_BANK_FIELD_LABELS } from "@/lib/teacher/question-bank-contract";
 
 export type QuestionBankValidationErrors = Record<string, string[]>;
 
@@ -107,44 +108,5 @@ export function getQuestionBankFieldErrorEntries(errors: QuestionBankValidationE
 }
 
 export function getQuestionBankFieldLabel(field: string) {
-  switch (field) {
-    case "program":
-      return "Program";
-    case "subject":
-      return "Subject";
-    case "topic":
-      return "Topic";
-    case "passage":
-      return "Comprehension set";
-    case "passage_order":
-      return "Comprehension order";
-    case "question_type":
-      return "Question type";
-    case "difficulty_level":
-      return "Difficulty";
-    case "content_format":
-      return "Content format";
-    case "question_text":
-      return "Question text";
-    case "explanation":
-      return "Explanation";
-    case "accepted_answers":
-      return "Accepted answers";
-    case "numeric_tolerance":
-      return "Numeric tolerance";
-    case "review_guidance":
-      return "Review guidance";
-    case "default_marks":
-      return "Default marks";
-    case "negative_marks":
-      return "Negative marks";
-    case "title":
-      return "Set title";
-    case "passage_text":
-      return "Passage text";
-    case "description":
-      return "Teacher notes";
-    default:
-      return field.replaceAll("_", " ");
-  }
+  return QUESTION_BANK_FIELD_LABELS[field] ?? field.replaceAll("_", " ");
 }

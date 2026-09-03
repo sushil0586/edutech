@@ -3,6 +3,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import models
 from django.db import transaction
 from django.utils import timezone
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema, inline_serializer
 from rest_framework import serializers, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -92,10 +93,19 @@ class ExamViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
         "exam_type",
         "delivery_mode",
         "status",
+        "source_type",
         "is_active",
     ]
     search_fields = ["title", "code", "description"]
-    ordering_fields = ["start_at", "end_at", "created_at", "title"]
+    ordering_fields = [
+        "start_at",
+        "end_at",
+        "created_at",
+        "title",
+        "duration_minutes",
+        "assigned_student_count",
+        "active_questions_count",
+    ]
     ordering = ["-start_at", "-created_at"]
 
     def get_queryset(self):
@@ -161,6 +171,48 @@ class ExamViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
         self._hydrate_economy_policies(queryset)
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name="institute", type=str, required=False),
+        ],
+        responses=inline_serializer(
+            name="PlatformExamCatalogSummary",
+            fields={
+                "total_count": serializers.IntegerField(),
+                "source_counts": serializers.DictField(child=serializers.IntegerField()),
+                "status_counts": serializers.DictField(child=serializers.IntegerField()),
+            },
+        ),
+    )
+    @action(detail=False, methods=["get"], url_path="platform-catalog-summary")
+    def platform_catalog_summary(self, request, *args, **kwargs):
+        profile = get_account_profile(request.user)
+        if profile is None or profile.role != AccountRole.PLATFORM_ADMIN:
+            raise PermissionDenied("Only platform admins can view platform exam catalog summary.")
+
+        queryset = scope_exam_queryset(Exam.objects.all(), request.user)
+        institute_id = str(request.query_params.get("institute") or "").strip()
+        if institute_id:
+            queryset = queryset.filter(institute_id=institute_id)
+
+        source_counts = {
+            row["source_type"]: row["count"]
+            for row in queryset.values("source_type").annotate(count=models.Count("id"))
+        }
+        status_counts = {
+            row["status"]: row["count"]
+            for row in queryset.values("status").annotate(count=models.Count("id"))
+        }
+
+        return Response(
+            {
+                "total_count": queryset.count(),
+                "source_counts": source_counts,
+                "status_counts": status_counts,
+            },
+            status=status.HTTP_200_OK,
+        )
 
     def _resolve_changed_by(self, serializer):
         changed_by = serializer.validated_data.get("changed_by")
@@ -374,6 +426,14 @@ class ExamViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
             status_code=status.HTTP_201_CREATED,
         )
 
+    @extend_schema(
+        parameters=[OpenApiParameter(name="slot_id", type=str, location=OpenApiParameter.PATH)],
+        request=ExamAccessSlotWriteSerializer,
+        responses={
+            200: ExamAccessSlotSerializer,
+            400: OpenApiResponse(description="Invalid slot update."),
+        },
+    )
     @action(detail=True, methods=["patch"], url_path=r"slots/(?P<slot_id>[^/.]+)")
     def update_slot(self, request, pk=None, slot_id=None):
         exam = self.get_object()

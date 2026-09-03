@@ -65,7 +65,13 @@ test.describe("Institute search API audit", () => {
 
       const quickFilterStartedAt = Date.now();
       audit.reset();
-      await page.getByRole("link", { name: /^workspace pages$/i }).click();
+      const workspacePagesHref =
+        (await page
+          .locator('main .workspaceFilterQuickChips a[href*="source=catalog"]')
+          .filter({ hasText: /^Workspace Pages$/i })
+          .first()
+          .getAttribute("href")) ?? "/institute/search?q=exam&source=catalog&sort=title&group=section";
+      await gotoWithRuntimeRecovery(page, workspacePagesHref);
       await expect(page).toHaveURL(/source=catalog/);
       await expect(page).toHaveURL(/q=exam/);
       await audit.waitForSettled();
@@ -120,8 +126,8 @@ test.describe("Institute search API audit", () => {
 
       const expectedServerRenderContract = {
         "live-query=q": [
-          "/api/v1/teacher/exams/",
-          "/api/v1/teacher/results/summary/",
+          "/api/v1/teacher/exams/?page_size=8&search=exam",
+          "/api/v1/teacher/results/summary/?search=exam&page_size=8",
           "/api/v1/question-bank/questions/?compact=true&page_size=8&search=exam",
         ],
         "filter-param-contract": [

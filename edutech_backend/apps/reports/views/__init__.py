@@ -1,5 +1,7 @@
 from django.db.models import Count, Prefetch, Q
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema, inline_serializer
 from rest_framework import status
+from rest_framework import serializers
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -65,6 +67,23 @@ def _slot_pressure_state(slot):
 class ExamRuntimeSummaryView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="status",
+                type=str,
+                required=False,
+                enum=["active", "all", "live", "scheduled"],
+            ),
+        ],
+        responses=inline_serializer(
+            name="ExamRuntimeSummaryResponse",
+            fields={
+                "summary": serializers.DictField(),
+                "top_pressure_exams": serializers.ListField(child=serializers.DictField()),
+            },
+        ),
+    )
     def get(self, request):
         profile = get_account_profile(request.user)
         if profile is None or profile.role not in {
@@ -246,6 +265,16 @@ class NotificationListView(APIView):
     permission_classes = [IsAuthenticated]
     pagination_class = StandardResultsSetPagination
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name="status", type=str, required=False, enum=["all", "read", "unread"]),
+            OpenApiParameter(name="notification_type", type=str, required=False),
+            OpenApiParameter(name="related_object_type", type=str, required=False),
+            OpenApiParameter(name="ordering", type=str, required=False, enum=["newest", "oldest", "unread_first", "type"]),
+            OpenApiParameter(name="search", type=str, required=False),
+        ],
+        responses=InAppNotificationSerializer(many=True),
+    )
     def get(self, request):
         base_queryset = (
             InAppNotification.objects.only(
@@ -324,6 +353,22 @@ class NotificationListView(APIView):
 class NotificationMarkReadView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        request=None,
+        responses={
+            200: OpenApiResponse(
+                response=inline_serializer(
+                    name="NotificationMarkReadResponse",
+                    fields={
+                        "success": serializers.BooleanField(),
+                        "message": serializers.CharField(),
+                        "data": InAppNotificationSerializer(),
+                    },
+                )
+            ),
+            404: OpenApiResponse(description="Notification not found."),
+        }
+    )
     def post(self, request, notification_id):
         notification = (
             InAppNotification.objects.filter(
@@ -356,6 +401,20 @@ class NotificationMarkReadView(APIView):
 class NotificationMarkAllReadView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        request=None,
+        responses=inline_serializer(
+            name="NotificationMarkAllReadResponse",
+            fields={
+                "success": serializers.BooleanField(),
+                "message": serializers.CharField(),
+                "data": inline_serializer(
+                    name="NotificationMarkAllReadData",
+                    fields={"updated_count": serializers.IntegerField()},
+                ),
+            },
+        )
+    )
     def post(self, request):
         updated_count = mark_all_notifications_as_read(request.user)
         create_audit_log(
@@ -377,6 +436,7 @@ class NotificationMarkAllReadView(APIView):
 class NotificationUnreadCountView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(responses=NotificationUnreadCountSerializer)
     def get(self, request):
         serializer = NotificationUnreadCountSerializer(
             {"unread_count": unread_notification_count(request.user)}

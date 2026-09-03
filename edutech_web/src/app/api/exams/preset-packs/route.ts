@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAuthenticatedSession, hasRequiredRole } from "@/lib/auth/session";
+import { getAuthenticatedSession, hasRequiredRole, PORTAL_ROLE_GROUPS } from "@/lib/auth/session";
 import { examPresetPacks as defaultExamPresetPacks } from "@/lib/assessment/exam-preset-packs";
 
 const API_BASE_URL = (
@@ -24,7 +24,7 @@ export async function GET(request: Request) {
   const session = await getAuthenticatedSession();
   if (
     !session ||
-    !hasRequiredRole(session.profile, ["teacher", "institute_admin", "platform_admin"])
+    !hasRequiredRole(session.profile, PORTAL_ROLE_GROUPS.teacherScopedOperators)
   ) {
     return unauthorizedResponse();
   }
@@ -100,7 +100,7 @@ export async function POST(request: Request) {
   const session = await getAuthenticatedSession();
   if (
     !session ||
-    !hasRequiredRole(session.profile, ["institute_admin", "platform_admin"])
+    !hasRequiredRole(session.profile, PORTAL_ROLE_GROUPS.instituteOrPlatformAdmin)
   ) {
     return unauthorizedResponse();
   }

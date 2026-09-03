@@ -16,6 +16,7 @@ function renderAvatarSeed(value: string) {
 
 export default function Home() {
   const {
+    launchScopeStatement,
     hero,
     heroPanel,
     statsBand,
@@ -87,6 +88,8 @@ export default function Home() {
               <span key={point}>{point}</span>
             ))}
           </div>
+
+          <p className="sectionDescription">{launchScopeStatement}</p>
         </div>
 
         <div className="marketingHeroVisual">

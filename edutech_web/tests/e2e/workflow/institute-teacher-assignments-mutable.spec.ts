@@ -11,10 +11,6 @@ type CreatePayload = {
   id?: string;
 };
 
-function firstNonEmptyOptionValue(values: string[]) {
-  return values.find((value) => value.trim().length > 0) ?? null;
-}
-
 function normalizeRenderedOptionLabel(label: string) {
   return label.replace(/\s+\(inactive\)$/i, "").trim();
 }

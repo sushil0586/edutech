@@ -1,6 +1,14 @@
 from django.conf import settings
 from django.db import models
 
+from apps.institutes.policies import (
+    DEFAULT_INSTITUTE_MANAGEMENT_MODE,
+    DEFAULT_ONBOARDING_PROFILE_CATEGORY,
+    DEFAULT_ONBOARDING_PROFILE_SORT_ORDER,
+    DEFAULT_ONBOARDING_RUN_SOURCE,
+    format_onboarding_run_label,
+    resolve_institute_management_mode,
+)
 from common.models import BaseModel
 
 
@@ -26,7 +34,7 @@ class Institute(BaseModel):
     management_mode = models.CharField(
         max_length=40,
         choices=InstituteManagementMode.choices,
-        default=InstituteManagementMode.PRIVATE_INSTITUTE_MANAGED,
+        default=DEFAULT_INSTITUTE_MANAGEMENT_MODE,
     )
     metadata = models.JSONField(default=dict, blank=True)
 
@@ -43,16 +51,16 @@ class Institute(BaseModel):
 
     @property
     def resolved_management_mode(self):
-        return self.management_mode or InstituteManagementMode.PRIVATE_INSTITUTE_MANAGED
+        return resolve_institute_management_mode(self.management_mode)
 
 
 class InstituteOnboardingProfile(BaseModel):
     name = models.CharField(max_length=255, db_index=True)
     code = models.CharField(max_length=80, unique=True)
     description = models.TextField(blank=True)
-    category = models.CharField(max_length=80, blank=True, default="general")
+    category = models.CharField(max_length=80, blank=True, default=DEFAULT_ONBOARDING_PROFILE_CATEGORY)
     is_default = models.BooleanField(default=False)
-    sort_order = models.PositiveIntegerField(default=100)
+    sort_order = models.PositiveIntegerField(default=DEFAULT_ONBOARDING_PROFILE_SORT_ORDER)
     config_json = models.JSONField(default=dict, blank=True)
 
     class Meta:
@@ -96,7 +104,7 @@ class InstituteOnboardingRun(BaseModel):
         null=True,
     )
     profile_code = models.CharField(max_length=80, blank=True)
-    source = models.CharField(max_length=80, default="master_defaults")
+    source = models.CharField(max_length=80, default=DEFAULT_ONBOARDING_RUN_SOURCE)
     status = models.CharField(
         max_length=20,
         choices=InstituteOnboardingRunStatus.choices,
@@ -125,7 +133,11 @@ class InstituteOnboardingRun(BaseModel):
         ]
 
     def __str__(self):
-        return f"{self.institute.code} · {self.profile_code or 'manual'} · {self.status}"
+        return format_onboarding_run_label(
+            institute_code=self.institute.code,
+            profile_code=self.profile_code,
+            status=self.status,
+        )
 
 
 class InstituteOnboardingTaskRun(BaseModel):

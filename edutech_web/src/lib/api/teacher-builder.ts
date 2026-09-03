@@ -127,6 +127,7 @@ export type LookupQuestion = {
   passage_order: number | null;
   passage_title: string;
   question_type: string;
+  question_type_definition?: TeacherQuestionTypeDefinition | null;
   difficulty_level: string;
   question_text: string;
   explanation: string;

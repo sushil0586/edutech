@@ -19,6 +19,32 @@ export async function findOptionValueByLabelPattern(locator: Locator, pattern: R
   );
 }
 
+export async function selectOptionStartingWithLabel(locator: Locator, label: string) {
+  const normalizedLabel = label.trim().toLowerCase();
+  const optionValue = await locator.locator("option").evaluateAll((options, expectedLabel) => {
+    const match = options.find((option) => {
+      const optionLabel = ((option as HTMLOptionElement).label || option.textContent || "").trim().toLowerCase();
+      return optionLabel === expectedLabel || optionLabel.startsWith(`${expectedLabel} `);
+    });
+    return match ? (match as HTMLOptionElement).value : "";
+  }, normalizedLabel);
+  expect(optionValue).not.toBe("");
+  await locator.selectOption(optionValue);
+  await expect.poll(async () => locator.inputValue()).toBe(optionValue);
+  return optionValue;
+}
+
+async function getNonEmptyOptionEntries(locator: Locator) {
+  return locator.locator("option").evaluateAll((options) =>
+    options
+      .map((option) => ({
+        label: option.textContent?.trim() ?? (option as HTMLOptionElement).label,
+        value: (option as HTMLOptionElement).value,
+      }))
+      .filter((option) => option.value.trim().length > 0),
+  );
+}
+
 export async function expectSelectHasOptions(locator: Locator) {
   await expect(locator).toBeVisible();
   await expect.poll(async () => locator.locator("option").count()).toBeGreaterThan(0);
@@ -65,9 +91,14 @@ export async function expectQuestionBankAcademicDependencyChain(page: Page) {
   const programs = await getNonEmptyOptionValues(programSelect);
   expect(programs.length).toBeGreaterThan(0);
 
-  const preferredProgram =
-    (await findOptionValueByLabelPattern(programSelect, /class 7/i)) || programs[0]!;
-  const candidatePrograms = [preferredProgram, ...programs.filter((program) => program !== preferredProgram)];
+  const programEntries = await getNonEmptyOptionEntries(programSelect);
+  const preferredPrograms = programEntries
+    .filter((program) => /^class 7$/i.test(program.label) || /class 7(?!\s*cbse)/i.test(program.label))
+    .map((program) => program.value);
+  const candidatePrograms = [
+    ...preferredPrograms,
+    ...programs.filter((program) => !preferredPrograms.includes(program)),
+  ];
 
   for (const selectedProgram of candidatePrograms) {
     const subjectsResponse = waitForAcademicsResponse(page, "subjects", {
@@ -81,9 +112,6 @@ export async function expectQuestionBankAcademicDependencyChain(page: Page) {
     await expect
       .poll(async () => subjectSelect.evaluate((element) => !(element as HTMLSelectElement).disabled))
       .toBe(true);
-    await expect.poll(async () => getNonEmptyOptionValues(subjectSelect).then((values) => values.length)).toBeGreaterThan(
-      0,
-    );
 
     const subjects = await getNonEmptyOptionValues(subjectSelect);
     if (!subjects.length) {
@@ -106,9 +134,6 @@ export async function expectQuestionBankAcademicDependencyChain(page: Page) {
       await expect
         .poll(async () => topicSelect.evaluate((element) => !(element as HTMLSelectElement).disabled))
         .toBe(true);
-      await expect
-        .poll(async () => getNonEmptyOptionValues(topicSelect).then((values) => values.length))
-        .toBeGreaterThan(0);
 
       const topics = await getNonEmptyOptionValues(topicSelect);
       if (!topics.length) {
@@ -134,4 +159,132 @@ export async function expectQuestionBankAcademicDependencyChain(page: Page) {
   }
 
   throw new Error("No program exposed subject and topic options for the question bank filters.");
+}
+
+export async function selectAcademicDependencyChain(
+  page: Page,
+  {
+    programSelect,
+    subjectSelect,
+    topicSelect,
+    preferredProgramValue,
+    preferredProgramLabel,
+  }: {
+    programSelect: Locator;
+    subjectSelect: Locator;
+    topicSelect: Locator;
+    preferredProgramValue?: string | null;
+    preferredProgramLabel?: string | null;
+  },
+) {
+  await expectSelectHasOptions(programSelect);
+
+  const programs = await getNonEmptyOptionValues(programSelect);
+  expect(programs.length).toBeGreaterThan(0);
+
+  const programEntries = await getNonEmptyOptionEntries(programSelect);
+  const labelPreference = preferredProgramLabel?.trim().toLowerCase() ?? "";
+  const preferredProgramsFromLabel = labelPreference
+    ? programEntries
+        .filter((program) => {
+          const label = program.label.trim().toLowerCase();
+          return label === labelPreference || label.startsWith(`${labelPreference} `);
+        })
+        .map((program) => program.value)
+    : [];
+  const preferredPrograms = programEntries
+    .filter((program) => /^class 7$/i.test(program.label) || /class 7(?!\s*cbse)/i.test(program.label))
+    .map((program) => program.value);
+  const preferredValue = preferredProgramValue?.trim() || "";
+  const candidatePrograms = [
+    ...(preferredValue ? [preferredValue] : []),
+    ...preferredProgramsFromLabel,
+    ...preferredPrograms,
+    ...programs,
+  ].filter((program, index, values) =>
+    program.trim().length > 0 && values.indexOf(program) === index,
+  );
+
+  for (const selectedProgram of candidatePrograms) {
+    if (!programs.includes(selectedProgram)) {
+      continue;
+    }
+    const subjectsResponse = waitForAcademicsResponse(page, "subjects", {
+      is_active: "true",
+      program: selectedProgram,
+      page_size: "500",
+    });
+    await programSelect.selectOption(selectedProgram);
+    await expect.poll(async () => programSelect.inputValue()).toBe(selectedProgram);
+    await subjectsResponse;
+    await expect
+      .poll(async () => subjectSelect.evaluate((element) => !(element as HTMLSelectElement).disabled))
+      .toBe(true);
+
+    const subjects = await getNonEmptyOptionValues(subjectSelect);
+    if (!subjects.length) {
+      continue;
+    }
+
+    const preferredSubject =
+      (await findOptionValueByLabelPattern(subjectSelect, /math/i)) || subjects[0]!;
+    const candidateSubjects = [preferredSubject, ...subjects.filter((subject) => subject !== preferredSubject)];
+
+    for (const selectedSubject of candidateSubjects) {
+      const topicsResponse = waitForAcademicsResponse(page, "topics", {
+        is_active: "true",
+        subject: selectedSubject,
+        page_size: "500",
+      });
+      await subjectSelect.selectOption(selectedSubject);
+      await expect.poll(async () => subjectSelect.inputValue()).toBe(selectedSubject);
+      await topicsResponse;
+      await expect
+        .poll(async () => topicSelect.evaluate((element) => !(element as HTMLSelectElement).disabled))
+        .toBe(true);
+
+      const topics = await getNonEmptyOptionValues(topicSelect);
+      if (!topics.length) {
+        continue;
+      }
+
+      const selectedTopic = topics[0]!;
+      await topicSelect.selectOption(selectedTopic);
+      await expect.poll(async () => topicSelect.inputValue()).toBe(selectedTopic);
+
+      return {
+        selectedProgram,
+        selectedSubject,
+        selectedTopic,
+      };
+    }
+  }
+
+  throw new Error("No program exposed subject and topic options for the selected academic controls.");
+}
+
+export async function fetchStudentAcademicContext(page: Page, backendBaseUrl: string) {
+  const cookies = await page.context().cookies();
+  const accessToken = cookies.find((cookie) => cookie.name === "nexora_access_token")?.value?.trim() ?? "";
+  expect(accessToken).not.toBe("");
+
+  const response = await page.request.get(`${backendBaseUrl}/api/v1/auth/me/`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    timeout: 15000,
+  });
+  expect(response.ok()).toBe(true);
+  const payload = (await response.json()) as {
+    student_context?: {
+      program_name?: string | null;
+      academic_year_name?: string | null;
+    } | null;
+  };
+
+  return {
+    programName: payload.student_context?.program_name?.trim() || null,
+    academicYearName: payload.student_context?.academic_year_name?.trim() || null,
+  };
 }

@@ -1,5 +1,7 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Count, Q
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema, inline_serializer
+from rest_framework import serializers
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -51,6 +53,10 @@ def _selected_relationship(user, child_id=None, *, permission_flag=None, parent_
 class ParentChildrenListView(APIView):
     permission_classes = [IsAuthenticated, IsParent]
 
+    @extend_schema(
+        operation_id="v1_parent_children_list",
+        responses=ParentChildListSerializer(many=True),
+    )
     def get(self, request):
         relationships = get_active_parent_relationships(request.user)
         payload = [build_parent_child_record(relationship) for relationship in relationships]
@@ -60,6 +66,11 @@ class ParentChildrenListView(APIView):
 class ParentChildDetailView(APIView):
     permission_classes = [IsAuthenticated, IsParent]
 
+    @extend_schema(
+        operation_id="v1_parent_children_detail",
+        parameters=[OpenApiParameter(name="child_id", type=str, location=OpenApiParameter.PATH)],
+        responses=ParentChildListSerializer,
+    )
     def get(self, request, child_id):
         relationship = resolve_parent_child_access(request.user, child_id)
         payload = build_parent_child_record(relationship)
@@ -69,6 +80,21 @@ class ParentChildDetailView(APIView):
 class ParentDashboardSummaryView(APIView):
     permission_classes = [IsAuthenticated, IsParent]
 
+    @extend_schema(
+        parameters=[OpenApiParameter(name="child_id", type=str, required=False)],
+        responses=inline_serializer(
+            name="ParentDashboardSummaryResponse",
+            fields={
+                "child": serializers.DictField(allow_null=True),
+                "progress_summary": serializers.DictField(allow_null=True),
+                "recent_results": serializers.ListField(child=serializers.DictField()),
+                "weak_subjects": serializers.ListField(child=serializers.DictField()),
+                "weak_topics": serializers.ListField(child=serializers.DictField()),
+                "alert_summary": serializers.DictField(),
+                "insight_messages": serializers.ListField(child=serializers.CharField()),
+            },
+        ),
+    )
     def get(self, request):
         child_id = request.query_params.get("child_id")
         parent_profile = get_parent_profile_for_user(request.user)
@@ -100,6 +126,23 @@ class ParentDashboardSummaryView(APIView):
 class ParentProgressView(APIView):
     permission_classes = [IsAuthenticated, IsParent]
 
+    @extend_schema(
+        parameters=[OpenApiParameter(name="child_id", type=str, required=False)],
+        responses=inline_serializer(
+            name="ParentProgressResponse",
+            fields={
+                "child": serializers.DictField(allow_null=True),
+                "average_percentage": serializers.CharField(),
+                "accuracy_percentage": serializers.CharField(),
+                "strongest_subjects": serializers.ListField(child=serializers.DictField()),
+                "weakest_subjects": serializers.ListField(child=serializers.DictField()),
+                "weak_topics": serializers.ListField(child=serializers.DictField()),
+                "recent_results": serializers.ListField(child=serializers.DictField()),
+                "attempt_behavior": serializers.DictField(),
+                "improvement_trend": serializers.DictField(),
+            },
+        ),
+    )
     def get(self, request):
         child_id = request.query_params.get("child_id")
         parent_profile = get_parent_profile_for_user(request.user)
@@ -133,11 +176,19 @@ class ParentProgressView(APIView):
 class ParentPreferencesView(APIView):
     permission_classes = [IsAuthenticated, IsParent]
 
+    @extend_schema(responses=ParentPreferencesSerializer)
     def get(self, request):
         parent_profile = get_parent_profile_for_user(request.user)
         serializer = ParentPreferencesSerializer(parent_profile.notification_preferences or {})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @extend_schema(
+        request=ParentPreferencesSerializer,
+        responses={
+            200: ParentPreferencesSerializer,
+            400: OpenApiResponse(description="Invalid parent preferences."),
+        },
+    )
     def patch(self, request):
         serializer = ParentPreferencesSerializer(data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
@@ -154,6 +205,17 @@ class ParentAlertsView(APIView):
     permission_classes = [IsAuthenticated, IsParent]
     pagination_class = StandardResultsSetPagination
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name="child_id", type=str, required=False),
+            OpenApiParameter(name="status", type=str, required=False, enum=["all", "new", "read", "resolved", "dismissed"]),
+            OpenApiParameter(name="severity", type=str, required=False, enum=["all", "high", "warning", "info"]),
+            OpenApiParameter(name="alert_type", type=str, required=False),
+            OpenApiParameter(name="ordering", type=str, required=False, enum=["latest", "oldest", "severity"]),
+            OpenApiParameter(name="search", type=str, required=False),
+        ],
+        responses=ParentAlertSerializer(many=True),
+    )
     def get(self, request):
         child_id = request.query_params.get("child_id")
         status_filter = request.query_params.get("status")
@@ -247,6 +309,26 @@ class ParentAlertsView(APIView):
 class ParentAlertsMarkAllReadView(APIView):
     permission_classes = [IsAuthenticated, IsParent]
 
+    @extend_schema(
+        request=inline_serializer(
+            name="ParentAlertsMarkAllReadRequest",
+            fields={
+                "child_id": serializers.UUIDField(required=False),
+                "severity": serializers.CharField(required=False),
+                "alert_type": serializers.CharField(required=False),
+                "search": serializers.CharField(required=False, allow_blank=True),
+                "scope": serializers.ChoiceField(choices=["matching", "page"], required=False),
+                "alert_ids": serializers.ListField(child=serializers.UUIDField(), required=False),
+            },
+        ),
+        responses={
+            200: inline_serializer(
+                name="ParentAlertsMarkAllReadResponse",
+                fields={"updated_count": serializers.IntegerField()},
+            ),
+            400: OpenApiResponse(description="Invalid bulk alert request."),
+        },
+    )
     def post(self, request):
         child_id = request.data.get("child_id")
         severity_filter = request.data.get("severity")
@@ -286,6 +368,17 @@ class ParentAlertsMarkAllReadView(APIView):
 class ParentAlertStatusView(APIView):
     permission_classes = [IsAuthenticated, IsParent]
 
+    @extend_schema(
+        parameters=[OpenApiParameter(name="alert_id", type=str, location=OpenApiParameter.PATH)],
+        request=inline_serializer(
+            name="ParentAlertStatusRequest",
+            fields={"status": serializers.ChoiceField(choices=["read", "resolved", "dismissed"])},
+        ),
+        responses={
+            200: ParentAlertSerializer,
+            400: OpenApiResponse(description="Invalid alert status."),
+        },
+    )
     def patch(self, request, alert_id):
         next_status = request.data.get("status")
         try:

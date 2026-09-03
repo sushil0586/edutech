@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from functools import lru_cache
 
 from django.core.management.base import BaseCommand, CommandError
 
@@ -7,7 +8,21 @@ from apps.academics.management.seed_presets import PRESETS
 from apps.question_bank.management.curated_topic_seed_support import SUBJECT_CODE_MAP
 
 
-DEFAULT_TEMPLATE_BATCH = "curated_template_batch_v1"
+TEMPLATE_CONTRACTS_PATH = (
+    Path(__file__).resolve().parents[1] / "contracts" / "curated_topic_pack_templates.json"
+)
+
+
+@lru_cache(maxsize=1)
+def load_template_contracts():
+    with TEMPLATE_CONTRACTS_PATH.open(encoding="utf-8") as contract_file:
+        payload = json.load(contract_file)
+    if not isinstance(payload, dict):
+        raise ValueError("Curated topic pack template contracts must be a JSON object.")
+    return payload
+
+
+DEFAULT_TEMPLATE_BATCH = load_template_contracts()["default_template_batch"]
 DEFAULT_OUTPUT_ROOT = (
     Path(__file__).resolve().parents[4]
     / "question_blueprints"
@@ -17,79 +32,13 @@ DEFAULT_OUTPUT_ROOT = (
 )
 
 
-MATH_ARCHETYPES = {
-    "foundation": [
-        "direct_concept_check",
-        "reading_check",
-        "simple_conversion",
-        "symbol_or_form_identification",
-        "basic_classification",
-    ],
-    "intermediate": [
-        "error_detection",
-        "compare_and_choose",
-        "words_to_figures",
-        "representation_selection",
-        "place_value_inference",
-        "expanded_form",
-        "ordering_reasoning",
-        "misconception_correction",
-    ],
-    "advanced": [
-        "case_based_interpretation",
-        "best_explanation",
-        "assertion_reason",
-        "multi_select_truth_evaluation",
-        "short_answer_reasoning",
-        "elimination_based_reasoning",
-        "cross_system_conversion",
-        "data_interpretation",
-        "worked_step_analysis",
-        "what_went_wrong",
-        "comparison_justification",
-        "rule_application",
-    ],
-}
-
-SCIENCE_ARCHETYPES = {
-    "foundation": [
-        "classification",
-        "indicator_result",
-        "direct_concept_check",
-        "true_false_concept",
-        "familiar_example_identification",
-    ],
-    "intermediate": [
-        "observation_based_inference",
-        "daily_life_application",
-        "misconception_correction",
-        "compare_and_classify",
-        "concept_explanation",
-        "simple_experiment_reasoning",
-        "best_next_step",
-        "indicator_interpretation",
-    ],
-    "advanced": [
-        "experiment_interpretation",
-        "safety_reasoning",
-        "neutralization_application",
-        "assertion_reason",
-        "case_based_reasoning",
-        "best_explanation",
-        "multi_select_truth_evaluation",
-        "observation_chain_inference",
-        "evidence_based_choice",
-        "what_can_be_concluded",
-        "why_this_happens",
-        "decision_under_uncertainty",
-    ],
-}
+def get_difficulty_distributions():
+    payload = load_template_contracts()["difficulty_distributions"]
+    return {int(count): plan for count, plan in payload.items()}
 
 
-DIFFICULTY_DISTRIBUTIONS = {
-    25: ["foundation"] * 5 + ["intermediate"] * 10 + ["advanced"] * 10,
-    50: ["foundation"] * 10 + ["intermediate"] * 20 + ["advanced"] * 20,
-}
+def get_subject_archetypes():
+    return load_template_contracts()["subject_archetypes"]
 
 
 def iter_leaf_topics(preset_name, *, subject_aliases, topic_codes):
@@ -114,15 +63,19 @@ def iter_leaf_topics(preset_name, *, subject_aliases, topic_codes):
 
 
 def build_template_questions(*, topic_name, subject_name, subject_alias, count, batch_name):
-    if count not in DIFFICULTY_DISTRIBUTIONS:
-        supported = ", ".join(str(size) for size in sorted(DIFFICULTY_DISTRIBUTIONS))
+    difficulty_distributions = get_difficulty_distributions()
+    if count not in difficulty_distributions:
+        supported = ", ".join(str(size) for size in sorted(difficulty_distributions))
         raise CommandError(
             f"This template generator currently supports only these question counts per topic: {supported}."
         )
 
-    archetype_bank = MATH_ARCHETYPES if subject_alias == "math" else SCIENCE_ARCHETYPES
+    subject_archetypes = get_subject_archetypes()
+    archetype_bank = subject_archetypes.get(subject_alias)
+    if archetype_bank is None:
+        raise CommandError(f"Unsupported subject alias for template generation: {subject_alias}")
     questions = []
-    difficulty_plan = DIFFICULTY_DISTRIBUTIONS[count]
+    difficulty_plan = difficulty_distributions[count]
     for index, difficulty in enumerate(difficulty_plan, start=1):
         archetypes = archetype_bank[difficulty]
         archetype = archetypes[(index - 1) % len(archetypes)]
@@ -256,7 +209,7 @@ class Command(BaseCommand):
             "--question-count",
             type=int,
             default=25,
-            choices=sorted(DIFFICULTY_DISTRIBUTIONS.keys()),
+            choices=sorted(get_difficulty_distributions().keys()),
             help="How many template questions to scaffold per topic.",
         )
 

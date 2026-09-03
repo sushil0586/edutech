@@ -18,6 +18,7 @@ from apps.economy.models import QuestionBankPackage
 from apps.economy.models import QuestionBankPackageType
 from apps.economy.models import StudentSubscription
 from apps.economy.models import StudentSubscriptionAllowanceUsage
+from apps.economy.models import StudentUnlockState
 from apps.economy.models import SubscriptionPlan
 from apps.economy.models import SubscriptionPlanCycle
 from apps.economy.models import SubscriptionPlanExamAllowanceConfig
@@ -345,6 +346,17 @@ class AuthenticationAccessControlTestCase(TestCase):
         self.assertIn("experience_profile", summary_response.data[0])
         self.assertIn("review_release_risk", summary_response.data[0])
 
+        filtered_summary_response = self.client.get(
+            f"/api/v1/teacher/results/summary/?search={self.exam.code}&page_size=1"
+        )
+        self.assertEqual(filtered_summary_response.status_code, 200)
+        self.assertEqual(len(filtered_summary_response.data), 1)
+        self.assertEqual(str(filtered_summary_response.data[0]["exam"]), str(self.exam.id))
+
+        empty_summary_response = self.client.get("/api/v1/teacher/results/summary/?search=no-match&page_size=1")
+        self.assertEqual(empty_summary_response.status_code, 200)
+        self.assertEqual(empty_summary_response.data, [])
+
     def test_teacher_result_summary_includes_review_queue_blockers(self):
         answer = self.primary_attempt.answers.select_related("question").get()
         StudentAnswerReviewTask.objects.create(
@@ -444,6 +456,58 @@ class AuthenticationAccessControlTestCase(TestCase):
         self.assertEqual(available_response.data[0]["attempts_used"], 1)
         self.assertTrue(available_response.data[0]["access_key_enabled"])
         self.assertIn("server_time", available_response.data[0])
+
+    def test_student_available_exam_discovery_payload_is_lightweight(self):
+        self._authenticate_with_token("student-auth", "Student@123")
+
+        response = self.client.get("/api/v1/student/exams/available/?discovery=true")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([str(item["id"]) for item in response.data], [str(self.exam.id)])
+        payload = response.data[0]
+        self.assertEqual(payload["availability_state"], "completed")
+        self.assertEqual(payload["attempts_used"], 1)
+        self.assertIn("source_type", payload)
+        self.assertNotIn("economy_access", payload)
+        self.assertNotIn("security_policy", payload)
+        self.assertNotIn("start_access", payload)
+
+    def test_student_available_exam_dashboard_payload_keeps_card_access_fields(self):
+        self._authenticate_with_token("student-auth", "Student@123")
+
+        response = self.client.get("/api/v1/student/exams/available/?dashboard=true")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([str(item["id"]) for item in response.data], [str(self.exam.id)])
+        payload = response.data[0]
+        self.assertEqual(payload["availability_state"], "completed")
+        self.assertEqual(payload["attempts_used"], 1)
+        self.assertIn("can_start", payload)
+        self.assertIn("economy_access", payload)
+        self.assertIn("section_subjects", payload)
+        self.assertNotIn("security_policy", payload)
+        self.assertNotIn("start_access", payload)
+
+    def test_student_available_exam_catalog_payload_keeps_list_fields(self):
+        self._authenticate_with_token("student-auth", "Student@123")
+
+        response = self.client.get("/api/v1/student/exams/available/?catalog=true")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([str(item["id"]) for item in response.data], [str(self.exam.id)])
+        payload = response.data[0]
+        self.assertEqual(payload["availability_state"], "completed")
+        self.assertEqual(payload["attempts_used"], 1)
+        self.assertTrue(payload["access_key_enabled"])
+        self.assertIn("attempt_policy", payload)
+        self.assertIn("total_marks", payload)
+        self.assertIn("passing_marks", payload)
+        self.assertIn("review_available", payload)
+        self.assertIn("security_policy", payload)
+        self.assertIn("student_label", payload["security_policy"])
+        self.assertNotIn("instructions", payload)
+        self.assertNotIn("server_time", payload)
+        self.assertNotIn("start_access", payload)
 
     def test_student_can_resolve_exam_by_access_key(self):
         self._authenticate_with_token("student-auth", "Student@123")
@@ -912,9 +976,16 @@ class AuthenticationAccessControlTestCase(TestCase):
         )
 
         self._authenticate_with_token("student-auth", "Student@123")
+        unlock_state_queryset = StudentUnlockState.objects.filter(
+            student=self.context["student"],
+            content_type="exam",
+            content_key=str(fresh_exam.id),
+        )
+        self.assertFalse(unlock_state_queryset.exists())
 
         available_response = self.client.get("/api/v1/student/exams/available/")
         self.assertEqual(available_response.status_code, 200)
+        self.assertFalse(unlock_state_queryset.exists())
         payload = next(
             item for item in available_response.data if str(item["id"]) == str(fresh_exam.id)
         )
@@ -936,6 +1007,7 @@ class AuthenticationAccessControlTestCase(TestCase):
 
         detail_response = self.client.get(f"/api/v1/student/exams/{fresh_exam.id}/detail/")
         self.assertEqual(detail_response.status_code, 200)
+        self.assertTrue(unlock_state_queryset.exists())
         self.assertEqual(detail_response.data["economy_access"]["policy_type"], "stars_only")
         self.assertTrue(detail_response.data["economy_access"]["is_locked"])
         self.assertFalse(detail_response.data["start_access"]["is_allowed"])

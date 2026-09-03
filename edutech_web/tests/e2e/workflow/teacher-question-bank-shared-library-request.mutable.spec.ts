@@ -113,17 +113,6 @@ async function findTeacherRequestableCard(section: Locator, questionText: string
   return fallbackCard;
 }
 
-function escapeRegex(text: string) {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function findSharedLibraryCardByExactTitle(section: Locator, questionText: string) {
-  const exactTitle = new RegExp(`^${escapeRegex(questionText)}$`);
-  return section.locator(".questionBankCard").filter({
-    has: section.locator("strong").filter({ hasText: exactTitle }),
-  }).first();
-}
-
 async function resolveAcademicScopeIds(
   page: Page,
   accessToken: string,
@@ -419,7 +408,6 @@ test.describe("Teacher shared-library mutable request flow", () => {
     const uniqueSeed = Date.now();
     const planName = `Playwright Shared Access Bridge ${uniqueSeed}`;
     const planCode = `PW-SAB-${uniqueSeed}`;
-    const temporaryPackageCode = `PW-TSPKG-${uniqueSeed}`;
     let createdPlanId: string | null = null;
     let createdEntitlementIds: string[] = [];
     let selectedQuestionText = "";

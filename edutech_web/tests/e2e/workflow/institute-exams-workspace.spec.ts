@@ -189,13 +189,20 @@ test.describe("Institute exams workspace", () => {
       await expect(page).toHaveURL(/exam_group=status/);
       await expect(page.getByText(/^status: all$/i).first()).toBeVisible();
       await expect(page.getByText(/^group: status$/i).first()).toBeVisible();
+
+      const regroupedCards = page.locator(".examCard");
+      const regroupedEmptyState = page.getByText(/no exams match the current controls/i).first();
+      await expect(resolveExamWorkspaceState(regroupedCards, regroupedEmptyState)).resolves.toBe("cards");
+      const regroupedStatus =
+        (await regroupedCards.first().locator(".examCardTop .statusPill").first().textContent())?.trim() ?? "";
+      expect(regroupedStatus).not.toBe("");
       await expect(
         page
           .locator(".sectionHeading strong")
-          .filter({ hasText: new RegExp(`^${firstStatus}$`, "i") })
+          .filter({ hasText: new RegExp(`^${regroupedStatus}$`, "i") })
           .first(),
       ).toBeVisible();
-      await expect(page.locator(".examCard").filter({ hasText: firstTitle }).first()).toBeVisible();
+      await expect(regroupedCards.first()).toBeVisible();
     } else {
       await expect(filteredEmptyState).toBeVisible();
       await expect(
@@ -291,10 +298,11 @@ test.describe("Institute exams workspace", () => {
     await openExamLink.click();
     await expect(page).toHaveURL(/\/institute\/exams\/[^/?#]+(?:\?.*)?$/);
     await expect(page.getByText(/exam code/i).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /open builder/i }).first()).toBeVisible();
+    const builderLink = page.getByRole("link", { name: /open builder|continue setup/i }).first();
+    await expect(builderLink).toBeVisible();
     await expect(page.getByRole("link", { name: /link questions/i }).first()).toBeVisible();
 
-    await page.getByRole("link", { name: /open builder/i }).first().click();
+    await builderLink.click();
     await expect(page).toHaveURL(/\/institute\/exams\/[^/?#]+\/builder(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /builder/i }).first()).toBeVisible();
 

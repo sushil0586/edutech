@@ -221,11 +221,6 @@ async function createSubscriptionPlanSeed(
   return (await response.json()) as SubscriptionPlanCreatePayload;
 }
 
-async function getAccessToken(page: Page) {
-  const cookies = await page.context().cookies();
-  return cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
-}
-
 test.describe("Admin form validation browser coverage", () => {
   test.skip(testRequiresRole("admin"), "Platform admin Playwright credentials are not configured.");
 

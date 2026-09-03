@@ -29,7 +29,7 @@ import {
   attemptOutcomeReviewLabel,
   resolveAttemptOutcomeState,
 } from "@/lib/student/attempt-outcome";
-import { buildPracticeHref, resolvePracticeFollowUpAction } from "@/lib/student/practice";
+import { resolvePracticeFollowUpAction } from "@/lib/student/practice";
 import {
   ALL_SOURCES_CONTEXT,
   ALL_SUBJECTS_CONTEXT,
@@ -265,7 +265,7 @@ async function loadAttempts() {
   try {
     const [attempts, exams] = await Promise.all([
       fetchStudentAttempts(),
-      fetchStudentAvailableExams(),
+      fetchStudentAvailableExams({ examType: "practice" }),
     ]);
     return {
       source: "live" as const,
@@ -432,7 +432,6 @@ export default async function AttemptsPage({
     (attempt) => attempt.exam_type === "practice",
   ).length;
   const mockAttemptCount = scopedAttempts.length - practiceAttemptCount;
-  const latestAttempt = scopedAttempts[0] ?? null;
 
   return (
     <div className="studentPage studentDashboardModern">
@@ -456,8 +455,8 @@ export default async function AttemptsPage({
         }
         description={
           selectedSubject === ALL_SUBJECTS_CONTEXT
-            ? "Track live tests, submitted attempts, and the next action for each one."
-            : `Track ongoing tests and submitted attempts for ${selectedSubjectLabel}.`
+            ? "See which tests are still live, which ones were submitted, and whether you should resume, review, or practice next."
+            : `Track live and submitted ${selectedSubjectLabel} attempts and decide the next action for each one.`
         }
         statusLabel={
           source === "live"

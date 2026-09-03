@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 
-from apps.academics.assessment_family_contracts import ASSESSMENT_FAMILY_CONTRACTS
+from apps.academics.assessment_family_contracts import load_assessment_family_contracts
 from apps.academics.models import AssessmentFamily
 
 
@@ -38,9 +38,10 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         created = 0
         updated = 0
+        contracts = load_assessment_family_contracts()
 
         for entry in FAMILY_REGISTRY:
-            contract = ASSESSMENT_FAMILY_CONTRACTS.get(entry["code"], {})
+            contract = contracts.get(entry["code"], {})
             defaults = {
                 "label": entry["label"],
                 "description": entry["description"],

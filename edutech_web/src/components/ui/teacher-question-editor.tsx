@@ -14,8 +14,10 @@ import type {
 } from "@/lib/api/teacher-builder";
 import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import { formatTopicOptionLabel, sortTopicOptions } from "@/lib/academics/topic-options";
+import { summarizeFamilyScoringDefaults } from "@/lib/assessment/family-profile";
 import {
   questionTypeIsAssertionReason,
+  questionTypeIsNumericResponse,
   questionTypeIsTrueFalse,
   questionTypeSupportsMultipleSelection,
   questionTypeSupportsOptions,
@@ -139,29 +141,6 @@ function normalizeInitialRubricCriteria(criteria?: TeacherQuestionRubricCriterio
     }));
 }
 
-function summarizeQuestionFamilyScoring(scoringDefaults: Record<string, unknown> | null | undefined) {
-  if (!scoringDefaults || typeof scoringDefaults !== "object") {
-    return "Standard positive scoring is assumed unless the program defines a stronger exam-family contract.";
-  }
-
-  const negativeMarkingEnabled = Boolean(scoringDefaults.negative_marking_default);
-  const supportsNumericEntry = Boolean(scoringDefaults.supports_numeric_entry);
-  const supportsPartialScoring = Boolean(scoringDefaults.supports_partial_scoring);
-  const attemptPolicy =
-    typeof scoringDefaults.recommended_attempt_policy === "string"
-      ? String(scoringDefaults.recommended_attempt_policy).replaceAll("_", " ")
-      : "";
-
-  return [
-    negativeMarkingEnabled ? "Negative marking is part of the default scoring posture." : "Negative marking is usually off for this family.",
-    supportsNumericEntry ? "Numeric-entry authoring is expected where the syllabus needs it." : "",
-    supportsPartialScoring ? "Partial scoring can be relevant for supported question types." : "",
-    attemptPolicy ? `Most linked exams will lean toward ${attemptPolicy} attempts.` : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-}
-
 export function TeacherQuestionEditor({
   action,
   headerEyebrow = "Teacher workspace",
@@ -269,6 +248,7 @@ export function TeacherQuestionEditor({
     }
 
     if (!programId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoadedSubjects([]);
       setLoadedTopics([]);
       setLoadedPassages([]);
@@ -366,7 +346,7 @@ export function TeacherQuestionEditor({
   const questionTypeAllowedForFamily = !allowedQuestionTypeSet.size || allowedQuestionTypeSet.has(questionType);
   const negativeMarkingDefault = Boolean(selectedProgramFamilyProfile?.scoring_defaults?.negative_marking_default);
   const numericEntryExpected = Boolean(selectedProgramFamilyProfile?.scoring_defaults?.supports_numeric_entry);
-  const selectedTypeIsNumeric = Boolean(questionTypeDefinition?.capabilities?.is_numeric_response);
+  const selectedTypeIsNumeric = questionTypeIsNumericResponse(questionTypeDefinition);
 
   const subjectOptions = useMemo(() => {
     if (!programId) {
@@ -839,7 +819,7 @@ export function TeacherQuestionEditor({
               <div className="builderEmptyState">
                 <strong>{selectedProgramFamilyProfile.label} family guidance</strong>
                 <p>{selectedProgramFamilyProfile.description}</p>
-                <small>{summarizeQuestionFamilyScoring(selectedProgramFamilyProfile.scoring_defaults)}</small>
+                <small>{summarizeFamilyScoringDefaults(selectedProgramFamilyProfile.scoring_defaults, "authoring")}</small>
                 {familyQuestionTypeDefinitions.length ? (
                   <small>
                     Allowed types: {familyQuestionTypeDefinitions.map((definition) => definition.label).join(", ")}.

@@ -177,7 +177,7 @@ test.describe("Admin exams browser functionality coverage", () => {
     await gotoExams(page);
 
     const statusText =
-      (await page.getByText(/\d+\s+exams loaded/i).first().textContent())?.trim() ?? "";
+      (await page.getByText(/\d+\s+exams in filtered scope/i).first().textContent())?.trim() ?? "";
     const heroSummaryText =
       (await page.locator(".studentInsightHeroCopy small").first().textContent())?.trim() ?? "";
     const controlsSummaryText =
@@ -207,10 +207,11 @@ test.describe("Admin exams browser functionality coverage", () => {
         .locator("strong")
         .textContent()) ?? "";
 
-    const loadedFromStatus = extractLeadingNumber(statusText);
-    const platformFromHero = extractLeadingNumber(heroSummaryText.split("·")[0] ?? "");
-    const instituteFromHero = extractLeadingNumber(heroSummaryText.split("·")[1] ?? "");
-    const teacherFromHero = extractLeadingNumber(heroSummaryText.split("·")[2] ?? "");
+    const totalFromStatus = extractLeadingNumber(statusText);
+    const totalFromHero = extractLeadingNumber(heroSummaryText.split("·")[0] ?? "");
+    const platformFromHero = extractLeadingNumber(heroSummaryText.split("·")[1] ?? "");
+    const instituteFromHero = extractLeadingNumber(heroSummaryText.split("·")[2] ?? "");
+    const teacherFromHero = extractLeadingNumber(heroSummaryText.split("·")[3] ?? "");
     const shownFromControls = extractLeadingNumber(controlsSummaryText);
     const totalFromControls = extractLeadingNumber(controlsSummaryText.split("of")[1] ?? controlsSummaryText);
     const totalFromCard = extractLeadingNumber(totalExamsCardText);
@@ -218,7 +219,8 @@ test.describe("Admin exams browser functionality coverage", () => {
     const instituteFromCard = extractLeadingNumber(instituteSourceCardText);
     const teacherFromCard = extractLeadingNumber(teacherSourceCardText);
 
-    expect(loadedFromStatus).not.toBeNull();
+    expect(totalFromStatus).not.toBeNull();
+    expect(totalFromHero).not.toBeNull();
     expect(platformFromHero).not.toBeNull();
     expect(instituteFromHero).not.toBeNull();
     expect(teacherFromHero).not.toBeNull();
@@ -229,11 +231,12 @@ test.describe("Admin exams browser functionality coverage", () => {
     expect(instituteFromCard).not.toBeNull();
     expect(teacherFromCard).not.toBeNull();
 
-    expect(loadedFromStatus).toBe(shownFromControls);
+    expect(totalFromStatus).toBe(totalFromControls);
+    expect(totalFromHero).toBe(totalFromCard);
     expect(totalFromControls).toBe(totalFromCard);
     expect(platformFromHero).toBe(platformFromCard);
     expect(instituteFromHero).toBe(instituteFromCard);
     expect(teacherFromHero).toBe(teacherFromCard);
-    expect(totalFromCard).toBeGreaterThanOrEqual(loadedFromStatus ?? 0);
+    expect(totalFromCard).toBeGreaterThanOrEqual(shownFromControls ?? 0);
   });
 });

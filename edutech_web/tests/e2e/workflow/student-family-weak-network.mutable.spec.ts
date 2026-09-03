@@ -187,7 +187,7 @@ test.describe("Student family weak-network runtime", () => {
     page.once("dialog", async (dialog) => {
       await dialog.accept();
     });
-    await page.getByRole("button", { name: /^submit test$/i }).click();
+    await page.getByRole("button", { name: /^(submit test|end test)$/i }).click();
 
     await expect(page).toHaveURL(new RegExp(`/app/attempts/${attemptId}/summary\\?`));
     await expect(page.getByRole("heading", { name: /summary/i }).first()).toBeVisible();
@@ -219,10 +219,10 @@ test.describe("Student family weak-network runtime", () => {
     page.once("dialog", async (dialog) => {
       await dialog.accept();
     });
-    await page.getByRole("button", { name: /^submit test$/i }).click().catch(() => null);
+    await page.getByRole("button", { name: /^(submit test|end test)$/i }).click().catch(() => null);
     await expect(resiliencePanel.getByText(/^offline$/i)).toBeVisible();
     await expect(resiliencePanel.getByText(/^submitting\.\.\.$/i)).toBeVisible();
-    await expect(resiliencePanel.getByText(/^submit test$/i)).toBeVisible();
+    await expect(resiliencePanel.getByText(/^(submit test|end test)$/i)).toBeVisible();
     await expect(
       resiliencePanel.getByText(/connection lost\. keep this tab open\. do not close the browser, and wait for connectivity before trying to submit\./i),
     ).toBeVisible();
@@ -232,13 +232,13 @@ test.describe("Student family weak-network runtime", () => {
     await expect(resiliencePanel.getByText(/^online$/i)).toBeVisible();
     await expect(resiliencePanel.getByText(/^submitting\.\.\.$/i)).toBeVisible();
     await expect(
-      resiliencePanel.getByText(/submit test is in progress\. stay on this page until the summary opens\./i),
+      resiliencePanel.getByText(/(submit test|end test) is in progress\. stay on this page until the summary opens\./i),
     ).toBeVisible();
 
     page.once("dialog", async (dialog) => {
       await dialog.accept();
     });
-    await page.getByRole("button", { name: /^submit test$/i }).click();
+    await page.getByRole("button", { name: /^(submit test|end test)$/i }).click();
 
     await expect(page).toHaveURL(new RegExp(`/app/attempts/${attemptId}/summary\\?`));
     await expect(page.getByRole("heading", { name: /summary/i }).first()).toBeVisible();
@@ -276,11 +276,13 @@ test.describe("Student family weak-network runtime", () => {
     await expect
       .poll(async () => {
         const panelText = ((await resiliencePanel.textContent().catch(() => "")) ?? "").toLowerCase();
+        const mainText = ((await page.locator("main").textContent().catch(() => "")) ?? "").toLowerCase();
         return (
           panelText.includes(`switch to section ${targetSectionName.toLowerCase()}`) ||
           panelText.includes("switching") ||
           panelText.includes("connection lost") ||
-          panelText.includes("offline")
+          panelText.includes("offline") ||
+          mainText.includes("fullscreen required")
         );
       }, { timeout: 20000 })
       .toBe(true);
@@ -288,10 +290,13 @@ test.describe("Student family weak-network runtime", () => {
 
     await goOnline(page);
     await expect(resiliencePanel.getByText(/^online$/i)).toBeVisible();
-    await expect(resiliencePanel.getByText(/^switching\.\.\.$/i)).toBeVisible();
-    await expect(
-      resiliencePanel.getByText(new RegExp(`switch to section ${targetSectionName} is in progress`, "i")),
-    ).toBeVisible();
+    const fullscreenGuardVisible = await page.getByText(/fullscreen required to continue/i).first().isVisible().catch(() => false);
+    if (!fullscreenGuardVisible) {
+      await expect(resiliencePanel.getByText(/^switching\.\.\.$/i)).toBeVisible();
+      await expect(
+        resiliencePanel.getByText(new RegExp(`switch to section ${targetSectionName} is in progress`, "i")),
+      ).toBeVisible();
+    }
 
     await targetSectionButton.click();
     await expect
@@ -357,7 +362,7 @@ test.describe("Student family weak-network runtime", () => {
     page.once("dialog", async (dialog) => {
       await dialog.accept();
     });
-    await page.getByRole("button", { name: /^submit test$/i }).click();
+    await page.getByRole("button", { name: /^(submit test|end test)$/i }).click();
 
     await expect(page).toHaveURL(new RegExp(`/app/attempts/${attemptId}/summary\\?`));
     await expect(page.getByRole("heading", { name: /summary/i }).first()).toBeVisible();

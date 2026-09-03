@@ -3,6 +3,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 
 from apps.institutes.models import Institute
+from apps.accounts.policies import validate_account_profile_role_policy
 from apps.students.models import StudentProfile
 from apps.teachers.models import TeacherProfile
 from common.models import BaseModel
@@ -73,37 +74,7 @@ class AccountProfile(BaseModel):
 
     def clean(self):
         super().clean()
-        if self.role == AccountRole.PLATFORM_ADMIN:
-            return
-
-        if self.institute_id is None:
-            raise ValidationError({"institute": "Institute is required for this role."})
-
-        if self.role == AccountRole.STUDENT:
-            if self.student_profile_id is None and not self.profile_completion_required:
-                raise ValidationError({"student_profile": "Student profile is required for student role."})
-            if self.student_profile_id and self.student_profile.institute_id != self.institute_id:
-                raise ValidationError(
-                    {"student_profile": "Student profile must belong to the selected institute."}
-                )
-
-        if self.role == AccountRole.TEACHER:
-            if self.teacher_profile_id is None and not self.profile_completion_required:
-                raise ValidationError({"teacher_profile": "Teacher profile is required for teacher role."})
-            if self.teacher_profile_id and self.teacher_profile.institute_id != self.institute_id:
-                raise ValidationError(
-                    {"teacher_profile": "Teacher profile must belong to the selected institute."}
-                )
-
-        if self.role in {AccountRole.INSTITUTE_ADMIN, AccountRole.PARENT}:
-            if self.student_profile_id and self.student_profile.institute_id != self.institute_id:
-                raise ValidationError(
-                    {"student_profile": "Student profile must belong to the selected institute."}
-                )
-            if self.teacher_profile_id and self.teacher_profile.institute_id != self.institute_id:
-                raise ValidationError(
-                    {"teacher_profile": "Teacher profile must belong to the selected institute."}
-                )
+        validate_account_profile_role_policy(profile=self, role_constants=AccountRole)
 
     def save(self, *args, **kwargs):
         self.full_clean()

@@ -63,11 +63,25 @@ test.describe("Institute search workspace", () => {
     await expect(page.getByText(/^sort: title$/i).first()).toBeVisible();
     await expect(page.getByText(/^group: section$/i).first()).toBeVisible();
 
-    await page.getByRole("link", { name: /^live records$/i }).click();
-    await expect(page).toHaveURL(/source=live/);
+    const liveRecordsLink = page.getByRole("link", { name: /^live records$/i }).first();
+    await expect(liveRecordsLink).toHaveAttribute("href", /source=live/);
+    await Promise.all([
+      page.waitForURL(/\/institute\/search\?q=exam&source=live&sort=title&group=section/, {
+        waitUntil: "commit",
+      }),
+      liveRecordsLink.click(),
+    ]);
+    expect(new URL(page.url()).searchParams.get("source")).toBe("live");
 
-    await page.getByRole("link", { name: /^workspace pages$/i }).click();
-    await expect(page).toHaveURL(/source=catalog/);
+    const workspacePagesLink = page.getByRole("link", { name: /^workspace pages$/i }).first();
+    await expect(workspacePagesLink).toHaveAttribute("href", /source=catalog/);
+    await Promise.all([
+      page.waitForURL(/source=catalog/, {
+        waitUntil: "commit",
+      }),
+      workspacePagesLink.click(),
+    ]);
+    expect(new URL(page.url()).searchParams.get("source")).toBe("catalog");
 
     await page.getByRole("link", { name: /group by section/i }).click();
     await expect(page).toHaveURL(/group=section/);

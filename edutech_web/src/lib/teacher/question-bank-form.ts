@@ -1,3 +1,8 @@
+import {
+  QUESTION_BANK_FIELD_NAMES,
+  QUESTION_BANK_METADATA_KEYS,
+} from "@/lib/teacher/question-bank-contract";
+
 type QuestionOptionPayload = {
   id?: string;
   content_format: string;
@@ -61,10 +66,10 @@ export function buildTeacherQuestionPayload(
     teacherProfile: string | null;
   },
 ) {
-  const assertionText = readString(formData, "assertion_text");
-  const reasonText = readString(formData, "reason_text");
-  const matrixLeftItems = readDelimitedValues(formData, "matrix_left_items");
-  const matrixRightItems = readDelimitedValues(formData, "matrix_right_items");
+  const assertionText = readString(formData, QUESTION_BANK_FIELD_NAMES.assertionText);
+  const reasonText = readString(formData, QUESTION_BANK_FIELD_NAMES.reasonText);
+  const matrixLeftItems = readDelimitedValues(formData, QUESTION_BANK_FIELD_NAMES.matrixLeftItems);
+  const matrixRightItems = readDelimitedValues(formData, QUESTION_BANK_FIELD_NAMES.matrixRightItems);
 
   return {
     institute: context.institute,
@@ -77,37 +82,37 @@ export function buildTeacherQuestionPayload(
       const value = readString(formData, "passage_order");
       return value ? Number(value) : null;
     })(),
-    question_type: readString(formData, "question_type"),
-    difficulty_level: readString(formData, "difficulty_level"),
+    question_type: readString(formData, QUESTION_BANK_FIELD_NAMES.questionType),
+    difficulty_level: readString(formData, QUESTION_BANK_FIELD_NAMES.difficultyLevel),
     content_format: readString(formData, "content_format"),
-    question_text: readString(formData, "question_text"),
+    question_text: readString(formData, QUESTION_BANK_FIELD_NAMES.questionText),
     assertion_text: assertionText,
     reason_text: reasonText,
     matrix_left_items: matrixLeftItems,
     matrix_right_items: matrixRightItems,
-    explanation: readString(formData, "explanation"),
-    accepted_answers: readDelimitedValues(formData, "accepted_answers"),
-    numeric_tolerance: readNullableString(formData, "numeric_tolerance"),
-    review_guidance: readString(formData, "review_guidance"),
-    default_marks: readNumberString(formData, "default_marks", "1.00"),
-    negative_marks: readNumberString(formData, "negative_marks", "0.00"),
+    explanation: readString(formData, QUESTION_BANK_FIELD_NAMES.explanation),
+    accepted_answers: readDelimitedValues(formData, QUESTION_BANK_FIELD_NAMES.acceptedAnswers),
+    numeric_tolerance: readNullableString(formData, QUESTION_BANK_FIELD_NAMES.numericTolerance),
+    review_guidance: readString(formData, QUESTION_BANK_FIELD_NAMES.reviewGuidance),
+    default_marks: readNumberString(formData, QUESTION_BANK_FIELD_NAMES.defaultMarks, "1.00"),
+    negative_marks: readNumberString(formData, QUESTION_BANK_FIELD_NAMES.negativeMarks, "0.00"),
     is_active: readCheckbox(formData, "is_active"),
     is_verified: readCheckbox(formData, "is_verified"),
     metadata: {
       is_draft: readCheckbox(formData, "is_draft"),
       ...(assertionText || reasonText
         ? {
-            assertion_reason: {
-              assertion_text: assertionText,
-              reason_text: reasonText,
+            [QUESTION_BANK_METADATA_KEYS.assertionReason]: {
+              [QUESTION_BANK_FIELD_NAMES.assertionText]: assertionText,
+              [QUESTION_BANK_FIELD_NAMES.reasonText]: reasonText,
             },
           }
         : {}),
       ...(matrixLeftItems.length || matrixRightItems.length
         ? {
-            matrix_match: {
-              left_items: matrixLeftItems,
-              right_items: matrixRightItems,
+            [QUESTION_BANK_METADATA_KEYS.matrixMatch]: {
+              [QUESTION_BANK_METADATA_KEYS.leftItems]: matrixLeftItems,
+              [QUESTION_BANK_METADATA_KEYS.rightItems]: matrixRightItems,
             },
           }
         : {}),

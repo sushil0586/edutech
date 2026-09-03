@@ -131,6 +131,8 @@ class EconomyApiTestCase(TestCase):
         get_response = self.client.get("/api/v1/economy/admin/policy-config/")
         self.assertEqual(get_response.status_code, 200)
         self.assertEqual(get_response.data["singleton_key"], "default")
+        self.assertEqual(get_response.data["platform_catalog_governance_scope"], "platform_only")
+        self.assertEqual(get_response.data["platform_support_scope"], "cross_institute")
 
         patch_response = self.client.patch(
             "/api/v1/economy/admin/policy-config/",
@@ -139,6 +141,8 @@ class EconomyApiTestCase(TestCase):
                 "institute_admin_max_grant_stars": 40,
                 "institute_admin_can_confirm_orders": True,
                 "institute_admin_max_confirm_order_amount": "750.00",
+                "platform_support_scope": "cross_institute",
+                "institute_support_scope": "institute_only",
             },
             format="json",
         )
@@ -148,6 +152,10 @@ class EconomyApiTestCase(TestCase):
         self.assertEqual(
             patch_response.data["data"]["institute_admin_max_confirm_order_amount"],
             "750.00",
+        )
+        self.assertEqual(
+            patch_response.data["data"]["institute_catalog_governance_scope"],
+            "platform_only",
         )
 
         config_object = EconomyOperatorPolicyConfig.objects.get(singleton_key="default")
@@ -184,6 +192,26 @@ class EconomyApiTestCase(TestCase):
             response.data[0]["metadata"]["changed_fields"]["institute_admin_can_grant_stars"]["after"],
             False,
         )
+
+    def test_platform_admin_can_update_policy_scopes(self):
+        self.client.force_authenticate(user=self.platform_admin_user)
+
+        response = self.client.patch(
+            "/api/v1/economy/admin/policy-config/",
+            {
+                "platform_support_scope": "institute_only",
+                "institute_support_scope": "cross_institute",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["data"]["platform_support_scope"], "institute_only")
+        self.assertEqual(response.data["data"]["institute_support_scope"], "cross_institute")
+
+        config_object = EconomyOperatorPolicyConfig.objects.get(singleton_key="default")
+        self.assertEqual(config_object.platform_support_scope, "institute_only")
+        self.assertEqual(config_object.institute_support_scope, "cross_institute")
 
     def test_platform_admin_can_view_economy_catalog_overview(self):
         RewardRule.objects.create(

@@ -684,6 +684,8 @@ class StudentAnswerReviewTaskViewSet(ReadOnlyModelViewSet):
         )
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return StudentAnswerReviewTask.objects.none()
         self._ensure_review_permissions()
         queryset = self._base_queryset(include_events=True)
         scoped_attempts = scope_attempt_workspace_queryset(StudentExamAttempt.objects.all(), self.request.user)

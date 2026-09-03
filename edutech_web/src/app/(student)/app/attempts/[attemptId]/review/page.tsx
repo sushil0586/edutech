@@ -141,7 +141,7 @@ async function loadAttemptReview(attemptId: string) {
   try {
     const [review, exams] = await Promise.all([
       fetchStudentAttemptReview(attemptId),
-      fetchStudentAvailableExams(),
+      fetchStudentAvailableExams({ examType: "practice" }),
     ]);
     return {
       source: "live" as const,
@@ -517,11 +517,15 @@ export default async function AttemptReviewPage({
           <div className="studentInsightMessageStack">
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
-              <p>{stateCopy.helper}</p>
+              <p>{stateCopy.progress}</p>
             </div>
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
-              <p>{stateCopy.progress}</p>
+              <p>
+                {review.show_explanations
+                  ? "Finish the explanation pass first, then move into the matched practice lane while the mistakes are still fresh."
+                  : "Confirm the wrong or skipped pattern here first, then move into the matched practice lane for recovery."}
+              </p>
             </div>
           </div>
           <div className="studentInsightHeroActions">
@@ -593,6 +597,9 @@ export default async function AttemptReviewPage({
           <strong>Use This Review</strong>
           <span>{titleCaseState(review.review_mode)}</span>
         </div>
+        <p className="sectionDescription">
+          Use this route when you need a quick jump back to summary, results, or analytics after checking the answer patterns once.
+        </p>
         <div className="studentInsightHeroActions">
           <StudentPassiveNavLink className="button buttonSecondary" href="/app/analytics">
             View Analytics

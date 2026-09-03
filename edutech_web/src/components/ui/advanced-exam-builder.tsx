@@ -13,6 +13,13 @@ import {
   getAssessmentExamFamilyMetadata,
   resolveAssessmentExamFamilyId,
 } from "@/lib/assessment/exam-family-metadata";
+import {
+  buildAssessmentFamilyExecutionChecklist,
+  getFamilyRecommendedAttemptPolicy,
+  normalizeAssessmentProgramFamilyCode,
+  resolveAssessmentFamilyIdFromProgramLike,
+  summarizeFamilyScoringDefaults,
+} from "@/lib/assessment/family-profile";
 import { formatTopicOptionLabel, sortTopicOptions } from "@/lib/academics/topic-options";
 import type { TeacherAssessmentRegistryResponse } from "@/lib/api/teacher-builder";
 
@@ -415,39 +422,6 @@ const builderTemplates: BuilderTemplateDefinition[] = [
   },
 ];
 
-function normalizeAssessmentFamilyCode(value: string | null | undefined) {
-  const normalized = String(value ?? "").trim().toLowerCase();
-  if (!normalized) {
-    return "";
-  }
-  if (normalized.includes("language") || normalized.includes("ielts") || normalized.includes("toefl") || normalized.includes("pte")) {
-    return "language_proficiency";
-  }
-  if (
-    normalized.includes("competitive") ||
-    normalized.includes("entrance") ||
-    normalized.includes("graduate admission") ||
-    normalized.includes("medical") ||
-    normalized.includes("engineering") ||
-    normalized.includes("neet") ||
-    normalized.includes("jee") ||
-    normalized.includes("gre")
-  ) {
-    return "competitive";
-  }
-  if (
-    normalized.includes("certification") ||
-    normalized.includes("professional") ||
-    normalized.includes("aws")
-  ) {
-    return "certification";
-  }
-  if (normalized.includes("school")) {
-    return "school";
-  }
-  return normalized.replace(/[^a-z]+/g, "_").replace(/^_+|_+$/g, "");
-}
-
 function createManagedPresetPackDraft(
   scopeType: ManagedPresetPackDraft["scopeType"],
 ): ManagedPresetPackDraft {
@@ -462,7 +436,7 @@ function createManagedPresetPackDraft(
 }
 
 function getTemplateAssessmentFamilyCode(template: SavedBuilderTemplate) {
-  return normalizeAssessmentFamilyCode(template.blueprint.exam.assessmentFamilyCode);
+  return normalizeAssessmentProgramFamilyCode(template.blueprint.exam.assessmentFamilyCode);
 }
 
 function getTemplateAssessmentFamilyLabel(template: SavedBuilderTemplate) {
@@ -476,7 +450,7 @@ function getPresetPackProgramFamilyCode(pack: ExamPresetPackDefinition) {
   if (pack.programFamilyCode) {
     return pack.programFamilyCode;
   }
-  return normalizeAssessmentFamilyCode(pack.family || pack.chip || pack.id);
+  return normalizeAssessmentProgramFamilyCode(pack.family || pack.chip || pack.id);
 }
 
 function resolvePresetPackTopicCodes(
@@ -542,21 +516,7 @@ function buildTopicCodeGroups(topics: TopicOption[]) {
 }
 
 function resolveExamFamilyIdForProgram(program: ProgramOption | null) {
-  const candidates = [
-    program?.name,
-    program?.code,
-    program?.assessment_family_profile?.label,
-    program?.assessment_family_label,
-    program?.assessment_family_code,
-    program?.assessment_family,
-  ];
-  for (const candidate of candidates) {
-    const resolved = resolveAssessmentExamFamilyId(candidate);
-    if (resolved) {
-      return resolved;
-    }
-  }
-  return null;
+  return resolveAssessmentFamilyIdFromProgramLike(program, resolveAssessmentExamFamilyId);
 }
 
 function summarizePresetPackSections(pack: ExamPresetPackDefinition | null) {
@@ -570,66 +530,7 @@ function summarizePresetPackSections(pack: ExamPresetPackDefinition | null) {
 }
 
 function scoringDefaultsSummary(scoringDefaults: Record<string, unknown> | null | undefined) {
-  if (!scoringDefaults || typeof scoringDefaults !== "object") {
-    return "Standard positive scoring is assumed unless the exam overrides it.";
-  }
-  const negativeMarkingEnabled = Boolean(scoringDefaults.negative_marking_default);
-  const supportsNumericEntry = Boolean(scoringDefaults.supports_numeric_entry);
-  const supportsPartialScoring = Boolean(scoringDefaults.supports_partial_scoring);
-  const attemptPolicy =
-    typeof scoringDefaults.recommended_attempt_policy === "string"
-      ? String(scoringDefaults.recommended_attempt_policy).replaceAll("_", " ")
-      : "";
-
-  return [
-    negativeMarkingEnabled ? "Negative marking default is on." : "Negative marking default is off.",
-    supportsNumericEntry ? "Numeric-entry support is expected." : "Numeric-entry support is not primary.",
-    supportsPartialScoring ? "Partial scoring is available where question types allow it." : "Partial scoring is limited.",
-    attemptPolicy ? `Recommended attempt posture: ${attemptPolicy}.` : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-}
-
-function buildFamilyExecutionChecklist(
-  familyId: ReturnType<typeof resolveAssessmentExamFamilyId>,
-  presetPack: ExamPresetPackDefinition | null,
-) {
-  const questionMix = presetPack?.recommendations?.questionMixGuidance ?? "";
-  switch (familyId) {
-    case "neet":
-      return [
-        "Keep the exam mock-first: full-length pacing, one serious attempt posture, and controlled post-submit release.",
-        "Use large Biology, Chemistry, and Physics blocks instead of chapter-sized micro checks.",
-        questionMix || "Preserve a Biology-heavy objective mix with Chemistry and Physics support in each section plan.",
-      ];
-    case "jee":
-      return [
-        "Bias toward challenge-heavy timed sections and keep section contracts explicit before previewing.",
-        "Include a numeric-answer lane when the paper is meant to mirror JEE-style solving depth.",
-        "Do not pair numeric-entry sections with negative marking in the current JEE contract.",
-      ];
-    case "gre":
-      return [
-        "Prefer formal timed sections and graduate-readiness wording over school-style chapter-test framing.",
-        "Keep result and review settings aligned to total-score-first reporting; avoid implying deep sectional score storytelling.",
-        questionMix || "Balance quant reasoning coverage across difficulty bands instead of clustering only easy or only advanced prompts.",
-      ];
-    case "aws_certification":
-      return [
-        "Organize sections around AWS domains or objectives, not school chapters.",
-        "Favor scenario-driven single-best-answer practice with explanation-friendly review after submit.",
-        questionMix || "Keep service-domain coverage broad enough that readiness feels certification-oriented rather than chapter-oriented.",
-      ];
-    case "language_proficiency":
-      return [
-        "Keep sections skill-specific and preserve formal section pacing across reading, listening, writing, or integrated prompts.",
-        "Avoid implying production-ready speaking capture unless that workflow is explicitly configured.",
-        questionMix || "Use rubric-aware prompt mixes that reflect real skill demonstration rather than recall-only drills.",
-      ];
-    default:
-      return [];
-  }
+  return summarizeFamilyScoringDefaults(scoringDefaults, "builder");
 }
 
 function hydrateSectionsFromBlueprint(
@@ -672,9 +573,7 @@ function getRecommendedAttemptPolicy(scoringDefaults: Record<string, unknown> | 
   if (!scoringDefaults || typeof scoringDefaults !== "object") {
     return "";
   }
-  return typeof scoringDefaults.recommended_attempt_policy === "string"
-    ? String(scoringDefaults.recommended_attempt_policy)
-    : "";
+  return getFamilyRecommendedAttemptPolicy(scoringDefaults);
 }
 
 function getSectionScoringAlerts(
@@ -1541,7 +1440,7 @@ export function AdvancedExamBuilder({
   );
   const selectedProgramFamilyProfile = selectedProgramRecord?.assessment_family_profile ?? null;
   const selectedProgramFamilyCode = useMemo(
-    () => normalizeAssessmentFamilyCode(selectedProgramRecord?.assessment_family_code),
+    () => normalizeAssessmentProgramFamilyCode(selectedProgramRecord?.assessment_family_code),
     [selectedProgramRecord?.assessment_family_code],
   );
   const selectedProgramFamilyId = useMemo(
@@ -1583,7 +1482,11 @@ export function AdvancedExamBuilder({
     );
   }, [effectiveFamilyId, selectedPresetPack, presetPackLibrary, selectedProgramFamilyCode, selectedProgramFamilyId]);
   const familyExecutionChecklist = useMemo(
-    () => buildFamilyExecutionChecklist(effectiveFamilyId, selectedProgramPresetPack),
+    () =>
+      buildAssessmentFamilyExecutionChecklist(
+        effectiveFamilyId,
+        selectedProgramPresetPack?.recommendations?.questionMixGuidance ?? "",
+      ),
     [effectiveFamilyId, selectedProgramPresetPack],
   );
   const normalizedTemplateSearch = templateSearch.trim().toLowerCase();

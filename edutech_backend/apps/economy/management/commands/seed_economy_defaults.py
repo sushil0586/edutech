@@ -1,4 +1,7 @@
+import json
 from decimal import Decimal
+from functools import lru_cache
+from pathlib import Path
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
@@ -21,388 +24,32 @@ from apps.economy.models import (
 )
 from apps.institutes.models import Institute
 
+ECONOMY_DEFAULT_SEEDS_PATH = (
+    Path(__file__).resolve().parents[2] / "contracts" / "economy_default_seeds.json"
+)
 
-BASE_REWARD_RULE_SEEDS = [
-    {
-        "seed_code": "default_signup_bonus_v1",
-        "name": "Default signup bonus",
-        "rule_type": "signup",
-        "stars_awarded": 100,
-        "priority": 10,
-        "metadata": {"phase": "phase_1"},
-    },
-    {
-        "seed_code": "exam_completion_v1",
-        "name": "Exam completion reward",
-        "rule_type": "exam_completion",
-        "stars_awarded": 10,
-        "priority": 20,
-        "metadata": {"phase": "phase_2"},
-    },
-    {
-        "seed_code": "score_threshold_80_v1",
-        "name": "Score 80 reward",
-        "rule_type": "score_threshold",
-        "stars_awarded": 20,
-        "score_threshold_percentage": Decimal("80.00"),
-        "priority": 30,
-        "metadata": {"phase": "phase_2"},
-    },
-    {
-        "seed_code": "score_threshold_90_v1",
-        "name": "Score 90 reward",
-        "rule_type": "score_threshold",
-        "stars_awarded": 40,
-        "score_threshold_percentage": Decimal("90.00"),
-        "priority": 31,
-        "metadata": {"phase": "phase_2"},
-    },
-]
 
-ADVANCED_REWARD_RULE_SEEDS = [
-    {
-        "seed_code": "streak_reward_7_day_v1",
-        "name": "7 day streak reward",
-        "rule_type": "streak",
-        "stars_awarded": 30,
-        "priority": 40,
-        "metadata": {
-            "phase": "phase_3",
-            "template": True,
-            "scenario": "retention_streak",
-            "recommended_streak_days": 7,
-        },
-    },
-    {
-        "seed_code": "topic_mastery_reward_v1",
-        "name": "Topic mastery reward",
-        "rule_type": "topic_mastery",
-        "stars_awarded": 50,
-        "priority": 50,
-        "metadata": {
-            "phase": "phase_3",
-            "template": True,
-            "scenario": "mastery_milestone",
-        },
-    },
-    {
-        "seed_code": "admin_campaign_reward_v1",
-        "name": "Admin campaign reward",
-        "rule_type": "admin_campaign",
-        "stars_awarded": 75,
-        "priority": 60,
-        "metadata": {
-            "phase": "phase_3",
-            "template": True,
-            "scenario": "campaign_or_retention_drop",
-        },
-    },
-]
+def _convert_numeric_strings(value):
+    if isinstance(value, list):
+        return [_convert_numeric_strings(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _convert_numeric_strings(item) for key, item in value.items()}
+    if isinstance(value, str):
+        try:
+            if "." in value and all(part.isdigit() for part in value.split(".", 1)):
+                return Decimal(value)
+        except Exception:
+            return value
+    return value
 
-REFERRAL_PROGRAM_SEEDS = [
-    {
-        "seed_code": "default_referral_program_v1",
-        "name": "Default referral program",
-        "referrer_stars": 50,
-        "referee_stars": 50,
-        "reward_side": "both",
-        "metadata": {"phase": "phase_1"},
-    }
-]
 
-STAR_PACK_SEEDS = [
-    {
-        "seed_code": "stars-100",
-        "name": "100 Stars",
-        "code": "stars-100",
-        "stars_credited": 100,
-        "price_amount": Decimal("100.00"),
-        "currency": "INR",
-        "sort_order": 10,
-        "metadata": {"phase": "phase_1"},
-    },
-    {
-        "seed_code": "stars-500",
-        "name": "500 Stars",
-        "code": "stars-500",
-        "stars_credited": 500,
-        "price_amount": Decimal("299.00"),
-        "currency": "INR",
-        "sort_order": 20,
-        "metadata": {"phase": "phase_1"},
-    },
-    {
-        "seed_code": "stars-1000",
-        "name": "1000 Stars",
-        "code": "stars-1000",
-        "stars_credited": 1000,
-        "price_amount": Decimal("499.00"),
-        "currency": "INR",
-        "sort_order": 30,
-        "metadata": {"phase": "phase_1"},
-    },
-]
-
-BASE_SUBSCRIPTION_PLAN_SEEDS = [
-    {
-        "seed_code": "starter",
-        "name": "Starter",
-        "code": "starter",
-        "description": "Basic recurring access with monthly stars.",
-        "metadata": {"phase": "phase_1"},
-        "cycles": [
-            {
-                "seed_code": "starter-monthly",
-                "billing_interval": "monthly",
-                "interval_count": 1,
-                "price_amount": Decimal("199.00"),
-                "currency": "INR",
-                "metadata": {"phase": "phase_1"},
-                "star_credit_rules": [
-                    {
-                        "seed_code": "starter-monthly-activation-renewal",
-                        "stars_credited": 200,
-                        "credit_on_activation": True,
-                        "credit_on_renewal": True,
-                        "metadata": {"phase": "phase_1"},
-                    }
-                ],
-            }
-        ],
-    },
-    {
-        "seed_code": "scholar",
-        "name": "Scholar",
-        "code": "scholar",
-        "description": "Higher recurring value with more star credit.",
-        "metadata": {"phase": "phase_1"},
-        "cycles": [
-            {
-                "seed_code": "scholar-monthly",
-                "billing_interval": "monthly",
-                "interval_count": 1,
-                "price_amount": Decimal("399.00"),
-                "currency": "INR",
-                "metadata": {"phase": "phase_1"},
-                "star_credit_rules": [
-                    {
-                        "seed_code": "scholar-monthly-activation-renewal",
-                        "stars_credited": 500,
-                        "credit_on_activation": True,
-                        "credit_on_renewal": True,
-                        "metadata": {"phase": "phase_1"},
-                    }
-                ],
-            }
-        ],
-    },
-]
-
-BASE_QUESTION_BANK_PACKAGE_SEEDS = [
-    {
-        "seed_code": "starter-question-bank-access",
-        "plan_seed_code": "starter",
-        "name": "Starter Question Bank Access",
-        "code": "starter-question-bank-access",
-        "description": "Starter package baseline for subscription-backed question-bank access.",
-        "package_type": QuestionBankPackageType.SUBJECT_LIBRARY,
-        "access_mode": QuestionBankAccessMode.MATERIALIZE_ON_ENTITLEMENT,
-        "grant_mode": QuestionBankPackageGrantMode.INCLUDED,
-        "sort_order": 10,
-        "metadata": {"phase": "phase_1", "template": True},
-    },
-    {
-        "seed_code": "scholar-question-bank-access",
-        "plan_seed_code": "scholar",
-        "name": "Scholar Question Bank Access",
-        "code": "scholar-question-bank-access",
-        "description": "Scholar package baseline for broader subscription-backed question-bank access.",
-        "package_type": QuestionBankPackageType.SUBJECT_LIBRARY,
-        "access_mode": QuestionBankAccessMode.MATERIALIZE_ON_ENTITLEMENT,
-        "grant_mode": QuestionBankPackageGrantMode.INCLUDED,
-        "sort_order": 20,
-        "metadata": {"phase": "phase_1", "template": True},
-    },
-]
-
-ADVANCED_SUBSCRIPTION_PLAN_SEEDS = [
-    {
-        "seed_code": "scholar",
-        "name": "Scholar",
-        "code": "scholar",
-        "description": "Higher recurring value with more star credit.",
-        "metadata": {"phase": "phase_2", "template": True},
-        "cycles": [
-            {
-                "seed_code": "scholar-yearly",
-                "billing_interval": "yearly",
-                "interval_count": 1,
-                "price_amount": Decimal("3999.00"),
-                "currency": "INR",
-                "metadata": {"phase": "phase_2", "template": True},
-                "star_credit_rules": [
-                    {
-                        "seed_code": "scholar-yearly-activation-renewal",
-                        "stars_credited": 6500,
-                        "credit_on_activation": True,
-                        "credit_on_renewal": True,
-                        "metadata": {"phase": "phase_2", "template": True},
-                    }
-                ],
-            }
-        ],
-    }
-]
-
-BASE_CONTENT_ACCESS_POLICY_SEEDS = [
-    {
-        "seed_code": "access-template-free-sample",
-        "content_type": "exam",
-        "content_key": "sample-demo-exam",
-        "content_label": "Sample Demo Exam Template",
-        "policy_type": "free",
-        "star_cost": 0,
-        "entitlement_code": "",
-        "priority": 10,
-        "metadata": {"phase": "phase_1", "template": True},
-    },
-    {
-        "seed_code": "access-template-premium-mock",
-        "content_type": "exam",
-        "content_key": "premium-mock-exam",
-        "content_label": "Premium Mock Exam Template",
-        "policy_type": "stars_only",
-        "star_cost": 200,
-        "entitlement_code": "",
-        "priority": 20,
-        "metadata": {"phase": "phase_1", "template": True},
-    },
-    {
-        "seed_code": "access-template-chapter-premium",
-        "content_type": "exam",
-        "content_key": "chapter-premium-exam",
-        "content_label": "Chapter Premium Exam Template",
-        "policy_type": "stars_only",
-        "star_cost": 100,
-        "entitlement_code": "",
-        "priority": 30,
-        "metadata": {"phase": "phase_1", "template": True},
-    },
-    {
-        "seed_code": "access-template-subscription-only",
-        "content_type": "exam",
-        "content_key": "subscription-member-exam",
-        "content_label": "Subscription Member Exam Template",
-        "policy_type": "entitlement_only",
-        "star_cost": 0,
-        "entitlement_code": "subscription:starter",
-        "priority": 35,
-        "metadata": {"phase": "phase_1", "template": True},
-    },
-    {
-        "seed_code": "access-template-subscription-premium",
-        "content_type": "exam",
-        "content_key": "subscription-premium-exam",
-        "content_label": "Subscription Premium Exam Template",
-        "policy_type": "stars_or_entitlement",
-        "star_cost": 250,
-        "entitlement_code": "subscription:starter",
-        "priority": 40,
-        "metadata": {"phase": "phase_1", "template": True},
-    },
-]
-
-ADVANCED_CONTENT_ACCESS_POLICY_SEEDS = [
-    {
-        "seed_code": "access-template-sponsored-entitlement",
-        "content_type": "exam",
-        "content_key": "sponsored-school-exam",
-        "content_label": "Sponsored School Exam Template",
-        "policy_type": "entitlement_only",
-        "star_cost": 0,
-        "entitlement_code": "grant:school_sponsored_access",
-        "priority": 50,
-        "metadata": {"phase": "phase_2", "template": True},
-    }
-]
-
-BASE_UNLOCK_RULE_SEEDS = [
-    {
-        "seed_code": "unlock-template-complete-three-tests",
-        "content_type": "exam",
-        "content_key": "advanced-topic-test",
-        "content_label": "Advanced Topic Test Template",
-        "rule_type": "exam_completion",
-        "required_completion_count": 3,
-        "priority": 10,
-        "admin_override_allowed": True,
-        "metadata": {"phase": "phase_2", "template": True},
-    },
-    {
-        "seed_code": "unlock-template-score-seventy-five",
-        "content_type": "exam",
-        "content_key": "elite-mock-exam",
-        "content_label": "Elite Mock Exam Template",
-        "rule_type": "score_threshold",
-        "required_score_percentage": Decimal("75.00"),
-        "priority": 20,
-        "admin_override_allowed": True,
-        "metadata": {"phase": "phase_2", "template": True},
-    },
-    {
-        "seed_code": "unlock-template-maintain-five-hundred-stars",
-        "content_type": "exam",
-        "content_key": "premium-contest-lane",
-        "content_label": "Premium Contest Lane Template",
-        "rule_type": "stars_balance",
-        "required_star_balance": 500,
-        "priority": 30,
-        "admin_override_allowed": True,
-        "metadata": {"phase": "phase_2", "template": True},
-    },
-    {
-        "seed_code": "unlock-template-special-entitlement",
-        "content_type": "bundle",
-        "content_key": "special-entitlement-bundle",
-        "content_label": "Special Entitlement Bundle Template",
-        "rule_type": "entitlement",
-        "required_entitlement_code": "bundle:special_access",
-        "priority": 40,
-        "admin_override_allowed": True,
-        "metadata": {"phase": "phase_2", "template": True},
-    },
-    {
-        "seed_code": "unlock-template-admin-approval",
-        "content_type": "exam",
-        "content_key": "institute-special-content",
-        "content_label": "Institute Special Content Template",
-        "rule_type": "admin_approval",
-        "priority": 50,
-        "admin_override_allowed": True,
-        "metadata": {"phase": "phase_2", "template": True},
-    },
-]
-
-ADVANCED_UNLOCK_RULE_SEEDS = [
-    {
-        "seed_code": "unlock-template-composite-merit-subscription",
-        "content_type": "exam",
-        "content_key": "merit-scholar-lane",
-        "content_label": "Merit Scholar Lane Template",
-        "rule_type": "composite",
-        "priority": 60,
-        "admin_override_allowed": True,
-        "metadata": {
-            "phase": "phase_3",
-            "template": True,
-            "logic": "all",
-            "conditions": [
-                {"rule_type": "score_threshold", "required_score_percentage": "80.00"},
-                {"rule_type": "entitlement", "required_entitlement_code": "subscription:scholar"},
-            ],
-        },
-    }
-]
+@lru_cache(maxsize=1)
+def load_economy_default_seeds():
+    with ECONOMY_DEFAULT_SEEDS_PATH.open(encoding="utf-8") as manifest_file:
+        payload = json.load(manifest_file)
+    if not isinstance(payload, dict):
+        raise ValueError("Economy default seeds manifest must be a JSON object.")
+    return _convert_numeric_strings(payload)
 
 
 class Command(BaseCommand):
@@ -508,7 +155,7 @@ class Command(BaseCommand):
                 summary=summary["reward_rules"],
             )
 
-        for payload in REFERRAL_PROGRAM_SEEDS:
+        for payload in self._referral_program_seeds(include_future_templates=include_future_templates):
             self._upsert_seeded_record(
                 model=ReferralProgram,
                 institute=institute,
@@ -700,47 +347,59 @@ class Command(BaseCommand):
             )
 
     def _reward_rule_seeds(self, *, include_future_templates):
-        seeds = list(BASE_REWARD_RULE_SEEDS)
+        manifest = load_economy_default_seeds()
+        seeds = list(manifest["reward_rules"]["baseline"])
         if include_future_templates:
-            seeds.extend(ADVANCED_REWARD_RULE_SEEDS)
+            seeds.extend(manifest["reward_rules"]["advanced"])
+        return seeds
+
+    def _referral_program_seeds(self, *, include_future_templates):
+        manifest = load_economy_default_seeds()
+        seeds = list(manifest["referral_programs"]["baseline"])
+        if include_future_templates:
+            seeds.extend(manifest["referral_programs"]["advanced"])
         return seeds
 
     def _star_pack_seeds(self, *, include_future_templates):
-        seeds = list(STAR_PACK_SEEDS)
+        manifest = load_economy_default_seeds()
+        seeds = list(manifest["star_packs"]["baseline"])
         if include_future_templates:
+            seeds.extend(manifest["star_packs"]["advanced"])
+        return seeds
+
+    def _subscription_plan_seeds(self, *, include_future_templates):
+        manifest = load_economy_default_seeds()
+        seeds = list(manifest["subscription_plans"]["baseline"])
+        if include_future_templates:
+            seeds.extend(manifest["subscription_plans"]["advanced"])
+        return seeds
+
+    def _content_access_policy_seeds(self, *, include_future_templates):
+        manifest = load_economy_default_seeds()
+        seeds = list(manifest["content_access_policies"]["baseline"])
+        if include_future_templates:
+            seeds.extend(manifest["content_access_policies"]["advanced"])
+        return seeds
+
+    def _question_bank_package_seeds(self):
+        manifest = load_economy_default_seeds()
+        seeds = []
+        for payload in manifest["question_bank_packages"]["baseline"]:
             seeds.append(
                 {
-                    "seed_code": "stars-2500",
-                    "name": "2500 Stars",
-                    "code": "stars-2500",
-                    "stars_credited": 2500,
-                    "price_amount": Decimal("999.00"),
-                    "currency": "INR",
-                    "sort_order": 40,
-                    "metadata": {"phase": "phase_2", "template": True},
+                    **payload,
+                    "package_type": payload["package_type"],
+                    "access_mode": payload["access_mode"],
+                    "grant_mode": payload["grant_mode"],
                 }
             )
         return seeds
 
-    def _subscription_plan_seeds(self, *, include_future_templates):
-        seeds = list(BASE_SUBSCRIPTION_PLAN_SEEDS)
-        if include_future_templates:
-            seeds.extend(ADVANCED_SUBSCRIPTION_PLAN_SEEDS)
-        return seeds
-
-    def _content_access_policy_seeds(self, *, include_future_templates):
-        seeds = list(BASE_CONTENT_ACCESS_POLICY_SEEDS)
-        if include_future_templates:
-            seeds.extend(ADVANCED_CONTENT_ACCESS_POLICY_SEEDS)
-        return seeds
-
-    def _question_bank_package_seeds(self):
-        return list(BASE_QUESTION_BANK_PACKAGE_SEEDS)
-
     def _unlock_rule_seeds(self, *, include_future_templates):
-        seeds = list(BASE_UNLOCK_RULE_SEEDS)
+        manifest = load_economy_default_seeds()
+        seeds = list(manifest["unlock_rules"]["baseline"])
         if include_future_templates:
-            seeds.extend(ADVANCED_UNLOCK_RULE_SEEDS)
+            seeds.extend(manifest["unlock_rules"]["advanced"])
         return seeds
 
     def _seed_metadata(self, seed_code, extra_metadata=None):

@@ -88,7 +88,7 @@ test.describe("Student referral onboarding mutable flow", () => {
       }).first().getByText(/^code$/i),
     ).toBeVisible();
     await expect(
-      page.getByText(/the resulting reward credit, if any, is best verified from wallet after onboarding is complete/i).first(),
+      page.getByText(/if you joined with a referral code, verify the reward in wallet after onboarding/i).first(),
     ).toBeVisible();
 
     await page.goto("/app/wallet");

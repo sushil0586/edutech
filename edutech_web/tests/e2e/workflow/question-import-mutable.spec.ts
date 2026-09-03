@@ -455,7 +455,7 @@ test.describe("Teacher and institute mutable question-import actions", () => {
 
   test("@workflow @mutable institute sees finalize recovery guidance for blocked rows after preview success", async ({
     page,
-  }, testInfo) => {
+  }) => {
     await loginAsRole(page, "institute");
     await expectInstituteWorkspace(page);
 

@@ -193,6 +193,10 @@
 
 .studentPage {
   gap: 18px;
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   padding: 22px;
   border: 1px solid var(--student-border);
   border-radius: 28px;
@@ -201,6 +205,11 @@
     radial-gradient(circle at top right, rgba(233, 224, 255, 0.18), transparent 18%),
     var(--student-surface-strong);
   box-shadow: var(--student-shadow);
+}
+
+.studentPage > * {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .studentPage::before,
@@ -4458,6 +4467,26 @@
 .studentResultsTableRow:hover td,
 .studentResultsTableRow:focus-visible td {
   background: linear-gradient(180deg, rgba(247, 250, 255, 0.98), rgba(238, 245, 255, 0.94));
+}
+
+.studentQuestionPatternOpenButton {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.studentQuestionPatternOpenButton:focus-visible {
+  outline: 2px solid rgba(55, 93, 251, 0.55);
+  outline-offset: 3px;
+}
+
+.studentQuestionPatternOpenButton:disabled {
+  cursor: wait;
 }
 
 .studentResultsTableAction {

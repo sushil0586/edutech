@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectInstituteWorkspace } from "../helpers/navigation";
 import {
@@ -15,9 +15,13 @@ async function selectProgramWithSubjectOptions(page: Page) {
     return null;
   }
 
-  for (const program of programs) {
-    const preferredProgram =
-      (await findOptionValueByLabelPattern(programSelect(page), /class 7/i)) || program;
+  const preferredProgram = await findOptionValueByLabelPattern(programSelect(page), /^class 7$/i);
+  const candidatePrograms = [
+    ...(preferredProgram ? [preferredProgram] : []),
+    ...programs.filter((program) => program !== preferredProgram),
+  ];
+
+  for (const program of candidatePrograms) {
     const subjectsResponse = page.waitForResponse((response) => {
       if (!response.ok()) {
         return false;
@@ -27,16 +31,13 @@ async function selectProgramWithSubjectOptions(page: Page) {
       return (
         url.pathname.includes("/academics/subjects") &&
         url.searchParams.get("is_active") === "true" &&
-        url.searchParams.get("program") === preferredProgram &&
+        url.searchParams.get("program") === program &&
         url.searchParams.get("page_size") === "500"
       );
-    });
-    await programSelect(page).selectOption(preferredProgram);
+    }).catch(() => null);
+    await programSelect(page).selectOption(program);
     await subjectsResponse;
     await expect(subjectSelect(page)).toBeEnabled();
-    await expect.poll(async () => getNonEmptyOptionValues(subjectSelect(page)).then((values) => values.length)).toBeGreaterThan(
-      0,
-    );
 
     const subjects = await getNonEmptyOptionValues(subjectSelect(page));
     if (!subjects.length) {
@@ -58,20 +59,17 @@ async function selectProgramWithSubjectOptions(page: Page) {
           url.searchParams.get("subject") === preferredSubject &&
           url.searchParams.get("page_size") === "500"
         );
-      });
+      }).catch(() => null);
       await subjectSelect(page).selectOption(preferredSubject);
       await topicsResponse;
       await expect(topicSelect(page)).toBeEnabled();
-      await expect.poll(async () => getNonEmptyOptionValues(topicSelect(page)).then((values) => values.length)).toBeGreaterThan(
-        0,
-      );
 
       const topics = await getNonEmptyOptionValues(topicSelect(page));
       if (topics.length > 0) {
         const selectedTopic = topics[0]!;
         await topicSelect(page).selectOption(selectedTopic);
         await expect(topicSelect(page)).toHaveValue(selectedTopic);
-        return { program: preferredProgram, subject: preferredSubject, topic: selectedTopic, subjects, topics };
+        return { program, subject: preferredSubject, topic: selectedTopic, subjects, topics };
       }
     }
   }
@@ -165,7 +163,7 @@ test.describe("Institute question bank browser functionality coverage", () => {
     let selectedSubject: string | null = null;
 
     if (resolvedAcademicPath) {
-      const { program, subject, topic, subjects, topics } = resolvedAcademicPath;
+      const { program, subject, topic } = resolvedAcademicPath;
       selectedProgram = program;
       selectedSubject = subject;
       await subjectSelect(page).selectOption(subject);

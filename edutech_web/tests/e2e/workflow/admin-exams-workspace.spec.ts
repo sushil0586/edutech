@@ -44,9 +44,12 @@ test.describe("Admin exams workspace", () => {
       const scopedInstitute = instituteOptions[0];
       const scopedInstituteName = scopedInstitute.label.replace(/\s*\([^)]+\)\s*$/, "");
       await instituteSelect.selectOption(scopedInstitute.value);
-      await page.getByRole("button", { name: /update view/i }).click();
+      await Promise.all([
+        page.waitForURL(new RegExp(`institute=${scopedInstitute.value}`), { waitUntil: "commit" }),
+        page.getByRole("button", { name: /update view/i }).click(),
+      ]);
 
-      await expect(page).toHaveURL(new RegExp(`institute=${scopedInstitute.value}`));
+      expect(new URL(page.url()).searchParams.get("institute")).toBe(scopedInstitute.value);
       await expect(
         page.getByText(new RegExp(`^institute: ${escapeRegExp(scopedInstituteName)}$`, "i")).first(),
       ).toBeVisible();
@@ -76,12 +79,16 @@ test.describe("Admin exams workspace", () => {
     await sourceSelect.selectOption("teacher");
     await sortSelect.selectOption("start_soon");
     await groupSelect.selectOption("source");
-    await page.getByRole("button", { name: /update view/i }).click();
+    await Promise.all([
+      page.waitForURL(/exam_status=live/, { waitUntil: "commit" }),
+      page.getByRole("button", { name: /update view/i }).click(),
+    ]);
 
-    await expect(page).toHaveURL(/exam_status=live/);
-    await expect(page).toHaveURL(/exam_source=teacher/);
-    await expect(page).toHaveURL(/exam_sort=start_soon/);
-    await expect(page).toHaveURL(/exam_group=source/);
+    const filteredUrl = new URL(page.url());
+    expect(filteredUrl.searchParams.get("exam_status")).toBe("live");
+    expect(filteredUrl.searchParams.get("exam_source")).toBe("teacher");
+    expect(filteredUrl.searchParams.get("exam_sort")).toBe("start_soon");
+    expect(filteredUrl.searchParams.get("exam_group")).toBe("source");
 
     await page.getByRole("link", { name: /^platform$/i }).click();
     await expect(page).toHaveURL(/exam_source=platform/);

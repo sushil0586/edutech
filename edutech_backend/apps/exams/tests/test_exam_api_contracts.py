@@ -4,7 +4,7 @@ from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from apps.exams.models import ExamAccessSlot, ExamStudentAssignment
+from apps.exams.models import ExamAccessSlot, ExamSourceType, ExamStudentAssignment
 from apps.reports.models import AuditLog
 from common.tests.builders import AcademicAssessmentBuilder
 
@@ -19,6 +19,70 @@ class ExamApiContractTests(TestCase):
             username="exam-api-contract-admin",
         )
         self.client.force_authenticate(user=self.admin_user)
+
+    def test_platform_admin_catalog_summary_and_source_filter_use_server_side_counts(self):
+        platform_admin_user, _ = self.builder.create_platform_admin_account(
+            username="exam-catalog-platform-admin",
+            email="exam-catalog-platform-admin@example.com",
+        )
+        base_exam = self.context["exam"]
+        base_exam.status = "live"
+        base_exam.source_type = ExamSourceType.INSTITUTE
+        base_exam.source_teacher = None
+        base_exam.save(update_fields=["status", "source_type", "source_teacher", "updated_at"])
+        platform_exam = self.builder.create_exam(
+            self.context["institute"],
+            self.context["academic_year"],
+            self.context["program"],
+            self.context["cohort"],
+            self.context["subject"],
+            code="CATALOG-PLATFORM-01",
+            title="Catalog Platform Exam",
+            status="draft",
+            source_type=ExamSourceType.PLATFORM,
+        )
+        teacher_exam = self.builder.create_exam(
+            self.context["institute"],
+            self.context["academic_year"],
+            self.context["program"],
+            self.context["cohort"],
+            self.context["subject"],
+            code="CATALOG-TEACHER-01",
+            title="Catalog Teacher Exam",
+            status="scheduled",
+            source_type=ExamSourceType.TEACHER,
+            source_teacher=self.context["teacher"],
+        )
+
+        self.client.force_authenticate(user=platform_admin_user)
+
+        list_response = self.client.get("/api/v1/exams/?source_type=platform&page_size=10")
+        self.assertEqual(list_response.status_code, 200)
+        self.assertEqual(list_response.data["count"], 1)
+        self.assertEqual(list_response.data["results"][0]["id"], str(platform_exam.id))
+
+        summary_response = self.client.get(
+            f"/api/v1/exams/platform-catalog-summary/?institute={self.context['institute'].id}"
+        )
+        self.assertEqual(summary_response.status_code, 200)
+        self.assertEqual(summary_response.data["total_count"], 3)
+        self.assertEqual(
+            summary_response.data["source_counts"],
+            {
+                ExamSourceType.INSTITUTE: 1,
+                ExamSourceType.PLATFORM: 1,
+                ExamSourceType.TEACHER: 1,
+            },
+        )
+        self.assertEqual(
+            summary_response.data["status_counts"],
+            {
+                "draft": 1,
+                "live": 1,
+                "scheduled": 1,
+            },
+        )
+        self.assertEqual(teacher_exam.source_type, ExamSourceType.TEACHER)
 
     def test_patch_preserves_scheduled_summary_only_delivery_contract_on_followup_read(self):
         exam = self.context["exam"]

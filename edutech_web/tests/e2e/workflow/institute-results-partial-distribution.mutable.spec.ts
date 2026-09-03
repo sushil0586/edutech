@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { type DirectLoginCredentials, loginAsRole, loginWithCredentials, testRequiresRole } from "../helpers/auth";
+import { type DirectLoginCredentials, loginWithCredentials, testRequiresRole } from "../helpers/auth";
 import {
   answerAndSubmitCurrentAttempt,
   backendAccessToken,

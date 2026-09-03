@@ -84,10 +84,6 @@ type StudentAvailableExam = {
   availability_state?: string;
 };
 
-type SessionProfile = {
-  institute?: string | null;
-};
-
 type MutableAccessPolicy = {
   id: string;
   institute: string;
@@ -777,7 +773,6 @@ test.describe("Admin mutable economy actions", () => {
       test.skip(true, "No attachable question-bank packages are currently available for subscription plan mapping.");
     }
     const bootstrapInstituteSnapshot = bootstrapInstitute!;
-    let selectedInstituteLabel = bootstrapInstituteSnapshot.label;
     await instituteSelect.selectOption(bootstrapInstituteSnapshot.value);
     await page.waitForTimeout(200);
 
@@ -1574,7 +1569,7 @@ test.describe("Admin mutable economy actions", () => {
       test.skip(true, "No attachable question-bank packages or prelinked subscription plans are available in this environment.");
     }
     const bootstrapInstituteSnapshot = bootstrapInstitute!;
-    let selectedInstituteLabel = bootstrapInstituteSnapshot.label;
+    const selectedInstituteLabel = bootstrapInstituteSnapshot.label;
     await instituteSelect.selectOption(bootstrapInstituteSnapshot.value);
     await page.waitForTimeout(200);
     const packageSection = subscriptionEditor.locator(".economyFormSection").nth(1);

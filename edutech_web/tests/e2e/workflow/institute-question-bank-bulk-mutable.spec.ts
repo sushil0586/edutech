@@ -25,10 +25,6 @@ type QuestionTagRow = {
   is_active?: boolean;
 };
 
-type PaginatedResponse<T> = {
-  results: T[];
-};
-
 function firstNonEmptyOptionValue(values: string[]) {
   return values.find((value) => value.trim().length > 0) ?? null;
 }
