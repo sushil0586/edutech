@@ -170,6 +170,25 @@ class EconomyApiTestCase(TestCase):
             ).exists()
         )
 
+    def test_platform_admin_policy_config_rejects_non_positive_limits(self):
+        self.client.force_authenticate(user=self.platform_admin_user)
+
+        amount_response = self.client.patch(
+            "/api/v1/economy/admin/policy-config/",
+            {"institute_admin_max_confirm_order_amount": "0.00"},
+            format="json",
+        )
+        self.assertEqual(amount_response.status_code, 400)
+        self.assertIn("institute_admin_max_confirm_order_amount", amount_response.data)
+
+        stars_response = self.client.patch(
+            "/api/v1/economy/admin/policy-config/",
+            {"institute_admin_max_grant_stars": 0},
+            format="json",
+        )
+        self.assertEqual(stars_response.status_code, 400)
+        self.assertIn("institute_admin_max_grant_stars", stars_response.data)
+
     def test_platform_admin_can_view_economy_policy_audit_history(self):
         self.client.force_authenticate(user=self.platform_admin_user)
 

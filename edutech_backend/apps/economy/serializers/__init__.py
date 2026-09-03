@@ -228,6 +228,16 @@ class EconomyOperatorPolicyConfigSerializer(serializers.ModelSerializer):
             "metadata": audit.metadata,
         }
 
+    def validate_institute_admin_max_confirm_order_amount(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("Maximum confirm amount must be greater than zero.")
+        return value
+
+    def validate_institute_admin_max_grant_stars(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("Maximum grant stars must be greater than zero.")
+        return value
+
 
 class EconomyPolicyAuditLogSerializer(serializers.ModelSerializer):
     user_label = serializers.SerializerMethodField()

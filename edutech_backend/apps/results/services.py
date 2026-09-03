@@ -708,6 +708,30 @@ def filter_teacher_attempt_monitor_payloads(attempts, filter_value):
     return list(attempts)
 
 
+def _attempt_student_name(attempt):
+    annotated_name = getattr(attempt, "student_name", None)
+    if annotated_name:
+        return annotated_name
+    student = getattr(attempt, "student", None)
+    return getattr(student, "full_name", "") or ""
+
+
+def _attempt_student_admission_no(attempt):
+    annotated_admission_no = getattr(attempt, "student_admission_no", None)
+    if annotated_admission_no:
+        return annotated_admission_no
+    student = getattr(attempt, "student", None)
+    return getattr(student, "admission_no", "") or ""
+
+
+def _attempt_exam_title(attempt):
+    annotated_title = getattr(attempt, "exam_title", None)
+    if annotated_title:
+        return annotated_title
+    exam = getattr(attempt, "exam", None)
+    return getattr(exam, "title", "") or ""
+
+
 def search_teacher_attempt_monitor_payloads(attempts, search_value):
     query = str(search_value or "").strip().lower()
     if not query:
@@ -716,10 +740,10 @@ def search_teacher_attempt_monitor_payloads(attempts, search_value):
     def haystack(attempt):
         return " ".join(
             [
-                str(attempt.student_name or ""),
-                str(attempt.student_admission_no or ""),
+                str(_attempt_student_name(attempt)),
+                str(_attempt_student_admission_no(attempt)),
                 str(attempt.status or ""),
-                str(attempt.exam_title or ""),
+                str(_attempt_exam_title(attempt)),
                 " ".join(str(alert.get("label", "")) for alert in attempt_monitor_alerts(attempt)),
             ]
         ).lower()
@@ -784,7 +808,7 @@ def sort_teacher_attempt_monitor_payloads(attempts, sort_value):
     if sort_value == "name":
         attempts.sort(
             key=lambda attempt: (
-                str(attempt.student_name or "").lower(),
+                str(_attempt_student_name(attempt)).lower(),
                 -attempt_monitor_priority_score(attempt),
                 -activity_time(attempt).timestamp(),
             )

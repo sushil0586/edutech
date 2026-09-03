@@ -1307,25 +1307,7 @@ def invalidate_question_bank_package_entitlement_snapshots(*, question_bank_pack
 
 
 def _active_question_bank_entitlement_snapshot(institute, *, at_time=None):
-    if at_time is not None:
-        return list(
-            active_institute_question_entitlements(institute, at_time=at_time).prefetch_related(
-                Prefetch(
-                    "question_bank_package__scopes",
-                    queryset=QuestionBankPackageScope.objects.filter(is_active=True),
-                )
-            )
-        )
-
-    institute_id = getattr(institute, "id", institute)
-    if not institute_id:
-        return []
-    cache_key = _question_bank_entitlement_snapshot_cache_key(institute_id=institute_id)
-    cached_snapshot = cache.get(cache_key)
-    if cached_snapshot is not None:
-        return cached_snapshot
-
-    snapshot = list(
+    return list(
         active_institute_question_entitlements(institute, at_time=at_time).prefetch_related(
             Prefetch(
                 "question_bank_package__scopes",
@@ -1333,8 +1315,6 @@ def _active_question_bank_entitlement_snapshot(institute, *, at_time=None):
             )
         )
     )
-    cache.set(cache_key, snapshot, QUESTION_BANK_ENTITLEMENT_SNAPSHOT_CACHE_TTL_SECONDS)
-    return snapshot
 
 
 def active_institute_question_entitlements(institute, *, at_time=None):
@@ -1377,21 +1357,10 @@ def institute_has_question_bank_feature(institute, feature_code, *, at_time=None
     normalized_code = str(feature_code or "").strip().upper()
     if not institute_id or not normalized_code:
         return False
-    if at_time is None:
-        cache_key = _question_bank_feature_cache_key(
-            institute_id=institute_id,
-            feature_code=normalized_code,
-        )
-        cached_value = cache.get(cache_key)
-        if cached_value is not None:
-            return bool(cached_value)
-    has_feature = _active_institute_question_feature_entitlements_queryset(
+    return _active_institute_question_feature_entitlements_queryset(
         institute=institute,
         at_time=at_time,
     ).filter(feature_code=normalized_code).exists()
-    if at_time is None:
-        cache.set(cache_key, has_feature, QUESTION_BANK_FEATURE_CACHE_TTL_SECONDS)
-    return has_feature
 
 
 def package_scope_matches_master_question(*, scope, master_question):
@@ -1449,13 +1418,11 @@ def _active_platform_question_bank_packages():
 
 
 def _active_platform_question_bank_package_snapshot():
-    cache_key = "economy:platform-question-bank-packages:snapshot"
-    cached_snapshot = cache.get(cache_key)
-    if cached_snapshot is not None:
-        return cached_snapshot
-    snapshot = list(_active_platform_question_bank_packages())
-    cache.set(cache_key, snapshot, QUESTION_BANK_ENTITLEMENT_SNAPSHOT_CACHE_TTL_SECONDS)
-    return snapshot
+    return list(_active_platform_question_bank_packages())
+
+
+def invalidate_question_bank_package_catalog_snapshot():
+    cache.delete("economy:platform-question-bank-packages:snapshot")
 
 
 def find_matching_catalog_question_bank_packages_for_master_question(*, master_question, packages=None):

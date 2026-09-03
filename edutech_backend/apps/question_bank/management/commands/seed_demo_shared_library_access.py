@@ -1,7 +1,8 @@
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
-from apps.academics.models import Program, Subject, Topic
+from apps.academics.models import AcademicYear, Cohort, Program, Subject, Topic
+from apps.accounts.models import AccountProfile, AccountRole
 from apps.economy.models import (
     InstituteQuestionUsageActionType,
     InstituteQuestionUsageLedger,
@@ -14,6 +15,8 @@ from apps.economy.models import (
 )
 from apps.economy.services import grant_institute_question_bank_entitlement
 from apps.economy.services import grant_institute_feature_entitlement
+from apps.economy.services import invalidate_question_bank_package_catalog_snapshot
+from apps.economy.services import invalidate_question_bank_package_entitlement_snapshots
 from apps.institutes.models import Institute
 from apps.question_bank.models import (
     InstituteQuestionAccess,
@@ -24,6 +27,7 @@ from apps.question_bank.models import (
     Question,
 )
 from apps.question_bank.services import link_master_question_to_institute
+from apps.teachers.models import AssignmentRole, TeacherAssignment
 
 
 SEED_BATCH = "demo_shared_library_access_v2"
@@ -150,6 +154,11 @@ class Command(BaseCommand):
             default="Demo Shared Library Paused Only",
             help="Package name to create or refresh for paused-only shared-library coverage.",
         )
+        parser.add_argument(
+            "--teacher-username",
+            default="demo-teacher",
+            help="Teacher account that should receive the base shared-library local subject assignment.",
+        )
 
     @transaction.atomic
     def handle(self, *args, **options):
@@ -178,6 +187,14 @@ class Command(BaseCommand):
         )
         donor_subject = donor_questions[0].source_subject
         donor_program = donor_questions[0].source_program
+
+        teacher_assignment = self._ensure_teacher_shared_library_assignment(
+            target_institute=target_institute,
+            teacher_username=options["teacher_username"].strip(),
+            donor_program=donor_program,
+            donor_subject=donor_subject,
+            donor_topic=donor_questions[0].source_topic,
+        )
 
         hub_program = self._upsert_program(public_hub=public_hub, donor_program=donor_program)
         hub_subject = self._upsert_subject(
@@ -273,6 +290,12 @@ class Command(BaseCommand):
             source_package=package,
             metadata={"seed_batch": SEED_BATCH, "source": "seed_demo_shared_library_access"},
         )
+        self._invalidate_seeded_question_bank_package_caches(
+            package,
+            quota_demo["package"],
+            blocked_matchable_demo["package"],
+            paused_only_demo["package"],
+        )
 
         self.stdout.write(self.style.SUCCESS("Demo shared-library access is ready."))
         self.stdout.write(f"- target_institute={target_institute.code}")
@@ -300,6 +323,11 @@ class Command(BaseCommand):
         self.stdout.write(f"- entitlement_status={entitlement.status} created={created}")
         self.stdout.write(
             f"- feature_entitlement={feature_entitlement.feature_code} status={feature_entitlement.status} created={feature_created}"
+        )
+        self.stdout.write(
+            "- teacher_assignment="
+            f"{teacher_assignment.teacher.full_name if teacher_assignment else 'none'}"
+            f" subject={teacher_assignment.subject.code if teacher_assignment else 'none'}"
         )
 
     def _resolve_institute(self, institute_code):
@@ -336,6 +364,94 @@ class Command(BaseCommand):
             target_institute.save(update_fields=["metadata", "updated_at"])
 
         return hub
+
+    def _invalidate_seeded_question_bank_package_caches(self, *packages):
+        invalidate_question_bank_package_catalog_snapshot()
+        for package in packages:
+            if package is not None:
+                invalidate_question_bank_package_entitlement_snapshots(question_bank_package=package)
+
+    def _ensure_teacher_shared_library_assignment(
+        self,
+        *,
+        target_institute,
+        teacher_username,
+        donor_program,
+        donor_subject,
+        donor_topic,
+    ):
+        if not teacher_username:
+            return None
+
+        profile = (
+            AccountProfile.objects.filter(
+                user__username=teacher_username,
+                role=AccountRole.TEACHER,
+                institute=target_institute,
+                teacher_profile__isnull=False,
+                is_active=True,
+            )
+            .select_related("teacher_profile")
+            .first()
+        )
+        if profile is None:
+            self.stdout.write(
+                self.style.WARNING(
+                    f"Teacher account {teacher_username} was not found for {target_institute.code}; "
+                    "skipping teacher shared-library assignment seed."
+                )
+            )
+            return None
+
+        local_program, local_subject, _ = self._resolve_target_local_scope(
+            target_institute=target_institute,
+            donor_program=donor_program,
+            donor_subject=donor_subject,
+            donor_topic=donor_topic,
+        )
+        academic_year = (
+            AcademicYear.objects.filter(
+                institute=target_institute,
+                is_current=True,
+                is_active=True,
+            ).first()
+            or AcademicYear.objects.filter(
+                institute=target_institute,
+                is_active=True,
+            ).first()
+        )
+        if academic_year is None:
+            self.stdout.write(
+                self.style.WARNING(
+                    f"No active academic year was found for {target_institute.code}; "
+                    "skipping teacher shared-library assignment seed."
+                )
+            )
+            return None
+
+        cohort = Cohort.objects.filter(
+            institute=target_institute,
+            academic_year=academic_year,
+            program=local_program,
+            is_active=True,
+        ).first()
+        assignment, _ = TeacherAssignment.objects.get_or_create(
+            institute=target_institute,
+            teacher=profile.teacher_profile,
+            academic_year=academic_year,
+            program=local_program,
+            cohort=cohort,
+            subject=local_subject,
+            assignment_role=AssignmentRole.MAIN_TEACHER,
+            defaults={
+                "is_primary": False,
+                "is_active": True,
+            },
+        )
+        if not assignment.is_active:
+            assignment.is_active = True
+            assignment.save(update_fields=["is_active", "updated_at"])
+        return assignment
 
     def _resolve_donor_questions(
         self,
