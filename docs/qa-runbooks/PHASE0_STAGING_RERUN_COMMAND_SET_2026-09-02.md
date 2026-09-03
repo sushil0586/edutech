@@ -51,9 +51,39 @@ Backend release checks:
 ```bash
 cd "$STAGE_REPO/edutech_backend"
 source .venv/bin/activate
-export DJANGO_SETTINGS_MODULE=config.settings.prod
+# systemd reads .env.production directly. For shell checks, load the same
+# values with Python-safe parsing if the secret contains shell-special chars.
+python - <<'PY'
+from pathlib import Path
+import os
 
-python manage.py check --deploy
+for raw in Path(".env.production").read_text().splitlines():
+    line = raw.strip()
+    if not line or line.startswith("#") or "=" not in line:
+        continue
+    key, value = line.split("=", 1)
+    os.environ[key.strip()] = value.strip().strip('"').strip("'")
+
+import django
+django.setup()
+
+from django.core.management import call_command
+from django.conf import settings
+import json
+
+call_command("check", "--deploy")
+print(json.dumps({
+    "DJANGO_SETTINGS_MODULE": os.environ.get("DJANGO_SETTINGS_MODULE"),
+    "DEBUG": settings.DEBUG,
+    "SECURE_SSL_REDIRECT": settings.SECURE_SSL_REDIRECT,
+    "SESSION_COOKIE_SECURE": settings.SESSION_COOKIE_SECURE,
+    "CSRF_COOKIE_SECURE": settings.CSRF_COOKIE_SECURE,
+    "SECURE_HSTS_SECONDS": settings.SECURE_HSTS_SECONDS,
+    "ALLOWED_HOSTS": settings.ALLOWED_HOSTS,
+    "CSRF_TRUSTED_ORIGINS": settings.CSRF_TRUSTED_ORIGINS,
+}))
+PY
+
 python manage.py makemigrations --check --dry-run
 python manage.py showmigrations --plan | tail -50
 python manage.py audit_exam_publish_readiness --only-problem-exams
@@ -84,6 +114,8 @@ sudo systemctl status nexora-learn-backend --no-pager
 sudo systemctl status nexora-learn-web --no-pager
 curl -i "$STAGE_API_URL/api/v1/health/"
 curl -I -s "$STAGE_WEB_URL/login"
+curl -I -s "http://${STAGE_WEB_URL#https://}" | grep -Ei "HTTP/|Location:"
+curl -I -s "$STAGE_WEB_URL" | grep -Ei "HTTP/|Strict-Transport-Security|X-Frame-Options|X-Content-Type-Options|Referrer-Policy|Permissions-Policy|Content-Security-Policy|X-Powered-By"
 ```
 
 ## Staging Seed Preconditions
