@@ -205,11 +205,12 @@ Validated against:
 
 - Staging web/API: `https://learn.accerio.in`
 - EC2 path: `/var/www/nexora-learn/edutech`
-- Current deployed commit after roll-forward: `e634d45`
+- Current deployed commit after launch-hardening deploy: `7efe711`
 
 Completed non-provider Phase 0 evidence:
 
 - Django deploy check with `.env.production` loaded through Python-safe parsing: `no issues`.
+- Migration drift check: `makemigrations --check --dry-run` returned `No changes detected`; staging migrations show applied through the current migration set.
 - Public HTTPS root headers include:
   - `Strict-Transport-Security: max-age=31536000; includeSubDomains; preload`
   - `X-Frame-Options: DENY`
@@ -226,6 +227,12 @@ Completed non-provider Phase 0 evidence:
   - verified `94` public tables and `106` Django migrations
   - verified key tables: `auth_user`, `exams_exam`, `institutes_institute`
   - temporary restore database dropped after verification.
+- PostgreSQL backup automation:
+  - installed `/usr/local/sbin/backup-nexora-learn-db.sh`
+  - installed and enabled `nexora-learn-db-backup.timer`
+  - next scheduled run observed: `2026-09-04 02:15:11 UTC`
+  - manual systemd service run created `/var/backups/nexora-learn/nexora_learn_20260903T102141Z.dump`
+  - manual service run size: `4117644` bytes
 - Rollback drill:
   - rollback target `8e03d36` checked out, dependencies installed, production build passed, web service restarted, `/login` served.
   - roll-forward to `e634d45` completed, dependency audit returned `0 vulnerabilities`, production build passed, web service restarted, `/login` served.
@@ -236,9 +243,15 @@ Completed non-provider Phase 0 evidence:
 - Commercial non-provider browser gate after staging reset:
   - subscription request approve/reject: `2 passed`
   - institute shared-library entitlement enforcement: `1 passed`
-  - teacher shared-library entitlement enforcement: `1 skipped`
-  - skip reason: no unlinked teacher-visible `DEMO_SHARED_LIBRARY_ACCESS` candidate existed for the current seeded teacher scope after reset. Treat as a seed-scope watchpoint, not a provider blocker.
-  - verified `DEMO_SHARED_LIBRARY_ACCESS` and `DEMO_SHARED_LIBRARY_PAUSED_ONLY` entitlements restored to `active`.
+  - teacher shared-library entitlement enforcement: `1 passed`
+  - final result: `4 passed`
+  - previous teacher seed-scope watchpoint was closed by seeding the `demo-teacher` `CLS7-MATH` assignment.
+  - entitlement cache hardening removed per-process stale entitlement snapshots from the shared-library access path.
+  - final staging baseline restored: `0` active subscription requests, `DEMO_SHARED_LIBRARY_ACCESS`, `DEMO_SHARED_LIBRARY_PAUSED_ONLY`, and `DEMO_SHARED_LIBRARY_QUOTA` entitlements active.
+- Runtime log health after final launch-hardening deploy:
+  - backend log scan since `2026-09-03 10:25:00 UTC`: no `ERROR`, `Traceback`, `500`, DB error, stream, or validation-error matches.
+  - web log scan since `2026-09-03 10:25:00 UTC`: only `The destination stream closed early` entries during browser automation navigation; no new chunk-load, server-action, or backend-500 pattern.
+  - `nexora-learn-backend`, `nexora-learn-web`, `nginx`, `postgresql`, and `nexora-learn-db-backup.timer` were active.
 
 Phase 1 optimized-route and warning watchpoints:
 
