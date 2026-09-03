@@ -50,8 +50,11 @@ test.describe("Admin people timing", () => {
 
     const instituteSelect = page.getByRole("combobox", { name: /select institute/i });
     if ((await instituteSelect.count()) > 0) {
-      await page.getByRole("button", { name: /^open$/i }).click();
-      await expect(page).toHaveURL(/\/admin\/people\?[^#]*institute=/);
+      const openButton = page.getByRole("button", { name: /^open$/i });
+      if (await openButton.count()) {
+        await openButton.click();
+      }
+      await expect(page).toHaveURL(/\/admin\/people\?[^#]*view=students(?:[^#]*institute=)?/);
     }
 
     await measureTiming({

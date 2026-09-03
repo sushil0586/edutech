@@ -9,12 +9,47 @@ type TimingMetric = {
   label: string;
 };
 
+type PaginatedResponse<T> = {
+  results: T[];
+};
+
+type InstituteRecord = {
+  id: string;
+  code: string;
+  name: string;
+  is_active: boolean;
+};
+
+type AcademicYearRecord = {
+  id: string;
+  name: string;
+  is_active: boolean;
+};
+
+type ProgramRecord = {
+  id: string;
+  name: string;
+  code: string;
+  is_active: boolean;
+};
+
+type SubjectRecord = {
+  id: string;
+  name: string;
+  code: string;
+  is_active: boolean;
+};
+
 const adminApiBaseUrl = (
   process.env.API_BASE_URL ??
   process.env.NEXT_PUBLIC_API_BASE_URL ??
   process.env.PLAYWRIGHT_API_BASE_URL ??
   "http://127.0.0.1:9001"
 ).replace(/\/$/, "");
+
+const adminInstituteCode = "DLI001";
+const canonicalAcademicYearName = "2026-2027";
+const canonicalProgramName = "Class 10 Foundation";
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -25,6 +60,22 @@ async function backendAccessToken(page: Parameters<typeof createNetworkAudit>[0]
   const accessToken = cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
   expect(accessToken).not.toBe("");
   return accessToken;
+}
+
+async function fetchAdminApiJson<T>(
+  page: Parameters<typeof createNetworkAudit>[0],
+  path: string,
+) {
+  const accessToken = await backendAccessToken(page);
+  const response = await page.request.get(`${adminApiBaseUrl}${path}`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    timeout: 15000,
+  });
+  expect(response.ok()).toBe(true);
+  return (await response.json()) as T;
 }
 
 async function deleteAdminExamDirectly(page: Parameters<typeof createNetworkAudit>[0], examId: string) {
@@ -39,48 +90,130 @@ async function deleteAdminExamDirectly(page: Parameters<typeof createNetworkAudi
   expect(response.ok()).toBe(true);
 }
 
-async function createAdminWizardExam(page: Parameters<typeof createNetworkAudit>[0], uniqueSeed: number) {
+async function resolveAdminExamScope(page: Parameters<typeof createNetworkAudit>[0]) {
+  const institutes = await fetchAdminApiJson<PaginatedResponse<InstituteRecord>>(
+    page,
+    "/api/v1/institutes/?page_size=100",
+  );
+  const institute =
+    institutes.results.find((entry) => entry.code === adminInstituteCode) ?? institutes.results[0] ?? null;
+  expect(institute).not.toBeNull();
+
+  const academicYears = await fetchAdminApiJson<PaginatedResponse<AcademicYearRecord>>(
+    page,
+    `/api/v1/academics/academic-years/?is_active=true&institute=${encodeURIComponent(institute!.id)}&page_size=200`,
+  );
+  const academicYear =
+    academicYears.results.find((entry) => entry.name.trim() === canonicalAcademicYearName) ??
+    academicYears.results[0] ??
+    null;
+  expect(academicYear).not.toBeNull();
+
+  const programs = await fetchAdminApiJson<PaginatedResponse<ProgramRecord>>(
+    page,
+    `/api/v1/academics/programs/?is_active=true&institute=${encodeURIComponent(institute!.id)}&page_size=200`,
+  );
+  const program =
+    programs.results.find((entry) => entry.name.trim() === canonicalProgramName) ??
+    programs.results[0] ??
+    null;
+  expect(program).not.toBeNull();
+
+  const subjects = await fetchAdminApiJson<PaginatedResponse<SubjectRecord>>(
+    page,
+    `/api/v1/academics/subjects/?is_active=true&institute=${encodeURIComponent(institute!.id)}&program=${encodeURIComponent(program!.id)}&page_size=200`,
+  );
+  const subject =
+    subjects.results.find((entry) => !/^PW Sparse Subject\b/i.test(entry.name)) ??
+    subjects.results[0] ??
+    null;
+  expect(subject).not.toBeNull();
+
+  return {
+    academicYearId: academicYear!.id,
+    instituteId: institute!.id,
+    programId: program!.id,
+    subjectId: subject!.id,
+  };
+}
+
+async function createAdminExamDirectly(page: Parameters<typeof createNetworkAudit>[0], uniqueSeed: number) {
   const examTitle = `PW Admin Security Audit ${uniqueSeed}`;
   const examCode = `PW-ASEC-${uniqueSeed}`;
-
-  await page.goto("/admin/exams/new", { waitUntil: "domcontentloaded" });
-  await expect(page.getByRole("heading", { name: /create exam/i }).first()).toBeVisible();
-  await page.getByRole("textbox", { name: /exam title/i }).fill(examTitle);
-  await page.getByRole("textbox", { name: /exam code/i }).fill(examCode);
-  await page.locator('select[name="source_type"]').selectOption("platform");
-
-  for (let step = 0; step < 3; step += 1) {
-    await page.getByRole("button", { name: /^continue$/i }).click();
-  }
-
-  await page.getByRole("button", { name: /create exam shell/i }).click();
-  await expect(page).toHaveURL(/\/admin\/exams\?message=/);
-
-  const createdExamCard = page.locator(".examCard").filter({
-    has: page.getByText(new RegExp(escapeRegExp(examTitle), "i")).first(),
-  }).first();
-  await expect(createdExamCard).toBeVisible();
-
-  const openExamHref = await createdExamCard.getByRole("link", { name: /view exam|open exam/i }).getAttribute("href");
-  const examId = openExamHref?.match(/\/admin\/exams\/([^/?#]+)/)?.[1] ?? null;
-  expect(examId).not.toBeNull();
+  const scope = await resolveAdminExamScope(page);
+  const accessToken = await backendAccessToken(page);
+  const createResponse = await page.request.post(`${adminApiBaseUrl}/api/v1/exams/`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    data: {
+      institute: scope.instituteId,
+      academic_year: scope.academicYearId,
+      program: scope.programId,
+      cohort: null,
+      subject: scope.subjectId,
+      source_type: "platform",
+      title: examTitle,
+      code: examCode,
+      description: "",
+      exam_type: "quiz",
+      delivery_mode: "online",
+      duration_minutes: 30,
+      total_marks: "0",
+      passing_marks: "0",
+      start_at: null,
+      end_at: null,
+      instructions: "",
+      allow_late_submit: false,
+      randomize_questions: false,
+      randomize_options: false,
+      show_result_immediately: true,
+      allow_review_after_submit: true,
+      max_attempts: 1,
+      timer_mode: "global",
+      navigation_mode: "free_section",
+      attempt_policy: "single",
+      result_publish_mode: "immediate",
+      review_mode: "attempted_only",
+      security_mode: "focus",
+      rank_visibility_mode: "hidden",
+      percentile_visibility_mode: "hidden",
+      benchmark_visibility_mode: "peer_average_only",
+      rank_freeze_policy: "freeze_on_exam_closure",
+      allow_resume: true,
+      allow_section_switching: true,
+      allow_return_to_previous_section: true,
+      result_publish_at: null,
+      review_available_from: null,
+      review_available_until: null,
+    },
+    timeout: 15000,
+  });
+  expect(createResponse.ok()).toBe(true);
+  const createdExam = (await createResponse.json()) as { id: string };
+  expect(createdExam.id).toBeTruthy();
 
   return {
     examCode,
-    examId: examId!,
+    examId: createdExam.id,
     examTitle,
   };
 }
 
 async function saveSecurityMode(page: Parameters<typeof createNetworkAudit>[0], examId: string, securityMode = "focus") {
-  await page.goto(`/admin/exams/${examId}/builder`);
-  await expect(page.getByRole("button", { name: /save exam settings/i })).toBeVisible();
-  const securityModeSelect = page.locator('select[name="security_mode"]').first();
-  await expect(securityModeSelect.locator(`option[value="${securityMode}"]`)).toHaveCount(1);
-  await securityModeSelect.selectOption(securityMode);
-  await page.getByRole("button", { name: /save exam settings/i }).click();
-  await expect(page).toHaveURL(/\/admin\/exams\/.+\/builder\?message=/);
-  await expect(page.getByText(/exam settings updated\./i)).toBeVisible();
+  const accessToken = await backendAccessToken(page);
+  const response = await page.request.patch(`${adminApiBaseUrl}/api/v1/exams/${examId}/`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    data: {
+      security_mode: securityMode,
+    },
+    timeout: 15000,
+  });
+  expect(response.ok()).toBe(true);
 }
 
 test.describe("Admin security API audit", () => {
@@ -99,7 +232,7 @@ test.describe("Admin security API audit", () => {
       await loginAsRole(page, "admin");
       await expectAdminWorkspace(page);
 
-      const seededExam = await createAdminWizardExam(page, Date.now());
+      const seededExam = await createAdminExamDirectly(page, Date.now());
       seededExamId = seededExam.examId;
       seededExamCode = seededExam.examCode;
       seededExamTitle = seededExam.examTitle;

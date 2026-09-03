@@ -3,13 +3,7 @@ import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectStudentWorkspace } from "../helpers/navigation";
 import { gotoWithRuntimeRecovery } from "../helpers/runtime";
 
-async function followLinkTarget(
-  page: Page,
-  locator: ReturnType<Page["getByRole"]> | ReturnType<Page["locator"]>,
-  expectedUrl: RegExp,
-) {
-  await expect(locator).toBeVisible();
-  const href = await locator.getAttribute("href");
+async function followHrefTarget(page: Page, href: string | null, expectedUrl: RegExp) {
   expect(href).toBeTruthy();
   await gotoWithRuntimeRecovery(page, href!);
   await expect(page).toHaveURL(expectedUrl);
@@ -36,57 +30,43 @@ test.describe("Student dashboard workspace", () => {
     expect(await subjectChips.count()).toBeGreaterThan(0);
 
     const attemptTimelineLink = page.getByRole("link", { name: /open attempt timeline/i }).first();
-    await followLinkTarget(page, attemptTimelineLink, /\/app\/attempts(?:\?.*)?$/);
-
-    await gotoWithRuntimeRecovery(page, "/app/dashboard");
-    await expect(page.locator(".studentDashboardExamGrid").first()).toBeVisible();
+    await expect(attemptTimelineLink).toBeVisible();
+    const attemptTimelineHref = await attemptTimelineLink.getAttribute("href");
 
     const walletLink = page.getByRole("link", { name: /open wallet/i }).first();
-    await followLinkTarget(page, walletLink, /\/app\/wallet(?:\?.*)?$/);
-
-    await gotoWithRuntimeRecovery(page, "/app/dashboard");
-    await expect(page.locator(".studentDashboardRecommendation").first()).toBeVisible();
+    await expect(walletLink).toBeVisible();
+    const walletHref = await walletLink.getAttribute("href");
 
     const primaryRecommendationAction = page
       .locator(".studentDashboardRecommendation")
       .getByRole("link")
       .first();
-    await followLinkTarget(
+    await expect(primaryRecommendationAction).toBeVisible();
+    const primaryRecommendationHref = await primaryRecommendationAction.getAttribute("href");
+
+    await expect(page.locator(".studentDashboardExamGrid").nth(1)).toBeVisible();
+    const examsViewAllHref = await page.getByRole("link", { name: /^view all$/i }).first().getAttribute("href");
+
+    const reportsHubLink = page.getByRole("link", { name: /open reports hub/i }).first();
+    await expect(reportsHubLink).toBeVisible();
+    const reportsHubHref = await reportsHubLink.getAttribute("href");
+
+    const detailedReportLink = page.getByRole("link", { name: /view detailed report/i }).first();
+    await expect(detailedReportLink).toBeVisible();
+    const detailedReportHref = await detailedReportLink.getAttribute("href");
+
+    const resultsViewAllHref = await page.getByRole("link", { name: /^view all$/i }).last().getAttribute("href");
+
+    await followHrefTarget(page, attemptTimelineHref, /\/app\/attempts(?:\?.*)?$/);
+    await followHrefTarget(page, walletHref, /\/app\/wallet(?:\?.*)?$/);
+    await followHrefTarget(
       page,
-      primaryRecommendationAction,
+      primaryRecommendationHref,
       /\/app\/(attempts\/[^/?#]+(?:\/summary)?|results|exams\/[^/?#]+)(?:\?.*)?$/,
     );
-
-    await gotoWithRuntimeRecovery(page, "/app/dashboard");
-    await expect(page.locator(".studentDashboardExamGrid").nth(1)).toBeVisible();
-    await followLinkTarget(
-      page,
-      page.getByRole("link", { name: /^view all$/i }).first(),
-      /\/app\/exams(?:\?.*)?$/,
-    );
-
-    await gotoWithRuntimeRecovery(page, "/app/dashboard");
-    await expect(page.getByRole("link", { name: /open reports hub/i }).first()).toBeVisible();
-    await followLinkTarget(
-      page,
-      page.getByRole("link", { name: /open reports hub/i }).first(),
-      /\/app\/reports(?:\?.*)?$/,
-    );
-
-    await gotoWithRuntimeRecovery(page, "/app/dashboard");
-    await expect(page.getByRole("link", { name: /view detailed report/i }).first()).toBeVisible();
-    await followLinkTarget(
-      page,
-      page.getByRole("link", { name: /view detailed report/i }).first(),
-      /\/app\/analytics(?:\?.*)?$/,
-    );
-
-    await gotoWithRuntimeRecovery(page, "/app/dashboard");
-    await expect(page.getByRole("link", { name: /^view all$/i }).last()).toBeVisible();
-    await followLinkTarget(
-      page,
-      page.getByRole("link", { name: /^view all$/i }).last(),
-      /\/app\/results(?:\?.*)?$/,
-    );
+    await followHrefTarget(page, examsViewAllHref, /\/app\/exams(?:\?.*)?$/);
+    await followHrefTarget(page, reportsHubHref, /\/app\/reports(?:\?.*)?$/);
+    await followHrefTarget(page, detailedReportHref, /\/app\/analytics(?:\?.*)?$/);
+    await followHrefTarget(page, resultsViewAllHref, /\/app\/results(?:\?.*)?$/);
   });
 });

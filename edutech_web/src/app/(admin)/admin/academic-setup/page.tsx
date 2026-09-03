@@ -13,7 +13,7 @@ import {
   type TopicRecord,
 } from "@/components/admin/academic-setup-workspace";
 import { type TeacherAssignmentRecord, type TeacherRecord } from "@/components/admin/teacher-assignment-workspace";
-import { fetchPortalCount, fetchPortalList, fetchPortalListAll, fetchPortalRecord } from "@/lib/api/portal";
+import { fetchPortalCount, fetchPortalListAll, fetchPortalRecord } from "@/lib/api/portal";
 import { requirePlatformAdminSession } from "@/lib/auth/session";
 import { groupTeacherOptionCatalog } from "@/lib/teacher/option-catalog";
 
@@ -166,7 +166,8 @@ export default async function AdminAcademicSetupPage({
   const assignmentsPath = `/api/v1/teachers/assignments/${teacherQuery}`;
   const studentCountPath = selectedInstituteId ? `/api/v1/students/?institute=${selectedInstituteId}` : "/api/v1/students/";
   const teacherCountPath = selectedInstituteId ? `/api/v1/teachers/?institute=${selectedInstituteId}` : "/api/v1/teachers/";
-  const needsAcademicYears = activeSection === "academic-years" || activeSection === "teacher-assignments";
+  const needsAcademicYears =
+    activeSection === "academic-years" || activeSection === "cohorts" || activeSection === "teacher-assignments";
   const needsPrograms =
     activeSection === "programs" || activeSection === "cohorts" || activeSection === "subjects" || activeSection === "teacher-assignments";
   const needsCohorts = activeSection === "cohorts" || activeSection === "teacher-assignments";

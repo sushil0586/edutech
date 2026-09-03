@@ -2,7 +2,6 @@ import "server-only";
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { cache } from "react";
 
 const API_BASE_URL = (
   process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? ""
@@ -612,7 +611,7 @@ async function readAuthenticatedSession(): Promise<AuthenticatedSession | null> 
       accessToken,
       profile,
     };
-  } catch (error) {
+  } catch {
     const shouldUseSnapshot =
       sessionSnapshot &&
       sessionSnapshot.is_active;

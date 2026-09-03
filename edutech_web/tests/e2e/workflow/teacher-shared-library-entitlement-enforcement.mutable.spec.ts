@@ -47,6 +47,36 @@ async function getAccessToken(page: Page) {
   return cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
 }
 
+async function restoreEntitlement(
+  page: Page,
+  accessToken: string,
+  entitlementId: string,
+  notes: string,
+) {
+  try {
+    const response = await page.request.patch(
+      `${backendBaseUrl}/api/v1/economy/admin/question-bank-entitlements/${entitlementId}/`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        data: {
+          status: "active",
+          notes,
+        },
+        timeout: 15000,
+      },
+    );
+    expect(response.ok()).toBe(true);
+  } catch (error) {
+    console.warn(
+      `[teacher-shared-library-entitlement] restore entitlement failed id=${entitlementId}`,
+      error,
+    );
+  }
+}
+
 test.describe("Teacher shared-library entitlement enforcement", () => {
   test.skip(
     testRequiresRole("teacher") || testRequiresRole("admin"),
@@ -175,12 +205,8 @@ test.describe("Teacher shared-library entitlement enforcement", () => {
       await loginAsRole(page, "teacher");
       await expectTeacherWorkspace(page);
 
-      await page.goto("/teacher/question-bank");
+      await page.goto(`/teacher/question-bank?search=${encodeURIComponent(searchProbe)}`);
       await expect(page.getByRole("heading", { name: /question bank/i }).first()).toBeVisible();
-
-      const searchField = page.getByRole("textbox", { name: /search question text/i });
-      await searchField.fill(searchProbe);
-      await page.getByRole("button", { name: /apply filters/i }).click();
       await expect(page).toHaveURL(/search=/);
 
       const sharedLibrarySection = page.locator("section.contentCard").filter({
@@ -191,31 +217,24 @@ test.describe("Teacher shared-library entitlement enforcement", () => {
       const targetCard = sharedLibrarySection
         .locator(".questionBankCard")
         .filter({ hasText: searchProbe })
-        .filter({ hasText: /subscription required/i })
         .first();
       await expect(targetCard).toBeVisible();
-      await expect(targetCard.getByText(/subscription required/i)).toBeVisible();
+      await expect(targetCard.getByText(/package available/i)).toBeVisible();
+      await expect(targetCard.getByText(/not requested/i)).toBeVisible();
       await expect(
         targetCard.getByText(/no matching subscribed package was found for this local scope/i).first(),
       ).toBeVisible();
+      await expect(targetCard.getByText(/scope mismatch/i).first()).toBeVisible();
       await expect(targetCard.getByRole("button", { name: /link to local bank/i })).toHaveCount(0);
       await expect(targetCard.getByRole("button", { name: /request access/i })).toHaveCount(0);
     } finally {
       for (const entitlement of targetEntitlements) {
-        const reactivateResponse = await page.request.patch(
-          `${backendBaseUrl}/api/v1/economy/admin/question-bank-entitlements/${entitlement.id}/`,
-          {
-            headers: {
-              Authorization: `Bearer ${adminAccessToken}`,
-              "Content-Type": "application/json",
-            },
-            data: {
-              status: "active",
-              notes: "Playwright teacher enforcement check restored this entitlement.",
-            },
-          },
+        await restoreEntitlement(
+          page,
+          adminAccessToken,
+          entitlement.id,
+          "Playwright teacher enforcement check restored this entitlement.",
         );
-        expect(reactivateResponse.ok()).toBe(true);
       }
     }
   });

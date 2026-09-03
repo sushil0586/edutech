@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
 import { expectTeacherWorkspace } from "../helpers/navigation";
@@ -254,7 +254,6 @@ test.describe("Teacher mutable comprehension actions", () => {
       await page.goto("/teacher/question-bank/new");
       await expect(page.getByRole("heading", { name: /create question/i }).first()).toBeVisible();
 
-      const programSelect = page.locator('select[name="program"]');
       const subjectSelect = page.locator('select[name="subject"]');
       const topicSelect = page.locator('select[name="topic"]');
       const passageSelect = page.locator('select[name="passage"]');

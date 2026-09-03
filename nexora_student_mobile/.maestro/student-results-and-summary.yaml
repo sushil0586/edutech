@@ -1,23 +1,67 @@
-appId: com.anonymous.nexorastudentmobile
+appId: ${MAESTRO_APP_ID}
 ---
+# Set these before running:
+# STUDENT_USERNAME
+# STUDENT_PASSWORD
+
 - launchApp:
     clearState: true
 
+- runFlow:
+    when:
+      visible: "Student Dashboard"
+    commands:
+      - tapOn:
+          id: "student-tab-profile"
+      - extendedWaitUntil:
+          visible:
+            id: "profile-logout-button"
+          timeout: 30000
+      - tapOn:
+          id: "profile-logout-button"
+      - extendedWaitUntil:
+          visible:
+            id: "role-gate-login-button"
+          timeout: 30000
+
 - extendedWaitUntil:
-    visible: "Login"
+    visible:
+      id: "role-gate-login-button"
     timeout: 30000
 
-- tapOn: "Login"
 - tapOn:
-    text: "Username"
-- inputText: a001
+    id: "role-gate-login-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "login-username-input"
+    timeout: 30000
 
 - tapOn:
-    text: "Enter password"
-- inputText: Ansh@1789
+    id: "login-username-input"
+- inputText: ${STUDENT_USERNAME}
 
-- hideKeyboard
-- tapOn: "Login"
+- tapOn:
+    id: "login-password-input"
+- inputText: ${STUDENT_PASSWORD}
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn: "Sign in and continue learning"
+
+- scrollUntilVisible:
+    element:
+      id: "login-submit-button"
+    direction: DOWN
+
+- tapOn:
+    id: "login-submit-button"
 
 - extendedWaitUntil:
     visible: "Student Dashboard"
@@ -59,6 +103,7 @@ appId: com.anonymous.nexorastudentmobile
 
 - assertVisible: "Student Dashboard"
 
-- tapOn: "Attempts"
+- tapOn:
+    id: "student-tab-attempts"
 
 - assertVisible: "Student Attempts"

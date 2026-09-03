@@ -52,9 +52,12 @@ export class InstituteQuestionBankPage {
   }
 
   async search(query: string) {
+    const currentPathname = new URL(this.page.url()).pathname;
     await this.page.getByRole("textbox", { name: /search question text/i }).fill(query);
     await Promise.all([
-      this.page.waitForURL((url) => url.pathname === "/institute/question-bank" && url.searchParams.get("search") === query),
+      this.page.waitForURL(
+        (url) => url.pathname === currentPathname && url.searchParams.get("search") === query,
+      ),
       this.page.getByRole("button", { name: /update view/i }).click(),
     ]);
     await this.page.waitForLoadState("networkidle");
@@ -84,6 +87,13 @@ export class InstituteQuestionBankPage {
 
     expect(subjectOptionValue).toBeTruthy();
     await subjectSelect.selectOption(subjectOptionValue);
+  }
+
+  async applyFiltersIfPresent() {
+    const applyFiltersButton = this.page.getByRole("button", { name: /apply filters|update view/i });
+    if (await applyFiltersButton.count()) {
+      await applyFiltersButton.first().click();
+    }
   }
 
   async openLinkedLane() {

@@ -216,6 +216,9 @@ def institute_has_question_authoring_access(institute, *, question):
     if master_question is None:
         return True
 
+    if getattr(master_question, "source_institute_id", None) == getattr(institute, "id", None):
+        return True
+
     if getattr(master_question, "source_type", "") != MasterQuestionSourceType.PLATFORM:
         return True
 

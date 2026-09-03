@@ -69,7 +69,7 @@ export default function () {
     fail(`Could not resolve attempt id for ${user.username}.`);
   }
 
-  const detailResponse = getJson(`${baseUrl}/api/v1/attempts/${attemptId}/`, accessToken);
+  const detailResponse = getJson(`${baseUrl}/api/v1/attempts/${attemptId}/detail/`, accessToken);
   check(detailResponse, {
     "attempt detail status is 200": (res) => res.status === 200,
   }) || fail(`Attempt detail failed for ${user.username}.`);
@@ -80,8 +80,42 @@ export default function () {
     fail(`No answerable option-based questions found for attempt ${attemptId}.`);
   }
 
+  const sectionStates = Array.isArray(detail?.section_runtime?.section_states)
+    ? detail.section_runtime.section_states
+    : [];
+  const sectionIdByName = new Map(
+    sectionStates
+      .filter((state) => state?.section_name && state?.section_id)
+      .map((state) => [state.section_name, state.section_id]),
+  );
+  let currentSectionName = detail?.section_runtime?.current_section_name || null;
+
   for (let index = 0; index < questions.length; index += 1) {
-    const payload = buildSingleChoicePayload(questions[index], index);
+    const question = questions[index];
+    const targetSectionName = question?.section_name || null;
+    const targetSectionId = targetSectionName ? sectionIdByName.get(targetSectionName) : null;
+
+    if (
+      targetSectionId &&
+      currentSectionName &&
+      targetSectionName !== currentSectionName
+    ) {
+      const switchResponse = postJson(
+        `${baseUrl}/api/v1/attempts/${attemptId}/switch-section/`,
+        { section: targetSectionId },
+        accessToken,
+      );
+
+      check(switchResponse, {
+        "switch section status is 200": (res) => res.status === 200,
+      }) || fail(
+        `Switch section failed for ${user.username} from ${currentSectionName} to ${targetSectionName}.`,
+      );
+
+      currentSectionName = targetSectionName;
+    }
+
+    const payload = buildSingleChoicePayload(question, index);
     if (!payload) {
       continue;
     }

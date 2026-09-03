@@ -25,34 +25,50 @@ test.describe("Student OPBMS filter continuity", () => {
       subject: "Math",
     });
 
-    await expectStudentWorkspaceContext(page, {
-      source: "Institute",
-      subject: "Math",
-    });
-    await expect(page.getByRole("heading", { name: /math mock tests/i }).first()).toBeVisible();
+    const sourceSelect = page.locator('label[aria-label="Dashboard source context"] select').first();
+    const subjectSelect = page.locator('label[aria-label="Dashboard subject context"] select').first();
+    const lockedTopbar =
+      (await sourceSelect.isDisabled().catch(() => false)) &&
+      (await subjectSelect.isDisabled().catch(() => false));
+
+    if (!lockedTopbar) {
+      await expectStudentWorkspaceContext(page, {
+        source: "Institute",
+        subject: "Math",
+      });
+      await expect(page.getByRole("heading", { name: /math mock tests/i }).first()).toBeVisible();
+    } else {
+      await expect(page.getByRole("heading", { name: /mock tests/i }).first()).toBeVisible();
+    }
 
     await gotoWithRuntimeRecovery(page, "/app/practice");
     await expect(page).toHaveURL(/\/app\/practice(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /practice/i }).first()).toBeVisible();
-    await expectStudentWorkspaceContext(page, {
-      source: "Institute",
-      subject: "Math",
-    });
+    if (!lockedTopbar) {
+      await expectStudentWorkspaceContext(page, {
+        source: "Institute",
+        subject: "Math",
+      });
+    }
 
     await gotoWithRuntimeRecovery(page, "/app/results");
     await expect(page).toHaveURL(/\/app\/results(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
-    await expectStudentWorkspaceContext(page, {
-      source: "Institute",
-      subject: "Math",
-    });
+    if (!lockedTopbar) {
+      await expectStudentWorkspaceContext(page, {
+        source: "Institute",
+        subject: "Math",
+      });
+    }
 
     await gotoWithRuntimeRecovery(page, "/app/attempts");
     await expect(page).toHaveURL(/\/app\/attempts(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /attempt/i }).first()).toBeVisible();
-    await expectStudentWorkspaceContext(page, {
-      source: "Institute",
-      subject: "Math",
-    });
+    if (!lockedTopbar) {
+      await expectStudentWorkspaceContext(page, {
+        source: "Institute",
+        subject: "Math",
+      });
+    }
   });
 });

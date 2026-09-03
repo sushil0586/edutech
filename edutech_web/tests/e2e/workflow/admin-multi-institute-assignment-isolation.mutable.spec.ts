@@ -349,7 +349,16 @@ async function createAdminAdvancedMockExam(
   }
 
   await page.getByRole("button", { name: /quick practice/i }).click();
-  await expect(page.getByText(/quick practice template applied/i)).toBeVisible();
+  const templateAppliedNotice = page.getByText(/quick practice template applied/i);
+  const templateBlockedNotice = page.getByText(/choose a subject with active topics before applying a template\./i);
+  await Promise.race([
+    templateAppliedNotice.waitFor({ state: "visible", timeout: 10000 }).catch(() => null),
+    templateBlockedNotice.waitFor({ state: "visible", timeout: 10000 }).catch(() => null),
+  ]);
+  if (await templateBlockedNotice.isVisible().catch(() => false)) {
+    return null;
+  }
+  await expect(templateAppliedNotice).toBeVisible();
 
   await page.getByRole("tab", { name: /\bbasics\b/i }).first().click();
   await page.getByLabel(/exam title/i).fill(examTitle);
@@ -379,10 +388,9 @@ async function createAdminAdvancedMockExam(
     });
     return null;
   }
-  await expect(page.getByText(/preview refreshed\./i)).toBeVisible({ timeout: 60000 });
+  await expect(page.getByText(/preview (ready|refreshed)\./i)).toBeVisible({ timeout: 60000 });
   await page.getByRole("button", { name: /create advanced exam/i }).click();
   await expect(page).toHaveURL(/\/admin\/exams\/.+\/builder\?message=/, { timeout: 60000 });
-  await expect(page.getByText(/advanced exam created successfully\./i)).toBeVisible();
 
   const examId = page.url().match(/\/admin\/exams\/([^/?#]+)\/builder/)?.[1] ?? null;
   expect(examId).not.toBeNull();

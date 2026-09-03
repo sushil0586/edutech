@@ -309,7 +309,7 @@ test.describe("Teacher and institute shared-library role difference", () => {
         response.request().method() === "GET" &&
         response.url().includes("search="),
     );
-    await page.getByRole("button", { name: /apply filters/i }).click();
+    await page.getByRole("button", { name: /update view/i }).click();
     expect((await teacherLibraryLoad).ok()).toBe(true);
     await expect(page).toHaveURL(/search=/);
     await expect(teacherLibrarySection.locator(".questionBankCard").filter({ hasText: teacherProbe }).first()).toBeVisible();

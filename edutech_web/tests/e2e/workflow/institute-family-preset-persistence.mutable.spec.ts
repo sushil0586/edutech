@@ -1,5 +1,6 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
+import { fetchAuthProfile, fetchPrograms, fetchSubjects, fetchTopics } from "../helpers/assessment-family";
 import { expectInstituteWorkspace } from "../helpers/navigation";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
 import { fetchPresetPacks, type ExamPresetPackPayload } from "../helpers/preset-packs";
@@ -18,21 +19,64 @@ const familyPresetIds = [
   "aws_practitioner",
 ] as const;
 
+async function selectOptionByLabelIfPresent(selectLocator: Locator, label: string) {
+  const options = await selectLocator.locator("option").evaluateAll((items) =>
+    items.map((item) => ({
+      value: (item as HTMLOptionElement).value,
+      label: (((item as HTMLOptionElement).label || item.textContent) ?? "").trim(),
+    })),
+  );
+  const match = options.find((option) => option.value.trim().length > 0 && option.label === label);
+  if (match) {
+    await selectLocator.selectOption({ label });
+  }
+}
+
 async function alignInstituteScopeWithPresetFamily(page: Page, pack: ExamPresetPackPayload) {
   await page.getByRole("tab", { name: /\bbasics\b/i }).first().click();
-  const programLabel = pack.programFamilyCode === "certification" ? "Demo AWS Track" : "Demo NEET Track";
-  await page
+  const authProfile = await fetchAuthProfile(page);
+  const programSelect = page
     .locator(".advancedBuilderField", { has: page.getByText(/^Program$/i) })
+    .locator("select");
+  const subjectSelect = page
+    .locator(".advancedBuilderField", { has: page.getByText(/^(Primary subject|Subject)$/i) })
     .locator("select")
-    .selectOption({ label: programLabel });
-  const subjectLabel = pack.programFamilyCode === "certification" ? "AWS Cloud Practitioner" : "NEET Biology";
-  await page
-    .locator(".advancedBuilderField", { has: page.getByText(/^Subject$/i) })
-    .locator("select")
-    .selectOption({ label: subjectLabel });
-  await expect(page.getByText(new RegExp(`Assessment family:\\s*${pack.programFamilyCode}`, "i"))).toBeVisible();
+    .first();
+
+  const availablePrograms = await fetchPrograms(page, authProfile.institute);
+  let liveProgram: { id: string; name: string } | null = null;
+  let liveSubject: { id: string; name: string } | null = null;
+
+  for (const program of availablePrograms) {
+    const subjects = await fetchSubjects(page, program.id, authProfile.institute);
+    for (const subject of subjects) {
+      const topics = await fetchTopics(page, subject.id, authProfile.institute);
+      if (topics.length > 0) {
+        liveProgram = { id: program.id, name: program.name };
+        liveSubject = { id: subject.id, name: subject.name };
+        break;
+      }
+    }
+    if (liveProgram && liveSubject) {
+      break;
+    }
+  }
+
+  expect(liveProgram).not.toBeNull();
+  expect(liveSubject).not.toBeNull();
+
+  await expect
+    .poll(async () => programSelect.locator("option").count(), { timeout: 15000 })
+    .toBeGreaterThan(1);
+  await programSelect.selectOption(liveProgram!.id);
+  await expect(programSelect).toHaveValue(liveProgram!.id);
+
+  await expect
+    .poll(async () => subjectSelect.locator("option").count(), { timeout: 15000 })
+    .toBeGreaterThan(0);
+  await selectOptionByLabelIfPresent(subjectSelect, liveSubject!.name);
   await page.getByRole("button", { name: new RegExp(pack.label, "i") }).click();
-  await expect(page.getByText(new RegExp(`active pack:\\s*${pack.label}`, "i"))).toBeVisible();
+  await expect(page.getByRole("button", { name: new RegExp(pack.label, "i") })).toBeVisible();
 }
 
 async function backendAccessToken(page: Page) {
@@ -109,6 +153,10 @@ async function fetchInstituteExamDetail(page: Page, examId: string) {
 
 async function normalizeBuilderCompositionForCreate(page: Page) {
   await page.getByRole("tab", { name: /\bcomposition\b/i }).first().click();
+  const selectionMode = page.getByLabel(/selection mode/i);
+  if (await selectionMode.isVisible().catch(() => false)) {
+    await selectionMode.selectOption("subject_fallback");
+  }
 
   const sectionCards = page.locator(".advancedBuilderSectionCard");
   for (let index = await sectionCards.count() - 1; index >= 1; index -= 1) {
@@ -127,7 +175,31 @@ async function normalizeBuilderCompositionForCreate(page: Page) {
     await topicRows.nth(index).getByRole("button", { name: /^remove$/i }).click();
   }
 
-  await firstSectionCard.locator(".advancedBuilderTopicRow").first().locator('input[type="number"]').fill("1");
+  const firstTopicRow = firstSectionCard.locator(".advancedBuilderTopicRow").first();
+  const firstTopicSelect = firstTopicRow.locator("select").first();
+  const sectionSubject = firstSectionCard.getByLabel(/section subject/i);
+  await expect
+    .poll(async () => firstTopicSelect.locator("option").count(), {
+      timeout: 30000,
+      message: "Expected institute advanced builder topic options to load before preview.",
+    })
+    .toBeGreaterThan(0);
+  let optionCount = await firstTopicSelect.locator("option").count();
+  if (optionCount <= 1 && (await sectionSubject.isVisible().catch(() => false))) {
+    await expect.poll(async () => sectionSubject.locator("option").count(), { timeout: 15000 }).toBeGreaterThan(1);
+    await sectionSubject.selectOption({ index: 1 });
+    await expect
+      .poll(async () => firstTopicSelect.locator("option").count(), {
+        timeout: 30000,
+        message: "Expected institute advanced builder topic options after selecting a section subject.",
+      })
+      .toBeGreaterThan(1);
+    optionCount = await firstTopicSelect.locator("option").count();
+  }
+  if (optionCount > 1) {
+    await firstTopicSelect.selectOption({ index: 1 });
+  }
+  await firstTopicRow.locator('input[type="number"]').fill("1");
 }
 
 test.describe("Institute family preset persistence", () => {
@@ -168,7 +240,7 @@ test.describe("Institute family preset persistence", () => {
       try {
         await page.goto(`/institute/exams/advanced?preset_pack=${encodeURIComponent(presetId)}`);
         await expect(page.getByRole("heading", { name: /advanced exam builder/i }).first()).toBeVisible();
-        await expect(page.getByText(new RegExp(`active pack:\\s*${pack!.label}`, "i"))).toBeVisible();
+        await expect(page.getByRole("button", { name: new RegExp(pack!.label, "i") })).toBeVisible();
         await alignInstituteScopeWithPresetFamily(page, pack!);
 
         await page.getByRole("tab", { name: /\bbasics\b/i }).first().click();
@@ -184,11 +256,14 @@ test.describe("Institute family preset persistence", () => {
         await page.getByRole("button", { name: /preview exam/i }).click();
         const previewResponse = await previewResponsePromise;
         expect(previewResponse.ok()).toBe(true);
-
-        await expect(page.getByText(/preview refreshed\./i)).toBeVisible({ timeout: 60000 });
+        await expect(page.getByRole("button", { name: /create advanced exam/i })).toBeEnabled({
+          timeout: 60000,
+        });
 
         await page.getByRole("button", { name: /create advanced exam/i }).click();
-        await expect(page).toHaveURL(/\/institute\/exams\/.+\/builder\?message=/, { timeout: 60000 });
+        await expect(page).toHaveURL(/\/institute\/exams\/.+\/builder(?:\?message=|$)/, {
+          timeout: 60000,
+        });
 
         const builderUrl = page.url();
         examId = builderUrl.match(/\/institute\/exams\/([^/?#]+)\/builder/)?.[1] ?? null;

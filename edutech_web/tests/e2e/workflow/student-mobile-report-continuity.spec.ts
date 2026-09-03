@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectStudentWorkspace } from "../helpers/navigation";
 import { gotoWithRuntimeRecovery } from "../helpers/runtime";

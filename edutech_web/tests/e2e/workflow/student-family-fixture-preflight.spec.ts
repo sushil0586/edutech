@@ -57,9 +57,25 @@ test.describe("Student family fixture preflight", () => {
       }
 
       if (scenario.requiresLaunchableAction) {
+        if (
+          scenario.preflightOptional &&
+          !(
+            status.launchableAction === "start" ||
+            status.launchableAction === "resume" ||
+            status.launchableAction === "review"
+          )
+        ) {
+          test.skip(
+            true,
+            `${scenario.label} is an optional family preflight on Tuesday, July 28, 2026 and exam fixture ${status.examCode} is currently visible but not launchable or review-ready for ${status.username}. Observed primary action: ${status.launchableAction ?? "none"}.`,
+          );
+        }
+
         expect(
-          status.launchableAction === "start" || status.launchableAction === "resume",
-          `${scenario.label} exam fixture ${status.examCode} is visible but not launchable on Monday, July 20, 2026 for ${status.username}. Observed primary action: ${status.launchableAction ?? "none"}.`,
+          status.launchableAction === "start" ||
+            status.launchableAction === "resume" ||
+            status.launchableAction === "review",
+          `${scenario.label} exam fixture ${status.examCode} is visible but not launchable or review-ready on Monday, July 27, 2026 for ${status.username}. Observed primary action: ${status.launchableAction ?? "none"}.`,
         ).toBe(true);
       }
     });

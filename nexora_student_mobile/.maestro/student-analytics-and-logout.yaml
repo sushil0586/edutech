@@ -1,4 +1,4 @@
-appId: com.anonymous.nexorastudentmobile
+appId: ${MAESTRO_APP_ID}
 ---
 # Set these before running:
 # STUDENT_USERNAME
@@ -12,44 +12,88 @@ appId: com.anonymous.nexorastudentmobile
 - launchApp:
     clearState: true
 
+- runFlow:
+    when:
+      visible: "Student Dashboard"
+    commands:
+      - tapOn:
+          id: "student-tab-profile"
+      - extendedWaitUntil:
+          visible:
+            id: "profile-logout-button"
+          timeout: 30000
+      - tapOn:
+          id: "profile-logout-button"
+      - extendedWaitUntil:
+          visible:
+            id: "role-gate-login-button"
+          timeout: 30000
+
+- tapOn:
+    id: "role-gate-login-button"
+
 - extendedWaitUntil:
-    visible: "Login"
+    visible:
+      id: "login-username-input"
     timeout: 30000
 
-- tapOn: "Login"
 - tapOn:
-    text: "Username"
+    id: "login-username-input"
 - inputText: ${STUDENT_USERNAME}
 
 - tapOn:
-    text: "Enter password"
+    id: "login-password-input"
 - inputText: ${STUDENT_PASSWORD}
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn: "Sign in and continue learning"
 
-- hideKeyboard
-- tapOn: "Login"
+- scrollUntilVisible:
+    element:
+      id: "login-submit-button"
+    direction: DOWN
+
+- tapOn:
+    id: "login-submit-button"
 
 - extendedWaitUntil:
     visible: "Student Dashboard"
     timeout: 30000
 
-- tapOn: "Insights"
+- tapOn:
+    id: "student-tab-analytics"
+
+- extendedWaitUntil:
+    visible:
+      id: "analytics-open-results-button"
+    timeout: 30000
 
 - assertVisible: "Student Analytics"
 - assertVisible: "Understand progress without overload"
 - assertVisible: "Next action"
 
-- tapOn: "Open Results"
+- tapOn:
+    id: "analytics-open-results-button"
 
 - assertVisible: "Student Results"
 
-- tapOn: "Profile"
+- tapOn:
+    id: "student-tab-profile"
 
 - assertVisible: "Student Profile"
 - assertVisible: "Account details"
 - assertVisible: "Open Dashboard"
 - assertVisible: "Logout"
 
-- tapOn: "Logout"
+- tapOn:
+    id: "profile-logout-button"
 
 - extendedWaitUntil:
     visible: "No active mobile session yet"

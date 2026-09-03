@@ -49,7 +49,11 @@ export default function RoleGateScreen() {
             Sign out here and continue with a student account, or use the web platform for this role until the mobile lane is implemented.
           </Text>
           <View style={appStyles.rowWrap}>
-            <ActionButton label="Open Login" onPress={() => router.replace("/(auth)/login")} />
+            <ActionButton
+              label="Open Login"
+              onPress={() => router.replace("/(auth)/login")}
+              testID="role-gate-open-login-button"
+            />
           </View>
         </SectionBlock>
       </ScreenShell>
@@ -89,8 +93,17 @@ export default function RoleGateScreen() {
       >
         <Text style={appStyles.body}>Continue with register or login to enter the student lane.</Text>
         <View style={appStyles.rowWrap}>
-          <ActionButton label="Login" onPress={() => router.push("/(auth)/login")} />
-          <ActionButton label="Register" tone="secondary" onPress={() => router.push("/(auth)/register")} />
+          <ActionButton
+            label="Login"
+            onPress={() => router.push("/(auth)/login")}
+            testID="role-gate-login-button"
+          />
+          <ActionButton
+            label="Register"
+            tone="secondary"
+            onPress={() => router.push("/(auth)/register")}
+            testID="role-gate-register-button"
+          />
         </View>
       </SectionBlock>
     </ScreenShell>

@@ -11,7 +11,7 @@ test.describe("Admin question-bank operator visibility", () => {
 
     await page.goto("/admin/economy?tab=question-bank");
     await page.getByRole("combobox", { name: /economy subsection|subsection/i }).selectOption("Visibility");
-    await page.getByRole("button", { name: /apply filters/i }).click();
+    await page.getByRole("button", { name: /update view/i }).click();
     const visibilityCard = page
       .locator("article.dashboardPanel")
       .filter({

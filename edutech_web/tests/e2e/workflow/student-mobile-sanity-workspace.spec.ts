@@ -31,6 +31,29 @@ async function expectOneOfVisible(page: Page, selectors: Array<ReturnType<Page["
   throw new Error("Expected at least one mobile workspace selector to be visible.");
 }
 
+async function openMobileStudentNav(page: Page) {
+  const mobileNavToggle = page.getByRole("button", { name: /menu/i });
+  const mobileNav = page.locator("#mobile-workspace-menu");
+  await expect(mobileNavToggle).toBeVisible();
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await mobileNavToggle.click();
+    const navVisible = await page
+      .getByRole("navigation", { name: /student navigation/i })
+      .isVisible()
+      .catch(() => false);
+    const panelVisible = await mobileNav.isVisible().catch(() => false);
+    if (navVisible && panelVisible) {
+      return mobileNav;
+    }
+    await page.waitForTimeout(250);
+  }
+
+  await expect(page.getByRole("navigation", { name: /student navigation/i })).toBeVisible();
+  await expect(mobileNav).toBeVisible();
+  return mobileNav;
+}
+
 test.describe("Student mobile workspace sanity", () => {
   test.skip(testRequiresRole("student"), "Student Playwright credentials are not configured.");
 
@@ -49,11 +72,7 @@ test.describe("Student mobile workspace sanity", () => {
     await expect(page.getByText(/study queue|action queue/i).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /open attempt timeline/i }).first()).toBeVisible();
 
-    const mobileNavToggle = page.getByRole("button", { name: /menu/i });
-    const mobileNav = page.locator("#mobile-workspace-menu");
-
-    await mobileNavToggle.click();
-    await expect(page.getByRole("navigation", { name: /student navigation/i })).toBeVisible();
+    const mobileNav = await openMobileStudentNav(page);
     await expect(mobileNav.getByRole("link", { name: /^tests$/i })).toBeVisible();
     await expect(mobileNav.getByRole("link", { name: /^results$/i })).toBeVisible();
     await expect(mobileNav.getByRole("link", { name: /^analytics$/i })).toBeVisible();
@@ -63,39 +82,39 @@ test.describe("Student mobile workspace sanity", () => {
     await expect(page).toHaveURL(/\/app\/exams(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /mock tests/i }).first()).toBeVisible();
 
-    await page.getByRole("button", { name: /menu/i }).click();
-    await mobileNav.getByRole("link", { name: /^results$/i }).click();
+    const reopenedResultsNav = await openMobileStudentNav(page);
+    await reopenedResultsNav.getByRole("link", { name: /^results$/i }).click();
     await expect(page).toHaveURL(/\/app\/results(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
     await expect(
       page.locator(".studentWorkspaceFiltersCard, .studentResultsTableRow, .studentResultSurface").first(),
     ).toBeVisible();
 
-    await page.getByRole("button", { name: /menu/i }).click();
-    await mobileNav.getByRole("link", { name: /^analytics$/i }).click();
+    const reopenedAnalyticsNav = await openMobileStudentNav(page);
+    await reopenedAnalyticsNav.getByRole("link", { name: /^analytics$/i }).click();
     await expect(page).toHaveURL(/\/app\/analytics(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /analytics/i }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /open action center|action center/i }).first()).toBeVisible();
 
-    await page.getByRole("button", { name: /menu/i }).click();
-    await mobileNav.getByRole("link", { name: /^reports$/i }).click();
+    const reopenedReportsNav = await openMobileStudentNav(page);
+    await reopenedReportsNav.getByRole("link", { name: /^reports$/i }).click();
     await expect(page).toHaveURL(/\/app\/reports(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /reports hub|downloadable reports center/i }).first()).toBeVisible();
 
-    await page.getByRole("button", { name: /menu/i }).click();
-    await mobileNav.getByRole("link", { name: /^profile$/i }).click();
+    const reopenedProfileNav = await openMobileStudentNav(page);
+    await reopenedProfileNav.getByRole("link", { name: /^profile$/i }).click();
     await expect(page).toHaveURL(/\/app\/profile(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /profile/i }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /settings/i }).first()).toBeVisible();
 
-    await page.getByRole("button", { name: /menu/i }).click();
-    await mobileNav.getByRole("link", { name: /^dashboard$/i }).click();
+    const reopenedDashboardNav = await openMobileStudentNav(page);
+    await reopenedDashboardNav.getByRole("link", { name: /^dashboard$/i }).click();
     await expect(page).toHaveURL(/\/app\/dashboard(?:\?.*)?$/);
     await expect(
       page.getByText(/study queue|action queue|browse tests|resume test|start test/i).first(),
     ).toBeVisible();
 
-    await page.getByRole("button", { name: /menu/i }).click();
+    await openMobileStudentNav(page);
     await expect(page.getByRole("button", { name: /close/i })).toBeVisible();
     await page.getByRole("button", { name: /close/i }).click();
     await expect(page.getByRole("navigation", { name: /student navigation/i })).toBeHidden();
@@ -146,7 +165,7 @@ test.describe("Student mobile workspace sanity", () => {
       await expect(
         page
           .getByRole("link", {
-            name: /resume attempt|open summary|open result status|view details|practice again|open practice/i,
+            name: /resume attempt|check attempt status|check result status|open summary|open result status|view details|open practice/i,
           })
           .first(),
       ).toBeVisible();

@@ -34,6 +34,10 @@ function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function finalizeImportButtonName(validRowCount: number) {
+  return new RegExp(`(?:finalize import|import valid rows) \\(${validRowCount}\\)`, "i");
+}
+
 async function getAccessToken(page: Page) {
   const cookies = await page.context().cookies();
   return cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
@@ -191,12 +195,15 @@ test.describe("Teacher mutable comprehension import finalize lane", () => {
       await page.getByRole("button", { name: /preview import/i }).click();
 
       await expect(page.getByText(/preview results/i).first()).toBeVisible();
-      await expect(page.getByRole("button", { name: /finalize import \(1\)/i })).toBeVisible();
+      const finalizeImportButton = page.getByRole("button", {
+        name: finalizeImportButtonName(1),
+      });
+      await expect(finalizeImportButton).toBeVisible();
       await expect(page.locator(".builderSummaryCard").filter({ has: page.getByText(/^preview valid rows$/i) }).locator("strong")).toHaveText("1");
       await expect(page.locator(".builderSummaryCard").filter({ has: page.getByText(/^preview invalid rows$/i) }).locator("strong")).toHaveText("0");
       await expect(page.getByText(new RegExp(escapeRegExp(title), "i")).first()).toBeVisible();
 
-      await page.getByRole("button", { name: /finalize import \(1\)/i }).click();
+      await finalizeImportButton.click();
 
       await expect(
         page.getByText(/1 comprehension set\(s\) were imported into the question bank\./i).first(),

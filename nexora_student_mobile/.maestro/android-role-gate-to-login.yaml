@@ -1,0 +1,23 @@
+appId: ${MAESTRO_APP_ID}
+---
+# Android-only transition smoke:
+# verifies the role-gate CTA can open the login form reliably.
+
+- launchApp:
+    clearState: true
+
+- extendedWaitUntil:
+    visible:
+      id: "role-gate-login-button"
+    timeout: 30000
+
+- tapOn:
+    id: "role-gate-login-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "login-username-input"
+    timeout: 30000
+
+- assertVisible:
+    id: "login-password-input"

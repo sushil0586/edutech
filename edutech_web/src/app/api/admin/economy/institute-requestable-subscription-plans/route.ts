@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getAuthenticatedSession, hasRequiredRole } from "@/lib/auth/session";
 
 const API_BASE_URL = (
   process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? ""
 ).replace(/\/$/, "");
 
-export async function GET(_request: NextRequest) {
+export async function GET() {
   if (!API_BASE_URL) {
     return NextResponse.json(
       { detail: "Portal API is not configured." },

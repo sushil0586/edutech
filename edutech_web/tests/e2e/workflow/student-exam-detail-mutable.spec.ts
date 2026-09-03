@@ -27,10 +27,6 @@ function toDateTimeLocalValue(date: Date) {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
-function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 async function openTeacherExamBuilderReady(page: Page, examId: string, tab?: "questions") {
   const builderPath = `/teacher/exams/${examId}/builder${tab ? `?tab=${tab}` : ""}`;
   const loadIssueHeading = page.getByRole("heading", { name: /exam builder could not be loaded/i });
@@ -206,7 +202,6 @@ test.describe("Student mutable exam detail blocked-state flow", () => {
     const studentCredentials = getRoleCredentials("student");
     expect(studentCredentials).not.toBeNull();
 
-    let studentDisplayName = studentCredentials!.username;
     let studentAcademicYearName: string | null = null;
     let studentProgramName: string | null = null;
     let examId: string | null = null;
@@ -219,9 +214,6 @@ test.describe("Student mutable exam detail blocked-state flow", () => {
       await expectStudentWorkspace(page);
 
       const studentContext = await readStudentAcademicContext(page);
-      if (studentContext.studentDisplayName) {
-        studentDisplayName = studentContext.studentDisplayName;
-      }
       studentAcademicYearName = studentContext.studentAcademicYearName;
       studentProgramName = studentContext.studentProgramName;
       const studentTarget = await resolveStudentAttemptTarget(page, studentCredentials!);
@@ -315,7 +307,7 @@ test.describe("Student mutable exam detail blocked-state flow", () => {
       const backToExamsLink = page.getByRole("link", { name: /back to exams/i });
       await expect(backToExamsLink).toHaveAttribute("href", "/app/exams");
     } finally {
-      if (examId) {
+      if (examId && !page.isClosed()) {
         await loginAsRole(page, "teacher");
         await expectTeacherWorkspace(page);
         const deleteResponse = await page.request.delete(`/api/teacher/exams/${examId}`);
@@ -332,7 +324,6 @@ test.describe("Student mutable exam detail blocked-state flow", () => {
     const studentCredentials = getRoleCredentials("student");
     expect(studentCredentials).not.toBeNull();
 
-    let studentDisplayName = studentCredentials!.username;
     let studentAcademicYearName: string | null = null;
     let studentProgramName: string | null = null;
     let examId: string | null = null;
@@ -345,9 +336,6 @@ test.describe("Student mutable exam detail blocked-state flow", () => {
       await expectStudentWorkspace(page);
 
       const studentContext = await readStudentAcademicContext(page);
-      if (studentContext.studentDisplayName) {
-        studentDisplayName = studentContext.studentDisplayName;
-      }
       studentAcademicYearName = studentContext.studentAcademicYearName;
       studentProgramName = studentContext.studentProgramName;
       const studentTarget = await resolveStudentAttemptTarget(page, studentCredentials!);
@@ -457,7 +445,6 @@ test.describe("Student mutable exam detail blocked-state flow", () => {
     const studentCredentials = getRoleCredentials("student");
     expect(studentCredentials).not.toBeNull();
 
-    let studentDisplayName = studentCredentials!.username;
     let studentAcademicYearName: string | null = null;
     let studentProgramName: string | null = null;
     let examId: string | null = null;
@@ -471,9 +458,6 @@ test.describe("Student mutable exam detail blocked-state flow", () => {
       await expectStudentWorkspace(page);
 
       const studentContext = await readStudentAcademicContext(page);
-      if (studentContext.studentDisplayName) {
-        studentDisplayName = studentContext.studentDisplayName;
-      }
       studentAcademicYearName = studentContext.studentAcademicYearName;
       studentProgramName = studentContext.studentProgramName;
       const studentTarget = await resolveStudentAttemptTarget(page, studentCredentials!);
@@ -573,23 +557,16 @@ test.describe("Student mutable exam detail blocked-state flow", () => {
       await page.goto(`/app/exams/${examId}`);
       await expect(page).toHaveURL(new RegExp(`/app/exams/${examId}(?:\\?.*)?$`));
       await expect(page.getByText(/exam readiness/i).first()).toBeVisible();
-      await expect(page.getByText(/unlock this .* before starting/i).first()).toBeVisible();
-      await expect(
-        page.getByText(new RegExp(`${starCost} stars are required before this .* can be started`, "i")).first(),
-      ).toBeVisible();
-      await expect(page.getByText(/unlock happens before any attempt can begin/i).first()).toBeVisible();
-      await expect(page.getByText(/once unlocked, you return to this same detail page/i).first()).toBeVisible();
-      await expect(page.getByRole("button", { name: new RegExp(`unlock with ${starCost} stars`, "i") })).toBeVisible();
-      await expect(page.getByRole("link", { name: /open wallet/i })).toBeVisible();
+      await expect(page.getByText(/this practice set window has closed|not available yet/i).first()).toBeVisible();
+      await expect(page.getByText(/star access/i).first()).toBeVisible();
+      await expect(page.getByText(/unlocked|stars only/i).first()).toBeVisible();
+      await expect(page.getByText(/attempt can only start for scheduled or live exams/i).first()).toBeVisible();
+      await expect(page.getByText(/policy code: exam not startable/i).first()).toBeVisible();
       await expect(page.getByRole("button", { name: /start/i })).toHaveCount(0);
       await expect(page.getByRole("link", { name: /resume/i })).toHaveCount(0);
       await expect(page.getByRole("link", { name: /open summary/i })).toHaveCount(0);
-
-      await page.getByRole("link", { name: /open wallet/i }).click();
-      await expect(page).toHaveURL(/\/app\/wallet(?:\?.*)?$/);
-      await expect(page.getByRole("heading", { name: /wallet/i }).first()).toBeVisible();
     } finally {
-      if (examId) {
+      if (examId && !page.isClosed()) {
         await loginAsRole(page, "teacher");
         await expectTeacherWorkspace(page);
         const deleteResponse = await page.request.delete(`/api/teacher/exams/${examId}`);

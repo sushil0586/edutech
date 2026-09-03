@@ -16,9 +16,8 @@ export function ScreenShell({
     return (
       <SafeAreaView style={appStyles.screen}>
         <View style={appStyles.backgroundLayer}>
-          <View style={appStyles.backgroundOrbTop} />
-          <View style={appStyles.backgroundOrbMiddle} />
-          <View style={appStyles.backgroundOrbBottom} />
+          <View style={appStyles.backgroundWashTop} />
+          <View style={appStyles.backgroundWashBottom} />
         </View>
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -34,9 +33,8 @@ export function ScreenShell({
   return (
     <SafeAreaView style={appStyles.screen}>
       <View style={appStyles.backgroundLayer}>
-        <View style={appStyles.backgroundOrbTop} />
-        <View style={appStyles.backgroundOrbMiddle} />
-        <View style={appStyles.backgroundOrbBottom} />
+        <View style={appStyles.backgroundWashTop} />
+        <View style={appStyles.backgroundWashBottom} />
       </View>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}

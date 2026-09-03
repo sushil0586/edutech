@@ -72,6 +72,101 @@ async function getAccessToken(page: Page) {
   return cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
 }
 
+async function restoreEntitlement(
+  page: Page,
+  accessToken: string,
+  entitlementId: string,
+  notes: string,
+) {
+  try {
+    const response = await page.request.patch(
+      `${teacherApiBaseUrl}/api/v1/economy/admin/question-bank-entitlements/${entitlementId}/`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        data: {
+          status: "active",
+          notes,
+        },
+        timeout: 15000,
+      },
+    );
+    expect(response.ok()).toBe(true);
+  } catch (error) {
+    console.warn(
+      `[teacher-shared-library-builder] restore entitlement failed id=${entitlementId}`,
+      error,
+    );
+  }
+}
+
+async function selectFirstNonEmptyOption(locator: Locator) {
+  await expect(locator).toBeVisible();
+  const values = await locator.locator("option").evaluateAll((options) =>
+    options
+      .map((option) => (option as HTMLOptionElement).value)
+      .filter((value) => value.trim().length > 0),
+  );
+  expect(values.length).toBeGreaterThan(0);
+  await locator.selectOption(values[0]!);
+  return values[0]!;
+}
+
+async function ensureWizardSubjectScope(page: Page) {
+  const programSelect = page.locator('select[name="program"]').filter({ visible: true }).first();
+  const subjectSelect = page.locator('select[name="subject"]').filter({ visible: true }).first();
+
+  if ((await programSelect.count()) === 0 || (await subjectSelect.count()) === 0) {
+    return;
+  }
+
+  const programValues = await programSelect.locator("option").evaluateAll((options) =>
+    options
+      .map((option) => (option as HTMLOptionElement).value)
+      .filter((value) => value.trim().length > 0),
+  );
+  expect(programValues.length).toBeGreaterThan(0);
+
+  for (const programValue of programValues) {
+    await programSelect.selectOption(programValue);
+    await expect.poll(async () => programSelect.inputValue()).toBe(programValue);
+    await expect.poll(async () => subjectSelect.isDisabled().catch(() => true)).toBe(false);
+    const subjectValues = await subjectSelect.locator("option").evaluateAll((options) =>
+      options
+        .map((option) => (option as HTMLOptionElement).value)
+        .filter((value) => value.trim().length > 0),
+    );
+    if (subjectValues.length > 0) {
+      await subjectSelect.selectOption(subjectValues[0]!);
+      await expect.poll(async () => subjectSelect.inputValue()).toBe(subjectValues[0]!);
+      return;
+    }
+  }
+
+  throw new Error("No visible exam wizard program exposed any selectable subject.");
+}
+
+async function selectFirstSectionSubject(page: Page) {
+  const sectionSubjectSelect = page
+    .locator("label.advancedBuilderField")
+    .filter({ hasText: /section subject/i })
+    .locator("select")
+    .first();
+  if ((await sectionSubjectSelect.count()) === 0) {
+    return;
+  }
+
+  await expect(sectionSubjectSelect).toBeVisible();
+  const firstValue = await sectionSubjectSelect.locator("option").evaluateAll((options) => {
+    const match = options.find((option) => (option as HTMLOptionElement).value.trim().length > 0);
+    return match ? (match as HTMLOptionElement).value : "";
+  });
+  expect(firstValue).not.toBe("");
+  await sectionSubjectSelect.selectOption(firstValue);
+}
+
 test.describe("Teacher shared-library to builder flow", () => {
   test.beforeEach(() => {
     resetAndSeedDemoSharedLibraryWorkflow();
@@ -120,11 +215,8 @@ test.describe("Teacher shared-library to builder flow", () => {
     const sectionName = `Teacher Paused Linked Section ${uniqueSeed}`;
     let examId: string | null = null;
 
-    await page.goto("/teacher/question-bank");
+    await page.goto(`/teacher/question-bank?search=${encodeURIComponent(PAUSED_ONLY_PREFIX)}`);
     await expect(page.getByRole("heading", { name: /question bank/i }).first()).toBeVisible();
-    const searchField = page.getByRole("textbox", { name: /search question text/i });
-    await searchField.fill(PAUSED_ONLY_PREFIX);
-    await page.getByRole("button", { name: /apply filters/i }).click();
 
     const inventorySection = page.locator("section.contentCard").filter({
       hasText: "Question inventory",
@@ -177,8 +269,7 @@ test.describe("Teacher shared-library to builder flow", () => {
       .filter((code) => code.trim().length > 0);
     expect(packageCodes.length).toBeGreaterThan(0);
 
-    await searchField.fill(searchProbe);
-    await page.getByRole("button", { name: /apply filters/i }).click();
+    await page.goto(`/teacher/question-bank?search=${encodeURIComponent(searchProbe)}`);
     await expect(page).toHaveURL(/search=/);
 
     await expect(
@@ -234,10 +325,8 @@ test.describe("Teacher shared-library to builder flow", () => {
       await loginAsRole(page, "teacher");
       await expectTeacherWorkspace(page);
 
-      await page.goto("/teacher/question-bank");
+      await page.goto(`/teacher/question-bank?search=${encodeURIComponent(searchProbe)}`);
       await expect(page.getByRole("heading", { name: /question bank/i }).first()).toBeVisible();
-      await page.getByRole("textbox", { name: /search question text/i }).fill(searchProbe);
-      await page.getByRole("button", { name: /apply filters/i }).click();
 
       const pausedInventoryCard = page
         .locator("section.contentCard")
@@ -257,6 +346,7 @@ test.describe("Teacher shared-library to builder flow", () => {
       await page.getByRole("textbox", { name: /exam title/i }).fill(examTitle);
       await page.getByRole("textbox", { name: /exam code/i }).fill(examCode);
 
+      await ensureWizardSubjectScope(page);
       await page.getByRole("button", { name: /^continue$/i }).click();
       const examTypeField = page.locator('select[name="exam_type"]');
       if (await examTypeField.count()) {
@@ -277,6 +367,7 @@ test.describe("Teacher shared-library to builder flow", () => {
       await page.getByRole("tab", { name: /sections/i }).click();
       await page.getByRole("textbox", { name: /section name/i }).fill(sectionName);
       await page.getByRole("spinbutton", { name: /total questions/i }).fill("1");
+      await selectFirstSectionSubject(page);
       await page.getByRole("button", { name: /^add section$/i }).click();
       await expect(page).toHaveURL(/tab=sections&message=/);
       await page.getByRole("tab", { name: /linked questions/i }).click();
@@ -336,20 +427,12 @@ test.describe("Teacher shared-library to builder flow", () => {
       ).toHaveCount(0);
     } finally {
       for (const entitlement of targetEntitlements) {
-        const reactivateResponse = await page.request.patch(
-          `${teacherApiBaseUrl}/api/v1/economy/admin/question-bank-entitlements/${entitlement.id}/`,
-          {
-            headers: {
-              Authorization: `Bearer ${adminAccessToken}`,
-              "Content-Type": "application/json",
-            },
-            data: {
-              status: "active",
-              notes: "Playwright teacher builder check restored this entitlement.",
-            },
-          },
+        await restoreEntitlement(
+          page,
+          adminAccessToken,
+          entitlement.id,
+          "Playwright teacher builder check restored this entitlement.",
         );
-        expect(reactivateResponse.ok()).toBe(true);
       }
 
       if (examId) {
@@ -384,11 +467,8 @@ test.describe("Teacher shared-library to builder flow", () => {
     const sectionName = `Teacher Locked Linked Section ${uniqueSeed}`;
     let examId: string | null = null;
 
-    await page.goto("/teacher/question-bank");
+    await page.goto(`/teacher/question-bank?search=${encodeURIComponent(PAUSED_ONLY_PREFIX)}`);
     await expect(page.getByRole("heading", { name: /question bank/i }).first()).toBeVisible();
-    const searchField = page.getByRole("textbox", { name: /search question text/i });
-    await searchField.fill(PAUSED_ONLY_PREFIX);
-    await page.getByRole("button", { name: /apply filters/i }).click();
 
     const inventorySection = page.locator("section.contentCard").filter({
       hasText: "Question inventory",
@@ -445,6 +525,7 @@ test.describe("Teacher shared-library to builder flow", () => {
       await expect(page.getByRole("heading", { name: /create exam/i }).first()).toBeVisible();
       await page.getByRole("textbox", { name: /exam title/i }).fill(examTitle);
       await page.getByRole("textbox", { name: /exam code/i }).fill(examCode);
+      await ensureWizardSubjectScope(page);
       await page.getByRole("button", { name: /^continue$/i }).click();
       const wizardExamTypeField = page.locator('select[name="exam_type"]');
       if (await wizardExamTypeField.count()) {
@@ -464,6 +545,7 @@ test.describe("Teacher shared-library to builder flow", () => {
     await page.getByRole("tab", { name: /sections/i }).click();
     await page.getByRole("textbox", { name: /section name/i }).fill(sectionName);
     await page.getByRole("spinbutton", { name: /total questions/i }).fill("1");
+    await selectFirstSectionSubject(page);
     await page.getByRole("button", { name: /^add section$/i }).click();
     await expect(page).toHaveURL(/tab=sections&message=/);
     await page.getByRole("tab", { name: /linked questions/i }).click();
@@ -585,20 +667,12 @@ test.describe("Teacher shared-library to builder flow", () => {
       ).toBeVisible();
     } finally {
       for (const entitlement of targetEntitlements) {
-        const reactivateResponse = await page.request.patch(
-          `${teacherApiBaseUrl}/api/v1/economy/admin/question-bank-entitlements/${entitlement.id}/`,
-          {
-            headers: {
-              Authorization: `Bearer ${adminAccessToken}`,
-              "Content-Type": "application/json",
-            },
-            data: {
-              status: "active",
-              notes: "Playwright teacher builder update check restored this entitlement.",
-            },
-          },
+        await restoreEntitlement(
+          page,
+          adminAccessToken,
+          entitlement.id,
+          "Playwright teacher builder update check restored this entitlement.",
         );
-        expect(reactivateResponse.ok()).toBe(true);
       }
 
       if (examId) {

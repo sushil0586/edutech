@@ -87,7 +87,7 @@ test.describe("Institute JEE results contract", () => {
     await expect(page.getByText(publishedMock.code).first()).toBeVisible();
     await expect(page.getByText(/exam publish readiness/i).first()).toBeVisible();
     await expect(page.getByText(/result publish readiness/i).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /open exam/i }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /open leaderboard/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /view exam/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /view leaderboard/i }).first()).toBeVisible();
   });
 });

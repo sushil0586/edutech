@@ -20,14 +20,6 @@ async function gotoWithRetry(page: Page, url: string, attempts = 3) {
   throw lastError;
 }
 
-async function openMobileAdminNav(page: Page) {
-  const mobileNavToggle = page.getByRole("button", { name: /menu/i });
-  await expect(mobileNavToggle).toBeVisible();
-  await mobileNavToggle.click();
-  await expect(page.locator("#mobile-workspace-menu")).toBeVisible();
-  return page.locator("#mobile-workspace-menu");
-}
-
 test.describe("Admin mobile reports workflow", () => {
   test.use({
     viewport: { width: 390, height: 844 },

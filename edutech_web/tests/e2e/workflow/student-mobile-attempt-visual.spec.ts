@@ -7,6 +7,7 @@ import {
   scheduleAndPublishExam,
 } from "../helpers/family-runtime";
 import { expectAdminWorkspace, expectStudentWorkspace } from "../helpers/navigation";
+import { gotoWithRuntimeRecovery } from "../helpers/runtime";
 
 const backendBaseUrl = (
   process.env.API_BASE_URL ??
@@ -378,10 +379,56 @@ function mobileSnapshotMasks(page: Page) {
   return [
     page.locator(".attemptWorkspaceHeader").first(),
     page.locator(".attemptMobileRuntimeHeader").first(),
+    page.locator(".attemptQuestionHeader span").first(),
     page.locator(".attemptQuestionPrompt").first(),
     page.locator(".attemptOptionList").first(),
     page.locator(".attemptQuestionMetaLine").first(),
   ];
+}
+
+function mobileRecoveryPanelMasks(page: Page) {
+  return [
+    ...mobileSnapshotMasks(page),
+    page.locator(".attemptResilienceMeta").first(),
+    page.locator(".attemptStatusTile strong"),
+    page.locator(".attemptRecoveryBanner").first(),
+  ];
+}
+
+async function openStudentExamFromWorkspace(page: Page, examTitle: string) {
+  const examTitlePattern = new RegExp(examTitle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+  let examCard = page.locator("article").filter({ has: page.getByText(examTitlePattern).first() }).first();
+
+  await expect
+    .poll(
+      async () => {
+        await gotoWithRuntimeRecovery(page, "/app/exams");
+        const loadIssue = page.getByRole("heading", { name: /exam availability could not be loaded/i }).first();
+        if (await loadIssue.isVisible().catch(() => false)) {
+          return false;
+        }
+        examCard = page.locator("article").filter({ has: page.getByText(examTitlePattern).first() }).first();
+        return await examCard.isVisible().catch(() => false);
+      },
+      { timeout: 45000, intervals: [1000, 2000, 3000, 5000] },
+    )
+    .toBe(true);
+
+  const startAction = examCard.getByRole("button", { name: /^start$/i }).first();
+  if (await startAction.isVisible().catch(() => false)) {
+    await startAction.click();
+    return;
+  }
+
+  const detailAction = examCard.getByRole("link", { name: /view details|open details/i }).first();
+  if (await detailAction.isVisible().catch(() => false)) {
+    await detailAction.click();
+    await expect(page.getByRole("heading", { name: examTitlePattern }).first()).toBeVisible({ timeout: 20000 });
+    await page.getByRole("button", { name: /^start$/i }).click();
+    return;
+  }
+
+  throw new Error(`Could not find a student start path for exam "${examTitle}".`);
 }
 
 test.describe("Student mobile attempt visual", () => {
@@ -396,6 +443,7 @@ test.describe("Student mobile attempt visual", () => {
   }, testInfo) => {
     test.setTimeout(300000);
     let examId: string | null = null;
+    let studentPage: Page | null = null;
     const uniqueSeed = Date.now();
     const totalQuestions = 20;
     const studentTarget = await resolveStudentAttemptTarget(page, opbmsStudentCredentials);
@@ -418,79 +466,112 @@ test.describe("Student mobile attempt visual", () => {
       await assignStudentToExam(page, examId, studentTarget.studentProfileId);
       await scheduleAndPublishExam(page, examId);
 
-      await loginWithCredentials(page, opbmsStudentCredentials, "student");
-      await expectStudentWorkspace(page);
+      const studentContext = await page.context().browser()!.newContext({
+        viewport: { width: 390, height: 844 },
+      });
+      studentPage = await studentContext.newPage();
 
-      await page.goto(`/app/exams/${examId}`);
-      await expect(
-        page.getByRole("heading", { name: new RegExp(created.examTitle, "i") }).first(),
-      ).toBeVisible();
-      await page.getByRole("button", { name: /^start$/i }).click();
+      await loginWithCredentials(studentPage, opbmsStudentCredentials, "student");
+      await expectStudentWorkspace(studentPage);
 
-      await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+(?:\?.*)?$/);
-      await expect(page.locator(".attemptMobileRuntimeStrip").first()).toBeVisible();
-      await expect(page.locator(".attemptQuestionCard").first()).toBeVisible();
+      await openStudentExamFromWorkspace(studentPage, created.examTitle);
 
-      await answerCurrentAttemptQuestion(page, Date.now(), "Mobile visual answer");
-      await ensureToggleChecked(page.getByRole("checkbox", { name: /mark for review/i }).first());
+      await expect(studentPage).toHaveURL(/\/app\/attempts\/[^/?#]+(?:\?.*)?$/);
+      const runtimeShell = studentPage.locator(".attemptWorkspaceHeader").first();
+      await expect(runtimeShell).toBeVisible();
+      await expect(studentPage.locator(".attemptQuestionCard").first()).toBeVisible();
+      await studentPage.addStyleTag({
+        content: `
+          .attemptResilienceTop {
+            min-height: 9.5rem;
+            align-items: stretch;
+          }
+          .attemptResilienceTop > div:first-child {
+            min-height: 4.5rem;
+          }
+          .attemptResilienceTop p {
+            min-height: 4.5rem;
+          }
+        `,
+      });
 
-      await expect(page.locator(".attemptMobileRuntimeStrip").first()).toHaveScreenshot(
+      await answerCurrentAttemptQuestion(studentPage, Date.now(), "Mobile visual answer");
+      await ensureToggleChecked(studentPage.getByRole("checkbox", { name: /mark for review/i }).first());
+
+      await expect(runtimeShell).toHaveScreenshot(
         "student-mobile-attempt-runtime-strip.png",
         {
           animations: "disabled",
           caret: "hide",
-          mask: [page.locator(".attemptMobileRuntimeHeader").first()],
+          mask: [studentPage.locator(".attemptWorkspaceHeaderTop").first()],
         },
       );
-      await expect(page.locator(".attemptQuestionHeader").first()).toHaveScreenshot(
+      const questionHeader = studentPage.locator(".attemptQuestionHeader").first();
+      await expect(questionHeader).toHaveScreenshot(
         "student-mobile-attempt-question-header.png",
         {
           animations: "disabled",
           caret: "hide",
-          mask: mobileSnapshotMasks(page),
+          maxDiffPixels: 1500,
         },
       );
-      await expect(page.locator(".attemptLiveCheckpoint").first()).toHaveScreenshot(
+      const recoveryPanel = studentPage.locator(".attemptResiliencePanel").first();
+      const recoverySummary = recoveryPanel.locator(".attemptResilienceTop > div").first();
+      await expect(recoverySummary).toHaveScreenshot(
         "student-mobile-attempt-live-checkpoint.png",
         {
           animations: "disabled",
           caret: "hide",
-          mask: mobileSnapshotMasks(page),
+          maxDiffPixels: 900,
+          mask: [
+            ...mobileSnapshotMasks(studentPage),
+            recoverySummary.locator("p").first(),
+          ],
         },
       );
 
       const overviewShot = testInfo.outputPath("student-mobile-attempt-overview.png");
-      await page.locator("main").screenshot({ path: overviewShot });
+      await studentPage.locator("main").screenshot({ path: overviewShot });
       await testInfo.attach("student-mobile-attempt-overview", {
         path: overviewShot,
         contentType: "image/png",
       });
 
       const runtimeStripShot = testInfo.outputPath("student-mobile-attempt-runtime-strip.png");
-      await page.locator(".attemptMobileRuntimeStrip").first().screenshot({ path: runtimeStripShot });
+      await runtimeShell.screenshot({ path: runtimeStripShot });
       await testInfo.attach("student-mobile-attempt-runtime-strip", {
         path: runtimeStripShot,
         contentType: "image/png",
       });
 
       const questionHeaderShot = testInfo.outputPath("student-mobile-attempt-question-header.png");
-      await page.locator(".attemptQuestionHeader").first().screenshot({ path: questionHeaderShot });
+      await questionHeader.screenshot({ path: questionHeaderShot });
       await testInfo.attach("student-mobile-attempt-question-header", {
         path: questionHeaderShot,
         contentType: "image/png",
       });
 
       const checkpointShot = testInfo.outputPath("student-mobile-attempt-live-checkpoint.png");
-      await page.locator(".attemptLiveCheckpoint").first().screenshot({ path: checkpointShot });
+      await recoverySummary.screenshot({ path: checkpointShot });
       await testInfo.attach("student-mobile-attempt-live-checkpoint", {
         path: checkpointShot,
         contentType: "image/png",
       });
     } finally {
+      if (studentPage) {
+        await studentPage.context().close();
+      }
       if (examId) {
-        await loginAsRole(page, "admin");
-        await expectAdminWorkspace(page);
-        await deleteExamDirectly(page, examId);
+        try {
+          await loginAsRole(page, "admin");
+          await expectAdminWorkspace(page);
+          await deleteExamDirectly(page, examId);
+        } catch (error) {
+          await testInfo.attach("student-mobile-attempt-cleanup-error", {
+            body: String(error instanceof Error ? error.stack ?? error.message : error),
+            contentType: "text/plain",
+          });
+        }
       }
     }
   });

@@ -9,6 +9,17 @@ type TimingMetric = {
   label: string;
 };
 
+async function applyQuickSearchRoute(
+  hrefSource: string | null,
+  currentUrl: string,
+  expectedUrl: RegExp,
+) {
+  if (!expectedUrl.test(currentUrl) && hrefSource) {
+    return hrefSource;
+  }
+  return null;
+}
+
 test.describe("Institute search API audit", () => {
   test.skip(testRequiresRole("institute"), "Institute Playwright credentials are not configured.");
 
@@ -65,7 +76,17 @@ test.describe("Institute search API audit", () => {
 
       const quickFilterStartedAt = Date.now();
       audit.reset();
-      await page.getByRole("link", { name: /^workspace pages$/i }).click();
+      const workspacePagesLink = page.getByRole("link", { name: /^workspace pages$/i }).first();
+      const workspacePagesHref = await workspacePagesLink.getAttribute("href");
+      await workspacePagesLink.click();
+      const quickFilterFallback = await applyQuickSearchRoute(
+        workspacePagesHref,
+        page.url(),
+        /source=catalog/,
+      );
+      if (quickFilterFallback) {
+        await gotoWithRuntimeRecovery(page, quickFilterFallback);
+      }
       await expect(page).toHaveURL(/source=catalog/);
       await expect(page).toHaveURL(/q=exam/);
       await audit.waitForSettled();

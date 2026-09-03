@@ -32,24 +32,6 @@ function toDateTimeLocalValue(date: Date) {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
-async function selectFirstNonEmptyOption(locator: Locator) {
-  let optionValue: string | null = null;
-  await expect
-    .poll(async () => {
-      const values = await locator.locator("option").evaluateAll((options) =>
-        options.map((option) => (option as HTMLOptionElement).value),
-      );
-      optionValue = values.find((value) => value.trim().length > 0) ?? null;
-      return optionValue;
-    }, {
-      timeout: 15000,
-      message: "Expected hydrated select options to include a non-empty value",
-    })
-    .not.toBeNull();
-  await locator.selectOption(optionValue!);
-  return optionValue!;
-}
-
 async function getNonEmptyOptions(locator: Locator) {
   return locator.locator("option").evaluateAll((options) =>
     options
@@ -250,6 +232,71 @@ async function assignExamStudents(page: Page, examId: string, studentIds: string
   expect(response.ok(), await response.text()).toBe(true);
 }
 
+async function createExamSection(
+  page: Page,
+  examId: string,
+  name: string,
+  sectionOrder: number,
+  subjectId: string | null,
+) {
+  const accessToken = await getCurrentSessionAccessToken(page);
+  const response = await page.request.post(`${backendBaseUrl}/api/v1/exams/sections/`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    data: {
+      exam: examId,
+      subject: subjectId,
+      name,
+      description: "",
+      section_order: sectionOrder,
+      instructions: "",
+      total_questions: 0,
+      marks_per_question: null,
+      negative_marks_per_question: null,
+      timer_enabled: false,
+      duration_minutes: null,
+      allow_skip_section: false,
+      lock_after_submit: false,
+    },
+    timeout: 15000,
+  });
+  expect(response.ok(), await response.text()).toBe(true);
+  const payload = (await response.json()) as { id?: string; data?: { id?: string } };
+  const sectionId = payload.data?.id ?? payload.id ?? null;
+  expect(sectionId).not.toBeNull();
+  return sectionId!;
+}
+
+async function linkExamQuestion(
+  page: Page,
+  examId: string,
+  questionId: string,
+  sectionId: string | null,
+  questionOrder: number,
+  marks = "4",
+) {
+  const accessToken = await getCurrentSessionAccessToken(page);
+  const response = await page.request.post(`${backendBaseUrl}/api/v1/exams/questions/`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    data: {
+      exam: examId,
+      question: questionId,
+      section: sectionId,
+      question_order: questionOrder,
+      marks,
+      negative_marks: "0",
+      is_mandatory: false,
+    },
+    timeout: 15000,
+  });
+  expect(response.ok(), await response.text()).toBe(true);
+}
+
 async function fetchExamDetailScope(page: Page, examId: string) {
   const accessToken = await getCurrentSessionAccessToken(page);
   const response = await page.request.get(`${backendBaseUrl}/api/v1/exams/${examId}/`, {
@@ -416,10 +463,12 @@ test.describe("Institute populated analysis mutable coverage", () => {
     let studentCohortName: string | null = null;
     let questionId: string | null = null;
     let examId: string | null = null;
+    let sectionId: string | null = null;
     const uniqueSeed = Date.now();
     const questionText = `PW institute analysis question ${uniqueSeed}`;
     const examTitle = `PW Institute Analysis ${uniqueSeed}`;
     const examCode = `PW-IA-${uniqueSeed}`;
+    const sectionName = `PW Institute Analysis Section ${uniqueSeed}`;
     const now = new Date();
     const startAt = new Date(now.getTime() - 5 * 60 * 1000);
     const endAt = new Date(now.getTime() + 90 * 60 * 1000);
@@ -522,26 +571,14 @@ test.describe("Institute populated analysis mutable coverage", () => {
       }
       examId = ensuredExamId;
 
-      const questionBuilderUrl = `/institute/exams/${ensuredExamId}/builder?tab=questions`;
-      await page.goto(questionBuilderUrl);
-      await expect(page.getByText(/question mapping/i).first()).toBeVisible();
-      const manualAttachForm = page.locator("form.builderForm.builderSubform").filter({
-        has: page.getByText(/attach one question manually/i),
-      }).first();
-      const questionSelect = manualAttachForm.locator('select[name="question"]');
-      const targetQuestionOption = await waitForQuestionOption(
+      sectionId = await createExamSection(
         page,
-        questionSelect,
-        questionText,
-        questionBuilderUrl,
+        ensuredExamId,
+        sectionName,
+        1,
+        academicLane.subjectValue,
       );
-      expect(targetQuestionOption).not.toBeNull();
-      await questionSelect.selectOption(targetQuestionOption!.value);
-      await manualAttachForm.getByRole("spinbutton", { name: /question order/i }).fill("1");
-      await manualAttachForm.getByRole("spinbutton", { name: /^marks$/i }).fill("4");
-      await manualAttachForm.getByRole("spinbutton", { name: /negative marks/i }).fill("0");
-      await manualAttachForm.getByRole("button", { name: /^attach question$/i }).click();
-      await expect(page).toHaveURL(/tab=questions&message=/);
+      await linkExamQuestion(page, ensuredExamId, questionId!, sectionId, 1, "4");
       console.log("analysis: question attached");
 
       const examScope = await fetchExamDetailScope(page, ensuredExamId);

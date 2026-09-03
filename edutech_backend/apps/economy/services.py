@@ -152,29 +152,40 @@ def get_or_create_student_referral_code(*, student, program=None):
     if program.institute_id != student.institute_id:
         raise ValidationError({"program": "Referral program must belong to the student's institute."})
 
-    referral_code = (
-        ReferralCode.objects.select_for_update()
-        .filter(
-            institute=student.institute,
-            owner_student=student,
-            program=program,
-            is_active=True,
-        )
-        .first()
-    )
+    # Fast path for the overwhelmingly common read case used by session/profile APIs.
+    referral_code = ReferralCode.objects.filter(
+        institute=student.institute,
+        owner_student=student,
+        program=program,
+        is_active=True,
+    ).first()
     if referral_code is not None:
         return referral_code
 
-    from apps.accounts.services import build_unique_code
+    with transaction.atomic():
+        referral_code = (
+            ReferralCode.objects.select_for_update()
+            .filter(
+                institute=student.institute,
+                owner_student=student,
+                program=program,
+                is_active=True,
+            )
+            .first()
+        )
+        if referral_code is not None:
+            return referral_code
 
-    seed = student.admission_no or student.email or student.full_name or str(student.id)
-    code = build_unique_code(ReferralCode, "code", seed, "ref")
-    return ReferralCode.objects.create(
-        institute=student.institute,
-        program=program,
-        owner_student=student,
-        code=code,
-    )
+        from apps.accounts.services import build_unique_code
+
+        seed = student.admission_no or student.email or student.full_name or str(student.id)
+        code = build_unique_code(ReferralCode, "code", seed, "ref")
+        return ReferralCode.objects.create(
+            institute=student.institute,
+            program=program,
+            owner_student=student,
+            code=code,
+        )
 
 
 @transaction.atomic

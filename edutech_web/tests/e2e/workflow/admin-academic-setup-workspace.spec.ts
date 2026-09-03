@@ -24,6 +24,10 @@ function activeSectionEditAction(page: import("@playwright/test").Page) {
   return activeSectionPanel(page).getByRole("button", { name: /^edit$/i }).first();
 }
 
+function sectionLink(page: import("@playwright/test").Page, section: string) {
+  return page.locator(`a[href*="/admin/academic-setup?"][href*="section=${section}"]`).first();
+}
+
 test.describe("Admin academic setup workspace", () => {
   test.skip(testRequiresRole("admin"), "Admin Playwright credentials are not configured.");
 
@@ -36,20 +40,20 @@ test.describe("Admin academic setup workspace", () => {
     await page.goto("/admin/academic-setup");
 
     await expect(page.getByRole("heading", { name: /academic setup/i }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /academic years/i }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /programs/i }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /cohorts/i }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /subjects/i }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /topics/i }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /assignments/i }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /exam defaults/i }).first()).toBeVisible();
+    await expect(sectionLink(page, "academic-years")).toBeVisible();
+    await expect(sectionLink(page, "programs")).toBeVisible();
+    await expect(sectionLink(page, "cohorts")).toBeVisible();
+    await expect(sectionLink(page, "subjects")).toBeVisible();
+    await expect(sectionLink(page, "topics")).toBeVisible();
+    await expect(sectionLink(page, "teacher-assignments")).toBeVisible();
+    await expect(sectionLink(page, "exam-defaults")).toBeVisible();
 
     const instituteSelect = page.locator('select[aria-label="Select institute"]').first();
     await expect(instituteSelect).toBeVisible();
     await page.getByRole("button", { name: /^open$/i }).click();
     await expect(page).toHaveURL(/\/admin\/academic-setup\?/);
 
-    await page.getByRole("link", { name: /programs/i }).first().click();
+    await sectionLink(page, "programs").click();
     await expect(page).toHaveURL(/section=programs/);
     await expect(page.getByText(/^programs$/i).first()).toBeVisible();
     const showArchivedPrograms = page.getByRole("checkbox", { name: /show archived/i });
@@ -68,20 +72,20 @@ test.describe("Admin academic setup workspace", () => {
     await expect(activeSectionEditAction(page)).toBeVisible();
     await expect(activeSectionAction(page)).toBeVisible();
 
-    await page.getByRole("link", { name: /subjects/i }).first().click();
+    await sectionLink(page, "subjects").click();
     await expect(page).toHaveURL(/section=subjects/);
     await expect(page.getByText(/^subjects$/i).first()).toBeVisible();
     await expect(activeSectionAction(page)).toBeVisible();
     await expect(activeSectionEditAction(page)).toBeVisible();
     await expect(activeSectionAction(page)).toBeVisible();
 
-    await page.getByRole("link", { name: /topics/i }).first().click();
+    await sectionLink(page, "topics").click();
     await expect(page).toHaveURL(/section=topics/);
     await expect(page.getByText(/^topics$/i).first()).toBeVisible();
     await expect(activeSectionAction(page)).toBeVisible();
     await expect(activeSectionEditAction(page)).toBeVisible();
 
-    await page.getByRole("link", { name: /exam defaults/i }).first().click();
+    await sectionLink(page, "exam-defaults").click();
     await expect(page).toHaveURL(/section=exam-defaults/);
     await expect(page.getByText(/duration minutes/i).first()).toBeVisible();
     await expect(page.getByText(/max attempts/i).first()).toBeVisible();

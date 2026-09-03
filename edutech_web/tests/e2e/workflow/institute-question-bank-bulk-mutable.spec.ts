@@ -25,15 +25,45 @@ type QuestionTagRow = {
   is_active?: boolean;
 };
 
-type PaginatedResponse<T> = {
-  results: T[];
-};
-
 function firstNonEmptyOptionValue(values: string[]) {
   return values.find((value) => value.trim().length > 0) ?? null;
 }
 
+async function waitForFirstNonEmptyOption(locator: Locator) {
+  await expect
+    .poll(
+      async () => {
+        const values = await locator.locator("option").evaluateAll((options) =>
+          options.map((option) => (option as HTMLOptionElement).value),
+        );
+        return firstNonEmptyOptionValue(values);
+      },
+      {
+        timeout: 15000,
+      },
+    )
+    .not.toBeNull();
+}
+
+async function fetchInstituteQuestionLookups(
+  page: import("@playwright/test").Page,
+  params: { program: string; subject?: string },
+) {
+  const searchParams = new URLSearchParams();
+  searchParams.set("program", params.program);
+  if (params.subject) {
+    searchParams.set("subject", params.subject);
+  }
+  const response = await page.request.get(`/api/institute/question-bank/create-lookups?${searchParams.toString()}`);
+  expect(response.ok()).toBe(true);
+  return (await response.json()) as {
+    subjects?: Array<{ id: string; name?: string | null }>;
+    topics?: Array<{ id: string; subject?: string | null; name?: string | null }>;
+  };
+}
+
 async function selectFirstNonEmptyOption(locator: Locator) {
+  await waitForFirstNonEmptyOption(locator);
   const values = await locator.locator("option").evaluateAll((options) =>
     options.map((option) => (option as HTMLOptionElement).value),
   );
@@ -169,6 +199,7 @@ async function createDisposableQuestion(
   questionText: string,
   options?: {
     saveAsDraft?: boolean;
+    requireAlternateTopic?: boolean;
   },
 ) {
   await page.goto("/institute/question-bank/new");
@@ -182,10 +213,8 @@ async function createDisposableQuestion(
   await selectFirstNonEmptyOption(programSelect);
   const selectedProgramId = await programSelect.inputValue();
   await expect(subjectSelect).toBeEnabled();
-  await selectFirstNonEmptyOption(subjectSelect);
-  const selectedSubjectId = await subjectSelect.inputValue();
-  await expect(topicSelect).toBeEnabled();
-  const topicOptions = await topicSelect.locator("option").evaluateAll((options) =>
+  await waitForFirstNonEmptyOption(subjectSelect);
+  const subjectOptions = await subjectSelect.locator("option").evaluateAll((options) =>
     options
       .map((option) => ({
         value: (option as HTMLOptionElement).value,
@@ -193,11 +222,51 @@ async function createDisposableQuestion(
       }))
       .filter((option) => option.value.trim().length > 0),
   );
-  const selectedTopic = topicOptions[0] ?? null;
-  expect(selectedTopic).not.toBeNull();
-  const alternateTopic =
-    topicOptions.find((option) => option.value !== selectedTopic!.value) ?? null;
-  await topicSelect.selectOption(selectedTopic!.value);
+  expect(subjectOptions.length).toBeGreaterThan(0);
+
+  let selectedSubjectId = "";
+  let selectedTopicId: string | null = null;
+  let alternateTopicId: string | null = null;
+  const requireAlternateTopic = options?.requireAlternateTopic ?? false;
+
+  for (const subjectOption of subjectOptions) {
+    await subjectSelect.selectOption(subjectOption.value);
+    selectedSubjectId = subjectOption.value;
+    await expect(topicSelect).toBeEnabled();
+
+    const lookupPayload = await fetchInstituteQuestionLookups(page, {
+      program: selectedProgramId,
+      subject: selectedSubjectId,
+    });
+    const topicOptions = (lookupPayload.topics ?? []).filter(
+      (topic) => topic.id && topic.subject === selectedSubjectId,
+    );
+
+    if (requireAlternateTopic) {
+      if (topicOptions.length >= 2) {
+        selectedTopicId = topicOptions[0]?.id ?? null;
+        alternateTopicId = topicOptions[1]?.id ?? null;
+        break;
+      }
+      continue;
+    }
+
+    if (topicOptions.length > 0) {
+      selectedTopicId = topicOptions[0]?.id ?? null;
+      alternateTopicId = topicOptions.find((topic) => topic.id !== selectedTopicId)?.id ?? null;
+      break;
+    }
+
+    selectedTopicId = null;
+    alternateTopicId = null;
+    break;
+  }
+
+  expect(selectedSubjectId).not.toBe("");
+
+  if (selectedTopicId) {
+    await topicSelect.selectOption(selectedTopicId);
+  }
 
   const questionTypeOptions = await questionTypeSelect.locator("option").evaluateAll((options) =>
     options
@@ -248,8 +317,8 @@ async function createDisposableQuestion(
     questionId: questionId!,
     selectedProgramId,
     selectedSubjectId,
-    selectedTopicId: selectedTopic!.value,
-    alternateTopicId: alternateTopic?.value ?? null,
+    selectedTopicId,
+    alternateTopicId,
   };
 }
 
@@ -310,7 +379,9 @@ test.describe("Institute mutable question bank bulk actions", () => {
     let questionId: string | null = null;
 
     try {
-      const createdQuestion = await createDisposableQuestion(page, questionText);
+      const createdQuestion = await createDisposableQuestion(page, questionText, {
+        requireAlternateTopic: true,
+      });
       questionId = createdQuestion.questionId;
 
       await page.goto(`/institute/question-bank?search=${encodeURIComponent(questionText)}`);

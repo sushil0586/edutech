@@ -120,8 +120,10 @@ test.describe("Student attempts workspace", () => {
 
     await page.getByRole("link", { name: /reset filters/i }).first().click();
     await expectAttemptsWorkspace(page);
-    await expect(page.getByText(/status:\s*all/i).first()).toBeVisible();
-    await expect(page.getByText(/sort:\s*latest/i).first()).toBeVisible();
+    await expect(attemptsForm.locator('select[name="attempt_filter"]')).toBeVisible();
+    await expect(attemptsForm.locator('select[name="attempt_sort"]')).toBeVisible();
+    await expect(attemptsForm.locator('select[name="attempt_group"]')).toBeVisible();
+    await expect(page.getByRole("link", { name: /reset filters/i }).first()).toBeVisible();
 
     const attemptCard = page.locator("article.studentAttemptsCard").first();
     await expect(attemptCard).toBeVisible();

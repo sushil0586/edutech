@@ -7,6 +7,7 @@ import { ActionButton } from "@/components/action-button";
 import { SectionBlock } from "@/components/section-block";
 import { MetricCard } from "@/components/metric-card";
 import { StatePanel } from "@/components/state-panel";
+import { SkeletonLine, SkeletonList } from "@/components/skeleton";
 import { fetchStudentDashboardBundle } from "@/lib/api/student";
 import { useSessionStore } from "@/store/session-store";
 import { appStyles } from "@/theme/styles";
@@ -108,22 +109,26 @@ export default function DashboardScreen() {
           value={wallet ? wallet.available_stars.toLocaleString("en-IN") : "--"}
           helper="Live star wallet balance"
           soft
+          loading={query.isLoading}
         />
         <MetricCard
           label="Average Score"
           value={summary ? `${summary.average_percentage}%` : "--"}
           helper="Powered by student insight summary"
+          loading={query.isLoading}
         />
         <MetricCard
           label="Accuracy"
           value={summary ? `${summary.accuracy_percentage}%` : "--"}
           helper="Latest backend accuracy signal"
           soft
+          loading={query.isLoading}
         />
         <MetricCard
           label="Weak Topics"
           value={summary ? String(summary.weak_topics.length) : "--"}
           helper="Topics needing focused practice"
+          loading={query.isLoading}
         />
       </View>
       {subjectOptions.length ? (
@@ -154,7 +159,9 @@ export default function DashboardScreen() {
         subtitle="Start or resume the next best practice actions"
         action={<ActionButton label="All Exams" tone="secondary" onPress={() => router.push("./exams")} />}
       >
-        {availableExams.length ? (
+        {query.isLoading ? (
+          <SkeletonList count={2} />
+        ) : availableExams.length ? (
           availableExams.map((exam) => (
             <View key={exam.id} style={appStyles.productCard}>
               <View style={appStyles.rowBetween}>
@@ -205,7 +212,9 @@ export default function DashboardScreen() {
         title="Locked exams"
         subtitle="These items still need star unlocks or policy clearance"
       >
-        {lockedExams.length ? (
+        {query.isLoading ? (
+          <SkeletonList count={1} />
+        ) : lockedExams.length ? (
           lockedExams.map((exam) => (
             <View key={exam.id} style={appStyles.productCard}>
               <View style={appStyles.rowBetween}>
@@ -237,11 +246,18 @@ export default function DashboardScreen() {
         subtitle="Understand the learning signal before opening the full analytics lane"
         action={<ActionButton label="Open Analytics" tone="secondary" onPress={() => router.push("/(student)/(tabs)/analytics")} />}
       >
-        <Text style={appStyles.body}>
-          {summary
-            ? `Average ${summary.average_percentage}% · Accuracy ${summary.accuracy_percentage}% · ${summary.weak_topics.length} weak topic signals available`
-            : "Analytics preview will populate from live student summary and topic performance APIs."}
-        </Text>
+        {query.isLoading ? (
+          <View style={appStyles.column}>
+            <SkeletonLine width="88%" height={14} />
+            <SkeletonLine width="64%" height={14} soft />
+          </View>
+        ) : (
+          <Text style={appStyles.body}>
+            {summary
+              ? `Average ${summary.average_percentage}% · Accuracy ${summary.accuracy_percentage}% · ${summary.weak_topics.length} weak topic signals available`
+              : "Analytics preview will populate from live student summary and topic performance APIs."}
+          </Text>
+        )}
       </SectionBlock>
     </ScreenShell>
   );

@@ -34,13 +34,32 @@ async function waitForFallbackToSettle(page: Page, milliseconds = 3000) {
   return await isTransientFallbackPage(page);
 }
 
+async function settlePageAfterNavigation(page: Page) {
+  await page.waitForLoadState("load", { timeout: 5000 }).catch(() => null);
+}
+
+async function waitForTargetUrl(page: Page, url: string) {
+  const target = new URL(url, "http://localhost");
+  await page
+    .waitForURL((current) => {
+      if (current.pathname !== target.pathname) {
+        return false;
+      }
+
+      return !target.search || current.search === target.search;
+    }, { timeout: 5000 })
+    .catch(() => null);
+}
+
 export async function gotoWithRuntimeRecovery(page: Page, url: string, attempts = 4) {
   let lastError: unknown = null;
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
-      await page.goto(url, { waitUntil: "domcontentloaded" });
-      await page.waitForLoadState("load").catch(() => null);
+      await page.goto(url, { waitUntil: "commit" });
+      await waitForTargetUrl(page, url);
+      await page.waitForLoadState("domcontentloaded", { timeout: 5000 }).catch(() => null);
+      await settlePageAfterNavigation(page);
     } catch (error) {
       lastError = error;
       const message = error instanceof Error ? error.message : String(error);
@@ -65,7 +84,7 @@ export async function gotoWithRuntimeRecovery(page: Page, url: string, attempts 
     lastError = new Error(`Transient Next fallback page rendered for ${url}`);
     if (attempt < attempts) {
       await recoverTransientFallbackPage(page);
-      await page.waitForLoadState("load").catch(() => null);
+      await settlePageAfterNavigation(page);
       await page.waitForTimeout(1000 * attempt);
     }
   }

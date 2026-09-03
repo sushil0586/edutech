@@ -13,6 +13,15 @@ const teacherCredentials = {
   password: "Demo@12345",
 };
 
+async function teacherEntitlementGateVisible(page: Parameters<typeof test>[0]["page"]) {
+  return page
+    .getByRole("heading", {
+      name: /advanced exam builder is not enabled for your institute yet/i,
+    })
+    .isVisible()
+    .catch(() => false);
+}
+
 test.describe("Teacher advanced builder visual flow", () => {
   test("@workflow @visual teacher advanced-builder shows inventory guidance and modal details", async ({
     page,
@@ -23,6 +32,23 @@ test.describe("Teacher advanced builder visual flow", () => {
       path: "/teacher/exams/advanced",
       expectWorkspace: expectTeacherWorkspace,
     });
+
+    if (await teacherEntitlementGateVisible(page)) {
+      await expect(page.getByText(/feature entitlement required/i).first()).toBeVisible();
+      await expect(page.getByRole("link", { name: /back to exams/i })).toHaveAttribute(
+        "href",
+        "/teacher/exams",
+      );
+
+      const gateShot = testInfo.outputPath("teacher-advanced-builder-entitlement-gate.png");
+      await page.locator("main").screenshot({ path: gateShot });
+      await testInfo.attach("teacher-advanced-builder-entitlement-gate", {
+        path: gateShot,
+        contentType: "image/png",
+      });
+      return;
+    }
+
     const scope = await resolveClass7MathScope(page);
     await applyResolvedScope(page, scope);
 

@@ -8,6 +8,7 @@ import { ActionButton } from "@/components/action-button";
 import { MetricCard } from "@/components/metric-card";
 import { SectionBlock } from "@/components/section-block";
 import { StatePanel } from "@/components/state-panel";
+import { SkeletonLine } from "@/components/skeleton";
 import {
   fetchStudentAttemptDetail,
   saveStudentAnswer,
@@ -42,6 +43,16 @@ function timeLabel(totalSeconds: number | null) {
   if (hours > 0) return `${hours}h ${minutes}m left`;
   if (minutes > 0) return `${minutes}m ${seconds}s left`;
   return `${seconds}s left`;
+}
+
+function compactTimeLabel(totalSeconds: number | null) {
+  if (totalSeconds === null) return "Open";
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
 function isAttemptExpired(expiresAt: string | null | undefined, serverTimeIso: string | null | undefined) {
@@ -301,6 +312,9 @@ export default function AttemptScreen() {
     return count + (hasSavedResponse(answerMap.get(question.question)) ? 1 : 0);
   }, 0) ?? 0;
   const unansweredCount = Math.max((detail?.total_questions ?? 0) - answeredCount, 0);
+  const completionPercentage = detail?.total_questions
+    ? Math.round((answeredCount / detail.total_questions) * 100)
+    : 0;
   const reviewMarkedCount = detail?.answers.filter((answer) => answer.is_marked_for_review).length ?? 0;
   const remainingTime = detail
     ? secondsRemaining(
@@ -575,6 +589,49 @@ export default function AttemptScreen() {
       title="Current question"
       subtitle="Keep the action hierarchy simple: answer, save, review, then move on"
     >
+      {query.isLoading ? (
+        <View style={appStyles.runtimeStatusStrip}>
+          <View style={appStyles.runtimeStatusGrid}>
+            <View style={appStyles.runtimeStatusItem}>
+              <SkeletonLine width="70%" height={13} />
+              <SkeletonLine width="48%" height={21} soft />
+            </View>
+            <View style={appStyles.runtimeStatusItem}>
+              <SkeletonLine width="74%" height={13} />
+              <SkeletonLine width="56%" height={21} soft />
+            </View>
+            <View style={appStyles.runtimeStatusItem}>
+              <SkeletonLine width="58%" height={13} />
+              <SkeletonLine width="52%" height={21} soft />
+            </View>
+          </View>
+          <SkeletonLine width="100%" height={8} />
+        </View>
+      ) : detail ? (
+        <View style={appStyles.runtimeStatusStrip} testID="attempt-runtime-status-strip">
+          <View style={appStyles.runtimeStatusGrid}>
+            <View style={appStyles.runtimeStatusItem}>
+              <Text style={appStyles.metricLabel}>Progress</Text>
+              <Text style={appStyles.runtimeStatusValue}>{completionPercentage}%</Text>
+            </View>
+            <View style={appStyles.runtimeStatusItem}>
+              <Text style={appStyles.metricLabel}>Time left</Text>
+              <Text style={appStyles.runtimeStatusValue}>{compactTimeLabel(remainingTime)}</Text>
+            </View>
+            <View style={appStyles.runtimeStatusItem}>
+              <Text style={appStyles.metricLabel}>Saved</Text>
+              <Text style={appStyles.runtimeStatusValue}>
+                {answeredCount}/{detail.total_questions}
+              </Text>
+            </View>
+          </View>
+          <View style={appStyles.progressTrack}>
+            <View style={[appStyles.progressFill, { flex: Math.max(completionPercentage, 1) }]} />
+            <View style={{ flex: Math.max(100 - completionPercentage, 0) }} />
+          </View>
+        </View>
+      ) : null}
+
       {currentQuestion ? (
         <View style={appStyles.column}>
           <View style={appStyles.rowBetween}>
@@ -590,6 +647,7 @@ export default function AttemptScreen() {
               label="Previous"
               tone="secondary"
               compact
+              icon="chevron-back"
               testID="attempt-runtime-previous-button"
               onPress={() => {
                 if (previousQuestion) {
@@ -602,6 +660,7 @@ export default function AttemptScreen() {
               label="Next"
               tone={nextQuestion ? "primary" : "secondary"}
               compact
+              icon="chevron-forward"
               testID="attempt-runtime-next-button"
               onPress={() => {
                 if (nextQuestion) {
@@ -611,8 +670,8 @@ export default function AttemptScreen() {
               disabled={pendingAction !== null || !nextQuestion || !attemptEditable}
             />
           </View>
-          <Text style={appStyles.label}>
-            Fastest flow: answer, save, move next. Use review-mark only when you intend to revisit before submit.
+          <Text style={appStyles.helper}>
+            Answer, save, then move next. Mark review only when you intend to revisit before submit.
           </Text>
           <Text style={appStyles.questionStem}>{currentQuestion.question_text}</Text>
           <View style={appStyles.rowWrap}>
@@ -719,12 +778,14 @@ export default function AttemptScreen() {
             <ActionButton
               label={markedForReview ? "Marked for review" : "Mark for review"}
               tone={markedForReview ? "primary" : "secondary"}
+              icon={markedForReview ? "flag" : "flag-outline"}
               testID="attempt-runtime-mark-review-button"
               onPress={() => setMarkedForReview((value) => !value)}
               disabled={pendingAction !== null || !attemptEditable}
             />
             <ActionButton
               label={pendingAction === "save" ? "Saving..." : "Save Answer"}
+              icon="save-outline"
               testID="attempt-runtime-save-answer-button"
               onPress={() => void handleSave(false)}
               disabled={pendingAction !== null || !attemptEditable}
@@ -732,6 +793,7 @@ export default function AttemptScreen() {
             <ActionButton
               label="Clear Response"
               tone="secondary"
+              icon="close-circle-outline"
               testID="attempt-runtime-clear-response-button"
               onPress={() => void handleSave(true)}
               disabled={pendingAction !== null || !attemptEditable}
@@ -773,7 +835,7 @@ export default function AttemptScreen() {
             </View>
           )}
         </View>
-      ) : (
+      ) : query.isLoading ? null : (
         <StatePanel
           title="Select a question"
           body="Choose a question from the navigator to begin the focused attempt flow."

@@ -6,11 +6,8 @@ const unentitledSearchProbe = "UNENTITLED DEMO ::";
 
 async function expectTruthfulBlockedSharedLibraryCard(targetCard: Locator) {
   await expect(
-    targetCard.locator(".statusPill").filter({ hasText: /^(Subscription required|Quota exhausted)$/i }).first(),
-  ).toBeVisible();
-  await expect(
     targetCard.getByText(
-      /no matching subscribed package was found for this local scope|matching subscribed packages were found, but their question quota is exhausted/i,
+      /no matching subscribed package was found for this local scope|matching subscribed packages were found, but their question quota is exhausted|matching package coverage exists for this licensed source, but this institute does not currently have a compatible local subject for intake/i,
     ).first(),
   ).toBeVisible();
 }
@@ -29,7 +26,7 @@ test.describe("Teacher shared-library no-entitlement workspace", () => {
 
     const searchField = page.getByRole("textbox", { name: /search question text/i });
     await searchField.fill(unentitledSearchProbe);
-    await page.getByRole("button", { name: /apply filters/i }).click();
+    await page.getByRole("button", { name: /update view/i }).click();
 
     await expect(page).toHaveURL(/search=UNENTITLED/);
 

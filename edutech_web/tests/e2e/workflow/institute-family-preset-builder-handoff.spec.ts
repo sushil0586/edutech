@@ -12,12 +12,67 @@ const familyPresetIds = [
   "pte_academic",
 ] as const;
 
+const instituteFamilyScopes: Record<
+  (typeof familyPresetIds)[number],
+  {
+    programLabel: string;
+    subjectLabel: string;
+  }
+> = {
+  neet_mock: {
+    programLabel: "Demo NEET Track",
+    subjectLabel: "NEET Biology",
+  },
+  jee_mains_math: {
+    programLabel: "JEE 2026 Foundation",
+    subjectLabel: "Mathematics",
+  },
+  gre_quant: {
+    programLabel: "GRE 2026 Quant Prep",
+    subjectLabel: "Quantitative Reasoning",
+  },
+  aws_practitioner: {
+    programLabel: "Demo AWS Track",
+    subjectLabel: "AWS Cloud Practitioner",
+  },
+  ielts_academic: {
+    programLabel: "Demo IELTS Track",
+    subjectLabel: "IELTS Academic Skills",
+  },
+  pte_academic: {
+    programLabel: "Demo IELTS Track",
+    subjectLabel: "IELTS Academic Skills",
+  },
+};
+
 function requiredBuilderDefaults(pack: ExamPresetPackPayload) {
   expect(pack.builderDefaults).toBeTruthy();
   expect(pack.builderDefaults?.exam).toBeTruthy();
   expect(pack.builderDefaults?.delivery).toBeTruthy();
   expect(pack.builderDefaults?.sections?.length).toBeGreaterThan(0);
   return pack.builderDefaults!;
+}
+
+async function alignInstituteScopeWithPresetFamily(
+  page: Parameters<typeof test>[0]["page"],
+  options: {
+    programLabel: string;
+    subjectLabel: string;
+    packLabel: string;
+  },
+) {
+  await page.getByRole("tab", { name: /\bbasics\b/i }).first().click();
+  await page
+    .locator(".advancedBuilderField", { has: page.getByText(/^Program$/i) })
+    .locator("select")
+    .selectOption({ label: options.programLabel });
+  await page
+    .locator(".advancedBuilderField")
+    .filter({ has: page.getByText(/^(Primary subject|Subject)$/i) })
+    .locator("select")
+    .first()
+    .selectOption({ label: options.subjectLabel });
+  await page.getByRole("button", { name: new RegExp(options.packLabel, "i") }).click();
 }
 
 test.describe("Institute family preset builder handoff", () => {
@@ -37,6 +92,7 @@ test.describe("Institute family preset builder handoff", () => {
       const pack = presetPayload.results.find((item) => item.id === presetId);
       expect(pack).toBeTruthy();
       const builderDefaults = requiredBuilderDefaults(pack!);
+      const scope = instituteFamilyScopes[presetId];
 
       await page.goto(`/institute/exams/advanced?preset_pack=${encodeURIComponent(presetId)}`);
       await expect(page.getByRole("heading", { name: /advanced exam builder/i }).first()).toBeVisible();
@@ -48,9 +104,11 @@ test.describe("Institute family preset builder handoff", () => {
         await expect(page.getByText(/active institute feature entitlement/i).first()).toBeVisible();
         return;
       }
-      await expect(
-        page.getByText(new RegExp(`active pack:\\s*${pack!.label}`, "i")),
-      ).toBeVisible({ timeout: 30000 });
+      await alignInstituteScopeWithPresetFamily(page, {
+        programLabel: scope.programLabel,
+        subjectLabel: scope.subjectLabel,
+        packLabel: pack!.label,
+      });
 
       await expect(page.getByLabel(/exam type/i)).toHaveValue(builderDefaults.exam?.examType ?? "");
       await expect(page.getByRole("spinbutton", { name: "Duration in minutes", exact: true })).toHaveValue(

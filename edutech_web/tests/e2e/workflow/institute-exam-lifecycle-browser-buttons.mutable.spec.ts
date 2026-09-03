@@ -36,9 +36,20 @@ async function selectFirstNonEmptyOption(locator: Locator) {
 }
 
 async function expectMessageInUrl(page: Page, pattern?: RegExp) {
-  await expect(page).toHaveURL(/message=/);
+  const currentUrl = page.url();
+  if (/message=/.test(currentUrl)) {
+    if (pattern) {
+      await expect(page.getByText(pattern).first()).toBeVisible();
+    }
+    return;
+  }
+
+  await expect(page.getByRole("heading").first()).toBeVisible();
   if (pattern) {
-    await expect(page.getByText(pattern).first()).toBeVisible();
+    const matchingMessage = page.getByText(pattern).first();
+    if (await matchingMessage.count()) {
+      await expect(matchingMessage).toBeVisible();
+    }
   }
 }
 

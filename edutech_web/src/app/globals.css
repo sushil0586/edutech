@@ -4378,6 +4378,8 @@ button {
 
 .mobileWorkspaceNav {
   display: none;
+  position: relative;
+  z-index: 40;
 }
 
 .mobileWorkspaceNavBar,
@@ -4419,6 +4421,8 @@ button {
   gap: 14px;
   margin-top: 12px;
   padding: 14px;
+  position: relative;
+  z-index: 41;
 }
 
 .appSidebar::before {
@@ -9936,11 +9940,11 @@ button {
 .builderGrid {
   display: grid;
   gap: var(--space-5);
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
 }
 
 .builderGrid.compact {
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr));
 }
 
 .fieldStack {
@@ -9978,7 +9982,10 @@ button {
 .fieldStack input,
 .fieldStack select,
 .fieldStack textarea {
+  display: block;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   min-height: 56px;
   padding: 0 18px;
   border: 1px solid rgba(109, 94, 252, 0.14);
@@ -10017,6 +10024,12 @@ button {
   min-height: 150px;
   padding-block: 16px;
   resize: vertical;
+}
+
+.fieldStack select {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .fieldStackFull {

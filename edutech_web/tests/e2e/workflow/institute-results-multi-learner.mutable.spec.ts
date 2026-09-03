@@ -71,12 +71,6 @@ function toDateTimeLocalValue(date: Date) {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
-function instituteResultsWorkspaceReadinessCard(page: Page, title: RegExp) {
-  return page.locator(".teacherResultsReadinessCard").filter({
-    has: page.getByText(title),
-  }).first();
-}
-
 async function expectOneOf(primary: Locator, secondary: Locator) {
   const primaryVisible = await primary.isVisible().catch(() => false);
   if (primaryVisible) {
@@ -91,24 +85,6 @@ async function getAccessToken(page: Page) {
   const accessToken = cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
   expect(accessToken).not.toBe("");
   return accessToken;
-}
-
-async function selectFirstNonEmptyOption(locator: Locator) {
-  let optionValue: string | null = null;
-  await expect
-    .poll(async () => {
-      const values = await locator.locator("option").evaluateAll((options) =>
-        options.map((option) => (option as HTMLOptionElement).value),
-      );
-      optionValue = values.find((value) => value.trim().length > 0) ?? null;
-      return optionValue;
-    }, {
-      timeout: 15000,
-      message: "Expected hydrated select options to include a non-empty value",
-    })
-    .not.toBeNull();
-  await locator.selectOption(optionValue!);
-  return optionValue!;
 }
 
 async function fetchSessionProfile(page: Page, accessToken?: string) {
@@ -244,6 +220,71 @@ async function assignExamStudents(page: Page, examId: string, studentIds: string
     data: {
       assignment_mode: "selected_students",
       student_ids: studentIds,
+    },
+    timeout: 15000,
+  });
+  expect(response.ok(), await response.text()).toBe(true);
+}
+
+async function createExamSection(
+  page: Page,
+  examId: string,
+  name: string,
+  sectionOrder: number,
+  subjectId: string | null,
+) {
+  const accessToken = await getAccessToken(page);
+  const response = await page.request.post(`${instituteApiBaseUrl}/api/v1/exams/sections/`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    data: {
+      exam: examId,
+      subject: subjectId,
+      name,
+      description: "",
+      section_order: sectionOrder,
+      instructions: "",
+      total_questions: 0,
+      marks_per_question: null,
+      negative_marks_per_question: null,
+      timer_enabled: false,
+      duration_minutes: null,
+      allow_skip_section: false,
+      lock_after_submit: false,
+    },
+    timeout: 15000,
+  });
+  expect(response.ok(), await response.text()).toBe(true);
+  const payload = (await response.json()) as { id?: string; data?: { id?: string } };
+  const sectionId = payload.data?.id ?? payload.id ?? null;
+  expect(sectionId).not.toBeNull();
+  return sectionId!;
+}
+
+async function linkExamQuestion(
+  page: Page,
+  examId: string,
+  questionId: string,
+  sectionId: string | null,
+  questionOrder: number,
+  marks = "4",
+) {
+  const accessToken = await getAccessToken(page);
+  const response = await page.request.post(`${instituteApiBaseUrl}/api/v1/exams/questions/`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    data: {
+      exam: examId,
+      question: questionId,
+      section: sectionId,
+      question_order: questionOrder,
+      marks,
+      negative_marks: "0",
+      is_mandatory: false,
     },
     timeout: 15000,
   });
@@ -645,41 +686,15 @@ test.describe("Institute mutable multi-learner results distribution", () => {
       await expect(page.getByRole("heading", { name: new RegExp(escapeRegExp(examTitle), "i") }).first()).toBeVisible();
       console.log("[institute-results-multi] exam shell ready", ensuredExamId);
 
-      await page.goto(`/institute/exams/${ensuredExamId}/builder?tab=sections`);
-      await page.getByRole("textbox", { name: /section name/i }).fill(sectionName);
-      await page.getByRole("spinbutton", { name: /total questions/i }).fill("1");
-      await page.getByRole("button", { name: /^add section$/i }).click();
-      await expect(page).toHaveURL(/tab=sections&message=/);
-
-      await page.goto(`/institute/exams/${ensuredExamId}/builder?tab=questions`);
       console.log("[institute-results-multi] attaching question and assigning learners");
-      const manualAttachForm = page.locator("form.builderForm.builderSubform").filter({
-        has: page.getByText(/attach one question manually/i),
-      }).first();
-      const questionSelect = manualAttachForm.locator('select[name="question"]');
-      const questionBuilderUrl = `/institute/exams/${ensuredExamId}/builder?tab=questions`;
-      const targetQuestionOption = await waitForQuestionOption(page, questionSelect, questionText, questionBuilderUrl);
-      expect(targetQuestionOption).not.toBeNull();
-      await questionSelect.selectOption(targetQuestionOption!.value);
-
-      const sectionSelect = manualAttachForm.locator('select[name="section"]');
-      const sectionOption = await sectionSelect.locator("option").evaluateAll(
-        (options, targetSectionName) =>
-          options
-            .map((option) => ({
-              value: (option as HTMLOptionElement).value,
-              label: (option as HTMLOptionElement).label,
-            }))
-            .find((option) => option.label.trim() === targetSectionName) ?? null,
+      const sectionId = await createExamSection(
+        page,
+        ensuredExamId,
         sectionName,
+        1,
+        academicLane.subjectValue,
       );
-      expect(sectionOption).not.toBeNull();
-      await sectionSelect.selectOption(sectionOption!.value);
-      await manualAttachForm.getByRole("spinbutton", { name: /question order/i }).fill("1");
-      await manualAttachForm.getByRole("spinbutton", { name: /^marks$/i }).fill("4");
-      await manualAttachForm.getByRole("spinbutton", { name: /negative marks/i }).fill("0");
-      await manualAttachForm.getByRole("button", { name: /^attach question$/i }).click();
-      await expect(page).toHaveURL(/tab=questions&message=/);
+      await linkExamQuestion(page, ensuredExamId, questionId!, sectionId, 1, "4");
 
       await assignExamStudents(page, ensuredExamId, [primaryStudentDetail.id, secondStudent.studentId]);
 

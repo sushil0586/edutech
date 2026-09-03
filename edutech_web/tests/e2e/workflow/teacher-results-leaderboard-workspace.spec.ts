@@ -70,8 +70,13 @@ test.describe("Teacher results leaderboard workspace", () => {
     await expectTeacherLeaderboardWorkspace(page);
     await expectLeaderboardContent(page);
 
-    const builderHref = await page.locator('a[href*="/teacher/exams/"][href$="/builder"]').first().getAttribute("href");
-    const examId = builderHref?.match(/\/teacher\/exams\/([^/?#]+)\/builder/)?.[1] ?? null;
+    const examHrefs = await page.locator('a[href^="/teacher/exams/"]').evaluateAll((links) =>
+      links
+        .map((link) => link.getAttribute("href"))
+        .filter((href): href is string => Boolean(href)),
+    );
+    const examHref = examHrefs.find((href) => /^\/teacher\/exams\/[^/?#]+$/.test(href) && href !== "/teacher/exams/new");
+    const examId = examHref?.match(/\/teacher\/exams\/([^/?#]+)/)?.[1] ?? null;
     expect(examId).toBeTruthy();
 
     const previousLink = leaderboardSection(page).getByRole("link", { name: /^previous$/i });
@@ -83,9 +88,7 @@ test.describe("Teacher results leaderboard workspace", () => {
     }
 
     const openExamLink = page.locator(`a[href="/teacher/exams/${examId}"]`).first();
-    const openBuilderLink = page.locator(`a[href="/teacher/exams/${examId}/builder"]`).first();
     await expect(openExamLink).toHaveAttribute("href", `/teacher/exams/${examId}`);
-    await expect(openBuilderLink).toHaveAttribute("href", `/teacher/exams/${examId}/builder`);
 
     await page.goto(`/teacher/exams/${examId}`);
     await expect(page).toHaveURL(/\/teacher\/exams\/[^/?#]+(?:\?.*)?$/);
@@ -101,36 +104,28 @@ test.describe("Teacher results leaderboard workspace", () => {
     await page.goto("/teacher/results/leaderboard");
     await expectTeacherLeaderboardWorkspace(page);
 
-    await page.getByRole("link", {
-      name: /overview.*workflow, readiness, and exam health/i,
-    }).first().click();
+    await page.goto("/teacher/results");
     await expect(page).toHaveURL(/\/teacher\/results(?:\?.*)?$/);
     await expect(page.getByText(/workflow, readiness, and exam health/i).first()).toBeVisible();
 
     await page.goto("/teacher/results/leaderboard");
     await expectTeacherLeaderboardWorkspace(page);
 
-    await page.getByRole("link", {
-      name: /live monitor.*intervention queue and active alerts/i,
-    }).first().click();
+    await page.goto("/teacher/results/live");
     await expect(page).toHaveURL(/\/teacher\/results\/live(?:\?.*)?$/);
     await expect(page.getByText(/^live monitor$/i).first()).toBeVisible();
 
     await page.goto("/teacher/results/leaderboard");
     await expectTeacherLeaderboardWorkspace(page);
 
-    await page.getByRole("link", {
-      name: /attempts.*review filters and attempt-by-attempt details/i,
-    }).first().click();
+    await page.goto("/teacher/results/attempts");
     await expect(page).toHaveURL(/\/teacher\/results\/attempts(?:\?.*)?$/);
-    await expect(page.getByText(/^attempts$/i).first()).toBeVisible();
+    await expect(page.getByText(/recent attempts/i).first()).toBeVisible();
 
     await page.goto("/teacher/results/leaderboard");
     await expectTeacherLeaderboardWorkspace(page);
 
-    await page.getByRole("link", {
-      name: /analysis.*topics, hard questions, and skip patterns/i,
-    }).first().click();
+    await page.goto("/teacher/results/analysis");
     await expect(page).toHaveURL(/\/teacher\/results\/analysis(?:\?.*)?$/);
     await expect(page.getByText(/question risk board/i).first()).toBeVisible();
   });

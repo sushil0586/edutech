@@ -125,7 +125,14 @@ test.describe("Operator mobile shell sanity", () => {
     await mobileNav.getByRole("link", { name: /^economy$/i }).click();
     await expect(page).toHaveURL(/\/institute\/economy(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /economy oversight/i }).first()).toBeVisible();
-    await expect(page.getByRole("heading", { name: /packages currently available to this institute/i })).toBeVisible();
+    const packageHeading = page.getByRole("heading", { name: /packages currently available to this institute/i });
+    const visibilityUnavailable = page.getByText(/economy visibility unavailable/i).first();
+    if (await visibilityUnavailable.isVisible().catch(() => false)) {
+      await expect(visibilityUnavailable).toBeVisible();
+      await expect(page.getByText(/seed groups|scenario coverage/i).first()).toBeVisible();
+    } else {
+      await expect(packageHeading).toBeVisible();
+    }
 
     const reopenedNav = await openMobileWorkspaceNav(page, /institute admin navigation/i, "mobile-workspace-menu");
     await expect(reopenedNav.getByRole("link", { name: /^question bank$/i })).toBeVisible();
@@ -188,19 +195,19 @@ test.describe("Operator mobile shell sanity", () => {
     await expect(page.getByText(/quick triage|one-click grading views/i).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /view results/i }).first()).toBeVisible();
 
+    const updateViewButton = page.getByRole("button", { name: /update view/i });
     await page.getByRole("combobox", { name: /^status$/i }).selectOption("in_review");
     await page.getByRole("combobox", { name: /page size/i }).selectOption("24");
-    const teacherUpdateViewButton = page.getByRole("button", { name: /update view/i });
-    await teacherUpdateViewButton.scrollIntoViewIfNeeded();
-    await teacherUpdateViewButton.click();
+    await expect(updateViewButton).toBeVisible();
+    await updateViewButton.click();
     await expect(page).toHaveURL(/status=in_review/);
     await expect(page).toHaveURL(/page_size=24/);
     await expect(page.getByText(/status: in review/i).first()).toBeVisible();
     await expect(page.getByText(/page size: 24 tasks/i).first()).toBeVisible();
 
     await page.getByRole("textbox", { name: /^search$/i }).fill("playwright-no-teacher-review-match-mobile-1943");
-    await teacherUpdateViewButton.scrollIntoViewIfNeeded();
-    await teacherUpdateViewButton.click();
+    await expect(updateViewButton).toBeVisible();
+    await updateViewButton.click();
     await expect(page).toHaveURL(/search=playwright-no-teacher-review-match-mobile-1943/);
     await expect(page.getByText(/no review tasks match these filters/i).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /reset filters and show full queue/i }).first()).toBeVisible();

@@ -290,6 +290,8 @@ type SavedBuilderTemplate = {
       code: string;
       description: string;
       presetPackCode?: string;
+      programCode?: string;
+      primarySubjectCode?: string;
       examType: string;
       deliveryMode: string;
       status: string;
@@ -635,7 +637,7 @@ function buildFamilyExecutionChecklist(
 function hydrateSectionsFromBlueprint(
   sectionRows: SavedBuilderTemplate["blueprint"]["sections"],
   availableTopicCodes: Set<string>,
-  fallbackTopicCode: string,
+  fallbackTopicCodeBySubjectId: Map<string, string>,
   fallbackSubjectId: string,
   subjectOptions: ScopeOption[],
 ) {
@@ -655,16 +657,22 @@ function hydrateSectionsFromBlueprint(
     allowSkipSection: section.allowSkipSection,
     lockAfterSubmit: section.lockAfterSubmit,
     difficultyMix: { ...section.difficultyMix },
-    topics: section.topics.map((topicRow, topicIndex) => ({
-      id: uid("topic"),
-      topicCode:
-        topicRow.topicCode && (availableTopicCodes.has(topicRow.topicCode) || Boolean(section.subjectCode))
-          ? topicRow.topicCode
-          : sectionIndex === 0 && topicIndex === 0
-            ? fallbackTopicCode
-            : "",
-      count: topicRow.count,
-    })),
+    topics: section.topics.map((topicRow, topicIndex) => {
+      const sectionSubjectId = section.subjectCode
+        ? (subjectByCode.get(section.subjectCode) ?? fallbackSubjectId)
+        : fallbackSubjectId;
+      const fallbackTopicCode = fallbackTopicCodeBySubjectId.get(sectionSubjectId) ?? "";
+      return {
+        id: uid("topic"),
+        topicCode:
+          topicRow.topicCode && availableTopicCodes.has(topicRow.topicCode)
+            ? topicRow.topicCode
+            : sectionIndex === 0 && topicIndex === 0
+              ? fallbackTopicCode
+              : "",
+        count: topicRow.count,
+      };
+    }),
   }));
 }
 
@@ -2385,8 +2393,49 @@ export function AdvancedExamBuilder({
     }
 
     const blueprint = pack.config;
-    const availableTopicCodes = new Set(sortedTopicOptions.map((topic) => topic.code));
+    const targetProgramCode = blueprint.exam.programCode?.trim() ?? "";
+    if (targetProgramCode) {
+      const targetProgram = programs.find((program) => program.code === targetProgramCode) ?? null;
+      if (targetProgram && targetProgram.id !== selectedProgram) {
+        setSelectedProgram(targetProgram.id);
+        return false;
+      }
+    }
+
+    const targetPrimarySubjectCode = blueprint.exam.primarySubjectCode?.trim() ?? "";
+    if (targetPrimarySubjectCode) {
+      const targetPrimarySubject = subjectOptions.find((subject) => subject.code === targetPrimarySubjectCode) ?? null;
+      if (targetPrimarySubject && targetPrimarySubject.id !== selectedSubject) {
+        setSelectedSubject(targetPrimarySubject.id);
+        return false;
+      }
+    }
+
+    const availableTopicCodes = new Set(
+      Object.values(topicOptionsBySubject)
+        .flat()
+        .map((topic) => topic.code),
+    );
+    const fallbackTopicCodeBySubjectId = new Map(
+      Object.entries(topicOptionsBySubject).map(([subjectId, topics]) => [subjectId, topics[0]?.code ?? ""]),
+    );
+    const subjectByCode = new Map(subjectOptions.map((item) => [item.code, item.id]));
+    const blueprintSubjectId =
+      blueprint.sections.find((section) => section.subjectCode)?.subjectCode
+        ? (subjectByCode.get(blueprint.sections.find((section) => section.subjectCode)?.subjectCode ?? "") ?? "")
+        : "";
+    const nextSelectedSubject =
+      blueprintSubjectId ||
+      (targetPrimarySubjectCode
+        ? (subjectOptions.find((subject) => subject.code === targetPrimarySubjectCode)?.id ?? "")
+        : "") ||
+      selectedSubject ||
+      subjectOptions[0]?.id ||
+      "";
     const { experienceProfile, ...examBlueprint } = blueprint.exam;
+    if (nextSelectedSubject) {
+      setSelectedSubject(nextSelectedSubject);
+    }
     setExam({
       ...examBlueprint,
       presetPackCode: pack.id,
@@ -2405,8 +2454,8 @@ export function AdvancedExamBuilder({
       hydrateSectionsFromBlueprint(
         blueprint.sections,
         availableTopicCodes,
-        topicOptions[0]?.code ?? "",
-        selectedSubject,
+        fallbackTopicCodeBySubjectId,
+        nextSelectedSubject,
         subjectOptions,
       ),
     );
@@ -2415,14 +2464,9 @@ export function AdvancedExamBuilder({
     setMessage(`${pack.label} preset pack applied from managed configuration.`);
     setActiveStage(1);
     return true;
-  }, [selectedProgramFamilyProfile, selectedSubject, sortedTopicOptions, subjectOptions, topicOptions]);
+  }, [programs, selectedProgram, selectedProgramFamilyProfile, selectedSubject, subjectOptions, topicOptionsBySubject]);
 
   const applyPresetPack = useCallback((presetId: PresetPackId) => {
-    if (topicOptions.length === 0 || !selectedSubjectRecord) {
-      setError("Choose a subject with active topics before applying a preset pack.");
-      return;
-    }
-
     const presetDefinition =
       presetPackLibrary.find((pack) => pack.id === presetId) ?? null;
     if (
@@ -2431,8 +2475,14 @@ export function AdvancedExamBuilder({
       Object.keys(presetDefinition.config).length > 0
     ) {
       if (applyManagedPresetPack(presetDefinition)) {
-        return;
+        return true;
       }
+      return false;
+    }
+
+    if (topicOptions.length === 0 || !selectedSubjectRecord) {
+      setError("Choose a subject with active topics before applying a preset pack.");
+      return false;
     }
 
     const subjectCode = selectedSubjectRecord.code.toUpperCase();
@@ -2505,10 +2555,11 @@ export function AdvancedExamBuilder({
         presetDefinition.builderDefaults,
         presetDefinition.label,
       );
-      return;
+      return true;
     }
 
     setError(`Preset pack "${presetDefinition?.label ?? presetId}" is not configured for automatic application yet.`);
+    return false;
   }, [
     applyManagedPresetPack,
     presetPackLibrary,
@@ -2526,15 +2577,25 @@ export function AdvancedExamBuilder({
     if (requestedPresetPackAppliedRef.current === requestedPresetPack) {
       return;
     }
-    if (topicOptions.length === 0 || !selectedSubjectRecord || presetPackLibrary.length === 0) {
+    if (presetPackLibrary.length === 0) {
+      return;
+    }
+
+    const requestedDefinition = presetPackLibrary.find((pack) => pack.id === requestedPresetPack) ?? null;
+    const canApplyManagedPreset =
+      Boolean(requestedDefinition?.config) &&
+      Object.keys(requestedDefinition?.config ?? {}).length > 0;
+    if (!canApplyManagedPreset && (topicOptions.length === 0 || !selectedSubjectRecord)) {
       return;
     }
 
     const presetId = requestedPresetPack;
     queueMicrotask(() => {
       startTransition(() => {
-        applyPresetPack(presetId);
-        requestedPresetPackAppliedRef.current = presetId;
+        const applied = applyPresetPack(presetId);
+        if (applied) {
+          requestedPresetPackAppliedRef.current = presetId;
+        }
       });
     });
   }, [
@@ -2950,6 +3011,8 @@ export function AdvancedExamBuilder({
         ...exam,
         assessmentFamilyCode: selectedProgramFamilyCode || undefined,
         assessmentFamilyLabel: selectedProgramFamilyProfile?.label || undefined,
+        programCode: selectedProgramRecord?.code || undefined,
+        primarySubjectCode: selectedSubjectRecord?.code || undefined,
         experienceProfile: { ...experienceOverride },
       },
       delivery: { ...delivery },
@@ -3182,6 +3245,9 @@ export function AdvancedExamBuilder({
 
   function loadSavedTemplate(template: SavedBuilderTemplate) {
     const availableTopicCodes = new Set(sortedTopicOptions.map((topic) => topic.code));
+    const fallbackTopicCodeBySubjectId = new Map(
+      Object.entries(topicOptionsBySubject).map(([subjectId, topics]) => [subjectId, topics[0]?.code ?? ""]),
+    );
     const examBlueprintSource = { ...template.blueprint.exam };
     const experienceProfile = examBlueprintSource.experienceProfile;
     delete examBlueprintSource.experienceProfile;
@@ -3206,7 +3272,7 @@ export function AdvancedExamBuilder({
       hydrateSectionsFromBlueprint(
         template.blueprint.sections,
         availableTopicCodes,
-        topicOptions[0]?.code ?? "",
+        fallbackTopicCodeBySubjectId,
         selectedSubject,
         subjectOptions,
       ),

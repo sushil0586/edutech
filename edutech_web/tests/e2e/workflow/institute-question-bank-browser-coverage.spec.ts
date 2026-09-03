@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectInstituteWorkspace } from "../helpers/navigation";
 import {
@@ -71,7 +71,7 @@ async function selectProgramWithSubjectOptions(page: Page) {
         const selectedTopic = topics[0]!;
         await topicSelect(page).selectOption(selectedTopic);
         await expect(topicSelect(page)).toHaveValue(selectedTopic);
-        return { program: preferredProgram, subject: preferredSubject, topic: selectedTopic, subjects, topics };
+        return { program: preferredProgram, subject: preferredSubject, topic: selectedTopic };
       }
     }
   }
@@ -165,7 +165,7 @@ test.describe("Institute question bank browser functionality coverage", () => {
     let selectedSubject: string | null = null;
 
     if (resolvedAcademicPath) {
-      const { program, subject, topic, subjects, topics } = resolvedAcademicPath;
+      const { program, subject, topic } = resolvedAcademicPath;
       selectedProgram = program;
       selectedSubject = subject;
       await subjectSelect(page).selectOption(subject);

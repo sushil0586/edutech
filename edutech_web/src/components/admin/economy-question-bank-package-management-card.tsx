@@ -422,10 +422,6 @@ export function EconomyQuestionBankPackageManagementCard({
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogLoadError, setCatalogLoadError] = useState("");
 
-  useEffect(() => {
-    setPackageRows(packages);
-  }, [packages]);
-
   const editorLookupsReady =
     editorPrograms.length > 0 || editorSubjects.length > 0 || editorTopics.length > 0;
 

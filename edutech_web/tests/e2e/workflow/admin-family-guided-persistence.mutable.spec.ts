@@ -128,7 +128,7 @@ async function createAdminGuidedFamilyExam(
   }).first();
   await expect(createdExamCard).toBeVisible();
 
-  const openExamHref = await createdExamCard.getByRole("link", { name: /open exam/i }).getAttribute("href");
+  const openExamHref = await createdExamCard.getByRole("link", { name: /view exam|open exam/i }).getAttribute("href");
   const examId = openExamHref?.match(/\/admin\/exams\/([^/?#]+)/)?.[1] ?? null;
   expect(examId).not.toBeNull();
 

@@ -7,6 +7,7 @@ import { ActionButton } from "@/components/action-button";
 import { MetricCard } from "@/components/metric-card";
 import { SectionBlock } from "@/components/section-block";
 import { StatePanel } from "@/components/state-panel";
+import { SkeletonLine } from "@/components/skeleton";
 import { fetchStudentDashboardBundle } from "@/lib/api/student";
 import { clearPersistedSession } from "@/lib/secure-session";
 import { useSessionStore } from "@/store/session-store";
@@ -18,7 +19,7 @@ export default function ProfileScreen() {
   const profile = useSessionStore((state) => state.profile);
   const clearSession = useSessionStore((state) => state.clearSession);
   const query = useQuery({
-    queryKey: ["student.profile.bundle", accessToken],
+    queryKey: ["student.dashboard.bundle", accessToken],
     queryFn: async () => fetchStudentDashboardBundle(accessToken as string),
     enabled: Boolean(accessToken),
   });
@@ -47,8 +48,8 @@ export default function ProfileScreen() {
         helper={profile?.email || profile?.username || "No identity details available."}
         actions={
           <View style={appStyles.rowWrap}>
-            <ActionButton label="Open Dashboard" onPress={() => router.push("/(student)/(tabs)/dashboard")} />
-            <ActionButton label="Logout" tone="secondary" onPress={() => void handleLogout()} />
+            <ActionButton label="Open Dashboard" onPress={() => router.push("/(student)/(tabs)/dashboard")} testID="profile-open-dashboard-button" />
+            <ActionButton label="Logout" tone="secondary" onPress={() => void handleLogout()} testID="profile-logout-button" />
           </View>
         }
       />
@@ -67,17 +68,20 @@ export default function ProfileScreen() {
           value={wallet ? wallet.available_stars.toLocaleString("en-IN") : "--"}
           helper="Current available balance"
           soft
+          loading={query.isLoading}
         />
         <MetricCard
           label="Average"
           value={summary ? `${summary.average_percentage}%` : "--"}
           helper="Latest learning average"
+          loading={query.isLoading}
         />
         <MetricCard
           label="Accuracy"
           value={summary ? `${summary.accuracy_percentage}%` : "--"}
           helper="Live accuracy signal"
           soft
+          loading={query.isLoading}
         />
         <MetricCard
           label="Referral"
@@ -90,6 +94,13 @@ export default function ProfileScreen() {
         title="Account details"
         subtitle="Core learner identity restored from the active session"
       >
+        {query.isLoading ? (
+          <View style={appStyles.column}>
+            <SkeletonLine width="100%" height={74} />
+            <SkeletonLine width="100%" height={74} soft />
+            <SkeletonLine width="100%" height={74} />
+          </View>
+        ) : (
         <View style={appStyles.column}>
           <View style={appStyles.productCard}>
             <Text style={appStyles.label}>Username</Text>
@@ -108,6 +119,7 @@ export default function ProfileScreen() {
             </Text>
           </View>
         </View>
+        )}
       </SectionBlock>
 
       <SectionBlock

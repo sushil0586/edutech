@@ -47,27 +47,6 @@ import {
   STUDENT_SUBJECT_CONTEXT_COOKIE,
 } from "@/lib/student/subject-context";
 
-function severityLabel(score: number) {
-  if (score < 35) return "Critical";
-  if (score < 50) return "High";
-  if (score < 65) return "Moderate";
-  return "Watch";
-}
-
-function severityClass(score: number) {
-  if (score < 35) return "statusDanger";
-  if (score < 50) return "statusWarning";
-  if (score < 65) return "statusDemo";
-  return "statusLive";
-}
-
-function scoreBarTone(score: number) {
-  if (score >= 75) return "good";
-  if (score >= 55) return "mid";
-  if (score >= 40) return "warn";
-  return "risk";
-}
-
 function masteryLabel(score: number) {
   if (score < 40) return "Weak";
   if (score < 70) return "Developing";

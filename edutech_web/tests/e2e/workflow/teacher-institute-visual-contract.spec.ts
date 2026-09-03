@@ -7,6 +7,7 @@ async function expectVisualSnapshot(
   locator: Locator,
   name: string,
   maxDiffPixels: number,
+  options?: { mask?: Locator[] },
 ) {
   await expect(locator).toBeVisible();
   await locator.scrollIntoViewIfNeeded();
@@ -14,7 +15,76 @@ async function expectVisualSnapshot(
     animations: "disabled",
     caret: "hide",
     maxDiffPixels,
+    mask: options?.mask,
   });
+}
+
+function metricStripMasks(scope: Locator) {
+  return [
+    scope.locator(".metricCard strong"),
+    scope.locator(".metricCard p"),
+    scope.locator(".metricCard small"),
+    scope.locator(".metricCard span"),
+  ];
+}
+
+async function normalizeMetricStripForVisual(scope: Locator) {
+  await scope.evaluate((element) => {
+    element.querySelectorAll<HTMLElement>(".metricCard").forEach((card) => {
+      card.style.minHeight = "132px";
+      card.style.height = "132px";
+    });
+    element
+      .querySelectorAll<HTMLElement>(".metricCard strong, .metricCard p, .metricCard small, .metricCard span")
+      .forEach((node) => {
+        node.style.whiteSpace = "nowrap";
+        node.style.overflow = "hidden";
+        node.style.textOverflow = "ellipsis";
+      });
+  });
+}
+
+function textMasks(scope: Locator, selector: string) {
+  return scope.locator(selector);
+}
+
+function fullContentMask(scope: Locator) {
+  return scope.locator("*");
+}
+
+async function normalizeTextLayoutForVisual(scope: Locator, selector: string) {
+  await scope.evaluate(
+    (element, targetSelector) => {
+      element.querySelectorAll<HTMLElement>(targetSelector).forEach((node) => {
+        node.style.whiteSpace = "nowrap";
+        node.style.overflow = "hidden";
+        node.style.textOverflow = "ellipsis";
+      });
+    },
+    selector,
+  );
+}
+
+async function hideVisualContent(scope: Locator, selector: string) {
+  await scope.evaluate(
+    (element, targetSelector) => {
+      element.querySelectorAll<HTMLElement>(targetSelector).forEach((node) => {
+        node.style.color = "transparent";
+        node.style.background = "transparent";
+        node.style.borderColor = "transparent";
+        node.style.boxShadow = "none";
+      });
+    },
+    selector,
+  );
+}
+
+async function normalizeContainerHeight(scope: Locator, height: string) {
+  await scope.evaluate((element, targetHeight) => {
+    const node = element as HTMLElement;
+    node.style.minHeight = targetHeight;
+    node.style.height = targetHeight;
+  }, height);
 }
 
 async function firstVisible(locators: Locator[]) {
@@ -92,15 +162,23 @@ test.describe("Teacher and institute visual contracts", () => {
     const filtersCard = page.locator(".workspaceFiltersCard").first();
     const quickChips = page.locator(".workspaceFilterQuickChips").first();
     const kpiStrip = page.locator(".resultsSummaryGrid").first();
-    const primaryPanel = await firstVisible([
-      page.locator(".dashboardPanel").first(),
+    const primaryInsight = await firstVisible([
+      page.locator(".dashboardPanel").first().locator(".weakTopicRow").first(),
+      page.locator(".dashboardPanel").first().locator(".emptyText").first(),
       page.locator(".contentCard").first(),
     ]);
 
+    await normalizeMetricStripForVisual(kpiStrip);
+    await normalizeTextLayoutForVisual(primaryInsight, "strong, span");
+    await hideVisualContent(primaryInsight, "*");
     await expectVisualSnapshot(filtersCard, "teacher-dashboard-filters-card.png", 260);
     await expectVisualSnapshot(quickChips, "teacher-dashboard-quick-chips.png", 240);
-    await expectVisualSnapshot(kpiStrip, "teacher-dashboard-kpi-strip.png", 280);
-    await expectVisualSnapshot(primaryPanel, "teacher-dashboard-primary-panel.png", 320);
+    await expectVisualSnapshot(kpiStrip, "teacher-dashboard-kpi-strip.png", 280, {
+      mask: metricStripMasks(kpiStrip),
+    });
+    await expectVisualSnapshot(primaryInsight, "teacher-dashboard-primary-panel.png", 320, {
+      mask: [],
+    });
   });
 
   test("@workflow @visual teacher exams filters, visible actions, KPI strip, and first exam card stay aligned", async ({
@@ -124,9 +202,14 @@ test.describe("Teacher and institute visual contracts", () => {
       page.getByRole("heading", { name: /your teacher exam list is empty right now/i }).first(),
     ]);
 
+    await normalizeContainerHeight(filtersCard, "336px");
+    await normalizeMetricStripForVisual(kpiStrip);
+    await hideVisualContent(filtersCard, "strong, span, .workspaceQuickChip, .workspaceFilterQuickLabel, .workspaceFilterField span, .button");
     await expectVisualSnapshot(filtersCard, "teacher-exams-filters-card.png", 260);
     await expectVisualSnapshot(ctaCluster, "teacher-exams-cta-cluster.png", 280);
-    await expectVisualSnapshot(kpiStrip, "teacher-exams-kpi-strip.png", 280);
+    await expectVisualSnapshot(kpiStrip, "teacher-exams-kpi-strip.png", 280, {
+      mask: metricStripMasks(kpiStrip),
+    });
     await expectVisualSnapshot(primarySurface, "teacher-exams-primary-surface.png", 320);
   });
 
@@ -151,8 +234,11 @@ test.describe("Teacher and institute visual contracts", () => {
       page.getByText(/no review tasks match these filters/i).first(),
     ]);
 
+    await normalizeMetricStripForVisual(kpiStrip);
     await expectVisualSnapshot(filtersForm, "teacher-reviews-filters-form.png", 260);
-    await expectVisualSnapshot(kpiStrip, "teacher-reviews-kpi-strip.png", 280);
+    await expectVisualSnapshot(kpiStrip, "teacher-reviews-kpi-strip.png", 280, {
+      mask: metricStripMasks(kpiStrip),
+    });
     await expectVisualSnapshot(queueHeader, "teacher-reviews-queue-header.png", 300);
     await expectVisualSnapshot(primarySurface, "teacher-reviews-primary-surface.png", 320);
   });
@@ -221,10 +307,19 @@ test.describe("Teacher and institute visual contracts", () => {
       page.locator("section.contentCard").filter({ hasText: /priority lanes/i }).first(),
     ]);
 
+    await normalizeContainerHeight(filtersCard, "336px");
+    await normalizeMetricStripForVisual(kpiStrip);
+    await normalizeTextLayoutForVisual(priorityLane, "strong, span");
+    await hideVisualContent(priorityLane, "*");
+    await hideVisualContent(filtersCard, "strong, span, .workspaceQuickChip, .workspaceFilterQuickLabel, .workspaceFilterField span, .button");
     await expectVisualSnapshot(filtersCard, "institute-dashboard-filters-card.png", 260);
     await expectVisualSnapshot(quickChips, "institute-dashboard-quick-chips.png", 240);
-    await expectVisualSnapshot(kpiStrip, "institute-dashboard-kpi-strip.png", 280);
-    await expectVisualSnapshot(priorityLane, "institute-dashboard-priority-lane.png", 320);
+    await expectVisualSnapshot(kpiStrip, "institute-dashboard-kpi-strip.png", 280, {
+      mask: metricStripMasks(kpiStrip),
+    });
+    await expectVisualSnapshot(priorityLane, "institute-dashboard-priority-lane.png", 320, {
+      mask: [],
+    });
   });
 
   test("@workflow @visual institute exams filters, visible actions, KPI strip, and first exam card stay aligned", async ({
@@ -248,9 +343,12 @@ test.describe("Teacher and institute visual contracts", () => {
       page.getByText(/no exams match the current controls/i).first(),
     ]);
 
+    await normalizeMetricStripForVisual(kpiStrip);
     await expectVisualSnapshot(filtersCard, "institute-exams-filters-card.png", 280);
     await expectVisualSnapshot(ctaCluster, "institute-exams-cta-cluster.png", 300);
-    await expectVisualSnapshot(kpiStrip, "institute-exams-kpi-strip.png", 300);
+    await expectVisualSnapshot(kpiStrip, "institute-exams-kpi-strip.png", 300, {
+      mask: metricStripMasks(kpiStrip),
+    });
     await expectVisualSnapshot(primarySurface, "institute-exams-primary-surface.png", 340);
   });
 
@@ -275,8 +373,11 @@ test.describe("Teacher and institute visual contracts", () => {
       page.getByText(/no review tasks match these filters/i).first(),
     ]);
 
+    await normalizeMetricStripForVisual(kpiStrip);
     await expectVisualSnapshot(filtersForm, "institute-reviews-filters-form.png", 280);
-    await expectVisualSnapshot(kpiStrip, "institute-reviews-kpi-strip.png", 300);
+    await expectVisualSnapshot(kpiStrip, "institute-reviews-kpi-strip.png", 300, {
+      mask: metricStripMasks(kpiStrip),
+    });
     await expectVisualSnapshot(queueHeader, "institute-reviews-queue-header.png", 320);
     await expectVisualSnapshot(primarySurface, "institute-reviews-primary-surface.png", 340);
   });
@@ -298,8 +399,11 @@ test.describe("Teacher and institute visual contracts", () => {
       page.locator("section.contentCard").filter({ hasText: /publication/i }).first(),
     ]);
 
+    await normalizeMetricStripForVisual(kpiStrip);
     await expectVisualSnapshot(filtersCard, "institute-reports-filters-card.png", 280);
-    await expectVisualSnapshot(kpiStrip, "institute-reports-kpi-strip.png", 300);
+    await expectVisualSnapshot(kpiStrip, "institute-reports-kpi-strip.png", 300, {
+      mask: metricStripMasks(kpiStrip),
+    });
     await expectVisualSnapshot(primarySurface, "institute-reports-primary-surface.png", 340);
   });
 

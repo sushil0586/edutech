@@ -35,7 +35,9 @@ test.describe("Student wallet workspace", () => {
     await gotoWithRuntimeRecovery(page, "/app/wallet");
     await expect(page).toHaveURL(/\/app\/wallet(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /wallet/i }).first()).toBeVisible();
-    await expect(page.getByText(/track star balance, unlock history, and available purchase options/i).first()).toBeVisible();
+    await expect(
+      page.getByText(/see what you can unlock now, what is already unlocked, and what still needs a pack or plan/i).first(),
+    ).toBeVisible();
 
     const unavailableTitle = page.getByText(/wallet is not available yet|wallet data could not be loaded/i).first();
     if (await unavailableTitle.isVisible().catch(() => false)) {

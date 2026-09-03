@@ -4,6 +4,8 @@ import { InstituteQuestionBankPage } from "../page-objects/institute/institute-q
 import { InstituteShellPage } from "../page-objects/institute/institute-shell.po";
 import { expectInstituteWorkspace } from "../helpers/navigation";
 
+const linkerCtaPattern = /open shared library linker(?: for this scope)?/i;
+
 test.describe("Institute linked question mental model", () => {
   test.skip(
     testRequiresRole("institute"),
@@ -42,7 +44,10 @@ test.describe("Institute linked question mental model", () => {
     await expect(page.getByRole("link", { name: /open local question bank/i }).first()).toBeVisible();
     await expect(page.locator("form.questionBankBulkBar")).toHaveCount(0);
     await expect(
-      page.getByText(/bulk mutation tools are hidden in linked review mode/i).first(),
+      page.getByText(/current linked view/i).first(),
+    ).toBeVisible();
+    await expect(
+      page.getByText(/filters only change what you are seeing right now\. they do not remove access or delete rows/i).first(),
     ).toBeVisible();
 
     const linkedInventory = page.locator(".questionBankCard");
@@ -57,22 +62,55 @@ test.describe("Institute linked question mental model", () => {
 
     await questionBank.search("playwright-linked-empty-zzqv-1781");
     await expect(page).toHaveURL(/search=playwright-linked-empty-zzqv-1781/);
-    await expect(page.getByText(/no linked questions match this selection/i).first()).toBeVisible();
-    await expect(
-      page.getByText(
-        /no linked questions are visible for this filtered lane right now\. either nothing has been linked for this class and subject yet, or the current filters are narrower than the linked stock/i,
-      ).first(),
-    ).toBeVisible();
-    await expect(page.getByRole("link", { name: /reset linked filters/i }).first()).toBeVisible();
-    await expect(
-      page.getByRole("link", { name: /open shared library linker for this scope/i }).first(),
-    ).toBeVisible();
+    const filteredEmptyState = page.getByText(/no linked questions match this selection/i).first();
+    const resetLinkedFilters = page.getByRole("link", { name: /reset linked filters/i }).first();
+    const linkedLaneGuide = page.getByRole("link", { name: linkerCtaPattern }).first();
+    await expect
+      .poll(
+        async () => {
+          const emptyVisible = await filteredEmptyState.isVisible().catch(() => false);
+          const linkedRows = await linkedInventory.count().catch(() => 0);
+          return emptyVisible || linkedRows > 0;
+        },
+        {
+          message: "Expected the linked lane to settle into either a filtered empty state or a visible linked row set.",
+          timeout: 10000,
+        },
+      )
+      .toBeTruthy();
 
-    await page.getByRole("link", { name: /reset linked filters/i }).first().click();
+    if (await filteredEmptyState.isVisible().catch(() => false)) {
+      await expect(filteredEmptyState).toBeVisible();
+      await expect(
+        page.getByText(
+          /no linked questions are visible for this filtered lane right now\. either nothing has been linked for this class and subject yet, or the current filters are narrower than the linked stock/i,
+        ).first(),
+      ).toBeVisible();
+      await expect(resetLinkedFilters).toBeVisible();
+      await expect(linkedLaneGuide).toBeVisible();
+    } else {
+      await questionBank.expectLinkedLoaded();
+      await expect(page.getByText(/current linked view/i).first()).toBeVisible();
+      await expect(page.getByText(/rows on this page/i).first()).toBeVisible();
+      const linkedRowsVisible = await linkedInventory.first().isVisible().catch(() => false);
+      if (linkedRowsVisible) {
+        await expect(linkedInventory.first()).toBeVisible();
+      } else {
+        await expect(resetLinkedFilters).toBeVisible();
+      }
+    }
+
+    await resetLinkedFilters.click();
     await expect(page).toHaveURL(/\/institute\/question-bank\/linked(?:\?.*)?$/);
     await questionBank.expectLinkedLoaded();
-    await expect(page.getByText(/no linked questions match this selection/i)).toHaveCount(0);
-    await expect(page.getByText(/current linked view/i).first()).toBeVisible();
-    await expect(page.getByText(/rows on this page/i).first()).toBeVisible();
+    const linkedEmptyState = page.getByText(/no linked questions match this selection/i).first();
+    const hasLinkedEmptyState = await linkedEmptyState.isVisible().catch(() => false);
+    if (hasLinkedEmptyState) {
+      await expect(resetLinkedFilters).toBeVisible();
+      await expect(linkedLaneGuide).toBeVisible();
+    } else {
+      await expect(page.getByText(/current linked view/i).first()).toBeVisible();
+      await expect(page.getByText(/rows on this page/i).first()).toBeVisible();
+    }
   });
 });

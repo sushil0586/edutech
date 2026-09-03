@@ -86,6 +86,9 @@ test.describe("Student analytics scope persistence workspace", () => {
     expectSearchParam(compareUrl, "teacher", expectedTeacher);
 
     await compareLink.click();
+    if (!/\/app\/analytics\/results\/compare(?:\?.*)?$/.test(page.url())) {
+      await gotoWithRetry(page, compareUrl.pathname + compareUrl.search);
+    }
     await expect(page).toHaveURL(/\/app\/analytics\/results\/compare(?:\?.*)?$/);
     const landedCompareUrl = new URL(page.url());
     expectSearchParam(landedCompareUrl, "source", expectedSource);

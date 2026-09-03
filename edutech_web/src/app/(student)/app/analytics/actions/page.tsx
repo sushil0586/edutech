@@ -18,7 +18,6 @@ import {
   buildAnalyticsSubjectHref,
   buildAnalyticsTimelineHref,
   buildAnalyticsTopicHref,
-  buildQuestionAnalyticsHref,
   buildWrongQuestionsHref,
   decodeAnalyticsParam,
   loadStudentAnalyticsBundle,

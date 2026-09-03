@@ -1,4 +1,4 @@
-appId: com.anonymous.nexorastudentmobile
+appId: ${MAESTRO_APP_ID}
 ---
 # Set these before running:
 # STUDENT_USERNAME
@@ -8,20 +8,59 @@ appId: com.anonymous.nexorastudentmobile
     clearState: true
 
 - extendedWaitUntil:
-    visible: "Login"
+    visible: "Student Dashboard|Login"
     timeout: 30000
 
-- tapOn: "Login"
+- runFlow:
+    when:
+      visible: "Student Dashboard"
+    commands:
+      - tapOn:
+          id: "student-tab-profile"
+      - extendedWaitUntil:
+          visible:
+            id: "profile-logout-button"
+          timeout: 30000
+      - tapOn:
+          id: "profile-logout-button"
+      - extendedWaitUntil:
+          visible:
+            id: "role-gate-login-button"
+          timeout: 30000
+
+- extendedWaitUntil:
+    visible:
+      id: "role-gate-login-button"
+    timeout: 30000
+
 - tapOn:
-    text: "Username"
+    id: "role-gate-login-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "login-username-input"
+    timeout: 30000
+
+- tapOn:
+    id: "login-username-input"
 - inputText: ${STUDENT_USERNAME}
 
 - tapOn:
-    text: "Enter password"
+    id: "login-password-input"
 - inputText: ${STUDENT_PASSWORD}
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn: "Sign in and continue learning"
 
-- hideKeyboard
-- tapOn: "Login"
+- tapOn:
+    id: "login-submit-button"
 
 - extendedWaitUntil:
     visible: "Student Dashboard"
@@ -34,23 +73,39 @@ appId: com.anonymous.nexorastudentmobile
 
 - scrollUntilVisible:
     element:
+      id: "exams-filter-startable-button"
+    direction: DOWN
+    timeout: 30000
+    visibilityPercentage: 70
+
+- tapOn:
+    id: "exams-filter-startable-button"
+
+- scrollUntilVisible:
+    element:
       id: "exams-open-top-exam-button"
     direction: UP
+    timeout: 30000
+    visibilityPercentage: 70
 
 - tapOn:
     id: "exams-open-top-exam-button"
 
-- assertVisible: "Exam Readiness"
+- extendedWaitUntil:
+    visible: "Exam Readiness"
+    timeout: 30000
 
 - tapOn:
     id: "exam-detail-open-exams-button"
 
 - assertVisible: "Student Exams"
 
-- tapOn: "Results"
+- tapOn:
+    id: "student-tab-results"
 
 - assertVisible: "Student Results"
 
-- tapOn: "Profile"
+- tapOn:
+    id: "student-tab-profile"
 
 - assertVisible: "Student Profile"

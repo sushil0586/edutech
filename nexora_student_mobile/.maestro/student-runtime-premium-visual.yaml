@@ -1,0 +1,113 @@
+appId: ${MAESTRO_APP_ID}
+---
+# Set these before running:
+# STUDENT_USERNAME
+# STUDENT_PASSWORD
+
+- launchApp:
+    clearState: true
+
+- extendedWaitUntil:
+    visible: "Student Dashboard|Login"
+    timeout: 30000
+
+- runFlow:
+    when:
+      visible: "Student Dashboard"
+    commands:
+      - tapOn:
+          id: "student-tab-profile"
+      - extendedWaitUntil:
+          visible:
+            id: "profile-logout-button"
+          timeout: 30000
+      - tapOn:
+          id: "profile-logout-button"
+      - extendedWaitUntil:
+          visible:
+            id: "role-gate-login-button"
+          timeout: 30000
+
+- extendedWaitUntil:
+    visible:
+      id: "role-gate-login-button"
+    timeout: 30000
+
+- tapOn:
+    id: "role-gate-login-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "login-username-input"
+    timeout: 30000
+
+- tapOn:
+    id: "login-username-input"
+- inputText: ${STUDENT_USERNAME}
+
+- tapOn:
+    id: "login-password-input"
+- inputText: ${STUDENT_PASSWORD}
+
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn: "Sign in and continue learning"
+
+- scrollUntilVisible:
+    element:
+      id: "login-submit-button"
+    direction: DOWN
+
+- tapOn:
+    id: "login-submit-button"
+
+- extendedWaitUntil:
+    visible: "Student Dashboard"
+    timeout: 30000
+
+- tapOn:
+    id: "dashboard-open-exams-button"
+
+- extendedWaitUntil:
+    visible: "Student Exams"
+    timeout: 30000
+
+- scrollUntilVisible:
+    element:
+      id: "exams-open-top-exam-button"
+    direction: UP
+    timeout: 30000
+    visibilityPercentage: 70
+
+- tapOn:
+    id: "exams-open-top-exam-button"
+
+- extendedWaitUntil:
+    visible: "Exam Readiness|Current question"
+    timeout: 30000
+
+- runFlow:
+    when:
+      visible: "Exam Readiness"
+    commands:
+      - tapOn:
+          id: "exam-detail-primary-action-button"
+      - extendedWaitUntil:
+          visible: "Current question"
+          timeout: 30000
+
+- extendedWaitUntil:
+    visible: "Current question"
+    timeout: 30000
+
+- assertVisible:
+    id: "attempt-runtime-status-strip"
+
+- takeScreenshot: "11-runtime-premium"

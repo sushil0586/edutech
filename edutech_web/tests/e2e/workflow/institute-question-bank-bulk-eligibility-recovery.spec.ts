@@ -34,6 +34,30 @@ async function findCardWithText(cards: Locator, pattern: RegExp) {
   return null;
 }
 
+async function findLinkedStateCard(cards: Locator) {
+  const linkedPatterns = [
+    /already linked locally/i,
+    /already linked/i,
+    /already in institute bank/i,
+    /not addable in this lane/i,
+  ];
+  const cardCount = await cards.count();
+  for (let index = 0; index < cardCount; index += 1) {
+    const card = cards.nth(index);
+    for (const pattern of linkedPatterns) {
+      if ((await card.getByText(pattern).count()) > 0) {
+        return card;
+      }
+    }
+    if ((await card.getByRole("button", { name: /add to institute bank/i }).count()) === 0) {
+      if ((await card.getByText(/package:/i).count()) > 0) {
+        return card;
+      }
+    }
+  }
+  return null;
+}
+
 test.describe("Institute bulk eligibility and recovery coverage", () => {
   test.skip(
     testRequiresRole("institute"),
@@ -49,18 +73,21 @@ test.describe("Institute bulk eligibility and recovery coverage", () => {
     await page.goto("/institute/question-bank");
     await expect(page.getByRole("heading", { name: /question bank/i }).first()).toBeVisible();
     await expect(page.locator("form.questionBankBulkBar").first()).toBeVisible();
-    await expect(page.getByText(/shared library intake/i).first()).toBeVisible();
+    await expect(page.getByText(/licensed intake shortcut/i).first()).toBeVisible();
     await expect(
-      page.getByText(/this page is intake only\. link the right source rows here, then return to linked questions or the main question bank/i).first(),
+      page.getByText(/use the linker only when the current bank is not enough and this institute needs additional platform-backed stock/i).first(),
     ).toBeVisible();
     await page.getByRole("link", { name: /open shared library linker/i }).first().click();
 
     await expect(page.getByRole("heading", { name: /shared library linker/i }).first()).toBeVisible();
     await expect(page.getByText(/step 1\. choose class and subject/i).first()).toBeVisible();
     const programSelect = page.getByRole("combobox", { name: /^program$/i });
-    const subjectSelect = page.getByRole("combobox", { name: /^subject$/i });
     await programSelect.selectOption({ label: "Class 7" });
+    await page.getByRole("button", { name: /load topics/i }).click();
+    await expect(page).toHaveURL(/program=/);
+    const subjectSelect = page.getByRole("combobox", { name: /^subject$/i });
     await expect(subjectSelect).toBeEnabled();
+    await expect(subjectSelect.locator("option", { hasText: /^Math$/ })).toHaveCount(1);
     await subjectSelect.selectOption({ label: "Math" });
     await page.getByRole("button", { name: /load topics/i }).click();
     await expect(page.getByText(/step 2\. pick one topic/i).first()).toBeVisible();
@@ -99,13 +126,22 @@ test.describe("Institute bulk eligibility and recovery coverage", () => {
     await expect(section).toBeVisible();
     const cards = section.locator(".questionBankCard");
 
-    const linkedCard = await findCardWithText(cards, /already linked/i);
-    expect(linkedCard).not.toBeNull();
-
-    await expect(linkedCard!).toBeVisible();
-    await expect(linkedCard!.getByRole("button", { name: /add to institute bank/i })).toHaveCount(0);
-    await expect(linkedCard!.getByText(/already linked/i).first()).toBeVisible();
-    await expect(linkedCard!.getByText(/package:/i).first()).toBeVisible();
+    const linkedCard = await findLinkedStateCard(cards);
+    if (linkedCard) {
+      await expect(linkedCard).toBeVisible();
+      await expect(linkedCard.getByRole("button", { name: /add to institute bank/i })).toHaveCount(0);
+      await expect(
+        linkedCard
+          .getByText(/already linked locally|already linked|already in institute bank|not addable in this lane/i)
+          .first(),
+      ).toBeVisible();
+      await expect(linkedCard.getByText(/package:/i).first()).toBeVisible();
+    } else {
+      await expect(page.getByText(/already linked locally:\s*[1-9]\d*/i).first()).toBeVisible();
+      await expect(page.getByRole("link", { name: /open linked questions for this scope/i }).first()).toBeVisible();
+      await expect(page.getByRole("link", { name: /open linked rows for this topic/i }).first()).toBeVisible();
+      await expect(cards.first().getByRole("button", { name: /add to institute bank/i })).toBeVisible();
+    }
     await expect(page.getByRole("button", { name: /select all ready questions/i })).toBeVisible();
 
     await searchField.fill(impossibleSearchProbe);

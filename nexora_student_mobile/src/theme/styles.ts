@@ -3,37 +3,37 @@ import { colors, radius, spacing } from "@/theme/tokens";
 
 const heroShadow = Platform.select({
   web: {
-    boxShadow: "0px 12px 24px rgba(185, 202, 239, 0.18)",
+    boxShadow: "0px 10px 22px rgba(42, 55, 85, 0.10)",
   },
   default: {
-    shadowColor: "#b9caef",
-    shadowOpacity: 0.18,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 6,
+    shadowColor: "#2a3755",
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 4,
   },
 });
 
 const sectionShadow = Platform.select({
   web: {
-    boxShadow: "0px 8px 18px rgba(202, 214, 240, 0.12)",
+    boxShadow: "0px 4px 14px rgba(42, 55, 85, 0.06)",
   },
   default: {
-    shadowColor: "#cad6f0",
-    shadowOpacity: 0.12,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 3,
+    shadowColor: "#2a3755",
+    shadowOpacity: 0.06,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
   },
 });
 
 const primaryButtonShadow = Platform.select({
   web: {
-    boxShadow: "0px 8px 14px rgba(142, 176, 239, 0.24)",
+    boxShadow: "0px 8px 14px rgba(20, 86, 204, 0.20)",
   },
   default: {
-    shadowColor: "#8eb0ef",
-    shadowOpacity: 0.24,
+    shadowColor: "#1456cc",
+    shadowOpacity: 0.2,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 8 },
     elevation: 4,
@@ -42,14 +42,14 @@ const primaryButtonShadow = Platform.select({
 
 const formCardShadow = Platform.select({
   web: {
-    boxShadow: "0px 8px 20px rgba(199, 213, 239, 0.12)",
+    boxShadow: "0px 6px 18px rgba(42, 55, 85, 0.08)",
   },
   default: {
-    shadowColor: "#c7d5ef",
-    shadowOpacity: 0.12,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 4,
+    shadowColor: "#2a3755",
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 3,
   },
 });
 
@@ -62,38 +62,26 @@ export const appStyles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     pointerEvents: "none",
   },
-  backgroundOrbTop: {
+  backgroundWashTop: {
     position: "absolute",
-    top: -90,
-    right: -50,
-    width: 260,
-    height: 260,
-    borderRadius: 130,
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 220,
     backgroundColor: colors.bgCanvasTint,
   },
-  backgroundOrbMiddle: {
+  backgroundWashBottom: {
     position: "absolute",
-    top: 240,
-    left: -70,
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: colors.bgWarmSoft,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 180,
+    backgroundColor: colors.bgSurface,
     opacity: 0.55,
-  },
-  backgroundOrbBottom: {
-    position: "absolute",
-    bottom: -80,
-    right: -40,
-    width: 240,
-    height: 240,
-    borderRadius: 120,
-    backgroundColor: colors.bgPrimarySoft,
-    opacity: 0.75,
   },
   scrollContent: {
     paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
+    paddingTop: spacing.md,
     paddingBottom: spacing.xxl,
     gap: spacing.md,
   },
@@ -105,7 +93,9 @@ export const appStyles = StyleSheet.create({
     borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: colors.borderDefault,
-    padding: spacing.md,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.bgPrimary,
+    padding: spacing.lg,
     gap: spacing.sm,
     ...heroShadow,
   },
@@ -118,11 +108,11 @@ export const appStyles = StyleSheet.create({
   },
   eyebrow: {
     alignSelf: "flex-start",
-    backgroundColor: colors.bgPrimarySoft,
-    color: colors.bgPrimary,
+    backgroundColor: colors.bgAccentSoft,
+    color: colors.accent,
     borderRadius: radius.full,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 5,
     fontSize: 12,
     fontWeight: "700",
     overflow: "hidden",
@@ -131,8 +121,8 @@ export const appStyles = StyleSheet.create({
     alignSelf: "flex-start",
     backgroundColor: colors.bgWarmSoft,
     borderRadius: radius.full,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 5,
   },
   heroBadgeText: {
     color: colors.warning,
@@ -144,14 +134,14 @@ export const appStyles = StyleSheet.create({
     fontSize: 22,
     lineHeight: 28,
     fontWeight: "800",
-    letterSpacing: -0.45,
+    letterSpacing: 0,
   },
   sectionTitle: {
     color: colors.textPrimary,
     fontSize: 18,
     lineHeight: 23,
     fontWeight: "800",
-    letterSpacing: -0.3,
+    letterSpacing: 0,
   },
   sectionSubtitle: {
     color: colors.textMuted,
@@ -177,6 +167,15 @@ export const appStyles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.sm,
+  },
+  buttonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.xs,
+  },
+  buttonIcon: {
+    marginTop: 1,
   },
   rowBetween: {
     flexDirection: "row",
@@ -222,24 +221,52 @@ export const appStyles = StyleSheet.create({
     borderColor: colors.borderSoft,
     padding: spacing.sm,
     gap: spacing.xs,
-    minHeight: 96,
+    minHeight: 104,
   },
   metricCardSoft: {
-    backgroundColor: colors.bgSurfaceSoft,
+    backgroundColor: colors.bgAccentSoft,
+    borderColor: "#cce9e2",
+  },
+  skeletonBlock: {
+    backgroundColor: "#e8eef7",
+    borderRadius: radius.sm,
+    opacity: 0.92,
+  },
+  skeletonBlockSoft: {
+    backgroundColor: "#f0f4fa",
+  },
+  skeletonMetricValue: {
+    width: "58%",
+    height: 28,
+  },
+  skeletonMetricLabel: {
+    width: "66%",
+    height: 13,
+  },
+  skeletonMetricHelper: {
+    width: "92%",
+    height: 12,
+  },
+  skeletonListBody: {
+    gap: spacing.sm,
+  },
+  skeletonListActions: {
+    flexDirection: "row",
+    gap: spacing.sm,
   },
   metricValue: {
     color: colors.textPrimary,
     fontSize: 24,
     lineHeight: 28,
     fontWeight: "800",
-    letterSpacing: -0.4,
+    letterSpacing: 0,
   },
   metricLabel: {
     color: colors.textMuted,
     fontSize: 12,
     fontWeight: "700",
     textTransform: "uppercase",
-    letterSpacing: 0.4,
+    letterSpacing: 0,
   },
   chip: {
     alignSelf: "flex-start",
@@ -285,7 +312,7 @@ export const appStyles = StyleSheet.create({
     color: colors.danger,
   },
   primaryButton: {
-    minHeight: 44,
+    minHeight: 46,
     backgroundColor: colors.bgPrimary,
     borderRadius: radius.md,
     alignItems: "center",
@@ -295,7 +322,7 @@ export const appStyles = StyleSheet.create({
     ...primaryButtonShadow,
   },
   secondaryButton: {
-    minHeight: 44,
+    minHeight: 46,
     backgroundColor: colors.bgSurfaceSoft,
     borderRadius: radius.md,
     borderWidth: 1,
@@ -325,6 +352,7 @@ export const appStyles = StyleSheet.create({
     backgroundColor: colors.bgSurface,
     paddingHorizontal: spacing.md,
     color: colors.textPrimary,
+    fontSize: 14,
   },
   inputError: {
     borderColor: "#efb4aa",
@@ -369,7 +397,7 @@ export const appStyles = StyleSheet.create({
     lineHeight: 16,
     fontWeight: "800",
     textTransform: "uppercase",
-    letterSpacing: 0.35,
+    letterSpacing: 0,
     flexShrink: 1,
   },
   listItem: {
@@ -402,6 +430,8 @@ export const appStyles = StyleSheet.create({
   optionCardSelected: {
     backgroundColor: colors.bgPrimarySoft,
     borderColor: "#bfd4ff",
+    borderLeftWidth: 4,
+    borderLeftColor: colors.bgPrimary,
   },
   optionCardError: {
     borderColor: "#efb4aa",
@@ -423,13 +453,53 @@ export const appStyles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     textTransform: "uppercase",
-    letterSpacing: 0.3,
+    letterSpacing: 0,
   },
   questionStem: {
     color: colors.textPrimary,
     fontSize: 18,
     lineHeight: 27,
     fontWeight: "700",
+  },
+  runtimeStatusStrip: {
+    backgroundColor: colors.bgSurfaceSoft,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  runtimeStatusGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  runtimeStatusItem: {
+    flexBasis: "30%",
+    flexGrow: 1,
+    minHeight: 66,
+    borderRadius: radius.md,
+    backgroundColor: colors.bgSurface,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    padding: spacing.sm,
+    gap: 2,
+  },
+  runtimeStatusValue: {
+    color: colors.textPrimary,
+    fontSize: 16,
+    lineHeight: 21,
+    fontWeight: "800",
+  },
+  progressTrack: {
+    height: 8,
+    borderRadius: radius.full,
+    backgroundColor: colors.borderSoft,
+    flexDirection: "row",
+    overflow: "hidden",
+  },
+  progressFill: {
+    backgroundColor: colors.bgPrimary,
   },
   navButtonPill: {
     minHeight: 36,

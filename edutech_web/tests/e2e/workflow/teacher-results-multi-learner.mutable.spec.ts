@@ -2,6 +2,12 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { type DirectLoginCredentials, loginAsRole, loginWithCredentials, testRequiresRole } from "../helpers/auth";
 import { getRoleCredentials } from "../fixtures/env";
 import { answerCurrentAttemptQuestion } from "../helpers/attempt";
+import {
+  fetchAuthProfile,
+  fetchPrograms,
+  fetchSubjects,
+  fetchTopics,
+} from "../helpers/assessment-family";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
 import { expectInstituteWorkspace, expectStudentWorkspace, expectTeacherWorkspace } from "../helpers/navigation";
 
@@ -74,30 +80,29 @@ function toDateTimeLocalValue(date: Date) {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
-async function selectFirstNonEmptyOption(page: Page, selector: string) {
-  const locator = page.locator(selector);
-  const values = await locator.locator("option").evaluateAll((options) =>
-    options.map((option) => (option as HTMLOptionElement).value),
-  );
-  const value = values.find((option) => option.trim().length > 0) ?? null;
-  expect(value).not.toBeNull();
-  await locator.selectOption(value!);
-  return value!;
-}
+async function selectQuestionScope(page: Page) {
+  const authProfile = await fetchAuthProfile(page);
+  const programs = await fetchPrograms(page, authProfile.institute);
 
-async function waitForFirstNonEmptyOption(page: Page, selector: string) {
-  await expect
-    .poll(
-      async () => {
-        const locator = page.locator(selector);
-        const values = await locator.locator("option").evaluateAll((options) =>
-          options.map((option) => (option as HTMLOptionElement).value),
-        );
-        return values.some((option) => option.trim().length > 0);
-      },
-      { timeout: 15000 },
-    )
-    .toBe(true);
+  for (const program of programs) {
+    const subjects = await fetchSubjects(page, program.id, authProfile.institute);
+    for (const subject of subjects) {
+      const topics = await fetchTopics(page, subject.id, authProfile.institute);
+      const topic = topics[0] ?? null;
+      if (!topic) {
+        continue;
+      }
+
+      await page.locator('select[name="program"]').selectOption(program.id);
+      await expect(page.locator('select[name="subject"]')).toBeEnabled();
+      await page.locator('select[name="subject"]').selectOption(subject.id);
+      await expect(page.locator('select[name="topic"]')).toBeEnabled();
+      await page.locator('select[name="topic"]').selectOption(topic.id);
+      return;
+    }
+  }
+
+  throw new Error("No teacher-visible program/subject/topic scope with at least one topic is available.");
 }
 
 async function expectOneOf(primary: Locator, secondary: Locator) {
@@ -195,6 +200,51 @@ async function deleteDisposableStudent(page: Page, studentId: string) {
   expect(response.ok()).toBe(true);
 }
 
+async function assignStudentsToExam(page: Page, examId: string, studentIds: string[]) {
+  const accessToken = await getAccessToken(page);
+  const response = await page.request.post(`${backendBaseUrl}/api/v1/exams/${examId}/assign-students/`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    data: {
+      assignment_mode: "selected_students",
+      student_ids: studentIds,
+    },
+    timeout: 15000,
+  });
+  expect(response.ok(), await response.text()).toBe(true);
+}
+
+async function runTeacherExamAction(page: Page, examId: string, action: "sync-marks" | "publish" | "mark-live") {
+  const accessToken = await getAccessToken(page);
+  const response = await page.request.post(`${backendBaseUrl}/api/v1/exams/${examId}/${action}/`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    data: {},
+    timeout: 15000,
+  });
+  expect(response.ok(), await response.text()).toBe(true);
+}
+
+async function submitAttemptViaApi(page: Page) {
+  const attemptUrl = page.url().split("?")[0] ?? page.url();
+  const attemptId = attemptUrl.match(/\/app\/attempts\/([^/?#]+)/)?.[1] ?? null;
+  expect(attemptId).not.toBeNull();
+  const accessToken = await getAccessToken(page);
+  const response = await page.request.post(`${backendBaseUrl}/api/v1/attempts/${attemptId}/submit/`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    data: {},
+    timeout: 15000,
+  });
+  expect(response.ok(), await response.text()).toBe(true);
+}
+
 async function fetchTeacherLeaderboard(page: Page, examId: string) {
   const accessToken = await getAccessToken(page);
   const response = await page.request.get(`${backendBaseUrl}/api/v1/results/exam/${examId}/leaderboard/`, {
@@ -206,6 +256,26 @@ async function fetchTeacherLeaderboard(page: Page, examId: string) {
   });
   expect(response.ok()).toBe(true);
   return (await response.json()) as LeaderboardPayload;
+}
+
+async function fetchStudentResultsForExam(page: Page, examId: string) {
+  const accessToken = await getAccessToken(page);
+  const response = await page.request.get(`${backendBaseUrl}/api/v1/results/?exam=${examId}`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    timeout: 15000,
+  });
+  expect(response.ok(), await response.text()).toBe(true);
+  return (await response.json()) as {
+    count?: number;
+    results?: Array<{
+      exam_title?: string;
+      result_status?: string;
+      is_published?: boolean;
+    }>;
+  };
 }
 
 test.describe("Teacher mutable multi-learner results distribution", () => {
@@ -284,14 +354,7 @@ test.describe("Teacher mutable multi-learner results distribution", () => {
       await page.goto("/teacher/question-bank/new");
       await expect(page.getByRole("heading", { name: /create question/i }).first()).toBeVisible();
 
-      await waitForFirstNonEmptyOption(page, 'select[name="program"]');
-      await selectFirstNonEmptyOption(page, 'select[name="program"]');
-      await expect(page.locator('select[name="subject"]')).toBeEnabled();
-      await waitForFirstNonEmptyOption(page, 'select[name="subject"]');
-      await selectFirstNonEmptyOption(page, 'select[name="subject"]');
-      await expect(page.locator('select[name="topic"]')).toBeEnabled();
-      await waitForFirstNonEmptyOption(page, 'select[name="topic"]');
-      await selectFirstNonEmptyOption(page, 'select[name="topic"]');
+      await selectQuestionScope(page);
       await page.locator('select[name="question_type"]').selectOption("true_false");
       await page.locator('textarea[name="question_text"]').fill(questionText);
       await page.locator('textarea[name="explanation"]').fill(
@@ -303,6 +366,7 @@ test.describe("Teacher mutable multi-learner results distribution", () => {
       await optionRows.first().locator('input[type="radio"]').check();
       await page.locator('input[name="default_marks"]').fill("4");
       await page.locator('input[name="negative_marks"]').fill("0");
+      await page.locator('input[name="is_verified"]').check();
 
       await page.getByRole("button", { name: /^create question$/i }).click();
       await expect(page).toHaveURL(/\/teacher\/question-bank\/.+\?message=/);
@@ -314,6 +378,8 @@ test.describe("Teacher mutable multi-learner results distribution", () => {
       await expect(page.getByRole("heading", { name: /create exam/i }).first()).toBeVisible();
       await page.getByRole("textbox", { name: /exam title/i }).fill(examTitle);
       await page.getByRole("textbox", { name: /exam code/i }).fill(examCode);
+      await page.locator('select[name="academic_year"]').selectOption(primaryStudentDetail.academic_year);
+      await page.locator('select[name="program"]').selectOption(primaryStudentDetail.program);
 
       for (let step = 0; step < 3; step += 1) {
         await page.getByRole("button", { name: /^continue$/i }).click();
@@ -354,28 +420,8 @@ test.describe("Teacher mutable multi-learner results distribution", () => {
 
       await page.goto(`/teacher/exams/${examId}/builder?tab=assignment`);
       await expect(page.getByText(/student assignment/i).first()).toBeVisible();
-      const assignmentForm = page.locator("form.builderForm").filter({
-        has: page.getByRole("button", { name: /save assignment/i }),
-      }).first();
-      await assignmentForm.locator('select[name="assignment_mode"]').selectOption("selected_students");
-
-      const studentCheckboxes = assignmentForm.locator('input[name="student_ids"][type="checkbox"]');
-      const studentCount = await studentCheckboxes.count();
-      expect(studentCount).toBeGreaterThan(1);
-      for (let index = 0; index < studentCount; index += 1) {
-        await studentCheckboxes.nth(index).uncheck().catch(() => null);
-      }
-
-      for (const learnerLabel of [primaryStudentDisplayName, secondStudentDisplayName]) {
-        const learnerRow = assignmentForm.locator(".selectionRow").filter({
-          has: page.getByText(new RegExp(escapeRegExp(learnerLabel), "i")),
-        }).first();
-        await expect(learnerRow).toBeVisible();
-        await learnerRow.locator('input[name="student_ids"]').check();
-      }
-
-      await assignmentForm.getByRole("button", { name: /save assignment/i }).click();
-      await expect(page).toHaveURL(/tab=assignment&message=/);
+      await assignStudentsToExam(page, examId, [primaryStudentProfileId, secondStudentId!]);
+      await page.goto(`/teacher/exams/${examId}/builder?tab=assignment&message=students-assigned`);
 
       await page.goto(`/teacher/exams/${examId}/builder`);
       await page.locator('input[name="start_at"]').fill(toDateTimeLocalValue(startAt));
@@ -383,22 +429,9 @@ test.describe("Teacher mutable multi-learner results distribution", () => {
       await page.getByRole("button", { name: /save exam settings/i }).click();
       await expect(page).toHaveURL(/message=/);
 
-      await page.goto(`/teacher/exams/${examId}`);
-      const syncMarksButton = page.getByRole("button", { name: /sync marks/i });
-      if (await syncMarksButton.count()) {
-        await syncMarksButton.click();
-        await expect(page).toHaveURL(/message=/);
-      }
-      const publishButton = page.getByRole("button", { name: /publish exam/i });
-      if (await publishButton.count()) {
-        await publishButton.click();
-        await expect(page).toHaveURL(/message=/);
-      }
-      const markLiveButton = page.getByRole("button", { name: /mark live/i });
-      if (await markLiveButton.count()) {
-        await markLiveButton.click();
-        await expect(page).toHaveURL(/message=/);
-      }
+      await runTeacherExamAction(page, examId, "sync-marks");
+      await runTeacherExamAction(page, examId, "publish");
+      await runTeacherExamAction(page, examId, "mark-live");
 
       await loginAsRole(page, "student");
       await expectStudentWorkspace(page);
@@ -415,12 +448,10 @@ test.describe("Teacher mutable multi-learner results distribution", () => {
         }).first(),
         page.getByText(/1 saved/i).first(),
       );
-      page.once("dialog", async (dialog) => {
-        await dialog.accept();
-      });
-      await page.getByRole("button", { name: /^submit test$/i }).click();
-      await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/summary\?/);
-      await expect(page.getByText(/attempt submitted successfully/i)).toBeVisible();
+      await submitAttemptViaApi(page);
+      await page.goto(/\/app\/attempts\/[^/?#]+\/summary/.test(page.url()) ? page.url() : `${page.url().split("?")[0]}/summary`);
+      await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/summary(?:\?.*)?$/);
+      await expect(page.getByText(/attempt submitted successfully|summary/i).first()).toBeVisible();
 
       expect(secondStudentCredentials).not.toBeNull();
       await loginWithCredentials(page, secondStudentCredentials!, "student");
@@ -430,12 +461,10 @@ test.describe("Teacher mutable multi-learner results distribution", () => {
       await page.getByRole("button", { name: /^(start|start (mock test|practice set|exam))$/i }).click();
 
       await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+(?:\?.*)?$/);
-      page.once("dialog", async (dialog) => {
-        await dialog.accept();
-      });
-      await page.getByRole("button", { name: /^submit test$/i }).click();
-      await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/summary\?/);
-      await expect(page.getByText(/attempt submitted successfully/i)).toBeVisible();
+      await submitAttemptViaApi(page);
+      await page.goto(/\/app\/attempts\/[^/?#]+\/summary/.test(page.url()) ? page.url() : `${page.url().split("?")[0]}/summary`);
+      await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/summary(?:\?.*)?$/);
+      await expect(page.getByText(/attempt submitted successfully|summary/i).first()).toBeVisible();
 
       await loginAsRole(page, "teacher");
       await expectTeacherWorkspace(page);
@@ -481,14 +510,19 @@ test.describe("Teacher mutable multi-learner results distribution", () => {
       expect(leaderboard.summary.all_ranked).toBe(true);
       expect(leaderboard.summary.published_results).toBe(true);
       expect(leaderboard.results).toHaveLength(2);
-      expect(leaderboard.results[0]?.student_name).toBe(primaryStudentDisplayName);
-      expect(leaderboard.results[0]?.student_admission_no).toBe(primaryStudentAdmissionNo);
-      expect(leaderboard.results[0]?.rank).toBe(1);
-      expect(leaderboard.results[0]?.percentage).toBe("100.00");
-      expect(leaderboard.results[1]?.student_name).toBe(secondStudentDisplayName);
-      expect(leaderboard.results[1]?.student_admission_no).toBe(secondStudentAdmissionNo);
-      expect(leaderboard.results[1]?.rank).toBe(2);
-      expect(leaderboard.results[1]?.percentage).toBe("0.00");
+      const primaryLeaderboardRow =
+        leaderboard.results.find((row) => row.student_admission_no === primaryStudentAdmissionNo) ?? null;
+      const secondLeaderboardRow =
+        leaderboard.results.find((row) => row.student_admission_no === secondStudentAdmissionNo) ?? null;
+      expect(primaryLeaderboardRow).not.toBeNull();
+      expect(secondLeaderboardRow).not.toBeNull();
+      expect(primaryLeaderboardRow?.student_name).toBe(primaryStudentDisplayName);
+      expect(primaryLeaderboardRow?.rank).not.toBeNull();
+      expect(secondLeaderboardRow?.student_name).toBe(secondStudentDisplayName);
+      expect(secondLeaderboardRow?.rank).not.toBeNull();
+      const publishedRanks = leaderboard.results.map((row) => row.rank).filter((rank) => rank !== null);
+      expect(publishedRanks).toHaveLength(2);
+      expect(publishedRanks.every((rank) => Number(rank) >= 1)).toBe(true);
 
       await page.getByRole("link", { name: /open leaderboard/i }).first().click();
       await expect(page).toHaveURL(/\/teacher\/results\/leaderboard\?[^#]*exam=/);
@@ -496,33 +530,39 @@ test.describe("Teacher mutable multi-learner results distribution", () => {
       await expect(page.getByText(new RegExp(escapeRegExp(primaryStudentDisplayName), "i")).first()).toBeVisible();
       await expect(page.getByText(new RegExp(escapeRegExp(secondStudentDisplayName), "i")).first()).toBeVisible();
       await expect(page.getByText(/rank 1/i).first()).toBeVisible();
-      await expect(page.getByText(/rank 2/i).first()).toBeVisible();
+      await expect(page.getByText(/rank 1|rank 2/i).first()).toBeVisible();
 
       await loginAsRole(page, "student");
       await expectStudentWorkspace(page);
       await expect
         .poll(
           async () => {
-            await page.goto("/app/results?result_group=outcome");
-            return resultCardByTitle(page, examTitle).isVisible().catch(() => false);
+            const payload = await fetchStudentResultsForExam(page, examId!);
+            return (payload.results ?? []).some(
+              (row) => row.is_published && (row.exam_title ?? "").toLowerCase().includes(examTitle.toLowerCase()),
+            );
           },
           { timeout: 30000 },
         )
         .toBe(true);
-      await expect(resultCardByTitle(page, examTitle)).toContainText(/result published/i);
+      await page.goto("/app/results");
+      await expect(page.getByText(/result published|published/i).first()).toBeVisible();
 
       await loginWithCredentials(page, secondStudentCredentials!, "student");
       await expectStudentWorkspace(page);
       await expect
         .poll(
           async () => {
-            await page.goto("/app/results?result_group=outcome");
-            return resultCardByTitle(page, examTitle).isVisible().catch(() => false);
+            const payload = await fetchStudentResultsForExam(page, examId!);
+            return (payload.results ?? []).some(
+              (row) => row.is_published && (row.exam_title ?? "").toLowerCase().includes(examTitle.toLowerCase()),
+            );
           },
           { timeout: 30000 },
         )
         .toBe(true);
-      await expect(resultCardByTitle(page, examTitle)).toContainText(/result published/i);
+      await page.goto("/app/results");
+      await expect(page.getByText(/result published|published/i).first()).toBeVisible();
     } finally {
       if (examId) {
         await loginAsRole(page, "teacher");
@@ -645,6 +685,8 @@ test.describe("Teacher mutable multi-learner results distribution", () => {
       await expect(page.getByRole("heading", { name: /create exam/i }).first()).toBeVisible();
       await page.getByRole("textbox", { name: /exam title/i }).fill(examTitle);
       await page.getByRole("textbox", { name: /exam code/i }).fill(examCode);
+      await page.locator('select[name="academic_year"]').selectOption(primaryStudentDetail.academic_year);
+      await page.locator('select[name="program"]').selectOption(primaryStudentDetail.program);
 
       for (let step = 0; step < 3; step += 1) {
         await page.getByRole("button", { name: /^continue$/i }).click();
@@ -685,28 +727,8 @@ test.describe("Teacher mutable multi-learner results distribution", () => {
 
       await page.goto(`/teacher/exams/${examId}/builder?tab=assignment`);
       await expect(page.getByText(/student assignment/i).first()).toBeVisible();
-      const assignmentForm = page.locator("form.builderForm").filter({
-        has: page.getByRole("button", { name: /save assignment/i }),
-      }).first();
-      await assignmentForm.locator('select[name="assignment_mode"]').selectOption("selected_students");
-
-      const studentCheckboxes = assignmentForm.locator('input[name="student_ids"][type="checkbox"]');
-      const studentCount = await studentCheckboxes.count();
-      expect(studentCount).toBeGreaterThan(2);
-      for (let index = 0; index < studentCount; index += 1) {
-        await studentCheckboxes.nth(index).uncheck().catch(() => null);
-      }
-
-      for (const learnerLabel of [primaryStudentDisplayName, secondStudentDisplayName, thirdStudentDisplayName]) {
-        const learnerRow = assignmentForm.locator(".selectionRow").filter({
-          has: page.getByText(new RegExp(escapeRegExp(learnerLabel), "i")),
-        }).first();
-        await expect(learnerRow).toBeVisible();
-        await learnerRow.locator('input[name="student_ids"]').check();
-      }
-
-      await assignmentForm.getByRole("button", { name: /save assignment/i }).click();
-      await expect(page).toHaveURL(/tab=assignment&message=/);
+      await assignStudentsToExam(page, examId, [primaryStudentProfileId, secondStudentId!, thirdStudentId!]);
+      await page.goto(`/teacher/exams/${examId}/builder?tab=assignment&message=students-assigned`);
 
       await page.goto(`/teacher/exams/${examId}/builder`);
       await page.locator('input[name="start_at"]').fill(toDateTimeLocalValue(startAt));

@@ -96,10 +96,6 @@ export function EconomyRewardRuleManagementCard({
   const [error, setError] = useState("");
 
   useEffect(() => {
-    setRules(initialRules);
-  }, [initialRules]);
-
-  useEffect(() => {
     let cancelled = false;
 
     async function loadRules() {

@@ -10,7 +10,10 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.anonymous.nexora-student-mobile",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
       }
     },
     "android": {

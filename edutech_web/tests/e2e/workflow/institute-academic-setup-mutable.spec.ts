@@ -42,13 +42,17 @@ function parseIsoDate(value: string) {
 async function openSection(page: Page, section: AcademicResource) {
   await page.goto(`/institute/academic-setup?section=${section}`);
   await expect(page).toHaveURL(new RegExp(`/institute/academic-setup\\?section=${section}`));
-  await expect(page.getByRole("button", { name: /^add$/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^new$/i })).toBeVisible();
 }
 
 async function academicDialog(page: Page) {
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
   return dialog;
+}
+
+function submitButton(dialog: Locator, editing = false) {
+  return dialog.getByRole("button", { name: editing ? /^update$/i : /^create$/i });
 }
 
 function fieldContainer(dialog: Locator, label: RegExp) {
@@ -91,12 +95,14 @@ async function selectWrappedOptionByText(
 }
 
 async function createRecord(page: Page) {
-  await page.getByRole("button", { name: /^add$/i }).click();
+  await page.getByRole("button", { name: /^new$/i }).click();
   return academicDialog(page);
 }
 
 async function listRecords(request: APIRequestContext, resource: AcademicResource) {
-  const response = await request.get(`/api/teacher/academics/${resource}?page_size=200`);
+  const response = await request.get(`/api/teacher/academics/${resource}?page_size=200`, {
+    timeout: 5000,
+  });
   expect(response.ok()).toBe(true);
   const body = (await response.json()) as { results?: AcademicRecord[] } | AcademicRecord[];
   return Array.isArray(body) ? body : (body.results ?? []);
@@ -117,8 +123,23 @@ async function archiveById(
   id: string | null,
 ) {
   if (!id) return;
-  const response = await request.delete(`/api/teacher/academics/${resource}/${id}`);
+  const response = await request.delete(`/api/teacher/academics/${resource}/${id}`, {
+    timeout: 5000,
+  });
   expect(response.ok()).toBe(true);
+}
+
+async function cleanupRecord(
+  request: APIRequestContext,
+  resource: AcademicResource,
+  matcher: (record: AcademicRecord) => boolean,
+) {
+  try {
+    const recordId = await findRecordId(request, resource, matcher);
+    await archiveById(request, resource, recordId);
+  } catch {
+    // Cleanup should not mask the real UI workflow result.
+  }
 }
 
 async function getSafeAcademicYearWindow(request: APIRequestContext) {
@@ -183,7 +204,7 @@ test.describe("Institute mutable academic setup actions", () => {
       await fillWrappedField(dialog, /start date/i, yearWindow.startDate);
       await fillWrappedField(dialog, /end date/i, yearWindow.endDate);
       await setWrappedCheckbox(dialog, /current year/i, false);
-      await dialog.getByRole("button", { name: /create record/i }).click();
+      await submitButton(dialog).click();
       await expect(dialog).toBeHidden();
       await expect(page.getByRole("row", { name: new RegExp(escapeRegExp(yearName), "i") })).toBeVisible();
 
@@ -191,7 +212,7 @@ test.describe("Institute mutable academic setup actions", () => {
       await yearRow.getByRole("button", { name: /^edit$/i }).click();
       dialog = await academicDialog(page);
       await fillWrappedField(dialog, /year name/i, yearUpdatedName);
-      await dialog.getByRole("button", { name: /update record/i }).click();
+      await submitButton(dialog, true).click();
       await expect(dialog).toBeHidden();
       await expect(page.getByRole("row", { name: new RegExp(escapeRegExp(yearUpdatedName), "i") })).toBeVisible();
 
@@ -218,7 +239,7 @@ test.describe("Institute mutable academic setup actions", () => {
       await fillWrappedField(dialog, /^category$/i, "Playwright automation");
       await fillWrappedField(dialog, /sort order/i, "90");
       await fillWrappedField(dialog, /description/i, "Disposable program created by Playwright.");
-      await dialog.getByRole("button", { name: /create record/i }).click();
+      await submitButton(dialog).click();
       await expect(dialog).toBeHidden();
       await expect(page.getByRole("row", { name: new RegExp(escapeRegExp(programCode), "i") })).toBeVisible();
 
@@ -229,7 +250,7 @@ test.describe("Institute mutable academic setup actions", () => {
       await selectWrappedOptionByText(dialog, /\bprogram\b/i, new RegExp(escapeRegExp(programCode), "i"));
       await selectWrappedOptionByText(dialog, /academic year/i, new RegExp(escapeRegExp(yearUpdatedName), "i"));
       await fillWrappedField(dialog, /capacity/i, "25");
-      await dialog.getByRole("button", { name: /create record/i }).click();
+      await submitButton(dialog).click();
       await expect(dialog).toBeHidden();
       await expect(page.getByRole("row", { name: new RegExp(escapeRegExp(cohortCode), "i") })).toBeVisible();
 
@@ -240,7 +261,7 @@ test.describe("Institute mutable academic setup actions", () => {
       await selectWrappedOptionByText(dialog, /\bprogram\b/i, new RegExp(escapeRegExp(programCode), "i"));
       await fillWrappedField(dialog, /sort order/i, "50");
       await fillWrappedField(dialog, /description/i, "Disposable subject created by Playwright.");
-      await dialog.getByRole("button", { name: /create record/i }).click();
+      await submitButton(dialog).click();
       await expect(dialog).toBeHidden();
       await expect(page.getByRole("row", { name: new RegExp(escapeRegExp(subjectCode), "i") })).toBeVisible();
 
@@ -266,7 +287,7 @@ test.describe("Institute mutable academic setup actions", () => {
       await selectWrappedOptionByText(dialog, /difficulty/i, "foundation");
       await fillWrappedField(dialog, /sort order/i, "25");
       await fillWrappedField(dialog, /description/i, "Disposable topic created by Playwright.");
-      await dialog.getByRole("button", { name: /create record/i }).click();
+      await submitButton(dialog).click();
       await expect(dialog).toBeHidden();
       await expect(page.getByRole("row", { name: new RegExp(escapeRegExp(topicCode), "i") })).toBeVisible();
 
@@ -275,42 +296,36 @@ test.describe("Institute mutable academic setup actions", () => {
       dialog = await academicDialog(page);
       await fillWrappedField(dialog, /topic name/i, topicUpdatedName);
       await selectWrappedOptionByText(dialog, /difficulty/i, "advanced");
-      await dialog.getByRole("button", { name: /update record/i }).click();
+      await submitButton(dialog, true).click();
       await expect(dialog).toBeHidden();
       await expect(page.getByRole("row", { name: new RegExp(escapeRegExp(topicUpdatedName), "i") })).toBeVisible();
       await expect(page.getByRole("row", { name: new RegExp(escapeRegExp(topicUpdatedName), "i") })).toContainText(/advanced/i);
     } finally {
-      const topicId = await findRecordId(
+      await cleanupRecord(
         page.request,
         "topics",
         (record) => record.code === topicCode || record.name === topicUpdatedName || record.name === topicName,
       );
-      const subjectId = await findRecordId(
+      await cleanupRecord(
         page.request,
         "subjects",
         (record) => record.code === subjectCode || record.name === subjectName,
       );
-      const cohortId = await findRecordId(
+      await cleanupRecord(
         page.request,
         "cohorts",
         (record) => record.code === cohortCode || record.name === cohortName,
       );
-      const programId = await findRecordId(
+      await cleanupRecord(
         page.request,
         "programs",
         (record) => record.code === programCode || record.name === programName,
       );
-      const yearId = await findRecordId(
+      await cleanupRecord(
         page.request,
         "academic-years",
         (record) => record.name === yearUpdatedName || record.name === yearName,
       );
-
-      await archiveById(page.request, "topics", topicId);
-      await archiveById(page.request, "subjects", subjectId);
-      await archiveById(page.request, "cohorts", cohortId);
-      await archiveById(page.request, "programs", programId);
-      await archiveById(page.request, "academic-years", yearId);
     }
   });
 });

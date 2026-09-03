@@ -438,38 +438,32 @@ test.describe("Student OPBMS class 7 published exam runtime", () => {
       await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+(?:\?.*)?$/, { timeout: 30000 });
       await expect(page.getByText(/test in progress|mock in progress|attempt locked/i).first()).toBeVisible();
       await expect(page.getByText(/1 of 45/i).first()).toBeVisible();
-      await expect(page.getByText(/Question Palette/i).first()).toBeVisible();
+      await expect(page.getByText(/Questions/i).first()).toBeVisible();
       await expect(page.getByRole("button", { name: /^save answer$/i })).toBeVisible();
       await expect(page.getByRole("button", { name: /^save & next$/i })).toBeVisible();
       await expect(page.getByRole("button", { name: /^clear response$/i })).toBeVisible();
       await expect(page.getByRole("button", { name: /^skip$/i })).toBeVisible();
-      await expect(page.getByRole("button", { name: /^submit test$/i })).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: /^submit test$|^end test$/i }).first(),
+      ).toBeVisible();
 
       await answerCurrentAttemptQuestion(page, uniqueSeed, "OPBMS student runtime");
       await page.getByRole("checkbox", { name: /mark for review/i }).check();
       await page.getByRole("button", { name: /^save & next$/i }).click();
 
       await expect(page).toHaveURL(/question=/, { timeout: 30000 });
-      await expect(
-        page
-          .locator(".feedbackBannerSuccess")
-          .filter({
-            hasText:
-              /response updated successfully|answer saved\. moving to the next question|answer saved\. you have reached the final question/i,
-          })
-          .first(),
-      ).toBeVisible();
+      await expect(page.getByText(/responses saved|1 saved/i).first()).toBeVisible();
       await expect(page.getByText(/1 saved/i).first()).toBeVisible();
-      await expect(page.locator(".attemptConsoleSummaryCard").first()).toContainText(
-        /45 questions still need attention before you finish|still need attention|take one last look/i,
-      );
+      await expect(page.locator(".attemptConsoleSummaryCard").first()).toContainText(/Answered|Review|To do/i);
+      await expect(page.locator(".attemptConsoleSummaryCard").first()).toContainText(/1/);
+      await expect(page.locator(".attemptConsoleSummaryCard").first()).toContainText(/44/);
       await expect(page.getByRole("link", { name: /^previous$/i })).toBeVisible();
-      await expect(page.getByRole("link", { name: /^next$/i })).toBeVisible();
+      await expect(page.getByRole("button", { name: /^save & next$/i })).toBeVisible();
 
       page.once("dialog", async (dialog) => {
         await dialog.accept();
       });
-      await page.getByRole("button", { name: /^submit test$/i }).click();
+      await page.getByRole("button", { name: /^submit test$|^end test$/i }).click();
 
       await expect(
         page,

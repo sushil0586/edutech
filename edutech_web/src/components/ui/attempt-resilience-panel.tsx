@@ -90,7 +90,15 @@ export function AttemptResiliencePanel({
   const [isOnline, setIsOnline] = useState(() =>
     typeof window === "undefined" ? true : window.navigator.onLine,
   );
-  const [pendingActionDetail, setPendingActionDetail] = useState<string | null>(null);
+  const initialPendingStatus =
+    typeof window === "undefined" ? null : readPendingActionStatus();
+  const matchingInitialPendingStatus =
+    initialPendingStatus && initialPendingStatus.attemptId === attemptId
+      ? initialPendingStatus
+      : null;
+  const [pendingActionDetail, setPendingActionDetail] = useState<string | null>(
+    matchingInitialPendingStatus?.detail ?? null,
+  );
   const [lastSavedAt] = useState(
     initialConfirmedSavedAt ?? initialLastSavedAt,
   );
@@ -111,42 +119,16 @@ export function AttemptResiliencePanel({
   const [syncState, setSyncState] = useState<SyncState>(() => {
     if (initialError) return "attention";
     if (initialNotice) return "saved";
+    if (matchingInitialPendingStatus) {
+      const ageMs =
+        Date.now() - new Date(matchingInitialPendingStatus.submittedAt).getTime();
+      if (ageMs > 15000) return "attention";
+      if (matchingInitialPendingStatus.actionKind === "submit") return "submitting";
+      if (matchingInitialPendingStatus.actionKind === "section-switch") return "switching";
+      return "saving";
+    }
     return initialLastSavedAt ? "saved" : "idle";
   });
-
-  useEffect(() => {
-    const pendingStatus = readPendingActionStatus();
-    const matchingPendingStatus =
-      pendingStatus && pendingStatus.attemptId === attemptId ? pendingStatus : null;
-
-    if (!matchingPendingStatus) {
-      return;
-    }
-
-    setPendingActionDetail(matchingPendingStatus.detail);
-
-    if (initialError || initialNotice) {
-      return;
-    }
-
-    const ageMs = Date.now() - new Date(matchingPendingStatus.submittedAt).getTime();
-    if (ageMs > 15000) {
-      setSyncState("attention");
-      return;
-    }
-
-    if (matchingPendingStatus.actionKind === "submit") {
-      setSyncState("submitting");
-      return;
-    }
-
-    if (matchingPendingStatus.actionKind === "section-switch") {
-      setSyncState("switching");
-      return;
-    }
-
-    setSyncState("saving");
-  }, [attemptId, initialError, initialLastSavedAt, initialNotice]);
 
   useEffect(() => {
     if (typeof window === "undefined") {

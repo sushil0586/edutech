@@ -59,10 +59,6 @@ export function EconomyStarPackManagementCard({
   const [error, setError] = useState("");
 
   useEffect(() => {
-    setStarPacks(initialStarPacks);
-  }, [initialStarPacks]);
-
-  useEffect(() => {
     let cancelled = false;
 
     async function loadStarPacks() {

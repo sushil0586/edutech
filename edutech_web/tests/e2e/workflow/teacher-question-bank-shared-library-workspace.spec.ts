@@ -95,7 +95,7 @@ test.describe("Teacher question bank shared library workspace", () => {
 
     const searchField = page.getByTestId("question-bank-search-input");
     await searchField.fill("algebra");
-    await page.getByRole("button", { name: /apply filters/i }).click();
+    await page.getByRole("button", { name: /update view/i }).click();
 
     await expect(page).toHaveURL(/search=algebra/);
     await expect(searchField).toHaveValue("algebra");

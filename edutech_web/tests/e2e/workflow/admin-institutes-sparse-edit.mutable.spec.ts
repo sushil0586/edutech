@@ -11,6 +11,10 @@ type CreateInstitutePayload = {
   id?: string;
 };
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 test.describe("Admin institutes sparse edit safety", () => {
   test.skip(testRequiresRole("admin"), "Admin Playwright credentials are not configured.");
 
@@ -69,6 +73,13 @@ test.describe("Admin institutes sparse edit safety", () => {
 
       await page.goto(`/admin/institutes?institute=${instituteId}`);
       await expect(page.getByRole("heading", { name: /institutes/i }).first()).toBeVisible();
+      const instituteRow = page
+        .locator("tbody tr")
+        .filter({ has: page.getByText(new RegExp(escapeRegExp(instituteName), "i")) })
+        .filter({ has: page.getByText(new RegExp(escapeRegExp(instituteCode), "i")) })
+        .first();
+      await expect(instituteRow).toBeVisible();
+      await instituteRow.getByRole("button", { name: /^view$/i }).click();
 
       await page.getByRole("button", { name: /edit selected/i }).click();
       const editDialog = page.getByRole("dialog");
@@ -88,9 +99,18 @@ test.describe("Admin institutes sparse edit safety", () => {
       const patchResponse = await patchResponsePromise;
       expect(patchResponse.ok(), await patchResponse.text()).toBe(true);
 
+      const updatedRow = page
+        .locator("tbody tr")
+        .filter({ has: page.getByText(new RegExp(escapeRegExp(updatedName), "i")) })
+        .filter({ has: page.getByText(new RegExp(escapeRegExp(instituteCode), "i")) })
+        .first();
+      await expect(updatedRow).toBeVisible();
+      await page.goto(`/admin/institutes?institute=${instituteId}`);
+      await updatedRow.getByRole("button", { name: /^view$/i }).click();
+
       const detailCard = page.locator(".adminInstituteDetailCard").first();
       await expect(
-        detailCard.getByRole("heading", { name: new RegExp(updatedName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i") }),
+        detailCard.locator("h4").filter({ hasText: new RegExp(escapeRegExp(updatedName), "i") }),
       ).toBeVisible();
       await page.unroute(`**${sparseDetailPath}`);
     } finally {

@@ -3,8 +3,8 @@ import { expect, Page } from "@playwright/test";
 export class InstituteLibraryLinkerPage {
   constructor(private readonly page: Page) {}
 
-  private async selectOptionByLabelPattern(locator: ReturnType<Page["locator"]>, pattern: RegExp) {
-    const optionValue = await locator.locator("option").evaluateAll(
+  private async findOptionValueByLabelPattern(locator: ReturnType<Page["locator"]>, pattern: RegExp) {
+    return locator.locator("option").evaluateAll(
       (options, source) => {
         const expression = new RegExp(source.pattern, source.flags);
         const match = options.find((option) => expression.test((option as HTMLOptionElement).label));
@@ -12,6 +12,10 @@ export class InstituteLibraryLinkerPage {
       },
       { pattern: pattern.source, flags: pattern.flags },
     );
+  }
+
+  private async selectOptionByLabelPattern(locator: ReturnType<Page["locator"]>, pattern: RegExp) {
+    const optionValue = await this.findOptionValueByLabelPattern(locator, pattern);
     expect(optionValue).toBeTruthy();
     await locator.selectOption(optionValue);
   }
@@ -31,12 +35,29 @@ export class InstituteLibraryLinkerPage {
   }
 
   async applyScope(programLabel?: RegExp, subjectLabel?: RegExp, topicLabel?: RegExp) {
+    const loadTopicsButton = this.page.getByRole("button", { name: /load topics|show questions/i });
+
     if (programLabel) {
       const programSelect = this.page.getByRole("combobox", { name: /^program$/i });
-      await this.selectOptionByLabelPattern(programSelect, programLabel);
-    }
+      const programOptionValue = await this.findOptionValueByLabelPattern(programSelect, programLabel);
+      expect(programOptionValue).toBeTruthy();
+      await programSelect.selectOption(programOptionValue);
 
-    if (subjectLabel) {
+      if (subjectLabel) {
+        const subjectSelect = this.page.getByRole("combobox", { name: /^subject$/i });
+        let subjectOptionValue = await this.findOptionValueByLabelPattern(subjectSelect, subjectLabel);
+        if (!subjectOptionValue) {
+          await Promise.all([
+            this.page.waitForURL((url) => url.searchParams.get("program") === programOptionValue),
+            loadTopicsButton.click(),
+          ]);
+          await expect(subjectSelect).toBeEnabled();
+          subjectOptionValue = await this.findOptionValueByLabelPattern(subjectSelect, subjectLabel);
+        }
+        expect(subjectOptionValue).toBeTruthy();
+        await subjectSelect.selectOption(subjectOptionValue);
+      }
+    } else if (subjectLabel) {
       const subjectSelect = this.page.getByRole("combobox", { name: /^subject$/i });
       await this.selectOptionByLabelPattern(subjectSelect, subjectLabel);
     }
@@ -46,7 +67,7 @@ export class InstituteLibraryLinkerPage {
       await this.selectOptionByLabelPattern(topicSelect, topicLabel);
     }
 
-    await this.page.getByRole("button", { name: /load topics|show questions/i }).click();
+    await loadTopicsButton.click();
   }
 
   async expectTopicCoverageVisible() {

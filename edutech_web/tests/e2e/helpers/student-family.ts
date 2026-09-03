@@ -39,6 +39,12 @@ type TeacherExamLookupRecord = {
   title: string;
 };
 
+type TeacherAttemptRecord = {
+  id: string;
+  status?: string;
+  can_force_submit?: boolean;
+};
+
 type LoginEnvelope = {
   access?: string;
 };
@@ -98,6 +104,55 @@ async function fetchTeacherFamilyExamByCode(
     accessToken,
     exam: payload.results?.find((candidate) => candidate.code === examCode) ?? null,
   };
+}
+
+export async function forceSubmitTeacherInProgressAttemptsForExam(
+  page: Page,
+  options: {
+    examCode: string;
+  },
+) {
+  const { accessToken, exam } = await fetchTeacherFamilyExamByCode(page, options.examCode);
+  if (!exam) {
+    return 0;
+  }
+
+  const attemptsResponse = await page.request.get(
+    `${backendBaseUrl}/api/v1/results/exam/${exam.id}/attempts/`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      timeout: 15000,
+    },
+  );
+  expect(attemptsResponse.ok(), await attemptsResponse.text()).toBe(true);
+  const attempts = (await attemptsResponse.json()) as TeacherAttemptRecord[];
+
+  let clearedCount = 0;
+  for (const attempt of attempts) {
+    if (attempt.status !== "in_progress" || attempt.can_force_submit !== true) {
+      continue;
+    }
+    const forceSubmitResponse = await page.request.post(
+      `${backendBaseUrl}/api/v1/results/force-submit-attempt/`,
+      {
+        data: {
+          attempt: attempt.id,
+        },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        timeout: 15000,
+      },
+    );
+    expect(forceSubmitResponse.ok(), await forceSubmitResponse.text()).toBe(true);
+    clearedCount += 1;
+  }
+
+  return clearedCount;
 }
 
 async function reopenTeacherExamWindowWithAccessToken(

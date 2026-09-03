@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { answerCurrentAttemptQuestion } from "../helpers/attempt";
 import { loginWithCredentials } from "../helpers/auth";
 import { openStudentPrimaryActionOrSkip, resolveStudentFamilyExamOrSkip } from "../helpers/student-family";

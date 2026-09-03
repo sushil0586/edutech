@@ -2,6 +2,8 @@ import { expect, test, type Locator } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectTeacherWorkspace } from "../helpers/navigation";
 
+const quotaSearchProbe = "QUOTA LOCK DEMO ::";
+
 async function findQuotaExhaustedSharedLibraryCard(cards: Locator) {
   const cardCount = await cards.count();
 
@@ -53,10 +55,30 @@ test.describe("Teacher shared-library quota exhausted workspace", () => {
       has: page.getByRole("heading", { name: /subscription visibility/i }),
     }).first();
     await expect(subscriptionVisibilitySection).toBeVisible();
-    await expect(subscriptionVisibilitySection.getByText(/demo shared library quota exhausted/i)).toBeVisible();
-    await expect(subscriptionVisibilitySection.getByText(/lowest remaining allowance:\s*0/i)).toBeVisible();
+    await expect(subscriptionVisibilitySection.getByText("Request-only", { exact: true })).toBeVisible();
+    await expect(
+      subscriptionVisibilitySection.getByText(/shared library enabled/i),
+    ).toBeVisible();
 
     const sharedLibraryCards = sharedLibrarySection.locator(".questionBankCard");
+    await page.getByRole("textbox", { name: /search question text/i }).fill(quotaSearchProbe);
+    await page.getByRole("button", { name: /update view/i }).click();
+
+    const quotaProbeCard = sharedLibraryCards
+      .filter({
+        has: page.getByText(new RegExp(quotaSearchProbe, "i")),
+      })
+      .first();
+
+    await expect(quotaProbeCard).toBeVisible();
+    await expect(quotaProbeCard.getByText(/access available/i)).toBeVisible();
+    await expect(quotaProbeCard.getByText(/entitled/i)).toBeVisible();
+    await expect(quotaProbeCard.getByText(/scope mismatch/i)).toBeVisible();
+    await expect(quotaProbeCard.getByText(/matching packages:/i)).toBeVisible();
+    await expect(quotaProbeCard.getByText(/demo shared library quota exhausted/i)).toBeVisible();
+    await expect(quotaProbeCard.getByRole("button", { name: /request access/i })).toHaveCount(0);
+    await expect(quotaProbeCard.getByRole("button", { name: /link to local bank/i })).toHaveCount(0);
+
     const quotaExhaustedCard = await findQuotaExhaustedSharedLibraryCard(sharedLibraryCards);
 
     if (quotaExhaustedCard) {

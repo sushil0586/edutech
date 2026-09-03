@@ -43,7 +43,8 @@ export function TeacherEditDialog({ row }: { row: TeacherRosterRow }) {
   const [joinedAt, setJoinedAt] = useState(row.joined_at ? row.joined_at.slice(0, 10) : "");
   const [isActive, setIsActive] = useState(row.is_active);
 
-  function resetFormFields() {
+  function resetFormFromRow() {
+    setMessage("");
     setEmployeeCode(row.employee_code);
     setFirstName(row.first_name ?? row.full_name.split(" ")[0] ?? "");
     setLastName(row.last_name ?? row.full_name.split(" ").slice(1).join(" "));
@@ -54,8 +55,20 @@ export function TeacherEditDialog({ row }: { row: TeacherRosterRow }) {
     setBio(row.bio ?? "");
     setJoinedAt(row.joined_at ? row.joined_at.slice(0, 10) : "");
     setIsActive(row.is_active);
-    setMessage("");
   }
+
+  function closeDialog() {
+    resetFormFromRow();
+    setOpen(false);
+  }
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    resetFormFromRow();
+  }, [open, row]);
 
   useEffect(() => {
     if (!open) {
@@ -67,7 +80,7 @@ export function TeacherEditDialog({ row }: { row: TeacherRosterRow }) {
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        setOpen(false);
+        closeDialog();
       }
     }
 
@@ -77,12 +90,6 @@ export function TeacherEditDialog({ row }: { row: TeacherRosterRow }) {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [open]);
-
-  useEffect(() => {
-    if (!open) {
-      resetFormFields();
-    }
-  }, [open, row]);
 
   async function submitTeacherUpdate() {
     if (!employeeCode.trim() || !firstName.trim()) {
@@ -118,7 +125,7 @@ export function TeacherEditDialog({ row }: { row: TeacherRosterRow }) {
         );
       }
 
-        setOpen(false);
+      closeDialog();
       router.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Teacher update failed.");
@@ -129,7 +136,11 @@ export function TeacherEditDialog({ row }: { row: TeacherRosterRow }) {
 
   return (
     <>
-      <button className="appTopbarAction setupSecondaryAction" onClick={() => setOpen(true)} type="button">
+      <button
+        className="appTopbarAction setupSecondaryAction"
+        onClick={() => setOpen(true)}
+        type="button"
+      >
         <span className="appTopbarActionIcon" aria-hidden="true">
           ✎
         </span>
@@ -138,7 +149,7 @@ export function TeacherEditDialog({ row }: { row: TeacherRosterRow }) {
 
       {open && typeof document !== "undefined"
         ? createPortal(
-            <div className="rosterImportOverlay" onClick={() => setOpen(false)} role="presentation">
+            <div className="rosterImportOverlay" onClick={closeDialog} role="presentation">
               <div
                 aria-modal="true"
                 className="rosterImportDialog dashboardPanel"
@@ -153,7 +164,7 @@ export function TeacherEditDialog({ row }: { row: TeacherRosterRow }) {
                     </div>
                     <button
                       className="appTopbarAction setupSecondaryAction"
-                      onClick={() => setOpen(false)}
+                      onClick={closeDialog}
                       type="button"
                     >
                       Close
@@ -216,7 +227,12 @@ export function TeacherEditDialog({ row }: { row: TeacherRosterRow }) {
                       <span className="appTopbarActionIcon" aria-hidden="true">⌘</span>
                       {loading ? "Saving..." : "Save changes"}
                     </button>
-                    <button className="appTopbarAction setupSecondaryAction" disabled={loading} onClick={() => setOpen(false)} type="button">
+                    <button
+                      className="appTopbarAction setupSecondaryAction"
+                      disabled={loading}
+                      onClick={closeDialog}
+                      type="button"
+                    >
                       Cancel
                     </button>
                   </div>

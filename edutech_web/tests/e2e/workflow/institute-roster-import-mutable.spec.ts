@@ -113,10 +113,6 @@ function buildCsv(columns: readonly string[], row: Record<string, string>) {
   ].join("\n");
 }
 
-function firstNonEmptyOption<T extends { value: string }>(options: T[]) {
-  return options.find((option) => option.value.trim().length > 0) ?? null;
-}
-
 function normalizeAcademicLabel(label: string) {
   return label.replace(/\s+\([^)]+\)\s*$/, "").trim();
 }

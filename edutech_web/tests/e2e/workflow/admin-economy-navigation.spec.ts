@@ -11,6 +11,10 @@ const lanes = [
   { tab: "bootstrap", heading: /bootstrap/i },
 ] as const;
 
+async function gotoEconomy(page: Page, url: string) {
+  await page.goto(url, { waitUntil: "commit" });
+}
+
 const focusedRoutes = [
   { url: "/admin/economy?tab=overview&focus=policy", tab: "overview", focusValue: "policy" },
   { url: "/admin/economy?tab=catalog&focus=star-packs", tab: "catalog", focusValue: "star-packs" },
@@ -30,7 +34,7 @@ test.describe("Admin economy lane navigation", () => {
     await expectAdminWorkspace(page);
 
     for (const lane of lanes) {
-      await page.goto(`/admin/economy?tab=${lane.tab}`);
+      await gotoEconomy(page, `/admin/economy?tab=${lane.tab}`);
       await expect(page).toHaveURL(new RegExp(`/admin/economy\\?tab=${lane.tab.replace("-", "\\-")}`));
       await expect(
         workspaceNav(page).locator(`a[href*="tab=${lane.tab}"][aria-current="page"]`).first(),
@@ -43,7 +47,7 @@ test.describe("Admin economy lane navigation", () => {
     await loginAsRole(page, "admin");
     await expectAdminWorkspace(page);
 
-    await page.goto("/admin/economy?tab=not-a-real-lane");
+    await gotoEconomy(page, "/admin/economy?tab=not-a-real-lane");
 
     await expect(
       workspaceNav(page).locator('a[href*="tab=overview"][aria-current="page"]').first(),
@@ -56,12 +60,17 @@ test.describe("Admin economy lane navigation", () => {
     await expectAdminWorkspace(page);
 
     for (const route of focusedRoutes) {
-      await page.goto(route.url);
+      await gotoEconomy(page, route.url);
       await expect(page).toHaveURL(route.url);
       await expect(
         workspaceNav(page).locator(`a[href*="tab=${route.tab}"][aria-current="page"]`).first(),
       ).toBeVisible();
-      await expect(page.getByRole("combobox", { name: /economy subsection/i })).toHaveValue(route.focusValue);
+      const subsectionSelect = page.getByRole("combobox", { name: /economy subsection/i });
+      if (await subsectionSelect.count()) {
+        await expect(subsectionSelect.first()).toHaveValue(route.focusValue);
+      } else {
+        await expect(page).toHaveURL(new RegExp(`[?&]focus=${route.focusValue.replace(/-/g, "\\-")}`));
+      }
     }
   });
 
@@ -69,7 +78,7 @@ test.describe("Admin economy lane navigation", () => {
     await loginAsRole(page, "admin");
     await expectAdminWorkspace(page);
 
-    await page.goto("/admin/economy?tab=catalog&focus=star-packs");
+    await gotoEconomy(page, "/admin/economy?tab=catalog&focus=star-packs");
     const scopeSelect = page.getByRole("combobox", { name: /institute scope/i });
     await expect(scopeSelect).toBeVisible();
     const scopeOptions = await scopeSelect.locator("option").evaluateAll((options) =>
@@ -81,7 +90,7 @@ test.describe("Admin economy lane navigation", () => {
     const selectedScope = scopeOptions.find((option) => option.value);
     expect(selectedScope?.value).toBeTruthy();
 
-    await page.goto(`/admin/economy?tab=catalog&focus=star-packs&institute=${selectedScope!.value}`);
+    await gotoEconomy(page, `/admin/economy?tab=catalog&focus=star-packs&institute=${selectedScope!.value}`);
     await expect(scopeSelect).toHaveValue(selectedScope!.value);
 
     const instituteSelect = page.getByRole("combobox", { name: /^institute$/i }).first();
@@ -89,7 +98,7 @@ test.describe("Admin economy lane navigation", () => {
     await expect(instituteSelect.locator("option")).toHaveCount(1);
 
     const scopedQuestionBankHref = `/admin/economy?tab=question-bank&focus=plans&institute=${selectedScope!.value}`;
-    await page.goto(scopedQuestionBankHref);
+    await gotoEconomy(page, scopedQuestionBankHref);
     const scopedPlanInstituteSelect = page.getByRole("combobox", { name: /^institute$/i }).first();
     await expect(scopedPlanInstituteSelect).toBeVisible();
     await expect(scopedPlanInstituteSelect.locator("option")).toHaveCount(1);

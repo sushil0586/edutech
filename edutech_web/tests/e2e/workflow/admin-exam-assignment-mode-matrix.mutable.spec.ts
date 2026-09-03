@@ -27,6 +27,31 @@ function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+async function submitWizardAndLandOnExamList(page: Page) {
+  const createResponsePromise = page.waitForResponse((response) => {
+    return (
+      response.request().method() === "POST" &&
+      /\/admin\/exams\/new(?:\?|$)/.test(response.url())
+    );
+  });
+
+  await page.getByRole("button", { name: /create exam shell/i }).click();
+
+  const createResponse = await createResponsePromise;
+  const actionRedirectHeader = createResponse.headers()["x-action-redirect"] ?? "";
+  const expectedListUrlPattern = /\/admin\/exams\?message=/;
+
+  try {
+    await expect(page).toHaveURL(expectedListUrlPattern, { timeout: 10000 });
+    return;
+  } catch {
+    const fallbackRedirectTarget = actionRedirectHeader.split(";")[0]?.trim() ?? "";
+    expect(fallbackRedirectTarget).toMatch(expectedListUrlPattern);
+    await page.goto(fallbackRedirectTarget, { waitUntil: "domcontentloaded" });
+    await expect(page).toHaveURL(expectedListUrlPattern);
+  }
+}
+
 async function waitForNonEmptyOptionValues(locator: Locator) {
   await expect
     .poll(
@@ -127,19 +152,20 @@ async function createAdminWizardExam(page: Page, uniqueSeed: number) {
 
   await page.goto("/admin/exams/new");
   await expect(page.getByRole("heading", { name: /create exam/i }).first()).toBeVisible();
-  const preferredInstituteChip = page.locator(".academicInstituteChip").filter({
-    hasText: /Demo Learning Institute|DLI001/i,
-  }).first();
-  if (await preferredInstituteChip.count()) {
-    await preferredInstituteChip.click();
-    await expect(page).toHaveURL(/\/admin\/exams\/new\?institute=/);
-  }
+  const instituteScopeLink = page.getByRole("link", { name: /demo learning institute/i }).first();
+  await expect(instituteScopeLink).toBeVisible();
+  const scopeHref = await instituteScopeLink.getAttribute("href");
+  expect(scopeHref).toContain("institute=");
+  const instituteId = new URL(scopeHref!, "http://localhost").searchParams.get("institute") ?? "";
+  expect(instituteId).not.toBe("");
+  await instituteScopeLink.click();
+  await expect(page).toHaveURL(new RegExp(`/admin/exams/new\\?[^#]*institute=${instituteId}`));
   const academicYear = page.locator('select[name="academic_year"]').first();
   const program = page.locator('select[name="program"]').first();
   const subject = page.locator('select[name="subject"]').first();
   await page.getByRole("textbox", { name: /exam title/i }).fill(examTitle);
   await page.getByRole("textbox", { name: /exam code/i }).fill(examCode);
-  await page.locator('select[name="source_type"]').selectOption("platform");
+  await page.locator('select[name="source_type"]').selectOption("institute");
   const hasCanonicalFamilyAcademicYear = await academicYear.evaluate((element) => {
     const select = element as HTMLSelectElement;
     return Array.from(select.options).some((option) => option.label.trim() === "2026-2027");
@@ -163,15 +189,15 @@ async function createAdminWizardExam(page: Page, uniqueSeed: number) {
   await page.locator('select[name="exam_type"]').selectOption("quiz");
   await page.getByRole("button", { name: /^continue$/i }).click();
   await page.getByRole("button", { name: /^continue$/i }).click();
-  await page.getByRole("button", { name: /create exam shell/i }).click();
-
-  await expect(page).toHaveURL(/\/admin\/exams\?message=/);
+  await submitWizardAndLandOnExamList(page);
   const createdExamCard = page.locator(".examCard").filter({
     has: page.getByText(new RegExp(escapeRegExp(examTitle), "i")).first(),
   }).first();
   await expect(createdExamCard).toBeVisible();
 
-  const openExamHref = await createdExamCard.getByRole("link", { name: /open exam/i }).getAttribute("href");
+  const openExamHref = await createdExamCard
+    .getByRole("link", { name: /view exam|open exam/i })
+    .getAttribute("href");
   const examId = openExamHref?.match(/\/admin\/exams\/([^/?#]+)/)?.[1] ?? null;
   expect(examId).not.toBeNull();
 
@@ -241,9 +267,17 @@ async function expectDetailAssignmentState(
 ) {
   await page.goto(`/admin/exams/${examId}`);
   await expect(page.getByText(/assigned students/i).first()).toBeVisible();
+  const assignedStudentsCard = page.locator("article").filter({
+    has: page.getByText(/assigned students/i).first(),
+  }).first();
+  await expect(assignedStudentsCard).toBeVisible();
 
   if (option.value === "selected_students") {
-    await expect(page.getByText(new RegExp(escapeRegExp(studentDisplayName), "i")).first()).toBeVisible();
+    await expect(
+      assignedStudentsCard.locator(".weakTopicRow strong").filter({
+        hasText: new RegExp(escapeRegExp(studentDisplayName), "i"),
+      }).first(),
+    ).toBeVisible();
     await expect(page.getByText(/this exam currently has no directly assigned students\./i)).toHaveCount(0);
     return;
   }

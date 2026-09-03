@@ -4,6 +4,31 @@ import { expectAdminWorkspace } from "../helpers/navigation";
 import { fetchPresetPacks, type ExamPresetPackPayload } from "../helpers/preset-packs";
 
 const languagePresetIds = ["ielts_academic", "pte_academic"] as const;
+const languageProgramLabel = "Demo IELTS Track";
+const languageSubjectLabel = "IELTS Academic Skills";
+
+async function alignAdminScopeWithLanguageFamily(
+  page: Parameters<typeof test>[0]["page"],
+  pack: ExamPresetPackPayload,
+) {
+  await page.getByLabel(/select template institute/i).selectOption("Demo Learning Institute (DLI001)");
+  await page.getByRole("button", { name: /^apply$/i }).click();
+  await expect(page.getByText(/Demo Learning Institute template scope/i)).toBeVisible();
+
+  await page.getByRole("tab", { name: /\bbasics\b/i }).first().click();
+  await page
+    .locator(".advancedBuilderField", { has: page.getByText(/^Program$/i) })
+    .locator("select")
+    .selectOption({ label: languageProgramLabel });
+  await page
+    .locator(".advancedBuilderField")
+    .filter({ has: page.getByText(/^(Primary subject|Subject)$/i) })
+    .locator("select")
+    .first()
+    .selectOption({ label: languageSubjectLabel });
+  await page.getByRole("button", { name: new RegExp(pack.label, "i") }).click();
+  await expect(page.getByText(new RegExp(`active pack:\\s*${pack.label}`, "i"))).toBeVisible();
+}
 
 function requiredBuilderDefaults(pack: ExamPresetPackPayload) {
   expect(pack.builderDefaults).toBeTruthy();
@@ -35,17 +60,7 @@ test.describe("Admin language family preset builder handoff", () => {
 
       await page.goto(`/admin/exams/advanced?preset_pack=${encodeURIComponent(presetId)}`);
       await expect(page.getByRole("heading", { name: /advanced exam builder/i }).first()).toBeVisible();
-      await expect(
-        page.getByText(new RegExp(`active pack:\\s*${pack!.label}`, "i")),
-      ).toBeVisible({ timeout: 30000 });
-
-      await page.getByLabel(/select template institute/i).selectOption("Demo Learning Institute (DLI001)");
-      await page.getByRole("button", { name: /^apply$/i }).click();
-      await expect(page.getByText(/Demo Learning Institute template scope/i)).toBeVisible();
-      await page.getByRole("button", { name: new RegExp(pack!.label, "i") }).click();
-      await expect(
-        page.getByText(new RegExp(`active pack:\\s*${pack!.label}`, "i")),
-      ).toBeVisible({ timeout: 30000 });
+      await alignAdminScopeWithLanguageFamily(page, pack!);
 
       await expect(page.getByLabel(/exam type/i)).toHaveValue(builderDefaults.exam?.examType ?? "");
       await expect(page.getByRole("spinbutton", { name: "Duration in minutes", exact: true })).toHaveValue(

@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
 
@@ -12,19 +13,34 @@ type StudentAttachmentPreviewTriggerProps = {
   altText: string;
 };
 
+const ClientOnlyAttachmentPreviewTrigger = dynamic(
+  async () => ({ default: StudentAttachmentPreviewTriggerClient }),
+  { ssr: false },
+);
+
 export function StudentAttachmentPreviewTrigger({
   title,
   href,
   kind,
   altText,
 }: StudentAttachmentPreviewTriggerProps) {
-  const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  return (
+    <ClientOnlyAttachmentPreviewTrigger
+      title={title}
+      href={href}
+      kind={kind}
+      altText={altText}
+    />
+  );
+}
 
-  useEffect(() => {
-    setMounted(true);
-    return () => setMounted(false);
-  }, []);
+function StudentAttachmentPreviewTriggerClient({
+  title,
+  href,
+  kind,
+  altText,
+}: StudentAttachmentPreviewTriggerProps) {
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     if (!open) {
@@ -52,7 +68,7 @@ export function StudentAttachmentPreviewTrigger({
         Open
       </button>
 
-      {open && mounted
+      {open
         ? createPortal(
             <div
               className="analyticsAttachmentModal"

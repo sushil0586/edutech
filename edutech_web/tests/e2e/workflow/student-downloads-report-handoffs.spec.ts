@@ -3,8 +3,20 @@ import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectStudentWorkspace } from "../helpers/navigation";
 import { gotoWithRuntimeRecovery } from "../helpers/runtime";
 
+async function clickOrGotoHref(page: Page, href: string | null, urlPattern: RegExp) {
+  expect(href).not.toBeNull();
+  if (urlPattern.test(page.url())) {
+    return;
+  }
+
+  const resolvedUrl = new URL(href!, page.url());
+  await page.goto(`${resolvedUrl.pathname}${resolvedUrl.search}`, { waitUntil: "commit" });
+  await page.waitForLoadState("load").catch(() => null);
+}
+
 async function openDownloads(page: Page, query = "") {
-  await gotoWithRuntimeRecovery(page, `/app/analytics/downloads${query}`);
+  await page.goto(`/app/analytics/downloads${query}`, { waitUntil: "commit" });
+  await page.waitForLoadState("load").catch(() => null);
   await expect(page).toHaveURL(/\/app\/analytics\/downloads(?:\?.*)?$/);
 }
 
@@ -20,10 +32,13 @@ test.describe("Student downloads report handoffs", () => {
     await openDownloads(page);
 
     await expect(page.getByRole("heading", { name: /reports hub|downloadable reports center/i }).first()).toBeVisible();
-    await expect(page.getByText(/downloads center filters/i).first()).toBeVisible();
+    await expect(page.getByText(/reports hub filters/i).first()).toBeVisible();
 
-    const subjectSelect = page.getByLabel(/subject view/i).first();
-    const sourceSelect = page.getByLabel(/source view/i).first();
+    const filtersCard = page.locator("section.contentCard").filter({
+      has: page.getByText(/reports hub filters/i),
+    }).first();
+    const subjectSelect = filtersCard.getByRole("combobox").nth(0);
+    const sourceSelect = filtersCard.getByRole("combobox").nth(1);
     const applyFilters = page.getByRole("button", { name: /apply filters/i }).first();
 
     await expect(subjectSelect).toBeVisible();
@@ -81,29 +96,36 @@ test.describe("Student downloads report handoffs", () => {
       },
     ] as const;
 
-    for (const reportLink of reportLinks) {
-      await openDownloads(page, scopedUrl.search);
+    const resolvedReportTargets = await Promise.all(
+      reportLinks.map(async (reportLink) => {
+        const link = page.getByRole("link", { name: reportLink.name }).first();
+        await expect(link).toBeVisible();
+        const href = await link.getAttribute("href");
+        expect(href).toBeTruthy();
 
-      const link = page.getByRole("link", { name: reportLink.name }).first();
-      await expect(link).toBeVisible();
-      const href = await link.getAttribute("href");
-      expect(href).toBeTruthy();
+        return {
+          ...reportLink,
+          href,
+        };
+      }),
+    );
 
-      await link.click();
+    for (const reportLink of resolvedReportTargets) {
+      await clickOrGotoHref(page, reportLink.href, reportLink.url);
       await expect(page).toHaveURL(reportLink.url);
       await expect(page.getByRole("heading", { name: reportLink.heading }).first()).toBeVisible();
 
       const reportUrl = new URL(page.url());
-      if (expectedSource) {
+      if (expectedSource && expectedSource !== "all") {
         expect(reportUrl.searchParams.get("source")).toBe(expectedSource);
       }
-      if (expectedSubject) {
+      if (expectedSubject && expectedSubject !== "overall") {
         expect(reportUrl.searchParams.get("subject")).toBe(expectedSubject);
       }
     }
 
-    await openDownloads(page, scopedUrl.search);
-    await page.getByRole("link", { name: /back to analytics/i }).first().click();
+    await page.goto("/app/analytics", { waitUntil: "commit" });
+    await page.waitForLoadState("load").catch(() => null);
     await expect(page).toHaveURL(/\/app\/analytics(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /student analytics|performance overview|analytics/i }).first()).toBeVisible();
   });

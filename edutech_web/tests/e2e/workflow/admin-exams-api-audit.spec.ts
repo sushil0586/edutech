@@ -62,7 +62,7 @@ test.describe("Admin exams API audit", () => {
         const scopeStartedAt = Date.now();
         audit.reset();
         await instituteSelect.selectOption(selectedInstituteId);
-        await page.getByRole("button", { name: /apply filters/i }).click();
+        await page.getByRole("button", { name: /apply filters|update view/i }).click();
         await expect(page).toHaveURL(new RegExp(`/admin/exams\\?[^#]*institute=${selectedInstituteId}`));
         await expect(page.getByRole("heading", { name: /exam management/i }).first()).toBeVisible();
         await audit.waitForSettled();
@@ -83,7 +83,7 @@ test.describe("Admin exams API audit", () => {
       await sourceSelect.selectOption("teacher");
       await sortSelect.selectOption("start_soon");
       await groupSelect.selectOption("source");
-      await page.getByRole("button", { name: /apply filters/i }).click();
+      await page.getByRole("button", { name: /apply filters|update view/i }).click();
       await expect(page).toHaveURL(/exam_status=live/);
       await expect(page).toHaveURL(/exam_source=teacher/);
       await expect(page).toHaveURL(/exam_sort=start_soon/);
@@ -121,7 +121,7 @@ test.describe("Admin exams API audit", () => {
 
       const resetStartedAt = Date.now();
       audit.reset();
-      await page.getByRole("link", { name: /reset exam filters/i }).click();
+      await page.getByRole("link", { name: /reset exam filters|reset view/i }).click();
       await expect(page).toHaveURL(/\/admin\/exams(?:\?.*)?$/);
       await expect(page).not.toHaveURL(/exam_status=|exam_source=|exam_sort=|exam_group=/);
       await expect(page.getByRole("heading", { name: /exam management/i }).first()).toBeVisible();

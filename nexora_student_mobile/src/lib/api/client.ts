@@ -19,6 +19,41 @@ export class MobileApiError extends Error {
   }
 }
 
+export type MobileApiTrace = {
+  phase: "start" | "response" | "non_ok" | "error" | "success";
+  url: string;
+  method: string;
+  timeoutMs?: number;
+  status?: number;
+  ok?: boolean;
+  message?: string;
+  errorName?: string;
+  errorMessage?: string;
+};
+
+let latestMobileApiTrace: MobileApiTrace | null = null;
+
+export function getLatestMobileApiTrace() {
+  return latestMobileApiTrace;
+}
+
+function setLatestMobileApiTrace(trace: MobileApiTrace) {
+  latestMobileApiTrace = trace;
+}
+
+function logApiTrace(message: string, details?: Record<string, unknown>) {
+  if (!__DEV__) {
+    return;
+  }
+
+  if (details) {
+    console.log(`[mobile-api] ${message}`, details);
+    return;
+  }
+
+  console.log(`[mobile-api] ${message}`);
+}
+
 export async function requestJson<T>(
   path: string,
   init?: RequestInit,
@@ -30,11 +65,25 @@ export async function requestJson<T>(
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), API_REQUEST_TIMEOUT_MS);
+  const url = `${API_BASE_URL}${path}`;
+  const method = init?.method ?? "GET";
 
   let response: Response;
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
-      method: init?.method ?? "GET",
+    setLatestMobileApiTrace({
+      phase: "start",
+      url,
+      method,
+      timeoutMs: API_REQUEST_TIMEOUT_MS,
+    });
+    logApiTrace("request:start", {
+      url,
+      method,
+      timeoutMs: API_REQUEST_TIMEOUT_MS,
+    });
+
+    response = await fetch(url, {
+      method,
       headers: {
         "Content-Type": "application/json",
         ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
@@ -43,8 +92,34 @@ export async function requestJson<T>(
       body: init?.body,
       signal: controller.signal,
     });
+    setLatestMobileApiTrace({
+      phase: "response",
+      url,
+      method,
+      status: response.status,
+      ok: response.ok,
+    });
+    logApiTrace("request:response", {
+      url,
+      method,
+      status: response.status,
+      ok: response.ok,
+    });
   } catch (error) {
     clearTimeout(timeoutId);
+    setLatestMobileApiTrace({
+      phase: "error",
+      url,
+      method,
+      errorName: error instanceof Error ? error.name : "unknown",
+      errorMessage: error instanceof Error ? error.message : String(error),
+    });
+    logApiTrace("request:error", {
+      url,
+      method,
+      errorName: error instanceof Error ? error.name : "unknown",
+      errorMessage: error instanceof Error ? error.message : String(error),
+    });
     if (error instanceof Error && error.name === "AbortError") {
       throw new MobileApiError(
         "The request took too long. Please check your connection and try again.",
@@ -73,8 +148,35 @@ export async function requestJson<T>(
       Object.values(fieldErrors)[0] ||
       `Request failed with status ${response.status}`;
 
+    setLatestMobileApiTrace({
+      phase: "non_ok",
+      url,
+      method,
+      status: response.status,
+      message,
+    });
+    logApiTrace("request:non-ok", {
+      url,
+      method,
+      status: response.status,
+      message,
+      fieldErrors,
+    });
+
     throw new MobileApiError(message, fieldErrors, response.status);
   }
 
-  return (await response.json()) as T;
+  const payload = (await response.json()) as T;
+  setLatestMobileApiTrace({
+    phase: "success",
+    url,
+    method,
+    status: response.status,
+    ok: response.ok,
+  });
+  logApiTrace("request:success", {
+    url,
+    method,
+  });
+  return payload;
 }

@@ -10,6 +10,83 @@ const familyPresetIds = [
   "aws_practitioner",
 ] as const;
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function adminPrimarySubjectSelect(page: import("@playwright/test").Page) {
+  return page
+    .locator(".advancedBuilderField", {
+      has: page.getByText(/^(Primary subject|Subject)$/i),
+    })
+    .locator("select")
+    .first();
+}
+
+async function selectFirstUsableSubject(
+  subjectSelect: ReturnType<typeof adminPrimarySubjectSelect>,
+  preferredLabel?: string,
+) {
+  await expect(subjectSelect).toBeEnabled();
+  await expect
+    .poll(
+      async () =>
+        subjectSelect.locator("option").evaluateAll((nodes) =>
+          nodes.filter((node) => (node as HTMLOptionElement).value.trim().length > 0).length,
+        ),
+      { timeout: 30000 },
+    )
+    .toBeGreaterThan(0);
+  const resolvedOptions = await subjectSelect.locator("option").evaluateAll((nodes) =>
+    nodes
+      .map((node) => ({
+        value: (node as HTMLOptionElement).value,
+        label: ((node as HTMLOptionElement).label || node.textContent || "").trim(),
+      }))
+      .filter((option) => option.value.trim().length > 0),
+  );
+  const preferred = preferredLabel
+    ? resolvedOptions.find((option) => option.label === preferredLabel)
+    : null;
+  const chosen = preferred ?? resolvedOptions[0];
+  expect(chosen).toBeTruthy();
+  await expect
+    .poll(
+      async () =>
+        subjectSelect.locator("option").evaluateAll((nodes, selectedValue) => {
+          return nodes.some((node) => (node as HTMLOptionElement).value === selectedValue);
+        }, chosen.value),
+      { timeout: 30000 },
+    )
+    .toBe(true);
+  await subjectSelect.selectOption(chosen.value);
+  return chosen;
+}
+
+async function alignAdminScopeWithPresetFamily(
+  page: import("@playwright/test").Page,
+  pack: ExamPresetPackPayload,
+) {
+  await page.getByLabel(/select template institute/i).selectOption("Demo Learning Institute (DLI001)");
+  await page.getByRole("button", { name: /^apply$/i }).click();
+  await expect(page.getByText(/Demo Learning Institute template scope/i)).toBeVisible();
+
+  await page.getByRole("tab", { name: /\bbasics\b/i }).first().click();
+  const programLabel = pack.programFamilyCode === "certification" ? "Demo AWS Track" : "Demo NEET Track";
+  await page
+    .locator(".advancedBuilderField", { has: page.getByText(/^Program$/i) })
+    .locator("select")
+    .selectOption({ label: programLabel });
+  const subjectSelect = adminPrimarySubjectSelect(page);
+  await expect(subjectSelect).toBeEnabled();
+  const preferredSubjectLabel =
+    pack.programFamilyCode === "certification" ? "AWS Cloud Practitioner" : undefined;
+  await selectFirstUsableSubject(subjectSelect, preferredSubjectLabel);
+  await expect(page.getByText(new RegExp(`Assessment family:\\s*${pack.programFamilyCode}`, "i"))).toBeVisible();
+  await page.getByRole("button", { name: new RegExp(pack.label, "i") }).click();
+  await expect(page.getByText(new RegExp(`active pack:\\s*${escapeRegExp(pack.label)}`, "i"))).toBeVisible();
+}
+
 function requiredBuilderDefaults(pack: ExamPresetPackPayload) {
   expect(pack.builderDefaults).toBeTruthy();
   expect(pack.builderDefaults?.exam).toBeTruthy();
@@ -38,9 +115,7 @@ test.describe("Admin family preset builder handoff", () => {
 
       await page.goto(`/admin/exams/advanced?preset_pack=${encodeURIComponent(presetId)}`);
       await expect(page.getByRole("heading", { name: /advanced exam builder/i }).first()).toBeVisible();
-      await expect(
-        page.getByText(new RegExp(`active pack:\\s*${pack!.label}`, "i")),
-      ).toBeVisible({ timeout: 30000 });
+      await alignAdminScopeWithPresetFamily(page, pack!);
 
       await expect(page.getByLabel(/exam type/i)).toHaveValue(builderDefaults.exam?.examType ?? "");
       await expect(page.getByRole("spinbutton", { name: "Duration in minutes", exact: true })).toHaveValue(

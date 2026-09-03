@@ -7,9 +7,9 @@ async function openQuestionDetailHref(page: Page) {
   await gotoWithRuntimeRecovery(page, "/teacher/question-bank");
   await expect(page.getByRole("heading", { name: /question bank/i }).first()).toBeVisible();
 
-  const editLink = page.getByRole("link", { name: /edit|duplicate to edit/i }).first();
-  await expect(editLink).toBeVisible();
-  const href = await editLink.getAttribute("href");
+  const duplicateLink = page.getByRole("link", { name: /create copy/i }).first();
+  await expect(duplicateLink).toBeVisible();
+  const href = await duplicateLink.getAttribute("href");
   expect(href).toBeTruthy();
   return href!;
 }
@@ -76,8 +76,8 @@ test.describe("Teacher question create browser functionality coverage", () => {
     page,
   }) => {
     const questionHref = await openQuestionDetailHref(page);
-    const questionIdMatch = questionHref.match(/\/teacher\/question-bank\/([^/?#]+)/);
-    const questionId = questionIdMatch?.[1] ?? "";
+    const duplicateUrl = new URL(questionHref, "http://localhost");
+    const questionId = duplicateUrl.searchParams.get("duplicate") ?? "";
     expect(questionId).not.toBe("");
 
     await gotoWithRuntimeRecovery(page, `/teacher/question-bank/new?duplicate=${encodeURIComponent(questionId)}`);

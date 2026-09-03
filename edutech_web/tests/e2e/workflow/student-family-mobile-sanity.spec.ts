@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { expectStudentWorkspace } from "../helpers/navigation";
 import {
   loginStudentFamilyAccountOrSkip,

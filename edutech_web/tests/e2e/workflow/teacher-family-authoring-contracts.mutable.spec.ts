@@ -130,6 +130,15 @@ async function selectProgramScope(page: Page, program: ProgramRegistryRecord) {
 
   await programSelect.selectOption(program.id);
   await expect(subjectSelect).toBeEnabled();
+  await expect
+    .poll(async () => {
+      return subjectSelect.evaluate((select) => {
+        return Array.from((select as HTMLSelectElement).options)
+          .map((item) => item.value)
+          .filter(Boolean);
+      });
+    })
+    .toContainEqual(expect.any(String));
 
   const subjectValue = await subjectSelect.evaluate((select) => {
     const values = Array.from((select as HTMLSelectElement).options)

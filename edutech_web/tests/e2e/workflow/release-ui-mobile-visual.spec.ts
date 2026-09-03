@@ -7,6 +7,7 @@ import {
   expectTeacherWorkspace,
 } from "../helpers/navigation";
 import { gotoWithRuntimeRecovery } from "../helpers/runtime";
+import { suppressVisualNoise } from "../helpers/visual";
 
 async function openMobileReleaseRoute(page: Page, href: string, heading: RegExp) {
   await gotoWithRuntimeRecovery(page, href);
@@ -16,6 +17,10 @@ async function openMobileReleaseRoute(page: Page, href: string, heading: RegExp)
 test.describe("Release UI mobile visual", () => {
   test.use({
     viewport: { width: 390, height: 844 },
+  });
+
+  test.beforeEach(async ({ page }) => {
+    await suppressVisualNoise(page);
   });
 
   test("@workflow @visual student mobile practice stays aligned for release", async ({ page }) => {

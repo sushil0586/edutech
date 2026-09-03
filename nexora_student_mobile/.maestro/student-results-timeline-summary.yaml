@@ -1,4 +1,4 @@
-appId: com.anonymous.nexorastudentmobile
+appId: ${MAESTRO_APP_ID}
 ---
 # Set these before running:
 # STUDENT_USERNAME
@@ -18,27 +18,40 @@ appId: com.anonymous.nexorastudentmobile
 
 - tapOn: "Login"
 - tapOn:
-    text: "Username"
+    id: "login-username-input"
 - inputText: ${STUDENT_USERNAME}
 
 - tapOn:
-    text: "Enter password"
+    id: "login-password-input"
 - inputText: ${STUDENT_PASSWORD}
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn: "Sign in and continue learning"
 
-- hideKeyboard
-- tapOn: "Login"
+- tapOn:
+    id: "login-submit-button"
 
 - extendedWaitUntil:
     visible: "Student Dashboard"
     timeout: 30000
 
-- tapOn: "Results"
+- tapOn:
+    id: "student-tab-results"
 
 - assertVisible: "Student Results"
 - scrollUntilVisible:
     element:
       id: "results-timeline-summary-button"
     direction: DOWN
+    timeout: 30000
+    visibilityPercentage: 50
 
 - tapOn:
     id: "results-timeline-summary-button"
@@ -50,7 +63,8 @@ appId: com.anonymous.nexorastudentmobile
 
 - assertVisible: "Student Analytics"
 
-- tapOn: "Results"
+- tapOn:
+    id: "student-tab-results"
 
 - assertVisible: "Student Results"
 
@@ -58,6 +72,8 @@ appId: com.anonymous.nexorastudentmobile
     element:
       id: "results-timeline-summary-button"
     direction: DOWN
+    timeout: 30000
+    visibilityPercentage: 50
 
 - tapOn:
     id: "results-timeline-summary-button"

@@ -1,20 +1,13 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { answerCurrentAttemptQuestion } from "../helpers/attempt";
 import { loginWithCredentials } from "../helpers/auth";
-import { backendAccessToken, jeeStudentCredentials, reopenExamWindow } from "../helpers/family-runtime";
+import { jeeStudentCredentials, reopenExamWindow } from "../helpers/family-runtime";
 import { expectStudentWorkspace, expectTeacherWorkspace } from "../helpers/navigation";
 import {
   openStudentPrimaryActionOrSkip,
   resolveStudentFamilyExamOrSkip,
   resolveTeacherFamilyExamOrSkip,
 } from "../helpers/student-family";
-
-const backendBaseUrl = (
-  process.env.API_BASE_URL ??
-  process.env.NEXT_PUBLIC_API_BASE_URL ??
-  process.env.PLAYWRIGHT_API_BASE_URL ??
-  "http://127.0.0.1:9001"
-).replace(/\/$/, "");
 
 const jeeExamCode = "DMO-JEE-FULL-01";
 const jeeExamTitle = "Demo JEE Full Mock 01";

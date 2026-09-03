@@ -102,7 +102,9 @@ export function StudentEditDialog({
   const [isActive, setIsActive] = useState(row.is_active);
   const [fieldErrors, setFieldErrors] = useState<StudentFieldErrors>({});
 
-  function resetFormFields() {
+  function resetFormFromRow() {
+    setMessage("");
+    setFieldErrors({});
     setAdmissionNo(row.admission_no);
     setFirstName(row.first_name ?? row.full_name.split(" ")[0] ?? "");
     setLastName(row.last_name ?? row.full_name.split(" ").slice(1).join(" "));
@@ -117,8 +119,11 @@ export function StudentEditDialog({
     setAddress(row.address ?? "");
     setJoinedAt(row.joined_at ? row.joined_at.slice(0, 10) : "");
     setIsActive(row.is_active);
-    setFieldErrors({});
-    setMessage("");
+  }
+
+  function closeDialog() {
+    resetFormFromRow();
+    setOpen(false);
   }
 
   const filteredCohorts = useMemo(
@@ -136,12 +141,20 @@ export function StudentEditDialog({
       return;
     }
 
+    resetFormFromRow();
+  }, [open, row]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        setOpen(false);
+        closeDialog();
       }
     }
 
@@ -151,12 +164,6 @@ export function StudentEditDialog({
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [open]);
-
-  useEffect(() => {
-    if (!open) {
-      resetFormFields();
-    }
-  }, [open, row]);
 
   async function submitStudentUpdate() {
     const nextFieldErrors: StudentFieldErrors = {};
@@ -223,7 +230,7 @@ export function StudentEditDialog({
         );
       }
 
-      setOpen(false);
+      closeDialog();
       router.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Student update failed.");
@@ -243,7 +250,7 @@ export function StudentEditDialog({
 
       {open && typeof document !== "undefined"
         ? createPortal(
-            <div className="rosterImportOverlay" onClick={() => setOpen(false)} role="presentation">
+            <div className="rosterImportOverlay" onClick={closeDialog} role="presentation">
               <div
                 aria-modal="true"
                 className="rosterImportDialog dashboardPanel"
@@ -258,7 +265,7 @@ export function StudentEditDialog({
                     </div>
                     <button
                       className="appTopbarAction setupSecondaryAction"
-                      onClick={() => setOpen(false)}
+                      onClick={closeDialog}
                       type="button"
                     >
                       Close
@@ -379,7 +386,7 @@ export function StudentEditDialog({
                       <span className="appTopbarActionIcon" aria-hidden="true">⌘</span>
                       {loading ? "Saving..." : "Save changes"}
                     </button>
-                    <button className="appTopbarAction setupSecondaryAction" disabled={loading} onClick={() => setOpen(false)} type="button">
+                    <button className="appTopbarAction setupSecondaryAction" disabled={loading} onClick={closeDialog} type="button">
                       Cancel
                     </button>
                   </div>

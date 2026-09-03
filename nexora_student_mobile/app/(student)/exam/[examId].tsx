@@ -8,6 +8,7 @@ import { ActionButton } from "@/components/action-button";
 import { MetricCard } from "@/components/metric-card";
 import { SectionBlock } from "@/components/section-block";
 import { StatePanel } from "@/components/state-panel";
+import { SkeletonLine, SkeletonList, SkeletonMetricGrid } from "@/components/skeleton";
 import { fetchStudentExamDetail, startStudentAttempt } from "@/lib/api/student";
 import { MobileApiError } from "@/lib/api/client";
 import { useSessionStore } from "@/store/session-store";
@@ -215,6 +216,8 @@ export default function ExamDetailScreen() {
             helper="Unlock cost when policy requires it"
           />
         </View>
+      ) : query.isLoading ? (
+        <SkeletonMetricGrid />
       ) : null}
 
       {actionMessage ? (
@@ -254,7 +257,16 @@ export default function ExamDetailScreen() {
         title="Readiness overview"
         subtitle="Everything here is driven by the backend exam detail response"
       >
-        {detail ? (
+        {query.isLoading ? (
+          <View style={appStyles.column}>
+            <View style={appStyles.rowWrap}>
+              <SkeletonLine width={118} height={32} />
+              <SkeletonLine width={142} height={32} soft />
+            </View>
+            <SkeletonLine width="94%" height={18} />
+            <SkeletonLine width="78%" height={13} soft />
+          </View>
+        ) : detail ? (
           <View style={appStyles.column}>
             <View style={appStyles.rowWrap}>
               <View style={appStyles.chip}>
@@ -295,7 +307,13 @@ export default function ExamDetailScreen() {
         title="Security and policy"
         subtitle="Keep the learner informed before entering the attempt flow"
       >
-        {detail ? (
+        {query.isLoading ? (
+          <View style={appStyles.column}>
+            <SkeletonLine width="96%" height={18} />
+            <SkeletonLine width="86%" height={13} soft />
+            <SkeletonLine width="72%" height={13} />
+          </View>
+        ) : detail ? (
           <View style={appStyles.column}>
             <Text style={appStyles.body}>{detail.security_policy.student_warning_copy}</Text>
             <Text style={appStyles.helper}>
@@ -322,7 +340,9 @@ export default function ExamDetailScreen() {
         title="Sections"
         subtitle="Understand the structure before the student starts"
       >
-        {detail?.sections.length ? (
+        {query.isLoading ? (
+          <SkeletonList count={2} />
+        ) : detail?.sections.length ? (
           detail.sections.map((section) => (
             <View key={section.id} style={appStyles.listItem}>
               <View style={appStyles.rowBetween}>

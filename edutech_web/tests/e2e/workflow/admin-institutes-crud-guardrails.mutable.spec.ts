@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
 import { expectAdminWorkspace } from "../helpers/navigation";
@@ -14,6 +14,21 @@ type CreateInstitutePayload = {
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+async function selectInstitute(page: Page, instituteName: string, instituteCode: string) {
+  const instituteRow = page
+    .locator("tbody tr")
+    .filter({ has: page.getByText(new RegExp(escapeRegExp(instituteName), "i")) })
+    .filter({ has: page.getByText(new RegExp(escapeRegExp(instituteCode), "i")) })
+    .first();
+  await expect(instituteRow).toBeVisible();
+  await instituteRow.getByRole("button", { name: /^view$/i }).click();
+
+  const detailCard = page.locator(".adminInstituteDetailCard").first();
+  await expect(detailCard.locator("h4").filter({ hasText: new RegExp(escapeRegExp(instituteName), "i") })).toBeVisible();
+  await expect(detailCard.getByText(new RegExp(escapeRegExp(instituteCode), "i")).first()).toBeVisible();
+  return detailCard;
 }
 
 test.describe("Admin institutes CRUD guardrails", () => {
@@ -111,10 +126,7 @@ test.describe("Admin institutes CRUD guardrails", () => {
       await page.goto(`/admin/institutes?institute=${instituteId}`);
       await expect(page.getByRole("heading", { name: /institutes/i }).first()).toBeVisible();
 
-      const detailCard = page.locator(".adminInstituteDetailCard").first();
-      await expect(
-        detailCard.getByRole("heading", { name: new RegExp(escapeRegExp(instituteName), "i") }),
-      ).toBeVisible();
+      const detailCard = await selectInstitute(page, instituteName, instituteCode);
       await expect(detailCard.getByText(/^Active$/i).first()).toBeVisible();
 
       await page.getByRole("button", { name: /edit selected/i }).click();
@@ -125,12 +137,8 @@ test.describe("Admin institutes CRUD guardrails", () => {
       await editDialog.getByRole("button", { name: /cancel/i }).click();
       await expect(page.getByRole("dialog")).toHaveCount(0);
 
-      await expect(
-        detailCard.getByRole("heading", { name: new RegExp(escapeRegExp(instituteName), "i") }),
-      ).toBeVisible();
-      await expect(
-        detailCard.getByRole("heading", { name: new RegExp(escapeRegExp(editedButCancelledName), "i") }),
-      ).toHaveCount(0);
+      await expect(detailCard.locator("h4").filter({ hasText: new RegExp(escapeRegExp(instituteName), "i") })).toBeVisible();
+      await expect(detailCard.locator("h4").filter({ hasText: new RegExp(escapeRegExp(editedButCancelledName), "i") })).toHaveCount(0);
 
       await page.getByRole("button", { name: /edit selected/i }).click();
       const reopenedDialog = page.getByRole("dialog");
@@ -147,7 +155,15 @@ test.describe("Admin institutes CRUD guardrails", () => {
       await reopenedDialog.getByRole("button", { name: /save institute/i }).click();
       const deactivateResponse = await deactivateResponsePromise;
       expect(deactivateResponse.ok(), await deactivateResponse.text()).toBe(true);
-      await expect(detailCard.getByText(/^Inactive$/i).first()).toBeVisible();
+      const inactiveRow = page
+        .locator("tbody tr")
+        .filter({ has: page.getByText(new RegExp(escapeRegExp(instituteName), "i")) })
+        .filter({ has: page.getByText(new RegExp(escapeRegExp(instituteCode), "i")) })
+        .first();
+      await expect(inactiveRow).toContainText(/inactive/i);
+      await page.goto(`/admin/institutes?institute=${instituteId}`);
+      const inactiveDetailCard = await selectInstitute(page, instituteName, instituteCode);
+      await expect(inactiveDetailCard.getByText(/^Inactive$/i).first()).toBeVisible();
 
       await page.getByRole("button", { name: /edit selected/i }).click();
       const reactivateDialog = page.getByRole("dialog");
@@ -168,10 +184,16 @@ test.describe("Admin institutes CRUD guardrails", () => {
       await reactivateDialog.getByRole("button", { name: /save institute/i }).click();
       const reactivateResponse = await reactivateResponsePromise;
       expect(reactivateResponse.ok(), await reactivateResponse.text()).toBe(true);
-      await expect(detailCard.getByText(/^Active$/i).first()).toBeVisible();
+      const activeRow = page
+        .locator("tbody tr")
+        .filter({ has: page.getByText(new RegExp(escapeRegExp(instituteName), "i")) })
+        .filter({ has: page.getByText(new RegExp(escapeRegExp(instituteCode), "i")) })
+        .first();
+      await expect(activeRow).toContainText(/active/i);
 
       await page.reload();
-      await expect(detailCard.getByText(/^Active$/i).first()).toBeVisible();
+      const activeDetailCard = await selectInstitute(page, instituteName, instituteCode);
+      await expect(activeDetailCard.getByText(/^Active$/i).first()).toBeVisible();
       await page.getByRole("button", { name: /edit selected/i }).click();
       const clearedFieldDialog = page.getByRole("dialog");
       await expect(clearedFieldDialog.getByLabel(/website/i)).toHaveValue("");

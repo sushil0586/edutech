@@ -342,7 +342,7 @@ test.describe("Admin package-scope recovery from the institute linked lane", () 
       await instituteQuestionBank.gotoLinked();
       await instituteQuestionBank.expectLinkedLoaded();
       await instituteQuestionBank.selectAcademicFilters(/class 7/i, /science/i);
-      await page.getByRole("button", { name: /apply filters/i }).click();
+      await instituteQuestionBank.applyFiltersIfPresent();
       await expect(page).toHaveURL(/subject=/);
       await expect(page.getByText(/subject:\s*science/i).first()).toBeVisible();
       await expect(page.getByText(/no linked questions match this selection/i).first()).toBeVisible();
@@ -439,7 +439,7 @@ test.describe("Admin package-scope recovery from the institute linked lane", () 
       await instituteQuestionBank.gotoLinked();
       await instituteQuestionBank.expectLinkedLoaded();
       await instituteQuestionBank.selectAcademicFilters(/class 7/i, /science/i);
-      await page.getByRole("button", { name: /apply filters/i }).click();
+      await instituteQuestionBank.applyFiltersIfPresent();
       await expect(page.getByText(/no linked questions match this selection/i).first()).toBeVisible();
       await expect(page.getByRole("link", { name: /open shared library linker for this scope/i })).toBeVisible();
 

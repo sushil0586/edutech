@@ -2,7 +2,7 @@ import dynamic from "next/dynamic";
 import { Suspense } from "react";
 import { InstitutePageHeader } from "@/components/ui/institute-page-header";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
-import { fetchInstituteQuestionBankFeatureEntitlementsCached } from "@/lib/api/portal";
+import { fetchInstituteQuestionBankFeatureEntitlements } from "@/lib/api/portal";
 import { fetchTeacherQuestionImportTemplate } from "@/lib/api/teacher-builder";
 import { requireInstituteAdminSession } from "@/lib/auth/session";
 import { buildFallbackQuestionImportTemplate } from "@/lib/teacher/question-import-template-fallback";
@@ -62,7 +62,7 @@ async function InstituteQuestionImportPageContent() {
   await requireInstituteAdminSession();
 
   const [featureEntitlements, template] = await Promise.all([
-    fetchInstituteQuestionBankFeatureEntitlementsCached<InstituteQuestionFeatureEntitlement>().catch(
+    fetchInstituteQuestionBankFeatureEntitlements<InstituteQuestionFeatureEntitlement>().catch(
       () => [],
     ),
     fetchTeacherQuestionImportTemplate().catch(() => null),

@@ -41,16 +41,10 @@ test.describe("Institute question bank detail routes", () => {
     await expect(page.getByText(/content and scoring/i).first()).toBeVisible();
     await expect(page.getByText(/answer structure/i).first()).toBeVisible();
     await expect(page.locator('a[href="/institute/question-bank"]').first()).toBeVisible();
-    await expect(page.getByText(/no tags are attached yet|tags attached/i).first()).toBeVisible();
-    await expect(page.getByRole("button", { name: /attach tag/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /upload attachment/i })).toBeVisible();
-    await expect(page.getByLabel(/add tag/i)).toBeVisible();
-    await expect(page.getByLabel(/attachment title/i)).toBeVisible();
-    await expect(page.getByLabel(/attachment type/i)).toBeVisible();
-    await expect(page.getByLabel(/display order/i)).toBeVisible();
-    await expect(page.getByLabel(/alt text or learner note/i)).toBeVisible();
-    await expect(page.getByLabel(/attachment file/i)).toBeVisible();
-    await expect(page.getByLabel(/allow inline usage/i)).toBeVisible();
+    await expect(page.getByLabel(/question text/i)).toBeVisible();
+    await expect(page.getByLabel(/explanation/i)).toBeVisible();
+    await expect(page.getByLabel(/default marks/i)).toBeVisible();
+    await expect(page.getByLabel(/negative marks/i)).toBeVisible();
     await expectPageWithoutHorizontalSpill(page, "Institute question detail workspace");
 
     await gotoWithRuntimeRecovery(page, "/institute/question-bank");

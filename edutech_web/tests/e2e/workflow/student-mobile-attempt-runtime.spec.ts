@@ -18,6 +18,15 @@ async function resolveAttemptEntry(page: Page) {
   await expect(page).toHaveURL(/\/app\/attempts(?:\?.*)?$/);
   await expect(page.getByRole("heading", { name: /attempt/i }).first()).toBeVisible();
 
+  const activeAttemptShell = page.getByText(/test in progress/i).first();
+  if (await activeAttemptShell.isVisible().catch(() => false)) {
+    return {
+      origin: "active-shell" as const,
+      entry: activeAttemptShell,
+      href: page.url().match(/\/app\/attempts\/[^/?#]+/)?.[0] ?? page.url(),
+    };
+  }
+
   const resumeFromAttempts = page.getByRole("link", { name: /resume attempt/i }).first();
   if (await resumeFromAttempts.isVisible().catch(() => false)) {
     return {
@@ -76,8 +85,10 @@ test.describe("Student mobile attempt runtime", () => {
     const attemptHref = attemptSource.href;
     expect(attemptHref).toMatch(/^\/app\/attempts\/[^/]+$/);
 
-    await attemptSource.entry.click();
-    await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+(?:\?.*)?$/);
+    if (attemptSource.origin !== "active-shell") {
+      await attemptSource.entry.click();
+      await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+(?:\?.*)?$/);
+    }
 
     await expect
       .poll(
@@ -141,15 +152,22 @@ test.describe("Student mobile attempt runtime", () => {
       ).toBeVisible();
       await expect(
         await firstVisible([
-          activeQuestionCard.getByText(/submit routes to the attempt summary first/i).first(),
-          page.getByText(/review before submit|summary opens after submit/i).first(),
+          page.getByRole("button", { name: /^end test$/i }).first(),
+          page.getByRole("button", { name: /^save & next|^save & review$/i }).first(),
+          page.getByText(/review before submit|save and continue|save & next/i).first(),
         ]),
       ).toBeVisible();
 
       const sectionAccessHeading = page.getByText(/section access/i).first();
       if (await sectionAccessHeading.isVisible().catch(() => false)) {
         await expect(sectionAccessHeading).toBeVisible();
-        await expect(page.getByText(/section switching is navigation, not save/i).first()).toBeVisible();
+        await expect(
+          page
+            .getByText(
+              /section switching is navigation, not save|opening this section is navigation only|re-opening keeps the same attempt active and does not save/i,
+            )
+            .first(),
+        ).toBeVisible();
       }
     }
 

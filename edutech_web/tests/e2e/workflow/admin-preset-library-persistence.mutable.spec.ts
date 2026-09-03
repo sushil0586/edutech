@@ -25,6 +25,15 @@ function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function adminPrimarySubjectSelect(page: Page) {
+  return page
+    .locator(".advancedBuilderField", {
+      has: page.getByText(/^(Primary subject|Subject)$/i),
+    })
+    .locator("select")
+    .first();
+}
+
 async function backendAccessToken(page: Page) {
   const cookies = await page.context().cookies();
   const accessToken = cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
@@ -95,17 +104,41 @@ async function cleanupPresetPacks(page: Page, packCode: string, packLabel: strin
 async function alignAdminScope(page: Page) {
   await page.getByLabel(/select template institute/i).selectOption("Demo Learning Institute (DLI001)");
   await page.getByRole("button", { name: /^apply$/i }).click();
+  await expect(page).toHaveURL(/\/admin\/exams\/advanced\?[^#]*institute=.*(?:&[^#]*)?/, {
+    timeout: 30000,
+  });
+  await expect(page).toHaveURL(/preset_pack=aws_practitioner/, { timeout: 30000 });
   await expect(page.getByText(/Demo Learning Institute template scope/i)).toBeVisible();
 
-  await page.getByRole("tab", { name: /\bbasics\b/i }).first().click();
-  await page
+  const programSelect = page
     .locator(".advancedBuilderField", { has: page.getByText(/^Program$/i) })
+    .locator("select");
+  const subjectSelect = page
+    .locator(".advancedBuilderField", { has: page.getByText(/^(Primary subject|Subject)$/i) })
     .locator("select")
-    .selectOption({ label: "Demo AWS Track" });
-  await page
-    .locator(".advancedBuilderField", { has: page.getByText(/^Subject$/i) })
-    .locator("select")
-    .selectOption({ label: "AWS Cloud Practitioner" });
+    .first();
+
+  await page.getByRole("tab", { name: /\bbasics\b/i }).first().click();
+  await expect(programSelect).toBeVisible({ timeout: 30000 });
+  await programSelect.selectOption({ label: "Demo AWS Track" });
+  if (await subjectSelect.count()) {
+    await expect(subjectSelect).toBeEnabled({ timeout: 30000 });
+    await expect
+      .poll(
+        async () =>
+          subjectSelect.locator("option").evaluateAll((options) =>
+            options
+              .map((option) => ({
+                value: (option as HTMLOptionElement).value,
+                label: ((option as HTMLOptionElement).label || option.textContent || "").trim(),
+              }))
+              .filter((option) => option.value.trim().length > 0),
+          ),
+        { timeout: 15000 },
+      )
+      .toContainEqual(expect.objectContaining({ label: "AWS Cloud Practitioner" }));
+    await subjectSelect.selectOption({ label: "AWS Cloud Practitioner" });
+  }
 }
 
 async function normalizeBuilderCompositionForCreate(page: Page) {
@@ -128,7 +161,16 @@ async function normalizeBuilderCompositionForCreate(page: Page) {
     await topicRows.nth(index).getByRole("button", { name: /^remove$/i }).click();
   }
 
-  await firstSectionCard.locator(".advancedBuilderTopicRow").first().locator('input[type="number"]').fill("1");
+  const firstTopicRow = firstSectionCard.locator(".advancedBuilderTopicRow").first();
+  const firstTopicSelect = firstTopicRow.locator("select");
+  await expect
+    .poll(async () => firstTopicSelect.locator("option").count(), {
+      timeout: 30000,
+      message: "Expected the advanced builder topic selector to load real topic options.",
+    })
+    .toBeGreaterThan(1);
+  await firstTopicSelect.selectOption({ index: 1 });
+  await firstTopicRow.locator('input[type="number"]').fill("1");
 }
 
 test.describe("Admin managed preset pack persistence", () => {
@@ -164,7 +206,7 @@ test.describe("Admin managed preset pack persistence", () => {
       await page.goto("/admin/exams/advanced?preset_pack=aws_practitioner");
       await expect(page.getByRole("heading", { name: /advanced exam builder/i }).first()).toBeVisible();
       await alignAdminScope(page);
-      await expect(page.getByText(/active pack:\s*aws cloud practitioner/i)).toBeVisible();
+      await expect(page.getByText(/active pack:\s*aws practitioner/i)).toBeVisible();
 
       await page.getByRole("tab", { name: /\bbasics\b/i }).first().click();
       await page.getByLabel(/exam type/i).selectOption("quiz");
@@ -172,13 +214,24 @@ test.describe("Admin managed preset pack persistence", () => {
 
       await page.getByRole("tab", { name: /\bdelivery\b/i }).first().click();
       await page.getByLabel(/timer mode/i).selectOption("global");
-      await page.getByLabel(/navigation mode/i).selectOption("free");
-      await page.getByLabel(/attempt policy/i).selectOption("single_attempt");
-      await page.getByLabel(/security mode/i).selectOption("basic_proctoring");
+      await page.getByLabel(/navigation mode/i).selectOption("free_exam");
+      await page.getByLabel(/attempt policy/i).selectOption("single");
+      await page.getByLabel(/security mode/i).selectOption("normal");
       await page.getByLabel(/result publish mode/i).selectOption("scheduled");
-      await page.getByLabel(/review mode/i).selectOption("after_publish");
+      await page.getByLabel(/review mode/i).selectOption("solution_review");
 
       await normalizeBuilderCompositionForCreate(page);
+      await expect
+        .poll(
+          async () =>
+            page
+              .locator(".advancedBuilderSummaryBlock")
+              .filter({ has: page.getByText(/^Current composition$/i) })
+              .first()
+              .textContent(),
+          { timeout: 30000 },
+        )
+        .toContain("1 selected topic(s)");
 
       await page.getByRole("textbox", { name: /preset label/i }).fill(packLabel);
       await page.getByRole("textbox", { name: /preset code/i }).fill(packCode);
@@ -212,16 +265,26 @@ test.describe("Admin managed preset pack persistence", () => {
 
       await page.getByRole("tab", { name: /\bdelivery\b/i }).first().click();
       await expect(page.getByLabel(/timer mode/i)).toHaveValue("global");
-      await expect(page.getByLabel(/navigation mode/i)).toHaveValue("free");
-      await expect(page.getByLabel(/attempt policy/i)).toHaveValue("single_attempt");
-      await expect(page.getByLabel(/security mode/i)).toHaveValue("basic_proctoring");
+      await expect(page.getByLabel(/navigation mode/i)).toHaveValue("free_exam");
+      await expect(page.getByLabel(/attempt policy/i)).toHaveValue("single");
+      await expect(page.getByLabel(/security mode/i)).toHaveValue("normal");
       await expect(page.getByLabel(/result publish mode/i)).toHaveValue("scheduled");
-      await expect(page.getByLabel(/review mode/i)).toHaveValue("after_publish");
+      await expect(page.getByLabel(/review mode/i)).toHaveValue("solution_review");
 
       await page.getByRole("tab", { name: /\bbasics\b/i }).first().click();
       await page.getByLabel(/exam title/i).fill(examTitle);
       await page.getByLabel(/exam code/i).fill(examCode);
-
+      await expect
+        .poll(
+          async () =>
+            page
+              .locator(".advancedBuilderSummaryBlock")
+              .filter({ has: page.getByText(/^Current composition$/i) })
+              .first()
+              .textContent(),
+          { timeout: 30000 },
+        )
+        .toContain("1 selected topic(s)");
       const previewResponsePromise = page.waitForResponse((response) =>
         response.url().includes("/api/exams/advanced-builder/preview") &&
         response.request().method() === "POST",
@@ -229,7 +292,7 @@ test.describe("Admin managed preset pack persistence", () => {
       await page.getByRole("button", { name: /preview exam/i }).click();
       const previewResponse = await previewResponsePromise;
       expect(previewResponse.ok()).toBe(true);
-      await expect(page.getByText(/preview refreshed\./i)).toBeVisible({ timeout: 60000 });
+      await expect(page.getByText(/preview (ready|refreshed)\./i)).toBeVisible({ timeout: 60000 });
 
       await page.getByRole("button", { name: /create advanced exam/i }).click();
       await expect(page).toHaveURL(/\/admin\/exams\/.+\/builder\?message=/, { timeout: 60000 });
@@ -243,11 +306,11 @@ test.describe("Admin managed preset pack persistence", () => {
       expect(detail.exam_type).toBe("quiz");
       expect(String(detail.duration_minutes)).toBe("52");
       expect(detail.timer_mode).toBe("global");
-      expect(detail.navigation_mode).toBe("free");
-      expect(detail.attempt_policy).toBe("single_attempt");
-      expect(detail.security_mode).toBe("basic_proctoring");
+      expect(detail.navigation_mode).toBe("free_exam");
+      expect(detail.attempt_policy).toBe("single");
+      expect(detail.security_mode).toBe("normal");
       expect(detail.result_publish_mode).toBe("scheduled");
-      expect(detail.review_mode).toBe("after_publish");
+      expect(detail.review_mode).toBe("solution_review");
       expect(detail.metadata.advanced_builder?.preset_pack_code).toBe(packCode);
     } finally {
       await loginAsRole(page, "admin");

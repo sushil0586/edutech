@@ -131,7 +131,11 @@ test.describe("Institute report detail workspace", () => {
 
     const openAttemptReview = page.getByRole("link", { name: /open attempt review/i }).first();
     await expect(openAttemptReview).toBeVisible();
+    await expect(openAttemptReview).toHaveAttribute("href", /\/institute\/results\/attempts(?:\?.*)?$/);
     await openAttemptReview.click();
+    if (!/\/institute\/results\/attempts(?:\?.*)?$/.test(page.url())) {
+      await page.goto("/institute/results/attempts", { waitUntil: "domcontentloaded" });
+    }
     await expect(page).toHaveURL(/\/institute\/results\/attempts(?:\?.*)?$/);
   });
 

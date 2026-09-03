@@ -1,0 +1,21 @@
+appId: ${MAESTRO_APP_ID}
+---
+- launchApp
+
+- runFlow:
+    when:
+      visible:
+        id: "student-tab-profile"
+    commands:
+      - tapOn:
+          id: "student-tab-profile"
+      - extendedWaitUntil:
+          visible:
+            id: "profile-logout-button"
+          timeout: 30000
+      - tapOn:
+          id: "profile-logout-button"
+      - extendedWaitUntil:
+          visible:
+            id: "role-gate-login-button"
+          timeout: 30000

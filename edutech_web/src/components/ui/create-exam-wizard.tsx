@@ -451,7 +451,7 @@ export function CreateExamWizard({
       return activePresetPack;
     }
     return resolveProgramPresetPack(selectedProgramRecord);
-  }, [selectedPresetPackId, selectedProgramRecord, selectedProgramFamilyId, selectedProgramBaseFamilyMetadata?.programFamilyCode]);
+  }, [selectedPresetPackId, selectedProgramRecord, selectedProgramFamilyId, selectedProgramBaseFamilyMetadata]);
   const effectiveFamilyId = useMemo(
     () => selectedProgramPresetPack?.familyId ?? selectedProgramFamilyId,
     [selectedProgramPresetPack?.familyId, selectedProgramFamilyId],

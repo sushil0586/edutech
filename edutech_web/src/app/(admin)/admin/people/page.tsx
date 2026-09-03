@@ -48,22 +48,21 @@ export default async function AdminPeoplePage({
   const institutes = await fetchPortalListAll<InstituteRecord>("/api/v1/institutes/?page_size=50").catch(() => []);
   const selectedInstituteId = normalizeSelectedInstitute(params.institute, institutes);
   const activeView = normalizePeopleView(params.view);
-  const selectedInstitute = selectedInstituteId
-    ? institutes.find((item) => item.id === selectedInstituteId) ?? null
-    : null;
   const instituteQuery = selectedInstituteId
     ? `?institute=${selectedInstituteId}&page_size=100`
     : "?page_size=100";
   const needsStudentAcademics = activeView === "students";
-  const rosterQuery = selectedInstituteId
-    ? `?institute=${selectedInstituteId}&page_size=8`
-    : "?page_size=8";
   const activeResourcePath =
     activeView === "students" ? "/api/v1/students/" : "/api/v1/teachers/";
   const activeCountPath = selectedInstituteId
     ? `${activeResourcePath}?institute=${selectedInstituteId}`
     : activeResourcePath;
-  const [academicYears, programs, cohorts, visibleRows, visibleCount] = await Promise.all([
+  const visibleCount = await loadCount(activeCountPath);
+  const rosterPageSize = Math.max(visibleCount, 100);
+  const rosterQuery = selectedInstituteId
+    ? `?institute=${selectedInstituteId}&page_size=${rosterPageSize}`
+    : `?page_size=${rosterPageSize}`;
+  const [academicYears, programs, cohorts, visibleRows] = await Promise.all([
     needsStudentAcademics
       ? fetchPortalListAll<AcademicYearRecord>(`/api/v1/academics/academic-years/${instituteQuery}`).catch(
           () => [] as AcademicYearRecord[],
@@ -86,7 +85,6 @@ export default async function AdminPeoplePage({
       : fetchPortalList<TeacherRosterRow>(`${activeResourcePath}${rosterQuery}`).catch(
           () => [] as TeacherRosterRow[],
         ),
-    loadCount(activeCountPath),
   ]);
 
   const hasWorkspaceLoadIssue =

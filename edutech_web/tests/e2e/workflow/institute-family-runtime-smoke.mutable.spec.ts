@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { test } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import {
   answerAndSubmitCurrentAttempt,
@@ -11,8 +11,8 @@ import {
   scheduleAndPublishExam,
   startExamAttemptAsStudent,
 } from "../helpers/family-runtime";
-import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
-import { expectInstituteWorkspace, expectStudentWorkspace } from "../helpers/navigation";
+import { isMutableLaneEnabled } from "../helpers/mutable";
+import { expectInstituteWorkspace } from "../helpers/navigation";
 
 const mutableExamBuilderActionsEnabled = isMutableLaneEnabled(
   "PLAYWRIGHT_ENABLE_MUTABLE_EXAM_BUILDER_ACTIONS",

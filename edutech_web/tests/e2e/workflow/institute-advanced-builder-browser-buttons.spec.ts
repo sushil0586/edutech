@@ -35,7 +35,7 @@ test.describe("Institute advanced builder browser button coverage", () => {
     await page.getByRole("button", { name: /back/i }).click();
     await expect(page.getByText(/choose the academic lane and exam identity/i).first()).toBeVisible();
 
-    await page.getByRole("button", { name: /next/i }).click();
+    await page.getByRole("button", { name: /^next$/i }).click();
     await expect(page.getByText(/sections, topics, and counts/i).first()).toBeVisible();
 
     await applyBuilderTemplate(page, /chapter test/i, /chapter test template applied/i);

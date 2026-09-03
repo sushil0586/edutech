@@ -113,7 +113,10 @@ test.describe("Admin advanced builder template actions", () => {
 
       await expect(page.getByText(/imported 1 template\(s\) into your editable library\./i)).toBeVisible();
       await searchField.fill(templateName);
-      await expect(page.locator(".advancedBuilderSavedTemplateCard")).toHaveCount(2);
+      const matchingCards = page.locator(".advancedBuilderSavedTemplateCard").filter({
+        has: page.getByText(new RegExp(templateName, "i")).first(),
+      });
+      await expect(matchingCards).toHaveCount(2);
       await expect(page.getByText(new RegExp(`${templateName} Copy`, "i")).first()).toBeVisible();
     } finally {
       await cleanupTemplates();

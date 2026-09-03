@@ -114,9 +114,31 @@ async function openFirstQuestionType(page: Page) {
 
   await openAnalytics(page);
   const fallbackQuestionTypeLink = page.locator('a[href^="/app/analytics/question-types/"]').first();
-  await expect(fallbackQuestionTypeLink).toBeVisible();
-  await fallbackQuestionTypeLink.click();
+  if (await fallbackQuestionTypeLink.isVisible().catch(() => false)) {
+    await fallbackQuestionTypeLink.click();
+    if (/\/app\/analytics\/question-types\/[^/?#]+(?:\?.*)?$/.test(page.url())) {
+      return;
+    }
+  }
+
+  const questionTypeOption = await page
+    .getByRole("combobox", { name: /dashboard question type context/i })
+    .locator("option")
+    .evaluateAll((options) =>
+      options
+        .map((option) => option.textContent?.trim() ?? "")
+        .find((label) => label && label.toLowerCase() !== "overall") ?? null,
+    );
+
+  if (!questionTypeOption) {
+    return false;
+  }
+  await gotoWithRuntimeRecovery(
+    page,
+    `/app/analytics/question-types/${encodeURIComponent(String(questionTypeOption))}`,
+  );
   await expect(page).toHaveURL(/\/app\/analytics\/question-types\/[^/?#]+(?:\?.*)?$/);
+  return true;
 }
 
 test.describe("Student analytics drilldown visual", () => {
@@ -231,7 +253,16 @@ test.describe("Student analytics drilldown visual", () => {
   test("@workflow @visual student question-type drilldown stays aligned", async ({ page }) => {
     await loginAsRole(page, "student");
     await expectStudentWorkspace(page);
-    await openFirstQuestionType(page);
+    const openedQuestionType = await openFirstQuestionType(page);
+
+    if (!openedQuestionType) {
+      await expect(page.locator("main")).toHaveScreenshot("student-question-type-drilldown-blocked-state.png", {
+        animations: "disabled",
+        caret: "hide",
+        maxDiffPixels: 240,
+      });
+      return;
+    }
 
     const blockedState = page
       .getByText(/question-type analytics are not available yet|question-type analytics could not be loaded/i)

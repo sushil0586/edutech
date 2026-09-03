@@ -1,4 +1,4 @@
-appId: com.anonymous.nexorastudentmobile
+appId: ${MAESTRO_APP_ID}
 ---
 # Seed expectation:
 # - the app is already open on the login screen before disabling network

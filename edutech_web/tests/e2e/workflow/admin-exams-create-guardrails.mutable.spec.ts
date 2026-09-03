@@ -107,7 +107,7 @@ test.describe("Admin exam create wizard guardrails", () => {
       await expect(page.locator(".examCard").filter({ hasText: examTitle }).first()).toBeVisible();
 
       const createdCard = page.locator(".examCard").filter({ hasText: examTitle }).first();
-      const openExamHref = await createdCard.getByRole("link", { name: /open exam/i }).getAttribute("href");
+      const openExamHref = await createdCard.getByRole("link", { name: /view exam|open exam/i }).getAttribute("href");
       examId = openExamHref?.match(/\/admin\/exams\/([^/?#]+)/)?.[1] ?? null;
       expect(examId).not.toBeNull();
     } finally {

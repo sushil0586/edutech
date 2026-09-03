@@ -161,12 +161,6 @@ async function expectOneOf(primary: Locator, secondary: Locator) {
   await expect(secondary).toBeVisible();
 }
 
-function resultCardByTitle(page: Page, title: string) {
-  return page.locator("article.studentResultSurface").filter({
-    has: page.locator(".studentResultSurfaceHead strong", { hasText: title }),
-  }).first();
-}
-
 function resultRowByTitle(page: Page, title: string) {
   return page.getByRole("button", { name: new RegExp(title, "i") }).first();
 }

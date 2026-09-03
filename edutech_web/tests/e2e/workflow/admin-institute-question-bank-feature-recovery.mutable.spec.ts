@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Browser, type Locator, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
 import { expectAdminWorkspace, expectInstituteWorkspace } from "../helpers/navigation";
@@ -75,6 +75,42 @@ async function gotoFeatureDataset(page: Page, instituteId = "") {
   return card;
 }
 
+async function expectImportWorkspaceRestored(page: Page) {
+  await expect(page.getByRole("heading", { name: /import questions/i })).toBeVisible();
+  await expect
+    .poll(
+      async () => {
+        const pageText = await page.locator("body").innerText().catch(() => "");
+        if (/platform admin workspace|platform control for/i.test(pageText)) {
+          await loginAsRole(page, "institute");
+          await expectInstituteWorkspace(page);
+          await page.goto("/institute/question-bank/import");
+        } else {
+          await page.goto("/institute/question-bank/import");
+        }
+        await page.reload();
+        const downloadTemplateButton = page.getByRole("button", { name: /download template/i });
+        const previewImportButton = page.getByRole("button", { name: /preview import/i });
+        const blockedMessageCount = await page
+          .getByText(/question-bank bulk import is not enabled for this institute yet/i)
+          .count();
+        const workspaceReadyCount = await page
+          .getByText(/validate question batches before they become reusable institute content|expected csv headers/i)
+          .count();
+        return (
+          blockedMessageCount === 0 &&
+          (workspaceReadyCount > 0 ||
+            ((await downloadTemplateButton.count()) > 0 && (await previewImportButton.count()) > 0))
+        );
+      },
+      {
+        timeout: 20000,
+        intervals: [500, 1000, 2000],
+      },
+    )
+    .toBe(true);
+}
+
 function featureRow(card: Locator, featureCode: string, instituteCode?: string | null) {
   const normalizedFeature = featureCode.replaceAll("_", " ");
   const baseRow = card.locator(".weakTopicRow").filter({
@@ -101,13 +137,19 @@ test.describe("Admin to institute question-bank feature recovery", () => {
   );
 
   test("@workflow @mutable admin can pause bulk import access, confirm the institute-facing blocked state, and restore the workspace", async ({
+    browser,
     page,
+  }: {
+    browser: Browser;
+    page: Page;
   }) => {
     test.setTimeout(180000);
 
-    await loginAsRole(page, "institute");
-    await expectInstituteWorkspace(page);
-    const instituteProfile = await fetchSessionProfile(page);
+    const institutePage = await browser.newPage();
+
+    await loginAsRole(institutePage, "institute");
+    await expectInstituteWorkspace(institutePage);
+    const instituteProfile = await fetchSessionProfile(institutePage);
     const targetInstituteId = instituteProfile.institute?.trim() ?? "";
     const targetInstituteCode = instituteProfile.institute_code?.trim() ?? "";
     expect(targetInstituteId).not.toBe("");
@@ -230,18 +272,17 @@ test.describe("Admin to institute question-bank feature recovery", () => {
       await expect(stableRow).toContainText(/status:\s*paused/i);
       await expect(stableRow.getByRole("button", { name: /reactivate feature/i })).toBeVisible();
 
-      await loginAsRole(page, "institute");
-      await expectInstituteWorkspace(page);
-      await page.goto("/institute/question-bank/import");
-
-      await expect(page.getByRole("heading", { name: /import questions/i })).toBeVisible();
+      await institutePage.goto("/institute/question-bank/import");
+      await expect(institutePage.getByRole("heading", { name: /import questions/i })).toBeVisible();
       await expect(
-        page.getByText(/question-bank bulk import is not enabled for this institute yet/i).first(),
+        institutePage.getByText(/question-bank bulk import is not enabled for this institute yet/i).first(),
       ).toBeVisible();
       await expect(
-        page.getByText(/ask the platform operator to activate question bank bulk import through your package or subscription plan/i).first(),
+        institutePage
+          .getByText(/ask the platform operator to activate question bank bulk import through your package or subscription plan/i)
+          .first(),
       ).toBeVisible();
-      await expect(page.getByRole("link", { name: /open economy oversight/i })).toBeVisible();
+      await expect(institutePage.getByRole("link", { name: /open economy oversight/i })).toBeVisible();
 
       await loginAsRole(page, "admin");
       await expectAdminWorkspace(page);
@@ -266,16 +307,10 @@ test.describe("Admin to institute question-bank feature recovery", () => {
       await expect(refreshedRow).toContainText(/status:\s*active/i);
       await expect(refreshedRow.getByRole("button", { name: /pause feature/i })).toBeVisible();
 
-      await loginAsRole(page, "institute");
-      await expectInstituteWorkspace(page);
-      await page.goto("/institute/question-bank/import");
-
-      await expect(page.getByRole("heading", { name: /import questions/i })).toBeVisible();
-      await expect(page.getByRole("button", { name: /download template/i })).toBeVisible();
-      await expect(page.getByRole("button", { name: /preview import/i })).toBeVisible();
-      await expect(
-        page.getByText(/question-bank bulk import is not enabled for this institute yet/i).first(),
-      ).toHaveCount(0);
+      await loginAsRole(institutePage, "institute");
+      await expectInstituteWorkspace(institutePage);
+      await institutePage.goto("/institute/question-bank/import");
+      await expectImportWorkspaceRestored(institutePage);
     } finally {
       await loginAsRole(page, "admin");
       await expectAdminWorkspace(page);
@@ -285,6 +320,7 @@ test.describe("Admin to institute question-bank feature recovery", () => {
           status: createdFeatureEntitlementId ? "revoked" : "active",
         },
       });
+      await institutePage.close();
     }
   });
 });

@@ -49,6 +49,41 @@ function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+async function expectInstituteSelected(page: Page, instituteName: string, instituteCode: string) {
+  const instituteRow = page
+    .locator("tbody tr")
+    .filter({
+      has: page.getByText(new RegExp(escapeRegExp(instituteName), "i")),
+    })
+    .filter({
+      has: page.getByText(new RegExp(escapeRegExp(instituteCode), "i")),
+    })
+    .first();
+  await expect(instituteRow).toBeVisible();
+  await instituteRow.getByRole("button", { name: /^view$/i }).click();
+
+  const detailCard = page.locator(".adminInstituteDetailCard").first();
+  await expect(
+    detailCard.locator("h4").filter({ hasText: new RegExp(escapeRegExp(instituteName), "i") }),
+  ).toBeVisible();
+  await expect(detailCard.getByText(new RegExp(escapeRegExp(instituteCode), "i")).first()).toBeVisible();
+  return detailCard;
+}
+
+async function expectInstituteRow(page: Page, instituteName: string, instituteCode: string) {
+  const instituteRow = page
+    .locator("tbody tr")
+    .filter({
+      has: page.getByText(new RegExp(escapeRegExp(instituteName), "i")),
+    })
+    .filter({
+      has: page.getByText(new RegExp(escapeRegExp(instituteCode), "i")),
+    })
+    .first();
+  await expect(instituteRow).toBeVisible();
+  return instituteRow;
+}
+
 test.describe("Admin institute management mode", () => {
   test.skip(testRequiresRole("admin"), "Admin Playwright credentials are not configured.");
 
@@ -105,10 +140,7 @@ test.describe("Admin institute management mode", () => {
       expect(instituteId).toBeTruthy();
 
       await page.goto(`/admin/institutes?institute=${instituteId}`);
-      const detailCard = page.locator(".adminInstituteDetailCard").first();
-      await expect(
-        detailCard.getByRole("heading", { name: new RegExp(escapeRegExp(instituteName), "i") }),
-      ).toBeVisible();
+      const detailCard = await expectInstituteSelected(page, instituteName, instituteCode);
       await expect(detailCard.getByText(/public institute managed/i).first()).toBeVisible();
 
       let backendInstitute = await fetchInstituteById(page, accessToken, instituteId!);
@@ -131,10 +163,12 @@ test.describe("Admin institute management mode", () => {
       const patchResponse = await patchResponsePromise;
       expect(patchResponse.ok(), await patchResponse.text()).toBe(true);
 
-      await expect(
-        detailCard.getByRole("heading", { name: new RegExp(escapeRegExp(instituteUpdatedName), "i") }),
-      ).toBeVisible();
-      await expect(detailCard.getByText(/platform managed/i).first()).toBeVisible();
+      const updatedRow = await expectInstituteRow(page, instituteUpdatedName, instituteUpdatedCode);
+      await expect(updatedRow).toContainText(/active/i);
+
+      await page.goto(`/admin/institutes?institute=${instituteId}`);
+      const refreshedDetailCard = await expectInstituteSelected(page, instituteUpdatedName, instituteUpdatedCode);
+      await expect(refreshedDetailCard.getByText(/platform managed/i).first()).toBeVisible();
 
       backendInstitute = await fetchInstituteById(page, accessToken, instituteId!);
       expect(backendInstitute.management_mode).toBe(

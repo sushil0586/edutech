@@ -50,7 +50,7 @@ test.describe("Teacher exam builder workflow", () => {
 
     await page.goto(`/teacher/exams/${examId}`);
     await expect(page).toHaveURL(new RegExp(`/teacher/exams/${examId}(?:\\?.*)?$`));
-    await expect(page.getByRole("link", { name: /open builder/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /view builder|open builder/i }).first()).toBeVisible();
 
     await page.goto(builderHref!);
     await expect(page.getByRole("heading", { name: /builder/i }).first()).toBeVisible();
@@ -101,19 +101,17 @@ test.describe("Teacher exam builder workflow", () => {
       await expect(rapidAttachForm.getByText(/visible now/i).first()).toBeVisible();
     }
 
-    await page.goto("/teacher/results/analysis");
+    await page.goto(`/teacher/results/analysis?exam=${examId}`, { waitUntil: "domcontentloaded" });
 
     await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
     await expect(page.getByText(/question risk board/i).first()).toBeVisible();
     await expect(page.getByText(/^student explorer$/i).first()).toBeVisible();
+    const openExamLink = page.getByRole("link", { name: /open exam/i }).first();
+    await expect(openExamLink).toBeVisible();
+    await openExamLink.click();
+    await expect(page).toHaveURL(new RegExp(`/teacher/exams/${examId}(?:\\?.*)?$`));
 
-    await page.getByLabel(/group by/i).selectOption("status");
-    await page.getByRole("button", { name: /apply filters/i }).click();
-
-    await expect(page).toHaveURL(/exam_list_group=status/);
-    await expect(page.getByText(/group: status/i)).toBeVisible();
-
-    const builderLink = page.getByRole("link", { name: /open builder/i }).last();
+    const builderLink = page.getByRole("link", { name: /open builder|view builder/i }).first();
     await expect(builderLink).toBeVisible();
     await expect(builderLink).toHaveAttribute("href", /\/teacher\/exams\/.+\/builder/);
 

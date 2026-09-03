@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { logoutAction } from "@/lib/auth/actions";
 import { LogoutButton } from "@/components/ui/logout-button";
 import type { AccountProfile } from "@/lib/auth/session";
@@ -30,6 +30,10 @@ export function WorkspaceSidebar({
 }) {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [pathname]);
 
   function isActive(href: string) {
     if (href.endsWith("/dashboard")) {
@@ -66,18 +70,17 @@ export function WorkspaceSidebar({
           <div className="mobileWorkspaceNavPanel" id="mobile-workspace-menu">
             <nav className="appSidebarNav" aria-label={ariaLabel}>
               {navItems.map((item) => (
-                <Link
+                <a
                   aria-current={isActive(item.href) ? "page" : undefined}
                   className={`appSidebarLink ${isActive(item.href) ? "appSidebarLinkActive" : ""}`}
                   href={item.href}
                   key={item.href}
-                  onClick={() => setIsMobileMenuOpen(false)}
                 >
                   <span className="appSidebarIcon" aria-hidden="true">
                     {item.icon}
                   </span>
                   {item.label}
-                </Link>
+                </a>
               ))}
             </nav>
 

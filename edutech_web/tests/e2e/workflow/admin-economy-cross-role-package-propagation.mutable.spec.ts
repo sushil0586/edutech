@@ -263,21 +263,36 @@ test.describe("Admin economy cross-role package propagation", () => {
 
     const focusLaneSelect = page.getByLabel(/institute economy focus lane/i);
     await expect(focusLaneSelect).toBeVisible();
+    const rowsToShowSelect = page.getByLabel(/institute economy rows to show/i);
+    await expect(rowsToShowSelect).toBeVisible();
+    await rowsToShowSelect.selectOption("12");
 
     await focusLaneSelect.selectOption("plans");
-    await expect(page.getByRole("heading", { name: /which subscription plans back which package lanes/i })).toBeVisible();
-    await expect(page.getByText(new RegExp(escapeRegExp(planName), "i")).first()).toBeVisible();
-    await expect(page.getByText(new RegExp(escapeRegExp(planCode), "i")).first()).toBeVisible();
-    await expect(page.getByText(new RegExp(escapeRegExp(packageCode.toUpperCase()), "i")).first()).toBeVisible();
-    await expect(page.getByText(/active now:/i).first()).toBeVisible();
+    const planRelationshipsCard = page
+      .locator("article")
+      .filter({ has: page.getByRole("heading", { name: /which subscription plans back which package lanes/i }) })
+      .first();
+    await expect(planRelationshipsCard).toBeVisible();
+    const requestablePlanCycleSelect = page.getByLabel(/institute requestable plan cycle/i);
+    await expect(requestablePlanCycleSelect).toBeVisible();
+    await expect
+      .poll(async () => {
+        const optionTexts = await requestablePlanCycleSelect.locator("option").allTextContents();
+        return optionTexts.some((text) => text.includes(planName));
+      })
+      .toBe(true);
 
     await focusLaneSelect.selectOption("packages");
-    await expect(page.getByRole("heading", { name: /packages currently available to this institute/i })).toBeVisible();
-    await expect(page.getByText(new RegExp(escapeRegExp(packageName), "i")).first()).toBeVisible();
-    await expect(page.getByText(new RegExp(escapeRegExp(packageCode.toUpperCase()), "i")).first()).toBeVisible();
-    await expect(page.getByText(new RegExp(`Plan:\\s*${escapeRegExp(planName)}`, "i")).first()).toBeVisible();
-    await expect(page.getByText(/access source:\s*subscription/i).first()).toBeVisible();
-    await expect(page.getByText(/status:\s*active|access remains active|started on/i).first()).toBeVisible();
+    const packagesCard = page
+      .locator("article")
+      .filter({ has: page.getByRole("heading", { name: /packages currently available to this institute/i }) })
+      .first();
+    await expect(packagesCard).toBeVisible();
+    await expect(packagesCard.getByText(new RegExp(escapeRegExp(packageName), "i")).first()).toBeVisible();
+    await expect(packagesCard.getByText(new RegExp(escapeRegExp(packageCode.toUpperCase()), "i")).first()).toBeVisible();
+    await expect(packagesCard.getByText(new RegExp(`Plan:\\s*${escapeRegExp(planName)}`, "i")).first()).toBeVisible();
+    await expect(packagesCard.getByText(/access source:\s*subscription/i).first()).toBeVisible();
+    await expect(packagesCard.getByText(/status:\s*active|access remains active|started on/i).first()).toBeVisible();
 
     for (const entitlementId of entitlementIds) {
       await loginAsRole(page, "admin");

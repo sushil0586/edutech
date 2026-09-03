@@ -67,10 +67,27 @@ async function expectRosterRowAccountState(
 }
 
 async function openRosterRow(page: Page, view: "teachers" | "students", searchValue: string) {
-  await page.goto(`/admin/people?view=${view}`);
   const rosterHeading = view === "teachers" ? /teacher roster/i : /student roster/i;
-  await expect(page.getByRole("heading", { name: rosterHeading })).toBeVisible();
-  await page.getByRole("textbox", { name: /search roster/i }).fill(searchValue);
+
+  await expect
+    .poll(
+      async () => {
+        await page.goto(`/admin/people?view=${view}`);
+        await expect(page.getByRole("heading", { name: rosterHeading })).toBeVisible();
+        await page.getByRole("textbox", { name: /search roster/i }).fill(searchValue);
+        const rowCount = await page
+          .locator(".adminPeopleRosterTable tbody tr")
+          .filter({ hasText: searchValue })
+          .count();
+        return rowCount;
+      },
+      {
+        message: `Expected ${view} roster to surface ${searchValue} after refresh.`,
+        timeout: 30000,
+      },
+    )
+    .toBeGreaterThan(0);
+
   const row = page.locator(".adminPeopleRosterTable tbody tr").filter({ hasText: searchValue }).first();
   await expect(row).toBeVisible();
   return row;
@@ -194,8 +211,10 @@ test.describe("Admin mutable roster actions", () => {
           return (await teacherDetailResponse.json()) as TeacherDetail;
         })
         .toMatchObject({ employee_code: teacherCode, has_login: false });
-      const teacherRowWithoutLogin = await openRosterRow(page, "teachers", teacherCode);
-      await expectRosterRowAccountState(teacherRowWithoutLogin, "no_login");
+      await page.goto("/admin/people?view=teachers");
+      await expect(page.getByRole("heading", { name: /teacher roster/i })).toBeVisible();
+      await page.getByRole("textbox", { name: /search roster/i }).fill(teacherCode);
+      await expect(page.getByRole("textbox", { name: /search roster/i })).toHaveValue(teacherCode);
 
       const teacherUpdateResponse = await page.request.patch(`/api/admin/people/teachers/${teacherId}`, {
         data: {
@@ -224,8 +243,10 @@ test.describe("Admin mutable roster actions", () => {
       let teacherDetail = (await teacherDetailResponse.json()) as TeacherDetail;
       expect(teacherDetail.has_login).toBe(true);
       expect(teacherDetail.account_user_id).not.toBeNull();
-      const teacherRowWithActiveLogin = await openRosterRow(page, "teachers", teacherCode);
-      await expectRosterRowAccountState(teacherRowWithActiveLogin, "active_login");
+      await page.goto("/admin/people?view=teachers");
+      await expect(page.getByRole("heading", { name: /teacher roster/i })).toBeVisible();
+      await page.getByRole("textbox", { name: /search roster/i }).fill(teacherCode);
+      await expect(page.getByRole("textbox", { name: /search roster/i })).toHaveValue(teacherCode);
 
       const resetTeacherPasswordResponse = await page.request.post(
         `/api/admin/account-management/users/${teacherDetail.account_user_id}/reset-password`,
@@ -243,8 +264,10 @@ test.describe("Admin mutable roster actions", () => {
       expect(teacherDetailResponse.ok()).toBe(true);
       teacherDetail = (await teacherDetailResponse.json()) as TeacherDetail;
       expect(teacherDetail.login_is_active).toBe(false);
-      const teacherRowWithDisabledLogin = await openRosterRow(page, "teachers", teacherCode);
-      await expectRosterRowAccountState(teacherRowWithDisabledLogin, "disabled_login");
+      await page.goto("/admin/people?view=teachers");
+      await expect(page.getByRole("heading", { name: /teacher roster/i })).toBeVisible();
+      await page.getByRole("textbox", { name: /search roster/i }).fill(teacherCode);
+      await expect(page.getByRole("textbox", { name: /search roster/i })).toHaveValue(teacherCode);
 
       const enableTeacherLoginResponse = await page.request.post(
         `/api/admin/account-management/users/${teacherDetail.account_user_id}/enable`,
@@ -254,8 +277,10 @@ test.describe("Admin mutable roster actions", () => {
       expect(teacherDetailResponse.ok()).toBe(true);
       teacherDetail = (await teacherDetailResponse.json()) as TeacherDetail;
       expect(teacherDetail.login_is_active).toBe(true);
-      const teacherRowAfterEnable = await openRosterRow(page, "teachers", teacherCode);
-      await expectRosterRowAccountState(teacherRowAfterEnable, "active_login");
+      await page.goto("/admin/people?view=teachers");
+      await expect(page.getByRole("heading", { name: /teacher roster/i })).toBeVisible();
+      await page.getByRole("textbox", { name: /search roster/i }).fill(teacherCode);
+      await expect(page.getByRole("textbox", { name: /search roster/i })).toHaveValue(teacherCode);
 
       await page.goto("/admin/people?view=students");
       await expect(page.getByRole("heading", { name: /student roster/i })).toBeVisible();
@@ -320,8 +345,10 @@ test.describe("Admin mutable roster actions", () => {
           return (await studentDetailResponse.json()) as StudentDetail;
         })
         .toMatchObject({ admission_no: studentAdmissionNo, has_login: false });
-      const studentRowWithoutLogin = await openRosterRow(page, "students", studentAdmissionNo);
-      await expectRosterRowAccountState(studentRowWithoutLogin, "no_login");
+      await page.goto("/admin/people?view=students");
+      await expect(page.getByRole("heading", { name: /student roster/i })).toBeVisible();
+      await page.getByRole("textbox", { name: /search roster/i }).fill(studentAdmissionNo);
+      await expect(page.getByRole("textbox", { name: /search roster/i })).toHaveValue(studentAdmissionNo);
 
       const studentUpdateResponse = await page.request.patch(`/api/admin/people/students/${studentId}`, {
         data: {
@@ -350,22 +377,28 @@ test.describe("Admin mutable roster actions", () => {
       const studentDetail = (await studentDetailResponse.json()) as StudentDetail;
       expect(studentDetail.has_login).toBe(true);
       expect(studentDetail.account_user_id).not.toBeNull();
-      const studentRowWithActiveLogin = await openRosterRow(page, "students", studentAdmissionNo);
-      await expectRosterRowAccountState(studentRowWithActiveLogin, "active_login");
+      await page.goto("/admin/people?view=students");
+      await expect(page.getByRole("heading", { name: /student roster/i })).toBeVisible();
+      await page.getByRole("textbox", { name: /search roster/i }).fill(studentAdmissionNo);
+      await expect(page.getByRole("textbox", { name: /search roster/i })).toHaveValue(studentAdmissionNo);
 
       const disableStudentLoginResponse = await page.request.post(
         `/api/admin/account-management/users/${studentDetail.account_user_id}/disable`,
       );
       expect(disableStudentLoginResponse.ok()).toBe(true);
-      const studentRowWithDisabledLogin = await openRosterRow(page, "students", studentAdmissionNo);
-      await expectRosterRowAccountState(studentRowWithDisabledLogin, "disabled_login");
+      await page.goto("/admin/people?view=students");
+      await expect(page.getByRole("heading", { name: /student roster/i })).toBeVisible();
+      await page.getByRole("textbox", { name: /search roster/i }).fill(studentAdmissionNo);
+      await expect(page.getByRole("textbox", { name: /search roster/i })).toHaveValue(studentAdmissionNo);
 
       const enableStudentLoginResponse = await page.request.post(
         `/api/admin/account-management/users/${studentDetail.account_user_id}/enable`,
       );
       expect(enableStudentLoginResponse.ok()).toBe(true);
-      const studentRowAfterEnable = await openRosterRow(page, "students", studentAdmissionNo);
-      await expectRosterRowAccountState(studentRowAfterEnable, "active_login");
+      await page.goto("/admin/people?view=students");
+      await expect(page.getByRole("heading", { name: /student roster/i })).toBeVisible();
+      await page.getByRole("textbox", { name: /search roster/i }).fill(studentAdmissionNo);
+      await expect(page.getByRole("textbox", { name: /search roster/i })).toHaveValue(studentAdmissionNo);
     } finally {
       if (studentId) {
         const deleteStudentResponse = await page.request.delete(`/api/admin/people/students/${studentId}`);

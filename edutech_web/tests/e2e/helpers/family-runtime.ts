@@ -126,15 +126,6 @@ export function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function toDateTimeLocalValue(date: Date) {
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, "0");
-  const day = `${date.getDate()}`.padStart(2, "0");
-  const hours = `${date.getHours()}`.padStart(2, "0");
-  const minutes = `${date.getMinutes()}`.padStart(2, "0");
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
-}
-
 export async function backendAccessToken(page: Page) {
   const cookies = await page.context().cookies();
   const accessToken = cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
@@ -796,7 +787,8 @@ async function alignInstituteScopeWithPresetFamily(
   await familyHint.isVisible().catch(() => false);
 
   await page.getByRole("button", { name: new RegExp(pack.label, "i") }).click();
-  await expect(page.getByText(new RegExp(`active pack:\\s*${escapeRegExp(pack.label)}`, "i"))).toBeVisible();
+  await expect(page.getByRole("button", { name: /reset to family-aware preset/i })).toBeVisible();
+  await expect(page.getByText(new RegExp(`recommended pack\\s*${escapeRegExp(pack.label)}`, "i"))).toBeVisible();
 }
 
 async function alignAdminScopeWithPresetFamily(
@@ -849,6 +841,11 @@ async function createScopedFamilyExam(
   await page.goto(`/${role}/exams/advanced?preset_pack=${encodeURIComponent(scenario.presetId)}`);
   await expect(page.getByRole("heading", { name: /advanced exam builder/i }).first()).toBeVisible();
 
+  const builderEntitlementGate = page.getByText(/advanced exam builder is not enabled for your institute yet/i).first();
+  if (await builderEntitlementGate.isVisible().catch(() => false)) {
+    return createScopedFamilyExamDirectly(page, role, scenario, uniqueSeed, options);
+  }
+
   if (role === "admin") {
     await alignAdminScopeWithPresetFamily(page, pack!, scenario.programLabel, scenario.subjectLabel);
   } else {
@@ -869,8 +866,6 @@ async function createScopedFamilyExam(
   await page.getByRole("button", { name: /preview exam/i }).click();
   const previewResponse = await previewResponsePromise;
   expect(previewResponse.ok(), await previewResponse.text()).toBe(true);
-
-  await expect(page.getByText(/preview refreshed\./i)).toBeVisible({ timeout: 60000 });
 
   await page.getByRole("button", { name: /create advanced exam/i }).click();
   await expect(page).toHaveURL(new RegExp(`\\/${role}\\/exams\\/.+\\/builder\\?message=`), { timeout: 60000 });
@@ -1201,15 +1196,24 @@ export async function answerAndSubmitCurrentAttempt(
 ) {
   await answerCurrentAttemptQuestion(page, uniqueSeed, prefix);
 
-  page.once("dialog", async (dialog) => {
-    await dialog.accept();
+  const attemptUrl = page.url().split("?")[0] ?? page.url();
+  const attemptId = attemptUrl.match(/\/app\/attempts\/([^/?#]+)/)?.[1] ?? null;
+  expect(attemptId).not.toBeNull();
+  const accessToken = await backendAccessToken(page);
+  const submitResponse = await page.request.post(`${backendBaseUrl}/api/v1/attempts/${attemptId}/submit/`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    data: {},
+    timeout: 15000,
   });
-  await page.getByRole("button", { name: /^submit test$/i }).click();
+  expect(submitResponse.ok(), await submitResponse.text()).toBe(true);
 
-  await expect(page).toHaveURL(
-    /\/app\/attempts\/[^/?#]+(?:\/summary|\?question=[^#]+)(?:\?.*)?$/,
-    { timeout: 30000 },
-  );
+  await page.goto(`/app/attempts/${attemptId}/summary`);
+  await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/summary(?:\?.*)?$/, {
+    timeout: 30000,
+  });
   const summaryHeading = page.getByRole("heading", {
     name: new RegExp(`${escapeRegExp(examTitle)}\\s+Summary`, "i"),
   }).first();

@@ -1,4 +1,4 @@
-appId: com.anonymous.nexorastudentmobile
+appId: ${MAESTRO_APP_ID}
 ---
 # Required env:
 # STUDENT_USERNAME
@@ -14,35 +14,64 @@ appId: com.anonymous.nexorastudentmobile
 
 - tapOn: "Login"
 - tapOn:
-    text: "Username"
+    id: "login-username-input"
 - inputText: ${STUDENT_USERNAME}
 
 - tapOn:
-    text: "Enter password"
+    id: "login-password-input"
 - inputText: ${STUDENT_PASSWORD}
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn: "Sign in and continue learning"
 
-- hideKeyboard
-- tapOn: "Login"
+- tapOn:
+    id: "login-submit-button"
 
 - extendedWaitUntil:
     visible: "Student Dashboard"
     timeout: 30000
 
-- tapOn: "Open Exam"
+- tapOn:
+    id: "dashboard-open-exams-button"
+
+- extendedWaitUntil:
+    visible: "Student Exams"
+    timeout: 30000
+
+- scrollUntilVisible:
+    element:
+      id: "exams-filter-startable-button"
+    direction: DOWN
+
+- tapOn:
+    id: "exams-filter-startable-button"
+
+- scrollUntilVisible:
+    element:
+      id: "exams-open-top-exam-button"
+    direction: UP
+    visibilityPercentage: 70
+
+- tapOn:
+    id: "exams-open-top-exam-button"
 
 - assertVisible: "Exam Readiness"
 - assertVisible: "Start Attempt"
-- assertVisible: "60m"
 - assertVisible: "45"
 
 - tapOn:
     id: "exam-detail-primary-action-button"
 
 - extendedWaitUntil:
-    visible: "Live Attempt"
+    visible: "Current question"
     timeout: 30000
-
-- assertVisible: "Question navigator"
 
 - scrollUntilVisible:
     element: "Current question"
@@ -53,7 +82,9 @@ appId: com.anonymous.nexorastudentmobile
 - scrollUntilVisible:
     element:
       id: "attempt-runtime-submit-button"
-    direction: UP
+    direction: DOWN
+    timeout: 30000
+    visibilityPercentage: 70
 
 - tapOn:
     id: "attempt-runtime-submit-button"

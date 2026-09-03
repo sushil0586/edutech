@@ -5,14 +5,27 @@ export async function ensureToggleChecked(selector: ReturnType<Page["locator"]>)
     return;
   }
 
+  await selector.check({ force: true }).catch(() => null);
+  if (await selector.isChecked().catch(() => false)) {
+    return;
+  }
+
   await selector.click({ force: true }).catch(() => null);
   if (await selector.isChecked().catch(() => false)) {
     return;
   }
 
-  const optionRow = selector.locator("xpath=ancestor::label[1]").first();
-  if (await optionRow.count()) {
-    await optionRow.click({ force: true });
+  const clickTargets = [
+    selector.locator("xpath=ancestor::*[contains(@class,'attemptOptionRow')][1]").first(),
+    selector.locator("xpath=ancestor::label[1]").first(),
+    selector.locator("xpath=following-sibling::*[1]").first(),
+  ];
+
+  for (const target of clickTargets) {
+    if (!(await target.count())) {
+      continue;
+    }
+    await target.click({ force: true }).catch(() => null);
     if (await selector.isChecked().catch(() => false)) {
       return;
     }
@@ -27,22 +40,24 @@ export async function ensureToggleChecked(selector: ReturnType<Page["locator"]>)
 }
 
 export async function answerCurrentAttemptQuestion(page: Page, answerSeed: number, prefix = "Playwright answer") {
-  const radioOption = page
-    .locator('input[name="selected_option"][type="radio"]')
-    .or(page.getByRole("radio"))
-    .first();
+  const radioOptionRow = page.locator(".attemptOptionRow").filter({
+    has: page.locator('input[name="selected_option"][type="radio"]'),
+  }).first();
+  const radioOption = radioOptionRow.locator('input[name="selected_option"][type="radio"]').first();
   const textAnswer = page.locator('textarea[name="answer_text"]:visible').first();
-  const checkboxOption = page
-    .locator('input[name="selected_option_ids"][type="checkbox"]')
-    .or(page.getByRole("checkbox"))
-    .first();
-  const objectiveOptionRow = page.locator(".attemptOptionRow").first();
+  const checkboxOptionRow = page.locator(".attemptOptionRow").filter({
+    has: page.locator('input[name="selected_option_ids"][type="checkbox"]'),
+  }).first();
+  const checkboxOption = checkboxOptionRow.locator('input[name="selected_option_ids"][type="checkbox"]').first();
 
   await page.waitForLoadState("domcontentloaded");
 
   if (await radioOption.count()) {
-    if (await objectiveOptionRow.count()) {
-      await objectiveOptionRow.click({ force: true }).catch(() => null);
+    if (await radioOptionRow.count()) {
+      await radioOptionRow.click({ force: true }).catch(() => null);
+      if (await radioOption.isChecked().catch(() => false)) {
+        return;
+      }
     }
     await ensureToggleChecked(radioOption);
     await expect(radioOption).toBeChecked();
@@ -73,8 +88,11 @@ export async function answerCurrentAttemptQuestion(page: Page, answerSeed: numbe
   }
 
   if (await checkboxOption.count()) {
-    if (await objectiveOptionRow.count()) {
-      await objectiveOptionRow.click({ force: true }).catch(() => null);
+    if (await checkboxOptionRow.count()) {
+      await checkboxOptionRow.click({ force: true }).catch(() => null);
+      if (await checkboxOption.isChecked().catch(() => false)) {
+        return;
+      }
     }
     await ensureToggleChecked(checkboxOption);
     await expect(checkboxOption).toBeChecked();

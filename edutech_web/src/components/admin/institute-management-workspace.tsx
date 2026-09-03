@@ -995,10 +995,6 @@ export function InstituteManagementWorkspace({
   const [copiedTaskRunId, setCopiedTaskRunId] = useState<string | null>(null);
 
   useEffect(() => {
-    setCurrentSelectedInstituteId(selectedInstituteId);
-    setCurrentInstitute(institute);
-    setCurrentOnboardingRuns(onboardingRuns);
-    setCurrentCounts(counts);
     if (selectedInstituteId && institute) {
       workspaceCacheRef.current[selectedInstituteId] = {
         counts,

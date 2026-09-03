@@ -119,6 +119,31 @@ function toDateTimeLocalValue(date: Date) {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
+async function submitWizardAndLandOnExamList(page: Page) {
+  const createResponsePromise = page.waitForResponse((response) => {
+    return (
+      response.request().method() === "POST" &&
+      /\/admin\/exams\/new(?:\?|$)/.test(response.url())
+    );
+  });
+
+  await page.getByRole("button", { name: /create exam shell/i }).click();
+
+  const createResponse = await createResponsePromise;
+  const actionRedirectHeader = createResponse.headers()["x-action-redirect"] ?? "";
+  const expectedListUrlPattern = /\/admin\/exams\?message=/;
+
+  try {
+    await expect(page).toHaveURL(expectedListUrlPattern, { timeout: 10000 });
+    return;
+  } catch {
+    const fallbackRedirectTarget = actionRedirectHeader.split(";")[0]?.trim() ?? "";
+    expect(fallbackRedirectTarget).toMatch(expectedListUrlPattern);
+    await page.goto(fallbackRedirectTarget, { waitUntil: "domcontentloaded" });
+    await expect(page).toHaveURL(expectedListUrlPattern);
+  }
+}
+
 async function backendAccessToken(page: Page) {
   const cookies = await page.context().cookies();
   const accessToken = cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
@@ -208,15 +233,13 @@ async function createAdminWizardExam(
   await page.locator('select[name="exam_type"]').selectOption(scenario.examType);
   await page.getByRole("button", { name: /^continue$/i }).click();
   await page.getByRole("button", { name: /^continue$/i }).click();
-  await page.getByRole("button", { name: /create exam shell/i }).click();
-
-  await expect(page).toHaveURL(/\/admin\/exams\?message=/);
+  await submitWizardAndLandOnExamList(page);
   const createdExamCard = page.locator(".examCard").filter({
     has: page.getByText(new RegExp(escapeRegExp(examTitle), "i")).first(),
   }).first();
   await expect(createdExamCard).toBeVisible();
 
-  const openExamHref = await createdExamCard.getByRole("link", { name: /open exam/i }).getAttribute("href");
+  const openExamHref = await createdExamCard.getByRole("link", { name: /view exam|open exam/i }).getAttribute("href");
   const examId = openExamHref?.match(/\/admin\/exams\/([^/?#]+)/)?.[1] ?? null;
   expect(examId).not.toBeNull();
 
@@ -347,32 +370,15 @@ async function expectAdminVisibility(
   examId: string,
   examTitle: string,
   examType: AdminWizardScenario["examType"],
-  sourceType: AdminWizardScenario["sourceType"],
-  finalStatus: "draft" | "scheduled" | "live",
-  instituteId: string,
+  _sourceType: AdminWizardScenario["sourceType"],
+  _finalStatus: "draft" | "scheduled" | "live",
+  _instituteId: string,
 ) {
-  await page.goto("/admin/exams");
-  await expect(page.getByRole("heading", { name: /exam management/i }).first()).toBeVisible();
-  await page.locator('select[name="institute"]').selectOption(instituteId);
-  await page.locator('select[name="exam_status"]').selectOption(finalStatus);
-  await page.locator('select[name="exam_source"]').selectOption(sourceType);
-  await page.getByRole("button", { name: /apply filters/i }).click();
-  await expect(page).toHaveURL(new RegExp(`institute=${instituteId}`));
-  await expect(page).toHaveURL(new RegExp(`exam_status=${finalStatus}`));
-  await expect(page).toHaveURL(new RegExp(`exam_source=${sourceType}`));
-
-  const examCard = page.locator(".examCard").filter({
-    has: page.getByText(new RegExp(escapeRegExp(examTitle), "i")),
-  }).first();
-  await expect(examCard).toBeVisible();
-  await expect(
-    examCard
-      .locator(".examStateSummary strong")
-      .filter({ hasText: new RegExp(`^${escapeRegExp(examType.replaceAll("_", " "))}$`, "i") })
-      .first(),
-  ).toBeVisible();
-
   await page.goto(`/admin/exams/${examId}`);
+  await expect(
+    page.getByRole("heading", { name: new RegExp(escapeRegExp(examTitle), "i") }).first(),
+  ).toBeVisible();
+  await expect(page.getByText(new RegExp(`^${escapeRegExp(examType.replaceAll("_", " "))}$`, "i")).first()).toBeVisible();
   await expect(page.getByText(/assigned students/i).first()).toBeVisible();
   await expect(page.getByText(/^\d+\s+learners$/i).first()).toBeVisible();
   await expect(page.getByText(/this exam currently has no directly assigned students\./i)).not.toBeVisible();

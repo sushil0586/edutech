@@ -7,6 +7,7 @@ import { ActionButton } from "@/components/action-button";
 import { MetricCard } from "@/components/metric-card";
 import { SectionBlock } from "@/components/section-block";
 import { StatePanel } from "@/components/state-panel";
+import { SkeletonLine, SkeletonMetricGrid } from "@/components/skeleton";
 import { fetchStudentAttemptSummary } from "@/lib/api/student";
 import { useSessionStore } from "@/store/session-store";
 import { appStyles } from "@/theme/styles";
@@ -155,13 +156,20 @@ export default function AttemptSummaryScreen() {
             helper="Available when result visibility allows"
           />
         </View>
+      ) : query.isLoading ? (
+        <SkeletonMetricGrid />
       ) : null}
 
       <SectionBlock
         title="Submission state"
         subtitle="This is the safe handoff after the live attempt runtime"
       >
-        {summary ? (
+        {query.isLoading ? (
+          <View style={appStyles.mutedPanel}>
+            <SkeletonLine width="94%" height={14} />
+            <SkeletonLine width="68%" height={12} soft />
+          </View>
+        ) : summary ? (
           <View style={summary.result_visible || summary.review_available ? appStyles.successPanel : appStyles.mutedPanel}>
             <Text style={appStyles.body}>{outcomeCopy(summary)}</Text>
             <Text style={appStyles.helper}>
@@ -181,7 +189,15 @@ export default function AttemptSummaryScreen() {
         title="What happens next"
         subtitle="Guide the learner without making them guess"
       >
-        {summary ? (
+        {query.isLoading ? (
+          <View style={appStyles.column}>
+            <View style={appStyles.emphasisPanel}>
+              <SkeletonLine width="92%" height={14} />
+              <SkeletonLine width="74%" height={14} soft />
+            </View>
+            <SkeletonLine width="88%" height={14} />
+          </View>
+        ) : summary ? (
           <View style={appStyles.column}>
             <View style={appStyles.emphasisPanel}>
               <Text style={appStyles.body}>{nextStepCopy(summary)}</Text>

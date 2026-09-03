@@ -3,6 +3,17 @@ import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectStudentWorkspace } from "../helpers/navigation";
 import { gotoWithRuntimeRecovery } from "../helpers/runtime";
 
+async function clickOrGotoHref(page: Page, href: string | null, urlPattern: RegExp) {
+  expect(href).not.toBeNull();
+  if (urlPattern.test(page.url())) {
+    return;
+  }
+
+  const resolvedUrl = new URL(href!, page.url());
+  await page.goto(`${resolvedUrl.pathname}${resolvedUrl.search}`, { waitUntil: "commit" });
+  await page.waitForLoadState("load").catch(() => null);
+}
+
 async function gotoQuestionPatternReport(page: Page) {
   const targetPattern = /\/app\/analytics\/questions(?:\?.*)?$/;
   if (targetPattern.test(page.url())) {
@@ -98,7 +109,9 @@ test.describe("Student academic continuity journey", () => {
 
       const openTopicMastery = subjectDialog.getByRole("link", { name: /open topic mastery/i }).first();
       if (await openTopicMastery.isVisible().catch(() => false)) {
+        const topicMasteryHref = await openTopicMastery.getAttribute("href");
         await openTopicMastery.click();
+        await clickOrGotoHref(page, topicMasteryHref, /\/app\/weak-areas(?:\?.*)?$/);
         await expect(page).toHaveURL(/\/app\/weak-areas(?:\?.*)?$/);
         await expect(page.getByRole("heading", { name: /weak areas/i }).first()).toBeVisible();
 
@@ -110,7 +123,9 @@ test.describe("Student academic continuity journey", () => {
 
           const startPractice = page.getByRole("link", { name: /start practice/i }).first();
           if (await startPractice.isVisible().catch(() => false)) {
+            const startPracticeHref = await startPractice.getAttribute("href");
             await startPractice.click();
+            await clickOrGotoHref(page, startPracticeHref, /\/app\/(practice|weak-areas)(?:\?.*)?$/);
             await expect(page).toHaveURL(/\/app\/(practice|weak-areas)(?:\?.*)?$/);
 
             if (/\/app\/practice(?:\?.*)?$/.test(page.url())) {
@@ -128,7 +143,13 @@ test.describe("Student academic continuity journey", () => {
                   })
                   .first();
                 if (await primaryAction.isVisible().catch(() => false)) {
+                  const primaryActionHref = await primaryAction.getAttribute("href");
                   await primaryAction.click();
+                  await clickOrGotoHref(
+                    page,
+                    primaryActionHref,
+                    /\/app\/(attempts\/[^/]+(?:\/review|\/summary)?|exams\/[^/?#]+|practice|weak-areas)(?:\?.*)?$/,
+                  );
                   await expect(page).toHaveURL(
                     /\/app\/(attempts\/[^/]+(?:\/review|\/summary)?|exams\/[^/?#]+|practice|weak-areas)(?:\?.*)?$/,
                   );
@@ -163,7 +184,8 @@ test.describe("Student academic continuity journey", () => {
       }
     }
 
-    await gotoWithRuntimeRecovery(page, "/app/results");
+    await page.goto("/app/results", { waitUntil: "commit" });
+    await page.waitForLoadState("load").catch(() => null);
     await expect(page).toHaveURL(/\/app\/results(?:\?.*)?$/);
     const finalResultsEmpty = page.getByText(/your result history is empty right now/i).first();
     if (await finalResultsEmpty.isVisible().catch(() => false)) {

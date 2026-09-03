@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectInstituteWorkspace } from "../helpers/navigation";
+import { gotoWithRuntimeRecovery } from "../helpers/runtime";
 
 const backendBaseUrl = (
   process.env.API_BASE_URL ??
@@ -54,20 +55,20 @@ test.describe("Institute AWS results contract", () => {
     const liveExam = await fetchInstituteExamByCode(page, awsLiveCode);
     const publishedExam = await fetchInstituteExamByCode(page, awsPublishedCode);
 
-    await page.goto(`/institute/exams/${liveExam.id}`);
+    await gotoWithRuntimeRecovery(page, `/institute/exams/${liveExam.id}`);
     await expect(page.getByRole("heading", { name: new RegExp(liveExam.title, "i") }).first()).toBeVisible();
     await expect(page.getByText(liveExam.code).first()).toBeVisible();
     await expect(page.getByText(/^practice$/i).first()).toBeVisible();
     await expect(page.getByText(/45 min/i).first()).toBeVisible();
     await expect(page.getByText(/cloud concepts/i).first()).toBeVisible();
 
-    await page.goto(`/institute/results?exam=${encodeURIComponent(publishedExam.id)}`);
+    await gotoWithRuntimeRecovery(page, `/institute/results?exam=${encodeURIComponent(publishedExam.id)}`);
     await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
     await expect(page.getByText(publishedExam.title).first()).toBeVisible();
     await expect(page.getByText(publishedExam.code).first()).toBeVisible();
     await expect(page.getByText(/exam publish readiness/i).first()).toBeVisible();
     await expect(page.getByText(/result publish readiness/i).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /open exam/i }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /open leaderboard/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /view exam/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /view leaderboard/i }).first()).toBeVisible();
   });
 });

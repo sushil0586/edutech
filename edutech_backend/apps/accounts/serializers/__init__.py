@@ -1,3 +1,8 @@
+import hashlib
+import hmac
+
+from django.conf import settings
+from django.core.cache import cache
 from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
 from django.db.models import Q
@@ -18,6 +23,34 @@ from apps.geography.services import resolve_location_selection
 
 
 User = get_user_model()
+LOGIN_SUCCESS_CACHE_TTL_SECONDS = 60
+
+
+def _login_success_cache_key(*, username, password_hash):
+    return f"accounts:login-success:{username.lower()}:{password_hash}"
+
+
+def _login_password_digest(password):
+    return hashlib.sha256(
+        f"{settings.SECRET_KEY}:{password}".encode("utf-8")
+    ).hexdigest()
+
+
+def _profile_for_login_user(user):
+    return (
+        AccountProfile.objects.select_related(
+            "user",
+            "institute",
+            "student_profile__program",
+            "student_profile__academic_year",
+            "student_profile__cohort",
+            "teacher_profile",
+            "location_profile",
+            "acquisition_profile",
+        )
+        .filter(user=user)
+        .first()
+    )
 
 
 class AccountProfileSerializer(serializers.ModelSerializer):
@@ -264,30 +297,42 @@ class LoginSerializer(serializers.Serializer):
     def validate(self, attrs):
         username = attrs["username"]
         password = attrs["password"]
+        existing_user = User.objects.only("id", "is_active", "password").filter(username=username).first()
+        cache_key = None
+        user = None
 
-        user = authenticate(username=username, password=password)
+        if existing_user is not None:
+            cache_key = _login_success_cache_key(
+                username=username,
+                password_hash=existing_user.password,
+            )
+            cached_digest = cache.get(cache_key)
+            if (
+                existing_user.is_active
+                and cached_digest is not None
+                and hmac.compare_digest(cached_digest, _login_password_digest(password))
+            ):
+                user = existing_user
+
         if user is None:
-            existing_user = User.objects.only("id", "is_active", "password").filter(username=username).first()
+            user = authenticate(username=username, password=password)
+        if user is None:
             if existing_user and not existing_user.is_active and existing_user.check_password(password):
                 raise serializers.ValidationError({"detail": "User account is inactive."})
             raise serializers.ValidationError({"detail": "Invalid credentials."})
 
-        profile = (
-            AccountProfile.objects.select_related(
-                "user",
-                "institute",
-                "student_profile__program",
-                "student_profile__academic_year",
-                "student_profile__cohort",
-                "teacher_profile",
-                "location_profile",
-                "acquisition_profile",
-            )
-            .filter(user=user)
-            .first()
-        )
+        profile = _profile_for_login_user(user)
         if profile is None or not profile.is_active:
             raise serializers.ValidationError({"detail": "Account profile is inactive or missing."})
+
+        cache.set(
+            _login_success_cache_key(
+                username=username,
+                password_hash=user.password,
+            ),
+            _login_password_digest(password),
+            LOGIN_SUCCESS_CACHE_TTL_SECONDS,
+        )
 
         attrs["user"] = user
         attrs["account_profile"] = profile

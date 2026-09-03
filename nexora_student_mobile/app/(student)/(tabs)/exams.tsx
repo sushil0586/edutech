@@ -8,6 +8,7 @@ import { ActionButton } from "@/components/action-button";
 import { MetricCard } from "@/components/metric-card";
 import { SectionBlock } from "@/components/section-block";
 import { StatePanel } from "@/components/state-panel";
+import { SkeletonList } from "@/components/skeleton";
 import { fetchStudentDashboardBundle } from "@/lib/api/student";
 import { useSessionStore } from "@/store/session-store";
 import { appStyles } from "@/theme/styles";
@@ -97,7 +98,7 @@ export default function ExamsScreen() {
   const [filterMode, setFilterMode] = useState<ExamFilterMode>("all");
 
   const query = useQuery({
-    queryKey: ["student.exams.bundle", accessToken],
+    queryKey: ["student.dashboard.bundle", accessToken],
     queryFn: async () => fetchStudentDashboardBundle(accessToken as string),
     enabled: Boolean(accessToken),
   });
@@ -236,28 +237,33 @@ export default function ExamsScreen() {
           value={String(filteredExams.length)}
           helper="Exams matching the current subject, search, and state filter"
           soft
+          loading={query.isLoading}
         />
         <MetricCard
           label="Resume Ready"
           value={String(resumeReadyExams.length)}
           helper="Live attempts that can continue immediately"
+          loading={query.isLoading}
         />
         <MetricCard
           label="Open Now"
           value={String(availableExams.length)}
           helper="Exams the learner can start from mobile"
           soft
+          loading={query.isLoading}
         />
         <MetricCard
           label="Locked"
           value={String(lockedExams.length)}
           helper="Exams still gated by stars or access policy"
+          loading={query.isLoading}
         />
         <MetricCard
           label="Closed"
           value={String(closedExams.length)}
           helper="Visible exams that cannot start yet from mobile"
           soft
+          loading={query.isLoading}
         />
       </View>
 
@@ -353,7 +359,9 @@ export default function ExamsScreen() {
         title="Resume now"
         subtitle="Fastest path back into active learner work"
       >
-        {resumeReadyExams.length ? (
+        {query.isLoading ? (
+          <SkeletonList count={2} />
+        ) : resumeReadyExams.length ? (
           resumeReadyExams.map((exam) => {
             const tone = availabilityTone(exam);
             return (
@@ -390,7 +398,9 @@ export default function ExamsScreen() {
         title="Ready to start"
         subtitle="Mobile-safe starts for new learner attempts"
       >
-        {availableExams.length ? (
+        {query.isLoading ? (
+          <SkeletonList count={2} />
+        ) : availableExams.length ? (
           availableExams.map((exam) => {
             const tone = availabilityTone(exam);
             return (
@@ -435,7 +445,9 @@ export default function ExamsScreen() {
         title="Locked exams"
         subtitle="Visible, but not yet ready for learner entry"
       >
-        {lockedExams.length ? (
+        {query.isLoading ? (
+          <SkeletonList count={1} />
+        ) : lockedExams.length ? (
           lockedExams.map((exam) => {
             const tone = availabilityTone(exam);
             return (
@@ -472,7 +484,9 @@ export default function ExamsScreen() {
         title="Closed exams"
         subtitle="Visible in the catalog, but not yet startable from mobile"
       >
-        {closedExams.length ? (
+        {query.isLoading ? (
+          <SkeletonList count={1} />
+        ) : closedExams.length ? (
           closedExams.map((exam) => {
             const tone = availabilityTone(exam);
             return (

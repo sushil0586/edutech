@@ -11,12 +11,15 @@ test.describe("Admin exam builder workspace", () => {
     await expectAdminWorkspace(page);
     await page.goto("/admin/exams");
 
-    const openExamLink = page.getByRole("link", { name: /open exam/i }).first();
+    const openExamLink = page.getByRole("link", { name: /view exam|open exam/i }).first();
     await expect(openExamLink).toBeVisible();
     await openExamLink.click();
     await expect(page).toHaveURL(/\/admin\/exams\/.+$/);
 
-    const openBuilderLink = page.getByRole("link", { name: /open builder/i }).first();
+    const openBuilderLink = page
+      .locator('a[href*="/builder"]')
+      .filter({ has: page.getByText(/view setup|open builder|setup/i) })
+      .first();
     await expect(openBuilderLink).toBeVisible();
     const builderHref = await openBuilderLink.getAttribute("href");
     expect(builderHref).toBeTruthy();
@@ -60,9 +63,9 @@ test.describe("Admin exam builder workspace", () => {
     await expect(page.getByText(/student assignment/i).first()).toBeVisible();
     await expect(page.getByText(/choose whether this exam follows scope-based distribution/i).first()).toBeVisible();
 
-    await page.getByRole("link", { name: /open delivery view/i }).first().click();
+    await page.getByRole("link", { name: /view delivery|open delivery view/i }).first().click();
     await expect(page).toHaveURL(new RegExp(`/admin/exams/${examId}(?:\\?.*)?$`));
-    await expect(page.getByRole("link", { name: /open builder/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /view setup|open builder|setup/i }).first()).toBeVisible();
 
     await page.goto(builderHref!);
     await expect(page.getByRole("heading", { name: /builder/i }).first()).toBeVisible();

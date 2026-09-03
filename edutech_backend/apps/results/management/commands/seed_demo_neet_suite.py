@@ -135,7 +135,7 @@ EXAM_BLUEPRINTS = (
         "duration_minutes": 180,
         "timer_mode": TimerMode.SECTION,
         "navigation_mode": NavigationMode.SEQUENTIAL,
-        "attempt_policy": AttemptPolicy.SINGLE,
+        "attempt_policy": AttemptPolicy.UNLIMITED_PRACTICE,
         "result_publish_mode": ResultPublishMode.AFTER_REVIEW,
         "review_mode": ReviewMode.ATTEMPTED_ONLY,
         "security_mode": SecurityMode.FOCUS,

@@ -10,6 +10,10 @@ import {
 
 const baseUrl = resolveBaseUrl();
 const users = resolveUsers();
+const availableExamsQuery = String(__ENV.K6_AVAILABLE_EXAMS_QUERY || "").replace(/^\?/, "");
+const availableExamsUrl = `${baseUrl}/api/v1/student/exams/available/${
+  availableExamsQuery ? `?${availableExamsQuery}` : ""
+}`;
 
 export const options = resolveStagesOptions(1);
 
@@ -36,7 +40,7 @@ export default function () {
     "me status is 200": (res) => res.status === 200,
   });
 
-  const availableExamsResponse = getJson(`${baseUrl}/api/v1/student/exams/available/`, accessToken);
+  const availableExamsResponse = getJson(availableExamsUrl, accessToken);
   check(availableExamsResponse, {
     "available exams status is 200": (res) => res.status === 200,
     "available exams returns array": (res) => {

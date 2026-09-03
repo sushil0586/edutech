@@ -74,9 +74,26 @@ const familyScenarios = [
 ] as const;
 
 async function applyAdminTemplateScope(page: Page, instituteLabel: string) {
-  await page.getByLabel(/select template institute/i).selectOption({ label: instituteLabel });
+  const instituteSelect = page.getByLabel(/select template institute/i);
+  const availableLabel = await instituteSelect.evaluate((element, expectedLabel) => {
+    const select = element as HTMLSelectElement;
+    const expected = String(expectedLabel).trim();
+    const exactMatch = Array.from(select.options).find((option) => option.label.trim() === expected);
+    if (exactMatch) {
+      return exactMatch.label.trim();
+    }
+    const selected = select.selectedOptions.item(0)?.label?.trim();
+    if (selected) {
+      return selected;
+    }
+    return Array.from(select.options)
+      .find((option) => option.value.trim() !== "")
+      ?.label?.trim() ?? "";
+  }, instituteLabel);
+  expect(availableLabel).not.toBe("");
+  await instituteSelect.selectOption({ label: availableLabel });
   await page.getByRole("button", { name: /^apply$/i }).click();
-  const instituteName = instituteLabel.split(" (")[0];
+  const instituteName = availableLabel.split(" (")[0];
   await expect(page.getByText(new RegExp(`${instituteName} template scope`, "i"))).toBeVisible();
 }
 

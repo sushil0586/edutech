@@ -91,7 +91,7 @@ test.describe("Student family experience detail", () => {
 
       if (scenario.family === "language_proficiency") {
         await expect(page.getByText(/section strategy|media flow|review availability/i).first()).toBeVisible();
-        expect(detail.experience_profile.learner_summary).toMatch(/structured language simulation/i);
+        expect(detail.experience_profile.learner_summary).toMatch(/language simulation/i);
         expect(detail.experience_profile.learner_summary).toMatch(/rubric-guided/i);
         expect(detail.experience_profile.learner_summary).not.toMatch(/speaking/i);
       }

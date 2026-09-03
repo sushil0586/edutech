@@ -30,6 +30,7 @@ async function createExamShell(page: Page, role: "institute" | "teacher", title:
   for (let step = 0; step < 3; step += 1) {
     await page.getByRole("button", { name: /^continue$/i }).click();
   }
+  await expect(page.getByRole("button", { name: /create exam shell/i })).toBeVisible();
   await page.getByRole("button", { name: /create exam shell/i }).click();
 }
 
@@ -125,7 +126,9 @@ test.describe("Exam detail draft visual states", () => {
       await expectTeacherWorkspace(page);
 
       await createExamShell(page, "teacher", examTitle, examCode);
-      await expect(page).toHaveURL(/\/teacher\/exams\/.+\/builder\?message=/);
+      await expect(page).toHaveURL(/\/teacher\/exams\/.+\/builder\?message=/, {
+        timeout: 30000,
+      });
       const builderUrl = page.url().split("?")[0] ?? page.url();
       const examIdMatch = builderUrl.match(/\/teacher\/exams\/([^/?#]+)/);
       examId = examIdMatch?.[1] ?? null;

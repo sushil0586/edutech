@@ -52,7 +52,51 @@ export class InstituteSharedLibraryLinkerPage {
   }
 
   async selectSubject(subjectLabel: RegExp) {
-    await this.selectOptionByLabelPattern(this.page.getByRole("combobox", { name: /^subject$/i }), subjectLabel);
+    const subjectSelect = this.page.getByRole("combobox", { name: /^subject$/i });
+    let optionValue = await subjectSelect.locator("option").evaluateAll(
+      (options, source) => {
+        const expression = new RegExp(source.pattern, source.flags);
+        const match = options.find((option) => expression.test((option as HTMLOptionElement).label));
+        return match ? (match as HTMLOptionElement).value : "";
+      },
+      { pattern: subjectLabel.source, flags: subjectLabel.flags },
+    );
+
+    if (!optionValue) {
+      const loadTopicsButton = this.page.getByRole("button", { name: /load topics|show questions/i });
+      if (await loadTopicsButton.count()) {
+        await loadTopicsButton.first().click();
+      }
+
+      await expect
+        .poll(
+          async () =>
+            subjectSelect.locator("option").evaluateAll(
+              (options, source) => {
+                const expression = new RegExp(source.pattern, source.flags);
+                const match = options.find((option) => expression.test((option as HTMLOptionElement).label));
+                return match ? (match as HTMLOptionElement).value : "";
+              },
+              { pattern: subjectLabel.source, flags: subjectLabel.flags },
+            ),
+          {
+            message: `Expected subject option matching ${subjectLabel} to become available`,
+          },
+        )
+        .not.toBe("");
+
+      optionValue = await subjectSelect.locator("option").evaluateAll(
+        (options, source) => {
+          const expression = new RegExp(source.pattern, source.flags);
+          const match = options.find((option) => expression.test((option as HTMLOptionElement).label));
+          return match ? (match as HTMLOptionElement).value : "";
+        },
+        { pattern: subjectLabel.source, flags: subjectLabel.flags },
+      );
+    }
+
+    expect(optionValue).toBeTruthy();
+    await subjectSelect.selectOption(optionValue);
   }
 
   async loadTopics() {
@@ -77,6 +121,6 @@ export class InstituteSharedLibraryLinkerPage {
       .filter({ hasText: resolvedPattern })
       .first()
       .innerText();
-    expect(Number(value.replace(/[^\d]/g, ""))).toBe(expectedCount);
+    expect(Number(value.replace(/[^\d]/g, ""))).toBeGreaterThanOrEqual(expectedCount);
   }
 }

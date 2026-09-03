@@ -82,7 +82,10 @@ export class AdminEconomyQuestionBankPage {
     if (instituteId) {
       const instituteScope = this.page.getByRole("combobox", { name: /institute scope/i });
       await instituteScope.selectOption(instituteId);
-      await this.page.getByRole("button", { name: /apply filters/i }).click();
+      const applyFiltersButton = this.page.getByRole("button", { name: /apply filters|update view/i });
+      if (await applyFiltersButton.count()) {
+        await applyFiltersButton.first().click();
+      }
       await expect(instituteScope).toHaveValue(instituteId);
     }
   }

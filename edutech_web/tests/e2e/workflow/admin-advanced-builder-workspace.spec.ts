@@ -3,29 +3,6 @@ import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { fetchPrograms, fetchSubjects, fetchTopics } from "../helpers/assessment-family";
 import { expectAdminWorkspace } from "../helpers/navigation";
 
-async function waitForPrimarySubjectTopics(page: import("@playwright/test").Page) {
-  const firstTopicSelect = page.locator(".advancedBuilderTopicRow").first().locator("select");
-  await expect
-    .poll(async () => firstTopicSelect.locator("option").count(), {
-      timeout: 30000,
-      message: "Expected the advanced builder topic selector to load real topic options.",
-    })
-    .toBeGreaterThan(1);
-}
-
-async function selectFirstRealOption(locator: import("@playwright/test").Locator) {
-  const options = await locator.locator("option").evaluateAll((nodes) =>
-    nodes
-      .map((node) => ({
-        value: (node as HTMLOptionElement).value,
-        disabled: (node as HTMLOptionElement).disabled,
-      }))
-      .filter((option) => option.value && !option.disabled),
-  );
-  expect(options.length).toBeGreaterThan(0);
-  await locator.selectOption(options[0]!.value);
-}
-
 async function resolveScopeWithTopics(page: import("@playwright/test").Page, instituteId: string) {
   const programs = await fetchPrograms(page, instituteId);
   for (const program of programs) {
@@ -158,12 +135,13 @@ test.describe("Admin advanced exam builder workspace", () => {
     await subjectSelect.selectOption(resolvedScope!.subjectId);
     await expect(subjectSelect).toHaveValue(/\S+/);
 
+    await page.getByRole("tab", { name: /composition/i }).click();
+    await expect(page.getByText(/sections, topics, and counts/i).first()).toBeVisible();
     await expect(async () => {
       await page.getByRole("button", { name: /quick practice/i }).click();
-      await expect(page.getByText(/quick practice template applied/i)).toBeVisible();
+      await expect(page.getByLabel(/exam title/i)).toHaveValue(/quick practice/i);
     }).toPass({ timeout: 30000 });
 
-    await page.getByRole("tab", { name: /composition/i }).click();
     await page.getByLabel(/selection mode/i).selectOption("subject_fallback");
 
     const firstSectionCard = page.locator(".advancedBuilderSectionCard").first();
@@ -246,18 +224,20 @@ test.describe("Admin advanced exam builder workspace", () => {
     await page.getByRole("button", { name: /auto fill basics/i }).click();
     await expect(page.getByLabel(/exam title/i)).not.toHaveValue("");
 
+    await page.getByRole("tab", { name: /composition/i }).click();
+    await expect(page.getByText(/sections, topics, and counts/i).first()).toBeVisible();
     await page.getByRole("button", { name: /quick practice/i }).click();
-    await expect(page.getByText(/quick practice template applied/i)).toBeVisible();
+    await expect(page.getByLabel(/exam title/i)).toHaveValue(/quick practice/i);
 
     await page.getByRole("button", { name: /back/i }).click();
     await expect(page.getByText(/choose the academic lane and exam identity/i).first()).toBeVisible();
-    await page.getByRole("button", { name: /next/i }).click();
+    await page.getByRole("button", { name: /^next$/i }).click();
     await expect(page.getByText(/sections, topics, and counts/i).first()).toBeVisible();
 
     await page.getByRole("button", { name: /chapter test/i }).click();
-    await expect(page.getByText(/chapter test template applied/i)).toBeVisible();
+    await expect(page.getByLabel(/exam title/i)).toHaveValue(/chapter test/i);
     await page.getByRole("button", { name: /premium mock/i }).click();
-    await expect(page.getByText(/premium mock template applied/i)).toBeVisible();
+    await expect(page.getByLabel(/exam title/i)).toHaveValue(/premium mock/i);
 
     const sectionCards = page.locator(".advancedBuilderSectionCard");
     const baselineSectionCount = await sectionCards.count();

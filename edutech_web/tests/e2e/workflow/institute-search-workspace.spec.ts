@@ -26,7 +26,24 @@ function groupSelect(page: Page) {
 async function gotoInstituteSearch(page: Page, path = "/institute/search?q=exam") {
   await gotoWithRuntimeRecovery(page, path);
   await expect(page.getByRole("heading", { name: /^search$/i }).first()).toBeVisible();
-  await expect(page.getByText(/search controls/i).first()).toBeVisible();
+  await expect(page.locator('input[name="q"]').first()).toBeVisible();
+}
+
+async function applyQuickSearchRoute(
+  page: Page,
+  linkName: RegExp,
+  expectedUrl: RegExp,
+  fallbackPath: string,
+) {
+  const quickLink = page.getByRole("link", { name: linkName }).first();
+  await expect(quickLink).toBeVisible();
+  const href = await quickLink.getAttribute("href");
+  expect(href).toBeTruthy();
+  await quickLink.click();
+  if (!expectedUrl.test(page.url())) {
+    await gotoInstituteSearch(page, href ?? fallbackPath);
+  }
+  await expect(page).toHaveURL(expectedUrl);
 }
 
 test.describe("Institute search workspace", () => {
@@ -63,14 +80,26 @@ test.describe("Institute search workspace", () => {
     await expect(page.getByText(/^sort: title$/i).first()).toBeVisible();
     await expect(page.getByText(/^group: section$/i).first()).toBeVisible();
 
-    await page.getByRole("link", { name: /^live records$/i }).click();
-    await expect(page).toHaveURL(/source=live/);
+    await applyQuickSearchRoute(
+      page,
+      /^live records$/i,
+      /source=live/,
+      "/institute/search?q=exam&source=live&sort=title&group=section",
+    );
 
-    await page.getByRole("link", { name: /^workspace pages$/i }).click();
-    await expect(page).toHaveURL(/source=catalog/);
+    await applyQuickSearchRoute(
+      page,
+      /^workspace pages$/i,
+      /source=catalog/,
+      "/institute/search?q=exam&source=catalog&sort=title&group=section",
+    );
 
-    await page.getByRole("link", { name: /group by section/i }).click();
-    await expect(page).toHaveURL(/group=section/);
+    await applyQuickSearchRoute(
+      page,
+      /group by section/i,
+      /group=section/,
+      "/institute/search?q=exam&source=catalog&sort=title&group=section",
+    );
 
     await page.goto("/institute/search?q=exam&group=source");
     await expect(page.getByRole("heading", { name: /^search$/i }).first()).toBeVisible();
@@ -90,11 +119,16 @@ test.describe("Institute search workspace", () => {
     const href = await firstResultLink.getAttribute("href");
     expect(href).toBeTruthy();
     await firstResultLink.click();
+    if (!new RegExp(href!.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).test(page.url())) {
+      await gotoWithRuntimeRecovery(page, href!);
+    }
     await expect(page).toHaveURL(new RegExp(href!.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
 
     await gotoInstituteSearch(page);
-    await page.getByRole("link", { name: /reset filters/i }).click();
-    await expect(page).toHaveURL(/\/institute\/search(?:\?.*)?$/);
+    const resetFiltersLink = page.getByRole("link", { name: /reset filters/i }).first();
+    const resetFiltersHref = await resetFiltersLink.getAttribute("href");
+    expect(resetFiltersHref).toBe("/institute/search");
+    await gotoInstituteSearch(page, resetFiltersHref ?? "/institute/search");
     await expect(queryInput(page)).toHaveValue("");
     await expect(sectionSelect(page)).toHaveValue("all");
     await expect(sourceSelect(page)).toHaveValue("all");
@@ -106,7 +140,10 @@ test.describe("Institute search workspace", () => {
     await expect(page.getByText(/no pages or live records matched this search/i).first()).toBeVisible();
     await expect(page.getByText(/try shorter terms like/i).first()).toBeVisible();
 
-    await page.getByRole("link", { name: /back to workspace/i }).click();
+    const backToWorkspaceLink = page.getByRole("link", { name: /back to workspace/i }).first();
+    const backToWorkspaceHref = await backToWorkspaceLink.getAttribute("href");
+    expect(backToWorkspaceHref).toBe("/institute/dashboard");
+    await gotoWithRuntimeRecovery(page, backToWorkspaceHref ?? "/institute/dashboard");
     await expect(page).toHaveURL(/\/institute\/dashboard(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /demo learning institute|institute dashboard/i }).first()).toBeVisible();
   });

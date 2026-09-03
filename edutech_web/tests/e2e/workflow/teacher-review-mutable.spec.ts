@@ -1,11 +1,18 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { getRoleCredentials } from "../fixtures/env";
+import {
+  fetchAuthProfile,
+  fetchPrograms,
+  fetchSubjects,
+  fetchTopics,
+} from "../helpers/assessment-family";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
 import {
   expectStudentWorkspace,
   expectTeacherWorkspace,
 } from "../helpers/navigation";
+import { resolveStudentProfileScope, selectOptionByLabelFragment } from "../helpers/student-scope";
 
 const mutableTeacherReviewActionsEnabled = isMutableLaneEnabled(
   "PLAYWRIGHT_ENABLE_MUTABLE_TEACHER_REVIEW_ACTIONS",
@@ -116,6 +123,62 @@ async function selectFirstNonEmptyOption(locator: Locator) {
   return optionValue!;
 }
 
+async function selectQuestionScope(page: Page) {
+  const authProfile = await fetchAuthProfile(page);
+  const programs = await fetchPrograms(page, authProfile.institute);
+
+  for (const program of programs) {
+    const subjects = await fetchSubjects(page, program.id, authProfile.institute);
+    for (const subject of subjects) {
+      const topics = await fetchTopics(page, subject.id, authProfile.institute);
+      const topic = topics[0] ?? null;
+      if (!topic) {
+        continue;
+      }
+
+      await page.locator('select[name="program"]').selectOption(program.id);
+      await expect(page.locator('select[name="subject"]')).toBeEnabled();
+      await page.locator('select[name="subject"]').selectOption(subject.id);
+      await expect(page.locator('select[name="topic"]')).toBeEnabled();
+      await page.locator('select[name="topic"]').selectOption(topic.id);
+      return;
+    }
+  }
+
+  throw new Error("No teacher-visible program/subject/topic scope with at least one topic is available.");
+}
+
+async function assignStudentsToExam(page: Page, examId: string, studentIds: string[]) {
+  const accessToken = await getCurrentSessionAccessToken(page);
+  expect(accessToken).not.toBe("");
+  const response = await page.request.post(`${backendBaseUrl}/api/v1/exams/${examId}/assign-students/`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    data: {
+      assignment_mode: "selected_students",
+      student_ids: studentIds,
+    },
+    timeout: 15000,
+  });
+  expect(response.ok(), await response.text()).toBe(true);
+}
+
+async function runTeacherExamAction(page: Page, examId: string, action: "sync-marks" | "publish" | "mark-live") {
+  const accessToken = await getCurrentSessionAccessToken(page);
+  expect(accessToken).not.toBe("");
+  const response = await page.request.post(`${backendBaseUrl}/api/v1/exams/${examId}/${action}/`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    data: {},
+    timeout: 15000,
+  });
+  expect(response.ok(), await response.text()).toBe(true);
+}
+
 test.describe("Teacher mutable review actions", () => {
   test.skip(
     testRequiresRole("teacher") || testRequiresRole("student"),
@@ -139,6 +202,9 @@ test.describe("Teacher mutable review actions", () => {
     expect(studentCredentials).not.toBeNull();
 
     let studentDisplayName = studentCredentials!.username;
+    let studentProfileId = "";
+    let studentAcademicYearName: string | null = null;
+    let studentProgramName: string | null = null;
     let questionId: string | null = null;
     let examId: string | null = null;
     const uniqueSeed = Date.now();
@@ -166,6 +232,12 @@ test.describe("Teacher mutable review actions", () => {
           studentDisplayName = renderedName;
         }
       }
+      const studentProfile = await requestBackendJson<{ student_profile?: string | null }>(page, "/api/v1/auth/me/");
+      studentProfileId = studentProfile.payload?.student_profile?.trim() ?? "";
+      expect(studentProfileId).not.toBe("");
+      const studentScope = await resolveStudentProfileScope(page);
+      studentAcademicYearName = studentScope.academicYearName;
+      studentProgramName = studentScope.programName;
 
       await loginAsRole(page, "teacher");
       await expectTeacherWorkspace(page);
@@ -173,16 +245,9 @@ test.describe("Teacher mutable review actions", () => {
       await page.goto("/teacher/question-bank/new");
       await expect(page.getByRole("heading", { name: /create question/i }).first()).toBeVisible();
 
-      const programSelect = page.locator('select[name="program"]');
-      const subjectSelect = page.locator('select[name="subject"]');
-      const topicSelect = page.locator('select[name="topic"]');
       const questionTypeSelect = page.locator('select[name="question_type"]');
 
-      await selectFirstNonEmptyOption(programSelect);
-      await expect(subjectSelect).toBeEnabled();
-      await selectFirstNonEmptyOption(subjectSelect);
-      await expect(topicSelect).toBeEnabled();
-      await selectFirstNonEmptyOption(topicSelect);
+      await selectQuestionScope(page);
       await questionTypeSelect.selectOption("essay_manual_review");
 
       await page.locator('textarea[name="question_text"]').fill(questionText);
@@ -198,6 +263,7 @@ test.describe("Teacher mutable review actions", () => {
 
       await page.locator('input[name="default_marks"]').fill("10");
       await page.locator('input[name="negative_marks"]').fill("0");
+      await page.locator('input[name="is_verified"]').check();
 
       await page.getByRole("button", { name: /^create question$/i }).click();
       await expect(page).toHaveURL(/\/teacher\/question-bank\/.+\?message=/);
@@ -213,6 +279,12 @@ test.describe("Teacher mutable review actions", () => {
 
       await page.getByRole("textbox", { name: /exam title/i }).fill(examTitle);
       await page.getByRole("textbox", { name: /exam code/i }).fill(examCode);
+      if (studentAcademicYearName) {
+        await selectOptionByLabelFragment(page.locator('select[name="academic_year"]').first(), studentAcademicYearName);
+      }
+      if (studentProgramName) {
+        await selectOptionByLabelFragment(page.locator('select[name="program"]').first(), studentProgramName);
+      }
 
       for (let step = 0; step < 3; step += 1) {
         await page.getByRole("button", { name: /^continue$/i }).click();
@@ -263,34 +335,8 @@ test.describe("Teacher mutable review actions", () => {
 
       await page.goto(`/teacher/exams/${examId}/builder?tab=assignment`);
       await expect(page.getByText(/student assignment/i).first()).toBeVisible();
-
-      const assignmentForm = page.locator("form.builderForm").filter({
-        has: page.getByRole("button", { name: /save assignment/i }),
-      }).first();
-      await assignmentForm.locator('select[name="assignment_mode"]').selectOption("selected_students");
-
-      const studentCheckboxes = assignmentForm.locator('input[name="student_ids"][type="checkbox"]');
-      const studentCount = await studentCheckboxes.count();
-      expect(studentCount).toBeGreaterThan(0);
-
-      const matchingStudentRow = assignmentForm.locator(".selectionRow").filter({
-        has: page.getByText(new RegExp(escapeRegExp(studentDisplayName), "i")),
-      }).first();
-
-      if (await matchingStudentRow.count()) {
-        for (let index = 0; index < studentCount; index += 1) {
-          await studentCheckboxes.nth(index).uncheck().catch(() => null);
-        }
-        await matchingStudentRow.locator('input[name="student_ids"]').check();
-      } else {
-        for (let index = 0; index < studentCount; index += 1) {
-          await studentCheckboxes.nth(index).check();
-        }
-      }
-
-      await assignmentForm.getByRole("button", { name: /save assignment/i }).click();
-      await expect(page).toHaveURL(/tab=assignment&message=/);
-      await expect(page.getByText(/student assignment updated\./i)).toBeVisible();
+      await assignStudentsToExam(page, examId, [studentProfileId]);
+      await page.goto(`/teacher/exams/${examId}/builder?tab=assignment&message=students-assigned`);
 
       await page.goto(`/teacher/exams/${examId}/builder`);
       await page.locator('input[name="start_at"]').fill(toDateTimeLocalValue(startAt));
@@ -300,24 +346,9 @@ test.describe("Teacher mutable review actions", () => {
 
       await page.goto(`/teacher/exams/${examId}`);
       await expect(page.getByRole("heading", { name: new RegExp(escapeRegExp(examTitle), "i") }).first()).toBeVisible();
-
-      const syncMarksButton = page.getByRole("button", { name: /sync marks/i });
-      if (await syncMarksButton.count()) {
-        await syncMarksButton.click();
-        await expect(page).toHaveURL(/message=/);
-      }
-
-      const publishButton = page.getByRole("button", { name: /publish exam/i });
-      if (await publishButton.count()) {
-        await publishButton.click();
-        await expect(page).toHaveURL(/message=/);
-      }
-
-      const markLiveButton = page.getByRole("button", { name: /mark live/i });
-      if (await markLiveButton.count()) {
-        await markLiveButton.click();
-        await expect(page).toHaveURL(/message=/);
-      }
+      await runTeacherExamAction(page, examId, "sync-marks");
+      await runTeacherExamAction(page, examId, "publish");
+      await runTeacherExamAction(page, examId, "mark-live");
 
       await loginAsRole(page, "student");
       await expectStudentWorkspace(page);

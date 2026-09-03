@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectStudentWorkspace } from "../helpers/navigation";
 import { gotoWithRuntimeRecovery } from "../helpers/runtime";
+import { suppressVisualNoise } from "../helpers/visual";
 
 async function openStudentRoute(page: Parameters<typeof expectStudentWorkspace>[0], href: string) {
   await gotoWithRuntimeRecovery(page, href);
@@ -13,6 +14,10 @@ test.describe("Student mobile report surfaces visual", () => {
 
   test.use({
     viewport: { width: 390, height: 844 },
+  });
+
+  test.beforeEach(async ({ page }) => {
+    await suppressVisualNoise(page);
   });
 
   test("@workflow @visual student mobile results filters and cards stay readable", async ({ page }) => {

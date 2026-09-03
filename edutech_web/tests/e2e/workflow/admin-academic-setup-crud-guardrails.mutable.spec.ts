@@ -44,7 +44,7 @@ async function selectedInstituteId(page: Page) {
 async function openSection(page: Page, section: "academic-years" | "subjects") {
   await page.goto(`/admin/academic-setup?section=${section}`);
   await expect(page).toHaveURL(new RegExp(`/admin/academic-setup\\?.*section=${section}`));
-  await expect(page.getByRole("button", { name: /^add$/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^(add|new)$/i })).toBeVisible();
 }
 
 async function academicDialog(page: Page) {
@@ -164,7 +164,7 @@ test.describe("Admin academic setup CRUD guardrails", () => {
     let academicYearId: string | null = null;
 
     try {
-      await page.getByRole("button", { name: /^add$/i }).click();
+      await page.getByRole("button", { name: /^(add|new)$/i }).click();
       const dialog = await academicDialog(page);
       await fillWrappedField(dialog, /year name/i, yearName);
       await fillWrappedField(dialog, /start date/i, yearWindow.startDate);
@@ -176,7 +176,7 @@ test.describe("Admin academic setup CRUD guardrails", () => {
           response.url().includes("/api/admin/academics/academic-years") &&
           response.request().method() === "POST",
       );
-      await dialog.getByRole("button", { name: /create record/i }).click();
+      await dialog.getByRole("button", { name: /^create$/i }).click();
       const createResponse = await createResponsePromise;
       expect(createResponse.ok(), await createResponse.text()).toBe(true);
       const createPayload = (await createResponse.json()) as AcademicYearCreatePayload;
@@ -210,14 +210,14 @@ test.describe("Admin academic setup CRUD guardrails", () => {
     const sparseSubjectCode = `PWSS${String(uniqueSeed).slice(-6)}`;
     const sparseSubjectUpdatedName = `${sparseSubjectName} Updated`;
     const programId = await firstProgramId(page, instituteId);
-    await page.getByRole("button", { name: /^add$/i }).click();
+    await page.getByRole("button", { name: /^(add|new)$/i }).click();
     const initialCreateDialog = await academicDialog(page);
     await fillWrappedField(initialCreateDialog, /year name/i, cancelledYearName);
     await fillWrappedField(initialCreateDialog, /start date/i, yearWindow.startDate);
     await initialCreateDialog.getByRole("button", { name: /cancel/i }).click();
     await expect(page.getByRole("dialog")).toHaveCount(0);
 
-    await page.getByRole("button", { name: /^add$/i }).click();
+    await page.getByRole("button", { name: /^(add|new)$/i }).click();
     const reopenedCreateDialog = await academicDialog(page);
     await expect(fieldContainer(reopenedCreateDialog, /year name/i).locator("input").first()).toHaveValue("");
     await expect(fieldContainer(reopenedCreateDialog, /start date/i).locator("input").first()).toHaveValue("");
@@ -280,7 +280,7 @@ test.describe("Admin academic setup CRUD guardrails", () => {
         response.url().includes(`/api/admin/academics/subjects/${sparseSubjectId}`) &&
         response.request().method() === "PATCH",
     );
-    await sparseEditDialog.getByRole("button", { name: /update record/i }).click();
+    await sparseEditDialog.getByRole("button", { name: /^update$/i }).click();
     const patchResponse = await patchResponsePromise;
     expect(patchResponse.ok(), await patchResponse.text()).toBe(true);
 

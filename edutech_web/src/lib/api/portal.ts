@@ -270,6 +270,10 @@ export async function fetchInstituteQuestionBankFeatureEntitlementsCached<T>() {
   return fetchPortalCachedList<T>("/api/v1/economy/admin/institute-question-bank-feature-entitlements/");
 }
 
+export async function fetchInstituteQuestionBankFeatureEntitlements<T>() {
+  return fetchPortalList<T>("/api/v1/economy/admin/institute-question-bank-feature-entitlements/");
+}
+
 function resolvePortalNextPath(next: string) {
   if (!next.trim()) {
     return null;

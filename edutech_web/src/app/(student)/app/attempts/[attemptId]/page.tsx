@@ -366,10 +366,6 @@ export default async function AttemptDetailPage({
     detail.total_questions > 0
       ? Math.round((answeredCount / detail.total_questions) * 100)
       : 0;
-  const sectionCompletionPercent =
-    questionCountInSection > 0
-      ? Math.round((answeredCountInSection / questionCountInSection) * 100)
-      : 0;
   const activeSaveStateTone = attemptSaveStateTone({
     isLockedAttemptState,
     latestSavedAt: latestSavedDisplayAt,
@@ -387,9 +383,6 @@ export default async function AttemptDetailPage({
     : -1;
   const nextSection =
     currentSectionIndex >= 0 ? sections[currentSectionIndex + 1] ?? null : null;
-  const latestSavedLabel = latestSavedDisplayAt
-    ? studentDateTimeLabel(latestSavedDisplayAt)
-    : "Nothing confirmed yet";
   const unresolvedCount = markedCount + unansweredCount;
   const neetLane =
     detail.experience_profile?.assessment_family === "competitive" &&
@@ -657,6 +650,12 @@ export default async function AttemptDetailPage({
       const confirmedSavedAt = latestAnswerSyncAt(response.data.answers);
       const confirmedActionAt =
         response.data.server_time ?? response.data.updated_at ?? new Date().toISOString();
+      const switchedSectionId =
+        response.data.section_runtime.current_section_id ?? sectionId;
+      const firstQuestionInSection =
+        response.data.questions
+          .filter((question) => question.section === switchedSectionId)
+          .sort((left, right) => left.question_order - right.question_order)[0]?.question ?? "";
 
       revalidatePath(`/app/attempts/${attemptId}`);
       redirect(buildAttemptUrl(attemptId, {
@@ -664,6 +663,7 @@ export default async function AttemptDetailPage({
         action: "section-switch",
         confirmedAt: confirmedActionAt,
         savedAt: confirmedSavedAt ?? "",
+        question: firstQuestionInSection || undefined,
       }));
     } catch (error) {
       unstable_rethrow(error);
@@ -901,15 +901,6 @@ export default async function AttemptDetailPage({
             })?.question ??
             visibleQuestions[0]?.question ??
             "";
-          const questionTimeLabel =
-            activeTimeRemaining === null
-              ? "Synced to backend timer"
-              : activeTimeRemaining <= 300
-                ? "Final 5 minutes"
-                : activeTimeRemaining <= 900
-                  ? "Final 15 minutes"
-                  : "Time available";
-
           return (
             <article
               className="attemptQuestionCard"

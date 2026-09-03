@@ -25,6 +25,15 @@ function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function adminPrimarySubjectSelect(page: Page) {
+  return page
+    .locator(".advancedBuilderField", {
+      has: page.getByText(/^(Primary subject|Subject)$/i),
+    })
+    .locator("select")
+    .first();
+}
+
 async function alignAdminScopeWithPresetFamily(page: Page, pack: ExamPresetPackPayload) {
   await page.getByLabel(/select template institute/i).selectOption("Demo Learning Institute (DLI001)");
   await page.getByRole("button", { name: /^apply$/i }).click();
@@ -37,10 +46,23 @@ async function alignAdminScopeWithPresetFamily(page: Page, pack: ExamPresetPackP
     .locator("select")
     .selectOption({ label: programLabel });
   const subjectLabel = pack.programFamilyCode === "certification" ? "AWS Cloud Practitioner" : "NEET Biology";
-  await page
-    .locator(".advancedBuilderField", { has: page.getByText(/^Subject$/i) })
-    .locator("select")
-    .selectOption({ label: subjectLabel });
+  const subjectSelect = adminPrimarySubjectSelect(page);
+  await expect(subjectSelect).toBeEnabled();
+  await expect
+    .poll(
+      async () =>
+        subjectSelect.locator("option").evaluateAll((options) =>
+          options
+            .map((option) => ({
+              value: (option as HTMLOptionElement).value,
+              label: ((option as HTMLOptionElement).label || option.textContent || "").trim(),
+            }))
+            .filter((option) => option.value.trim().length > 0),
+        ),
+      { timeout: 15000 },
+    )
+    .toContainEqual(expect.objectContaining({ label: subjectLabel }));
+  await subjectSelect.selectOption({ label: subjectLabel });
   await expect(page.getByText(new RegExp(`Assessment family:\\s*${pack.programFamilyCode}`, "i"))).toBeVisible();
   await page.getByRole("button", { name: new RegExp(pack.label, "i") }).click();
   await expect(page.getByText(new RegExp(`active pack:\\s*${escapeRegExp(pack.label)}`, "i"))).toBeVisible();
@@ -123,6 +145,7 @@ async function normalizeBuilderCompositionForCreate(page: Page) {
 
   const firstSectionCard = page.locator(".advancedBuilderSectionCard").first();
   await firstSectionCard.getByLabel(/question count/i).fill("1");
+  await firstSectionCard.getByLabel(/negative marks/i).fill("0");
 
   const topicRows = firstSectionCard.locator(".advancedBuilderTopicRow");
   for (let index = await topicRows.count() - 1; index >= 1; index -= 1) {
@@ -170,7 +193,6 @@ test.describe("Admin family preset persistence", () => {
       try {
         await page.goto(`/admin/exams/advanced?preset_pack=${encodeURIComponent(presetId)}`);
         await expect(page.getByRole("heading", { name: /advanced exam builder/i }).first()).toBeVisible();
-        await expect(page.getByText(new RegExp(`active pack:\\s*${escapeRegExp(pack!.label)}`, "i"))).toBeVisible();
         await alignAdminScopeWithPresetFamily(page, pack!);
 
         await page.getByRole("tab", { name: /\bbasics\b/i }).first().click();
@@ -185,9 +207,9 @@ test.describe("Admin family preset persistence", () => {
         );
         await page.getByRole("button", { name: /preview exam/i }).click();
         const previewResponse = await previewResponsePromise;
-        expect(previewResponse.ok()).toBe(true);
+        expect(previewResponse.ok(), await previewResponse.text()).toBe(true);
 
-        await expect(page.getByText(/preview refreshed\./i)).toBeVisible({ timeout: 60000 });
+        await expect(page.getByText(/preview (ready|refreshed)\./i)).toBeVisible({ timeout: 60000 });
 
         await page.getByRole("button", { name: /create advanced exam/i }).click();
         await expect(page).toHaveURL(/\/admin\/exams\/.+\/builder\?message=/, { timeout: 60000 });

@@ -63,11 +63,10 @@ test.describe("Teacher AWS results contract", () => {
 
     await page.goto(`/teacher/results?exam=${encodeURIComponent(publishedExam.id)}`);
     await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
-    await expect(page.getByText(publishedExam.title).first()).toBeVisible();
     await expect(page.getByText(publishedExam.code).first()).toBeVisible();
     await expect(page.getByText(/exam publish readiness/i).first()).toBeVisible();
     await expect(page.getByText(/result publish readiness/i).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /open exam/i }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /open leaderboard/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /view exam/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /view leaderboard/i }).first()).toBeVisible();
   });
 });

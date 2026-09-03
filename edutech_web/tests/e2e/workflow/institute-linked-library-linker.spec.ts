@@ -5,7 +5,7 @@ import { InstituteQuestionBankPage } from "../page-objects/institute/institute-q
 import { InstituteShellPage } from "../page-objects/institute/institute-shell.po";
 
 const opbmsCredentials = {
-  username: process.env.PLAYWRIGHT_OPBMS_USERNAME?.trim() || "opbms",
+  username: process.env.PLAYWRIGHT_OPBMS_USERNAME?.trim() || "obpms",
   password: process.env.PLAYWRIGHT_OPBMS_PASSWORD?.trim() || "Demo@12345",
 };
 
@@ -38,7 +38,7 @@ test.describe("Institute linked question and linker journey", () => {
     await expect(
       page.getByText(/step 3 is active: package access is valid\. stay here to review questions already linked into the institute bank/i).first(),
     ).toBeVisible();
-    await expect(page.getByText(/use one lane at a time/i).first()).toBeVisible();
+    await expect(page.getByText(/stay on one surface at a time/i).first()).toBeVisible();
     await expect(
       page.getByText(/current lane: linked questions/i).first(),
     ).toBeVisible();
@@ -62,7 +62,7 @@ test.describe("Institute linked question and linker journey", () => {
         await linker.expectTopicCoverageVisible();
       } else {
         await linker.applyScope(/class 7/i);
-        await expect(page.getByText(/selected subject/i).first()).toBeVisible();
+        await expect(page.getByText(/subject:\s*not chosen yet/i).first()).toBeVisible();
       }
     }
   });

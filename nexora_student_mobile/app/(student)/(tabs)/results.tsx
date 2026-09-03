@@ -8,6 +8,7 @@ import { ActionButton } from "@/components/action-button";
 import { MetricCard } from "@/components/metric-card";
 import { SectionBlock } from "@/components/section-block";
 import { StatePanel } from "@/components/state-panel";
+import { SkeletonList } from "@/components/skeleton";
 import { fetchStudentResults } from "@/lib/api/student";
 import { useSessionStore } from "@/store/session-store";
 import { appStyles } from "@/theme/styles";
@@ -179,22 +180,26 @@ export default function ResultsScreen() {
           value={String(scopedResults.length)}
           helper="Student result records matching the active subject lane"
           soft
+          loading={query.isLoading}
         />
         <MetricCard
           label="Published"
           value={String(publishedResults.length)}
           helper="Results already visible to the learner"
+          loading={query.isLoading}
         />
         <MetricCard
           label="Review Ready"
           value={String(reviewReadyResults.length)}
           helper="Published results that already allow question-level review"
           soft
+          loading={query.isLoading}
         />
         <MetricCard
           label="Best Score"
           value={bestPublishedResult ? `${bestPublishedResult.percentage}%` : "--"}
           helper="Highest visible published percentage in this scope"
+          loading={query.isLoading}
         />
       </View>
 
@@ -225,7 +230,9 @@ export default function ResultsScreen() {
         title="Ready for review"
         subtitle="Use this first when the learner wants question-level follow-up"
       >
-        {reviewReadyResults.length ? (
+        {query.isLoading ? (
+          <SkeletonList count={2} />
+        ) : reviewReadyResults.length ? (
           reviewReadyResults.slice(0, 4).map((result) => {
             const tone = resultTone(result);
             return (
@@ -276,7 +283,9 @@ export default function ResultsScreen() {
         title="Pending publication"
         subtitle="Attempts that are complete but still waiting on learner-visible release"
       >
-        {pendingResults.length ? (
+        {query.isLoading ? (
+          <SkeletonList count={1} />
+        ) : pendingResults.length ? (
           pendingResults.slice(0, 4).map((result) => (
             <View key={result.id} style={appStyles.productCard}>
               <View style={appStyles.rowBetween}>
@@ -315,7 +324,9 @@ export default function ResultsScreen() {
         title="Results timeline"
         subtitle="Compact learner-facing history for the current subject scope"
       >
-        {scopedResults.length ? (
+        {query.isLoading ? (
+          <SkeletonList count={3} />
+        ) : scopedResults.length ? (
           scopedResults.map((result) => {
             const tone = resultTone(result);
             return (

@@ -133,24 +133,6 @@ async function selectUnentitledRequestableCycle(page: Page, accessToken: string)
   return null;
 }
 
-async function findPendingRequestRowByNote(card: Locator, note: string) {
-  const rows = card.locator(".weakTopicRow");
-  const count = await rows.count();
-
-  for (let index = 0; index < count; index += 1) {
-    const row = rows.nth(index);
-    if ((await row.getByText(note, { exact: false }).count()) === 0) {
-      continue;
-    }
-    if ((await row.getByRole("button", { name: /approve|reject/i }).count()) === 0) {
-      continue;
-    }
-    return row;
-  }
-
-  return null;
-}
-
 async function findPendingRequestRow(card: Locator, options: {
   note: string;
   requestId?: string | null;

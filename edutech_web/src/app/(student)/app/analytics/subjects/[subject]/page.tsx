@@ -1,6 +1,5 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
-import { fetchCurrentAccountProfile } from "@/lib/auth/session";
 import { StudentKpiGrid } from "@/components/ui/student-kpi-grid";
 import { StudentReportFilters } from "@/components/ui/student-report-filters";
 import { StudentPageHeader } from "@/components/ui/student-page-header";

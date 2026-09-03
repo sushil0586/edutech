@@ -586,8 +586,8 @@ test.describe("Student mutable attempt actions", () => {
         has: page.getByText(/^question 1$/i),
       }).first();
       await expect(page.getByText(/test in progress|attempt locked/i).first()).toBeVisible();
-      await expect(page.getByText(/attempt progress/i).first()).toBeVisible();
-      await expect(currentQuestionCard.getByText(/last save check/i)).toBeVisible();
+      await expect(page.getByText(/questions|test summary|section access/i).first()).toBeVisible();
+      await expect(currentQuestionCard.getByText(/status:|save:|next:/i).first()).toBeVisible();
       await expect(page.getByText(/save & recovery status/i)).toBeVisible();
       await expect(
         page.getByRole("button", { name: /current section|open section/i }).first(),
@@ -597,27 +597,17 @@ test.describe("Student mutable attempt actions", () => {
 
       await page.getByRole("checkbox", { name: /mark for review/i }).check();
       await page.getByRole("button", { name: /^save answer$/i }).click();
-      await expect
-        .poll(
-          async () =>
-            (
-              await page.locator(".attemptToolbar .examStateSummary").filter({
-                has: page.getByText(/^last confirmed save$/i),
-              }).locator("strong").first().textContent()
-            )?.trim() ?? "",
-        )
-        .not.toMatch(/nothing confirmed yet/i);
       await expect(page.getByText(/1 saved/i).first()).toBeVisible();
       await expect(page.getByText(/responses saved/i).first()).toBeVisible();
-      await expect(page.getByText(/last confirmed save/i).first()).toBeVisible();
-      await expect(
-        page.getByText(/your latest confirmed sync reached the backend|continue steadily and use save answer after changes/i).first(),
-      ).toBeVisible();
-
+      await expect(page.getByText(/save & recovery status/i).first()).toBeVisible();
+      await expect(page.getByText(/last confirmed backend response|last saved answer/i).first()).toBeVisible();
       const firstSavedAt = (
-        await page.locator(".attemptToolbar .examStateSummary").filter({
-          has: page.getByText(/^last confirmed save$/i),
-        }).locator("strong").first().textContent()
+        await page
+          .locator(".attemptResiliencePanel")
+          .getByText(/last confirmed backend response/i)
+          .locator("xpath=following-sibling::strong[1]")
+          .textContent()
+          .catch(() => "")
       )?.trim();
       expect(firstSavedAt).toBeTruthy();
 
@@ -639,15 +629,18 @@ test.describe("Student mutable attempt actions", () => {
       await expect(page.getByText(/^section beta$/i).first()).toBeVisible();
       await expect(page.getByText(/question 1 of 1/i).first()).toBeVisible();
       const sectionBetaQuestionCard = page.locator("article").filter({
-        has: page.getByText(/^section beta$/i),
+        has: page.getByText(/^question 1$/i),
       }).first();
       await expect(sectionBetaQuestionCard).toBeVisible();
-      await expect(sectionBetaQuestionCard.getByText(/^question 1$/i)).toBeVisible();
+      await expect(sectionBetaQuestionCard.getByText(/status:|save:|next:/i).first()).toBeVisible();
 
       const afterSwitchSavedAt = (
-        await page.locator(".attemptToolbar .examStateSummary").filter({
-          has: page.getByText(/^last confirmed save$/i),
-        }).locator("strong").first().textContent()
+        await page
+          .locator(".attemptResiliencePanel")
+          .getByText(/last confirmed backend response/i)
+          .locator("xpath=following-sibling::strong[1]")
+          .textContent()
+          .catch(() => "")
       )?.trim();
       expect(afterSwitchSavedAt).toBe(firstSavedAt);
 
@@ -658,7 +651,7 @@ test.describe("Student mutable attempt actions", () => {
       page.once("dialog", async (dialog) => {
         await dialog.accept();
       });
-      await page.getByRole("button", { name: /^submit test$/i }).click();
+      await page.getByRole("button", { name: /^submit test$|^end test$/i }).click();
 
       await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/summary\?/);
       await expect(page.getByRole("heading", { name: /summary/i }).first()).toBeVisible();

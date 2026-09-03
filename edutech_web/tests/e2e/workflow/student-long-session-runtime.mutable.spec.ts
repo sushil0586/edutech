@@ -109,6 +109,28 @@ async function currentToolbarValue(page: Page, label: RegExp) {
   ).trim();
 }
 
+async function currentLastConfirmedSaveValue(page: Page) {
+  const resilienceValue =
+    (
+      (await page
+        .locator(".attemptResiliencePanel")
+        .getByText(/last confirmed backend response|last confirmed save/i)
+        .locator("xpath=following-sibling::*[1]")
+        .first()
+        .textContent()
+        .catch(() => "")) ?? ""
+    ).trim();
+
+  if (resilienceValue) {
+    return resilienceValue;
+  }
+
+  return (
+    (await currentToolbarValue(page, /^last confirmed backend response$/i)) ||
+    (await currentToolbarValue(page, /^last confirmed save$/i))
+  ).trim();
+}
+
 async function selectOptionByLabel(select: Locator, label: string) {
   const options = await select.locator("option").evaluateAll((nodes) =>
     nodes.map((node) => ({
@@ -201,7 +223,7 @@ async function saveCheckpoint(page: Page, seed: number, prefix: string) {
   await expect(page.getByText(/responses saved/i).first()).toBeVisible();
   await expect(page.getByText(/save & recovery status/i).first()).toBeVisible();
   await expect(page.locator(".attemptResiliencePanel").first()).toContainText(/online|synced/i);
-  await expect(page.getByText(/last confirmed save/i).first()).toBeVisible();
+  await expect(page.getByText(/last confirmed backend response|last confirmed save/i).first()).toBeVisible();
 }
 
 async function runTeacherExamAction(page: Page, examId: string, action: "sync-marks" | "publish" | "mark-live") {
@@ -286,19 +308,20 @@ async function createDisposableTrueFalseQuestion(page: Page, programName: string
 }
 
 async function expectCurrentSection(page: Page, sectionName: string) {
-  await expect
-    .poll(async () => {
-      const toolbarSection = (await currentToolbarValue(page, /^current section$/i).catch(() => "")).toLowerCase();
-      const currentSectionCardVisible = await page
-        .locator(".attemptSectionCard")
-        .filter({ has: page.getByText(new RegExp(escapeRegExp(sectionName), "i")) })
-        .filter({ has: page.getByRole("button", { name: /current section/i }) })
-        .first()
-        .isVisible()
-        .catch(() => false);
-      return toolbarSection.includes(sectionName.toLowerCase()) || currentSectionCardVisible;
-    })
-    .toBe(true);
+  const shellSection = page.getByText(
+    new RegExp(`${escapeRegExp(sectionName)}\\s*·\\s*Question\\s+\\d+\\s+of\\s+\\d+`, "i"),
+  ).first();
+  if (await shellSection.isVisible().catch(() => false)) {
+    await expect(shellSection).toBeVisible();
+    return;
+  }
+
+  const currentSectionCard = page.locator(".attemptSectionCard").filter({
+    has: page.getByText(new RegExp(`^${escapeRegExp(sectionName)}$`, "i")),
+  }).filter({
+    has: page.getByRole("button", { name: /current section/i }),
+  }).first();
+  await expect(currentSectionCard).toBeVisible();
 }
 
 async function resumeLongSessionAttempt(page: Page, examId: string, attemptId: string, examTitle: string) {
@@ -332,7 +355,6 @@ test.describe("Student long-session runtime continuity", () => {
     const studentCredentials = getRoleCredentials("student");
     expect(studentCredentials).not.toBeNull();
 
-    let studentDisplayName = studentCredentials!.username;
     let studentProfileId: string | null = null;
     let examId: string | null = null;
     let attemptId: string | null = null;
@@ -361,9 +383,7 @@ test.describe("Student long-session runtime continuity", () => {
     }).first();
     if (await identityCard.count()) {
       const renderedName = (await identityCard.locator("strong").first().textContent())?.trim();
-      if (renderedName) {
-        studentDisplayName = renderedName;
-      }
+      void renderedName;
     }
     const studentMe = await page.request.get(`${backendBaseUrl}/api/v1/auth/me/`, {
       headers: {
@@ -504,19 +524,19 @@ test.describe("Student long-session runtime continuity", () => {
         .toMatch(/\/app\/attempts\/[^/?#]+(?:\?.*)?$/);
       attemptId = page.url().match(/\/app\/attempts\/([^/?#]+)/)?.[1] ?? null;
       expect(attemptId).not.toBeNull();
-      await expect(page.getByText(/attempt progress/i).first()).toBeVisible();
-      await expect(page.getByText(/question palette/i).first()).toBeVisible();
+      await expect(page.getByText(/section alpha · question 1 of 1/i).first()).toBeVisible();
+      await expect(page.getByRole("button", { name: /questions/i }).first()).toBeVisible();
       await expect(page.getByText(/save & recovery status/i).first()).toBeVisible();
 
       await saveCheckpoint(page, uniqueSeed, "Long session alpha");
-      const firstSaveTimestamp = await currentToolbarValue(page, /^last confirmed save$/i);
+      const firstSaveTimestamp = await currentLastConfirmedSaveValue(page);
       expect(firstSaveTimestamp).not.toBe("");
 
       await page.reload();
       await expect(page).toHaveURL(new RegExp(`/app/attempts/${attemptId}(?:\\?.*)?$`));
       await expect(page.getByText(/test in progress|attempt locked/i).first()).toBeVisible();
       await expect(page.getByText(/save & recovery status/i).first()).toBeVisible();
-      expect(await currentToolbarValue(page, /^last confirmed save$/i)).toBe(firstSaveTimestamp);
+      expect(await currentLastConfirmedSaveValue(page)).toBe(firstSaveTimestamp);
 
       const betaSectionCard = page.locator(".attemptSectionCard").filter({
         has: page.getByText(/section beta/i),
@@ -527,36 +547,47 @@ test.describe("Student long-session runtime continuity", () => {
       await saveCheckpoint(page, uniqueSeed + 1, "Long session beta");
 
       await resumeLongSessionAttempt(page, examId!, attemptId!, examTitle);
-      await expect(page.getByText(/attempt progress/i).first()).toBeVisible();
-      await expect(page.getByText(/question palette/i).first()).toBeVisible();
+      await expect(page.getByText(/test in progress|attempt locked/i).first()).toBeVisible();
+      await expect(page.getByRole("button", { name: /questions/i }).first()).toBeVisible();
+      await expectCurrentSection(page, "Section Beta");
 
+      await saveCheckpoint(page, uniqueSeed + 1, "Long session beta revisit");
       const saveAndNextSectionButton = page.getByRole("button", { name: /^save & next section$/i }).first();
       if (await saveAndNextSectionButton.isVisible().catch(() => false)) {
-        await saveAndNextSectionButton.click();
+        await saveAndNextSectionButton.scrollIntoViewIfNeeded();
+        await saveAndNextSectionButton.click({ force: true });
       }
 
       const gammaSectionCard = page.locator(".attemptSectionCard").filter({
         has: page.getByText(/section gamma/i),
       }).first();
       const gammaOpenSectionButton = gammaSectionCard.getByRole("button", { name: /open section/i }).first();
-      if (await gammaOpenSectionButton.isVisible().catch(() => false)) {
-        await gammaOpenSectionButton.click();
+      await expect(gammaSectionCard).toBeVisible();
+      const alreadyInGamma = await page
+        .getByText(/section gamma · question 1 of 1/i)
+        .first()
+        .isVisible()
+        .catch(() => false);
+      if (!alreadyInGamma) {
+        await expect(gammaSectionCard).toBeVisible();
+        await expect(gammaSectionCard.getByRole("button", { name: /open section/i }).first()).toBeVisible();
+        await gammaSectionCard.getByRole("button", { name: /open section/i }).first().click({ force: true });
       }
       await expectCurrentSection(page, "Section Gamma");
       await saveCheckpoint(page, uniqueSeed + 2, "Long session gamma");
 
       await page.reload();
       await expect(page).toHaveURL(new RegExp(`/app/attempts/${attemptId}(?:\\?.*)?$`));
-      await expect(page.getByText(/save this answer before moving on/i).first()).toBeVisible();
-      await expect(page.getByText(/palette jumps and section switches do not auto-save edits/i).first()).toBeVisible();
-      await expect(page.getByText(/section switching is navigation, not save/i).first()).toBeVisible();
+      await expect(page.getByText(/section gamma · question 1 of 1/i).first()).toBeVisible();
+      await expect(page.getByText(/saved · not marked for review/i).first()).toBeVisible();
+      await expect(page.getByText(/review before submit/i).first()).toBeVisible();
       await expect(page.getByText(/save & recovery status/i).first()).toBeVisible();
-      expect(await currentToolbarValue(page, /^last confirmed save$/i)).not.toBe("");
+      expect(await currentLastConfirmedSaveValue(page)).not.toBe("");
 
       page.once("dialog", async (dialog) => {
         await dialog.accept();
       });
-      await page.getByRole("button", { name: /^submit test$/i }).click();
+      await page.getByRole("button", { name: /^end test$/i }).click();
 
       await expect(page).toHaveURL(new RegExp(`/app/attempts/${attemptId}/summary\\?`));
       await expect(page.getByRole("heading", { name: /summary/i }).first()).toBeVisible();

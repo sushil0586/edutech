@@ -257,30 +257,6 @@ async function waitForReviewTaskInQueue(page: Page, examId: string) {
   return null;
 }
 
-async function deleteInstituteExam(page: Page, examId: string) {
-  const accessToken = await getInstituteCleanupAccessToken(page);
-
-  try {
-    const response = await page.request.delete(`${backendBaseUrl}/api/v1/exams/${examId}/`, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      timeout: 15000,
-    });
-    if (response.ok()) {
-      return;
-    }
-  } catch {
-    // Fall back to the web proxy route used elsewhere in the suite.
-  }
-
-  const proxyResponse = await page.request.delete(`/api/institute/exams/${examId}`, {
-    timeout: 15000,
-  });
-  expect(proxyResponse.ok()).toBe(true);
-}
-
 test.describe("Student mutable descriptive result storytelling", () => {
   test.skip(
     testRequiresRole("institute") || testRequiresRole("student"),

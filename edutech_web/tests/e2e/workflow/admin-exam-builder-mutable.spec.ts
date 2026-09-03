@@ -50,6 +50,16 @@ async function selectOptionByLabelPattern(
   return true;
 }
 
+async function waitForScopeOptionsReady(
+  page: Page,
+  subject: ReturnType<Page["locator"]>,
+) {
+  await expect(subject).toBeEnabled({ timeout: 30000 });
+  await expect(
+    page.getByText(/refreshing subject options for the selected program\./i),
+  ).toHaveCount(0, { timeout: 30000 });
+}
+
 async function backendAccessToken(page: Page) {
   const cookies = await page.context().cookies();
   const accessToken = cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
@@ -133,8 +143,17 @@ test.describe("Admin mutable exam builder actions", () => {
       await page.goto("/admin/exams/new");
       await expect(page.getByRole("heading", { name: /create exam/i }).first()).toBeVisible();
 
-      const instituteId = await page.locator('input[name="institute"]').first().inputValue();
+      const instituteScopeLink = page
+        .getByRole("link", { name: /demo learning institute/i })
+        .first();
+      await expect(instituteScopeLink).toBeVisible();
+      const scopeHref = await instituteScopeLink.getAttribute("href");
+      expect(scopeHref).toContain("institute=");
+      const instituteId = new URL(scopeHref!, "http://localhost").searchParams.get("institute") ?? "";
       expect(instituteId).not.toBe("");
+      await instituteScopeLink.click();
+      await expect(page).toHaveURL(new RegExp(`/admin/exams/new\\?[^#]*institute=${instituteId}`));
+
       const academicYear = page.locator('select[name="academic_year"]').first();
       const program = page.locator('select[name="program"]').first();
       const subject = page.locator('select[name="subject"]').first();
@@ -148,6 +167,7 @@ test.describe("Admin mutable exam builder actions", () => {
       if (!(await selectOptionByLabelPattern(program, /class 7|demo .*track/i)) && (await program.inputValue()) === "") {
         await selectFirstNonEmptyOption(program);
       }
+      await waitForScopeOptionsReady(page, subject);
       if (!(await selectOptionByLabelPattern(subject, /math|science/i)) && (await subject.inputValue()) === "") {
         await selectFirstNonEmptyOption(subject);
       }
@@ -169,7 +189,7 @@ test.describe("Admin mutable exam builder actions", () => {
       await expect(createdExamCard).toBeVisible();
 
       const openExamHref = await createdExamCard
-        .getByRole("link", { name: /open exam/i })
+        .getByRole("link", { name: /view exam|open exam/i })
         .getAttribute("href");
       examId = openExamHref?.match(/\/admin\/exams\/([^/?#]+)/)?.[1] ?? null;
       expect(examId).not.toBeNull();

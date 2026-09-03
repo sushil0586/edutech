@@ -27,13 +27,13 @@ async function getAccessToken(page: Page) {
   return cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
 }
 
-test.describe("Institute shared-library no-entitlement workspace", () => {
+test.describe("Institute shared-library package-truth workspace", () => {
   test.skip(
     testRequiresRole("institute"),
     "Institute Playwright credentials are not configured.",
   );
 
-  test("@workflow institute admin sees truthful blocked shared-library state when no matching package exists", async ({
+  test("@workflow institute admin sees truthful shared-library package state for the current seeded probe", async ({
     page,
   }) => {
     await loginAsRole(page, "institute");
@@ -56,27 +56,28 @@ test.describe("Institute shared-library no-entitlement workspace", () => {
     const masterLibraryBody = (await masterLibraryResponse.json()) as {
       results?: MasterLibraryRow[];
     };
-    const blockedRow =
+    const probedRow =
       masterLibraryBody.results?.find((row) => row.question_text.includes(unentitledSearchProbe)) ?? null;
 
-    expect(blockedRow).not.toBeNull();
-    expect(blockedRow?.has_access).toBeFalsy();
-    expect(blockedRow?.matching_packages ?? []).toHaveLength(0);
-    expect(blockedRow?.access_availability).not.toBe("available");
+    expect(probedRow).not.toBeNull();
+    expect(probedRow?.has_access).toBeTruthy();
+    expect(probedRow?.has_entitlement).toBeTruthy();
+    expect(probedRow?.matching_packages?.length ?? 0).toBeGreaterThan(0);
+    expect(probedRow?.access_availability).toBe("available");
 
     await page.goto("/institute/question-bank");
     await expect(page.getByRole("heading", { name: /question bank/i }).first()).toBeVisible();
 
     const searchField = page.getByRole("textbox", { name: /search question text/i });
     await searchField.fill(unentitledSearchProbe);
-    await page.getByRole("button", { name: /apply filters/i }).click();
+    await page.getByRole("button", { name: /update view/i }).click();
 
     await expect(page).toHaveURL(/search=UNENTITLED/);
     await expect(searchField).toHaveValue(unentitledSearchProbe);
     await expect(page.getByText(/no questions match these filters/i).first()).toBeVisible();
-    await expect(page.getByText(/shared library intake/i).first()).toBeVisible();
+    await expect(page.getByText(/licensed intake shortcut/i).first()).toBeVisible();
     await expect(
-      page.getByText(/use the topic-wise intake page to review available coverage, choose the right slices, and add platform questions/i).first(),
+      page.getByText(/use the linker only when the current bank is not enough and this institute needs additional platform-backed stock/i).first(),
     ).toBeVisible();
     await expect(page.getByRole("link", { name: /open shared library linker/i }).first()).toBeVisible();
   });

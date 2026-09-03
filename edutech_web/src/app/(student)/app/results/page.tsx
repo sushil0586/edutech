@@ -1,10 +1,7 @@
 import { cookies } from "next/headers";
-import { redirect, unstable_rethrow } from "next/navigation";
-import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import { FilterSummaryPills } from "@/components/ui/filter-summary-pills";
 import { fetchCurrentAccountProfile } from "@/lib/auth/session";
 import { StudentKpiGrid } from "@/components/ui/student-kpi-grid";
-import { StudentPassiveNavLink } from "@/components/ui/student-passive-nav-link";
 import { StudentPageHeader } from "@/components/ui/student-page-header";
 import { StudentResultsReport, type StudentResultsReportRow } from "@/components/ui/student-results-report";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
@@ -13,8 +10,6 @@ import {
   fetchStudentPracticeFollowUpExams,
   fetchStudentResults,
   getStudentApiState,
-  spendStarsForContent,
-  startStudentAttempt,
 } from "@/lib/api/student";
 import { StudentResult } from "@/features/dashboard/types";
 import {
@@ -50,7 +45,7 @@ import {
   STUDENT_SOURCE_TEACHER_CONTEXT_COOKIE,
   STUDENT_SUBJECT_CONTEXT_COOKIE,
 } from "@/lib/student/subject-context";
-import { buildPracticeHref, resolvePracticeFollowUpAction } from "@/lib/student/practice";
+import { resolvePracticeFollowUpAction } from "@/lib/student/practice";
 import { buildFilterHref, formatFilterValue } from "@/lib/workspace/filter-utils";
 
 type ResultStatusFilter =
@@ -331,57 +326,6 @@ async function loadResults() {
   }
 }
 
-async function startPracticeAction(formData: FormData) {
-  "use server";
-
-  const examId = String(formData.get("exam_id") ?? "");
-  const studentId = String(formData.get("student_id") ?? "");
-  if (!examId || !studentId) return;
-
-  try {
-    const response = await startStudentAttempt(examId, studentId);
-    redirect(`/app/attempts/${response.data.id}`);
-  } catch (error) {
-    unstable_rethrow(error);
-    const message =
-      error instanceof Error && error.message
-        ? encodeURIComponent(error.message)
-        : "Unable to start this practice set right now.";
-    redirect(`/app/results?error=${message}`);
-  }
-}
-
-async function unlockPracticeAction(formData: FormData) {
-  "use server";
-
-  const examId = String(formData.get("exam_id") ?? "");
-  const contentType = String(formData.get("content_type") ?? "");
-  const contentKey = String(formData.get("content_key") ?? "");
-  const subject = String(formData.get("subject_id") ?? "").trim();
-
-  if (!examId || !contentType || !contentKey) return;
-
-  try {
-    const response = await spendStarsForContent({
-      content_type: contentType,
-      content_key: contentKey,
-      subject: subject || null,
-    });
-    redirect(
-      `/app/exams/${examId}?message=${encodeURIComponent(
-        response.data.message || "Practice set unlocked successfully.",
-      )}`,
-    );
-  } catch (error) {
-    unstable_rethrow(error);
-    const message =
-      error instanceof Error && error.message
-        ? encodeURIComponent(error.message)
-        : "Unable to unlock this practice set right now.";
-    redirect(`/app/results?error=${message}`);
-  }
-}
-
 export default async function ResultsPage({
   searchParams,
 }: {
@@ -485,12 +429,6 @@ export default async function ResultsPage({
             (sum, result) => sum + Number(result.percentage),
             0,
           ) / publishedResults.length,
-        )
-      : null;
-  const highestScore =
-    publishedResults.length > 0
-      ? publishedResults.reduce((best, result) =>
-          Number(result.percentage) > Number(best.percentage) ? result : best,
         )
       : null;
   const latestResult = filteredResults[0] ?? scopedResults[0] ?? null;

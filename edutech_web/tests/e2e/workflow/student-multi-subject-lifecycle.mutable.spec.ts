@@ -4,6 +4,7 @@ import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
 import { expectStudentWorkspace } from "../helpers/navigation";
 import {
+  forceSubmitTeacherInProgressAttemptsForExam,
   openStudentPrimaryActionOrSkip,
   resolveStudentFamilyExamOrSkip,
 } from "../helpers/student-family";
@@ -31,6 +32,7 @@ test.describe("Student mutable multi-subject lifecycle", () => {
   }) => {
     test.setTimeout(180000);
 
+    await forceSubmitTeacherInProgressAttemptsForExam(page, { examCode: multiSubjectPracticeExamCode });
     await loginAsRole(page, "student");
     await expectStudentWorkspace(page);
 
@@ -71,11 +73,7 @@ test.describe("Student mutable multi-subject lifecycle", () => {
 
     await answerCurrentAttemptQuestion(page, Date.now(), "Playwright mixed subject answer");
     await page.getByRole("button", { name: /^save answer$/i }).click();
-    await expect(
-      page.locator(".feedbackBannerSuccess").filter({
-        hasText: /response updated successfully/i,
-      }).first(),
-    ).toBeVisible();
+    await expect(page.getByText(/response updated successfully/i).first()).toBeVisible();
 
     const nextSectionButton = page
       .locator(".attemptSectionCard")
@@ -94,7 +92,7 @@ test.describe("Student mutable multi-subject lifecycle", () => {
     page.once("dialog", async (dialog) => {
       await dialog.accept();
     });
-    await page.getByRole("button", { name: /^submit test$/i }).click();
+    await page.getByRole("button", { name: /^(submit test|end test)$/i }).click();
 
     await expect(page).toHaveURL(new RegExp(`/app/attempts/${attemptId}/summary\\?`));
     await expect(page.getByRole("heading", { name: /summary/i }).first()).toBeVisible();
@@ -104,13 +102,12 @@ test.describe("Student mutable multi-subject lifecycle", () => {
     await page.goto("/app/results");
     await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
     await expect(page.getByText(new RegExp(multiSubjectPracticeExamTitle, "i")).first()).toBeVisible();
-    const seededResultCard = page.locator("article").filter({
-      has: page.getByText(new RegExp(multiSubjectPracticeExamCode, "i")),
-      hasNot: page.getByRole("link", { name: /view analytics/i }),
-    }).filter({
-      has: page.getByRole("link", { name: /open summary/i }),
+    const seededResultRow = page.getByRole("button", {
+      name: new RegExp(`${multiSubjectPracticeExamTitle}.*${multiSubjectPracticeExamCode}.*practice again`, "i"),
     }).first();
-    await expect(seededResultCard).toBeVisible();
-    await expect(seededResultCard.getByRole("link", { name: /open summary/i })).toBeVisible();
+    await expect(seededResultRow).toBeVisible();
+    await expect(seededResultRow.getByText(new RegExp(multiSubjectPracticeExamCode, "i")).first()).toBeVisible();
+    await expect(seededResultRow.getByText(/published/i).first()).toBeVisible();
+    await expect(seededResultRow.getByText(/practice again/i).first()).toBeVisible();
   });
 });

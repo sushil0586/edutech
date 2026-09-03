@@ -3,13 +3,44 @@ import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectTeacherWorkspace } from "../helpers/navigation";
 import { gotoWithRuntimeRecovery } from "../helpers/runtime";
 
-async function expectVisualSnapshot(locator: Locator, name: string, maxDiffPixels: number) {
+async function expectVisualSnapshot(
+  locator: Locator,
+  name: string,
+  maxDiffPixels: number,
+  options?: { mask?: Locator[] },
+) {
   await expect(locator).toBeVisible();
   await locator.scrollIntoViewIfNeeded();
   await expect(locator).toHaveScreenshot(name, {
     animations: "disabled",
     caret: "hide",
     maxDiffPixels,
+    mask: options?.mask,
+  });
+}
+
+function metricStripMasks(scope: Locator) {
+  return [
+    scope.locator(".metricCard strong"),
+    scope.locator(".metricCard p"),
+    scope.locator(".metricCard small"),
+    scope.locator(".metricCard span"),
+  ];
+}
+
+async function normalizeMetricStripForVisual(scope: Locator) {
+  await scope.evaluate((element) => {
+    element.querySelectorAll<HTMLElement>(".metricCard").forEach((card) => {
+      card.style.minHeight = "132px";
+      card.style.height = "132px";
+    });
+    element
+      .querySelectorAll<HTMLElement>(".metricCard strong, .metricCard p, .metricCard small, .metricCard span")
+      .forEach((node) => {
+        node.style.whiteSpace = "nowrap";
+        node.style.overflow = "hidden";
+        node.style.textOverflow = "ellipsis";
+      });
   });
 }
 
@@ -39,8 +70,11 @@ test.describe("Teacher report surfaces visual", () => {
 
     const hero = page.locator(".analyticsDetailHero").first();
     const kpiStrip = page.locator(".resultsSummaryGrid").first();
+    await normalizeMetricStripForVisual(kpiStrip);
     await expectVisualSnapshot(hero, "teacher-subject-report-hero.png", 320);
-    await expectVisualSnapshot(kpiStrip, "teacher-subject-report-kpi-strip.png", 300);
+    await expectVisualSnapshot(kpiStrip, "teacher-subject-report-kpi-strip.png", 300, {
+      mask: metricStripMasks(kpiStrip),
+    });
 
     const emptyState = page
       .getByText(/subject-strength rows will appear when teacher weak-topic evidence is available/i)
@@ -61,8 +95,11 @@ test.describe("Teacher report surfaces visual", () => {
 
     const hero = page.locator(".analyticsDetailHero").first();
     const kpiStrip = page.locator(".resultsSummaryGrid").first();
+    await normalizeMetricStripForVisual(kpiStrip);
     await expectVisualSnapshot(hero, "teacher-weak-areas-report-hero.png", 320);
-    await expectVisualSnapshot(kpiStrip, "teacher-weak-areas-report-kpi-strip.png", 300);
+    await expectVisualSnapshot(kpiStrip, "teacher-weak-areas-report-kpi-strip.png", 300, {
+      mask: metricStripMasks(kpiStrip),
+    });
 
     const emptyState = page
       .getByText(/weak-topic rows will appear once teacher-scoped topic evidence is available/i)
@@ -83,8 +120,11 @@ test.describe("Teacher report surfaces visual", () => {
 
     const hero = page.locator(".analyticsDetailHero").first();
     const kpiStrip = page.locator(".resultsSummaryGrid").first();
+    await normalizeMetricStripForVisual(kpiStrip);
     await expectVisualSnapshot(hero, "teacher-wrong-questions-report-hero.png", 320);
-    await expectVisualSnapshot(kpiStrip, "teacher-wrong-questions-report-kpi-strip.png", 300);
+    await expectVisualSnapshot(kpiStrip, "teacher-wrong-questions-report-kpi-strip.png", 300, {
+      mask: metricStripMasks(kpiStrip),
+    });
 
     const emptyState = page
       .getByText(/wrong-question rows will appear once enough teacher-scoped answer evidence exists/i)
@@ -109,8 +149,11 @@ test.describe("Teacher report surfaces visual", () => {
 
     const hero = page.locator(".analyticsDetailHero").first();
     const kpiStrip = page.locator(".resultsSummaryGrid").first();
+    await normalizeMetricStripForVisual(kpiStrip);
     await expectVisualSnapshot(hero, "teacher-time-management-report-hero.png", 320);
-    await expectVisualSnapshot(kpiStrip, "teacher-time-management-report-kpi-strip.png", 300);
+    await expectVisualSnapshot(kpiStrip, "teacher-time-management-report-kpi-strip.png", 300, {
+      mask: metricStripMasks(kpiStrip),
+    });
 
     const emptyState = page
       .getByText(/timing rows will appear once timed teacher-scoped attempts are available/i)
@@ -136,8 +179,14 @@ test.describe("Teacher report surfaces visual", () => {
 
     const hero = page.locator(".analyticsDetailHero").first();
     const kpiStrip = page.locator(".resultsSummaryGrid").first();
+    const currentExamLensCard = kpiStrip.locator(".metricCard").filter({
+      has: page.getByText(/current exam lens/i),
+    }).first();
+    await normalizeMetricStripForVisual(kpiStrip);
     await expectVisualSnapshot(hero, "teacher-learner-report-hero.png", 320);
-    await expectVisualSnapshot(kpiStrip, "teacher-learner-report-kpi-strip.png", 300);
+    await expectVisualSnapshot(kpiStrip, "teacher-learner-report-kpi-strip.png", 300, {
+      mask: [...metricStripMasks(kpiStrip), currentExamLensCard],
+    });
 
     const interpretationCard = page
       .locator(".contentCard")

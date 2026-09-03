@@ -1,4 +1,4 @@
-appId: com.anonymous.nexorastudentmobile
+appId: ${MAESTRO_APP_ID}
 ---
 # Set these before running:
 # STUDENT_USERNAME
@@ -10,23 +10,84 @@ appId: com.anonymous.nexorastudentmobile
 - launchApp:
     clearState: true
 
-- tapOn: "Login"
+- runFlow:
+    when:
+      visible: "Student Dashboard"
+    commands:
+      - tapOn:
+          id: "student-tab-profile"
+      - extendedWaitUntil:
+          visible:
+            id: "profile-logout-button"
+          timeout: 30000
+      - tapOn:
+          id: "profile-logout-button"
+      - extendedWaitUntil:
+          visible:
+            id: "role-gate-login-button"
+          timeout: 30000
+
+- extendedWaitUntil:
+    visible:
+      id: "role-gate-login-button"
+    timeout: 30000
+
 - tapOn:
-    text: "Username"
+    id: "role-gate-login-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "login-username-input"
+    timeout: 30000
+
+- tapOn:
+    id: "login-username-input"
 - inputText: ${STUDENT_USERNAME}
 
 - tapOn:
-    text: "Enter password"
+    id: "login-password-input"
 - inputText: ${STUDENT_PASSWORD}
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn: "Sign in and continue learning"
 
-- hideKeyboard
-- tapOn: "Login"
+- scrollUntilVisible:
+    element:
+      id: "login-submit-button"
+    direction: DOWN
 
-- assertVisible: "Student Dashboard"
+- tapOn:
+    id: "login-submit-button"
 
-- tapOn: "Results"
+- extendedWaitUntil:
+    visible: "Student Dashboard"
+    timeout: 120000
 
-- assertVisible: "Student Results"
+- tapOn:
+    id: "dashboard-open-attempts-button"
+
+- extendedWaitUntil:
+    visible: "Student Attempts"
+    timeout: 30000
+
+- scrollUntilVisible:
+    element:
+      id: "attempts-open-results-button"
+    direction: DOWN
+
+- tapOn:
+    id: "attempts-open-results-button"
+
+- extendedWaitUntil:
+    visible: "Student Results"
+    timeout: 30000
 
 - scrollUntilVisible:
     element: "Review"

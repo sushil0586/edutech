@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   StudentAttemptAnswer,
   StudentUploadedResponseArtifact,
@@ -144,17 +144,11 @@ export function StudentResponseArtifactPanel({
     typeof navigator.mediaDevices.getUserMedia === "function" &&
     typeof MediaRecorder !== "undefined";
 
-  const canRecord = isRecordableArtifactKind(artifactKind) && isRecorderAvailable;
+  const resolvedArtifactKind = availableArtifactKinds.includes(artifactKind)
+    ? artifactKind
+    : (availableArtifactKinds[0] ?? "audio_recording");
+  const canRecord = isRecordableArtifactKind(resolvedArtifactKind) && isRecorderAvailable;
   const isLanguageFamily = assessmentFamilyCode === "language_proficiency";
-
-  useEffect(() => {
-    if (!availableArtifactKinds.includes(artifactKind)) {
-      setArtifactKind(availableArtifactKinds[0] ?? "audio_recording");
-      setSelectedFileName("");
-      setErrorMessage("");
-      setNoticeMessage("");
-    }
-  }, [artifactKind, availableArtifactKinds]);
 
   const stopMediaTracks = () => {
     mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
@@ -168,17 +162,31 @@ export function StudentResponseArtifactPanel({
     }
   };
 
-  const clearRecordedPreview = () => {
+  const clearRecordedPreview = useCallback(() => {
     if (recordedPreviewUrl) {
       URL.revokeObjectURL(recordedPreviewUrl);
     }
     setRecordedPreviewUrl("");
-  };
+  }, [recordedPreviewUrl]);
 
   const resetRecordedMedia = () => {
     setRecordedBlob(null);
     setRecordingDurationSeconds(0);
     clearRecordedPreview();
+  };
+
+  const resetArtifactInputs = () => {
+    if (isRecording) {
+      handleStopRecording();
+    } else {
+      resetRecordedMedia();
+    }
+    setSelectedFileName("");
+    setErrorMessage("");
+    setNoticeMessage("");
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   useEffect(() => {
@@ -214,7 +222,7 @@ export function StudentResponseArtifactPanel({
       clearRecordedPreview();
       stopMediaTracks();
     };
-  }, [recordedPreviewUrl]);
+  }, [clearRecordedPreview]);
 
   const handleUpload = async (uploadSource?: {
     file: Blob | File;
@@ -236,7 +244,7 @@ export function StudentResponseArtifactPanel({
     try {
       const formData = new FormData();
       formData.set("question", questionId);
-      formData.set("asset_kind", artifactKind);
+      formData.set("asset_kind", resolvedArtifactKind);
       formData.set("file", file, fileName);
 
       const uploadedArtifact = await new Promise<StudentUploadedResponseArtifact>(
@@ -304,7 +312,7 @@ export function StudentResponseArtifactPanel({
   };
 
   const handleStartRecording = async () => {
-    if (!isRecordableArtifactKind(artifactKind)) {
+    if (!isRecordableArtifactKind(resolvedArtifactKind)) {
       setErrorMessage("Recording is only available for audio and video responses.");
       return;
     }
@@ -321,13 +329,13 @@ export function StudentResponseArtifactPanel({
       setNoticeMessage("");
 
       const stream = await navigator.mediaDevices.getUserMedia(
-        artifactKind === "audio_recording"
+        resolvedArtifactKind === "audio_recording"
           ? { audio: true }
           : { audio: true, video: true },
       );
       mediaStreamRef.current = stream;
 
-      const mimeType = resolveRecorderMimeType(artifactKind);
+      const mimeType = resolveRecorderMimeType(resolvedArtifactKind);
       const mediaRecorder = mimeType
         ? new MediaRecorder(stream, { mimeType })
         : new MediaRecorder(stream);
@@ -359,7 +367,7 @@ export function StudentResponseArtifactPanel({
         setRecordedBlob(blob);
         setRecordedPreviewUrl(previewUrl);
         setSelectedFileName(
-          `recorded-response.${extensionFromMimeType(finalMimeType, artifactKind)}`,
+          `recorded-response.${extensionFromMimeType(finalMimeType, resolvedArtifactKind)}`,
         );
         setNoticeMessage("Recording is ready. Upload it now, then save the answer.");
       };
@@ -371,7 +379,7 @@ export function StudentResponseArtifactPanel({
         setRecordingDurationSeconds((current) => current + 1);
       }, 1000);
       setNoticeMessage(
-        artifactKind === "audio_recording"
+        resolvedArtifactKind === "audio_recording"
           ? "Recording audio response..."
           : "Recording video response...",
       );
@@ -406,21 +414,6 @@ export function StudentResponseArtifactPanel({
     setErrorMessage("");
   };
 
-  useEffect(() => {
-    if (isRecording) {
-      handleStopRecording();
-    } else {
-      resetRecordedMedia();
-      setSelectedFileName("");
-      setErrorMessage("");
-      setNoticeMessage("");
-    }
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [artifactKind]);
-
   return (
     <div className="attemptArtifactPanel" ref={rootRef}>
       <div className="attemptArtifactPanelHeader">
@@ -445,8 +438,11 @@ export function StudentResponseArtifactPanel({
           <select
             className="input"
             disabled={isUploading}
-            onChange={(event) => setArtifactKind(event.target.value as ResponseArtifactKind)}
-            value={artifactKind}
+            onChange={(event) => {
+              setArtifactKind(event.target.value as ResponseArtifactKind);
+              resetArtifactInputs();
+            }}
+            value={resolvedArtifactKind}
           >
             {RESPONSE_ARTIFACT_OPTIONS.filter((option) =>
               availableArtifactKinds.includes(option.value),
@@ -460,7 +456,7 @@ export function StudentResponseArtifactPanel({
         <label className="attemptArtifactField">
           <span>Attach file</span>
           <input
-            accept={RESPONSE_ARTIFACT_ACCEPT_MAP[artifactKind]}
+            accept={RESPONSE_ARTIFACT_ACCEPT_MAP[resolvedArtifactKind]}
             ref={fileInputRef}
             className="input"
             disabled={isUploading}
@@ -486,7 +482,7 @@ export function StudentResponseArtifactPanel({
         <div className="attemptRecorderPanel">
           <div className="attemptRecorderHeader">
             <strong>
-              {artifactKind === "audio_recording"
+              {resolvedArtifactKind === "audio_recording"
                 ? isLanguageFamily
                   ? "Record optional audio artifact"
                   : "Record in browser"
@@ -540,7 +536,7 @@ export function StudentResponseArtifactPanel({
                 }
                 const fileName = `recorded-response.${extensionFromMimeType(
                   recordedBlob.type,
-                  artifactKind,
+                  resolvedArtifactKind,
                 )}`;
                 void handleUpload({
                   file: recordedBlob,
@@ -554,7 +550,7 @@ export function StudentResponseArtifactPanel({
           </div>
           {recordedPreviewUrl ? (
             <div className="attemptArtifactPreviewMedia">
-              {artifactKind === "audio_recording" ? (
+              {resolvedArtifactKind === "audio_recording" ? (
                 <audio controls src={recordedPreviewUrl} />
               ) : (
                 <video controls src={recordedPreviewUrl} />

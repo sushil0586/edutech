@@ -110,11 +110,15 @@ test.describe("Student notifications continuity", () => {
       await expect(page.getByText(new RegExp(`object:\\s*${chosenObject.replaceAll("_", " ")}`, "i")).first()).toBeVisible();
     }
 
-    const groupBySelect = page.locator("label.studentNotificationGroupingControl select").first();
-    await expect(groupBySelect).toBeVisible();
-    await groupBySelect.selectOption("status");
-    await expect(groupBySelect).toHaveValue("status");
-    await expect(page.getByText(/read notifications|unread notifications/i).first()).toBeVisible();
+    const toolbar = page.locator("section.studentNotificationToolbar").first();
+    const toolbarVisible = await isVisible(toolbar);
+    const groupBySelect = toolbar.locator("label.studentNotificationGroupingControl select").first();
+    const groupingControlVisible = toolbarVisible && (await isVisible(groupBySelect));
+    if (groupingControlVisible) {
+      await groupBySelect.selectOption("status");
+      await expect(groupBySelect).toHaveValue("status");
+      await expect(page.getByText(/read notifications|unread notifications/i).first()).toBeVisible();
+    }
 
     const noMatches = page.getByText(/no notifications match the current filters/i).first();
     if (await isVisible(noMatches)) {
@@ -135,13 +139,17 @@ test.describe("Student notifications continuity", () => {
         expect(href).toContain("status=unread");
         expect(href).toContain("page_size=12");
         expect(href).toContain("ordering=unread_first");
-        expect(href).toContain("group_by=status");
+        if (groupingControlVisible) {
+          expect(href).toContain("group_by=status");
+        }
         if (chosenCategory) expect(href).toContain(`notification_type=${chosenCategory}`);
         if (chosenObject) expect(href).toContain(`related_object_type=${chosenObject}`);
       }
     }
 
-    const continuityQuery = "/app/notifications?status=unread&ordering=unread_first&page_size=12&group_by=status";
+    const continuityQuery = groupingControlVisible
+      ? "/app/notifications?status=unread&ordering=unread_first&page_size=12&group_by=status"
+      : "/app/notifications?status=unread&ordering=unread_first&page_size=12";
 
     for (const cta of [
       {

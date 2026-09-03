@@ -120,6 +120,14 @@ export function AdminPeopleWorkspace({
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
+    return () => {
+      requestIdRef.current += 1;
+      abortRef.current?.abort();
+      abortRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
     setCurrentView(activeView);
     setCurrentInstituteId(selectedInstituteId);
     setCurrentAcademicYears(academicYears);
@@ -127,15 +135,15 @@ export function AdminPeopleWorkspace({
     setCurrentCohorts(cohorts);
     setCurrentVisibleRows(visibleRows);
     setCurrentVisibleCount(visibleCount);
-  }, [academicYears, activeView, cohorts, programs, selectedInstituteId, visibleCount, visibleRows]);
-
-  useEffect(() => {
-    return () => {
-      requestIdRef.current += 1;
-      abortRef.current?.abort();
-      abortRef.current = null;
-    };
-  }, []);
+  }, [
+    academicYears,
+    activeView,
+    cohorts,
+    programs,
+    selectedInstituteId,
+    visibleCount,
+    visibleRows,
+  ]);
 
   const selectedInstitute =
     (currentInstituteId

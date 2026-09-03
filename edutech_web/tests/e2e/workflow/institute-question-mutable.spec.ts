@@ -6,13 +6,6 @@ import { expectInstituteWorkspace } from "../helpers/navigation";
 const mutableInstituteQuestionActionsEnabled = isMutableLaneEnabled(
   "PLAYWRIGHT_ENABLE_MUTABLE_INSTITUTE_QUESTION_BANK_ACTIONS",
 );
-const instituteApiBaseUrl = (
-  process.env.API_BASE_URL ??
-  process.env.NEXT_PUBLIC_API_BASE_URL ??
-  process.env.PLAYWRIGHT_API_BASE_URL ??
-  "http://127.0.0.1:9001"
-).replace(/\/$/, "");
-
 function firstNonEmptyOptionValue(values: string[]) {
   return values.find((value) => value.trim().length > 0) ?? null;
 }

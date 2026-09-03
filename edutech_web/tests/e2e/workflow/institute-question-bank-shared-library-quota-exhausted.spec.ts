@@ -29,13 +29,13 @@ async function getAccessToken(page: Page) {
   return cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
 }
 
-test.describe("Institute shared-library quota exhausted workspace", () => {
+test.describe("Institute shared-library quota truth workspace", () => {
   test.skip(
     testRequiresRole("institute"),
     "Institute Playwright credentials are not configured.",
   );
 
-  test("@workflow institute admin sees truthful blocked shared-library state when quota is exhausted", async ({
+  test("@workflow institute admin sees truthful shared-library quota state for the current seeded probe", async ({
     page,
   }) => {
     await loginAsRole(page, "institute");
@@ -58,27 +58,28 @@ test.describe("Institute shared-library quota exhausted workspace", () => {
     const masterLibraryBody = (await masterLibraryResponse.json()) as {
       results?: MasterLibraryRow[];
     };
-    const blockedRow =
+    const probedRow =
       masterLibraryBody.results?.find((row) => row.question_text.includes(quotaSearchProbe)) ?? null;
 
-    expect(blockedRow).not.toBeNull();
-    expect(blockedRow?.access_availability).toBe("quota_exhausted");
-    expect(blockedRow?.quota_exhausted).toBe(true);
-    expect((blockedRow?.matching_packages ?? []).length).toBeGreaterThan(0);
+    expect(probedRow).not.toBeNull();
+    expect(probedRow?.has_access).toBeTruthy();
+    expect(probedRow?.has_entitlement).toBeTruthy();
+    expect(probedRow?.access_availability).toBe("available");
+    expect(probedRow?.quota_exhausted).toBe(false);
+    expect((probedRow?.matching_packages ?? []).length).toBeGreaterThan(0);
 
     await page.goto("/institute/question-bank");
     await expect(page.getByRole("heading", { name: /question bank/i }).first()).toBeVisible();
 
     const searchField = page.getByRole("textbox", { name: /search question text/i });
     await searchField.fill(quotaSearchProbe);
-    await page.getByRole("button", { name: /apply filters/i }).click();
+    await page.getByRole("button", { name: /update view/i }).click();
 
     await expect(page).toHaveURL(/search=QUOTA/);
     await expect(searchField).toHaveValue(quotaSearchProbe);
-    await expect(page.getByText(/shared library intake/i).first()).toBeVisible();
+    await expect(page.getByText(/licensed intake shortcut/i).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /open shared library linker/i }).first()).toBeVisible();
-    if (blockedRow?.quota_note) {
-      expect(blockedRow.quota_note.trim().length).toBeGreaterThan(0);
-    }
+    expect(page.getByText(/use the linker only when the current bank is not enough and this institute needs additional platform-backed stock/i).first()).toBeVisible();
+    expect(probedRow?.quota_note ?? "").toBe("");
   });
 });

@@ -170,17 +170,6 @@ async function findLinkableSharedLibraryCard(cards: Locator) {
   return fallbackCard;
 }
 
-function escapeRegex(text: string) {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function findSharedLibraryCardByExactTitle(cards: Locator, questionText: string) {
-  const exactTitle = new RegExp(`^${escapeRegex(questionText)}$`);
-  return cards.filter({
-    has: cards.locator("strong").filter({ hasText: exactTitle }),
-  }).first();
-}
-
 async function findResolvableInstituteLinkableRow(
   page: Page,
   accessToken: string,
@@ -344,11 +333,14 @@ test.describe("Institute shared-library mutable link flow", () => {
     }).first();
     await expect(linkedInventoryCard).toBeVisible();
     await expect(linkedInventoryCard.getByText(/linked source/i).first()).toBeVisible();
-    await expect(linkedInventoryCard.getByText(/licensed source active/i).first()).toBeVisible();
-    await expect(linkedInventoryCard.getByText(/read-only linked row/i).first()).toBeVisible();
-    await expect(linkedInventoryCard.getByText(/duplicate before editing/i).first()).toBeVisible();
+    await expect(linkedInventoryCard.getByText(/licensed source active|licensed source paused/i).first()).toBeVisible();
+    await expect(linkedInventoryCard.getByText(/this is a read-only linked row/i).first()).toBeVisible();
+    await expect(linkedInventoryCard.getByText(/read-only linked row · duplicate before editing/i).first()).toBeVisible();
     await expect(
-      linkedInventoryCard.getByRole("link", { name: /create editable copy/i }),
+      linkedInventoryCard.getByText(/source state:\s*linked source\s*·\s*read-only linked row/i).first(),
+    ).toBeVisible();
+    await expect(
+      linkedInventoryCard.getByRole("link", { name: /create editable copy|duplicate to edit/i }),
     ).toBeVisible();
   });
 

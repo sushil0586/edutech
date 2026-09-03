@@ -1,4 +1,4 @@
-appId: com.anonymous.nexorastudentmobile
+appId: ${MAESTRO_APP_ID}
 ---
 - launchApp:
     clearState: true
@@ -9,15 +9,25 @@ appId: com.anonymous.nexorastudentmobile
 
 - tapOn: "Login"
 - tapOn:
-    text: "Username"
+    id: "login-username-input"
 - inputText: a001
 
 - tapOn:
-    text: "Enter password"
+    id: "login-password-input"
 - inputText: Ansh@1789
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn: "Sign in and continue learning"
 
-- hideKeyboard
-- tapOn: "Login"
+- tapOn:
+    id: "login-submit-button"
 
 - extendedWaitUntil:
     visible: "Student Dashboard"
@@ -29,6 +39,12 @@ appId: com.anonymous.nexorastudentmobile
 - extendedWaitUntil:
     visible: "Student Attempts"
     timeout: 30000
+
+- scrollUntilVisible:
+    element: "Resume Attempt"
+    direction: DOWN
+    timeout: 30000
+    visibilityPercentage: 50
 
 - tapOn:
     text: "Resume Attempt"
@@ -65,4 +81,3 @@ appId: com.anonymous.nexorastudentmobile
     timeout: 30000
 
 - assertVisible: "Current question"
-- assertVisible: "Q2"

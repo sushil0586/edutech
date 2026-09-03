@@ -6,7 +6,7 @@ async function gotoWithRetry(page: Page, url: string, attempts = 3) {
   let lastError: unknown = null;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
-      await page.goto(url);
+      await page.goto(url, { waitUntil: "commit" });
       return;
     } catch (error) {
       lastError = error;

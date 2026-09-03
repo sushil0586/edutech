@@ -36,7 +36,7 @@ test.describe("Teacher advanced builder workspace", () => {
       return;
     }
 
-    await expect(page.getByRole("tab", { name: /scope and basics/i }).first()).toBeVisible();
+    await expect(page.getByRole("tab", { name: /basics/i }).first()).toBeVisible();
     await expect(page.getByRole("tab", { name: /composition/i }).first()).toBeVisible();
     await expect(page.getByRole("tab", { name: /delivery/i }).first()).toBeVisible();
     await expect(page.getByRole("tab", { name: /access/i }).first()).toBeVisible();
@@ -44,7 +44,8 @@ test.describe("Teacher advanced builder workspace", () => {
     await expect(page.getByText(/choose the academic lane and exam identity/i).first()).toBeVisible();
     await expect(page.getByRole("button", { name: /auto fill basics/i })).toBeVisible();
     await expect(page.getByText(/start from a real exam product shape/i).first()).toBeVisible();
-    await expect(page.getByLabel(/save current setup as a template/i).first()).toBeVisible();
+    await expect(page.getByText(/save the current builder setup as a reusable governed pack/i).first()).toBeVisible();
+    await expect(page.getByLabel(/preset label/i)).toBeVisible();
     await expect(page.getByLabel(/academic year/i)).toBeVisible();
     await expect(page.getByLabel(/exam title/i)).toBeVisible();
 
@@ -55,9 +56,6 @@ test.describe("Teacher advanced builder workspace", () => {
 
     await page.getByRole("button", { name: /auto fill basics/i }).click();
     await expect(page.getByLabel(/exam title/i)).not.toHaveValue("");
-
-    await page.getByRole("button", { name: /quick practice/i }).click();
-    await expect(page.getByText(/quick practice template applied/i).first()).toBeVisible();
 
     await page.getByRole("tab", { name: /composition/i }).first().click();
     await expect(page.getByText(/sections, topics, and counts/i).first()).toBeVisible();
@@ -74,14 +72,13 @@ test.describe("Teacher advanced builder workspace", () => {
     await page.getByRole("tab", { name: /access/i }).first().click();
     await expect(page.getByText(/economy and unlock behavior/i).first()).toBeVisible();
     await expect(page.getByRole("button", { name: /preview exam/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /create advanced exam/i })).toBeDisabled();
+    await expect(page.getByRole("button", { name: /create advanced exam/i })).toBeEnabled();
 
     const bodyText = await page.locator("body").innerText();
     if (/template library access is not enabled/i.test(bodyText)) {
       await expect(page.getByText(/template library access is not enabled/i).first()).toBeVisible();
     } else {
-      await expect(page.getByRole("button", { name: /save template/i })).toBeVisible();
-      await expect(page.getByPlaceholder(/search by name, owner, or note/i)).toBeVisible();
+      await expect(page.getByRole("button", { name: /save as managed pack/i })).toBeVisible();
     }
 
     await page.getByRole("button", { name: /preview exam/i }).click();

@@ -8,6 +8,7 @@ import { ActionButton } from "@/components/action-button";
 import { MetricCard } from "@/components/metric-card";
 import { SectionBlock } from "@/components/section-block";
 import { StatePanel } from "@/components/state-panel";
+import { SkeletonList } from "@/components/skeleton";
 import { fetchStudentDashboardBundle, fetchStudentResults } from "@/lib/api/student";
 import { useSessionStore } from "@/store/session-store";
 import { appStyles } from "@/theme/styles";
@@ -233,22 +234,26 @@ export default function AttemptsScreen() {
           value={String(attempts.length)}
           helper="All learner attempts returned in this mobile session"
           soft
+          loading={query.isLoading}
         />
         <MetricCard
           label="Active"
           value={String(activeAttempts.length)}
           helper="Attempts that can reopen runtime now"
+          loading={query.isLoading}
         />
         <MetricCard
           label="Completed"
           value={String(completedAttempts.length)}
           helper="Attempts that now belong in summary or review"
           soft
+          loading={query.isLoading}
         />
         <MetricCard
           label="Review Ready"
           value={String(reviewReadyCount)}
           helper="Completed attempts with review already exposed"
+          loading={query.isLoading}
         />
       </View>
 
@@ -279,7 +284,9 @@ export default function AttemptsScreen() {
         title="Resume now"
         subtitle="The fastest path back into active exam work"
       >
-        {activeAttempts.length ? (
+        {query.isLoading ? (
+          <SkeletonList count={2} />
+        ) : activeAttempts.length ? (
           activeAttempts.map((attempt) => {
             const result = latestResultForAttempt(results, attempt.id);
             const tone = attemptTone(attempt, result);
@@ -315,7 +322,9 @@ export default function AttemptsScreen() {
         title="Completed history"
         subtitle="Use summary first, then review when policy allows"
       >
-        {completedAttempts.length ? (
+        {query.isLoading ? (
+          <SkeletonList count={3} />
+        ) : completedAttempts.length ? (
           completedAttempts.map((attempt) => {
             const result = latestResultForAttempt(results, attempt.id);
             const tone = attemptTone(attempt, result);

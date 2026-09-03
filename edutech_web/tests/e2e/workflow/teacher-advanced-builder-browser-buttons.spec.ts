@@ -13,6 +13,21 @@ const teacherCredentials = {
   password: "Demo@12345",
 };
 
+async function expectTeacherAdvancedBuilderHeading(page: Parameters<typeof test>[0]["page"]) {
+  await expect(page.getByRole("heading", { name: /advanced exam builder/i }).first()).toBeVisible();
+}
+
+async function expectFeatureEntitlementGate(page: Parameters<typeof test>[0]["page"]) {
+  await expectTeacherAdvancedBuilderHeading(page);
+  await expect(
+    page.getByRole("heading", {
+      name: /advanced exam builder is not enabled for your institute yet/i,
+    }),
+  ).toBeVisible();
+  await expect(page.getByText(/feature entitlement required/i)).toBeVisible();
+  await expect(page.getByRole("link", { name: /back to exams/i })).toBeVisible();
+}
+
 test.describe("Teacher advanced builder browser button coverage", () => {
   test("@workflow browser coverage exercises teacher advanced-builder buttons end-to-end", async ({
     page,
@@ -23,6 +38,13 @@ test.describe("Teacher advanced builder browser button coverage", () => {
       path: "/teacher/exams/advanced",
       expectWorkspace: expectTeacherWorkspace,
     });
+    const entitlementGate = page.getByRole("heading", {
+      name: /advanced exam builder is not enabled for your institute yet/i,
+    });
+    if (await entitlementGate.isVisible().catch(() => false)) {
+      await expectFeatureEntitlementGate(page);
+      test.skip(true, "Teacher advanced builder is currently entitlement-gated for the seeded teacher account.");
+    }
     await applyResolvedScope(page, await resolveScopeWithTopics(page));
 
     const titleInput = page.getByLabel(/exam title/i);
@@ -35,7 +57,7 @@ test.describe("Teacher advanced builder browser button coverage", () => {
     await page.getByRole("button", { name: /back/i }).click();
     await expect(page.getByText(/choose the academic lane and exam identity/i).first()).toBeVisible();
 
-    await page.getByRole("button", { name: /next/i }).click();
+    await page.getByRole("button", { name: /^next$/i }).click();
     await expect(page.getByText(/sections, topics, and counts/i).first()).toBeVisible();
 
     await applyBuilderTemplate(page, /chapter test/i, /chapter test template applied/i);
@@ -117,6 +139,13 @@ test.describe("Teacher advanced builder browser button coverage", () => {
       path: "/teacher/exams/advanced",
       expectWorkspace: expectTeacherWorkspace,
     });
+    const entitlementGate = page.getByRole("heading", {
+      name: /advanced exam builder is not enabled for your institute yet/i,
+    });
+    if (await entitlementGate.isVisible().catch(() => false)) {
+      await expectFeatureEntitlementGate(page);
+      return;
+    }
     await applyResolvedScope(page, await resolveScopeWithTopics(page));
 
     await applyBuilderTemplate(page, /chapter test/i, /chapter test template applied/i);

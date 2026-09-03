@@ -114,7 +114,15 @@ test.describe("Teacher advanced builder template actions", () => {
       await page.goto("/teacher/exams/advanced");
       await expect(page.getByRole("heading", { name: /advanced exam builder/i }).first()).toBeVisible();
 
-      const templateNameField = page.getByLabel(/save current setup as a template/i).first();
+      const templateNameField = page.getByPlaceholder(/class 7 math weekly mock/i).first();
+      const templateLibraryDisabledNotice = page.getByText(
+        /template library access is not enabled|reusable advanced exam templates are controlled/i,
+      ).first();
+
+      if (await templateLibraryDisabledNotice.isVisible().catch(() => false)) {
+        throw new Error("Teacher advanced template library is disabled in this environment.");
+      }
+
       await expect(templateNameField).toBeVisible();
       await templateNameField.fill(templateName);
 

@@ -29,8 +29,8 @@ const competitiveReleaseScenarios = familyRuntimeScenarios.filter(
 );
 
 function resultCardByTitle(page: Page, title: string) {
-  return page.locator("article.studentResultSurface").filter({
-    has: page.locator(".studentResultSurfaceHead strong", { hasText: title }),
+  return page.locator("article.studentResultSurface, .studentResultsTableRow").filter({
+    has: page.locator("strong", { hasText: title }),
   }).first();
 }
 
@@ -77,26 +77,38 @@ test.describe("Institute family release-state contracts", () => {
           created.examTitle,
         );
 
-        await expect(page.getByText(/post-submit state/i).first()).toBeVisible();
+        await expect(
+          page.getByRole("heading", { name: new RegExp(`${created.examTitle}\\s+Summary`, "i") }).first(),
+        ).toBeVisible();
         await expect(page.getByText(/wait for publication/i).first()).toBeVisible();
         await expect(page.getByText(/review locked/i).first()).toBeVisible();
-        await expect(page.getByText(/scoring is hidden until result visibility rules are met\./i)).toBeVisible();
+        await expect(page.getByText(/evaluation pending|results will appear after evaluation/i).first()).toBeVisible();
         await expect(page.getByRole("link", { name: /open answer review/i })).toHaveCount(0);
 
-        await page.getByRole("link", { name: /check result status|open results/i }).first().click();
-        await expect(page).toHaveURL(/\/app\/results(?:\?.*)?$/);
+        await page.goto("/app/results?result_status=pending");
+        await expect(page).toHaveURL(/\/app\/results\?result_status=pending(?:&.*)?$/);
         await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
         await expect(page.getByText(/results loaded/i).first()).toBeVisible();
         const resultCard = resultCardByTitle(page, created.examTitle);
         await expect(resultCard).toBeVisible();
-        await expect(resultCard.getByText(/^pending$/i).first()).toBeVisible();
-        await expect(resultCard.getByRole("link", { name: /open answer review/i })).toHaveCount(0);
+        await expect(resultCard).toContainText(/pending/i);
+        await expect(resultCard).toContainText(/awaiting result/i);
+        await expect(resultCard).toContainText(/open practice/i);
+
+        await resultCard.click();
+        const resultDialog = page.getByRole("dialog");
+        await expect(resultDialog).toBeVisible();
+        await expect(resultDialog.getByRole("link", { name: /open summary/i })).toBeVisible();
+        await expect(resultDialog.getByRole("link", { name: /open answer review/i })).toHaveCount(0);
+        await expect(resultDialog.getByRole("link", { name: /open practice/i })).toBeVisible();
+        await resultDialog.getByRole("button", { name: /close/i }).click();
+        await expect(resultDialog).toHaveCount(0);
 
         await page.goto(`/app/attempts/${attemptId}/review`);
         await expect(page).toHaveURL(new RegExp(`/app/attempts/${attemptId}/review(?:\\?.*)?$`));
         await expect(page.getByRole("heading", { name: /attempt review/i }).first()).toBeVisible();
         await expect(page.getByText(/attempt review is not available right now/i).first()).toBeVisible();
-        await expect(page.getByRole("link", { name: /check result status/i }).first()).toBeVisible();
+        await expect(page.getByRole("link", { name: /open results/i }).first()).toBeVisible();
       } finally {
         if (examId) {
           await loginAsFamilyInstitute(page);

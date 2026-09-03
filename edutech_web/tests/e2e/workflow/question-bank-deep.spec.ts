@@ -21,7 +21,7 @@ test.describe("Teacher workflow deep regression", () => {
     await page.goto("/teacher/question-bank");
 
     await page.getByRole("textbox", { name: /search question text/i }).fill("square root");
-    await page.getByRole("button", { name: /apply filters/i }).click();
+    await page.getByRole("button", { name: /update view/i }).click();
 
     await expect(page).toHaveURL(/search=square\+root|search=square%20root/);
     await expect(page.getByRole("textbox", { name: /search question text/i })).toHaveValue("square root");
@@ -29,16 +29,17 @@ test.describe("Teacher workflow deep regression", () => {
 
     const details = page.locator("details.questionBankDetails").first();
     if (await details.isVisible().catch(() => false)) {
-      await expect(details.locator("summary")).toBeVisible();
+      const summary = details.locator("summary").first();
+      await expect(summary).toBeVisible();
       await expect(details).not.toHaveAttribute("open", "");
 
-      await details.locator("summary").click();
+      await summary.click();
       await expect(details).toHaveAttribute("open", "");
       await expect(
         details.getByText(/explanation|accepted answers|answer options|student response format/i).first(),
       ).toBeVisible();
 
-      await details.locator("summary").click();
+      await details.locator("summary").first().click();
       await expect(details).not.toHaveAttribute("open", "");
     } else {
       await expect(

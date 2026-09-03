@@ -1,4 +1,4 @@
-appId: com.anonymous.nexorastudentmobile
+appId: ${MAESTRO_APP_ID}
 ---
 # Set these before running:
 # STUDENT_USERNAME
@@ -8,23 +8,66 @@ appId: com.anonymous.nexorastudentmobile
     clearState: true
 
 - extendedWaitUntil:
-    visible: "Login"
+    visible: "Student Dashboard|Login"
     timeout: 30000
 
-- tapOn: "Login"
+- runFlow:
+    when:
+      visible: "Student Dashboard"
+    commands:
+      - tapOn:
+          id: "student-tab-profile"
+      - extendedWaitUntil:
+          visible:
+            id: "profile-logout-button"
+          timeout: 30000
+      - tapOn:
+          id: "profile-logout-button"
+      - extendedWaitUntil:
+          visible:
+            id: "role-gate-login-button"
+          timeout: 30000
+
+- extendedWaitUntil:
+    visible:
+      id: "role-gate-login-button"
+    timeout: 30000
+
 - tapOn:
-    text: "Username"
+    id: "role-gate-login-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "login-username-input"
+    timeout: 30000
+
+- tapOn:
+    id: "login-username-input"
 - inputText: ${STUDENT_USERNAME}
 
 - tapOn:
-    text: "Enter password"
+    id: "login-password-input"
 - inputText: ${STUDENT_PASSWORD}
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn: "Sign in and continue learning"
 
-- hideKeyboard
-- tapOn: "Login"
+- tapOn:
+    id: "login-submit-button"
 
 - extendedWaitUntil:
     visible: "Student Dashboard"
+    timeout: 30000
+
+- extendedWaitUntil:
+    notVisible: "Loading live dashboard data..."
     timeout: 30000
 
 - takeScreenshot: "01-dashboard"
@@ -33,24 +76,45 @@ appId: com.anonymous.nexorastudentmobile
     id: "dashboard-open-exams-button"
 
 - assertVisible: "Student Exams"
+
+- extendedWaitUntil:
+    notVisible: "Loading the live exam catalog..."
+    timeout: 30000
+
 - takeScreenshot: "02-exams-top"
+
+- scrollUntilVisible:
+    element:
+      id: "exams-filter-startable-button"
+    direction: DOWN
+    timeout: 30000
+    visibilityPercentage: 70
+
+- tapOn:
+    id: "exams-filter-startable-button"
 
 - scrollUntilVisible:
     element:
       id: "exams-open-top-exam-button"
     direction: UP
+    timeout: 30000
+    visibilityPercentage: 70
 
 - tapOn:
     id: "exams-open-top-exam-button"
 
-- assertVisible: "Exam Readiness"
+- extendedWaitUntil:
+    visible: "Exam Readiness"
+    timeout: 30000
+
 - takeScreenshot: "03-exam-readiness"
 
 - tapOn:
     id: "exam-detail-open-exams-button"
 
 - assertVisible: "Student Exams"
-- tapOn: "Attempts"
+- tapOn:
+    id: "student-tab-attempts"
 
 - assertVisible: "Student Attempts"
 - takeScreenshot: "04-attempts-top"
@@ -61,19 +125,23 @@ appId: com.anonymous.nexorastudentmobile
 
 - takeScreenshot: "05-attempts-resume"
 
-- tapOn: "Results"
+- tapOn:
+    id: "student-tab-results"
 
 - assertVisible: "Student Results"
 - takeScreenshot: "06-results-top"
 
 - scrollUntilVisible:
-    element:
-      id: "results-timeline-summary-button"
+    element: "Results timeline"
     direction: DOWN
+    timeout: 60000
+    speed: 70
+    visibilityPercentage: 70
 
 - takeScreenshot: "07-results-timeline"
 
-- tapOn: "Insights"
+- tapOn:
+    id: "student-tab-analytics"
 
 - assertVisible: "Student Analytics"
 - takeScreenshot: "08-analytics-top"
@@ -84,7 +152,8 @@ appId: com.anonymous.nexorastudentmobile
 
 - takeScreenshot: "09-analytics-action"
 
-- tapOn: "Profile"
+- tapOn:
+    id: "student-tab-profile"
 
 - assertVisible: "Student Profile"
 - takeScreenshot: "10-profile-top"

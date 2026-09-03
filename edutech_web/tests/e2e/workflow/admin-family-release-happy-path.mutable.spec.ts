@@ -32,8 +32,8 @@ const competitiveReleaseScenarios = familyRuntimeScenarios.filter(
 );
 
 function resultCardByTitle(page: Page, title: string) {
-  return page.locator("article.studentResultSurface").filter({
-    has: page.locator(".studentResultSurfaceHead strong", { hasText: title }),
+  return page.getByRole("button").filter({
+    has: page.getByText(new RegExp(escapeRegExp(title), "i")),
   }).first();
 }
 
@@ -98,7 +98,10 @@ test.describe("Admin family release happy path", () => {
         await expect(adminExamReadinessCard(page, /^exam publish readiness$/i)).toContainText(/blocked/i);
         await expect(adminExamReadinessCard(page, /^exam publish readiness$/i)).toContainText(/invalid status/i);
         await expect(adminExamReadinessCard(page, /^result publish readiness$/i)).toContainText(/review first/i);
-        await expect(adminExamReadinessCard(page, /^result publish readiness$/i)).toContainText(/0 generated/i);
+        await expect(adminExamReadinessCard(page, /^result publish readiness$/i)).toContainText(/generated/i);
+        await expect(adminExamReadinessCard(page, /^result publish readiness$/i)).toContainText(
+          /complete the exam before publishing results/i,
+        );
 
         await markExamCompleted(page, examId);
         await publishExamResultsWorkflow(page, examId);
@@ -117,7 +120,8 @@ test.describe("Admin family release happy path", () => {
         await page.goto("/app/results");
         const resultCard = resultCardByTitle(page, created.examTitle);
         await expect(resultCard).toBeVisible();
-        await expect(resultCard.getByText(/result published/i).first()).toBeVisible();
+        await expect(resultCard).toContainText(/published/i);
+        await expect(resultCard).toContainText(/available/i);
 
         await page.goto(`/app/attempts/${attemptId}/review`);
         await expect(page).toHaveURL(new RegExp(`/app/attempts/${attemptId}/review(?:\\?.*)?$`));

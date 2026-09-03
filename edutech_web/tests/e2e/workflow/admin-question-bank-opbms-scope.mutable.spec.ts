@@ -17,7 +17,7 @@ const backendBaseUrl = (
 ).replace(/\/$/, "");
 
 const opbmsCredentials = {
-  username: process.env.PLAYWRIGHT_OPBMS_USERNAME?.trim() || "opbms",
+  username: process.env.PLAYWRIGHT_OPBMS_USERNAME?.trim() || "obpms",
   password: process.env.PLAYWRIGHT_OPBMS_PASSWORD?.trim() || "Demo@12345",
 };
 
@@ -37,6 +37,12 @@ type AdminQuestionBankEntitlement = {
   institute_code: string;
   question_bank_package_code: string;
   status: string;
+};
+
+type InstituteRecord = {
+  id: string;
+  code: string;
+  name: string;
 };
 
 test.describe("Admin question-bank OPBMS science scope coverage", () => {
@@ -73,6 +79,27 @@ test.describe("Admin question-bank OPBMS science scope coverage", () => {
     );
     expect(packagesResponse.ok(), await packagesResponse.text()).toBe(true);
     const packages = (await packagesResponse.json()) as AdminQuestionBankPackage[];
+    const institutesResponse = await page.request.get(
+      `${backendBaseUrl}/api/v1/institutes/?page_size=200`,
+      {
+        headers: {
+          Authorization: `Bearer ${adminAccessToken}`,
+        },
+      },
+    );
+    expect(institutesResponse.ok(), await institutesResponse.text()).toBe(true);
+    const institutePayload = (await institutesResponse.json()) as InstituteRecord[] | { results?: InstituteRecord[] };
+    const institutes = Array.isArray(institutePayload)
+      ? institutePayload
+      : Array.isArray(institutePayload.results)
+        ? institutePayload.results
+        : [];
+    const opbmsInstituteCode =
+      institutes.find((institute) => institute.code === "OPBMS")?.code ??
+      institutes.find((institute) => institute.code === "OBPMS")?.code ??
+      institutes.find((institute) => /obpms|opbms/i.test(institute.code) || /obpms|opbms/i.test(institute.name))?.code ??
+      "";
+    expect(opbmsInstituteCode).not.toBe("");
     const scholarPackage = packages.find((pkg) => pkg.code === "SCHOLAR-QUESTION-BANK-ACCESS");
     expect(scholarPackage).toBeTruthy();
 
@@ -111,7 +138,7 @@ test.describe("Admin question-bank OPBMS science scope coverage", () => {
     const entitlements = (await entitlementsResponse.json()) as AdminQuestionBankEntitlement[];
     const opbmsScholarEntitlement = entitlements.find(
       (entitlement) =>
-        entitlement.institute_code === "OPBMS" &&
+        entitlement.institute_code === opbmsInstituteCode &&
         entitlement.question_bank_package_code === "SCHOLAR-QUESTION-BANK-ACCESS",
     );
     expect(opbmsScholarEntitlement).toBeTruthy();
@@ -142,10 +169,11 @@ test.describe("Admin question-bank OPBMS science scope coverage", () => {
     }
 
     await expect(entitlementRow).toContainText(/status:\s*active/i);
-    await expect(entitlementRow).toContainText(/subjects:\s*math,\s*science|subjects:\s*science,\s*math/i);
+    await expect(entitlementRow).toContainText(/subjects:\s*.*math/i);
+    await expect(entitlementRow).toContainText(/subjects:\s*.*science/i);
     await expect(entitlementRow).toContainText(/package scope/i);
     await expect(entitlementRow).toContainText(/institute entitlement/i);
-    await expect(entitlementRow).toContainText(/shared-library feature/i);
+    await expect(entitlementRow).toContainText(/shared-library runtime/i);
 
     await loginWithCredentials(page, opbmsCredentials, "institute");
     await expectInstituteWorkspace(page);
@@ -155,7 +183,7 @@ test.describe("Admin question-bank OPBMS science scope coverage", () => {
     await instituteQuestionBank.expectLinkedLoaded();
 
     await instituteQuestionBank.selectAcademicFilters(/class 7/i, /science/i);
-    await page.getByRole("button", { name: /apply filters/i }).click();
+    await instituteQuestionBank.applyFiltersIfPresent();
 
     await expect(page.getByText(/subject:\s*science/i).first()).toBeVisible();
     await expect(page.getByText(/filtered scope/i).first()).toBeVisible();

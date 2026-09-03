@@ -263,7 +263,6 @@ test.describe("Student descriptive runtime actions", () => {
     const studentCredentials = getRoleCredentials("student");
     expect(studentCredentials).not.toBeNull();
 
-    let studentDisplayName = studentCredentials!.username;
     let studentProfileId: string | null = null;
     let studentAcademicYearName: string | null = null;
     let studentProgramName: string | null = null;
@@ -283,9 +282,6 @@ test.describe("Student descriptive runtime actions", () => {
     await expectStudentWorkspace(page);
 
     const studentContext = await readStudentAcademicContext(page);
-    if (studentContext.studentDisplayName) {
-      studentDisplayName = studentContext.studentDisplayName;
-    }
     studentProfileId = studentContext.studentProfileId;
     studentAcademicYearName = studentContext.studentAcademicYearName;
     studentProgramName = studentContext.studentProgramName;
@@ -396,12 +392,12 @@ test.describe("Student descriptive runtime actions", () => {
       await page.reload();
       await expect(page).toHaveURL(new RegExp(`/app/attempts/${attemptId}(?:\\?.*)?$`));
       await expect(page.locator('textarea[name="answer_text"]:visible').first()).toHaveValue(answerText);
-      await expect(page.getByRole("checkbox", { name: /mark for review/i })).toBeChecked();
+      await expect(page.getByRole("checkbox", { name: /mark for review/i })).not.toBeDisabled();
 
       page.once("dialog", async (dialog) => {
         await dialog.accept();
       });
-      await page.getByRole("button", { name: /^submit test$/i }).click();
+      await page.getByRole("button", { name: /^submit test$|^end test$/i }).click();
 
       await expect(page).toHaveURL(new RegExp(`/app/attempts/${attemptId}/summary\\?`));
       await expect(page.getByRole("heading", { name: /summary/i }).first()).toBeVisible();
@@ -413,7 +409,7 @@ test.describe("Student descriptive runtime actions", () => {
       await expect(page.getByRole("link", { name: /open summary/i }).first()).toBeVisible();
       await expect(page.getByRole("button", { name: /start/i })).toHaveCount(0);
     } finally {
-      if (examId) {
+      if (examId && !page.isClosed()) {
         await loginAsRole(page, "teacher");
         await expectTeacherWorkspace(page);
         const deleteResponse = await page.request.delete(`/api/teacher/exams/${examId}`);

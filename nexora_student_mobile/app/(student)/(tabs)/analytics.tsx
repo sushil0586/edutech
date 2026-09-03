@@ -8,6 +8,7 @@ import { HeroCard } from "@/components/hero-card";
 import { MetricCard } from "@/components/metric-card";
 import { SectionBlock } from "@/components/section-block";
 import { StatePanel } from "@/components/state-panel";
+import { SkeletonLine, SkeletonList } from "@/components/skeleton";
 import { fetchStudentAnalyticsBundle } from "@/lib/api/student";
 import { useSessionStore } from "@/store/session-store";
 import { appStyles } from "@/theme/styles";
@@ -136,11 +137,13 @@ export default function AnalyticsScreen() {
           <View style={appStyles.rowWrap}>
             <ActionButton
               label="Open Results"
+              testID="analytics-open-results-button"
               onPress={() => router.push("./results")}
             />
             <ActionButton
               label="Back to Dashboard"
               tone="secondary"
+              testID="analytics-back-dashboard-button"
               onPress={() => router.push("/(student)/(tabs)/dashboard")}
             />
           </View>
@@ -160,22 +163,26 @@ export default function AnalyticsScreen() {
           value={summary ? `${summary.average_percentage}%` : "--"}
           helper="Overall result average"
           soft
+          loading={query.isLoading}
         />
         <MetricCard
           label="Accuracy"
           value={summary ? `${summary.accuracy_percentage}%` : "--"}
           helper="Correctness signal"
+          loading={query.isLoading}
         />
         <MetricCard
           label="Published Results"
           value={String(publishedResults.length)}
           helper="Visible learner result records"
           soft
+          loading={query.isLoading}
         />
         <MetricCard
           label="Tracked Topics"
           value={String(scopedTopics.length)}
           helper="Topic performance entries in scope"
+          loading={query.isLoading}
         />
       </View>
       {subjectOptions.length ? (
@@ -204,10 +211,19 @@ export default function AnalyticsScreen() {
         title="Next action"
         subtitle="Turn analytics into a practical study move"
       >
-        <View style={appStyles.emphasisPanel}>
-          <Text style={appStyles.body}>{nextAction}</Text>
-        </View>
-        {latestResult ? (
+        {query.isLoading ? (
+          <View style={appStyles.emphasisPanel}>
+            <SkeletonLine width="94%" height={14} />
+            <SkeletonLine width="72%" height={14} soft />
+          </View>
+        ) : (
+          <View style={appStyles.emphasisPanel}>
+            <Text style={appStyles.body}>{nextAction}</Text>
+          </View>
+        )}
+        {query.isLoading ? (
+          <SkeletonLine width="82%" height={12} />
+        ) : latestResult ? (
           <Text style={appStyles.helper}>
             Latest published result: {latestResult.exam_title} · {latestResult.percentage}% · {latestResult.correct_answers} correct
           </Text>
@@ -221,7 +237,9 @@ export default function AnalyticsScreen() {
         title="Weak topics"
         subtitle="Use these signals to decide what to revise next"
       >
-        {weakTopics.length ? (
+        {query.isLoading ? (
+          <SkeletonList count={2} />
+        ) : weakTopics.length ? (
           weakTopics.map((topic) => {
             const tone = scoreChipStyle(Number(topic.percentage));
             return (
@@ -253,7 +271,9 @@ export default function AnalyticsScreen() {
         title="Strong topics"
         subtitle="Areas where the learner is currently performing well"
       >
-        {strongTopics.length ? (
+        {query.isLoading ? (
+          <SkeletonList count={2} />
+        ) : strongTopics.length ? (
           strongTopics.map((topic) => (
             <View key={topic.id} style={appStyles.productCard}>
               <View style={appStyles.rowBetween}>
@@ -278,7 +298,9 @@ export default function AnalyticsScreen() {
         title="Latest published result"
         subtitle="Recent learner-facing outcome in the current scope"
       >
-        {latestResult ? (
+        {query.isLoading ? (
+          <SkeletonList count={1} />
+        ) : latestResult ? (
           <View style={appStyles.productCard}>
             <View style={appStyles.rowBetween}>
               <Text style={appStyles.label}>{latestResult.exam_title}</Text>
@@ -327,7 +349,12 @@ export default function AnalyticsScreen() {
         title="Insight messages"
         subtitle="Backend-generated nudges for the learner"
       >
-        {summary?.insight_messages?.length ? (
+        {query.isLoading ? (
+          <View style={appStyles.column}>
+            <SkeletonLine width="96%" height={42} />
+            <SkeletonLine width="88%" height={42} soft />
+          </View>
+        ) : summary?.insight_messages?.length ? (
           summary.insight_messages.slice(0, 3).map((message) => (
             <View key={message} style={appStyles.mutedPanel}>
               <Text style={appStyles.body}>{message}</Text>

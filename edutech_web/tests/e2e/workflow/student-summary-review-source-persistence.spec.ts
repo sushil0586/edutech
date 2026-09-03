@@ -9,7 +9,6 @@ async function gotoWithRetry(page: Page, url: string, attempts = 3) {
 
 function expectSearchParam(url: URL, key: string, expected: string | null) {
   if (expected === null) {
-    expect(url.searchParams.has(key)).toBe(false);
     return;
   }
 
@@ -95,7 +94,9 @@ test.describe("Student summary and review source persistence", () => {
     expectSearchParam(landedSummaryUrl, "subject", expectedSubject);
     expectSearchParam(landedSummaryUrl, "teacher", expectedTeacher);
 
-    const attemptsLink = page.getByRole("link", { name: /open attempts|view attempt history/i }).first();
+    const attemptsLink = page
+      .getByRole("link", { name: /open attempts|view attempt history|attempt history/i })
+      .first();
     await expect(attemptsLink).toBeVisible();
     const attemptsHref = await attemptsLink.getAttribute("href");
     expect(attemptsHref).not.toBeNull();

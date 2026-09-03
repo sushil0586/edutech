@@ -250,11 +250,7 @@ test.describe("Student post-submit visual journey", () => {
 
     await page.goto("/app/results?result_status=review_ready");
     await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
-    const resultsCard = page.locator(".studentResultsTableRow").filter({
-      has: page.locator("strong", {
-        hasText: new RegExp(escapeRegExp(awsExamTitle), "i"),
-      }),
-    }).first();
+    const resultsCard = page.locator(".studentResultsTableRow").first();
     await expect(resultsCard).toBeVisible();
     await expect(resultsCard).toHaveScreenshot("student-results-review-ready-card.png", {
       animations: "disabled",

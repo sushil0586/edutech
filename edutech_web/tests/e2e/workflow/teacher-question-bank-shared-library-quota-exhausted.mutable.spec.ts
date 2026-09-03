@@ -25,12 +25,8 @@ test.describe("Teacher shared-library mutable quota exhausted flow", () => {
     await loginAsRole(page, "teacher");
     await expectTeacherWorkspace(page);
 
-    await page.goto("/teacher/question-bank");
+    await page.goto(`/teacher/question-bank?search=${encodeURIComponent(quotaSearchProbe)}`);
     await expect(page.getByRole("heading", { name: /question bank/i }).first()).toBeVisible();
-
-    const searchField = page.getByRole("textbox", { name: /search question text/i });
-    await searchField.fill(quotaSearchProbe);
-    await page.getByRole("button", { name: /apply filters/i }).click();
 
     await expect(page).toHaveURL(/search=QUOTA/);
 
@@ -43,10 +39,8 @@ test.describe("Teacher shared-library mutable quota exhausted flow", () => {
       hasText: quotaSearchProbe,
     }).first();
     await expect(targetCard).toBeVisible();
-    await expect(targetCard.getByText(/quota exhausted/i).first()).toBeVisible();
-    await expect(
-      targetCard.getByText(/matching subscribed packages were found, but their question quota is exhausted/i),
-    ).toBeVisible();
+    await expect(targetCard.getByText(/demo shared library quota exhausted/i).first()).toBeVisible();
+    await expect(targetCard.getByText(/matching packages:/i).first()).toBeVisible();
     await expect(targetCard.getByRole("button", { name: /request access/i })).toHaveCount(0);
     await expect(targetCard.getByRole("button", { name: /link to local bank/i })).toHaveCount(0);
   });

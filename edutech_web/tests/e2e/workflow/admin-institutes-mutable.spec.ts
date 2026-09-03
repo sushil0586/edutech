@@ -1,4 +1,4 @@
-import { expect, test, type Locator } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
 import { expectAdminWorkspace } from "../helpers/navigation";
@@ -45,6 +45,41 @@ async function expectInstituteAccountPanelState(
 
   await expect(disableLoginButton).toHaveCount(0);
   await expect(enableLoginButton).toBeVisible();
+}
+
+async function selectInstituteFromTable(page: Page, instituteName: string, instituteCode: string) {
+  const instituteRow = page
+    .locator("tbody tr")
+    .filter({
+      has: page.getByText(new RegExp(escapeRegExp(instituteName), "i")),
+    })
+    .filter({
+      has: page.getByText(new RegExp(escapeRegExp(instituteCode), "i")),
+    })
+    .first();
+  await expect(instituteRow).toBeVisible();
+  await instituteRow.getByRole("button", { name: /^view$/i }).click();
+
+  const detailCard = page.locator(".adminInstituteDetailCard").first();
+  await expect(
+    detailCard.locator("h4").filter({ hasText: new RegExp(escapeRegExp(instituteName), "i") }),
+  ).toBeVisible();
+  await expect(detailCard.getByText(new RegExp(escapeRegExp(instituteCode), "i")).first()).toBeVisible();
+  return detailCard;
+}
+
+async function expectInstituteRow(page: Page, instituteName: string, instituteCode: string) {
+  const instituteRow = page
+    .locator("tbody tr")
+    .filter({
+      has: page.getByText(new RegExp(escapeRegExp(instituteName), "i")),
+    })
+    .filter({
+      has: page.getByText(new RegExp(escapeRegExp(instituteCode), "i")),
+    })
+    .first();
+  await expect(instituteRow).toBeVisible();
+  return instituteRow;
 }
 
 test.describe("Admin mutable institute actions", () => {
@@ -114,11 +149,7 @@ test.describe("Admin mutable institute actions", () => {
       if (!page.url().includes("/admin/institutes")) {
         await page.goto(`/admin/institutes?institute=${instituteId}`);
       }
-      const detailCard = page.locator(".adminInstituteDetailCard").first();
-      await expect(
-        detailCard.getByRole("heading", { name: new RegExp(escapeRegExp(instituteName), "i") }),
-      ).toBeVisible();
-      await expect(detailCard.getByText(new RegExp(escapeRegExp(instituteCode), "i")).first()).toBeVisible();
+      const detailCard = await selectInstituteFromTable(page, instituteName, instituteCode);
       await expect(detailCard.getByText(/public institute managed/i).first()).toBeVisible();
 
       await page.getByRole("button", { name: /edit selected/i }).click();
@@ -140,17 +171,19 @@ test.describe("Admin mutable institute actions", () => {
       const patchResponse = await patchResponsePromise;
       expect(patchResponse.ok()).toBe(true);
 
-      await expect(
-        detailCard.getByRole("heading", { name: new RegExp(escapeRegExp(instituteUpdatedName), "i") }),
-      ).toBeVisible();
-      await expect(detailCard.getByText(new RegExp(escapeRegExp(instituteUpdatedCode), "i")).first()).toBeVisible();
-      await expect(detailCard.getByText(new RegExp(escapeRegExp(instituteUpdatedEmail), "i")).first()).toBeVisible();
-      await expect(
-        detailCard.getByText(new RegExp(escapeRegExp(instituteUpdatedDescription), "i")).first(),
-      ).toBeVisible();
-      await expect(detailCard.getByText(/platform managed/i).first()).toBeVisible();
+      const updatedRow = await expectInstituteRow(page, instituteUpdatedName, instituteUpdatedCode);
+      await expect(updatedRow).toContainText(new RegExp(escapeRegExp(instituteUpdatedEmail), "i"));
+      await expect(updatedRow).toContainText(/active/i);
 
-      const accountPanel = detailCard.locator(".adminInstituteAccountPanel").first();
+      await page.goto(`/admin/institutes?institute=${instituteId}`);
+      const refreshedDetailCard = await selectInstituteFromTable(page, instituteUpdatedName, instituteUpdatedCode);
+      await expect(refreshedDetailCard.getByText(new RegExp(escapeRegExp(instituteUpdatedEmail), "i")).first()).toBeVisible();
+      await expect(
+        refreshedDetailCard.getByText(new RegExp(escapeRegExp(instituteUpdatedDescription), "i")).first(),
+      ).toBeVisible();
+      await expect(refreshedDetailCard.getByText(/platform managed/i).first()).toBeVisible();
+
+      const accountPanel = refreshedDetailCard.locator(".adminInstituteAccountPanel").first();
       await expect(accountPanel).toContainText(/credential controls/i);
       await expectInstituteAccountPanelState(accountPanel, "no_login");
 

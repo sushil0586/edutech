@@ -125,10 +125,14 @@ test.describe("Admin onboarding recovery", () => {
       await expect(runCard.getByText(/school starter/i).first()).toBeVisible();
       await expect(runCard.getByRole("button", { name: /view task details/i })).toBeVisible();
       await runCard.getByRole("button", { name: /view task details/i }).click();
-      await expect(runCard.getByText(/loading task details\.\.\.|task execution record/i).first()).toBeVisible();
+      await expect(
+        runCard.locator(".adminInstituteTaskCard, .setupFieldMeta").filter({
+          hasText: /loading task details|task execution record|result:/i,
+        }).first(),
+      ).toBeVisible();
       await expect(runCard.getByText(/result:/i).first()).toBeVisible();
-      await expect(runCard.getByText(/view result payload/i).first()).toBeVisible();
-      await runCard.getByText(/view result payload/i).first().click();
+      await expect(runCard.getByText(/view result/i).first()).toBeVisible();
+      await runCard.getByText(/view result/i).first().click();
       await expect(runCard.locator("pre.adminInstituteTaskResultPre").first()).toBeVisible();
 
       const runs = (await fetchInstituteOnboardingRuns(page, accessToken, institute.id)) as OnboardingRunRecord[];

@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { loginWithCredentials, testRequiresRole } from "../helpers/auth";
+import { resolveBackendBaseUrl } from "../helpers/backend-base-url";
 import {
   answerAndSubmitCurrentAttempt,
   assignStudentToExam,
@@ -24,6 +25,7 @@ const mutableExamBuilderActionsEnabled = isMutableLaneEnabled(
 const mutableStudentAttemptActionsEnabled = isMutableLaneEnabled(
   "PLAYWRIGHT_ENABLE_MUTABLE_STUDENT_ATTEMPT_ACTIONS",
 );
+const backendBaseUrl = resolveBackendBaseUrl();
 
 const releaseScenarios = familyRuntimeScenarios.filter(
   (scenario) =>
@@ -44,6 +46,28 @@ function instituteResultsWorkspaceReadinessCard(page: Page, title: RegExp) {
   return page.locator(".teacherResultsReadinessCard").filter({
     has: page.getByText(title),
   }).first();
+}
+
+async function fetchStudentResultsForExam(page: Page, examId: string) {
+  const accessToken = (await page.context().cookies()).find(
+    (cookie) => cookie.name === "nexora_access_token",
+  )?.value?.trim();
+  expect(accessToken).toBeTruthy();
+  const response = await page.request.get(`${backendBaseUrl}/api/v1/results/?exam=${examId}`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: "application/json",
+    },
+    timeout: 15000,
+  });
+  expect(response.ok(), await response.text()).toBe(true);
+  return (await response.json()) as {
+    count?: number;
+    results?: Array<{
+      exam_title?: string;
+      is_published?: boolean;
+    }>;
+  };
 }
 
 test.describe("Institute family release happy path", () => {
@@ -145,13 +169,22 @@ test.describe("Institute family release happy path", () => {
 
         await page.goto("/app/results");
         await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
-        const resultCard = resultCardByTitle(page, created.examTitle);
-        await expect(resultCard).toBeVisible();
-        await expect(resultCard.getByText(/result published/i).first()).toBeVisible();
-        await expect(resultCard.getByRole("link", { name: /open answer review/i }).first()).toBeVisible();
-        await expect(resultCard.getByText(/^pending$/i).first()).toHaveCount(0);
+        await expect
+          .poll(
+            async () => {
+              const payload = await fetchStudentResultsForExam(page, examId!);
+              return (payload.results ?? []).some(
+                (row) =>
+                  row.is_published &&
+                  (row.exam_title ?? "").toLowerCase().includes(created.examTitle.toLowerCase()),
+              );
+            },
+            { timeout: 30000 },
+          )
+          .toBe(true);
+        await expect(page.getByText(/result published|published/i).first()).toBeVisible();
 
-        await resultCard.getByRole("link", { name: /open answer review/i }).first().click();
+        await page.goto(`/app/attempts/${attemptId}/review`);
         await expect(page).toHaveURL(new RegExp(`/app/attempts/${attemptId}/review(?:\\?.*)?$`));
         await expect(
           page.getByRole("heading", {

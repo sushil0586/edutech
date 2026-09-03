@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectAdminWorkspace } from "../helpers/navigation";
+import { gotoWithRuntimeRecovery } from "../helpers/runtime";
 
 function extractLeadingNumber(value: string) {
   const match = value.match(/(\d+)/);
@@ -35,13 +36,29 @@ async function expectSelectHasOptions(locator: Locator) {
 }
 
 async function gotoExams(page: Page, path = "/admin/exams") {
-  await page.goto(path);
+  await gotoWithRuntimeRecovery(page, path);
   await expect(page.getByRole("heading", { name: /exam management/i }).first()).toBeVisible();
   await expect(page.getByText(/exam controls/i).first()).toBeVisible();
 }
 
 function quickChip(page: Page, name: RegExp) {
   return page.locator(".workspaceFilterQuickChips a").filter({ hasText: name }).first();
+}
+
+async function applyQuickExamRoute(
+  page: Page,
+  linkName: RegExp,
+  expectedUrl: RegExp,
+  fallbackPath: string,
+) {
+  const chip = quickChip(page, linkName);
+  await expect(chip).toBeVisible();
+  const href = await chip.getAttribute("href");
+  expect(href).toBeTruthy();
+  const resolvedHref = new URL(href ?? fallbackPath, page.url()).toString();
+  expect(resolvedHref).toMatch(expectedUrl);
+  await gotoExams(page, href ?? fallbackPath);
+  await expect(page).toHaveURL(expectedUrl);
 }
 
 test.describe("Admin exams browser functionality coverage", () => {
@@ -78,6 +95,10 @@ test.describe("Admin exams browser functionality coverage", () => {
     await groupSelect(page).selectOption("source");
     await page.getByRole("button", { name: /update view/i }).click();
 
+    await expect(statusSelect(page)).toHaveValue("live");
+    await expect(sourceSelect(page)).toHaveValue("teacher");
+    await expect(sortSelect(page)).toHaveValue("start_soon");
+    await expect(groupSelect(page)).toHaveValue("source");
     await expect
       .poll(() => {
         const url = new URL(page.url());
@@ -95,20 +116,24 @@ test.describe("Admin exams browser functionality coverage", () => {
         exam_group: "source",
       });
 
-    await expect(statusSelect(page)).toHaveValue("live");
-    await expect(sourceSelect(page)).toHaveValue("teacher");
-    await expect(sortSelect(page)).toHaveValue("start_soon");
-    await expect(groupSelect(page)).toHaveValue("source");
-
     const noMatchState = page.getByRole("heading", {
       name: /no exams match these platform controls/i,
     });
-    if (await noMatchState.isVisible().catch(() => false)) {
-      await page.getByRole("link", { name: /reset exam filters/i }).click();
-    } else {
-      await page.getByRole("link", { name: /reset view/i }).click();
-    }
+    const resetLink = noMatchState.isVisible().catch(() => false).then((visible) =>
+      visible
+        ? page.getByRole("link", { name: /reset exam filters/i }).first()
+        : page.getByRole("link", { name: /reset view/i }).first(),
+    );
+    const resolvedResetLink = await resetLink;
+    await expect(resolvedResetLink).toBeVisible();
+    const resetHref = await resolvedResetLink.getAttribute("href");
+    expect(resetHref).toBeTruthy();
+    await gotoExams(page, resetHref ?? "/admin/exams");
 
+    await expect(statusSelect(page)).toHaveValue("all");
+    await expect(sourceSelect(page)).toHaveValue("all");
+    await expect(sortSelect(page)).toHaveValue("recommended");
+    await expect(groupSelect(page)).toHaveValue("none");
     await expect
       .poll(() => {
         const url = new URL(page.url());
@@ -127,26 +152,33 @@ test.describe("Admin exams browser functionality coverage", () => {
         exam_sort: null,
         exam_group: null,
       });
-
-    await expect(statusSelect(page)).toHaveValue("all");
-    await expect(sourceSelect(page)).toHaveValue("all");
-    await expect(sortSelect(page)).toHaveValue("recommended");
-    await expect(groupSelect(page)).toHaveValue("none");
   });
 
   test("@workflow browser coverage keeps admin exams quick filters truthful", async ({ page }) => {
     await gotoExams(page);
 
-    await quickChip(page, /^Platform$/i).click();
-    await expect(page).toHaveURL(/exam_source=platform/);
+    await applyQuickExamRoute(
+      page,
+      /^Platform$/i,
+      /exam_source=platform/,
+      "/admin/exams?exam_source=platform",
+    );
     await expect(sourceSelect(page)).toHaveValue("platform");
 
-    await quickChip(page, /^Live$/i).click();
-    await expect(page).toHaveURL(/exam_status=live/);
+    await applyQuickExamRoute(
+      page,
+      /^Live$/i,
+      /exam_status=live/,
+      "/admin/exams?exam_status=live&exam_source=platform",
+    );
     await expect(statusSelect(page)).toHaveValue("live");
 
-    await quickChip(page, /group by source/i).click();
-    await expect(page).toHaveURL(/exam_group=source/);
+    await applyQuickExamRoute(
+      page,
+      /group by source/i,
+      /exam_group=source/,
+      "/admin/exams?exam_status=live&exam_source=platform&exam_group=source",
+    );
     await expect(groupSelect(page)).toHaveValue("source");
   });
 

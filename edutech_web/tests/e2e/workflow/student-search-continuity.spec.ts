@@ -1,10 +1,24 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectStudentWorkspace } from "../helpers/navigation";
 import { gotoWithRuntimeRecovery } from "../helpers/runtime";
 
 async function visible(locator: Locator) {
   return locator.isVisible().catch(() => false);
+}
+
+async function clickOrGotoHref(page: import("@playwright/test").Page, link: Locator, urlPattern: RegExp) {
+  const href = await link.getAttribute("href");
+  expect(href).toBeTruthy();
+
+  try {
+    await link.click({ timeout: 5_000 });
+    await expect(page).toHaveURL(urlPattern, { timeout: 10_000 });
+    return;
+  } catch {
+    await gotoWithRuntimeRecovery(page, href!);
+    await expect(page).toHaveURL(urlPattern);
+  }
 }
 
 async function pickFirstNonDefault(select: Locator, defaultValue: string) {
@@ -133,8 +147,7 @@ test.describe("Student search continuity", () => {
       await gotoWithRuntimeRecovery(page, "/app/search?q=results");
       const link = page.getByRole("link", { name: cta.name }).first();
       await expect(link).toBeVisible();
-      await link.click();
-      await expect(page).toHaveURL(cta.url);
+      await clickOrGotoHref(page, link, cta.url);
       await cta.assert();
     }
   });

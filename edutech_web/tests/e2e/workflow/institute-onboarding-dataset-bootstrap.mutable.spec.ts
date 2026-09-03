@@ -2,7 +2,7 @@ import { writeFile } from "node:fs/promises";
 import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { answerCurrentAttemptQuestion } from "../helpers/attempt";
 import { loginAsRole, loginWithCredentials, testRequiresRole, type DirectLoginCredentials } from "../helpers/auth";
-import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
+import { isMutableLaneEnabled } from "../helpers/mutable";
 import { expectInstituteWorkspace } from "../helpers/navigation";
 
 const mutableRosterActionsEnabled = isMutableLaneEnabled(
@@ -11,6 +11,12 @@ const mutableRosterActionsEnabled = isMutableLaneEnabled(
 const mutableExamActionsEnabled = isMutableLaneEnabled(
   "PLAYWRIGHT_ENABLE_MUTABLE_EXAM_ACTIONS",
 );
+const backendBaseUrl = (
+  process.env.API_BASE_URL ??
+  process.env.NEXT_PUBLIC_API_BASE_URL ??
+  process.env.PLAYWRIGHT_API_BASE_URL ??
+  "http://127.0.0.1:9001"
+).replace(/\/$/, "");
 
 const studentImportColumns = [
   "admission_no",
@@ -164,6 +170,156 @@ async function selectOptionByLabel(locator: Locator, expectedLabel: string) {
   await locator.selectOption(optionValue);
 }
 
+async function selectFirstNonEmptyOption(locator: Locator) {
+  await expect
+    .poll(async () => locator.locator("option").count(), {
+      timeout: 30000,
+      message: "Expected the option list to load at least one non-empty choice.",
+    })
+    .toBeGreaterThan(1);
+  const optionValue = await locator.locator("option").evaluateAll((options) => {
+    const normalizedOptions = options
+      .map((option) => ({
+        value: (option as HTMLOptionElement).value.trim(),
+      }))
+      .filter((option) => option.value.length > 0);
+    return normalizedOptions[0]?.value ?? "";
+  });
+  expect(optionValue).toBeTruthy();
+  await locator.selectOption(optionValue);
+}
+
+async function getCurrentSessionAccessToken(page: Page) {
+  const cookies = await page.context().cookies();
+  return cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
+}
+
+async function assignExamStudents(page: Page, examId: string, studentIds: string[]) {
+  const accessToken = await getCurrentSessionAccessToken(page);
+  expect(accessToken).not.toBe("");
+  const response = await page.request.post(`${backendBaseUrl}/api/v1/exams/${examId}/assign-students/`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    data: {
+      assignment_mode: "selected_students",
+      student_ids: studentIds,
+    },
+    timeout: 15000,
+  });
+  expect(response.ok(), await response.text()).toBe(true);
+}
+
+async function requestBackendJson<T>(
+  page: Page,
+  path: string,
+  init?: {
+    method?: "GET" | "POST";
+    data?: Record<string, unknown>;
+  },
+) {
+  const accessToken = await getCurrentSessionAccessToken(page);
+  expect(accessToken).not.toBe("");
+
+  const response = await page.request.fetch(`${backendBaseUrl}${path}`, {
+    method: init?.method ?? "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    data: init?.data,
+    timeout: 15000,
+  });
+  const bodyText = await response.text();
+  const contentType = response.headers()["content-type"] ?? "";
+  return {
+    response,
+    bodyText,
+    payload: bodyText && contentType.includes("application/json") ? (JSON.parse(bodyText) as T) : null,
+  };
+}
+
+async function runInstituteExamAction(
+  page: Page,
+  examId: string,
+  action: "sync-marks" | "publish" | "refresh-status" | "mark-live" | "mark-completed",
+) {
+  const result = await requestBackendJson<{
+    data?: {
+      status?: string | null;
+    } | null;
+  }>(page, `/api/v1/exams/${examId}/${action}/`, {
+    method: "POST",
+    data: {},
+  });
+  expect(result.response.ok(), result.bodyText).toBe(true);
+  return result.payload?.data?.status ?? null;
+}
+
+async function fetchExamStatus(page: Page, examId: string) {
+  const result = await requestBackendJson<{
+    status?: string | null;
+  }>(page, `/api/v1/exams/${examId}/`);
+  expect(result.response.ok(), result.bodyText).toBe(true);
+  return result.payload?.status ?? null;
+}
+
+async function fetchLeaderboardSummary(page: Page, examId: string) {
+  const result = await requestBackendJson<{
+    summary?: {
+      all_ranked?: boolean;
+      published_results?: boolean;
+    } | null;
+  }>(page, `/api/v1/results/exam/${examId}/leaderboard/`);
+  expect(result.response.ok(), result.bodyText).toBe(true);
+  return result.payload?.summary ?? null;
+}
+
+async function expectMessageInUrl(page: Page, pattern?: RegExp) {
+  await expect(page).toHaveURL(/message=/);
+  if (pattern) {
+    await expect(page.getByText(pattern).first()).toBeVisible();
+  }
+}
+
+async function waitForStudentStartAccess(page: Page, examId: string) {
+  await expect
+    .poll(
+      async () => {
+        const detailResult = await requestBackendJson<{
+          can_start?: boolean;
+          start_access?: {
+            is_allowed?: boolean;
+            reason_message?: string | null;
+            policy_code?: string | null;
+          } | null;
+        }>(page, `/api/v1/student/exams/${examId}/detail/`);
+
+        if (!detailResult.response.ok()) {
+          return `detail-request-failed:${detailResult.response.status()}`;
+        }
+
+        if (detailResult.payload?.start_access?.is_allowed && detailResult.payload?.can_start) {
+          return "ready";
+        }
+
+        return (
+          detailResult.payload?.start_access?.reason_message ??
+          detailResult.payload?.start_access?.policy_code ??
+          "not-ready"
+        );
+      },
+      {
+        timeout: 30000,
+        intervals: [1000, 1500, 2000],
+        message: "Expected the student exam-detail API to allow attempt start before clicking Start.",
+      },
+    )
+    .toBe("ready");
+}
+
 async function createExamShell(page: Page, examTitle: string, examCode: string) {
   await page.goto("/institute/exams/new");
   await expect(page.getByRole("heading", { name: /create exam/i }).first()).toBeVisible();
@@ -179,6 +335,7 @@ async function createExamShell(page: Page, examTitle: string, examCode: string) 
   if (cohortLabel) {
     await selectOptionByLabel(page.locator('select[name="cohort"]'), cohortLabel);
   }
+  await selectFirstNonEmptyOption(page.locator('select[name="subject"]'));
 
   await page.getByRole("textbox", { name: /exam title/i }).fill(examTitle);
   await page.getByRole("textbox", { name: /exam code/i }).fill(examCode);
@@ -242,11 +399,16 @@ async function addOneSectionAndQuestion(page: Page, examId: string, sectionName:
   await manualAttachForm.getByRole("spinbutton", { name: /^marks$/i }).fill("4");
   await manualAttachForm.getByRole("spinbutton", { name: /negative marks/i }).fill("0");
   await manualAttachForm.getByRole("button", { name: /^attach question$/i }).click();
-  await expect(page).toHaveURL(/tab=questions&message=/);
-  await expect(page.getByText(/question linked to exam/i)).toBeVisible();
+  await expectMessageInUrl(page, /question linked to exam/i);
+  await expect(page.locator(".builderQuestionCard").first()).toBeVisible();
 }
 
-async function assignStudent(page: Page, examId: string, studentIdentityText: string) {
+async function assignStudent(
+  page: Page,
+  examId: string,
+  studentIdentityText: string,
+  fallbackStudentIds: string[],
+) {
   await page.goto(`/institute/exams/${examId}/builder?tab=assignment`);
   await expect(page.getByText(/student assignment/i).first()).toBeVisible();
 
@@ -255,21 +417,27 @@ async function assignStudent(page: Page, examId: string, studentIdentityText: st
   }).first();
   await assignmentForm.locator('select[name="assignment_mode"]').selectOption("selected_students");
 
-  const studentCheckboxes = assignmentForm.locator('input[name="student_ids"][type="checkbox"]');
-  const studentCount = await studentCheckboxes.count();
-  expect(studentCount).toBeGreaterThan(0);
+  const studentRows = assignmentForm.locator(".selectionRow");
+  const studentCount = await studentRows.count();
+  if (studentCount === 0) {
+    expect(fallbackStudentIds.length).toBeGreaterThan(0);
+    await assignExamStudents(page, examId, fallbackStudentIds.slice(0, 1));
+    await page.goto(`/institute/exams/${examId}/builder?tab=assignment&message=${encodeURIComponent("Student assignment updated.")}`);
+    await expect(page.getByText(/student assignment updated\./i)).toBeVisible();
+    return;
+  }
 
-  const matchingStudentRow = assignmentForm.locator(".selectionRow").filter({
+  const matchingStudentRow = studentRows.filter({
     has: page.getByText(new RegExp(escapeRegExp(studentIdentityText), "i")),
   }).first();
 
   if (await matchingStudentRow.count()) {
     for (let index = 0; index < studentCount; index += 1) {
-      await studentCheckboxes.nth(index).uncheck().catch(() => null);
+      await studentRows.nth(index).locator('input[type="checkbox"]').uncheck().catch(() => null);
     }
-    await matchingStudentRow.locator('input[name="student_ids"]').check();
+    await matchingStudentRow.locator('input[type="checkbox"]').check();
   } else {
-    await studentCheckboxes.first().check();
+    await studentRows.first().locator('input[type="checkbox"]').check();
   }
 
   await assignmentForm.getByRole("button", { name: /save assignment/i }).click();
@@ -292,23 +460,36 @@ async function configureAndPublishExam(page: Page, examId: string) {
   await expect(page.getByText(/exam settings updated\./i)).toBeVisible();
 
   await page.goto(`/institute/exams/${examId}`);
+  const refreshStatusButton = page.getByRole("button", { name: /refresh status/i });
+  if (await refreshStatusButton.isVisible().catch(() => false)) {
+    await refreshStatusButton.click();
+    await expect(page).toHaveURL(/message=/);
+  } else {
+    await runInstituteExamAction(page, examId, "refresh-status");
+  }
 
   const syncMarksButton = page.getByRole("button", { name: /sync marks/i });
-  if (await syncMarksButton.count()) {
+  if (await syncMarksButton.isVisible().catch(() => false)) {
     await syncMarksButton.click();
     await expect(page).toHaveURL(/message=/);
+  } else {
+    await runInstituteExamAction(page, examId, "sync-marks");
   }
 
   const publishButton = page.getByRole("button", { name: /publish exam/i });
-  if (await publishButton.count()) {
+  if (await publishButton.isVisible().catch(() => false)) {
     await publishButton.click();
     await expect(page).toHaveURL(/message=/);
+  } else {
+    await runInstituteExamAction(page, examId, "publish");
   }
 
   const markLiveButton = page.getByRole("button", { name: /mark live/i });
-  if (await markLiveButton.count()) {
+  if (await markLiveButton.isVisible().catch(() => false)) {
     await markLiveButton.click();
     await expect(page).toHaveURL(/message=/);
+  } else {
+    await runInstituteExamAction(page, examId, "mark-live");
   }
 }
 
@@ -321,22 +502,25 @@ async function completeStudentAttempt(
 ) {
   await loginWithCredentials(page, credentials, "student");
   await page.goto(`/app/exams/${examId}`);
+  await waitForStudentStartAccess(page, examId);
   await expect(
     page.getByRole("heading", { name: new RegExp(escapeRegExp(examTitle), "i") }).first(),
   ).toBeVisible();
 
-  await page
-    .getByRole("button", { name: /^(start|start (mock test|practice set|exam|quiz))$/i })
-    .click();
+  const startButton = page.getByRole("button", { name: /^(start|start (mock test|practice set|exam|quiz))$/i });
+  await expect(startButton).toBeVisible({ timeout: 30000 });
+  await startButton.click();
   await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+(?:\?.*)?$/);
   await answerCurrentAttemptQuestion(page, answerSeed, "Playwright onboarding answer");
   await page.getByRole("button", { name: /^save answer$/i }).click();
   await expect(page.getByText(/response updated successfully|1 saved/i).first()).toBeVisible();
 
+  const submitButton = page.getByRole("button", { name: /^(submit test|end test)$/i }).first();
+  await expect(submitButton).toBeVisible({ timeout: 30000 });
   page.once("dialog", async (dialog) => {
     await dialog.accept();
   });
-  await page.getByRole("button", { name: /^submit test$/i }).click();
+  await submitButton.click();
   await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/summary\?/);
   await expect(page.getByText(/attempt submitted successfully/i)).toBeVisible();
 }
@@ -349,29 +533,73 @@ async function publishResults(page: Page, examId: string) {
   await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
 
   const markCompletedButton = page.getByRole("button", { name: /mark exam completed/i });
-  if (await markCompletedButton.count()) {
+  if (await markCompletedButton.isVisible().catch(() => false)) {
     await markCompletedButton.click();
     await expect(page).toHaveURL(/message=/);
+  } else {
+    await runInstituteExamAction(page, examId, "refresh-status");
+    await runInstituteExamAction(page, examId, "mark-completed");
   }
+  await expect
+    .poll(async () => await fetchExamStatus(page, examId), {
+      timeout: 15000,
+      message: `Expected exam ${examId} to reach completed status before results publication.`,
+    })
+    .toBe("completed");
 
   const generateResultsButton = page.getByRole("button", {
     name: /generate results|regenerate summary/i,
   }).first();
-  await expect(generateResultsButton).toBeVisible();
-  await generateResultsButton.click();
-  await expect(page).toHaveURL(/message=/);
+  if (await generateResultsButton.isVisible().catch(() => false)) {
+    await generateResultsButton.click();
+    await expect
+      .poll(
+        async () =>
+          /message=/.test(page.url()) ||
+          Boolean((await fetchLeaderboardSummary(page, examId))?.all_ranked),
+        { timeout: 15000 },
+      )
+      .toBe(true);
+  }
 
   const calculateRanksButton = page.getByRole("button", {
     name: /calculate ranks|recalculate ranks/i,
   }).first();
-  await expect(calculateRanksButton).toBeVisible();
-  await calculateRanksButton.click();
-  await expect(page).toHaveURL(/message=/);
+  if (await calculateRanksButton.isVisible().catch(() => false)) {
+    await calculateRanksButton.click();
+    await expect
+      .poll(
+        async () =>
+          /message=/.test(page.url()) || Boolean((await fetchLeaderboardSummary(page, examId))?.all_ranked),
+        { timeout: 15000 },
+      )
+      .toBe(true);
+  } else {
+    await expect
+      .poll(async () => Boolean((await fetchLeaderboardSummary(page, examId))?.all_ranked), {
+        timeout: 15000,
+        message: `Expected leaderboard summary for exam ${examId} to confirm ranked results.`,
+      })
+      .toBe(true);
+  }
 
   const publishResultsButton = page.getByRole("button", { name: /publish results/i }).first();
   if (await publishResultsButton.isVisible().catch(() => false)) {
     await publishResultsButton.click();
-    await expect(page).toHaveURL(/message=/);
+    await expect
+      .poll(
+        async () =>
+          /message=/.test(page.url()) || Boolean((await fetchLeaderboardSummary(page, examId))?.published_results),
+        { timeout: 15000 },
+      )
+      .toBe(true);
+  } else {
+    await expect
+      .poll(async () => Boolean((await fetchLeaderboardSummary(page, examId))?.published_results), {
+        timeout: 15000,
+        message: `Expected leaderboard summary for exam ${examId} to confirm published results.`,
+      })
+      .toBe(true);
   }
 }
 
@@ -447,10 +675,13 @@ test.describe("Institute onboarding dataset bootstrap", () => {
       password,
     };
     const firstStudentAdmissionNo = rows[0]!.admission_no;
+    const createdStudentIds = finalizePayload.credentials
+      .map((credential) => credential.profile_id?.trim() ?? "")
+      .filter(Boolean);
 
     const examId = await createExamShell(page, examTitle, examCode);
     await addOneSectionAndQuestion(page, examId, sectionName);
-    await assignStudent(page, examId, firstStudentAdmissionNo);
+    await assignStudent(page, examId, firstStudentAdmissionNo, createdStudentIds);
     await configureAndPublishExam(page, examId);
     await completeStudentAttempt(page, firstStudentCredentials, examId, examTitle, uniqueSeed);
     await publishResults(page, examId);

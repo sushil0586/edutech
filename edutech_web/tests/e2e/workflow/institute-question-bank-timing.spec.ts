@@ -68,7 +68,7 @@ test.describe("Institute question bank timing", () => {
       metrics,
       action: async () => {
         await searchField.fill("square root");
-        await page.getByRole("button", { name: /apply filters/i }).click();
+        await page.getByRole("button", { name: /update view/i }).click();
       },
       assertVisible: async () => {
         await expect(page).toHaveURL(/search=square\+root|search=square%20root/);
@@ -81,11 +81,11 @@ test.describe("Institute question bank timing", () => {
       metrics,
       action: async () => {
         await searchField.fill("playwright-no-match-zzqv-1781");
-        await page.getByRole("button", { name: /apply filters/i }).click();
+        await page.getByRole("button", { name: /update view/i }).click();
       },
       assertVisible: async () => {
         await expect(page.getByText(/no questions match these filters/i).first()).toBeVisible();
-        await expect(page.getByRole("link", { name: /reset filters and show all questions/i }).first()).toBeVisible();
+        await expect(searchField).toHaveValue("playwright-no-match-zzqv-1781");
       },
     });
 
@@ -93,11 +93,13 @@ test.describe("Institute question bank timing", () => {
       label: "question-bank-reset",
       metrics,
       action: async () => {
-        await page.getByRole("link", { name: /reset filters and show all questions/i }).first().click();
+        await searchField.fill("");
+        await page.getByRole("button", { name: /update view/i }).click();
       },
       assertVisible: async () => {
         await expect(page).toHaveURL(/\/institute\/question-bank(?:\?.*)?$/);
         await expectQuestionBankLanding(page);
+        await expect(searchField).toHaveValue("");
       },
     });
 

@@ -29,13 +29,17 @@ test.describe("Student subscriptions workspace", () => {
   test("@workflow student can validate subscription filters plans orders wallet handoff and state messaging", async ({
     page,
   }) => {
+    test.setTimeout(120000);
+
     await loginAsRole(page, "student");
     await expectStudentWorkspace(page);
 
     await gotoWithRuntimeRecovery(page, "/app/subscriptions");
     await expect(page).toHaveURL(/\/app\/subscriptions(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /subscriptions/i }).first()).toBeVisible();
-    await expect(page.getByText(/compare recurring plans, track subscriptions, and create plan requests/i).first()).toBeVisible();
+    await expect(
+      page.getByText(/compare plans, create requests, and track whether activation or credit is still pending/i).first(),
+    ).toBeVisible();
 
     const unavailableTitle = page.getByText(/subscriptions are not available yet|subscription data could not be loaded/i).first();
     if (await unavailableTitle.isVisible().catch(() => false)) {
@@ -68,7 +72,7 @@ test.describe("Student subscriptions workspace", () => {
     await expect(page.getByText(/what this page covers/i).first()).toBeVisible();
     await expect(page.getByText(/active student subscriptions/i).first()).toBeVisible();
     await expect(page.getByText(/subscription orders/i).first()).toBeVisible();
-    await expect(page.getByText(/available plans/i).first()).toBeVisible();
+    await expect(page.getByRole("complementary").getByText(/available plans/i).first()).toBeVisible();
     await expect(page.getByText(/immediate activation/i).first()).toBeVisible();
 
     await expectAnyVisible(page, [

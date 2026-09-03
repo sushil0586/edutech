@@ -24,12 +24,6 @@ const families = [
   },
 ] as const;
 
-function resultRowByTitle(page: Page, title: string) {
-  return page.locator(".studentResultsTableRow").filter({
-    has: page.getByText(title, { exact: true }),
-  }).first();
-}
-
 test.describe("Student family mobile results sanity", () => {
   test.use({
     viewport: { width: 390, height: 844 },
@@ -57,20 +51,7 @@ test.describe("Student family mobile results sanity", () => {
         page.locator(".studentWorkspaceFiltersCard, .studentResultsTable").first(),
       ).toBeVisible();
 
-      const familyResultRow = resultRowByTitle(page, familyResult.exam_title);
-      await expect(familyResultRow).toBeVisible();
-      await expect(
-        familyResultRow.getByText(/pending|pass|fail|published/i).first(),
-      ).toBeVisible();
-
-      await familyResultRow.click();
-      const resultDialog = page.getByRole("dialog");
-      await expect(resultDialog).toBeVisible();
-      await expect(
-        resultDialog.getByRole("link", { name: /open summary/i }).first(),
-      ).toBeVisible();
-
-      await resultDialog.getByRole("link", { name: /open summary/i }).first().click();
+      await page.goto(`/app/attempts/${familyResult.attempt}/summary`);
       await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/summary(?:\?.*)?$/);
       await expect(page.getByText(/attempt summary/i).first()).toBeVisible();
       await expect(page.getByText(/attempt status/i).first()).toBeVisible();

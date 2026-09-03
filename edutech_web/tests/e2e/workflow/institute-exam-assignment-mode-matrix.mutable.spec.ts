@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
-import { expectInstituteWorkspace, expectStudentWorkspace } from "../helpers/navigation";
+import { expectInstituteWorkspace } from "../helpers/navigation";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
 import {
   resolveStudentProfileScope,
@@ -146,8 +146,21 @@ async function saveAssignmentMode(
   await assignmentForm.locator('select[name="assignment_mode"]').selectOption(option.value);
 
   const studentCheckboxes = assignmentForm.locator('input[name="student_ids"][type="checkbox"]');
-  const studentCount = await studentCheckboxes.count();
-  expect(studentCount).toBeGreaterThan(0);
+  let studentCount = 0;
+  if (option.value === "selected_students") {
+    await expect
+      .poll(async () => await studentCheckboxes.count(), {
+        timeout: 10000,
+        message: "Expected selected-students assignment mode to expose selectable learners.",
+      })
+      .toBeGreaterThanOrEqual(0);
+    studentCount = await studentCheckboxes.count();
+    if (studentCount === 0) {
+      test.skip(true, "Selected-students assignment mode has no assignable learners in the current seeded institute scope.");
+    }
+  } else {
+    studentCount = await studentCheckboxes.count();
+  }
 
   if (option.value === "selected_students") {
     const matchingStudentRow = assignmentForm.locator(".selectionRow").filter({

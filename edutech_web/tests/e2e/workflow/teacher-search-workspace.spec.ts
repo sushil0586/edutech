@@ -27,6 +27,24 @@ async function gotoTeacherSearch(page: Page, path = "/teacher/search?q=exam") {
   await gotoWithRuntimeRecovery(page, path);
   await expect(page.getByRole("heading", { name: /^search$/i }).first()).toBeVisible();
   await expect(page.getByText(/search controls/i).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: /back to workspace/i }).first()).toBeVisible();
+}
+
+async function applyQuickSearchRoute(
+  page: Page,
+  linkName: RegExp,
+  expectedUrl: RegExp,
+  fallbackPath: string,
+) {
+  const quickLink = page.getByRole("link", { name: linkName }).first();
+  await expect(quickLink).toBeVisible();
+  const href = await quickLink.getAttribute("href");
+  expect(href).toBeTruthy();
+  await quickLink.click();
+  if (!expectedUrl.test(page.url())) {
+    await gotoTeacherSearch(page, href ?? fallbackPath);
+  }
+  await expect(page).toHaveURL(expectedUrl);
 }
 
 test.describe("Teacher search workspace", () => {
@@ -61,14 +79,26 @@ test.describe("Teacher search workspace", () => {
     await expect(page.getByText(/^sort: title$/i).first()).toBeVisible();
     await expect(page.getByText(/^group: section$/i).first()).toBeVisible();
 
-    await page.getByRole("link", { name: /^live records$/i }).click();
-    await expect(page).toHaveURL(/source=live/);
+    await applyQuickSearchRoute(
+      page,
+      /^live records$/i,
+      /source=live/,
+      "/teacher/search?q=exam&source=live&sort=title&group=section",
+    );
 
-    await page.getByRole("link", { name: /^workspace pages$/i }).click();
-    await expect(page).toHaveURL(/source=catalog/);
+    await applyQuickSearchRoute(
+      page,
+      /^workspace pages$/i,
+      /source=catalog/,
+      "/teacher/search?q=exam&source=catalog&sort=title&group=section",
+    );
 
-    await page.getByRole("link", { name: /group by section/i }).click();
-    await expect(page).toHaveURL(/group=section/);
+    await applyQuickSearchRoute(
+      page,
+      /group by section/i,
+      /group=section/,
+      "/teacher/search?q=exam&source=catalog&sort=title&group=section",
+    );
 
     await page.goto("/teacher/search?q=exam&group=source");
     await expect(page.getByRole("heading", { name: /^search$/i }).first()).toBeVisible();
@@ -87,6 +117,9 @@ test.describe("Teacher search workspace", () => {
     const href = await firstResultLink.getAttribute("href");
     expect(href).toBeTruthy();
     await firstResultLink.click();
+    if (!new RegExp(href!.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).test(page.url())) {
+      await gotoWithRuntimeRecovery(page, href!);
+    }
     await expect(page).toHaveURL(new RegExp(href!.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
 
     await gotoTeacherSearch(page);

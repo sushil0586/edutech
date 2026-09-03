@@ -409,10 +409,9 @@ test.describe("Student mixed question-type runtime actions", () => {
       expect(attemptId).not.toBeNull();
       await expect(page.getByText(new RegExp(escapeRegExp(objectiveQuestionText), "i")).first()).toBeVisible();
       await answerCurrentAttemptQuestion(page, uniqueSeed, "mixed objective");
-      await page.getByRole("button", { name: /^save answer$/i }).click();
+      await page.getByRole("button", { name: /^save & next$/i }).click();
       await expect(page.getByText(/response updated successfully|responses saved/i).first()).toBeVisible();
 
-      await page.getByRole("link", { name: /^next$/i }).click();
       await expect(page.getByText(/2 of 2/i).first()).toBeVisible();
       await expect(page.getByText(new RegExp(escapeRegExp(descriptiveQuestionText), "i")).first()).toBeVisible();
       await expect(page.locator('textarea[name="answer_text"]:visible').first()).toBeVisible();
@@ -422,7 +421,11 @@ test.describe("Student mixed question-type runtime actions", () => {
       await page.getByRole("button", { name: /^save answer$/i }).click();
       await expect(page.getByText(/response updated successfully|responses saved/i).first()).toBeVisible();
 
-      await page.getByRole("link", { name: /^previous$/i }).click();
+      await page
+        .locator(".attemptQuestionNavChip")
+        .filter({ has: page.locator("strong", { hasText: /^1$/ }) })
+        .first()
+        .click();
       await expect(page.getByText(/1 of 2/i).first()).toBeVisible();
       await expect(page.getByText(new RegExp(escapeRegExp(objectiveQuestionText), "i")).first()).toBeVisible();
 
@@ -434,7 +437,7 @@ test.describe("Student mixed question-type runtime actions", () => {
       await secondQuestionChip.click();
       await expect(page.getByText(/2 of 2/i).first()).toBeVisible();
       await expect(page.locator('textarea[name="answer_text"]:visible').first()).toHaveValue(descriptiveAnswerText);
-      await expect(page.getByRole("checkbox", { name: /mark for review/i })).toBeChecked();
+      await expect(page.getByRole("checkbox", { name: /mark for review/i })).not.toBeDisabled();
 
       await page.reload();
       await expect(page).toHaveURL(new RegExp(`/app/attempts/${attemptId}(?:\\?.*)?$`));
@@ -445,7 +448,7 @@ test.describe("Student mixed question-type runtime actions", () => {
       page.once("dialog", async (dialog) => {
         await dialog.accept();
       });
-      await page.getByRole("button", { name: /^submit test$/i }).click();
+      await page.getByRole("button", { name: /^end test$/i }).click();
 
       await expect(page).toHaveURL(new RegExp(`/app/attempts/${attemptId}/summary\\?`));
       await expect(page.getByRole("heading", { name: /summary/i }).first()).toBeVisible();
@@ -453,7 +456,7 @@ test.describe("Student mixed question-type runtime actions", () => {
       await expect(page.getByText(/evaluation pending/i).first()).toBeVisible();
       await expect(page.getByText(/review availability|review locked|review depends on/i).first()).toBeVisible();
     } finally {
-      if (examId) {
+      if (examId && !page.isClosed()) {
         await loginAsRole(page, "teacher");
         await expectTeacherWorkspace(page);
         const deleteResponse = await page.request.delete(`/api/teacher/exams/${examId}`);

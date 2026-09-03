@@ -130,7 +130,6 @@ export default async function StudentQuestionAnalyticsPage({
     params.subject?.trim() || null,
     params.question_type ? questionTypeLabel(params.question_type) : null,
   ].filter(Boolean);
-  const title = titleParts.length ? `${titleParts.join(" · ")} Question Analytics` : "Question Analytics";
   const wrongCount = data?.questions.filter((item) => item.your_result === "wrong").length ?? 0;
   const skippedCount = data?.questions.filter((item) => item.your_result === "skipped").length ?? 0;
   const averageTime = data?.questions.length

@@ -1,4 +1,4 @@
-import { expect, request, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
+import { expect, request, test, type APIRequestContext, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
 import { expectInstituteWorkspace } from "../helpers/navigation";
@@ -12,18 +12,6 @@ const instituteApiBaseUrl = (
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-async function selectFirstNonEmptyOption(
-  locator: Locator,
-) {
-  const values = await locator.locator("option").evaluateAll((options) =>
-    options.map((option) => (option as HTMLOptionElement).value),
-  );
-  const optionValue = values.find((value) => value.trim().length > 0) ?? null;
-  expect(optionValue).not.toBeNull();
-  await locator.selectOption(optionValue!);
-  return optionValue!;
 }
 
 function examAccessKeyCard(page: Page) {

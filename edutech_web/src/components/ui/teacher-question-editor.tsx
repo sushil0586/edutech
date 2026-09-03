@@ -269,10 +269,6 @@ export function TeacherQuestionEditor({
     }
 
     if (!programId) {
-      setLoadedSubjects([]);
-      setLoadedTopics([]);
-      setLoadedPassages([]);
-      setLookupLoading(false);
       return;
     }
 
@@ -326,9 +322,18 @@ export function TeacherQuestionEditor({
     };
   }, [lookupEndpoint, programId, subjectId]);
 
-  const subjectSource = lookupEndpoint ? loadedSubjects : subjects;
-  const topicSource = lookupEndpoint ? loadedTopics : topics;
-  const passageSource = lookupEndpoint ? loadedPassages : passages;
+  const subjectSource = useMemo(
+    () => (lookupEndpoint ? (programId ? loadedSubjects : []) : subjects),
+    [loadedSubjects, lookupEndpoint, programId, subjects],
+  );
+  const topicSource = useMemo(
+    () => (lookupEndpoint ? (programId ? loadedTopics : []) : topics),
+    [loadedTopics, lookupEndpoint, programId, topics],
+  );
+  const passageSource = useMemo(
+    () => (lookupEndpoint ? (programId ? loadedPassages : []) : passages),
+    [loadedPassages, lookupEndpoint, passages, programId],
+  );
 
   const filteredQuestionTypeOptions = useMemo(() => {
     if (!allowedQuestionTypeSet.size) {

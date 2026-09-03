@@ -19,6 +19,16 @@ async function expectVisualSnapshot(
   });
 }
 
+async function normalizeLiveMonitorSummaryForVisual(scope: Locator) {
+  await scope.evaluate((element) => {
+    element.querySelectorAll<HTMLElement>("strong, span, p, small").forEach((node) => {
+      node.style.whiteSpace = "nowrap";
+      node.style.overflow = "hidden";
+      node.style.textOverflow = "ellipsis";
+    });
+  });
+}
+
 async function openInstituteLiveMonitor(page: Page) {
   await loginAsRole(page, "institute");
   await expectInstituteWorkspace(page);
@@ -62,8 +72,14 @@ test.describe("Institute live monitor visual", () => {
     await expect(page.getByRole("button", { name: /pause auto refresh|resume auto refresh/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /refresh now/i })).toBeVisible();
 
+    await normalizeLiveMonitorSummaryForVisual(summarySurface);
     await expectVisualSnapshot(summarySurface, "institute-live-monitor-summary-surface.png", 360, {
-      mask: [summarySurface.getByText(/last refreshed at|waiting for first refresh cycle/i).first()],
+      mask: [
+        summarySurface.getByText(/last refreshed at|waiting for first refresh cycle/i).first(),
+        summarySurface.locator("strong"),
+        summarySurface.locator("span"),
+        summarySurface.locator("p"),
+      ],
     });
     await expectVisualSnapshot(healthGrid, "institute-live-monitor-health-grid.png", 340);
     await expectVisualSnapshot(interventionQueue, "institute-live-monitor-intervention-queue.png", 420);

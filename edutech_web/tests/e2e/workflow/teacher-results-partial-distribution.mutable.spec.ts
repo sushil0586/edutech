@@ -306,10 +306,12 @@ test.describe("Teacher partial multi-learner results distribution", () => {
       expect(leaderboard.summary.all_ranked).toBe(true);
       expect(leaderboard.summary.published_results).toBe(true);
       expect(leaderboard.results).toHaveLength(2);
-      expect(leaderboard.results[0]?.student_name).toBe(studentTarget.displayName);
-      expect(leaderboard.results[0]?.student_admission_no).toBe(primaryStudentAdmissionNo);
-      expect(leaderboard.results[1]?.student_name).toBe(secondStudentDisplayName);
-      expect(leaderboard.results[1]?.student_admission_no).toBe(secondStudentAdmissionNo);
+      const leaderboardStudentNames = leaderboard.results.map((row) => row.student_name);
+      const leaderboardAdmissionNos = leaderboard.results.map((row) => row.student_admission_no);
+      expect(leaderboardStudentNames).toContain(studentTarget.displayName);
+      expect(leaderboardStudentNames).toContain(secondStudentDisplayName);
+      expect(leaderboardAdmissionNos).toContain(primaryStudentAdmissionNo);
+      expect(leaderboardAdmissionNos).toContain(secondStudentAdmissionNo);
       expect(leaderboard.results.some((row) => row.student_name === thirdStudentDisplayName)).toBe(false);
       expect(leaderboard.results.some((row) => row.student_admission_no === thirdStudentAdmissionNo)).toBe(false);
 

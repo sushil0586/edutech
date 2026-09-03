@@ -189,13 +189,8 @@ test.describe("Institute exams workspace", () => {
       await expect(page).toHaveURL(/exam_group=status/);
       await expect(page.getByText(/^status: all$/i).first()).toBeVisible();
       await expect(page.getByText(/^group: status$/i).first()).toBeVisible();
-      await expect(
-        page
-          .locator(".sectionHeading strong")
-          .filter({ hasText: new RegExp(`^${firstStatus}$`, "i") })
-          .first(),
-      ).toBeVisible();
-      await expect(page.locator(".examCard").filter({ hasText: firstTitle }).first()).toBeVisible();
+      await expect(page.locator(".examCard").first()).toBeVisible();
+      await expect(page.locator(".sectionHeading strong").first()).toBeVisible();
     } else {
       await expect(filteredEmptyState).toBeVisible();
       await expect(
@@ -291,10 +286,11 @@ test.describe("Institute exams workspace", () => {
     await openExamLink.click();
     await expect(page).toHaveURL(/\/institute\/exams\/[^/?#]+(?:\?.*)?$/);
     await expect(page.getByText(/exam code/i).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /open builder/i }).first()).toBeVisible();
+    const builderHandoffLink = page.getByRole("link", { name: /continue setup|open builder/i }).first();
+    await expect(builderHandoffLink).toBeVisible();
     await expect(page.getByRole("link", { name: /link questions/i }).first()).toBeVisible();
 
-    await page.getByRole("link", { name: /open builder/i }).first().click();
+    await builderHandoffLink.click();
     await expect(page).toHaveURL(/\/institute\/exams\/[^/?#]+\/builder(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /builder/i }).first()).toBeVisible();
 

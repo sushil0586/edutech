@@ -121,7 +121,22 @@ export function pickStartableExam(exams) {
     return null;
   }
 
+  const includePattern = __ENV.K6_EXAM_CODE_REGEX ? new RegExp(__ENV.K6_EXAM_CODE_REGEX, "i") : null;
+  const excludePattern = __ENV.K6_EXAM_CODE_EXCLUDE_REGEX
+    ? new RegExp(__ENV.K6_EXAM_CODE_EXCLUDE_REGEX, "i")
+    : /RESULT/i;
+
+  const preferredExams = exams.filter((exam) => {
+    const code = String(exam?.code || "");
+    if (includePattern && !includePattern.test(code)) {
+      return false;
+    }
+    return !excludePattern.test(code);
+  });
+
   return (
+    preferredExams.find((exam) => exam?.can_resume && exam?.active_attempt?.id) ||
+    preferredExams.find((exam) => exam?.can_start) ||
     exams.find((exam) => exam?.can_resume && exam?.active_attempt?.id) ||
     exams.find((exam) => exam?.can_start) ||
     null

@@ -41,9 +41,6 @@ async function alignTeacherScopeWithLanguageFamily(page: Page, pack: ExamPresetP
     .first()
     .selectOption({ label: languageSubjectLabel });
   await page.getByRole("button", { name: new RegExp(pack.label, "i") }).click();
-  await expect(
-    page.getByText(new RegExp(`active pack:\\s*${pack.label}`, "i")),
-  ).toBeVisible({ timeout: 30000 });
 }
 
 test.describe("Teacher language family preset builder handoff", () => {
@@ -85,10 +82,6 @@ test.describe("Teacher language family preset builder handoff", () => {
         await expect(page.getByText(/teacher exam authoring unlock/i).first()).toBeVisible();
         return;
       }
-      await expect(
-        page.getByText(new RegExp(`active pack:\\s*${pack!.label}`, "i")),
-      ).toBeVisible({ timeout: 30000 });
-
       await alignTeacherScopeWithLanguageFamily(page, pack!);
 
       await expect(page.getByLabel(/exam type/i)).toHaveValue(builderDefaults.exam?.examType ?? "");

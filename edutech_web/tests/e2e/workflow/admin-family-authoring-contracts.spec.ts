@@ -154,7 +154,7 @@ test.describe("Admin family authoring contracts", () => {
     let competitivePreview = await previewFamilyExam(page);
     expect(competitivePreview.valid).toBe(true);
     expectPreviewFamilyContract(competitivePreview, competitiveProgram!.assessment_family_profile ?? null);
-    await expect(page.getByText(/preview refreshed\./i).first()).toBeVisible();
+    await expect(page.getByText(/preview ready\./i).first()).toBeVisible();
 
     await page.getByRole("tab", { name: /\bdelivery\b/i }).first().click();
     await page.getByLabel(/attempt policy/i).selectOption("unlimited_practice");
@@ -200,6 +200,6 @@ test.describe("Admin family authoring contracts", () => {
       certificationPreview,
       certificationProgram!.assessment_family_profile ?? null,
     );
-    await expect(page.getByText(/preview refreshed\./i).first()).toBeVisible();
+    await expect(page.getByText(/preview ready\./i).first()).toBeVisible();
   });
 });

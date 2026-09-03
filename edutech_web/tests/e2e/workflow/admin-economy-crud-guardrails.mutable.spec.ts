@@ -21,10 +21,6 @@ function economyCard(page: Page, heading: RegExp) {
     .first();
 }
 
-function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 function fieldContainer(scope: Locator, label: RegExp) {
   return scope.locator("label").filter({ hasText: label }).first();
 }
@@ -62,7 +58,7 @@ async function applyScopedInstitute(page: Page) {
   });
   expect(instituteId).toBeTruthy();
   await scopeSelect.selectOption(instituteId);
-  await page.getByRole("button", { name: /apply filters/i }).click();
+  await page.getByRole("button", { name: /apply filters|update view/i }).click();
   return instituteId;
 }
 

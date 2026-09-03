@@ -2,7 +2,7 @@ import { writeFile } from "node:fs/promises";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { loginAsRole, loginWithCredentials, testRequiresRole } from "../helpers/auth";
 import { deleteDisposableInstitute, uniqueOnboardingSeed } from "../helpers/onboarding";
-import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
+import { isMutableLaneEnabled } from "../helpers/mutable";
 import { expectAdminWorkspace, expectInstituteWorkspace } from "../helpers/navigation";
 import { AdminInstituteOnboardingPage } from "../page-objects/admin/admin-institute-onboarding.po";
 

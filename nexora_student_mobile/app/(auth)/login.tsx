@@ -5,8 +5,9 @@ import { ScreenShell } from "@/components/screen-shell";
 import { HeroCard } from "@/components/hero-card";
 import { ActionButton } from "@/components/action-button";
 import { SectionBlock } from "@/components/section-block";
-import { MobileApiError } from "@/lib/api/client";
+import { MobileApiError, getLatestMobileApiTrace } from "@/lib/api/client";
 import { loginStudent } from "@/lib/api/auth";
+import { API_BASE_URL, API_REQUEST_TIMEOUT_MS, SHOW_MOBILE_DEBUG_PANEL } from "@/lib/config";
 import { persistSession } from "@/lib/secure-session";
 import { useSessionStore } from "@/store/session-store";
 import { appStyles } from "@/theme/styles";
@@ -37,6 +38,8 @@ export default function LoginScreen() {
   const [message, setMessage] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+  const [debugState, setDebugState] = useState("idle");
+  const [debugError, setDebugError] = useState("");
 
   function validateForm() {
     const nextErrors: Record<string, string> = {};
@@ -57,27 +60,59 @@ export default function LoginScreen() {
     setLoading(true);
     setMessage("");
     setFieldErrors({});
+    setDebugState("submit:start");
+    setDebugError("");
     try {
+      if (__DEV__) {
+        console.log("[login] submit:start", { username });
+      }
+      setDebugState("request:loginStudent");
       const response = await loginStudent({ username, password });
+      if (__DEV__) {
+        console.log("[login] request:success", {
+          username: response.user.username,
+          role: response.user.role,
+        });
+      }
+      setDebugState("request:success");
       await persistSession({
         accessToken: response.access,
         refreshToken: response.refresh,
         profile: response.user,
       });
+      if (__DEV__) {
+        console.log("[login] persistSession:success", {
+          username: response.user.username,
+          role: response.user.role,
+        });
+      }
+      setDebugState("session:persisted");
       setSession({
         accessToken: response.access,
         refreshToken: response.refresh,
         profile: response.user,
       });
+      if (__DEV__) {
+        console.log("[login] session-store:setSession", {
+          username: response.user.username,
+          role: response.user.role,
+        });
+        console.log("[login] router:replace", { href: "/(auth)/role-gate" });
+      }
+      setDebugState("session:stored");
       router.replace("/(auth)/role-gate");
     } catch (error) {
+      setDebugState("request:failed");
       if (error instanceof MobileApiError) {
         setFieldErrors(error.fieldErrors ?? {});
         setMessage(friendlyLoginError(error));
+        setDebugError(error.message);
       } else if (error instanceof Error) {
         setMessage(friendlyLoginError(error));
+        setDebugError(error.message);
       } else {
         setMessage("Login failed.");
+        setDebugError("Login failed.");
       }
     } finally {
       setLoading(false);
@@ -138,6 +173,35 @@ export default function LoginScreen() {
           </View>
         </View>
         {message ? <Text style={appStyles.errorText}>{message}</Text> : null}
+        {SHOW_MOBILE_DEBUG_PANEL ? (
+          <View style={appStyles.errorPanel}>
+            <Text style={appStyles.label}>Dev Debug</Text>
+            <Text style={appStyles.helper}>API base URL: {API_BASE_URL || "(not set)"}</Text>
+            <Text style={appStyles.helper}>Request timeout: {API_REQUEST_TIMEOUT_MS}ms</Text>
+            <Text style={appStyles.helper}>UI state: {debugState}</Text>
+            {debugError ? <Text style={appStyles.helper}>UI error: {debugError}</Text> : null}
+            {getLatestMobileApiTrace() ? (
+              <>
+                <Text style={appStyles.helper}>API phase: {getLatestMobileApiTrace()?.phase}</Text>
+                <Text style={appStyles.helper}>API method: {getLatestMobileApiTrace()?.method}</Text>
+                <Text style={appStyles.helper}>API URL: {getLatestMobileApiTrace()?.url}</Text>
+                {typeof getLatestMobileApiTrace()?.status === "number" ? (
+                  <Text style={appStyles.helper}>API status: {getLatestMobileApiTrace()?.status}</Text>
+                ) : null}
+                {getLatestMobileApiTrace()?.message ? (
+                  <Text style={appStyles.helper}>API message: {getLatestMobileApiTrace()?.message}</Text>
+                ) : null}
+                {getLatestMobileApiTrace()?.errorName ? (
+                  <Text style={appStyles.helper}>
+                    API error: {getLatestMobileApiTrace()?.errorName} {getLatestMobileApiTrace()?.errorMessage ?? ""}
+                  </Text>
+                ) : null}
+              </>
+            ) : (
+              <Text style={appStyles.helper}>API phase: no request yet</Text>
+            )}
+          </View>
+        ) : null}
         <ActionButton
           label={loading ? "Signing in..." : "Login"}
           onPress={() => void submit()}

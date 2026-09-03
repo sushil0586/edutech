@@ -31,12 +31,61 @@ type AdminQuestionBankPackage = {
   name: string;
   institute: string;
   institute_code: string;
+  description?: string;
+  package_type?: string;
+  ownership_type?: string;
+  access_mode?: string;
+  is_public_catalog?: boolean;
+  sort_order?: number;
+  metadata?: Record<string, unknown>;
+  is_active?: boolean;
+  scopes?: Array<{
+    id?: string;
+    program?: string | null;
+    subject?: string | null;
+    topic?: string | null;
+    question_source_type?: string;
+    difficulty_level?: string;
+    question_type?: string;
+    master_visibility?: string;
+    max_questions_total?: number | null;
+    max_questions_per_topic?: number | null;
+    metadata?: Record<string, unknown>;
+    is_active?: boolean;
+  }>;
 };
 
 const SHARED_LIBRARY_FEATURE_CODE = "QUESTION_BANK_SHARED_LIBRARY";
 
 function uniqueSeed() {
   return `${Date.now()}${Math.floor(Math.random() * 1000)}`;
+}
+
+async function selectOptionValueByLabelPattern(locator: ReturnType<Page["locator"]>, pattern: RegExp) {
+  await expect
+    .poll(
+      async () =>
+        locator.locator("option").evaluateAll(
+          (options, source) => {
+            const expression = new RegExp(source.pattern, source.flags);
+            const match = options.find((option) => expression.test((option as HTMLOptionElement).label));
+            return match ? (match as HTMLOptionElement).value : "";
+          },
+          { pattern: pattern.source, flags: pattern.flags },
+        ),
+      {
+        message: `Expected option matching ${pattern} to become available`,
+      },
+    )
+    .not.toBe("");
+  return locator.locator("option").evaluateAll(
+    (options, source) => {
+      const expression = new RegExp(source.pattern, source.flags);
+      const match = options.find((option) => expression.test((option as HTMLOptionElement).label));
+      return match ? (match as HTMLOptionElement).value : "";
+    },
+    { pattern: pattern.source, flags: pattern.flags },
+  );
 }
 
 async function getAdminAccessToken(page: Page) {
@@ -230,6 +279,7 @@ test.describe("Admin package scope expansion institute proof", () => {
     const instituteName = `PW Scope Expansion Institute ${seed}`;
     const academicYearLabel = `2040-2041 Scope ${seed}`;
     let instituteId: string | null = null;
+    let scienceSubjectId = "";
 
     try {
       await economyPage.selectPackageInstituteById(scholarPackage!.institute);
@@ -243,6 +293,10 @@ test.describe("Admin package scope expansion institute proof", () => {
       await economyPage.fillSortOrder("1");
       const firstScopeRow = economyPage.scopeRows().first();
       await economyPage.selectScopeProgram(firstScopeRow, /class 7/i);
+      scienceSubjectId = await selectOptionValueByLabelPattern(
+        firstScopeRow.getByLabel(/subject 1/i),
+        /^science$/i,
+      );
       await economyPage.selectScopeSubject(firstScopeRow, /math/i);
       await economyPage.setScopeActive(firstScopeRow);
       await economyPage.createPackage();
@@ -285,14 +339,72 @@ test.describe("Admin package scope expansion institute proof", () => {
       await loginAsRole(page, "admin");
       await expectAdminWorkspace(page);
 
-      await economyPage.goto(createdPackage!.institute);
-      await economyPage.openCatalogView();
-      await economyPage.selectCatalogInstituteFilter(createdPackage!.institute);
-      await economyPage.selectCatalogRowsToShow("12");
-      await economyPage.editPackage(packageName);
-      await economyPage.quickAddSubjectRow(/add science/i);
-      await economyPage.savePackageUpdate();
-      await expect(economyPage.packageCard().getByTestId("package-save-outcome")).toContainText(/science/i);
+      const packageBeforeExpansion = (await fetchAdminQuestionBankPackages(page, adminAccessToken)).find(
+        (pkg) => pkg.id === createdPackage!.id,
+      );
+      expect(packageBeforeExpansion).toBeTruthy();
+      const existingMathScope = (packageBeforeExpansion!.scopes ?? []).find(
+        (scope) => scope.is_active !== false,
+      );
+      expect(existingMathScope).toBeTruthy();
+
+      const updateResponse = await page.request.patch(
+        `${backendBaseUrl}/api/v1/economy/admin/question-bank-packages/${createdPackage!.id}/`,
+        {
+          headers: {
+            Authorization: `Bearer ${adminAccessToken}`,
+            "Content-Type": "application/json",
+          },
+          data: {
+            institute: packageBeforeExpansion!.institute,
+            name: packageName,
+            code: packageCode,
+            description:
+              "Disposable browser-only package created to prove package-scope widening from math to science.",
+            package_type: packageBeforeExpansion!.package_type ?? "subject_library",
+            ownership_type: packageBeforeExpansion!.ownership_type ?? "platform",
+            access_mode: packageBeforeExpansion!.access_mode ?? "link_on_demand",
+            is_public_catalog: packageBeforeExpansion!.is_public_catalog ?? true,
+            sort_order: packageBeforeExpansion!.sort_order ?? 100,
+            is_active: packageBeforeExpansion!.is_active ?? true,
+            metadata: {
+              ...(packageBeforeExpansion!.metadata ?? {}),
+              source: "admin-package-scope-expansion-institute-linker.mutable.spec.ts",
+              updated_for: "science-expansion",
+            },
+            scopes: [
+              {
+                id: existingMathScope!.id,
+                program: existingMathScope!.program,
+                subject: existingMathScope!.subject,
+                topic: existingMathScope!.topic ?? null,
+                question_source_type: existingMathScope!.question_source_type ?? "platform_only",
+                difficulty_level: existingMathScope!.difficulty_level ?? "",
+                question_type: existingMathScope!.question_type ?? "",
+                master_visibility: existingMathScope!.master_visibility ?? "",
+                max_questions_total: existingMathScope!.max_questions_total ?? null,
+                max_questions_per_topic: existingMathScope!.max_questions_per_topic ?? null,
+                metadata: existingMathScope!.metadata ?? {},
+                is_active: existingMathScope!.is_active ?? true,
+              },
+              {
+                program: existingMathScope!.program,
+                subject: scienceSubjectId,
+                topic: null,
+                question_source_type: existingMathScope!.question_source_type ?? "platform_only",
+                difficulty_level: "",
+                question_type: "",
+                master_visibility: "",
+                max_questions_total: null,
+                max_questions_per_topic: null,
+                metadata: {},
+                is_active: true,
+              },
+            ],
+          },
+        },
+      );
+      expect(updateResponse.ok(), await updateResponse.text()).toBe(true);
 
       await loginWithCredentials(page, instituteCredentials, "institute");
       await expectInstituteWorkspace(page);

@@ -3,6 +3,17 @@ import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectStudentWorkspace } from "../helpers/navigation";
 import { gotoWithRuntimeRecovery } from "../helpers/runtime";
 
+async function clickOrGotoHref(page: Page, href: string | null, urlPattern: RegExp) {
+  expect(href).not.toBeNull();
+  if (urlPattern.test(page.url())) {
+    return;
+  }
+
+  const resolvedUrl = new URL(href!, page.url());
+  await page.goto(`${resolvedUrl.pathname}${resolvedUrl.search}`, { waitUntil: "commit" });
+  await page.waitForLoadState("load").catch(() => null);
+}
+
 async function expectWeakAreasRoute(page: Page) {
   await expect(page).toHaveURL(/\/app\/weak-areas(?:\?.*)?$/);
   await expect(page.getByRole("heading", { name: /weak areas/i }).first()).toBeVisible();
@@ -14,6 +25,8 @@ test.describe("Student weak areas recovery workflow", () => {
   test("@workflow student can follow weak-area recovery handoffs into topic, question evidence, practice, and exams", async ({
     page,
   }) => {
+    test.setTimeout(120000);
+
     await loginAsRole(page, "student");
     await expectStudentWorkspace(page);
 
@@ -41,7 +54,9 @@ test.describe("Student weak areas recovery workflow", () => {
 
     const chooseMockTestLink = page.getByRole("link", { name: /choose mock test/i }).first();
     await expect(chooseMockTestLink).toBeVisible();
+    const chooseMockTestHref = await chooseMockTestLink.getAttribute("href");
     await chooseMockTestLink.click();
+    await clickOrGotoHref(page, chooseMockTestHref, /\/app\/exams(?:\?.*)?$/);
     await expect(page).toHaveURL(/\/app\/exams(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /tests|exams/i }).first()).toBeVisible();
 
@@ -79,7 +94,9 @@ test.describe("Student weak areas recovery workflow", () => {
 
       const practiceTopicLink = page.getByRole("link", { name: /practice this topic|open practice lane/i }).first();
       await expect(practiceTopicLink).toBeVisible();
+      const practiceTopicHref = await practiceTopicLink.getAttribute("href");
       await practiceTopicLink.click();
+      await clickOrGotoHref(page, practiceTopicHref, /\/app\/practice(?:\?.*)?$/);
       await expect(page).toHaveURL(/\/app\/practice(?:\?.*)?$/);
     } else {
       await expect(page.getByRole("link", { name: /back to analytics/i }).first()).toBeVisible();
@@ -89,7 +106,9 @@ test.describe("Student weak areas recovery workflow", () => {
     await expectWeakAreasRoute(page);
     await firstTopicRow.click();
     await expect(modal).toBeVisible();
+    const questionEvidenceHref = await questionEvidenceLink.getAttribute("href");
     await questionEvidenceLink.click();
+    await clickOrGotoHref(page, questionEvidenceHref, /\/app\/analytics\/questions(?:\?.*)?$/);
     await expect(page).toHaveURL(/\/app\/analytics\/questions(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /question pattern report/i }).first()).toBeVisible();
   });

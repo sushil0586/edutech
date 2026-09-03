@@ -34,7 +34,6 @@ import {
   titleCaseState,
 } from "@/lib/student/formatters";
 import {
-  ALL_SOURCES_CONTEXT,
   ALL_SUBJECTS_CONTEXT,
   filterStudentRecordsByMetadataSubject,
   filterStudentRecordsBySource,

@@ -34,15 +34,6 @@ function pickStableStudentSubjectLabel(
   return preferredStableLabel;
 }
 
-function toDateTimeLocalValue(date: Date) {
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, "0");
-  const day = `${date.getDate()}`.padStart(2, "0");
-  const hours = `${date.getHours()}`.padStart(2, "0");
-  const minutes = `${date.getMinutes()}`.padStart(2, "0");
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
-}
-
 function resultRowByTitle(page: Page, title: string) {
   return page.locator(".studentResultsTable tbody tr").filter({
     has: page.locator("td strong", { hasText: title }),
@@ -613,7 +604,7 @@ test.describe("Student mixed result history continuity", () => {
       await loginAsRole(page, "institute");
       await expectInstituteWorkspace(page);
 
-      const objectiveQuestionId = await createQuestion(page, {
+      await createQuestion(page, {
         programName: studentProgramName!,
         subjectName: studentSubjectName!,
         questionType: "true_false",
@@ -761,7 +752,7 @@ test.describe("Student mixed result history continuity", () => {
       await loginAsRole(page, "student");
       await expectStudentWorkspace(page);
 
-      const pendingAttemptId = await startAttempt(page, pendingExamId, pendingExamTitle);
+      await startAttempt(page, pendingExamId, pendingExamTitle);
       await answerObjectiveAndSubmit(page, 1);
 
       const summaryOnlyAttemptId = await startAttempt(page, summaryOnlyExamId, summaryOnlyExamTitle);

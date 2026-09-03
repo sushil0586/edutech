@@ -44,7 +44,7 @@ function normalizeSelectedInstitute(
 export default async function PlatformAdminAdvancedExamBuilderPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ institute?: string }>;
+  searchParams?: Promise<{ institute?: string; preset_pack?: string }>;
 }) {
   await requirePlatformAdminSession();
   const params = (await searchParams) ?? {};
@@ -100,6 +100,7 @@ export default async function PlatformAdminAdvancedExamBuilderPage({
           <div className="adminPeopleActionBarCopy">
             <form action="/admin/exams/advanced" className="adminPeopleInstituteSelectField" method="get">
               <span>Template institute scope</span>
+              {params.preset_pack ? <input name="preset_pack" type="hidden" value={params.preset_pack} /> : null}
               <div className="adminPeopleInstituteSelectRow">
                 <select aria-label="Select template institute" defaultValue={selectedInstitute?.id ?? ""} name="institute">
                   {institutes.map((institute) => (

@@ -82,7 +82,8 @@ async function findLinkableSharedLibraryCard(cards: Locator) {
 
   for (let index = 0; index < cardCount; index += 1) {
     const card = cards.nth(index);
-    const hasLinkButton = (await card.getByRole("button", { name: /link to local bank/i }).count()) > 0;
+    const hasLinkButton =
+      (await card.getByRole("button", { name: /add to institute bank/i }).count()) > 0;
 
     if (hasLinkButton) {
       const cardText = ((await card.textContent()) ?? "").replace(/\s+/g, " ").trim();
@@ -94,6 +95,49 @@ async function findLinkableSharedLibraryCard(cards: Locator) {
   }
 
   return fallbackCard;
+}
+
+async function openSharedLibraryLinkerWithUsableTopic(page: Page) {
+  await page.goto("/institute/question-bank/library-linker");
+  await expect(page.getByText(/current lane:\s*shared library linker/i).first()).toBeVisible();
+
+  const programSelect = page.getByRole("combobox", { name: /^program$/i });
+  if ((await programSelect.count()) > 0 && (await programSelect.inputValue()) === "") {
+    await programSelect.selectOption({ index: 1 });
+  }
+
+  const subjectSelect = page.getByRole("combobox", { name: /^subject$/i });
+  if ((await subjectSelect.count()) > 0 && (await subjectSelect.inputValue()) === "") {
+    let subjectOptionCount = 0;
+    try {
+      await expect
+        .poll(async () => await subjectSelect.locator("option").count(), {
+          timeout: 10000,
+          message: "Expected shared-library linker subject options to load after selecting a program.",
+        })
+        .toBeGreaterThan(1);
+      subjectOptionCount = await subjectSelect.locator("option").count();
+    } catch {
+      subjectOptionCount = await subjectSelect.locator("option").count();
+    }
+    if (subjectOptionCount <= 1) {
+      test.skip(true, "Shared-library linker has no usable subject options for the selected institute program in this seeded environment.");
+    }
+    await subjectSelect.selectOption({ index: 1 });
+  }
+
+  await page.getByRole("button", { name: /load topics|show questions/i }).click();
+
+  const suggestedTopicButton = page.getByRole("link", { name: /review suggested topic:/i }).first();
+  if (await suggestedTopicButton.count()) {
+    await suggestedTopicButton.click();
+  } else {
+    const reviewTopicButton = page.getByRole("link", { name: /review this topic|currently open/i }).first();
+    await expect(reviewTopicButton).toBeVisible();
+    await reviewTopicButton.click();
+  }
+
+  await expect(page.getByText(/step 3\.\s*review and link platform source questions/i).first()).toBeVisible();
 }
 
 async function deleteInstituteExam(page: Page, examId: string) {
@@ -259,14 +303,10 @@ test.describe("Institute shared-library to builder flow", () => {
     let examId: string | null = null;
 
     try {
-      await page.goto("/institute/question-bank");
-      console.log("builder-flow: at question bank");
-      await expect(page.getByRole("heading", { name: /question bank/i }).first()).toBeVisible();
-      await expect(page.getByRole("heading", { name: /shared platform library/i })).toBeVisible();
+      await openSharedLibraryLinkerWithUsableTopic(page);
+      console.log("builder-flow: at shared library linker");
 
-      const sharedLibrarySection = page.locator("section.contentCard").filter({
-        has: page.getByRole("heading", { name: /shared platform library/i }),
-      }).first();
+      const sharedLibrarySection = page.locator(".questionBankList").first();
       await expect(sharedLibrarySection).toBeVisible();
 
       const sharedLibraryCards = sharedLibrarySection.locator(".questionBankCard");
@@ -275,7 +315,7 @@ test.describe("Institute shared-library to builder flow", () => {
       if (!linkableCard) {
         test.skip(
           true,
-          "No institute-visible shared-library card currently exposes Link to Local Bank.",
+          "No institute-visible shared-library card currently exposes Add To Institute Bank.",
         );
       }
 
@@ -291,7 +331,7 @@ test.describe("Institute shared-library to builder flow", () => {
           response.request().method() === "POST",
       );
 
-      await linkableCard!.getByRole("button", { name: /link to local bank/i }).click();
+      await linkableCard!.getByRole("button", { name: /add to institute bank/i }).click();
       const linkResponse = await linkResponsePromise;
       expect(linkResponse.ok()).toBe(true);
       console.log("builder-flow: linked shared question");
@@ -301,7 +341,7 @@ test.describe("Institute shared-library to builder flow", () => {
 
       const searchField = page.getByRole("textbox", { name: /search question text/i });
       await searchField.fill(searchProbe);
-      await page.getByRole("button", { name: /apply filters/i }).click();
+      await page.getByRole("button", { name: /update view/i }).click();
       await expect(page).toHaveURL(/search=/);
 
       const inventorySection = page.locator("section.contentCard").filter({
@@ -431,13 +471,9 @@ test.describe("Institute shared-library to builder flow", () => {
     let examId: string | null = null;
     let linkedQuestionId = "";
 
-    await page.goto("/institute/question-bank");
-    await expect(page.getByRole("heading", { name: /question bank/i }).first()).toBeVisible();
-    await expect(page.getByRole("heading", { name: /shared platform library/i })).toBeVisible();
+    await openSharedLibraryLinkerWithUsableTopic(page);
 
-    const sharedLibrarySection = page.locator("section.contentCard").filter({
-      has: page.getByRole("heading", { name: /shared platform library/i }),
-    }).first();
+    const sharedLibrarySection = page.locator(".questionBankList").first();
     await expect(sharedLibrarySection).toBeVisible();
 
     const sharedLibraryCards = sharedLibrarySection.locator(".questionBankCard");
@@ -446,7 +482,7 @@ test.describe("Institute shared-library to builder flow", () => {
     if (!linkableCard) {
       test.skip(
         true,
-        "No institute-visible shared-library card currently exposes Link to Local Bank.",
+        "No institute-visible shared-library card currently exposes Add To Institute Bank.",
       );
     }
 
@@ -493,7 +529,7 @@ test.describe("Institute shared-library to builder flow", () => {
         response.request().method() === "POST",
     );
 
-    await linkableCard!.getByRole("button", { name: /link to local bank/i }).click();
+    await linkableCard!.getByRole("button", { name: /add to institute bank/i }).click();
     const linkResponse = await linkResponsePromise;
     expect(linkResponse.ok()).toBe(true);
     const compactQuestionListAfterLink = await getJson<PaginatedResponse<CompactQuestionRow>>(
@@ -510,13 +546,13 @@ test.describe("Institute shared-library to builder flow", () => {
 
     const searchField = page.getByRole("textbox", { name: /search question text/i });
     await searchField.fill(searchProbe);
-    await page.getByRole("button", { name: /apply filters/i }).click();
+    await page.getByRole("button", { name: /update view/i }).click();
     if (page.url().includes("/login")) {
       await loginAsRole(page, "institute");
       await expectInstituteWorkspace(page);
       await page.goto("/institute/question-bank");
       await searchField.fill(searchProbe);
-      await page.getByRole("button", { name: /apply filters/i }).click();
+      await page.getByRole("button", { name: /update view/i }).click();
     }
     await expect(page).toHaveURL(/search=/);
 
@@ -580,7 +616,7 @@ test.describe("Institute shared-library to builder flow", () => {
       await page.goto("/institute/question-bank");
       await expect(page.getByRole("heading", { name: /question bank/i }).first()).toBeVisible();
       await page.getByRole("textbox", { name: /search question text/i }).fill(searchProbe);
-      await page.getByRole("button", { name: /apply filters/i }).click();
+      await page.getByRole("button", { name: /update view/i }).click();
 
       const compactQuestionList = await getJson<PaginatedResponse<CompactQuestionRow>>(
         page,
@@ -743,20 +779,16 @@ test.describe("Institute shared-library to builder flow", () => {
     let examId: string | null = null;
     let linkedQuestionId = "";
 
-    await page.goto("/institute/question-bank");
-    await expect(page.getByRole("heading", { name: /question bank/i }).first()).toBeVisible();
-    await expect(page.getByRole("heading", { name: /shared platform library/i })).toBeVisible();
+    await openSharedLibraryLinkerWithUsableTopic(page);
 
-    const sharedLibrarySection = page.locator("section.contentCard").filter({
-      has: page.getByRole("heading", { name: /shared platform library/i }),
-    }).first();
+    const sharedLibrarySection = page.locator(".questionBankList").first();
     const sharedLibraryCards = sharedLibrarySection.locator(".questionBankCard");
     const linkableCard = await findLinkableSharedLibraryCard(sharedLibraryCards);
 
     if (!linkableCard) {
       test.skip(
         true,
-        "No institute-visible shared-library card currently exposes Link to Local Bank.",
+        "No institute-visible shared-library card currently exposes Add To Institute Bank.",
       );
     }
 
@@ -802,7 +834,7 @@ test.describe("Institute shared-library to builder flow", () => {
         response.url().includes("/link") &&
         response.request().method() === "POST",
     );
-    await linkableCard!.getByRole("button", { name: /link to local bank/i }).click();
+    await linkableCard!.getByRole("button", { name: /add to institute bank/i }).click();
     const linkResponse = await linkResponsePromise;
     expect(linkResponse.ok()).toBe(true);
     const compactQuestionListAfterLink = await getJson<PaginatedResponse<CompactQuestionRow>>(

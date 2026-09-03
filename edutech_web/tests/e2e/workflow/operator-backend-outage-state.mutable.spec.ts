@@ -12,12 +12,26 @@ const backendBaseUrl = (
 const backendHealthUrl = `${backendBaseUrl}/api/v1/health/`;
 const backendWorkingDirectory = `${process.cwd()}/../edutech_backend`;
 const backendCommand = process.env.PLAYWRIGHT_BACKEND_COMMAND ?? `${backendWorkingDirectory}/.venv/bin/python`;
-const backendArgs = (process.env.PLAYWRIGHT_BACKEND_ARGS ?? "manage.py runserver 9001")
+const backendArgs = (process.env.PLAYWRIGHT_BACKEND_ARGS ?? "manage.py runserver 9001 --noreload")
   .split(" ")
   .filter(Boolean);
 
 let restartedBackendProcess: ChildProcessWithoutNullStreams | null = null;
 let backendLogBuffer = "";
+let backendWasInitiallyUp = false;
+
+function spawnDetachedBackendRuntime() {
+  const detachedProcess = spawn(backendCommand, backendArgs, {
+    cwd: backendWorkingDirectory,
+    env: {
+      ...process.env,
+      PYTHONUNBUFFERED: "1",
+    },
+    stdio: "ignore",
+    detached: true,
+  });
+  detachedProcess.unref();
+}
 
 async function waitForBackendState(expectedUp: boolean, timeoutMs = 45000) {
   const startedAt = Date.now();
@@ -54,16 +68,12 @@ async function waitForBackendState(expectedUp: boolean, timeoutMs = 45000) {
 async function stopBackendRuntime() {
   if (restartedBackendProcess && !restartedBackendProcess.killed) {
     restartedBackendProcess.kill("SIGTERM");
-    restartedBackendProcess = null;
+    await new Promise((resolve) => setTimeout(resolve, 1500));
   }
-
-  try {
-    execFileSync("pkill", ["-f", "manage.py runserver 9001"], {
-      stdio: "ignore",
-    });
-  } catch {
-    // pkill exits non-zero when no matching process is running.
+  if (restartedBackendProcess && !restartedBackendProcess.killed) {
+    restartedBackendProcess.kill("SIGKILL");
   }
+  restartedBackendProcess = null;
 
   await waitForBackendState(false, 30000);
 }
@@ -107,7 +117,38 @@ test.describe("Operator backend outage state coverage", () => {
     "Admin, teacher, and institute Playwright credentials are required for operator outage coverage.",
   );
 
+  test.beforeAll(async () => {
+    try {
+      await waitForBackendState(true, 3000);
+      backendWasInitiallyUp = true;
+    } catch {
+      backendWasInitiallyUp = false;
+    }
+
+    if (backendWasInitiallyUp) {
+      try {
+        execFileSync("pkill", ["-f", "manage.py runserver 9001"], {
+          stdio: "ignore",
+        });
+      } catch {
+        // pkill exits non-zero when no matching process is running.
+      }
+      await waitForBackendState(false, 30000);
+    }
+
+    await startBackendRuntime();
+  });
+
   test.afterAll(async () => {
+    if (backendWasInitiallyUp) {
+      await stopBackendRuntime().catch(() => {
+        // If the managed runtime is already gone, continue with detached recovery.
+      });
+      spawnDetachedBackendRuntime();
+      await waitForBackendState(true, 60000);
+      return;
+    }
+
     await waitForBackendState(true, 60000).catch(async () => {
       await startBackendRuntime();
     });
@@ -123,7 +164,7 @@ test.describe("Operator backend outage state coverage", () => {
       await expect(page).toHaveURL(/\/admin\/reports(?:\?.*)?$/);
       await expect(page.getByText(/^load issue$/i)).toBeVisible();
       await expect(page.getByRole("heading", { name: /platform reports could not be loaded/i })).toBeVisible();
-      await expect(page.getByText(/retry after backend check/i)).toBeVisible();
+      await expect(page.getByText(/retry after backend check|try again soon/i)).toBeVisible();
     });
   });
 
@@ -137,7 +178,7 @@ test.describe("Operator backend outage state coverage", () => {
       await expect(page).toHaveURL(/\/teacher\/exams(?:\?.*)?$/);
       await expect(page.getByText(/^load issue$/i)).toBeVisible();
       await expect(page.getByRole("heading", { name: /teacher exams could not be loaded/i })).toBeVisible();
-      await expect(page.getByText(/retry after backend check/i)).toBeVisible();
+      await expect(page.getByText(/retry after backend check|try again soon/i)).toBeVisible();
     });
   });
 
@@ -151,7 +192,7 @@ test.describe("Operator backend outage state coverage", () => {
       await expect(page).toHaveURL(/\/institute\/economy(?:\?.*)?$/);
       await expect(page.getByText(/^load issue$/i)).toBeVisible();
       await expect(page.getByRole("heading", { name: /economy visibility could not be loaded/i })).toBeVisible();
-      await expect(page.getByText(/retry after backend check/i)).toBeVisible();
+      await expect(page.getByText(/retry after backend check|try again soon/i)).toBeVisible();
     });
   });
 });

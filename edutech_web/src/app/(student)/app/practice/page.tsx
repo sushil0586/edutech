@@ -15,7 +15,6 @@ import { fetchCurrentAccountProfile } from "@/lib/auth/session";
 import {
   percentageLabel,
   signedPercentageLabel,
-  studentDateTimeLabel,
   titleCaseState,
   trendDirectionLabel,
 } from "@/lib/student/formatters";

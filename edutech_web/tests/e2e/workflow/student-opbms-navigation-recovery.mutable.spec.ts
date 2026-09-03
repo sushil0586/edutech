@@ -392,7 +392,7 @@ test.describe("Student OPBMS navigation and recovery", () => {
         .toBe(true);
       await expectSavedCount(page, "1");
 
-      await page.getByRole("link", { name: /^next$/i }).click();
+      await page.getByRole("button", { name: /^save & next$/i }).click();
       await expect(page.getByText(/2 of 45/i).first()).toBeVisible();
 
       await page.getByRole("link", { name: /^previous$/i }).click();
@@ -408,11 +408,11 @@ test.describe("Student OPBMS navigation and recovery", () => {
 
       await page.reload({ waitUntil: "domcontentloaded" });
       await expect(page).toHaveURL(new RegExp(`/app/attempts/${attemptId}(?:\\?.*)?$`));
-      await expect(page.getByText(/Question Palette/i).first()).toBeVisible();
+      await expect(page.getByText(/Questions/i).first()).toBeVisible();
       await expectSavedCount(page, "1");
-      await expect(page.locator(".attemptConsoleSummaryCard").first()).toContainText(
-        /Latest confirmed save|Last confirmed save/i,
-      );
+      await expect(page.locator(".attemptConsoleSummaryCard").first()).toContainText(/Answered|Review|To do/i);
+      await expect(page.locator(".attemptConsoleSummaryCard").first()).toContainText(/1/);
+      await expect(page.locator(".attemptConsoleSummaryCard").first()).toContainText(/44/);
 
       await page.goto(`/app/exams/${examId}`);
       await expect(
@@ -436,7 +436,7 @@ test.describe("Student OPBMS navigation and recovery", () => {
       page.once("dialog", async (dialog) => {
         await dialog.accept();
       });
-      await page.getByRole("button", { name: /^submit test$/i }).click();
+      await page.getByRole("button", { name: /^submit test$|^end test$/i }).click();
 
       await expect(page).toHaveURL(
         /\/app\/attempts\/[^/?#]+(?:\/summary|\?question=[^#]+)(?:\?.*)?$/,
@@ -445,7 +445,7 @@ test.describe("Student OPBMS navigation and recovery", () => {
       await expect(page.getByText(/submitted|attempt auto-submitted/i).first()).toBeVisible();
       await expect(page.getByText(/post-submit state|summary/i).first()).toBeVisible();
     } finally {
-      if (examId) {
+      if (examId && !page.isClosed()) {
         await loginAsRole(page, "admin");
         await expectAdminWorkspace(page);
         await deleteExamDirectly(page, examId);

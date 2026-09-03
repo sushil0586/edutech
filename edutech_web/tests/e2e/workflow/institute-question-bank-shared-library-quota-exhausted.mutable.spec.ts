@@ -33,12 +33,12 @@ test.describe("Institute shared-library mutable quota exhausted flow", () => {
 
     const searchField = page.getByRole("textbox", { name: /search question text/i });
     await searchField.fill(quotaSearchProbe);
-    await page.getByRole("button", { name: /apply filters/i }).click();
+    await page.getByRole("button", { name: /update view/i }).click();
 
     await expect(page).toHaveURL(/search=QUOTA/);
     await expect(searchField).toHaveValue(quotaSearchProbe);
-    await expect(page.getByText(/shared library intake/i).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /open shared library linker/i }).first()).toBeVisible();
     await expect(page.getByText(/current lane:\s*local question bank/i).first()).toBeVisible();
+    await expect(page.getByText(/platform question access is active|shared-library switch/i).first()).toBeVisible();
   });
 });

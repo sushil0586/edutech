@@ -8,6 +8,7 @@ import { ActionButton } from "@/components/action-button";
 import { MetricCard } from "@/components/metric-card";
 import { SectionBlock } from "@/components/section-block";
 import { StatePanel } from "@/components/state-panel";
+import { SkeletonLine, SkeletonList, SkeletonMetricGrid } from "@/components/skeleton";
 import { fetchStudentAttemptReview } from "@/lib/api/student";
 import { useSessionStore } from "@/store/session-store";
 import { appStyles } from "@/theme/styles";
@@ -183,13 +184,21 @@ export default function AttemptReviewScreen() {
             helper="Post-submit computed score"
           />
         </View>
+      ) : query.isLoading ? (
+        <SkeletonMetricGrid />
       ) : null}
 
       <SectionBlock
         title="Review state"
         subtitle="What the learner can actually see in this review mode"
       >
-        {review ? (
+        {query.isLoading ? (
+          <View style={appStyles.mutedPanel}>
+            <SkeletonLine width="94%" height={14} />
+            <SkeletonLine width="86%" height={14} soft />
+            <SkeletonLine width="66%" height={12} />
+          </View>
+        ) : review ? (
           <View style={review.show_explanations ? appStyles.successPanel : appStyles.mutedPanel}>
             <Text style={appStyles.body}>{reviewCopy(review)}</Text>
             <Text style={appStyles.body}>{improvementPrompt(review)}</Text>
@@ -242,7 +251,9 @@ export default function AttemptReviewScreen() {
             />
           </View>
         ) : null}
-        {pagedQuestions.length ? (
+        {query.isLoading ? (
+          <SkeletonList count={3} />
+        ) : pagedQuestions.length ? (
           pagedQuestions.map((question) => {
             const tone = resultChip(question);
             return (

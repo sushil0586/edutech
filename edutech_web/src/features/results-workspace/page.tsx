@@ -1153,12 +1153,6 @@ function manualReviewStatusTone(status: string) {
   return "statusDemo";
 }
 
-function attemptTone(alertSeverity: string | undefined) {
-  if (alertSeverity === "high") return "statusWarning";
-  if (alertSeverity === "medium") return "statusDemo";
-  return "statusLive";
-}
-
 function recommendedAction(
   attempt: {
     status: string;
@@ -6300,14 +6294,14 @@ export async function ResultsWorkspacePage({
   const compactExamPageSize = Math.max(examPageSize, 5);
   const needsRuntimeOps = view === "overview";
 
-  const [summaries, runtimeSummary, teacherExams, compactExamPage, selectedSubviewExamDetail] = await Promise.all([
+  const [summaries, runtimeSummary, teacherExams, compactExamPage, selectedExamDetail] = await Promise.all([
     fetchTeacherResultSummary().catch(() => null),
     needsRuntimeOps ? fetchExamRuntimeSummary().catch(() => null) : Promise.resolve(null),
     useCompactExamBootstrap ? Promise.resolve(null) : fetchTeacherExamListItemsAll().catch(() => null),
     useCompactExamBootstrap
       ? fetchTeacherExamPage({ page: 1, pageSize: compactExamPageSize }).catch(() => null)
       : Promise.resolve(null),
-    useCompactExamBootstrap && selectedExamId
+    selectedExamId
       ? fetchTeacherExamDetail(selectedExamId).catch(() => null)
       : Promise.resolve(null),
   ]);
@@ -6318,18 +6312,28 @@ export async function ResultsWorkspacePage({
           return [];
         }
         const compactItems = compactExamPage.results;
-        if (!selectedSubviewExamDetail) {
+        if (!selectedExamDetail) {
           return compactItems;
         }
-        const hasSelectedExam = compactItems.some((exam) => exam.id === selectedSubviewExamDetail.id);
+        const hasSelectedExam = compactItems.some((exam) => exam.id === selectedExamDetail.id);
         if (!hasSelectedExam) {
-          return [selectedSubviewExamDetail, ...compactItems];
+          return [selectedExamDetail, ...compactItems];
         }
         return compactItems.map((exam) =>
-          exam.id === selectedSubviewExamDetail.id ? selectedSubviewExamDetail : exam,
+          exam.id === selectedExamDetail.id ? selectedExamDetail : exam,
         );
       })()
-    : teacherExams ?? [];
+    : (() => {
+        const fullItems = teacherExams ?? [];
+        if (!selectedExamDetail) {
+          return fullItems;
+        }
+        const hasSelectedExam = fullItems.some((exam) => exam.id === selectedExamDetail.id);
+        if (!hasSelectedExam) {
+          return [selectedExamDetail, ...fullItems];
+        }
+        return fullItems.map((exam) => (exam.id === selectedExamDetail.id ? selectedExamDetail : exam));
+      })();
   const runtimeOps: AdminExamRuntimeSummary | null = runtimeSummary;
   const examBootstrapUnavailable = useCompactExamBootstrap ? !compactExamPage : !teacherExams;
 

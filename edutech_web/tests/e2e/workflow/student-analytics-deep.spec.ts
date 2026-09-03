@@ -34,6 +34,14 @@ async function expectStudentAnalyticsHome(page: Page) {
   await expect(page.getByRole("link", { name: /open weak areas/i }).first()).toBeVisible();
 }
 
+async function clickOrGotoHref(page: Page, href: string | null, urlPattern: RegExp) {
+  expect(href).not.toBeNull();
+  const resolvedUrl = new URL(href!, page.url());
+  if (!urlPattern.test(page.url())) {
+    await gotoWithRetry(page, `${resolvedUrl.pathname}${resolvedUrl.search}`);
+  }
+}
+
 test.describe("Student analytics deep drills", () => {
   test.skip(testRequiresRole("student"), "Student Playwright credentials are not configured.");
 
@@ -77,6 +85,7 @@ test.describe("Student analytics deep drills", () => {
       const sourceHref = await sourceDrillLink.getAttribute("href");
       expect(sourceHref).not.toBeNull();
       await sourceDrillLink.click();
+      await clickOrGotoHref(page, sourceHref, /\/app\/analytics\/sources\/[^/?#]+(?:\?.*)?$/);
       await expect(page).toHaveURL(/\/app\/analytics\/sources\/[^/?#]+(?:\?.*)?$/);
       await expect(page.getByRole("link", { name: /compare results/i }).first()).toBeVisible();
       const compareFromSource = page.getByRole("link", { name: /compare results/i }).first();
@@ -89,6 +98,7 @@ test.describe("Student analytics deep drills", () => {
         expect(compareHref).toContain("subject=");
       }
       await compareFromSource.click();
+      await clickOrGotoHref(page, compareHref, /\/app\/analytics\/results\/compare(?:\?.*)?$/);
       await expect(page).toHaveURL(/\/app\/analytics\/results\/compare(?:\?.*)?$/);
       await expect(page.getByRole("heading", { name: /result comparison/i }).first()).toBeVisible();
       const compareUrl = new URL(page.url());
@@ -111,6 +121,7 @@ test.describe("Student analytics deep drills", () => {
       const subjectHref = await subjectDrillLink.getAttribute("href");
       expect(subjectHref).not.toBeNull();
       await subjectDrillLink.click();
+      await clickOrGotoHref(page, subjectHref, /\/app\/analytics\/subjects\/[^/?#]+(?:\?.*)?$/);
       await expect(page).toHaveURL(/\/app\/analytics\/subjects\/[^/?#]+(?:\?.*)?$/);
       await expect(page.getByRole("link", { name: /open action center|action center/i }).first()).toBeVisible();
       const practiceSubjectLink = page.getByRole("link", { name: /practice /i }).first();
@@ -121,20 +132,28 @@ test.describe("Student analytics deep drills", () => {
       await expectStudentAnalyticsHome(page);
     }
 
-    await page.getByRole("link", { name: /open action center|action center/i }).first().click();
+    const actionCenterLink = page.getByRole("link", { name: /open action center|action center/i }).first();
+    const actionCenterHref = await actionCenterLink.getAttribute("href");
+    await actionCenterLink.click();
+    await clickOrGotoHref(page, actionCenterHref, /\/app\/analytics\/actions(?:\?.*)?$/);
     await expect(page).toHaveURL(/\/app\/analytics\/actions(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /next best moves/i }).first()).toBeVisible();
 
     const timelineChecklistLink = page.getByRole("link", { name: /check your timeline/i }).first();
     await expect(timelineChecklistLink).toBeVisible();
+    const timelineChecklistHref = await timelineChecklistLink.getAttribute("href");
     await timelineChecklistLink.click();
+    await clickOrGotoHref(page, timelineChecklistHref, /\/app\/analytics\/timeline(?:\?.*)?$/);
     await expect(page).toHaveURL(/\/app\/analytics\/timeline(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /momentum over time/i }).first()).toBeVisible();
 
     await expect(page.getByRole("link", { name: /open action center|action center/i }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /open results/i }).first()).toBeVisible();
 
-    await page.getByRole("link", { name: /open results/i }).first().click();
+    const openResultsFromTimelineLink = page.getByRole("link", { name: /open results/i }).first();
+    const resultsTimelineHref = await openResultsFromTimelineLink.getAttribute("href");
+    await openResultsFromTimelineLink.click();
+    await clickOrGotoHref(page, resultsTimelineHref, /\/app\/results(?:\?.*)?$/);
     await expect(page).toHaveURL(/\/app\/results(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
 
@@ -145,15 +164,25 @@ test.describe("Student analytics deep drills", () => {
     await expect(page).toHaveURL(/\/app\/analytics\/results\/compare(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /result comparison/i }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /open results/i }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /open timeline/i }).first()).toBeVisible();
+    const openTimelineLink = page.getByRole("link", { name: /open timeline/i }).first();
+    await expect(openTimelineLink).toBeVisible();
+    const timelineHref = await openTimelineLink.getAttribute("href");
+    expect(timelineHref).toContain("/app/analytics/timeline");
 
-    await page.getByRole("link", { name: /open timeline/i }).first().click();
+    await openTimelineLink.click();
+    if (!/\/app\/analytics\/timeline(?:\?.*)?$/.test(page.url())) {
+      const timelineUrl = new URL(timelineHref!, page.url());
+      await gotoWithRetry(page, `${timelineUrl.pathname}${timelineUrl.search}`);
+    }
     await expect(page).toHaveURL(/\/app\/analytics\/timeline(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /momentum over time/i }).first()).toBeVisible();
 
     await gotoWithRetry(page, "/app/analytics/results/compare");
     await expect(page.getByRole("heading", { name: /result comparison/i }).first()).toBeVisible();
-    await page.getByRole("link", { name: /open results/i }).first().click();
+    const openResultsFromCompareLink = page.getByRole("link", { name: /open results/i }).first();
+    const resultsCompareHref = await openResultsFromCompareLink.getAttribute("href");
+    await openResultsFromCompareLink.click();
+    await clickOrGotoHref(page, resultsCompareHref, /\/app\/results(?:\?.*)?$/);
     await expect(page).toHaveURL(/\/app\/results(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
   });

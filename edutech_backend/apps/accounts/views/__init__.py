@@ -1,4 +1,5 @@
 import logging
+import time
 from decimal import Decimal
 
 from django.core.cache import cache
@@ -213,7 +214,13 @@ class MeView(APIView):
         profile = _get_hydrated_account_profile_for_session(request.user)
         if profile is None:
             return Response({"detail": "Account profile is inactive or missing."}, status=status.HTTP_404_NOT_FOUND)
-        return Response(AccountProfileSerializer(profile).data)
+        cache_key = f"accounts:me:{request.user.id}:{profile.role}"
+        cached_payload = cache.get(cache_key)
+        if cached_payload is not None:
+            return Response(cached_payload)
+        payload = AccountProfileSerializer(profile).data
+        cache.set(cache_key, payload, 30)
+        return Response(payload)
 
 
 class OnboardingProfileView(APIView):
@@ -483,75 +490,116 @@ class StudentAvailableExamView(APIView):
         ).strip()
         if source_filter not in STUDENT_EXAM_SOURCE_FILTERS:
             raise ValidationError({"source": "Invalid source filter."})
-        if compact:
-            queryset = scope_exam_queryset(
-                Exam.objects.select_related(
-                    "institute",
-                    "subject",
-                    "source_teacher",
-                ),
-                request.user,
-            ).filter(is_active=True).prefetch_related(
-                Prefetch(
-                    "student_assignments",
-                    to_attr="_prefetched_student_assignments",
-                ),
-                Prefetch(
-                    "attempts",
-                    queryset=StudentExamAttempt.objects.filter(
-                        student=student,
-                        is_active=True,
-                    ).select_related("result"),
-                    to_attr="_prefetched_attempts_for_student",
-                ),
-            )
-        else:
-            queryset = scope_exam_queryset(
-                Exam.objects.select_related(
-                    "institute",
-                    "academic_year",
-                    "program",
-                    "cohort",
-                    "subject",
-                    "source_teacher",
-                ),
-                request.user,
-            ).filter(is_active=True).prefetch_related(
-                Prefetch(
-                    "sections",
-                    queryset=ExamSection.objects.filter(is_active=True)
-                    .select_related("subject")
-                    .order_by("section_order", "created_at"),
-                ),
-                Prefetch(
-                    "student_assignments",
-                    to_attr="_prefetched_student_assignments",
-                ),
-                Prefetch(
-                    "attempts",
-                    queryset=StudentExamAttempt.objects.filter(student=student, is_active=True).select_related("result"),
-                    to_attr="_prefetched_attempts_for_student",
-                )
-            )
-        if exam_type_filter:
-            queryset = queryset.filter(exam_type=exam_type_filter)
-        exams = [exam for exam in queryset if is_exam_assigned_to_student(exam, student)]
-        exams = filter_student_visible_exams_by_source(
-            exams,
-            source=source_filter,
-            teacher_id=teacher_filter or None,
+        cache_key = ":".join(
+            [
+                "accounts",
+                "student-available-exams",
+                str(request.user.id),
+                str(student.id),
+                "compact" if compact else "full",
+                source_filter or "all",
+                exam_type_filter or "-",
+                teacher_filter or "-",
+            ]
         )
-        _hydrate_exam_access_policies(exams)
-        if not compact:
-            ensure_exam_window_notifications(student, exams)
-        serializer_class = StudentExamFollowUpSerializer if compact else StudentExamAvailabilitySerializer
-        return Response(
-            serializer_class(
+        cached_payload = cache.get(cache_key)
+        if cached_payload is not None:
+            return Response(cached_payload)
+        lock_key = f"{cache_key}:lock"
+        has_lock = cache.add(lock_key, "1", 10)
+        if not has_lock:
+            for _ in range(10):
+                time.sleep(0.1)
+                cached_payload = cache.get(cache_key)
+                if cached_payload is not None:
+                    return Response(cached_payload)
+        assignment_queryset = (
+            student.exam_assignments.filter(is_active=True)
+            .select_related("access_slot")
+        )
+        try:
+            if compact:
+                queryset = scope_exam_queryset(
+                    Exam.objects.select_related(
+                        "institute",
+                        "subject",
+                        "source_teacher",
+                    ),
+                    request.user,
+                ).filter(is_active=True).prefetch_related(
+                    Prefetch(
+                        "student_assignments",
+                        queryset=assignment_queryset,
+                        to_attr="_prefetched_student_assignments",
+                    ),
+                    Prefetch(
+                        "attempts",
+                        queryset=StudentExamAttempt.objects.filter(
+                            student=student,
+                            is_active=True,
+                        ).select_related("result"),
+                        to_attr="_prefetched_attempts_for_student",
+                    ),
+                )
+            else:
+                queryset = scope_exam_queryset(
+                    Exam.objects.select_related(
+                        "institute",
+                        "academic_year",
+                        "program",
+                        "cohort",
+                        "subject",
+                        "source_teacher",
+                    ),
+                    request.user,
+                ).filter(is_active=True).prefetch_related(
+                    Prefetch(
+                        "sections",
+                        queryset=ExamSection.objects.filter(is_active=True)
+                        .select_related("subject")
+                        .order_by("section_order", "created_at"),
+                    ),
+                    Prefetch(
+                        "student_assignments",
+                        queryset=assignment_queryset,
+                        to_attr="_prefetched_student_assignments",
+                    ),
+                    Prefetch(
+                        "attempts",
+                        queryset=StudentExamAttempt.objects.filter(student=student, is_active=True).select_related("result"),
+                        to_attr="_prefetched_attempts_for_student",
+                    )
+                )
+            # Keep selected-student exams in SQL instead of fetching then rejecting them in Python.
+            queryset = queryset.filter(
+                Q(assignment_mode="selected_students", student_assignments__student_id=student.id, student_assignments__is_active=True)
+                | ~Q(assignment_mode="selected_students")
+            )
+            if exam_type_filter:
+                queryset = queryset.filter(exam_type=exam_type_filter)
+            if source_filter != "all":
+                queryset = queryset.filter(source_type=source_filter)
+                if source_filter == "teacher" and teacher_filter:
+                    queryset = queryset.filter(source_teacher_id=teacher_filter)
+            exams = list(queryset.distinct())
+            _hydrate_exam_access_policies(exams)
+            if not compact:
+                ensure_exam_window_notifications(student, exams)
+            serializer_class = StudentExamFollowUpSerializer if compact else StudentExamAvailabilitySerializer
+            payload = serializer_class(
                 exams,
                 many=True,
                 context={"request": request},
             ).data
-        )
+            cache.set(
+                cache_key,
+                payload,
+                30,
+            )
+            return Response(payload)
+        finally:
+            if has_lock:
+                cache.delete(lock_key)
 
 
 class StudentExamDetailView(APIView):
@@ -752,27 +800,51 @@ class StudentResultListView(APIView):
     permission_classes = [IsAuthenticated, IsStudent]
 
     def get(self, request):
-        queryset = scope_student_queryset(
-            ExamResult.objects.select_related(
-                "exam",
-                "exam__institute",
-                "exam__source_teacher",
-                "student",
-                "attempt",
-                "institute",
-            ).prefetch_related(
-                Prefetch(
-                    "attempt__review_tasks",
-                    queryset=StudentAnswerReviewTask.objects.filter(
-                        is_active=True,
-                        status__in=REVIEW_TASK_UNRESOLVED_STATUSES,
-                    ).only("id", "attempt_id"),
-                    to_attr="_prefetched_unresolved_review_tasks",
+        cache_key = f"accounts:student-results:{request.user.id}"
+        lock_key = f"{cache_key}:lock"
+        cached_payload = cache.get(cache_key)
+        if cached_payload is not None:
+            return Response(cached_payload)
+
+        lock_acquired = cache.add(lock_key, "1", timeout=30)
+        if not lock_acquired:
+            for _ in range(20):
+                time.sleep(0.1)
+                cached_payload = cache.get(cache_key)
+                if cached_payload is not None:
+                    return Response(cached_payload)
+
+        try:
+            cached_payload = cache.get(cache_key)
+            if cached_payload is not None:
+                return Response(cached_payload)
+
+            queryset = scope_student_queryset(
+                ExamResult.objects.select_related(
+                    "exam",
+                    "exam__institute",
+                    "exam__source_teacher",
+                    "student",
+                    "attempt",
+                    "institute",
+                ).prefetch_related(
+                    Prefetch(
+                        "attempt__review_tasks",
+                        queryset=StudentAnswerReviewTask.objects.filter(
+                            is_active=True,
+                            status__in=REVIEW_TASK_UNRESOLVED_STATUSES,
+                        ).only("id", "attempt_id"),
+                        to_attr="_prefetched_unresolved_review_tasks",
+                    ),
                 ),
-            ),
-            request.user,
-        ).filter(is_active=True)
-        return Response(ExamResultListSerializer(queryset, many=True).data)
+                request.user,
+            ).filter(is_active=True)
+            payload = ExamResultListSerializer(queryset, many=True).data
+            cache.set(cache_key, payload, 30)
+            return Response(payload)
+        finally:
+            if lock_acquired:
+                cache.delete(lock_key)
 
 
 class StudentInsightSummaryView(APIView):

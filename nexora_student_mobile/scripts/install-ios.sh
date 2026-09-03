@@ -19,8 +19,18 @@ if [[ ! -f .env ]]; then
   echo "Created .env from .env.example"
 fi
 
-API_BASE_URL="${EXPO_PUBLIC_API_BASE_URL:-http://localhost:8000}"
+set -a
+source .env
+set +a
+
+API_BASE_URL="${EXPO_PUBLIC_API_BASE_URL:-http://127.0.0.1:8000}"
 API_TIMEOUT_MS="${EXPO_PUBLIC_API_REQUEST_TIMEOUT_MS:-20000}"
+HOST_IP="$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || true)"
+if [[ -n "$HOST_IP" ]]; then
+  if [[ "$API_BASE_URL" == *"10.0.2.2"* ]]; then
+    API_BASE_URL="${API_BASE_URL/10.0.2.2/$HOST_IP}"
+  fi
+fi
 
 echo "Installing dependencies for iPhone simulator..."
 npm install

@@ -54,7 +54,7 @@ async function gotoInstitutes(page: Page) {
 async function gotoAcademicYears(page: Page) {
   await page.goto("/admin/academic-setup?section=academic-years");
   await expect(page.getByRole("heading", { name: /academic setup/i }).first()).toBeVisible();
-  await expect(page.getByRole("button", { name: /^add$/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^new$/i })).toBeVisible();
 }
 
 async function gotoSettings(page: Page) {
@@ -117,11 +117,13 @@ async function createQuestionBankPackageSeed(
     subjectId = null,
     packageName,
     packageCode,
+    packageType = "subject_library",
   }: {
     instituteId: string;
     subjectId?: string | null;
     packageName: string;
     packageCode: string;
+    packageType?: string;
   },
 ) {
   const response = await page.request.post("/api/admin/economy/question-bank-packages", {
@@ -130,7 +132,7 @@ async function createQuestionBankPackageSeed(
       name: packageName,
       code: packageCode,
       description: "Playwright seed package for duplicate-code browser validation coverage.",
-      package_type: "subject_library",
+      package_type: packageType,
       ownership_type: "institute",
       access_mode: "link_on_demand",
       is_public_catalog: true,
@@ -219,11 +221,6 @@ async function createSubscriptionPlanSeed(
   });
   expect(response.ok(), await response.text()).toBe(true);
   return (await response.json()) as SubscriptionPlanCreatePayload;
-}
-
-async function getAccessToken(page: Page) {
-  const cookies = await page.context().cookies();
-  return cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
 }
 
 test.describe("Admin form validation browser coverage", () => {
@@ -329,7 +326,7 @@ test.describe("Admin form validation browser coverage", () => {
     const referenceYear = academicYears[0]!;
     const overlappingName = `${referenceYear.name} Overlap ${Date.now()}`;
 
-    await page.getByRole("button", { name: /^add$/i }).click();
+    await page.getByRole("button", { name: /^new$/i }).click();
     const dialog = await academicDialog(page);
     await fillWrappedField(dialog, /year name/i, overlappingName);
     await fillWrappedField(dialog, /start date/i, referenceYear.start_date);
@@ -340,7 +337,7 @@ test.describe("Admin form validation browser coverage", () => {
         response.url().includes("/api/admin/academics/academic-years") &&
         response.request().method() === "POST",
     );
-    await dialog.getByRole("button", { name: /create record/i }).click();
+    await dialog.getByRole("button", { name: /^create$/i }).click();
     const createResponse = await createResponsePromise;
     expect(createResponse.ok(), await createResponse.text()).toBe(false);
 
@@ -414,22 +411,19 @@ test.describe("Admin form validation browser coverage", () => {
     await instituteSelect.selectOption(instituteId);
     expect(instituteId).toBeTruthy();
 
-    const firstScopeRow = page.locator(".economyPackageScopeCard").first();
-    await expect(firstScopeRow).toBeVisible();
-    const subjectId = await selectFirstNonEmptyOption(firstScopeRow.getByLabel(/subject 1/i));
-
     const uniqueSeed = Date.now();
     const duplicateCode = `PW-PKG-DUP-${String(uniqueSeed).slice(-6)}`;
     const seededPackage = await createQuestionBankPackageSeed(page, {
       instituteId,
-      subjectId,
       packageName: `PW Seed Package ${uniqueSeed}`,
       packageCode: duplicateCode,
+      packageType: "feature_bundle",
     });
     const seededPackageId = seededPackage.data?.id ?? null;
     expect(seededPackageId).toBeTruthy();
 
     try {
+      await page.locator(".economyPackageFormGridPrimary").locator("select").nth(1).selectOption("feature_bundle");
       const packageIdentityInputs = page.locator(".economyPackageFormGridPrimary input");
       await packageIdentityInputs.nth(0).fill(`PW Browser Duplicate Package ${uniqueSeed}`);
       await packageIdentityInputs.nth(1).fill(duplicateCode);
@@ -600,9 +594,10 @@ test.describe("Admin form validation browser coverage", () => {
     expect(seededPackageId).toBeTruthy();
 
     const planCode = `PW-APPLY-PLAN-${String(uniqueSeed).slice(-6)}`;
+    const sortSeed = String(9_999_999_999_999 - uniqueSeed).padStart(13, "0");
     const planSeed = await createSubscriptionPlanSeed(page, {
       instituteId: sourceInstitute!.value,
-      planName: `PW Apply Plan ${uniqueSeed}`,
+      planName: `!0 PW Apply Plan ${sortSeed}`,
       planCode,
       questionBankPackageLinks: [
         {
@@ -623,6 +618,7 @@ test.describe("Admin form validation browser coverage", () => {
         page.getByRole("heading", { name: /create and edit recurring plans, cycles, and credit rules/i }),
       ).toBeVisible();
       await page.getByLabel(/subscription plan workspace view/i).selectOption("all");
+      await page.getByLabel(/subscription plan status filter/i).selectOption("active");
       await page.getByLabel(/subscription plan institute filter/i).selectOption(sourceInstitute!.value);
       await page.getByLabel(/subscription plan rows to show/i).selectOption("12");
 

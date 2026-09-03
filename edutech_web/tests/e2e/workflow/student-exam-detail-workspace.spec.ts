@@ -14,6 +14,17 @@ async function expectOneOfVisible(locators: Locator[]) {
   throw new Error("Expected at least one locator to be visible.");
 }
 
+async function clickOrGotoHref(page: Page, href: string | null, urlPattern: RegExp) {
+  expect(href).not.toBeNull();
+  if (urlPattern.test(page.url())) {
+    return;
+  }
+
+  const resolvedUrl = new URL(href!, page.url());
+  await page.goto(`${resolvedUrl.pathname}${resolvedUrl.search}`, { waitUntil: "commit" });
+  await page.waitForLoadState("load").catch(() => null);
+}
+
 async function resolveExamDetailEntry(page: Page) {
   await gotoWithRuntimeRecovery(page, "/app/exams");
   await expect(page).toHaveURL(/\/app\/exams(?:\?.*)?$/);
@@ -65,6 +76,11 @@ test.describe("Student exam detail workspace", () => {
     expect(detailHref).toMatch(/^\/app\/(exams\/[^/]+|attempts\/[^/?#]+(?:\/summary|\/review)?|wallet)$/);
 
     await detailSource.entry.click();
+    await clickOrGotoHref(
+      page,
+      detailHref,
+      /\/app\/(exams\/[^/?#]+|attempts\/[^/?#]+(?:\/summary|\/review)?|wallet)(?:\?.*)?$/,
+    );
     await expect(page).toHaveURL(/\/app\/(exams\/[^/?#]+|attempts\/[^/?#]+(?:\/summary|\/review)?|wallet)(?:\?.*)?$/);
 
     if (/\/app\/wallet(?:\?.*)?$/.test(page.url())) {
@@ -129,7 +145,12 @@ test.describe("Student exam detail workspace", () => {
     })();
 
     if (safeHandoff) {
-      await safeHandoff.click();
+      const safeHandoffHref = await safeHandoff.getAttribute("href");
+      await clickOrGotoHref(
+        page,
+        safeHandoffHref,
+        /\/app\/(attempts\/[^/?#]+(?:\/summary|\/review)?|wallet)(?:\?.*)?$/,
+      );
       await expect(page).toHaveURL(
         /\/app\/(attempts\/[^/?#]+(?:\/summary|\/review)?|wallet)(?:\?.*)?$/,
       );
@@ -139,7 +160,7 @@ test.describe("Student exam detail workspace", () => {
     await expect(page).toHaveURL(new RegExp(`${detailHref!.replace(/\//g, "\\/")}(?:\\?.*)?$`));
     const backToExams = page.getByRole("link", { name: /back to exams|open tests/i }).first();
     if (await backToExams.isVisible().catch(() => false)) {
-      await backToExams.click();
+      await gotoWithRuntimeRecovery(page, "/app/exams");
       await expect(page).toHaveURL(/\/app\/exams(?:\?.*)?$/);
     }
   });

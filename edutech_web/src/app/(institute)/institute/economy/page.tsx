@@ -21,6 +21,8 @@ import {
 import { fetchTeacherExamPage, getTeacherApiState } from "@/lib/api/teacher";
 import { requireInstituteAdminSession } from "@/lib/auth/session";
 
+const ECONOMY_REFERENCE_TIME_MS = Date.now();
+
 type StudentRecord = {
   id: string;
   full_name: string;
@@ -240,9 +242,11 @@ function quotaWatchLabel(entitlement: InstituteQuestionBankEntitlement) {
   return "Quota healthy";
 }
 
-function getEntitlementLifecycleLabel(entitlement: InstituteQuestionBankEntitlement) {
+function getEntitlementLifecycleLabel(
+  entitlement: InstituteQuestionBankEntitlement,
+  nowMs: number,
+) {
   const normalizedStatus = String(entitlement.status || "").toLowerCase();
-  const now = Date.now();
   const endsAt = parseDateValue(entitlement.ends_at);
 
   if (normalizedStatus === "revoked") {
@@ -251,11 +255,11 @@ function getEntitlementLifecycleLabel(entitlement: InstituteQuestionBankEntitlem
   if (normalizedStatus === "paused") {
     return "Paused";
   }
-  if (endsAt && endsAt.getTime() < now) {
+  if (endsAt && endsAt.getTime() < nowMs) {
     return "Expired";
   }
   if (normalizedStatus === "active" && endsAt) {
-    const daysUntilExpiry = (endsAt.getTime() - now) / (1000 * 60 * 60 * 24);
+    const daysUntilExpiry = (endsAt.getTime() - nowMs) / (1000 * 60 * 60 * 24);
     if (daysUntilExpiry <= 14) {
       return "Active · Expiring soon";
     }
@@ -263,9 +267,11 @@ function getEntitlementLifecycleLabel(entitlement: InstituteQuestionBankEntitlem
   return titleCase(entitlement.status) || "Unknown";
 }
 
-function getEntitlementLifecycleHelper(entitlement: InstituteQuestionBankEntitlement) {
+function getEntitlementLifecycleHelper(
+  entitlement: InstituteQuestionBankEntitlement,
+  nowMs: number,
+) {
   const normalizedStatus = String(entitlement.status || "").toLowerCase();
-  const now = Date.now();
   const startsAt = parseDateValue(entitlement.starts_at);
   const endsAt = parseDateValue(entitlement.ends_at);
 
@@ -275,7 +281,7 @@ function getEntitlementLifecycleHelper(entitlement: InstituteQuestionBankEntitle
   if (normalizedStatus === "paused") {
     return "Paused by operator. Shared-library authoring and licensed usage stay blocked until reactivated.";
   }
-  if (endsAt && endsAt.getTime() < now) {
+  if (endsAt && endsAt.getTime() < nowMs) {
     return `Expired on ${formatDateLabel(entitlement.ends_at)}. Renew or replace the entitlement to restore access.`;
   }
   if (endsAt) {
@@ -287,10 +293,10 @@ function getEntitlementLifecycleHelper(entitlement: InstituteQuestionBankEntitle
   return "No lifecycle window is configured for this package entitlement yet.";
 }
 
-function isExpiringSoon(value: string | null | undefined) {
+function isExpiringSoon(value: string | null | undefined, nowMs: number) {
   const parsed = parseDateValue(value);
   if (!parsed) return false;
-  const daysUntilExpiry = (parsed.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+  const daysUntilExpiry = (parsed.getTime() - nowMs) / (1000 * 60 * 60 * 24);
   return daysUntilExpiry >= 0 && daysUntilExpiry <= 14;
 }
 
@@ -312,7 +318,10 @@ function uniqueLabels(values: Array<string | null | undefined>) {
 }
 
 function getEntitlementRenewalLabel(entitlement: InstituteQuestionBankEntitlement) {
-  const lifecycle = getEntitlementLifecycleLabel(entitlement).toLowerCase();
+  const lifecycle = getEntitlementLifecycleLabel(
+    entitlement,
+    ECONOMY_REFERENCE_TIME_MS,
+  ).toLowerCase();
   if (lifecycle === "revoked") {
     return "Renewal blocked until the operator reissues or replaces this package.";
   }
@@ -322,7 +331,7 @@ function getEntitlementRenewalLabel(entitlement: InstituteQuestionBankEntitlemen
   if (lifecycle === "expired") {
     return "Renewal required now. Shared-library authoring should be treated as unavailable until renewed.";
   }
-  if (isExpiringSoon(entitlement.ends_at)) {
+  if (isExpiringSoon(entitlement.ends_at, ECONOMY_REFERENCE_TIME_MS)) {
     return "Renew soon. Local authoring teams may lose this lane in the next 14 days.";
   }
   if (entitlement.subscription_plan_name) {
@@ -459,9 +468,13 @@ export default async function InstituteEconomyPage() {
   const pausedPackageEntitlements = packageEntitlements.filter((item) => item.status === "paused");
   const revokedPackageEntitlements = packageEntitlements.filter((item) => item.status === "revoked");
   const expiredPackageEntitlements = packageEntitlements.filter(
-    (item) => String(getEntitlementLifecycleLabel(item)).toLowerCase() === "expired",
+    (item) =>
+      String(getEntitlementLifecycleLabel(item, ECONOMY_REFERENCE_TIME_MS)).toLowerCase() ===
+      "expired",
   );
-  const expiringSoonPackageEntitlements = packageEntitlements.filter((item) => isExpiringSoon(item.ends_at));
+  const expiringSoonPackageEntitlements = packageEntitlements.filter((item) =>
+    isExpiringSoon(item.ends_at, ECONOMY_REFERENCE_TIME_MS),
+  );
   const nearLimitPackageEntitlements = packageEntitlements.filter(
     (item) => item.quota_watch_state === "near_limit",
   );
@@ -714,8 +727,8 @@ export default async function InstituteEconomyPage() {
         id: entitlement.id,
         title: `${entitlement.question_bank_package_name} (${entitlement.question_bank_package_code})`,
         lines: [
-          `Status: ${getEntitlementLifecycleLabel(entitlement)} · ${titleCase(entitlement.question_bank_package_type)} · ${titleCase(entitlement.question_bank_package_access_mode)}`,
-          getEntitlementLifecycleHelper(entitlement),
+          `Status: ${getEntitlementLifecycleLabel(entitlement, ECONOMY_REFERENCE_TIME_MS)} · ${titleCase(entitlement.question_bank_package_type)} · ${titleCase(entitlement.question_bank_package_access_mode)}`,
+          getEntitlementLifecycleHelper(entitlement, ECONOMY_REFERENCE_TIME_MS),
           entitlement.scope_subject_labels.length > 0
             ? `Subjects: ${entitlement.scope_subject_labels.join(", ")}`
             : entitlement.scope_program_labels.length > 0

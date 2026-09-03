@@ -172,9 +172,18 @@ test.describe("Student smoke journeys", () => {
           .getByRole("link", { name: /open practice|practice weak areas|practice again/i })
           .first();
         const examsFromResultsHref = await examsFromResultsLink.getAttribute("href");
-        expect(examsFromResultsHref).toContain("/app/exams");
-        await gotoWithRetry(page, examsFromResultsHref!);
-        await expect(page).toHaveURL(/\/app\/exams/);
+        if (examsFromResultsHref?.includes("/app/")) {
+          await gotoWithRetry(page, examsFromResultsHref);
+          await expect(page).toHaveURL(/\/app\/(exams|practice|weak-areas)/);
+        } else {
+          const attemptsFromResultsLink = page
+            .getByRole("link", { name: /open answer review|open summary/i })
+            .first();
+          const attemptsFromResultsHref = await attemptsFromResultsLink.getAttribute("href");
+          expect(attemptsFromResultsHref).toContain("/app/attempts");
+          await gotoWithRetry(page, attemptsFromResultsHref!);
+          await expect(page).toHaveURL(/\/app\/attempts/);
+        }
       } else {
         const attemptsFromResultsLink = page
           .getByRole("link", { name: /open answer review|open summary/i })

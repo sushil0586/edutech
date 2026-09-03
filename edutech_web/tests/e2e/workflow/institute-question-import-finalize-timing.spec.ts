@@ -84,16 +84,40 @@ async function resolveImportScopeFromQuestionAuthoring(page: Page) {
   expect(programOption).not.toBeNull();
   await page.locator('select[name="program"]').selectOption(programOption!.value);
 
-  const subjectOption = await waitForFirstNonEmptyOption(page, 'select[name="subject"]');
-  expect(subjectOption).not.toBeNull();
-  await page.locator('select[name="subject"]').selectOption(subjectOption!.value);
+  await waitForFirstNonEmptyOption(page, 'select[name="subject"]');
+  const subjectOptions = await page.locator('select[name="subject"] option').evaluateAll((nodes) =>
+    nodes.map((node) => ({
+      value: (node as HTMLOptionElement).value,
+      label: (node as HTMLOptionElement).label.trim(),
+    })),
+  );
+  const candidateSubjects = subjectOptions.filter((option) => option.value.trim().length > 0);
 
-  const topicOption = await waitForFirstNonEmptyOption(page, 'select[name="topic"]');
-  expect(topicOption).not.toBeNull();
+  let selectedSubject: { value: string; label: string } | null = null;
+  let selectedTopic: { value: string; label: string } | null = null;
+
+  for (const subjectOption of candidateSubjects) {
+    await page.locator('select[name="subject"]').selectOption(subjectOption.value);
+    const topicOption = await waitForFirstNonEmptyOption(page, 'select[name="topic"]', {
+      timeoutMs: 1500,
+    }).catch(() => null);
+    if (topicOption) {
+      selectedSubject = subjectOption;
+      selectedTopic = topicOption;
+      break;
+    }
+  }
+
+  if (!selectedSubject && candidateSubjects.length > 0) {
+    selectedSubject = candidateSubjects[0]!;
+    await page.locator('select[name="subject"]').selectOption(selectedSubject.value);
+  }
+
+  expect(selectedSubject).not.toBeNull();
 
   return {
-    subjectName: normalizeAcademicLabel(subjectOption!.label),
-    topicName: normalizeAcademicLabel(topicOption!.label),
+    subjectName: normalizeAcademicLabel(selectedSubject!.label),
+    topicName: selectedTopic ? normalizeAcademicLabel(selectedTopic.label) : "",
   };
 }
 
@@ -174,20 +198,40 @@ async function cleanupImportedQuestions(page: Page, createdIds: string[]) {
   ];
 
   for (const path of bulkPaths) {
-    const response = await page.request.post(path, {
-      data: {
-        action: "delete",
-        question_ids: createdIds,
-      },
-    });
-    if (response.ok()) {
-      return;
+    try {
+      const response = await page.request.post(path, {
+        data: {
+          action: "delete",
+          question_ids: createdIds,
+        },
+      });
+      if (response.ok()) {
+        return;
+      }
+    } catch {
+      // Fall through to per-question cleanup when the bulk endpoint flakes.
     }
   }
 
   for (const questionId of createdIds) {
-    const response = await page.request.delete(`/api/question-bank/questions/${questionId}`);
-    expect(response.ok(), await response.text()).toBe(true);
+    let lastError: unknown = null;
+
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      try {
+        const response = await page.request.delete(`/api/question-bank/questions/${questionId}`);
+        if (response.ok() || response.status() === 404) {
+          lastError = null;
+          break;
+        }
+        lastError = new Error(await response.text());
+      } catch (error) {
+        lastError = error;
+      }
+
+      await page.waitForTimeout(250 * attempt);
+    }
+
+    expect(lastError, `Failed to clean up imported question ${questionId}`).toBeNull();
   }
 }
 
@@ -252,13 +296,19 @@ test.describe("Institute question import finalize timing", () => {
         elapsedMs: Date.now() - previewStart,
       });
 
+      const finalizeButton = page.getByRole("button", {
+        name: new RegExp(`(?:import valid rows|finalize import) \\(${rowCount}\\)`, "i"),
+      });
+      await expect(finalizeButton).toBeVisible();
+      await expect(finalizeButton).toBeEnabled();
+
       const finalizeStart = Date.now();
       const finalizeResponsePromise = page.waitForResponse(
         (response) =>
           /\/api\/question-bank\/finalize-import$/.test(response.url()) &&
           response.request().method() === "POST",
       );
-      await page.getByRole("button", { name: new RegExp(`finalize import \\(${rowCount}\\)`, "i") }).click();
+      await finalizeButton.click();
       const finalizeResponse = await finalizeResponsePromise;
       expect(finalizeResponse.ok(), await finalizeResponse.text()).toBe(true);
       const finalizePayload = await finalizeResponse.json();

@@ -80,12 +80,16 @@ export async function GET(request: NextRequest) {
   const view = normalizePeopleView(request.nextUrl.searchParams.get("view"));
   const instituteId = request.nextUrl.searchParams.get("institute")?.trim() || "";
   const instituteQuery = instituteId ? `?institute=${instituteId}&page_size=100` : "?page_size=100";
-  const rosterQuery = instituteId ? `?institute=${instituteId}&page_size=8` : "?page_size=8";
   const resourcePath = view === "students" ? "/api/v1/students/" : "/api/v1/teachers/";
   const countPath = instituteId ? `${resourcePath}?institute=${instituteId}` : resourcePath;
   const needsStudentAcademics = view === "students";
+  const visibleCount = await fetchCount(session.accessToken, countPath);
+  const rosterPageSize = Math.max(visibleCount, 100);
+  const rosterQuery = instituteId
+    ? `?institute=${instituteId}&page_size=${rosterPageSize}`
+    : `?page_size=${rosterPageSize}`;
 
-  const [academicYears, programs, cohorts, visibleRows, visibleCount] = await Promise.all([
+  const [academicYears, programs, cohorts, visibleRows] = await Promise.all([
     needsStudentAcademics
       ? fetchList<AcademicYearRecord>(session.accessToken, `/api/v1/academics/academic-years/${instituteQuery}`)
       : Promise.resolve([] as AcademicYearRecord[]),
@@ -96,7 +100,6 @@ export async function GET(request: NextRequest) {
       ? fetchList<CohortRecord>(session.accessToken, `/api/v1/academics/cohorts/${instituteQuery}`)
       : Promise.resolve([] as CohortRecord[]),
     fetchList<Record<string, unknown>>(session.accessToken, `${resourcePath}${rosterQuery}`),
-    fetchCount(session.accessToken, countPath),
   ]);
 
   return NextResponse.json({

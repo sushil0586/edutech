@@ -40,7 +40,7 @@ test.describe("Institute question bank shared library workspace", () => {
 
     const searchField = page.getByRole("textbox", { name: /search question text/i });
     await searchField.fill("algebra");
-    await page.getByRole("button", { name: /apply filters/i }).click();
+    await page.getByRole("button", { name: /update view/i }).click();
 
     await expect(page).toHaveURL(/search=algebra/);
     await expect(searchField).toHaveValue("algebra");

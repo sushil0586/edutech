@@ -411,12 +411,8 @@ test.describe("Teacher shared-library publish readiness", () => {
     let examId: string | null = null;
     let linkedQuestionId = "";
 
-    await page.goto("/teacher/question-bank");
+    await page.goto(`/teacher/question-bank?search=${encodeURIComponent(PAUSED_ONLY_PREFIX)}`);
     await expect(page.getByRole("heading", { name: /question bank/i }).first()).toBeVisible();
-
-    const searchField = page.getByRole("textbox", { name: /search question text/i });
-    await searchField.fill(PAUSED_ONLY_PREFIX);
-    await page.getByRole("button", { name: /apply filters/i }).click();
 
     const inventorySection = page.locator("section.contentCard").filter({
       hasText: "Question inventory",
@@ -622,12 +618,8 @@ test.describe("Teacher shared-library publish readiness", () => {
     let originalMetadata: Record<string, unknown> | null = null;
     let baselinePublishUsageCount = 0;
 
-    await page.goto("/teacher/question-bank");
+    await page.goto(`/teacher/question-bank?search=${encodeURIComponent(PAUSED_ONLY_PREFIX)}`);
     await expect(page.getByRole("heading", { name: /question bank/i }).first()).toBeVisible();
-
-    const searchField = page.getByRole("textbox", { name: /search question text/i });
-    await searchField.fill(PAUSED_ONLY_PREFIX);
-    await page.getByRole("button", { name: /apply filters/i }).click();
 
     const inventorySection = page.locator("section.contentCard").filter({
       hasText: "Question inventory",

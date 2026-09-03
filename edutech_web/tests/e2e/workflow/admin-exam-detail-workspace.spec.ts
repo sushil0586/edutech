@@ -13,6 +13,15 @@ async function openAdminExams(page: Page) {
   await expect(page.getByRole("heading", { name: /exam management/i }).first()).toBeVisible();
 }
 
+async function openFirstAdminExamDetail(page: Page) {
+  const examLink = page.getByRole("link", { name: /view exam/i }).first();
+  await expect(examLink).toBeVisible();
+  const href = await examLink.getAttribute("href");
+  expect(href).toBeTruthy();
+  await page.goto(href!, { waitUntil: "domcontentloaded" });
+  await expect(page).toHaveURL(/\/admin\/exams\/[^/]+$/);
+}
+
 test.describe("Admin exam detail workspace", () => {
   test.skip(testRequiresRole("admin"), "Admin Playwright credentials are not configured.");
 
@@ -24,8 +33,7 @@ test.describe("Admin exam detail workspace", () => {
 
     await openAdminExams(page);
 
-    await page.getByRole("link", { name: /view exam/i }).first().click();
-    await expect(page).toHaveURL(/\/admin\/exams\/[^/]+$/);
+    await openFirstAdminExamDetail(page);
 
     await expect(page.getByText(/exam build/i).first()).toBeVisible();
     await expect(page.getByText(/exam actions/i).first()).toBeVisible();
@@ -67,16 +75,14 @@ test.describe("Admin exam detail workspace", () => {
     await expect(page.getByRole("heading", { name: /advanced exam builder/i }).first()).toBeVisible();
 
     await openAdminExams(page);
-    await page.getByRole("link", { name: /view exam/i }).first().click();
-    await expect(page).toHaveURL(/\/admin\/exams\/[^/]+$/);
+    await openFirstAdminExamDetail(page);
 
     await page.locator('a[href="/admin/reports"]').first().click();
     await expect(page).toHaveURL(/\/admin\/reports(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /reports/i }).first()).toBeVisible();
 
     await openAdminExams(page);
-    await page.getByRole("link", { name: /view exam/i }).first().click();
-    await expect(page).toHaveURL(/\/admin\/exams\/[^/]+$/);
+    await openFirstAdminExamDetail(page);
 
     await page.getByRole("link", { name: /open builder/i }).first().click();
     await expect(page).toHaveURL(/\/admin\/exams\/[^/]+\/builder(?:\?.*)?$/);

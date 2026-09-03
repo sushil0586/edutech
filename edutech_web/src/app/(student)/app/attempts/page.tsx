@@ -29,7 +29,7 @@ import {
   attemptOutcomeReviewLabel,
   resolveAttemptOutcomeState,
 } from "@/lib/student/attempt-outcome";
-import { buildPracticeHref, resolvePracticeFollowUpAction } from "@/lib/student/practice";
+import { resolvePracticeFollowUpAction } from "@/lib/student/practice";
 import {
   ALL_SOURCES_CONTEXT,
   ALL_SUBJECTS_CONTEXT,
@@ -432,8 +432,6 @@ export default async function AttemptsPage({
     (attempt) => attempt.exam_type === "practice",
   ).length;
   const mockAttemptCount = scopedAttempts.length - practiceAttemptCount;
-  const latestAttempt = scopedAttempts[0] ?? null;
-
   return (
     <div className="studentPage studentDashboardModern">
       <StudentPageHeader

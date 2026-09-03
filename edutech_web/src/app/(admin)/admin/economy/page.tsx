@@ -542,11 +542,7 @@ function defaultFocusForTab(tab: EconomyTabKey): EconomyLaneFocus {
 }
 
 async function loadPortalCount(path: string) {
-  try {
-    return await fetchPortalCount(path);
-  } catch {
-    return 0;
-  }
+  return fetchPortalCount(path).catch(() => 0);
 }
 
 function resolveEconomyFocus(tab: EconomyTabKey, focus: string | undefined): EconomyLaneFocus {
@@ -647,22 +643,14 @@ async function loadPlatformEconomy() {
     };
   }
 
-  try {
-    const gatedExamsPage = await fetchTeacherExamPage({
-      page: 1,
-      pageSize: 10,
-      filter: "economy_gated",
-      sort: "recommended",
-    });
-    return {
-      source: "live" as const,
-      gatedExams: gatedExamsPage.results,
-      gatedExamCount: gatedExamsPage.count ?? gatedExamsPage.results.length,
-      starLockedCount: gatedExamsPage.summary?.star_gated_count ?? 0,
-      entitlementCount: gatedExamsPage.summary?.entitlement_gated_count ?? 0,
-      totalStarCost: gatedExamsPage.summary?.total_star_cost ?? 0,
-    };
-  } catch {
+  const gatedExamsPage = await fetchTeacherExamPage({
+    page: 1,
+    pageSize: 10,
+    filter: "economy_gated",
+    sort: "recommended",
+  }).catch(() => null);
+
+  if (!gatedExamsPage) {
     return {
       source: "error" as const,
       gatedExams: [] as TeacherExamListItem[],
@@ -672,6 +660,15 @@ async function loadPlatformEconomy() {
       totalStarCost: 0,
     };
   }
+
+  return {
+    source: "live" as const,
+    gatedExams: gatedExamsPage.results,
+    gatedExamCount: gatedExamsPage.count ?? gatedExamsPage.results.length,
+    starLockedCount: gatedExamsPage.summary?.star_gated_count ?? 0,
+    entitlementCount: gatedExamsPage.summary?.entitlement_gated_count ?? 0,
+    totalStarCost: gatedExamsPage.summary?.total_star_cost ?? 0,
+  };
 }
 
 function policyLabel(value: string | null | undefined) {
@@ -746,8 +743,7 @@ export default async function AdminEconomyPage({
 }: {
   searchParams?: Promise<{ tab?: string; focus?: string; institute?: string }>;
 }) {
-  try {
-    const params = (await searchParams) ?? {};
+  const params = (await searchParams) ?? {};
     const activeTab = resolveEconomyTab(params.tab);
     const activeFocus = resolveEconomyFocus(activeTab, params.focus);
     const requestedInstituteId = params.institute?.trim() ?? "";
@@ -774,7 +770,12 @@ export default async function AdminEconomyPage({
     const needsSupportAllowanceSummaryData = needsSupportOpsData;
     const needsQuestionBankPackagesData =
       needsQuestionBankData &&
-      (questionBankFocus === "all" || questionBankFocus === "visibility" || questionBankFocus === "plans");
+      (
+        questionBankFocus === "all" ||
+        questionBankFocus === "packages" ||
+        questionBankFocus === "visibility" ||
+        questionBankFocus === "plans"
+      );
     const needsQuestionBankVisibilityData =
       needsQuestionBankData && (questionBankFocus === "all" || questionBankFocus === "visibility");
     const needsQuestionBankPlanData =
@@ -1160,7 +1161,7 @@ export default async function AdminEconomyPage({
     bootstrap: [{ key: "all", label: "All" }],
   };
 
-    return (
+  return (
     <section className="studentPage studentPageTight studentDashboardModern instituteConsolePage instituteSupportPageVivid adminEconomyPage">
       <PlatformAdminPageHeader
         title="Economy"
@@ -1773,32 +1774,5 @@ export default async function AdminEconomyPage({
         {activeTab === "bootstrap" ? <EconomySeedScreen audience="platform" /> : null}
       </>
     </section>
-    );
-  } catch {
-    return (
-      <section className="studentPage studentPageTight studentDashboardModern instituteConsolePage">
-        <PlatformAdminPageHeader
-          title="Economy"
-          description="Inspect commercial catalog state, access control rules, question-bank entitlements, and support operations."
-          statusLabel="Controlled fallback"
-          statusTone="warning"
-        />
-        <StudentStatePanel
-          eyebrow="Economy workspace"
-          title="Economy workspace could not be fully rendered"
-          description="The route stayed within the admin shell, but one or more server-side dependencies failed before the workspace could finish rendering."
-          bullets={[
-            "Portal session and API access",
-            "Economy governance endpoints",
-            "Admin workspace server rendering",
-          ]}
-          ctaHref="/admin"
-          ctaLabel="Back to Dashboard"
-          secondaryCtaHref="/admin/economy?tab=overview"
-          secondaryCtaLabel="Retry Economy"
-          statusLabel="Retry after backend check"
-        />
-      </section>
-    );
-  }
+  );
 }

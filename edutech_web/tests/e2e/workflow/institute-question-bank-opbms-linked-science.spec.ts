@@ -5,7 +5,7 @@ import { InstituteQuestionBankPage } from "../page-objects/institute/institute-q
 import { InstituteShellPage } from "../page-objects/institute/institute-shell.po";
 
 const opbmsCredentials = {
-  username: process.env.PLAYWRIGHT_OPBMS_USERNAME?.trim() || "opbms",
+  username: process.env.PLAYWRIGHT_OPBMS_USERNAME?.trim() || "obpms",
   password: process.env.PLAYWRIGHT_OPBMS_PASSWORD?.trim() || "Demo@12345",
 };
 
@@ -38,7 +38,7 @@ test.describe("Institute OPBMS linked science browser coverage", () => {
     await expect(linkedHowItWorksCard.locator("strong").filter({ hasText: /step 3: linked questions shows only what is already available for your team right now/i }).first()).toBeVisible();
 
     await questionBank.selectAcademicFilters(/class 7/i, /science/i);
-    await page.getByRole("button", { name: /apply filters/i }).click();
+    await page.getByRole("button", { name: /update view/i }).click();
 
     await expect(page).toHaveURL(/subject=/);
     await expect(page.getByText(/subject:\s*science/i).first()).toBeVisible();

@@ -491,7 +491,7 @@ test.describe("Student attempt visual journey", () => {
           mask: desktopSnapshotMasks(page),
         },
       );
-      await expect(page.locator(".attemptLiveCheckpoint").first()).toHaveScreenshot(
+      await expect(page.locator(".attemptQuestionStateInline").first()).toHaveScreenshot(
         "student-attempt-live-checkpoint.png",
         {
           animations: "disabled",
@@ -526,7 +526,7 @@ test.describe("Student attempt visual journey", () => {
       });
 
       const checkpointShot = testInfo.outputPath("student-attempt-visual-live-checkpoint.png");
-      await page.locator(".attemptLiveCheckpoint").first().screenshot({ path: checkpointShot });
+      await page.locator(".attemptQuestionStateInline").first().screenshot({ path: checkpointShot });
       await testInfo.attach("student-attempt-visual-live-checkpoint", {
         path: checkpointShot,
         contentType: "image/png",

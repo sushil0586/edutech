@@ -84,16 +84,40 @@ async function resolveImportScopeFromQuestionAuthoring(page: Page) {
   expect(programOption).not.toBeNull();
   await page.locator('select[name="program"]').selectOption(programOption!.value);
 
-  const subjectOption = await waitForFirstNonEmptyOption(page, 'select[name="subject"]');
-  expect(subjectOption).not.toBeNull();
-  await page.locator('select[name="subject"]').selectOption(subjectOption!.value);
+  await waitForFirstNonEmptyOption(page, 'select[name="subject"]');
+  const subjectOptions = await page.locator('select[name="subject"] option').evaluateAll((nodes) =>
+    nodes.map((node) => ({
+      value: (node as HTMLOptionElement).value,
+      label: (node as HTMLOptionElement).label.trim(),
+    })),
+  );
+  const candidateSubjects = subjectOptions.filter((option) => option.value.trim().length > 0);
 
-  const topicOption = await waitForFirstNonEmptyOption(page, 'select[name="topic"]');
-  expect(topicOption).not.toBeNull();
+  let selectedSubject: { value: string; label: string } | null = null;
+  let selectedTopic: { value: string; label: string } | null = null;
+
+  for (const subjectOption of candidateSubjects) {
+    await page.locator('select[name="subject"]').selectOption(subjectOption.value);
+    const topicOption = await waitForFirstNonEmptyOption(page, 'select[name="topic"]', {
+      timeoutMs: 1500,
+    }).catch(() => null);
+    if (topicOption) {
+      selectedSubject = subjectOption;
+      selectedTopic = topicOption;
+      break;
+    }
+  }
+
+  if (!selectedSubject && candidateSubjects.length > 0) {
+    selectedSubject = candidateSubjects[0]!;
+    await page.locator('select[name="subject"]').selectOption(selectedSubject.value);
+  }
+
+  expect(selectedSubject).not.toBeNull();
 
   return {
-    subjectName: normalizeAcademicLabel(subjectOption!.label),
-    topicName: normalizeAcademicLabel(topicOption!.label),
+    subjectName: normalizeAcademicLabel(selectedSubject!.label),
+    topicName: selectedTopic ? normalizeAcademicLabel(selectedTopic.label) : "",
   };
 }
 

@@ -100,7 +100,7 @@ test.describe("Institute family runtime depth", () => {
       await expect(sectionPanel.locator(".attemptSectionCardActive strong").first()).toHaveText(/chemistry/i, {
         timeout: 30000,
       });
-      await expect(page.getByText(/next handoff/i).first()).toBeVisible();
+      await expect(page.getByText(/save answer and move to chemistry/i).first()).toBeVisible();
 
       await answerAndSubmitCurrentAttempt(page, uniqueSeed, "NEET depth", created.examTitle);
     } finally {

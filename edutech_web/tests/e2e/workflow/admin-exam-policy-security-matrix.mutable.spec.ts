@@ -49,6 +49,31 @@ function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+async function submitWizardAndLandOnExamList(page: Page) {
+  const createResponsePromise = page.waitForResponse((response) => {
+    return (
+      response.request().method() === "POST" &&
+      /\/admin\/exams\/new(?:\?|$)/.test(response.url())
+    );
+  });
+
+  await page.getByRole("button", { name: /create exam shell/i }).click();
+
+  const createResponse = await createResponsePromise;
+  const actionRedirectHeader = createResponse.headers()["x-action-redirect"] ?? "";
+  const expectedListUrlPattern = /\/admin\/exams\?message=/;
+
+  try {
+    await expect(page).toHaveURL(expectedListUrlPattern, { timeout: 10000 });
+    return;
+  } catch {
+    const fallbackRedirectTarget = actionRedirectHeader.split(";")[0]?.trim() ?? "";
+    expect(fallbackRedirectTarget).toMatch(expectedListUrlPattern);
+    await page.goto(fallbackRedirectTarget, { waitUntil: "domcontentloaded" });
+    await expect(page).toHaveURL(expectedListUrlPattern);
+  }
+}
+
 async function backendAccessToken(page: Page) {
   const cookies = await page.context().cookies();
   const accessToken = cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
@@ -100,14 +125,13 @@ async function createAdminWizardExam(page: Page, uniqueSeed: number) {
     await page.getByRole("button", { name: /^continue$/i }).click();
   }
 
-  await page.getByRole("button", { name: /create exam shell/i }).click();
-  await expect(page).toHaveURL(/\/admin\/exams\?message=/);
+  await submitWizardAndLandOnExamList(page);
   const createdExamCard = page.locator(".examCard").filter({
     has: page.getByText(new RegExp(escapeRegExp(examTitle), "i")).first(),
   }).first();
   await expect(createdExamCard).toBeVisible();
 
-  const openExamHref = await createdExamCard.getByRole("link", { name: /open exam/i }).getAttribute("href");
+  const openExamHref = await createdExamCard.getByRole("link", { name: /view exam|open exam/i }).getAttribute("href");
   const examId = openExamHref?.match(/\/admin\/exams\/([^/?#]+)/)?.[1] ?? null;
   expect(examId).not.toBeNull();
 

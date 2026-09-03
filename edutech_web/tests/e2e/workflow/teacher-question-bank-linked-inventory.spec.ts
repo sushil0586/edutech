@@ -85,9 +85,9 @@ test.describe("Teacher linked inventory browser coverage", () => {
 
     const searchField = page.getByRole("textbox", { name: /search question text/i });
     await searchField.fill(PAUSED_ONLY_PREFIX);
-    await page.getByRole("button", { name: /apply filters/i }).click();
+    await page.getByRole("button", { name: /update view/i }).click();
     await expect(page).toHaveURL(/search=/);
-    await expect(searchField).toHaveValue(PAUSED_ONLY_PREFIX);
+    await expect(searchField).toHaveValue(PAUSED_ONLY_PREFIX.trim());
 
     const inventorySection = page.locator("section.contentCard").filter({
       hasText: "Question inventory",
@@ -111,6 +111,8 @@ test.describe("Teacher linked inventory browser coverage", () => {
     await expect(
       previewDialog.getByText(/source state: linked source · edit posture: read-only linked row/i).first(),
     ).toBeVisible();
-    await expect(previewDialog.getByRole("link", { name: /open as duplicate|create editable copy/i })).toBeVisible();
+    await expect(
+      previewDialog.getByRole("link", { name: /open as copy|create editable copy|duplicate to edit|create copy/i }),
+    ).toBeVisible();
   });
 });

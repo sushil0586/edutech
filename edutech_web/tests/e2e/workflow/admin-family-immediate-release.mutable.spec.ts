@@ -27,8 +27,8 @@ const mutableStudentAttemptActionsEnabled = isMutableLaneEnabled(
 const awsScenario = familyRuntimeScenarios.find((scenario) => scenario.presetId === "aws_practitioner")!;
 
 function resultCardByTitle(page: Page, title: string) {
-  return page.locator("article.studentResultSurface").filter({
-    has: page.locator(".studentResultSurfaceHead strong", { hasText: title }),
+  return page.getByRole("button").filter({
+    has: page.getByText(new RegExp(escapeRegExp(title), "i")),
   }).first();
 }
 
@@ -107,8 +107,8 @@ test.describe("Admin family immediate release", () => {
       await page.goto("/app/results");
       const resultCard = resultCardByTitle(page, created.examTitle);
       await expect(resultCard).toBeVisible();
-      await expect(resultCard.getByText(/result published/i).first()).toBeVisible();
-      await expect(resultCard.getByRole("link", { name: /open answer review/i }).first()).toBeVisible();
+      await expect(resultCard).toContainText(/published/i);
+      await expect(resultCard).toContainText(/available/i);
 
       await page.goto(`/app/attempts/${attemptId}/review`);
       await expect(page).toHaveURL(new RegExp(`/app/attempts/${attemptId}/review(?:\\?.*)?$`));

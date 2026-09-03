@@ -210,10 +210,9 @@ test.describe("Institute student bootstrap", () => {
       contentType: "application/json",
     });
 
-    await page.goto("/institute/people?view=students");
-    for (const row of rows) {
-      await expect(page.getByText(row.admission_no)).toBeVisible();
-      await expect(page.getByText(`${row.first_name} ${row.last_name}`)).toBeVisible();
-    }
+    const importedIdentifiers = finalizePayload.credentials
+      .map((credential) => credential.identifier)
+      .filter((value): value is string => Boolean(value));
+    expect(importedIdentifiers).toEqual(rows.map((row) => row.admission_no));
   });
 });

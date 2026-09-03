@@ -17,7 +17,6 @@ import {
   sourceDescriptor,
 } from "@/lib/student/analytics";
 import {
-  percentageLabel,
   questionTypeLabel,
   studentDateTimeLabel,
   titleCaseState,

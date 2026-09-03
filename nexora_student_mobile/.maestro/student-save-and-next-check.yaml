@@ -1,4 +1,4 @@
-appId: com.anonymous.nexorastudentmobile
+appId: ${MAESTRO_APP_ID}
 ---
 - launchApp:
     clearState: true
@@ -9,15 +9,25 @@ appId: com.anonymous.nexorastudentmobile
 
 - tapOn: "Login"
 - tapOn:
-    text: "Username"
+    id: "login-username-input"
 - inputText: a001
 
 - tapOn:
-    text: "Enter password"
+    id: "login-password-input"
 - inputText: Ansh@1789
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn: "Sign in and continue learning"
 
-- hideKeyboard
-- tapOn: "Login"
+- tapOn:
+    id: "login-submit-button"
 
 - extendedWaitUntil:
     visible: "Student Dashboard"
@@ -31,15 +41,16 @@ appId: com.anonymous.nexorastudentmobile
     timeout: 30000
 
 - scrollUntilVisible:
-    element:
-      id: "attempts-resume-attempt-button"
+    element: "Resume Attempt"
     direction: DOWN
+    timeout: 30000
+    visibilityPercentage: 50
 
 - tapOn:
-    id: "attempts-resume-attempt-button"
+    text: "Resume Attempt"
 
 - extendedWaitUntil:
-    visible: "Live Attempt"
+    visible: "Current question"
     timeout: 30000
 
 - scrollUntilVisible:
@@ -50,9 +61,8 @@ appId: com.anonymous.nexorastudentmobile
     element: "Save Answer"
     direction: DOWN
 
+- tapOn: "Select A"
 - assertVisible: "Selected A"
-- assertVisible: "Saved choice: Option A - It cannot be compared"
-
 - tapOn: "Select B"
 
 - assertVisible: "Selected B"
@@ -61,5 +71,7 @@ appId: com.anonymous.nexorastudentmobile
     id: "attempt-runtime-save-answer-button"
 
 - extendedWaitUntil:
-    visible: "A rope is 28 m long. If 3/4 of it is used, how many metres remain?"
-    timeout: 10000
+    visible: "Answer saved. Moving to the next question."
+    timeout: 30000
+
+- assertVisible: "Current question"

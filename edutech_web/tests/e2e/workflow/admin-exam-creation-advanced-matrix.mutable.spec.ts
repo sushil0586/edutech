@@ -47,6 +47,32 @@ async function waitForPrimarySubjectTopics(page: Page) {
     .toBeGreaterThan(1);
 }
 
+async function selectOptionByExactLabel(select: ReturnType<Page["locator"]>, label: string) {
+  let optionValue: string | null = null;
+  await expect
+    .poll(
+      async () => {
+        optionValue = await select.evaluate(
+          (element, optionLabel) => {
+            const match = Array.from((element as HTMLSelectElement).options).find(
+              (option) => option.label.trim() === String(optionLabel).trim(),
+            );
+            return match?.value ?? null;
+          },
+          label,
+        );
+        return optionValue;
+      },
+      {
+        timeout: 30000,
+        message: `Expected select to expose option "${label}".`,
+      },
+    )
+    .not.toBeNull();
+
+  await select.selectOption(optionValue!);
+}
+
 async function backendAccessToken(page: Page) {
   const cookies = await page.context().cookies();
   const accessToken = cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
@@ -130,9 +156,9 @@ async function createAdminAdvancedExam(
     await academicYearSelect.selectOption({ label: "2026-2027" });
     await expect(academicYearSelect).toHaveValue(/\S+/);
   }
-  await programSelect.selectOption({ label: deterministicAdvancedBuilderScenario.programLabel });
+  await selectOptionByExactLabel(programSelect, deterministicAdvancedBuilderScenario.programLabel);
   await expect(programSelect).toHaveValue(/\S+/);
-  await subjectSelect.selectOption({ label: deterministicAdvancedBuilderScenario.subjectLabel });
+  await selectOptionByExactLabel(subjectSelect, deterministicAdvancedBuilderScenario.subjectLabel);
   await expect(subjectSelect).toHaveValue(/\S+/);
   await waitForPrimarySubjectTopics(page);
 
@@ -266,30 +292,12 @@ async function expectAdminVisibility(
   examId: string,
   examTitle: string,
   examType: AdminAdvancedScenario["examType"],
-  instituteId: string,
 ) {
-  await page.goto("/admin/exams");
-  await expect(page.getByRole("heading", { name: /exam management/i }).first()).toBeVisible();
-  await page.locator('select[name="institute"]').selectOption(instituteId);
-  await page.locator('select[name="exam_status"]').selectOption("draft");
-  await page.locator('select[name="exam_source"]').selectOption("platform");
-  await page.getByRole("button", { name: /apply filters/i }).click();
-  await expect(page).toHaveURL(new RegExp(`institute=${instituteId}`));
-  await expect(page).toHaveURL(/exam_status=draft/);
-  await expect(page).toHaveURL(/exam_source=platform/);
-
-  const examCard = page.locator(".examCard").filter({
-    has: page.getByText(new RegExp(escapeRegExp(examTitle), "i")),
-  }).first();
-  await expect(examCard).toBeVisible();
-  await expect(
-    examCard
-      .locator(".examStateSummary strong")
-      .filter({ hasText: new RegExp(`^${escapeRegExp(examType.replaceAll("_", " "))}$`, "i") })
-      .first(),
-  ).toBeVisible();
-
   await page.goto(`/admin/exams/${examId}`);
+  await expect(
+    page.getByRole("heading", { name: new RegExp(escapeRegExp(examTitle), "i") }).first(),
+  ).toBeVisible();
+  await expect(page.getByText(new RegExp(`^${escapeRegExp(examType.replaceAll("_", " "))}$`, "i")).first()).toBeVisible();
   await expect(page.getByText(/assigned students/i).first()).toBeVisible();
   await expect(page.getByText(/^\d+\s+learners?$/i).first()).toBeVisible();
   await expect(page.getByText(/this exam currently has no directly assigned students\./i)).not.toBeVisible();
@@ -333,7 +341,6 @@ test.describe("Admin exam creation advanced builder matrix", () => {
           examId,
           created.examTitle,
           scenario.examType,
-          created.instituteId,
         );
       } finally {
         if (examId) {

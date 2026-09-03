@@ -7,6 +7,7 @@ import {
   escapeRegExp,
 } from "../helpers/family-runtime";
 import { expectStudentWorkspace } from "../helpers/navigation";
+import { suppressVisualNoise } from "../helpers/visual";
 
 type StudentAvailableExam = {
   id: string;
@@ -95,6 +96,10 @@ test.describe("Student mobile post-submit visual", () => {
     viewport: { width: 390, height: 844 },
   });
 
+  test.beforeEach(async ({ page }) => {
+    await suppressVisualNoise(page);
+  });
+
   test("@workflow @visual student mobile summary and review stay readable after submission", async ({
     page,
   }) => {
@@ -117,11 +122,32 @@ test.describe("Student mobile post-submit visual", () => {
       await expect(page).toHaveURL(new RegExp(`/app/attempts/${attemptId}/summary(?:\\?.*)?$`));
     }
 
-    await expect(page.locator(".studentAppContent")).toHaveScreenshot("student-mobile-summary-review-ready.png", {
+    const summaryHero = page.locator(".studentInsightHeroCardCompact").first();
+    await expect(summaryHero).toHaveScreenshot("student-mobile-summary-hero-ready.png", {
       animations: "disabled",
       caret: "hide",
-      maxDiffPixels: 200,
-      mask: [page.locator(".studentPageHeader").first(), page.locator(".studentInsightHeroCard").first()],
+      maxDiffPixels: 220,
+      mask: [summaryHero.locator(".studentSummaryHeroMeta").first()],
+    });
+
+    const summaryKpiStrip = page.locator(".resultsSummaryGrid").first();
+    await expect(summaryKpiStrip).toHaveScreenshot("student-mobile-summary-kpi-ready.png", {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixels: 220,
+      mask: [summaryKpiStrip.locator(".metricCard").first().locator("strong").first()],
+    });
+
+    const summaryCards = page.locator(".studentInsightsTwoColumn .contentCard");
+    await expect(summaryCards.first()).toHaveScreenshot("student-mobile-summary-status-ready.png", {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixels: 220,
+    });
+    await expect(summaryCards.nth(1)).toHaveScreenshot("student-mobile-summary-next-step-ready.png", {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixels: 220,
     });
 
     await page.goto(`/app/attempts/${attemptId}/review`);

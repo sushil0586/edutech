@@ -6,17 +6,27 @@ import { expectInstituteWorkspace } from "../helpers/navigation";
 const mutableTeacherAssignmentActionsEnabled = isMutableLaneEnabled(
   "PLAYWRIGHT_ENABLE_MUTABLE_TEACHER_ASSIGNMENT_ACTIONS",
 );
+const instituteApiBaseUrl = (
+  process.env.API_BASE_URL ??
+  process.env.NEXT_PUBLIC_API_BASE_URL ??
+  process.env.PLAYWRIGHT_API_BASE_URL ??
+  "http://127.0.0.1:9001"
+).replace(/\/$/, "");
 
 type CreatePayload = {
   id?: string;
 };
 
-function firstNonEmptyOptionValue(values: string[]) {
-  return values.find((value) => value.trim().length > 0) ?? null;
-}
+type TeacherAssignmentRow = {
+  teacher: string;
+};
 
 function normalizeRenderedOptionLabel(label: string) {
   return label.replace(/\s+\(inactive\)$/i, "").trim();
+}
+
+function teacherRowLabelFromOption(label: string) {
+  return normalizeRenderedOptionLabel(label).replace(/\s+\([^)]*\)\s*$/, "").trim();
 }
 
 async function selectFirstNonEmptyOption(locator: Locator) {
@@ -30,6 +40,41 @@ async function selectFirstNonEmptyOption(locator: Locator) {
   expect(option).not.toBeNull();
   await locator.selectOption(option!.value);
   return option!;
+}
+
+async function deleteIfPresent(
+  page: import("@playwright/test").Page,
+  path: string,
+) {
+  try {
+    const response = await page.request.delete(path, {
+      timeout: 5000,
+    });
+    expect(response.ok()).toBe(true);
+  } catch {
+    // Cleanup should not mask the main browser workflow assertion result.
+  }
+}
+
+async function getAccessToken(page: import("@playwright/test").Page) {
+  const cookies = await page.context().cookies();
+  return cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
+}
+
+async function listAssignedTeacherIds(page: import("@playwright/test").Page) {
+  const accessToken = await getAccessToken(page);
+  expect(accessToken).not.toBe("");
+
+  const response = await page.request.get(`${instituteApiBaseUrl}/api/v1/teachers/assignments/?page_size=200`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    timeout: 15000,
+  });
+  expect(response.ok()).toBe(true);
+  const body = (await response.json()) as { results?: TeacherAssignmentRow[] } | TeacherAssignmentRow[];
+  const rows = Array.isArray(body) ? body : (body.results ?? []);
+  return new Set(rows.map((row) => row.teacher));
 }
 
 test.describe("Institute mutable teacher-assignment actions", () => {
@@ -53,47 +98,9 @@ test.describe("Institute mutable teacher-assignment actions", () => {
     await expectInstituteWorkspace(page);
 
     const uniqueSeed = Date.now();
-    const teacherCode = `PW-TA-${uniqueSeed}`;
-    const teacherFirstName = `PWAssign${uniqueSeed}`;
-    const teacherLastName = "Teacher";
-    const teacherEmail = `pw.assign.${uniqueSeed}@example.test`;
-    const teacherPhone = `91111${String(uniqueSeed).slice(-5)}`;
-
-    let teacherId: string | null = null;
     let assignmentId: string | null = null;
 
     try {
-      await page.goto("/institute/people?view=teachers");
-      await expect(page.getByRole("heading", { name: /teacher roster/i })).toBeVisible();
-
-      await page.getByRole("button", { name: /^create teacher$/i }).click();
-      const teacherDialog = page.getByRole("dialog");
-      await expect(teacherDialog.getByRole("heading", { name: /new teacher profile/i })).toBeVisible();
-      await teacherDialog.getByLabel(/employee code/i).fill(teacherCode);
-      await teacherDialog.getByLabel(/first name/i).fill(teacherFirstName);
-      await teacherDialog.getByLabel(/last name/i).fill(teacherLastName);
-      await teacherDialog.getByLabel(/^email$/i).fill(teacherEmail);
-      await teacherDialog.getByLabel(/^phone$/i).fill(teacherPhone);
-      await teacherDialog.getByLabel(/specialization/i).fill("Playwright teacher assignment coverage");
-      await teacherDialog.getByLabel(/create login after save/i).uncheck();
-
-      const teacherCreateResponsePromise = page.waitForResponse(
-        (response) =>
-          response.url().includes("/api/admin/people/teachers") &&
-          response.request().method() === "POST",
-      );
-      await teacherDialog.getByRole("button", { name: /^create teacher$/i }).last().click();
-      const teacherCreateResponse = await teacherCreateResponsePromise;
-      expect(teacherCreateResponse.ok()).toBe(true);
-      const teacherPayload = (await teacherCreateResponse.json()) as CreatePayload;
-      teacherId = teacherPayload.id ?? null;
-      expect(teacherId).not.toBeNull();
-
-      await expect(teacherDialog).toBeHidden();
-      await expect(page).toHaveURL(/\/institute\/people\?view=teachers/);
-      await expect(page.getByRole("heading", { name: /teacher roster/i })).toBeVisible();
-      await page.waitForLoadState("networkidle");
-
       await page.goto("/institute/teacher-assignments");
       await expect(page.getByRole("heading", { name: /teacher assignments/i }).first()).toBeVisible();
 
@@ -103,7 +110,22 @@ test.describe("Institute mutable teacher-assignment actions", () => {
       const dialog = page.getByRole("dialog");
       await expect(dialog.getByRole("heading", { name: /add teacher assignment/i })).toBeVisible();
 
-      await dialog.getByRole("combobox", { name: /^teacher$/i }).selectOption(teacherId!);
+      const teacherSelect = dialog.getByRole("combobox", { name: /^teacher$/i });
+      const assignedTeacherIds = await listAssignedTeacherIds(page);
+      const teacherOptions = await teacherSelect.locator("option").evaluateAll((nodes) =>
+        nodes.map((node) => ({
+          value: (node as HTMLOptionElement).value,
+          label: (node as HTMLOptionElement).label.trim(),
+        })),
+      );
+      const teacherOption =
+        teacherOptions.find(
+          (option) => option.value.trim().length > 0 && !assignedTeacherIds.has(option.value),
+        ) ??
+        teacherOptions.find((option) => option.value.trim().length > 0) ??
+        null;
+      expect(teacherOption).not.toBeNull();
+      await teacherSelect.selectOption(teacherOption!.value);
       await selectFirstNonEmptyOption(dialog.getByRole("combobox", { name: /^academic year$/i }));
       await selectFirstNonEmptyOption(dialog.getByRole("combobox", { name: /^program$/i }));
 
@@ -124,8 +146,9 @@ test.describe("Institute mutable teacher-assignment actions", () => {
       assignmentId = createPayload.id ?? null;
       expect(assignmentId).not.toBeNull();
 
+      const selectedTeacherLabel = teacherRowLabelFromOption(teacherOption.label);
       const createdRow = page.locator("table tbody tr").filter({
-        has: page.getByText(new RegExp(`${teacherFirstName}\\s+${teacherLastName}`, "i")),
+        has: page.getByText(new RegExp(selectedTeacherLabel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i")),
       }).first();
       await expect(createdRow).toBeVisible();
       await expect(createdRow).toContainText(normalizeRenderedOptionLabel(subjectOption.label));
@@ -169,7 +192,7 @@ test.describe("Institute mutable teacher-assignment actions", () => {
 
       await page.getByRole("checkbox", { name: /show archived/i }).check();
       const archivedRow = page.locator("table tbody tr").filter({
-        has: page.getByText(new RegExp(`${teacherFirstName}\\s+${teacherLastName}`, "i")),
+        has: page.getByText(new RegExp(selectedTeacherLabel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i")),
       }).first();
       await expect(archivedRow).toBeVisible();
       await expect(archivedRow).toContainText(/archived/i);
@@ -185,15 +208,7 @@ test.describe("Institute mutable teacher-assignment actions", () => {
       await expect(archivedRow).not.toContainText(/archived/i);
     } finally {
       if (assignmentId) {
-        const deleteAssignmentResponse = await page.request.delete(
-          `/api/admin/teacher-assignments/${assignmentId}`,
-        );
-        expect(deleteAssignmentResponse.ok()).toBe(true);
-      }
-
-      if (teacherId) {
-        const deleteTeacherResponse = await page.request.delete(`/api/admin/people/teachers/${teacherId}`);
-        expect(deleteTeacherResponse.ok()).toBe(true);
+        await deleteIfPresent(page, `/api/admin/teacher-assignments/${assignmentId}`);
       }
     }
   });

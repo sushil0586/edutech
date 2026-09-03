@@ -44,7 +44,7 @@ test.describe("Institute browser-only onboarding pack", () => {
     await page.getByRole("link", { name: /open academic setup/i }).first().click();
     await expect(page).toHaveURL(/\/institute\/academic-setup(?:\?.*)?$/);
     await expect(page.getByRole("heading", { name: /academic setup/i }).first()).toBeVisible();
-    await expect(page.getByRole("button", { name: /^add$/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^new$/i })).toBeVisible();
 
     await gotoWithRuntimeRecovery(page, "/institute/people?view=teachers");
     await expect(page.getByRole("heading", { name: /teacher roster/i })).toBeVisible();

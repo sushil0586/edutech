@@ -1,5 +1,7 @@
 # Playwright E2E
 
+For the full local browser execution order, prerequisites, and rerun checklist, use [PLAYWRIGHT_FULL_RUNBOOK.md](/Users/ansh/Documents/Eductech/edutech_web/tests/e2e/PLAYWRIGHT_FULL_RUNBOOK.md).
+
 ## Local run
 
 Start the backend and frontend first, then set:

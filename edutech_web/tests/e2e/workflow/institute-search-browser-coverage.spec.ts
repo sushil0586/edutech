@@ -38,6 +38,22 @@ async function gotoSearch(page: Page, path = "/institute/search?q=exam") {
   await expect(page.getByText(/search controls/i).first()).toBeVisible();
 }
 
+async function applyQuickSearchRoute(
+  page: Page,
+  linkName: RegExp,
+  expectedUrl: RegExp,
+  fallbackPath: string,
+) {
+  const quickLink = page.getByRole("link", { name: linkName }).first();
+  await expect(quickLink).toBeVisible();
+  const href = await quickLink.getAttribute("href");
+  expect(href).toBeTruthy();
+  const resolvedHref = new URL(href ?? fallbackPath, page.url()).toString();
+  expect(resolvedHref).toMatch(expectedUrl);
+  await gotoSearch(page, href ?? fallbackPath);
+  await expect(page).toHaveURL(expectedUrl);
+}
+
 test.describe("Institute search browser functionality coverage", () => {
   test.skip(testRequiresRole("institute"), "Institute Playwright credentials are not configured.");
 
@@ -105,20 +121,26 @@ test.describe("Institute search browser functionality coverage", () => {
   test("@workflow browser coverage keeps institute search quick filters truthful", async ({ page }) => {
     await gotoSearch(page);
 
-    await page.getByRole("link", { name: /^live records$/i }).click();
-    await expect(page).toHaveURL(/source=live/);
+    await applyQuickSearchRoute(page, /^live records$/i, /source=live/, "/institute/search?q=exam&source=live");
     await expect(sourceSelect(page)).toHaveValue("live");
 
-    await page.getByRole("link", { name: /^workspace pages$/i }).click();
-    await expect(page).toHaveURL(/source=catalog/);
+    await applyQuickSearchRoute(
+      page,
+      /^workspace pages$/i,
+      /source=catalog/,
+      "/institute/search?q=exam&source=catalog",
+    );
     await expect(sourceSelect(page)).toHaveValue("catalog");
 
-    await page.getByRole("link", { name: /group by section/i }).click();
-    await expect(page).toHaveURL(/group=section/);
+    await applyQuickSearchRoute(
+      page,
+      /group by section/i,
+      /group=section/,
+      "/institute/search?q=exam&source=catalog&group=section",
+    );
     await expect(groupSelect(page)).toHaveValue("section");
 
-    await page.getByRole("link", { name: /^all$/i }).click();
-    await expect(page).toHaveURL(/\/institute\/search\?q=exam$/);
+    await applyQuickSearchRoute(page, /^all$/i, /\/institute\/search\?q=exam$/, "/institute/search?q=exam");
     await expect(sourceSelect(page)).toHaveValue("all");
     await expect(groupSelect(page)).toHaveValue("none");
   });

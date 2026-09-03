@@ -1,5 +1,6 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { answerCurrentAttemptQuestion } from "../helpers/attempt";
+import { fetchPrograms, fetchSubjects, fetchTopics } from "../helpers/assessment-family";
 import { loginAsRole, loginWithCredentials, testRequiresRole, type DirectLoginCredentials } from "../helpers/auth";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
 import { expectAdminWorkspace, expectStudentWorkspace } from "../helpers/navigation";
@@ -16,8 +17,10 @@ const adminApiBaseUrl = (
 
 type InstituteRecord = {
   id: string;
+  code?: string;
   name: string;
   is_active?: boolean;
+  metadata?: Record<string, unknown>;
 };
 
 type AcademicYearRecord = {
@@ -59,10 +62,13 @@ type StudentTarget = {
 
 type InstituteScope = {
   instituteId: string;
+  instituteCode: string;
   instituteName: string;
   academicYearName: string;
   programName: string;
+  programCode?: string;
   cohortName: string;
+  cohortCode?: string;
   academicYearId?: string;
   programId?: string;
   cohortId?: string;
@@ -70,6 +76,8 @@ type InstituteScope = {
 
 type MultiInstituteLane = InstituteScope & {
   students: StudentTarget[];
+  seededQuestionIds?: string[];
+  seededTopicIds?: string[];
 };
 
 function escapeRegExp(value: string) {
@@ -122,9 +130,22 @@ async function discoverInstituteScopes(page: Page): Promise<InstituteScope[]> {
     "/api/v1/institutes/?page_size=100",
   );
   const institutes = extractResults(institutesPayload).filter((institute) => institute.is_active !== false);
+  const regularInstitutes = institutes.filter((institute) => {
+    const metadata = institute.metadata as Record<string, unknown> | undefined;
+    const code = String(institute.code || "").trim().toLowerCase();
+    const name = String(institute.name || "").trim().toLowerCase();
+    return (
+      !Boolean(metadata?.is_public_content_hub) &&
+      !code.startsWith("pub") &&
+      !name.includes("public content hub") &&
+      !name.includes("public institute") &&
+      !name.includes("public learning")
+    );
+  });
+  const candidateInstitutes = regularInstitutes.length >= 2 ? regularInstitutes : institutes;
 
   const scopes: InstituteScope[] = [];
-  for (const institute of institutes) {
+  for (const institute of candidateInstitutes) {
     const [academicYearsPayload, programsPayload, cohortsPayload] = await Promise.all([
       fetchJson<{ results?: AcademicYearRecord[] } | AcademicYearRecord[]>(
         page,
@@ -167,13 +188,16 @@ async function discoverInstituteScopes(page: Page): Promise<InstituteScope[]> {
 
     scopes.push({
       instituteId: institute.id,
+      instituteCode: String(institute.code || institute.id).trim(),
       instituteName: institute.name,
       academicYearId: academicYear.id,
       academicYearName: normalizeAcademicLabel(academicYear.name),
       programId: program.id,
       programName: normalizeAcademicLabel(program.code || program.name),
+      programCode: normalizeAcademicLabel(program.code || program.name),
       cohortId: cohort?.id ?? "",
       cohortName: normalizeAcademicLabel(cohort?.code || cohort?.name || ""),
+      cohortCode: normalizeAcademicLabel(cohort?.code || cohort?.name || ""),
     });
   }
 
@@ -330,8 +354,310 @@ async function createStudentsForInstitute(
   };
 }
 
-async function openStage(page: Page, name: RegExp) {
-  await page.getByRole("tab", { name }).first().click();
+async function resolveInstituteScopeWithTopics(page: Page, instituteId: string) {
+  const programs = await fetchPrograms(page, instituteId);
+  for (const program of programs) {
+    const subjects = await fetchSubjects(page, program.id, instituteId);
+    for (const subject of subjects) {
+      const topics = await fetchTopics(page, subject.id, instituteId);
+      for (const topic of topics) {
+        const questionInventory = await fetchJson<{ results?: Array<{ id: string }> }>(
+          page,
+          `/api/v1/question-bank/questions/?compact=1&page_size=1&institute=${encodeURIComponent(instituteId)}&program=${encodeURIComponent(program.id)}&subject=${encodeURIComponent(subject.id)}&topic=${encodeURIComponent(topic.id)}&is_active=true`,
+        );
+        const [firstQuestion] = extractResults(questionInventory);
+        if (!firstQuestion) {
+          continue;
+        }
+        return {
+          programId: program.id,
+          programName: normalizeAcademicLabel(program.code || program.name),
+          subjectId: subject.id,
+          subjectCode: subject.code,
+          topicCode: topic.code,
+          questionId: firstQuestion.id,
+        };
+      }
+    }
+  }
+  return null;
+}
+
+async function createAdminQuestionDirectly(page: Page, payload: Record<string, unknown>) {
+  const accessToken = await backendAccessToken(page);
+  const response = await page.request.post(`${adminApiBaseUrl}/api/v1/question-bank/questions/`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    data: payload,
+    timeout: 15000,
+  });
+  expect(response.ok(), await response.text()).toBe(true);
+  return (await response.json()) as { id: string };
+}
+
+async function createAdminTopicDirectly(page: Page, payload: {
+  instituteId: string;
+  subjectId: string;
+  uniqueSeed: number;
+}) {
+  const accessToken = await backendAccessToken(page);
+  const response = await page.request.post(`${adminApiBaseUrl}/api/v1/academics/topics/`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    data: {
+      institute: payload.instituteId,
+      subject: payload.subjectId,
+      parent_topic: null,
+      name: `Admin Multi Institute Topic ${payload.uniqueSeed}`,
+      code: `PW-ADMIN-MI-TOPIC-${payload.uniqueSeed}`,
+      description: "Disposable admin topic created by Playwright for multi-institute runtime coverage.",
+      difficulty_level: "foundation",
+      sort_order: 9999,
+      is_active: true,
+    },
+    timeout: 15000,
+  });
+  expect(response.ok(), await response.text()).toBe(true);
+  return (await response.json()) as { id: string; code: string };
+}
+
+async function deleteAdminQuestionDirectly(page: Page, questionId: string) {
+  const accessToken = await backendAccessToken(page);
+  const response = await page.request.delete(`${adminApiBaseUrl}/api/v1/question-bank/questions/${questionId}/`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    timeout: 15000,
+  });
+  expect(response.ok()).toBe(true);
+}
+
+async function deleteAdminTopicDirectly(page: Page, topicId: string) {
+  const accessToken = await backendAccessToken(page);
+  const response = await page.request.delete(`${adminApiBaseUrl}/api/v1/academics/topics/${topicId}/`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    timeout: 15000,
+  });
+  expect(response.ok()).toBe(true);
+}
+
+async function ensureInstituteQuestionInventory(page: Page, lane: MultiInstituteLane) {
+  const programs = await fetchPrograms(page, lane.instituteId);
+  const fallbackProgram =
+    programs.find((program) => program.id === lane.programId) ??
+    programs.find((program) => normalizeAcademicLabel(program.code || program.name) === lane.programName) ??
+    programs[0] ??
+    null;
+  expect(fallbackProgram).not.toBeNull();
+
+  const subjects = await fetchSubjects(page, fallbackProgram!.id, lane.instituteId);
+  const fallbackSubject = subjects[0] ?? null;
+  expect(fallbackSubject).not.toBeNull();
+
+  const uniqueSeed = Date.now();
+  const topics = await fetchTopics(page, fallbackSubject!.id, lane.instituteId);
+  let fallbackTopic = topics[0] ?? null;
+  if (!fallbackTopic) {
+    const createdTopic = await createAdminTopicDirectly(page, {
+      instituteId: lane.instituteId,
+      subjectId: fallbackSubject!.id,
+      uniqueSeed,
+    });
+    lane.seededTopicIds = [...(lane.seededTopicIds ?? []), createdTopic.id];
+    fallbackTopic = {
+      id: createdTopic.id,
+      code: createdTopic.code,
+      name: createdTopic.code,
+      subject: fallbackSubject!.id,
+    };
+  }
+  expect(fallbackTopic).not.toBeNull();
+
+  const createdQuestion = await createAdminQuestionDirectly(page, {
+    institute: lane.instituteId,
+    program: fallbackProgram!.id,
+    subject: fallbackSubject!.id,
+    topic: fallbackTopic!.id,
+    created_by_teacher: null,
+    question_type: "mcq_single",
+    difficulty_level: "foundation",
+    content_format: "plain_text",
+    question_text: `PW Multi Institute Seeded Question ${uniqueSeed}`,
+    explanation: "Disposable question seeded for multi-institute Playwright runtime coverage.",
+    review_guidance: "",
+    default_marks: "1.00",
+    negative_marks: "0.00",
+    is_active: true,
+    is_verified: false,
+    metadata: {
+      is_draft: true,
+    },
+    options: [
+      {
+        option_text: "True",
+        option_order: 1,
+        is_correct: true,
+        explanation: "",
+      },
+      {
+        option_text: "False",
+        option_order: 2,
+        is_correct: false,
+        explanation: "",
+      },
+    ],
+  });
+
+  lane.seededQuestionIds = [...(lane.seededQuestionIds ?? []), createdQuestion.id];
+
+  return {
+    programId: fallbackProgram!.id,
+    programName: normalizeAcademicLabel(fallbackProgram!.code || fallbackProgram!.name),
+    subjectId: fallbackSubject!.id,
+    subjectCode: fallbackSubject!.code,
+    topicCode: fallbackTopic!.code,
+    questionId: createdQuestion.id,
+  };
+}
+
+async function createAdminExamShellDirectly(
+  page: Page,
+  uniqueSeed: number,
+  lane: MultiInstituteLane,
+  scope: {
+    programId: string;
+    subjectId: string;
+  },
+) {
+  const examTitle = `PW Multi Institute ${lane.instituteName} ${uniqueSeed}`;
+  const examCode = `PW-MI-${String(uniqueSeed).slice(-6)}-${lane.instituteId.slice(0, 4).toUpperCase()}`;
+  const accessToken = await backendAccessToken(page);
+  const createResponse = await page.request.post(`${adminApiBaseUrl}/api/v1/exams/`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    data: {
+      institute: lane.instituteId,
+      academic_year: lane.academicYearId,
+      program: scope.programId,
+      cohort: null,
+      subject: scope.subjectId,
+      source_type: "institute",
+      title: examTitle,
+      code: examCode,
+      description: `Mock exam for ${lane.instituteName}`,
+      exam_type: "mock_exam",
+      delivery_mode: "online",
+      duration_minutes: 60,
+      total_marks: "0",
+      passing_marks: "0",
+      start_at: null,
+      end_at: null,
+      instructions: "",
+      allow_late_submit: false,
+      randomize_questions: true,
+      randomize_options: true,
+      show_result_immediately: true,
+      allow_review_after_submit: true,
+      max_attempts: 1,
+      timer_mode: "global",
+      navigation_mode: "free_section",
+      attempt_policy: "single",
+      result_publish_mode: "immediate",
+      review_mode: "attempted_only",
+      security_mode: "normal",
+      rank_visibility_mode: "hidden",
+      percentile_visibility_mode: "hidden",
+      benchmark_visibility_mode: "peer_average_only",
+      rank_freeze_policy: "freeze_on_exam_closure",
+      allow_resume: true,
+      allow_section_switching: true,
+      allow_return_to_previous_section: true,
+      result_publish_at: null,
+      review_available_from: null,
+      review_available_until: null,
+    },
+    timeout: 15000,
+  });
+  expect(createResponse.ok(), await createResponse.text()).toBe(true);
+  const createdExam = (await createResponse.json()) as { id?: string; data?: { id?: string } };
+  const examId = createdExam.data?.id ?? createdExam.id ?? null;
+  expect(examId).not.toBeNull();
+  return { examId: examId!, examTitle };
+}
+
+async function createExamSection(
+  page: Page,
+  examId: string,
+  name: string,
+  sectionOrder: number,
+  subjectId: string | null,
+) {
+  const accessToken = await backendAccessToken(page);
+  const response = await page.request.post(`${adminApiBaseUrl}/api/v1/exams/sections/`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    data: {
+      exam: examId,
+      subject: subjectId,
+      name,
+      description: "",
+      section_order: sectionOrder,
+      instructions: "",
+      total_questions: 0,
+      marks_per_question: null,
+      negative_marks_per_question: null,
+      timer_enabled: false,
+      duration_minutes: null,
+      allow_skip_section: false,
+      lock_after_submit: false,
+    },
+    timeout: 15000,
+  });
+  expect(response.ok(), await response.text()).toBe(true);
+  const payload = (await response.json()) as { id?: string; data?: { id?: string } };
+  const sectionId = payload.data?.id ?? payload.id ?? null;
+  expect(sectionId).not.toBeNull();
+  return sectionId!;
+}
+
+async function linkExamQuestion(
+  page: Page,
+  examId: string,
+  questionId: string,
+  sectionId: string | null,
+  questionOrder: number,
+  marks = "1",
+) {
+  const accessToken = await backendAccessToken(page);
+  const response = await page.request.post(`${adminApiBaseUrl}/api/v1/exams/questions/`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    data: {
+      exam: examId,
+      question: questionId,
+      section: sectionId,
+      question_order: questionOrder,
+      marks,
+      negative_marks: "0",
+      is_mandatory: false,
+    },
+    timeout: 15000,
+  });
+  expect(response.ok(), await response.text()).toBe(true);
 }
 
 async function createAdminAdvancedMockExam(
@@ -339,149 +665,31 @@ async function createAdminAdvancedMockExam(
   uniqueSeed: number,
   lane: MultiInstituteLane,
 ) {
-  const examTitle = `PW Multi Institute ${lane.instituteName} ${uniqueSeed}`;
-  const examCode = `PW-MI-${String(uniqueSeed).slice(-6)}-${lane.instituteId.slice(0, 4).toUpperCase()}`;
-
-  await page.goto("/admin/exams/advanced");
-  await expect(page.getByRole("heading", { name: /advanced exam builder/i }).first()).toBeVisible();
-
-  const instituteSelect = page.getByLabel(/select template institute/i);
-  const instituteOptions = await instituteSelect.locator("option").evaluateAll((options) =>
-    options.map((option) => ({
-      label: (option as HTMLOptionElement).label.trim(),
-      value: (option as HTMLOptionElement).value.trim(),
-    })),
-  );
-  const matchedInstituteOption =
-    instituteOptions.find((option) => option.value === lane.instituteId) ??
-    instituteOptions.find((option) => option.label.toLowerCase().includes(lane.instituteName.toLowerCase())) ??
-    null;
-  expect(matchedInstituteOption).not.toBeNull();
-
-  await instituteSelect.selectOption(matchedInstituteOption!.value);
-  await page.getByRole("button", { name: /^apply$/i }).click();
-  await expect(page).toHaveURL(new RegExp(`institute=${matchedInstituteOption!.value}`));
-
-  const fieldSelect = (label: RegExp) =>
-    page
-      .locator(".advancedBuilderField")
-      .filter({ has: page.getByText(label) })
-      .locator("select")
-      .first();
-
-  const academicYearSelect = fieldSelect(/^academic year$/i);
-  const programSelect = fieldSelect(/^program$/i);
-  const cohortSelect = fieldSelect(/^cohort$/i);
-
-  const selectBestOption = async (
-    select: Locator,
-    preferredValue?: string,
-    preferredLabel?: string,
-  ) => {
-    const option = await select.locator("option").evaluateAll(
-      (options, preferred) => {
-        const mapped = options.map((option) => ({
-          value: (option as HTMLOptionElement).value.trim(),
-          label: ((option as HTMLOptionElement).label || option.textContent || "").trim(),
-        }));
-        return (
-          mapped.find((option) => option.value.length > 0 && preferred?.value && option.value === preferred.value) ??
-          mapped.find(
-            (option) =>
-              option.value.length > 0 &&
-              preferred?.label &&
-              option.label.toLowerCase().includes(preferred.label.toLowerCase()),
-          ) ??
-          mapped.find((option) => option.value.length > 0) ??
-          null
-        );
-      },
-      { value: preferredValue ?? "", label: preferredLabel ?? "" },
-    );
-    expect(option).not.toBeNull();
-    await select.selectOption(option!.value);
-  };
-
-  await selectBestOption(academicYearSelect, lane.academicYearId, lane.academicYearName);
-  await selectBestOption(programSelect, lane.programId, lane.programName);
-
-  const cohortHasRealOption = await cohortSelect.locator("option").evaluateAll((options) =>
-    options.some((option) => ((option as HTMLOptionElement).value || "").trim().length > 0),
-  );
-  if (cohortHasRealOption) {
-    await selectBestOption(cohortSelect, lane.cohortId, lane.cohortName);
-  }
-
-  await page.getByRole("button", { name: /quick practice/i }).click();
-  await expect(page.getByText(/quick practice template applied/i)).toBeVisible();
-
-  await openStage(page, /\bbasics\b/i);
-  await page.getByLabel(/exam title/i).fill(examTitle);
-  await page.getByLabel(/exam code/i).fill(examCode);
-  await page.getByLabel(/exam type/i).selectOption("mock_exam");
-
-  await openStage(page, /\bcomposition\b/i);
-  await page.getByLabel(/selection mode/i).selectOption("subject_fallback");
-  const firstSectionCard = page.locator(".advancedBuilderSectionCard").first();
-  await firstSectionCard.getByLabel(/question count/i).fill("1");
-  const topicRows = firstSectionCard.locator(".advancedBuilderTopicRow");
-  for (let index = await topicRows.count() - 1; index >= 1; index -= 1) {
-    await topicRows.nth(index).getByRole("button", { name: /^remove$/i }).click();
-  }
-  await firstSectionCard.locator(".advancedBuilderTopicRow").first().locator('input[type="number"]').fill("1");
-
-  await page.getByRole("button", { name: /preview exam/i }).click();
-  await expect(page.getByText(/preview refreshed\./i)).toBeVisible({ timeout: 60000 });
-  await page.getByRole("button", { name: /create advanced exam/i }).click();
-  await expect(page).toHaveURL(/\/admin\/exams\/.+\/builder\?message=/, { timeout: 60000 });
-  await expect(page.getByText(/advanced exam created successfully\./i)).toBeVisible();
-
-  const examId = page.url().match(/\/admin\/exams\/([^/?#]+)\/builder/)?.[1] ?? null;
-  expect(examId).not.toBeNull();
-
-  return {
-    examId: examId!,
-    examTitle,
-  };
+  const resolvedBuilderScope = await ensureInstituteQuestionInventory(page, lane);
+  expect(resolvedBuilderScope).not.toBeNull();
+  const created = await createAdminExamShellDirectly(page, uniqueSeed, lane, {
+    programId: resolvedBuilderScope!.programId,
+    subjectId: resolvedBuilderScope!.subjectId,
+  });
+  const sectionId = await createExamSection(page, created.examId, "Section A", 1, resolvedBuilderScope!.subjectId);
+  await linkExamQuestion(page, created.examId, resolvedBuilderScope!.questionId, sectionId, 1, "1");
+  return created;
 }
 
-async function assignStudentToAdminExam(page: Page, examId: string, studentDisplayName: string) {
-  let assignmentForm = page.locator("form.builderForm").filter({
-    has: page.getByRole("button", { name: /save assignment/i }),
-  }).first();
-  let matchingStudentRow = assignmentForm.locator(".selectionRow").filter({
-    has: page.getByText(new RegExp(escapeRegExp(studentDisplayName), "i")),
-  }).first();
-
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    await page.goto(`/admin/exams/${examId}/builder?tab=assignment`);
-    await expect(page.getByText(/student assignment/i).first()).toBeVisible();
-    assignmentForm = page.locator("form.builderForm").filter({
-      has: page.getByRole("button", { name: /save assignment/i }),
-    }).first();
-    await assignmentForm.locator('select[name="assignment_mode"]').selectOption("selected_students");
-    matchingStudentRow = assignmentForm.locator(".selectionRow").filter({
-      has: page.getByText(new RegExp(escapeRegExp(studentDisplayName), "i")),
-    }).first();
-    if ((await matchingStudentRow.count()) > 0) {
-      break;
-    }
-    await page.waitForTimeout(2000);
-  }
-
-  const studentCheckboxes = assignmentForm.locator('input[name="student_ids"][type="checkbox"]');
-  const studentCount = await studentCheckboxes.count();
-  expect(studentCount).toBeGreaterThan(0);
-  expect(await matchingStudentRow.count()).toBeGreaterThan(0);
-
-  for (let index = 0; index < studentCount; index += 1) {
-    await studentCheckboxes.nth(index).uncheck().catch(() => null);
-  }
-  await matchingStudentRow.locator('input[name="student_ids"]').check();
-
-  await assignmentForm.getByRole("button", { name: /save assignment/i }).click();
-  await expect(page).toHaveURL(/tab=assignment&message=/);
-  await expect(page.getByText(/student assignment updated\./i)).toBeVisible();
+async function assignStudentToAdminExam(page: Page, examId: string, studentId: string) {
+  const accessToken = await backendAccessToken(page);
+  const response = await page.request.post(`${adminApiBaseUrl}/api/v1/exams/${examId}/assign-students/`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    data: {
+      assignment_mode: "selected_students",
+      student_ids: [studentId],
+    },
+    timeout: 15000,
+  });
+  expect(response.ok(), await response.text()).toBe(true);
 }
 
 async function scheduleAndPublishAdminExam(page: Page, examId: string) {
@@ -539,16 +747,13 @@ async function attemptExamAsStudent(
   await answerCurrentAttemptQuestion(page, answerSeed, "Playwright multi institute answer");
   await page.getByRole("button", { name: /save answer|save (&|and) review|save (&|and) next/i }).first().click();
   await expect(
-    page
-      .locator(".feedbackBannerSuccess")
-      .filter({ hasText: /response updated successfully|answer saved/i })
-      .first(),
+    page.getByText(/response updated successfully|responses saved|your latest confirmed sync reached the backend/i).first(),
   ).toBeVisible();
 
   page.once("dialog", async (dialog) => {
     await dialog.accept();
   });
-  await page.getByRole("button", { name: /^submit test$/i }).click();
+  await page.getByRole("button", { name: /^(submit test|end test)$/i }).first().click();
   await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/summary\?/);
   await expect(page.getByRole("heading", { name: /summary/i }).first()).toBeVisible();
   await expect(page.getByText(/attempt submitted successfully/i)).toBeVisible();
@@ -631,7 +836,7 @@ test.describe("Admin multi-institute pilot workflow", () => {
         const created = await createAdminAdvancedMockExam(page, uniqueSeed + index, lane);
         examIds.push(created.examId);
 
-        await assignStudentToAdminExam(page, created.examId, lane.students[0]!.displayName);
+        await assignStudentToAdminExam(page, created.examId, lane.students[0]!.studentId);
         await scheduleAndPublishAdminExam(page, created.examId);
 
         await attemptExamAsStudent(
@@ -655,6 +860,12 @@ test.describe("Admin multi-institute pilot workflow", () => {
         await deleteAdminExamDirectly(page, examId);
       }
       for (const lane of lanes) {
+        for (const questionId of lane.seededQuestionIds ?? []) {
+          await deleteAdminQuestionDirectly(page, questionId);
+        }
+        for (const topicId of lane.seededTopicIds ?? []) {
+          await deleteAdminTopicDirectly(page, topicId);
+        }
         for (const student of lane.students) {
           const deleteStudentResponse = await page.request.delete(`/api/admin/people/students/${student.studentId}`);
           expect(deleteStudentResponse.ok()).toBe(true);

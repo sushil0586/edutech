@@ -7,6 +7,12 @@ import { expectInstituteWorkspace } from "../helpers/navigation";
 const mutableExamBuilderActionsEnabled = isMutableLaneEnabled(
   "PLAYWRIGHT_ENABLE_MUTABLE_EXAM_BUILDER_ACTIONS",
 );
+const backendBaseUrl = (
+  process.env.PLAYWRIGHT_API_BASE_URL ??
+  process.env.API_BASE_URL ??
+  process.env.NEXT_PUBLIC_API_BASE_URL ??
+  "http://127.0.0.1:9001"
+).replace(/\/$/, "");
 
 type AdvancedTemplateListResponse = {
   results?: Array<{
@@ -14,6 +20,20 @@ type AdvancedTemplateListResponse = {
     name: string;
   }>;
 };
+
+async function getAccessToken(page: Parameters<typeof loginAsRole>[0]) {
+  const cookies = await page.context().cookies();
+  return cookies.find((cookie) => cookie.name === "nexora_access_token")?.value ?? "";
+}
+
+async function listAdvancedTemplates(page: Parameters<typeof loginAsRole>[0], accessToken: string) {
+  return page.request.get(`${backendBaseUrl}/api/v1/exams/advanced-templates/`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+}
 
 async function expectJsonDownload(download: Download, expectedFileName: string, expectedFragments: string[]) {
   expect(download.suggestedFilename()).toBe(expectedFileName);
@@ -54,8 +74,17 @@ test.describe("Institute advanced builder template actions", () => {
     const importedTemplateName = `${templateName} Copy`;
 
     async function cleanupTemplates() {
-      const listResponse = await page.request.get("/api/exams/advanced-templates");
-      expect(listResponse.ok()).toBe(true);
+      const accessToken = await getAccessToken(page);
+      expect(accessToken).toBeTruthy();
+
+      const listResponse = await listAdvancedTemplates(page, accessToken);
+      if (!listResponse.ok()) {
+        const responseText = await listResponse.text();
+        if (responseText.includes("template library is not enabled")) {
+          return;
+        }
+        expect(listResponse.ok(), responseText).toBe(true);
+      }
       const payload = (await listResponse.json()) as AdvancedTemplateListResponse;
       const matchingTemplates =
         payload.results?.filter(
@@ -66,8 +95,16 @@ test.describe("Institute advanced builder template actions", () => {
         ) ?? [];
 
       for (const template of matchingTemplates) {
-        const deleteResponse = await page.request.delete(`/api/exams/advanced-templates/${template.id}`);
-        expect(deleteResponse.ok()).toBe(true);
+        const deleteResponse = await page.request.delete(
+          `${backendBaseUrl}/api/v1/exams/advanced-templates/${template.id}/`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+          },
+        );
+        expect(deleteResponse.ok(), await deleteResponse.text()).toBe(true);
       }
     }
 
@@ -76,6 +113,14 @@ test.describe("Institute advanced builder template actions", () => {
       await expect(page.getByRole("heading", { name: /advanced exam builder/i }).first()).toBeVisible();
 
       const templateNameField = page.getByLabel(/save current setup as a template/i).first();
+      const templateLibraryDisabledNotice = page.getByText(
+        /template library access is not enabled|reusable advanced exam templates are controlled/i,
+      ).first();
+
+      if (await templateLibraryDisabledNotice.isVisible().catch(() => false)) {
+        test.skip(true, "Institute advanced template library is disabled in this environment.");
+      }
+
       await expect(templateNameField).toBeVisible();
       await templateNameField.fill(templateName);
 
@@ -111,10 +156,15 @@ test.describe("Institute advanced builder template actions", () => {
 
       await expect(page.getByText(/imported 1 template\(s\) into your editable library\./i)).toBeVisible();
       await searchField.fill(templateName);
-      await expect(page.locator(".advancedBuilderSavedTemplateCard")).toHaveCount(2);
+      const matchingCards = page.locator(".advancedBuilderSavedTemplateCard").filter({
+        has: page.getByText(new RegExp(templateName, "i")).first(),
+      });
+      await expect(matchingCards).toHaveCount(2);
       await expect(page.getByText(new RegExp(`${templateName} Copy`, "i")).first()).toBeVisible();
     } finally {
-      await cleanupTemplates();
+      if (await page.getByRole("heading", { name: /advanced exam builder/i }).first().isVisible().catch(() => false)) {
+        await cleanupTemplates();
+      }
     }
   });
 });

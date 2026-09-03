@@ -69,8 +69,10 @@ export function AttemptSecurityGuard({
   initialIntegritySummary: StudentIntegritySummary;
 }) {
   const [integritySummary, setIntegritySummary] = useState(initialIntegritySummary);
-  const [fullscreenPromptOpen, setFullscreenPromptOpen] = useState(false);
-  const [fullscreenSupported, setFullscreenSupported] = useState(false);
+  const [fullscreenSupported] = useState(() => browserSupportsFullscreen());
+  const [isFullscreenActive, setIsFullscreenActive] = useState(
+    () => typeof document !== "undefined" && Boolean(document.fullscreenElement),
+  );
   const [notice, setNotice] = useState<string | null>(null);
   const recentEventTimes = useRef<Record<string, number>>({});
   const lastFullscreenState = useRef(false);
@@ -86,23 +88,15 @@ export function AttemptSecurityGuard({
     [securityPolicy],
   );
 
-  useEffect(() => {
-    setFullscreenSupported(browserSupportsFullscreen());
-
-    if (
-      attemptStatus === "in_progress" &&
-      securityPolicy.requires_fullscreen &&
-      !document.fullscreenElement
-    ) {
-      setFullscreenPromptOpen(true);
-      setNotice(
-        "This attempt is paused at a security checkpoint until fullscreen mode is active.",
-      );
-      return;
-    }
-
-    setFullscreenPromptOpen(false);
-  }, [attemptStatus, securityPolicy.requires_fullscreen]);
+  const fullscreenPromptOpen =
+    attemptStatus === "in_progress" &&
+    securityPolicy.requires_fullscreen &&
+    !isFullscreenActive;
+  const displayNotice =
+    notice ??
+    (fullscreenPromptOpen
+      ? "This attempt is paused at a security checkpoint until fullscreen mode is active."
+      : securityPolicy.student_warning_copy);
 
   const reportEvent = useCallback(async (
     eventType: string,
@@ -167,7 +161,6 @@ export function AttemptSecurityGuard({
         throw new Error("Fullscreen API is unavailable.");
       }
 
-      setFullscreenPromptOpen(false);
       setNotice(null);
     } catch {
       setNotice(
@@ -209,19 +202,18 @@ export function AttemptSecurityGuard({
 
     const handleFullscreenChange = () => {
       const inFullscreen = Boolean(document.fullscreenElement);
+      setIsFullscreenActive(inFullscreen);
       if (
         !inFullscreen &&
         lastFullscreenState.current &&
         securityPolicy.tracks_fullscreen_exit
       ) {
         setNotice("Fullscreen exited. Re-enter fullscreen to continue safely.");
-        setFullscreenPromptOpen(true);
         reportEvent("fullscreen_exited", {
           had_fullscreen: true,
         });
       }
       if (inFullscreen && securityPolicy.requires_fullscreen) {
-        setFullscreenPromptOpen(false);
         setNotice("Fullscreen active. You can continue the attempt.");
         if (!lastFullscreenState.current) {
           reportEvent("fullscreen_restored", {
@@ -274,7 +266,7 @@ export function AttemptSecurityGuard({
       <section className="dashboardPanel attemptSecurityBanner">
         <div className="attemptSecurityBannerText">
           <strong>{securityPolicy.student_label}</strong>
-          <p>{notice ?? securityPolicy.student_warning_copy}</p>
+          <p>{displayNotice}</p>
           <small>
             Latest signal: {labelForEvent(integritySummary.latest_event?.event_type)}
           </small>

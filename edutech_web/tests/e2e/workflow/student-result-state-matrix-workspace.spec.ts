@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectStudentWorkspace } from "../helpers/navigation";
 import { gotoWithRuntimeRecovery } from "../helpers/runtime";
@@ -10,16 +10,6 @@ async function gotoWithRetry(page: Page, url: string, attempts = 3) {
 async function expectStudentResultsWorkspace(page: Page) {
   await expect(page).toHaveURL(/\/app\/results(?:\?.*)?$/);
   await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
-}
-
-async function firstVisible(locators: Locator[]) {
-  for (const locator of locators) {
-    if (await locator.isVisible().catch(() => false)) {
-      return locator;
-    }
-  }
-
-  return null;
 }
 
 function resultRowByTitle(page: Page, title: string) {
